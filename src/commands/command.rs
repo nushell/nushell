@@ -5,10 +5,10 @@ use std::path::PathBuf;
 pub trait CommandBlueprint {
     fn create(
         &self,
-        args: Vec<String>,
+        args: crate::Args,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
-    ) -> Box<dyn Command>;
+    ) -> Result<Box<dyn Command>, ShellError>;
 }
 
 crate enum CommandAction {

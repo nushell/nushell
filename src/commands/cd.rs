@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
 use crate::object::{DirEntry, ShellObject, Value};
+use crate::Args;
 use derive_new::new;
 use std::path::{Path, PathBuf};
 use sysinfo::SystemExt;
@@ -11,14 +12,20 @@ pub struct CdBlueprint;
 impl crate::CommandBlueprint for CdBlueprint {
     fn create(
         &self,
-        args: Vec<String>,
+        args: Args,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
-    ) -> Box<dyn crate::Command> {
-        Box::new(Cd {
+    ) -> Result<Box<dyn crate::Command>, ShellError> {
+        let target = match args.first() {
+            // TODO: This needs better infra
+            None => return Err(ShellError::new(format!("cd must take one arg"))),
+            Some(v) => v.as_string()?.clone(),
+        };
+
+        Ok(Box::new(Cd {
             cwd: env.cwd().to_path_buf(),
-            target: args[0].clone(),
-        })
+            target,
+        }))
     }
 }
 

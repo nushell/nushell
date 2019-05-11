@@ -15,11 +15,11 @@ pub struct PsBlueprint {
 impl crate::CommandBlueprint for PsBlueprint {
     fn create(
         &self,
-        args: Vec<String>,
+        args: crate::Args,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
-    ) -> Box<dyn Command> {
-        Box::new(Ps::new(self.system.clone()))
+    ) -> Result<Box<dyn Command>, ShellError> {
+        Ok(Box::new(Ps::new(self.system.clone())))
     }
 }
 

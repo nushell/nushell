@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
 use crate::object::{DirEntry, ShellObject, Value};
+use crate::Args;
 use crate::{Command, CommandSuccess};
 use derive_new::new;
 use std::path::PathBuf;
@@ -12,13 +13,13 @@ pub struct LsBlueprint;
 impl crate::CommandBlueprint for LsBlueprint {
     fn create(
         &self,
-        args: Vec<String>,
+        args: Args,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
-    ) -> Box<dyn Command> {
-        Box::new(Ls {
+    ) -> Result<Box<dyn Command>, ShellError> {
+        Ok(Box::new(Ls {
             cwd: env.cwd().to_path_buf(),
-        })
+        }))
     }
 }
 

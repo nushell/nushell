@@ -9,11 +9,14 @@ mod format;
 mod object;
 mod parser;
 
+crate use crate::commands::args::{Args, Streams};
 crate use crate::commands::command::{Command, CommandAction, CommandBlueprint, CommandSuccess};
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
 crate use crate::format::RenderView;
 use crate::object::base::{ToEntriesView, ToGenericView};
+use crate::object::Value;
+
 use ansi_term::Color;
 use conch_parser::lexer::Lexer;
 use conch_parser::parse::DefaultParser;
@@ -81,14 +84,16 @@ fn main() -> Result<(), Box<Error>> {
                 }
 
                 let command = &parsed[0][0].name();
-                let args = parsed[0][1..]
+                let arg_list = parsed[0][1..]
                     .iter()
-                    .map(|i| i.name().to_string())
+                    .map(|i| Value::string(i.name().to_string()))
                     .collect();
+
+                let args = Args::new(arg_list);
 
                 match commands.get_mut(*command) {
                     Some(command) => {
-                        let mut instance = command.create(args, &mut host, &mut env);
+                        let mut instance = command.create(args, &mut host, &mut env)?;
                         let result = instance.run()?;
 
                         for action in result.action {

@@ -1,3 +1,4 @@
+use crate::errors::ShellError;
 use crate::format::{EntriesView, GenericView};
 use crate::object::desc::DataDescriptor;
 use chrono::NaiveDateTime;
@@ -64,6 +65,15 @@ impl Value {
             Value::Primitive(p) => p.format(),
             Value::Object(o) => format!("[object Object]"),
             Value::List(l) => format!("[list List]"),
+        }
+    }
+
+    crate fn as_string(&self) -> Result<String, ShellError> {
+        match self {
+            Value::Primitive(Primitive::String(s)) => Ok(s.to_string()),
+
+            // TODO: this should definitely be more general with better errors
+            other => Err(ShellError::new(format!("Expected string, got {:?}", other))),
         }
     }
 
