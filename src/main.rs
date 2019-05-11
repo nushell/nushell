@@ -11,18 +11,18 @@ mod parser;
 
 crate use crate::commands::command::Command;
 crate use crate::env::{Environment, Host};
-crate use crate::format::RenderView;
 crate use crate::errors::ShellError;
+crate use crate::format::RenderView;
 use crate::object::base::{ToEntriesView, ToGenericView};
+use ansi_term::Color;
+use conch_parser::lexer::Lexer;
+use conch_parser::parse::DefaultParser;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::collections::BTreeMap;
 use std::error::Error;
+use subprocess::Exec;
 use sysinfo::{self, SystemExt};
-use ansi_term::Color;
-use conch_parser::lexer::Lexer;
-use conch_parser::parse::DefaultParser;
-
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -53,16 +53,22 @@ fn main() -> Result<(), Box<Error>> {
     let mut system = sysinfo::System::new();
     let mut ps = crate::commands::ps::Ps::new(system);
     let mut ls = crate::commands::ls::Ls;
+    let mut cd = crate::commands::cd::Cd;
 
     commands.insert("ps".to_string(), Box::new(ps));
     commands.insert("ls".to_string(), Box::new(ls));
+    commands.insert("cd".to_string(), Box::new(cd));
 
     loop {
-        let readline = rl.readline(&format!("{}> ", Color::Green.paint(env.cwd().display().to_string())));
+        let readline = rl.readline(&format!(
+            "{}> ",
+            Color::Green.paint(env.cwd().display().to_string())
+        ));
 
         match readline {
             Ok(line) => {
-                let result = crate::parser::shell_parser(&line).map_err(|e| ShellError::new(format!("{:?}", e)))?;
+                let result = crate::parser::shell_parser(&line)
+                    .map_err(|e| ShellError::new(format!("{:?}", e)))?;
 
                 let parsed = result.1;
 
@@ -72,13 +78,15 @@ fn main() -> Result<(), Box<Error>> {
                     println!("Piping is not yet implemented");
                 }
 
-                println!("DEBUG: {:?}", parsed);
-
                 let command = &parsed[0][0].name();
+                let args = parsed[0][1..]
+                    .iter()
+                    .map(|i| i.name().to_string())
+                    .collect();
 
                 match commands.get_mut(*command) {
                     Some(command) => {
-                        let result = command.run(&mut host, &mut env).unwrap();
+                        let result = command.run(args, &mut host, &mut env).unwrap();
                         let view = result.to_generic_view();
                         let rendered = view.render_view(&mut host);
 
@@ -90,7 +98,9 @@ fn main() -> Result<(), Box<Error>> {
                         }
                     }
 
-                    _ => println!("Saw: {}", line),
+                    other => {
+                        Exec::shell(line).cwd(env.cwd()).join().unwrap();
+                    }
                 }
             }
             Err(ReadlineError::Interrupted) => {

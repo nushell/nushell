@@ -10,6 +10,7 @@ pub struct Ls;
 impl crate::Command for Ls {
     fn run(
         &mut self,
+        _args: Vec<String>,
         _host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Value, ShellError> {

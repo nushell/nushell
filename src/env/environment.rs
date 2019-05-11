@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone)]
 pub struct Environment {
-    cwd: PathBuf,
+    crate cwd: PathBuf,
 }
 
 impl Environment {

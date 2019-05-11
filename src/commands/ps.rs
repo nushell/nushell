@@ -12,6 +12,7 @@ pub struct Ps {
 impl crate::Command for Ps {
     fn run(
         &mut self,
+        _args: Vec<String>,
         _host: &dyn crate::Host,
         _env: &mut crate::Environment,
     ) -> Result<Value, ShellError> {
