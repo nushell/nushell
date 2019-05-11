@@ -5,3 +5,21 @@ ps
 ls
 ps
 ls
+cargo install cargo-edit
+ls
+ls | foo | bar
+ls
+ls | ap
+ls ab cd
+ls ab cd | de
+ls ab cd | grep 1243
+ls ab cd|grep 1243
+ls
+hello world
+hello world | zomg
+ls
+ls | zomgt
+ls | zomg
+ls soms
+ls something
+ls something | grep

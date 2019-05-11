@@ -7,16 +7,22 @@ mod env;
 mod errors;
 mod format;
 mod object;
+mod parser;
 
 crate use crate::commands::command::Command;
 crate use crate::env::{Environment, Host};
 crate use crate::format::RenderView;
+crate use crate::errors::ShellError;
 use crate::object::base::{ToEntriesView, ToGenericView};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::collections::BTreeMap;
 use std::error::Error;
 use sysinfo::{self, SystemExt};
+use ansi_term::Color;
+use conch_parser::lexer::Lexer;
+use conch_parser::parse::DefaultParser;
+
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -52,12 +58,25 @@ fn main() -> Result<(), Box<Error>> {
     commands.insert("ls".to_string(), Box::new(ls));
 
     loop {
-        let readline = rl.readline(">> ");
+        let readline = rl.readline(&format!("{}> ", Color::Green.paint(env.cwd().display().to_string())));
+
         match readline {
             Ok(line) => {
+                let result = crate::parser::shell_parser(&line).map_err(|e| ShellError::new(format!("{:?}", e)))?;
+
+                let parsed = result.1;
+
                 rl.add_history_entry(line.as_ref());
 
-                match commands.get_mut(&line) {
+                if parsed.len() > 1 {
+                    println!("Piping is not yet implemented");
+                }
+
+                println!("DEBUG: {:?}", parsed);
+
+                let command = &parsed[0][0].name();
+
+                match commands.get_mut(*command) {
                     Some(command) => {
                         let result = command.run(&mut host, &mut env).unwrap();
                         let view = result.to_generic_view();
