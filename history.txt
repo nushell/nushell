@@ -64,3 +64,20 @@ ls
 cargo
 cargo build
 cargo run
+git status
+git add .
+git commit
+git push
+git status
+git add .
+git commit
+git push
+git config --global core.autocrlf input
+git config
+ls
+cd target
+ls
+cd target
+cd ..
+cd target
+ls

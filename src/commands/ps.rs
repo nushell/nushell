@@ -1,24 +1,39 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
 use crate::object::{ShellObject, Value};
+use crate::Command;
 use derive_new::new;
+use std::cell::RefCell;
+use std::rc::Rc;
 use sysinfo::SystemExt;
 
 #[derive(new)]
+pub struct PsBlueprint {
+    system: Rc<RefCell<sysinfo::System>>,
+}
+
+impl crate::CommandBlueprint for PsBlueprint {
+    fn create(
+        &self,
+        args: Vec<String>,
+        host: &dyn crate::Host,
+        env: &mut crate::Environment,
+    ) -> Box<dyn Command> {
+        Box::new(Ps::new(self.system.clone()))
+    }
+}
+
+#[derive(new)]
 pub struct Ps {
-    system: sysinfo::System,
+    system: Rc<RefCell<sysinfo::System>>,
 }
 
 impl crate::Command for Ps {
-    fn run(
-        &mut self,
-        _args: Vec<String>,
-        _host: &dyn crate::Host,
-        _env: &mut crate::Environment,
-    ) -> Result<Value, ShellError> {
-        self.system.refresh_all();
+    fn run(&mut self) -> Result<crate::CommandSuccess, ShellError> {
+        let mut system = self.system.borrow_mut();
+        system.refresh_all();
 
-        let list = self.system.get_process_list();
+        let list = system.get_process_list();
 
         let list = list
             .into_iter()
@@ -26,6 +41,9 @@ impl crate::Command for Ps {
             .take(5)
             .collect();
 
-        Ok(Value::List(list))
+        Ok(crate::CommandSuccess {
+            value: Value::List(list),
+            action: vec![],
+        })
     }
 }

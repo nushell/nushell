@@ -1,21 +1,36 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
 use crate::object::{DirEntry, ShellObject, Value};
+use crate::{Command, CommandSuccess};
 use derive_new::new;
+use std::path::PathBuf;
 use sysinfo::SystemExt;
 
 #[derive(new)]
-pub struct Ls;
+pub struct LsBlueprint;
+
+impl crate::CommandBlueprint for LsBlueprint {
+    fn create(
+        &self,
+        args: Vec<String>,
+        host: &dyn crate::Host,
+        env: &mut crate::Environment,
+    ) -> Box<dyn Command> {
+        Box::new(Ls {
+            cwd: env.cwd().to_path_buf(),
+        })
+    }
+}
+
+#[derive(new)]
+pub struct Ls {
+    cwd: PathBuf,
+}
 
 impl crate::Command for Ls {
-    fn run(
-        &mut self,
-        _args: Vec<String>,
-        _host: &dyn crate::Host,
-        env: &mut crate::Environment,
-    ) -> Result<Value, ShellError> {
+    fn run(&mut self) -> Result<CommandSuccess, ShellError> {
         let entries =
-            std::fs::read_dir(env.cwd()).map_err((|e| ShellError::new(format!("{:?}", e))))?;
+            std::fs::read_dir(&self.cwd).map_err((|e| ShellError::new(format!("{:?}", e))))?;
 
         let mut shell_entries = vec![];
 
@@ -24,6 +39,9 @@ impl crate::Command for Ls {
             shell_entries.push(value)
         }
 
-        Ok(Value::list(shell_entries))
+        Ok(CommandSuccess {
+            value: Value::list(shell_entries),
+            action: vec![],
+        })
     }
 }

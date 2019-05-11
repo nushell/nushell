@@ -9,7 +9,7 @@ mod format;
 mod object;
 mod parser;
 
-crate use crate::commands::command::Command;
+crate use crate::commands::command::{Command, CommandAction, CommandBlueprint, CommandSuccess};
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
 crate use crate::format::RenderView;
@@ -19,8 +19,10 @@ use conch_parser::lexer::Lexer;
 use conch_parser::parse::DefaultParser;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::error::Error;
+use std::rc::Rc;
 use subprocess::Exec;
 use sysinfo::{self, SystemExt};
 
@@ -48,12 +50,12 @@ fn main() -> Result<(), Box<Error>> {
     let mut host = crate::env::host::BasicHost;
     let mut env = crate::Environment::basic()?;
 
-    let mut commands = BTreeMap::<String, Box<dyn crate::Command>>::new();
+    let mut commands = BTreeMap::<String, Box<dyn crate::CommandBlueprint>>::new();
 
-    let mut system = sysinfo::System::new();
-    let mut ps = crate::commands::ps::Ps::new(system);
-    let mut ls = crate::commands::ls::Ls;
-    let mut cd = crate::commands::cd::Cd;
+    let mut system = Rc::new(RefCell::new(sysinfo::System::new()));
+    let mut ps = crate::commands::ps::PsBlueprint::new(system);
+    let mut ls = crate::commands::ls::LsBlueprint;
+    let mut cd = crate::commands::cd::CdBlueprint;
 
     commands.insert("ps".to_string(), Box::new(ps));
     commands.insert("ls".to_string(), Box::new(ls));
@@ -86,8 +88,16 @@ fn main() -> Result<(), Box<Error>> {
 
                 match commands.get_mut(*command) {
                     Some(command) => {
-                        let result = command.run(args, &mut host, &mut env).unwrap();
-                        let view = result.to_generic_view();
+                        let mut instance = command.create(args, &mut host, &mut env);
+                        let result = instance.run()?;
+
+                        for action in result.action {
+                            match action {
+                                crate::CommandAction::ChangeCwd(cwd) => env.cwd = cwd,
+                            }
+                        }
+
+                        let view = result.value.to_generic_view();
                         let rendered = view.render_view(&mut host);
 
                         for line in rendered {
