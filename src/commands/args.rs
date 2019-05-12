@@ -1,5 +1,6 @@
 use crate::object::Value;
 use derive_new::new;
+use std::cell::Cell;
 use std::collections::VecDeque;
 
 #[derive(Debug, Default)]
@@ -7,20 +8,46 @@ pub struct ObjectStream {
     queue: VecDeque<Value>,
 }
 
-#[derive(Debug, Default)]
 pub struct Streams {
-    success: ObjectStream,
-    error: ObjectStream,
-    warning: ObjectStream,
-    debug: ObjectStream,
-    trace: ObjectStream,
-    verbose: ObjectStream,
+    success: Cell<ObjectStream>,
+    // error: ObjectStream,
+    // warning: ObjectStream,
+    // debug: ObjectStream,
+    // trace: ObjectStream,
+    // verbose: ObjectStream,
+}
+
+impl std::fmt::Debug for Streams {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Streams")
+    }
+}
+
+impl Streams {
+    crate fn new() -> Streams {
+        Streams {
+            success: Cell::new(ObjectStream::default()),
+        }
+    }
+
+    crate fn take_success(&mut self) -> Cell<ObjectStream> {
+        let new_stream = Cell::new(ObjectStream::default());
+        self.success.swap(&new_stream);
+        new_stream
+    }
+
+    // fn take_stream(&mut self, stream: &mut ObjectStream) -> ObjectStream {
+    //     let mut new_stream = Cell::new(ObjectStream::default());
+    //     new_stream.swap()
+    //     std::mem::swap(stream, &mut new_stream);
+    //     new_stream
+    // }
 }
 
 #[derive(Debug, new)]
 pub struct Args {
     argv: Vec<Value>,
-    #[new(default)]
+    #[new(value = "Streams::new()")]
     streams: Streams,
 }
 

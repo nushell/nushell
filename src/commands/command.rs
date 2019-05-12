@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub trait CommandBlueprint {
     fn create(
         &self,
-        args: crate::Args,
+        input: crate::Args,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError>;
