@@ -1,24 +1,35 @@
 use nom::branch::alt;
 use nom::bytes::complete::{escaped, is_not, tag};
-use nom::{ws, named, separated_list, complete};
 use nom::character::complete::one_of;
 use nom::multi::separated_list;
 use nom::sequence::{preceded, terminated};
 use nom::IResult;
+use nom::{complete, named, separated_list, ws};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Item {
     Quoted(String),
     Bare(String),
 }
 
+crate fn print_items(items: &[Item]) -> String {
+    let mut out = String::new();
+
+    let formatted = items.iter().map(|item| match item {
+        Item::Bare(s) => format!("{}", s),
+        Item::Quoted(s) => format!("{:?}", s),
+    });
+
+    itertools::join(formatted, " ")
+}
+
 impl Item {
-  crate fn name(&self) -> &str {
-    match self {
-      Item::Quoted(s) => s,
-      Item::Bare(s) => s
+    crate fn name(&self) -> &str {
+        match self {
+            Item::Quoted(s) => s,
+            Item::Bare(s) => s,
+        }
     }
-  }
 }
 
 fn esc(s: &str) -> IResult<&str, &str> {

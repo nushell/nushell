@@ -47,30 +47,51 @@ impl<T> MaybeOwned<'a, T> {
     }
 }
 
+type Commands = BTreeMap<String, Box<dyn crate::CommandBlueprint>>;
+
+struct Context {
+    commands: BTreeMap<String, Box<dyn crate::CommandBlueprint>>,
+    host: Box<dyn crate::Host>,
+    env: Environment,
+}
+
+impl Context {
+    fn basic() -> Result<Context, Box<Error>> {
+        Ok(Context {
+            commands: BTreeMap::new(),
+            host: Box::new(crate::env::host::BasicHost),
+            env: crate::Environment::basic()?,
+        })
+    }
+}
+
 fn main() -> Result<(), Box<Error>> {
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
     }
 
-    let mut host = crate::env::host::BasicHost;
-    let mut env = crate::Environment::basic()?;
+    let mut context = Context::basic()?;
 
-    let mut commands = BTreeMap::<String, Box<dyn crate::CommandBlueprint>>::new();
+    // let mut commands = BTreeMap::<String, Box<dyn crate::CommandBlueprint>>::new();
 
     let mut system = Rc::new(RefCell::new(sysinfo::System::new()));
     let mut ps = crate::commands::ps::PsBlueprint::new(system);
     let mut ls = crate::commands::ls::LsBlueprint;
     let mut cd = crate::commands::cd::CdBlueprint;
+    let mut to_array = crate::commands::to_array::ToArrayBlueprint;
 
-    commands.insert("ps".to_string(), Box::new(ps));
-    commands.insert("ls".to_string(), Box::new(ls));
-    commands.insert("cd".to_string(), Box::new(cd));
+    context.commands.insert("ps".to_string(), Box::new(ps));
+    context.commands.insert("ls".to_string(), Box::new(ls));
+    context.commands.insert("cd".to_string(), Box::new(cd));
+    context
+        .commands
+        .insert("to-array".to_string(), Box::new(to_array));
 
     loop {
         let readline = rl.readline(&format!(
             "{}> ",
-            Color::Green.paint(env.cwd().display().to_string())
+            Color::Green.paint(context.env.cwd().display().to_string())
         ));
 
         match readline {
@@ -82,55 +103,18 @@ fn main() -> Result<(), Box<Error>> {
 
                 rl.add_history_entry(line.as_ref());
 
-                if parsed.len() > 1 {
-                    println!("Piping is not yet implemented");
-                }
+                let mut input = VecDeque::new();
 
-                let command = &parsed[0][0].name();
-                let arg_list = parsed[0][1..]
-                    .iter()
-                    .map(|i| Value::string(i.name().to_string()))
-                    .collect();
+                for item in parsed {
+                    // println!("Processing {:?}", item);
+                    input = process_command(
+                        crate::parser::print_items(&item),
+                        item.clone(),
+                        input,
+                        &mut context,
+                    )?;
 
-                let streams = Streams::new();
-
-                // let args = Args::new(arg_list);
-
-                match commands.get_mut(*command) {
-                    Some(command) => {
-                        let mut instance = command.create(arg_list, &mut host, &mut env)?;
-
-                        let out = VecDeque::new();
-
-                        let mut result = instance.run(out)?;
-                        let mut next = VecDeque::new();
-
-                        for v in result {
-                            match v {
-                                ReturnValue::Action(action) => match action {
-                                    crate::CommandAction::ChangeCwd(cwd) => env.cwd = cwd,
-                                },
-
-                                ReturnValue::Value(v) => next.push_back(v),
-                            }
-                        }
-
-                        for item in next {
-                            let view = item.to_generic_view();
-                            let rendered = view.render_view(&mut host);
-
-                            for line in rendered {
-                                match line.as_ref() {
-                                    "\n" => println!(""),
-                                    line => println!("{}", line),
-                                }
-                            }
-                        }
-                    }
-
-                    other => {
-                        Exec::shell(line).cwd(env.cwd()).join().unwrap();
-                    }
+                    // println!("OUTPUT: {:?}", input);
                 }
             }
             Err(ReadlineError::Interrupted) => {
@@ -150,4 +134,58 @@ fn main() -> Result<(), Box<Error>> {
     rl.save_history("history.txt").unwrap();
 
     Ok(())
+}
+
+fn process_command(
+    line: String,
+    parsed: Vec<crate::parser::Item>,
+    input: VecDeque<Value>,
+    context: &mut Context,
+) -> Result<VecDeque<Value>, ShellError> {
+    let command = &parsed[0].name();
+    let arg_list = parsed[1..]
+        .iter()
+        .map(|i| Value::string(i.name().to_string()))
+        .collect();
+
+    let streams = Streams::new();
+
+    // let args = Args::new(arg_list);
+
+    match *command {
+        "format" => {
+            for item in input {
+                let view = item.to_generic_view();
+                crate::format::print_rendered(&view.render_view(&context.host), &mut context.host);
+            }
+
+            Ok(VecDeque::new())
+        }
+
+        command => match context.commands.get_mut(command) {
+            Some(command) => {
+                let mut instance = command.create(arg_list, &context.host, &mut context.env)?;
+
+                let mut result = instance.run(input)?;
+                let mut next = VecDeque::new();
+
+                for v in result {
+                    match v {
+                        ReturnValue::Action(action) => match action {
+                            crate::CommandAction::ChangeCwd(cwd) => context.env.cwd = cwd,
+                        },
+
+                        ReturnValue::Value(v) => next.push_back(v),
+                    }
+                }
+
+                Ok(next)
+            }
+
+            other => {
+                Exec::shell(line).cwd(context.env.cwd()).join().unwrap();
+                Ok(VecDeque::new())
+            }
+        },
+    }
 }
