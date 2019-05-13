@@ -1,31 +1,38 @@
 use crate::errors::ShellError;
 use crate::object::Value;
+use crate::prelude::*;
 use std::path::PathBuf;
 
 pub trait CommandBlueprint {
     fn create(
         &self,
-        input: crate::Args,
+        input: Vec<Value>,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError>;
 }
 
-crate enum CommandAction {
+pub enum CommandAction {
     ChangeCwd(PathBuf),
 }
 
-pub struct CommandSuccess {
-    crate value: Value,
-    crate action: Vec<CommandAction>,
+pub enum ReturnValue {
+    Value(Value),
+    Action(CommandAction),
+}
+
+impl ReturnValue {
+    crate fn single(value: Value) -> VecDeque<ReturnValue> {
+        let mut v = VecDeque::new();
+        v.push_back(ReturnValue::Value(value));
+        v
+    }
+
+    crate fn change_cwd(path: PathBuf) -> ReturnValue {
+        ReturnValue::Action(CommandAction::ChangeCwd(path))
+    }
 }
 
 pub trait Command {
-    fn begin(&mut self) -> Result<(), ShellError> {
-        Ok(())
-    }
-    fn run(&mut self) -> Result<CommandSuccess, ShellError>;
-    fn end(&mut self) -> Result<(), ShellError> {
-        Ok(())
-    }
+    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError>;
 }

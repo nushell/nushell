@@ -1,8 +1,16 @@
+use crate::Value;
 use derive_new::new;
 
 #[derive(Debug, new)]
 pub struct ShellError {
     title: String,
+    error: Value,
+}
+
+impl ShellError {
+    crate fn string(title: impl Into<String>) -> ShellError {
+        ShellError::new(title.into(), Value::nothing())
+    }
 }
 
 impl std::fmt::Display for ShellError {
@@ -17,6 +25,7 @@ impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
         ShellError {
             title: format!("{}", input),
+            error: Value::nothing(),
         }
     }
 }

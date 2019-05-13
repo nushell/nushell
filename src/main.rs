@@ -8,9 +8,11 @@ mod errors;
 mod format;
 mod object;
 mod parser;
+mod prelude;
 
 crate use crate::commands::args::{Args, Streams};
-crate use crate::commands::command::{Command, CommandAction, CommandBlueprint, CommandSuccess};
+use crate::commands::command::ReturnValue;
+crate use crate::commands::command::{Command, CommandAction, CommandBlueprint};
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
 crate use crate::format::RenderView;
@@ -24,6 +26,7 @@ use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
 use std::error::Error;
 use std::rc::Rc;
 use subprocess::Exec;
@@ -73,7 +76,7 @@ fn main() -> Result<(), Box<Error>> {
         match readline {
             Ok(line) => {
                 let result = crate::parser::shell_parser(&line)
-                    .map_err(|e| ShellError::new(format!("{:?}", e)))?;
+                    .map_err(|e| ShellError::string(format!("{:?}", e)))?;
 
                 let parsed = result.1;
 
@@ -89,26 +92,38 @@ fn main() -> Result<(), Box<Error>> {
                     .map(|i| Value::string(i.name().to_string()))
                     .collect();
 
-                let args = Args::new(arg_list);
+                let streams = Streams::new();
+
+                // let args = Args::new(arg_list);
 
                 match commands.get_mut(*command) {
                     Some(command) => {
-                        let mut instance = command.create(args, &mut host, &mut env)?;
-                        let result = instance.run()?;
+                        let mut instance = command.create(arg_list, &mut host, &mut env)?;
 
-                        for action in result.action {
-                            match action {
-                                crate::CommandAction::ChangeCwd(cwd) => env.cwd = cwd,
+                        let out = VecDeque::new();
+
+                        let mut result = instance.run(out)?;
+                        let mut next = VecDeque::new();
+
+                        for v in result {
+                            match v {
+                                ReturnValue::Action(action) => match action {
+                                    crate::CommandAction::ChangeCwd(cwd) => env.cwd = cwd,
+                                },
+
+                                ReturnValue::Value(v) => next.push_back(v),
                             }
                         }
 
-                        let view = result.value.to_generic_view();
-                        let rendered = view.render_view(&mut host);
+                        for item in next {
+                            let view = item.to_generic_view();
+                            let rendered = view.render_view(&mut host);
 
-                        for line in rendered {
-                            match line.as_ref() {
-                                "\n" => println!(""),
-                                line => println!("{}", line),
+                            for line in rendered {
+                                match line.as_ref() {
+                                    "\n" => println!(""),
+                                    line => println!("{}", line),
+                                }
                             }
                         }
                     }

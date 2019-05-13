@@ -73,7 +73,10 @@ impl Value {
             Value::Primitive(Primitive::String(s)) => Ok(s.to_string()),
 
             // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::new(format!("Expected string, got {:?}", other))),
+            other => Err(ShellError::string(format!(
+                "Expected string, got {:?}",
+                other
+            ))),
         }
     }
 

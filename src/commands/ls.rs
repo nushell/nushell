@@ -1,8 +1,9 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
 use crate::object::{DirEntry, ShellObject, Value};
+use crate::prelude::*;
 use crate::Args;
-use crate::{Command, CommandSuccess};
+use crate::Command;
 use derive_new::new;
 use std::path::PathBuf;
 use sysinfo::SystemExt;
@@ -13,7 +14,7 @@ pub struct LsBlueprint;
 impl crate::CommandBlueprint for LsBlueprint {
     fn create(
         &self,
-        args: Args,
+        args: Vec<Value>,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
@@ -29,20 +30,17 @@ pub struct Ls {
 }
 
 impl crate::Command for Ls {
-    fn run(&mut self) -> Result<CommandSuccess, ShellError> {
+    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
         let entries =
-            std::fs::read_dir(&self.cwd).map_err((|e| ShellError::new(format!("{:?}", e))))?;
+            std::fs::read_dir(&self.cwd).map_err((|e| ShellError::string(format!("{:?}", e))))?;
 
-        let mut shell_entries = vec![];
+        let mut shell_entries = VecDeque::new();
 
         for entry in entries {
             let value = Value::object(DirEntry::new(entry?)?);
-            shell_entries.push(value)
+            shell_entries.push_back(ReturnValue::Value(value))
         }
 
-        Ok(CommandSuccess {
-            value: Value::list(shell_entries),
-            action: vec![],
-        })
+        Ok(shell_entries)
     }
 }

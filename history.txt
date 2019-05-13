@@ -81,3 +81,12 @@ cd target
 cd ..
 cd target
 ls
+git status
+git add .
+git commit
+git push
+cd target
+cd ..
+exit
+ls
+ps

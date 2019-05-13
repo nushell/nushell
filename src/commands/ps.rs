@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
 use crate::object::{ShellObject, Value};
+use crate::prelude::*;
 use crate::Command;
 use derive_new::new;
 use std::cell::RefCell;
@@ -15,7 +16,7 @@ pub struct PsBlueprint {
 impl crate::CommandBlueprint for PsBlueprint {
     fn create(
         &self,
-        args: crate::Args,
+        args: Vec<Value>,
         host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
@@ -29,7 +30,7 @@ pub struct Ps {
 }
 
 impl crate::Command for Ps {
-    fn run(&mut self) -> Result<crate::CommandSuccess, ShellError> {
+    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
         let mut system = self.system.borrow_mut();
         system.refresh_all();
 
@@ -37,13 +38,12 @@ impl crate::Command for Ps {
 
         let list = list
             .into_iter()
-            .map(|(_, process)| Value::Object(Box::new(Process::new(process.clone()))))
+            .map(|(_, process)| {
+                ReturnValue::Value(Value::Object(Box::new(Process::new(process.clone()))))
+            })
             .take(5)
-            .collect();
+            .collect::<VecDeque<_>>();
 
-        Ok(crate::CommandSuccess {
-            value: Value::List(list),
-            action: vec![],
-        })
+        Ok(list)
     }
 }
