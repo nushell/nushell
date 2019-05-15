@@ -67,6 +67,7 @@ fn main() -> Result<(), Box<Error>> {
             ("cd", Box::new(cd::CdBlueprint)),
             ("take", Box::new(take::TakeBlueprint)),
             ("select", Box::new(select::SelectBlueprint)),
+            ("reject", Box::new(reject::RejectBlueprint)),
             ("to-array", Box::new(to_array::ToArrayBlueprint)),
         ]);
     }

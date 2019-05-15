@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::process::Process;
+use crate::object::process::process_dict;
 use crate::object::{ShellObject, Value};
 use crate::prelude::*;
 use crate::Command;
@@ -34,9 +34,7 @@ impl crate::Command for Ps {
 
         let list = list
             .into_iter()
-            .map(|(_, process)| {
-                ReturnValue::Value(Value::Object(Box::new(Process::new(process.clone()))))
-            })
+            .map(|(_, process)| ReturnValue::Value(Value::Object(process_dict(process))))
             .collect::<VecDeque<_>>();
 
         Ok(list)

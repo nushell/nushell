@@ -1,4 +1,5 @@
 use crate::errors::ShellError;
+use crate::object::base::reject;
 use crate::object::process::Process;
 use crate::object::{dir_entry_dict, ShellObject, Value};
 use crate::prelude::*;
@@ -8,9 +9,9 @@ use std::path::{Path, PathBuf};
 use sysinfo::SystemExt;
 
 #[derive(new)]
-pub struct TakeBlueprint;
+pub struct RejectBlueprint;
 
-impl crate::CommandBlueprint for TakeBlueprint {
+impl crate::CommandBlueprint for RejectBlueprint {
     fn create(
         &self,
         args: Vec<Value>,
@@ -21,31 +22,25 @@ impl crate::CommandBlueprint for TakeBlueprint {
             return Err(ShellError::string("take requires an integer"));
         }
 
-        let amount = args[0].as_int()?;
+        let fields: Result<_, _> = args.iter().map(|a| a.as_string()).collect();
 
-        Ok(Box::new(Take { amount }))
+        Ok(Box::new(Reject { fields: fields? }))
     }
 }
 
 #[derive(new)]
-pub struct Take {
-    amount: i64,
+pub struct Reject {
+    fields: Vec<String>,
 }
 
-impl crate::Command for Take {
+impl crate::Command for Reject {
     fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let amount = if stream.len() > self.amount as usize {
-            self.amount as usize
-        } else {
-            stream.len()
-        };
-
-        let out: VecDeque<ReturnValue> = stream
-            .into_iter()
-            .take(amount)
-            .map(|v| ReturnValue::Value(v))
+        let objects = stream
+            .iter()
+            .map(|item| Value::Object(reject(item, &self.fields)))
+            .map(|item| ReturnValue::Value(item))
             .collect();
 
-        Ok(out)
+        Ok(objects)
     }
 }

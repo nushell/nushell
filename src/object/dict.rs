@@ -50,6 +50,6 @@ impl crate::object::ShellObject for Dictionary {
     }
 
     fn copy(&self) -> Value {
-        Value::Object(Box::new(self.copy_dict()))
+        Value::Object(self.copy_dict())
     }
 }

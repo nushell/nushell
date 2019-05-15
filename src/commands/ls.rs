@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::process::Process;
-use crate::object::{DirEntry, ShellObject, Value};
+use crate::object::{dir_entry_dict, ShellObject, Value};
 use crate::prelude::*;
 use crate::Args;
 use crate::Command;
@@ -37,7 +37,7 @@ impl crate::Command for Ls {
         let mut shell_entries = VecDeque::new();
 
         for entry in entries {
-            let value = Value::object(DirEntry::new(entry?)?);
+            let value = Value::Object(dir_entry_dict(&entry?)?);
             shell_entries.push_back(ReturnValue::Value(value))
         }
 

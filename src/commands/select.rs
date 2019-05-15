@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::base::select;
 use crate::object::process::Process;
-use crate::object::{DirEntry, ShellObject, Value};
+use crate::object::{dir_entry_dict, ShellObject, Value};
 use crate::prelude::*;
 use crate::Args;
 use derive_new::new;
@@ -37,7 +37,7 @@ impl crate::Command for Select {
     fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
         let objects = stream
             .iter()
-            .map(|item| Value::Object(Box::new(select(item, &self.fields))))
+            .map(|item| Value::Object(select(item, &self.fields)))
             .map(|item| ReturnValue::Value(item))
             .collect();
 

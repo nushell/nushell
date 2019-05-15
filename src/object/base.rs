@@ -51,7 +51,7 @@ impl Primitive {
 #[derive(Debug)]
 pub enum Value {
     Primitive(Primitive),
-    Object(Box<dyn ShellObject>),
+    Object(crate::object::Dictionary),
     List(Vec<Value>),
     Error(Box<ShellError>),
 }
@@ -87,7 +87,7 @@ impl ShellObject for Value {
     fn copy(&self) -> Value {
         match self {
             Value::Primitive(p) => Value::Primitive(p.clone()),
-            Value::Object(o) => Value::Object(Box::new(o.copy())),
+            Value::Object(o) => Value::Object(o.copy_dict()),
             Value::List(l) => {
                 let list = l.iter().map(|i| i.copy()).collect();
                 Value::List(list)
@@ -179,10 +179,6 @@ impl Value {
     crate fn list(values: impl Into<Vec<Value>>) -> Value {
         Value::List(values.into())
     }
-
-    crate fn object(value: impl ShellObject + 'static) -> Value {
-        Value::Object(Box::new(value))
-    }
 }
 
 pub trait ShellObject: Debug {
@@ -201,6 +197,22 @@ crate fn select(obj: impl ShellObject, fields: &[String]) -> crate::object::Dict
         match descs.iter().find(|d| d.name == *field) {
             None => out.add(field.to_string(), Value::nothing()),
             Some(desc) => out.add(field.to_string(), obj.get_data(desc).borrow().copy()),
+        }
+    }
+
+    out
+}
+
+crate fn reject(obj: impl ShellObject, fields: &[String]) -> crate::object::Dictionary {
+    let mut out = crate::object::Dictionary::default();
+
+    let descs = obj.data_descriptors();
+
+    for desc in descs {
+        if fields.contains(&desc.name) {
+            continue;
+        } else {
+            out.add(desc.name.clone(), obj.get_data(&desc).borrow().copy())
         }
     }
 
