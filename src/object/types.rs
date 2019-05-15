@@ -1,5 +1,19 @@
-pub trait Type {}
+use std::any::{Any, TypeId};
 
-pub struct Any;
+pub trait Type {
+    fn as_any(&self) -> &dyn Any;
+    fn equal(&self, other: &dyn Type) -> bool;
+}
 
-impl Type for Any {}
+#[derive(Eq, PartialEq)]
+pub struct AnyShell;
+
+impl Type for AnyShell {
+    fn as_any(&self) -> &dyn Any {
+        self as &dyn Any
+    }
+
+    fn equal(&self, other: &dyn Type) -> bool {
+        other.as_any().is::<AnyShell>()
+    }
+}

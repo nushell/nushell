@@ -12,10 +12,12 @@ pub trait CommandBlueprint {
     ) -> Result<Box<dyn Command>, ShellError>;
 }
 
+#[derive(Debug)]
 pub enum CommandAction {
     ChangeCwd(PathBuf),
 }
 
+#[derive(Debug)]
 pub enum ReturnValue {
     Value(Value),
     Action(CommandAction),

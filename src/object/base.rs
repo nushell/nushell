@@ -42,6 +42,7 @@ impl ShellObject for Value {
             Value::List(l) => format!("[list List]"),
         }
     }
+
     fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
             Value::Primitive(p) => vec![],
@@ -75,6 +76,17 @@ impl Value {
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    crate fn as_int(&self) -> Result<i64, ShellError> {
+        match self {
+            Value::Primitive(Primitive::Int(i)) => Ok(*i),
+            // TODO: this should definitely be more general with better errors
+            other => Err(ShellError::string(format!(
+                "Expected integer, got {:?}",
                 other
             ))),
         }
@@ -115,7 +127,10 @@ pub trait ToEntriesView {
     fn to_entries_view(&self) -> EntriesView;
 }
 
-impl ToEntriesView for ShellObject {
+impl<T> ToEntriesView for T
+where
+    T: ShellObject,
+{
     fn to_entries_view(&self) -> EntriesView {
         let descs = self.data_descriptors();
         let mut entries = vec![];
@@ -133,6 +148,19 @@ impl ToEntriesView for ShellObject {
         }
 
         EntriesView::new(entries)
+    }
+}
+
+impl ShellObject for Box<dyn ShellObject> {
+    fn to_shell_string(&self) -> String {
+        (**self).to_shell_string()
+    }
+    fn data_descriptors(&self) -> Vec<DataDescriptor> {
+        (**self).data_descriptors()
+    }
+
+    fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
+        (**self).get_data(desc)
     }
 }
 

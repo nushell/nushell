@@ -9,9 +9,7 @@ use std::rc::Rc;
 use sysinfo::SystemExt;
 
 #[derive(new)]
-pub struct PsBlueprint {
-    system: Rc<RefCell<sysinfo::System>>,
-}
+pub struct PsBlueprint;
 
 impl crate::CommandBlueprint for PsBlueprint {
     fn create(
@@ -20,18 +18,16 @@ impl crate::CommandBlueprint for PsBlueprint {
         host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
-        Ok(Box::new(Ps::new(self.system.clone())))
+        Ok(Box::new(Ps::new()))
     }
 }
 
 #[derive(new)]
-pub struct Ps {
-    system: Rc<RefCell<sysinfo::System>>,
-}
+pub struct Ps;
 
 impl crate::Command for Ps {
     fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let mut system = self.system.borrow_mut();
+        let mut system = sysinfo::System::new();
         system.refresh_all();
 
         let list = system.get_process_list();
@@ -41,7 +37,6 @@ impl crate::Command for Ps {
             .map(|(_, process)| {
                 ReturnValue::Value(Value::Object(Box::new(Process::new(process.clone()))))
             })
-            .take(5)
             .collect::<VecDeque<_>>();
 
         Ok(list)

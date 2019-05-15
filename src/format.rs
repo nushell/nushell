@@ -6,7 +6,7 @@ crate mod table;
 use crate::object::Value;
 use crate::prelude::*;
 
-crate use entries::EntriesView;
+crate use entries::{EntriesListView, EntriesView};
 crate use generic::GenericView;
 crate use list::ListView;
 crate use table::TableView;

@@ -30,3 +30,10 @@ impl crate::Command for ToArray {
         Ok(ReturnValue::single(Value::List(out)))
     }
 }
+
+crate fn to_array(stream: VecDeque<Value>) -> VecDeque<Value> {
+    let out = Value::List(stream.into_iter().collect());
+    let mut stream = VecDeque::new();
+    stream.push_back(out);
+    stream
+}

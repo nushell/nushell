@@ -26,7 +26,7 @@ impl crate::object::ShellObject for Dictionary {
         self.entries
             .iter()
             .map(|(name, value)| {
-                DataDescriptor::new(name.clone(), true, Box::new(crate::object::types::Any))
+                DataDescriptor::new(name.clone(), true, Box::new(crate::object::types::AnyShell))
             })
             .collect()
     }
@@ -59,7 +59,7 @@ impl crate::object::ShellObject for ScopedDictionary<'parent> {
         self.entries
             .iter()
             .map(|(name, value)| {
-                DataDescriptor::new(name.clone(), true, Box::new(crate::object::types::Any))
+                DataDescriptor::new(name.clone(), true, Box::new(crate::object::types::AnyShell))
             })
             .collect()
     }
