@@ -26,14 +26,8 @@ impl Dictionary {
 
         out
     }
-}
 
-impl crate::object::ShellObject for Dictionary {
-    fn to_shell_string(&self) -> String {
-        format!("[object Object] lol")
-    }
-
-    fn data_descriptors(&self) -> Vec<DataDescriptor> {
+    crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         self.entries
             .iter()
             .map(|(name, value)| {
@@ -42,14 +36,10 @@ impl crate::object::ShellObject for Dictionary {
             .collect()
     }
 
-    fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
+    crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         match self.entries.get(&desc.name) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),
         }
-    }
-
-    fn copy(&self) -> Value {
-        Value::Object(self.copy_dict())
     }
 }

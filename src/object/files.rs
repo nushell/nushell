@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{DataDescriptor, Dictionary, ShellObject, Value};
+use crate::object::{DataDescriptor, Dictionary, Value};
 use crate::MaybeOwned;
 
 #[derive(Debug)]

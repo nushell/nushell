@@ -1,5 +1,4 @@
 use crate::format::RenderView;
-use crate::object::ShellObject;
 use crate::object::Value;
 use crate::Host;
 use derive_new::new;

@@ -1,4 +1,4 @@
-use crate::object::base::{Primitive, ShellObject, Value};
+use crate::object::base::{Primitive, Value};
 use crate::object::desc::DataDescriptor;
 use crate::object::dict::Dictionary;
 use crate::MaybeOwned;

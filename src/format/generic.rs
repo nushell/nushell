@@ -1,5 +1,4 @@
-use crate::format::{RenderView, TableView};
-use crate::object::base::ToEntriesView;
+use crate::format::{EntriesView, RenderView, TableView};
 use crate::object::Value;
 use crate::Host;
 use derive_new::new;
@@ -38,8 +37,8 @@ impl RenderView for GenericView<'value> {
                 // list
             }
 
-            Value::Object(o) => {
-                let view = o.to_entries_view();
+            o @ Value::Object(_) => {
+                let view = EntriesView::from_value(o);
                 let out = view.render_view(host);
                 out
             }

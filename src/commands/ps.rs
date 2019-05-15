@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::process::process_dict;
-use crate::object::{ShellObject, Value};
+use crate::object::Value;
 use crate::prelude::*;
 use crate::Command;
 use derive_new::new;

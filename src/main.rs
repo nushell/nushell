@@ -17,9 +17,8 @@ crate use crate::commands::command::{Command, CommandAction, CommandBlueprint};
 use crate::context::Context;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
-crate use crate::format::{EntriesListView, RenderView};
-use crate::object::base::{ToEntriesView, ToGenericView};
-use crate::object::{ShellObject, Value};
+crate use crate::format::{EntriesListView, GenericView, RenderView};
+use crate::object::Value;
 
 use ansi_term::Color;
 use conch_parser::lexer::Lexer;
@@ -185,7 +184,7 @@ fn format(input: VecDeque<Value>, context: Arc<Mutex<Context>>) {
 
     let last = input.len() - 1;
     for (i, item) in input.iter().enumerate() {
-        let view = item.to_generic_view();
+        let view = GenericView::new(item);
         crate::format::print_rendered(&view.render_view(&ctx.host), &mut ctx.host);
 
         if last != i {

@@ -1,5 +1,4 @@
 use crate::format::RenderView;
-use crate::object::base::ToEntriesView;
 use crate::prelude::*;
 use crate::Host;
 
@@ -13,6 +12,23 @@ use derive_new::new;
 #[derive(new)]
 pub struct EntriesView {
     entries: Vec<(String, String)>,
+}
+
+impl EntriesView {
+    crate fn from_value(value: &Value) -> EntriesView {
+        let descs = value.data_descriptors();
+        let mut entries = vec![];
+
+        for desc in descs {
+            let value = value.get_data(&desc);
+
+            let formatted_value = value.borrow().format_leaf(None);
+
+            entries.push((desc.name.clone(), formatted_value))
+        }
+
+        EntriesView::new(entries)
+    }
 }
 
 impl RenderView for EntriesView {
@@ -51,7 +67,7 @@ impl RenderView for EntriesListView {
         let last = self.values.len() - 1;
 
         for (i, item) in self.values.iter().enumerate() {
-            let view = item.to_entries_view();
+            let view = EntriesView::from_value(item);
             let out = view.render_view(host);
 
             strings.extend(out);

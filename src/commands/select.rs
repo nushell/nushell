@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::base::select;
 use crate::object::process::Process;
-use crate::object::{dir_entry_dict, ShellObject, Value};
+use crate::object::{dir_entry_dict, Value};
 use crate::prelude::*;
 use crate::Args;
 use derive_new::new;

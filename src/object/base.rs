@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::format::{EntriesView, GenericView};
 use crate::object::desc::DataDescriptor;
+use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use std::fmt::Debug;
@@ -20,9 +21,14 @@ pub enum Primitive {
 impl Primitive {
     crate fn format(&self, field_name: Option<&str>) -> String {
         match self {
-            Primitive::Nothing => format!("Nothing"),
+            Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
             Primitive::Bytes(b) => {
                 let byte = byte_unit::Byte::from_bytes(*b);
+
+                if byte.get_bytes() == 0u128 {
+                    return Color::Black.bold().paint("Empty".to_string()).to_string();
+                }
+
                 let byte = byte.get_appropriate_unit(true);
 
                 match byte.get_unit() {
@@ -39,11 +45,7 @@ impl Primitive {
                 (true, Some(s)) => format!("{}", s),
                 (false, Some(s)) => format!(""),
             },
-            Primitive::Date(d) => {
-                // let date = d.format("%-m/%-d/%-y");
-                // let time =
-                format!("{}", d.humanize())
-            }
+            Primitive::Date(d) => format!("{}", d.humanize()),
         }
     }
 }
@@ -56,17 +58,17 @@ pub enum Value {
     Error(Box<ShellError>),
 }
 
-impl ShellObject for Value {
-    fn to_shell_string(&self) -> String {
+impl Value {
+    crate fn to_shell_string(&self) -> String {
         match self {
             Value::Primitive(p) => p.format(None),
-            Value::Object(o) => o.to_shell_string(),
+            Value::Object(o) => format!("[object Object]"),
             Value::List(l) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
         }
     }
 
-    fn data_descriptors(&self) -> Vec<DataDescriptor> {
+    crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
             Value::Primitive(p) => vec![],
             Value::Object(o) => o.data_descriptors(),
@@ -75,7 +77,7 @@ impl ShellObject for Value {
         }
     }
 
-    fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
+    crate fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
         match self {
             Value::Primitive(p) => crate::MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data(desc),
@@ -84,7 +86,7 @@ impl ShellObject for Value {
         }
     }
 
-    fn copy(&self) -> Value {
+    crate fn copy(&self) -> Value {
         match self {
             Value::Primitive(p) => Value::Primitive(p.clone()),
             Value::Object(o) => Value::Object(o.copy_dict()),
@@ -95,24 +97,7 @@ impl ShellObject for Value {
             Value::Error(e) => Value::Error(Box::new(e.copy_error())),
         }
     }
-}
 
-impl ShellObject for &Value {
-    fn to_shell_string(&self) -> String {
-        (*self).to_shell_string()
-    }
-    fn data_descriptors(&self) -> Vec<DataDescriptor> {
-        (*self).data_descriptors()
-    }
-    fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
-        (*self).get_data(desc)
-    }
-    fn copy(&self) -> Value {
-        (*self).copy()
-    }
-}
-
-impl Value {
     crate fn format_leaf(&self, field_name: Option<&str>) -> String {
         match self {
             Value::Primitive(p) => p.format(field_name),
@@ -181,14 +166,7 @@ impl Value {
     }
 }
 
-pub trait ShellObject: Debug {
-    fn to_shell_string(&self) -> String;
-    fn data_descriptors(&self) -> Vec<DataDescriptor>;
-    fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value>;
-    fn copy(&self) -> Value;
-}
-
-crate fn select(obj: impl ShellObject, fields: &[String]) -> crate::object::Dictionary {
+crate fn select(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
     let mut out = crate::object::Dictionary::default();
 
     let descs = obj.data_descriptors();
@@ -203,7 +181,7 @@ crate fn select(obj: impl ShellObject, fields: &[String]) -> crate::object::Dict
     out
 }
 
-crate fn reject(obj: impl ShellObject, fields: &[String]) -> crate::object::Dictionary {
+crate fn reject(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
     let mut out = crate::object::Dictionary::default();
 
     let descs = obj.data_descriptors();
@@ -217,60 +195,4 @@ crate fn reject(obj: impl ShellObject, fields: &[String]) -> crate::object::Dict
     }
 
     out
-}
-
-pub trait ToEntriesView {
-    fn to_entries_view(&self) -> EntriesView;
-}
-
-impl<T> ToEntriesView for T
-where
-    T: ShellObject,
-{
-    fn to_entries_view(&self) -> EntriesView {
-        let descs = self.data_descriptors();
-        let mut entries = vec![];
-
-        for desc in descs {
-            let value = self.get_data(&desc);
-
-            let formatted_value = match value.borrow() {
-                Value::Primitive(p) => p.format(None),
-                Value::Object(o) => format!("[object Object]"),
-                Value::List(l) => format!("[object List]"),
-                Value::Error(e) => format!("{}", e),
-            };
-
-            entries.push((desc.name.clone(), formatted_value))
-        }
-
-        EntriesView::new(entries)
-    }
-}
-
-impl ShellObject for Box<dyn ShellObject> {
-    fn to_shell_string(&self) -> String {
-        (**self).to_shell_string()
-    }
-    fn data_descriptors(&self) -> Vec<DataDescriptor> {
-        (**self).data_descriptors()
-    }
-
-    fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
-        (**self).get_data(desc)
-    }
-
-    fn copy(&self) -> Value {
-        (**self).copy()
-    }
-}
-
-pub trait ToGenericView {
-    fn to_generic_view(&self) -> GenericView;
-}
-
-impl ToGenericView for Value {
-    fn to_generic_view(&self) -> GenericView<'_> {
-        GenericView::new(self)
-    }
 }
