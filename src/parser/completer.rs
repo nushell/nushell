@@ -1,6 +1,7 @@
 use rustyline::{completion, Context};
 use std::collections::BTreeMap;
 
+#[allow(unused)]
 crate struct Completer {
     commands: BTreeMap<String, Box<dyn crate::CommandBlueprint>>,
 }
@@ -10,9 +11,9 @@ impl completion::Completer for Completer {
 
     fn complete(
         &self,
-        line: &str,
-        pos: usize,
-        ctx: &Context<'_>,
+        _line: &str,
+        _pos: usize,
+        _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
         let pairs = self
             .commands

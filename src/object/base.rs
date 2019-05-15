@@ -1,16 +1,15 @@
 use crate::errors::ShellError;
-use crate::format::{EntriesView, GenericView};
 use crate::object::desc::DataDescriptor;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
-use std::fmt::Debug;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone)]
 pub enum Primitive {
     Nothing,
     Int(i64),
+    #[allow(unused)]
     Float(f64),
     Bytes(u128),
     String(String),
@@ -43,7 +42,7 @@ impl Primitive {
                 (true, None) => format!("Yes"),
                 (false, None) => format!("No"),
                 (true, Some(s)) => format!("{}", s),
-                (false, Some(s)) => format!(""),
+                (false, Some(_)) => format!(""),
             },
             Primitive::Date(d) => format!("{}", d.humanize()),
         }
@@ -59,30 +58,21 @@ pub enum Value {
 }
 
 impl Value {
-    crate fn to_shell_string(&self) -> String {
-        match self {
-            Value::Primitive(p) => p.format(None),
-            Value::Object(o) => format!("[object Object]"),
-            Value::List(l) => format!("[list List]"),
-            Value::Error(e) => format!("{}", e),
-        }
-    }
-
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
-            Value::Primitive(p) => vec![],
+            Value::Primitive(_) => vec![],
             Value::Object(o) => o.data_descriptors(),
-            Value::List(l) => vec![],
-            Value::Error(e) => vec![],
+            Value::List(_) => vec![],
+            Value::Error(_) => vec![],
         }
     }
 
     crate fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
         match self {
-            Value::Primitive(p) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Primitive(_) => crate::MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data(desc),
-            Value::List(l) => crate::MaybeOwned::Owned(Value::nothing()),
-            Value::Error(e) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::List(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => crate::MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -101,8 +91,8 @@ impl Value {
     crate fn format_leaf(&self, field_name: Option<&str>) -> String {
         match self {
             Value::Primitive(p) => p.format(field_name),
-            Value::Object(o) => format!("[object Object]"),
-            Value::List(l) => format!("[list List]"),
+            Value::Object(_) => format!("[object Object]"),
+            Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
         }
     }
@@ -142,6 +132,7 @@ impl Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
+    #[allow(unused)]
     crate fn system_date(s: SystemTime) -> Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
@@ -161,6 +152,7 @@ impl Value {
         Value::Primitive(Primitive::Nothing)
     }
 
+    #[allow(unused)]
     crate fn list(values: impl Into<Vec<Value>>) -> Value {
         Value::List(values.into())
     }

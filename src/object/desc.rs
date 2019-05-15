@@ -1,4 +1,4 @@
-use crate::object::types::{AnyShell, Type};
+use crate::object::types::Type;
 use derive_new::new;
 
 #[derive(new)]
@@ -14,18 +14,4 @@ impl PartialEq for DataDescriptor {
     }
 }
 
-impl DataDescriptor {
-    crate fn any(name: impl Into<String>) -> DataDescriptor {
-        DataDescriptor {
-            name: name.into(),
-            readonly: true,
-            ty: Box::new(AnyShell),
-        }
-    }
-}
-
-#[derive(new)]
-pub struct DataDescriptorInstance<'desc> {
-    desc: &'desc DataDescriptor,
-    value: crate::object::base::Value,
-}
+impl DataDescriptor {}

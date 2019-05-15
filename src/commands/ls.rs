@@ -1,12 +1,9 @@
 use crate::errors::ShellError;
-use crate::object::process::Process;
 use crate::object::{dir_entry_dict, Value};
 use crate::prelude::*;
-use crate::Args;
 use crate::Command;
 use derive_new::new;
 use std::path::PathBuf;
-use sysinfo::SystemExt;
 
 #[derive(new)]
 pub struct LsBlueprint;
@@ -14,8 +11,8 @@ pub struct LsBlueprint;
 impl crate::CommandBlueprint for LsBlueprint {
     fn create(
         &self,
-        args: Vec<Value>,
-        host: &dyn crate::Host,
+        _args: Vec<Value>,
+        _host: &dyn crate::Host,
         env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
         Ok(Box::new(Ls {
@@ -30,9 +27,9 @@ pub struct Ls {
 }
 
 impl crate::Command for Ls {
-    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn run(&mut self, _stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
         let entries =
-            std::fs::read_dir(&self.cwd).map_err((|e| ShellError::string(format!("{:?}", e))))?;
+            std::fs::read_dir(&self.cwd).map_err(|e| ShellError::string(format!("{:?}", e)))?;
 
         let mut shell_entries = VecDeque::new();
 

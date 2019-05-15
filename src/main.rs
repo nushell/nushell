@@ -1,6 +1,5 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
-#![allow(unused)]
 
 mod commands;
 mod context;
@@ -11,28 +10,21 @@ mod object;
 mod parser;
 mod prelude;
 
-crate use crate::commands::args::{Args, Streams};
 use crate::commands::command::ReturnValue;
 crate use crate::commands::command::{Command, CommandAction, CommandBlueprint};
 use crate::context::Context;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
-crate use crate::format::{EntriesListView, GenericView, RenderView};
+crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
 
 use ansi_term::Color;
-use conch_parser::lexer::Lexer;
-use conch_parser::parse::DefaultParser;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::error::Error;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use subprocess::Exec;
-use sysinfo::{self, SystemExt};
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -55,7 +47,7 @@ fn main() -> Result<(), Box<Error>> {
         println!("No previous history.");
     }
 
-    let mut context = Arc::new(Mutex::new(Context::basic()?));
+    let context = Arc::new(Mutex::new(Context::basic()?));
 
     {
         use crate::commands::*;
@@ -87,8 +79,6 @@ fn main() -> Result<(), Box<Error>> {
                 rl.add_history_entry(line.as_ref());
 
                 let mut input = VecDeque::new();
-
-                let last = parsed.len() - 1;
 
                 for item in parsed {
                     input = process_command(
@@ -135,17 +125,14 @@ fn process_command(
     let command = &parsed[0].name();
     let arg_list = parsed[1..].iter().map(|i| i.as_value()).collect();
 
-    let streams = Streams::new();
-
     if command == &"format" {
         format(input, context);
 
         Ok(VecDeque::new())
     } else if command == &"format-list" {
         let view = EntriesListView::from_stream(input);
-        let mut ctx = context.lock().unwrap();
 
-        crate::format::print_rendered(&view.render_view(&ctx.host), &mut ctx.host);
+        crate::format::print_view(&view, context.clone());
 
         Ok(VecDeque::new())
     } else {
@@ -155,7 +142,7 @@ fn process_command(
             true => {
                 let mut instance = ctx.create_command(command, arg_list)?;
 
-                let mut result = instance.run(input)?;
+                let result = instance.run(input)?;
                 let mut next = VecDeque::new();
 
                 for v in result {
@@ -180,12 +167,10 @@ fn process_command(
 }
 
 fn format(input: VecDeque<Value>, context: Arc<Mutex<Context>>) {
-    let mut ctx = context.lock().unwrap();
-
     let last = input.len() - 1;
     for (i, item) in input.iter().enumerate() {
         let view = GenericView::new(item);
-        crate::format::print_rendered(&view.render_view(&ctx.host), &mut ctx.host);
+        crate::format::print_view(&view, context.clone());
 
         if last != i {
             println!("");

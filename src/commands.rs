@@ -8,5 +8,4 @@ crate mod select;
 crate mod take;
 crate mod to_array;
 
-crate use command::Command;
 crate use to_array::to_array;

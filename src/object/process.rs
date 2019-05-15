@@ -1,15 +1,7 @@
-use crate::object::base::{Primitive, Value};
-use crate::object::desc::DataDescriptor;
+use crate::object::base::Value;
 use crate::object::dict::Dictionary;
-use crate::MaybeOwned;
-use derive_new::new;
 use itertools::join;
 use sysinfo::ProcessExt;
-
-#[derive(Debug)]
-pub struct Process {
-    dict: Dictionary,
-}
 
 crate fn process_dict(proc: &sysinfo::Process) -> Dictionary {
     let mut dict = Dictionary::default();

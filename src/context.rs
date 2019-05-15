@@ -1,11 +1,8 @@
 use crate::prelude::*;
-use std::collections::BTreeMap;
 use std::error::Error;
 
-pub type Commands = BTreeMap<String, Box<dyn crate::CommandBlueprint>>;
-
 pub struct Context {
-    commands: BTreeMap<String, Box<dyn crate::CommandBlueprint>>,
+    commands: indexmap::IndexMap<String, Box<dyn crate::CommandBlueprint>>,
     crate host: Box<dyn crate::Host>,
     crate env: Environment,
 }
@@ -13,7 +10,7 @@ pub struct Context {
 impl Context {
     crate fn basic() -> Result<Context, Box<Error>> {
         Ok(Context {
-            commands: BTreeMap::new(),
+            commands: indexmap::IndexMap::new(),
             host: Box::new(crate::env::host::BasicHost),
             env: crate::Environment::basic()?,
         })
@@ -23,10 +20,6 @@ impl Context {
         for (name, command) in commands {
             self.commands.insert(name.to_string(), command);
         }
-    }
-
-    crate fn get_command(&mut self, name: &str) -> Option<&dyn crate::CommandBlueprint> {
-        self.commands.get(name).map(|c| &**c)
     }
 
     crate fn has_command(&mut self, name: &str) -> bool {

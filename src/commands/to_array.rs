@@ -1,11 +1,7 @@
 use crate::errors::ShellError;
-use crate::object::process::Process;
-use crate::object::{dir_entry_dict, Value};
+use crate::object::Value;
 use crate::prelude::*;
-use crate::Args;
 use derive_new::new;
-use std::path::{Path, PathBuf};
-use sysinfo::SystemExt;
 
 #[derive(new)]
 pub struct ToArrayBlueprint;
@@ -13,9 +9,9 @@ pub struct ToArrayBlueprint;
 impl crate::CommandBlueprint for ToArrayBlueprint {
     fn create(
         &self,
-        args: Vec<Value>,
-        host: &dyn Host,
-        env: &mut Environment,
+        _args: Vec<Value>,
+        _host: &dyn Host,
+        _env: &mut Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
         Ok(Box::new(ToArray))
     }

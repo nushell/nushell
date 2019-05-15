@@ -5,7 +5,7 @@ use nom::character::complete::one_of;
 use nom::multi::separated_list;
 use nom::sequence::{preceded, terminated};
 use nom::IResult;
-use nom::{complete, named, separated_list, ws};
+use nom::{complete, named, ws};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
@@ -26,8 +26,6 @@ impl Item {
 }
 
 crate fn print_items(items: &[Item]) -> String {
-    let mut out = String::new();
-
     let formatted = items.iter().map(|item| match item {
         Item::Bare(s) => format!("{}", s),
         Item::Quoted(s) => format!("{:?}", s),
@@ -42,7 +40,7 @@ impl Item {
         match self {
             Item::Quoted(s) => s,
             Item::Bare(s) => s,
-            Item::Int(i) => unimplemented!(),
+            Item::Int(_) => unimplemented!(),
         }
     }
 }

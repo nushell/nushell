@@ -1,11 +1,10 @@
+#[allow(unused)]
+use crate::prelude::*;
+
 use crate::object::desc::DataDescriptor;
 use crate::object::{Primitive, Value};
-use crate::prelude::*;
 use crate::MaybeOwned;
-use derive_new::new;
 use indexmap::IndexMap;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Debug, Default)]
 pub struct Dictionary {
@@ -30,7 +29,7 @@ impl Dictionary {
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         self.entries
             .iter()
-            .map(|(name, value)| {
+            .map(|(name, _)| {
                 DataDescriptor::new(name.clone(), true, Box::new(crate::object::types::AnyShell))
             })
             .collect()

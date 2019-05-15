@@ -1,11 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{DataDescriptor, Dictionary, Value};
-use crate::MaybeOwned;
-
-#[derive(Debug)]
-pub struct DirEntry {
-    dict: Dictionary,
-}
+use crate::object::{Dictionary, Value};
 
 #[derive(Debug)]
 pub enum FileType {

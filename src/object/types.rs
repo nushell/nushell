@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::Any;
 
 pub trait Type {
     fn as_any(&self) -> &dyn Any;

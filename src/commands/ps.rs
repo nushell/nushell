@@ -4,8 +4,6 @@ use crate::object::Value;
 use crate::prelude::*;
 use crate::Command;
 use derive_new::new;
-use std::cell::RefCell;
-use std::rc::Rc;
 use sysinfo::SystemExt;
 
 #[derive(new)]
@@ -14,9 +12,9 @@ pub struct PsBlueprint;
 impl crate::CommandBlueprint for PsBlueprint {
     fn create(
         &self,
-        args: Vec<Value>,
-        host: &dyn crate::Host,
-        env: &mut crate::Environment,
+        _args: Vec<Value>,
+        _host: &dyn crate::Host,
+        _env: &mut crate::Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
         Ok(Box::new(Ps::new()))
     }
@@ -26,7 +24,7 @@ impl crate::CommandBlueprint for PsBlueprint {
 pub struct Ps;
 
 impl crate::Command for Ps {
-    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn run(&mut self, _stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
         let mut system = sysinfo::System::new();
         system.refresh_all();
 

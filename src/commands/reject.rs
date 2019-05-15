@@ -1,12 +1,8 @@
 use crate::errors::ShellError;
 use crate::object::base::reject;
-use crate::object::process::Process;
-use crate::object::{dir_entry_dict, Value};
+use crate::object::Value;
 use crate::prelude::*;
-use crate::Args;
 use derive_new::new;
-use std::path::{Path, PathBuf};
-use sysinfo::SystemExt;
 
 #[derive(new)]
 pub struct RejectBlueprint;
@@ -15,8 +11,8 @@ impl crate::CommandBlueprint for RejectBlueprint {
     fn create(
         &self,
         args: Vec<Value>,
-        host: &dyn Host,
-        env: &mut Environment,
+        _host: &dyn Host,
+        _env: &mut Environment,
     ) -> Result<Box<dyn Command>, ShellError> {
         if args.is_empty() {
             return Err(ShellError::string("take requires an integer"));

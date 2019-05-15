@@ -32,7 +32,7 @@ impl EntriesView {
 }
 
 impl RenderView for EntriesView {
-    fn render_view(&self, host: &dyn Host) -> Vec<String> {
+    fn render_view(&self, _host: &dyn Host) -> Vec<String> {
         if self.entries.len() == 0 {
             return vec![];
         }
