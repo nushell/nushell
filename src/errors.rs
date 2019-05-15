@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::Value;
 use derive_new::new;
 
@@ -10,6 +11,13 @@ pub struct ShellError {
 impl ShellError {
     crate fn string(title: impl Into<String>) -> ShellError {
         ShellError::new(title.into(), Value::nothing())
+    }
+
+    crate fn copy_error(&self) -> ShellError {
+        ShellError {
+            title: self.title.clone(),
+            error: self.error.copy(),
+        }
     }
 }
 

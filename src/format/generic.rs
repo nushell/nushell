@@ -13,7 +13,7 @@ pub struct GenericView<'value> {
 impl RenderView for GenericView<'value> {
     fn render_view(&self, host: &dyn Host) -> Vec<String> {
         match self.value {
-            Value::Primitive(p) => vec![p.format()],
+            Value::Primitive(p) => vec![p.format(None)],
             Value::List(l) => {
                 let view = TableView::from_list(l);
 
@@ -43,6 +43,8 @@ impl RenderView for GenericView<'value> {
                 let out = view.render_view(host);
                 out
             }
+
+            Value::Error(e) => vec![format!("{}", e)],
         }
     }
 }

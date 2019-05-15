@@ -8,7 +8,6 @@ use sysinfo::ProcessExt;
 
 #[derive(Debug)]
 pub struct Process {
-    inner: sysinfo::Process,
     dict: Dictionary,
 }
 
@@ -29,13 +28,13 @@ impl Process {
         dict.add("pid", Value::int(inner.pid() as i64));
         dict.add("status", Value::int(inner.status() as i64));
 
-        Process { inner, dict }
+        Process { dict }
     }
 }
 
 impl ShellObject for Process {
     fn to_shell_string(&self) -> String {
-        format!("{} - {}", self.inner.name(), self.inner.pid())
+        format!("Process")
     }
 
     fn data_descriptors(&self) -> Vec<DataDescriptor> {
@@ -44,5 +43,11 @@ impl ShellObject for Process {
 
     fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         self.dict.get_data(desc)
+    }
+
+    fn copy(&self) -> Value {
+        let copy = self.dict.copy_dict();
+
+        Value::Object(Box::new(copy))
     }
 }

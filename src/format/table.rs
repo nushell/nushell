@@ -25,14 +25,15 @@ impl TableView {
         let item = &values[0];
         let descs = item.data_descriptors();
 
-        let headers = descs.iter().map(|d| d.name.clone()).collect();
+        let headers: Vec<String> = descs.iter().map(|d| d.name.clone()).collect();
 
         let mut entries = vec![];
 
         for value in values {
             let row = descs
                 .iter()
-                .map(|d| value.get_data(d).borrow().format_leaf())
+                .enumerate()
+                .map(|(i, d)| value.get_data(d).borrow().format_leaf(Some(&headers[i])))
                 .collect();
 
             entries.push(row);

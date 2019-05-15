@@ -3,6 +3,7 @@ crate mod cd;
 crate mod command;
 crate mod ls;
 crate mod ps;
+crate mod select;
 crate mod take;
 crate mod to_array;
 

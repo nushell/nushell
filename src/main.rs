@@ -66,6 +66,7 @@ fn main() -> Result<(), Box<Error>> {
             ("ls", Box::new(ls::LsBlueprint)),
             ("cd", Box::new(cd::CdBlueprint)),
             ("take", Box::new(take::TakeBlueprint)),
+            ("select", Box::new(select::SelectBlueprint)),
             ("to-array", Box::new(to_array::ToArrayBlueprint)),
         ]);
     }
