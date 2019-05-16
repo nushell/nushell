@@ -3,6 +3,7 @@
 
 #[allow(unused)]
 use crate::prelude::*;
+use std::borrow::Cow::{self, Borrowed, Owned};
 
 mod commands;
 mod context;
@@ -20,10 +21,13 @@ crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
 crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
+use rustyline::completion::{Completer, FilenameCompleter, Pair};
+use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
+use rustyline::hint::{Hinter, HistoryHinter};
 
 use ansi_term::Color;
 use rustyline::error::ReadlineError;
-use rustyline::Editor;
+use rustyline::{ColorMode, Config, Editor, Helper, self};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
@@ -44,8 +48,55 @@ impl<T> MaybeOwned<'a, T> {
     }
 }
 
+struct MyHelper(FilenameCompleter, MatchingBracketHighlighter, HistoryHinter);
+impl Completer for MyHelper {
+    type Candidate = Pair;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+    ) -> Result<(usize, Vec<Pair>), ReadlineError> {
+        self.0.complete(line, pos, ctx)
+    }
+}
+
+impl Hinter for MyHelper {
+    fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
+        self.2.hint(line, pos, ctx)
+    }
+}
+
+impl Highlighter for MyHelper {
+    fn highlight_prompt<'p>(&self, prompt: &'p str) -> Cow<'p, str> {
+        Owned("\x1b[32m".to_owned() + &prompt[0..prompt.len() - 2] + "\x1b[m> ")
+    }
+
+    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
+        Owned("\x1b[1m".to_owned() + hint + "\x1b[m")
+    }
+
+    fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
+        self.1.highlight(line, pos)
+    }
+
+    fn highlight_char(&self, line: &str, pos: usize) -> bool {
+        self.1.highlight_char(line, pos)
+    }
+}
+
+impl Helper for MyHelper {}
+
 fn main() -> Result<(), Box<Error>> {
-    let mut rl = Editor::<()>::new();
+    let config = Config::builder().color_mode(ColorMode::Forced).build();
+    let h = MyHelper(
+        FilenameCompleter::new(),
+        MatchingBracketHighlighter::new(),
+        HistoryHinter {},
+    );
+    let mut rl: Editor<MyHelper> = Editor::with_config(config);
+    rl.set_helper(Some(h));
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
     }
@@ -64,14 +115,14 @@ fn main() -> Result<(), Box<Error>> {
             ("select", Box::new(select::Select)),
             ("reject", Box::new(reject::Reject)),
             ("to-array", Box::new(to_array::ToArray)),
-            ("where", Box::new(where_::Where))
+            ("where", Box::new(where_::Where)),
         ]);
     }
 
     loop {
         let readline = rl.readline(&format!(
             "{}> ",
-            Color::Green.paint(context.lock().unwrap().env.cwd().display().to_string())
+            context.lock().unwrap().env.cwd().display().to_string()
         ));
 
         match readline {
