@@ -1,42 +1,24 @@
 use crate::errors::ShellError;
-use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 
 #[derive(new)]
-pub struct TakeBlueprint;
+pub struct Take;
 
-impl crate::CommandBlueprint for TakeBlueprint {
-    fn create(
-        &self,
-        args: Vec<Value>,
-        _host: &dyn Host,
-        _env: &mut Environment,
-    ) -> Result<Box<dyn Command>, ShellError> {
-        if args.is_empty() {
-            return Err(ShellError::string("take requires an integer"));
-        }
-
-        let amount = args[0].as_int()?;
-
-        Ok(Box::new(Take { amount }))
-    }
-}
-
-#[derive(new)]
-pub struct Take {
-    amount: i64,
-}
+// TODO: "Amount remaining" wrapper
 
 impl crate::Command for Take {
-    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let amount = if stream.len() > self.amount as usize {
-            self.amount as usize
+    fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let amount = args.args[0].as_int()?;
+
+        let amount = if args.input.len() > amount as usize {
+            amount as usize
         } else {
-            stream.len()
+            args.input.len()
         };
 
-        let out: VecDeque<ReturnValue> = stream
+        let out: VecDeque<ReturnValue> = args
+            .input
             .into_iter()
             .take(amount)
             .map(|v| ReturnValue::Value(v))

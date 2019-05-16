@@ -5,35 +5,21 @@ use crate::prelude::*;
 use derive_new::new;
 
 #[derive(new)]
-pub struct RejectBlueprint;
-
-impl crate::CommandBlueprint for RejectBlueprint {
-    fn create(
-        &self,
-        args: Vec<Value>,
-        _host: &dyn Host,
-        _env: &mut Environment,
-    ) -> Result<Box<dyn Command>, ShellError> {
-        if args.is_empty() {
-            return Err(ShellError::string("take requires an integer"));
-        }
-
-        let fields: Result<_, _> = args.iter().map(|a| a.as_string()).collect();
-
-        Ok(Box::new(Reject { fields: fields? }))
-    }
-}
-
-#[derive(new)]
-pub struct Reject {
-    fields: Vec<String>,
-}
+pub struct Reject;
 
 impl crate::Command for Reject {
-    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let objects = stream
+    fn run(&self, args: CommandArgs<'value>) -> Result<VecDeque<ReturnValue>, ShellError> {
+        if args.args.is_empty() {
+            return Err(ShellError::string("select requires a field"));
+        }
+
+        let fields: Result<Vec<String>, _> = args.args.iter().map(|a| a.as_string()).collect();
+        let fields = fields?;
+
+        let objects = args
+            .input
             .iter()
-            .map(|item| Value::Object(reject(item, &self.fields)))
+            .map(|item| Value::Object(reject(item, &fields)))
             .map(|item| ReturnValue::Value(item))
             .collect();
 

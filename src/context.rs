@@ -1,8 +1,9 @@
 use crate::prelude::*;
+
 use std::error::Error;
 
 pub struct Context {
-    commands: indexmap::IndexMap<String, Box<dyn crate::CommandBlueprint>>,
+    commands: indexmap::IndexMap<String, Box<dyn crate::Command>>,
     crate host: Box<dyn crate::Host>,
     crate env: Environment,
 }
@@ -16,7 +17,7 @@ impl Context {
         })
     }
 
-    pub fn add_commands(&mut self, commands: Vec<(&str, Box<dyn crate::CommandBlueprint>)>) {
+    pub fn add_commands(&mut self, commands: Vec<(&str, Box<dyn crate::Command>)>) {
         for (name, command) in commands {
             self.commands.insert(name.to_string(), command);
         }
@@ -26,14 +27,25 @@ impl Context {
         self.commands.contains_key(name)
     }
 
-    crate fn create_command(
-        &mut self,
+    crate fn run_command(
+        &self,
         name: &str,
         arg_list: Vec<Value>,
-    ) -> Result<Box<dyn Command>, ShellError> {
+        input: VecDeque<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let command_args = CommandArgs {
+            host: &self.host,
+            env: &self.env,
+            args: arg_list,
+            input,
+        };
+
         match self.commands.get(name) {
-            Some(command) => Ok(command.create(arg_list, &self.host, &mut self.env)?),
-            None => Err(ShellError::string(format!("Missing command {}", name))),
+            None => Err(ShellError::string(format!(
+                "Command {} did not exist",
+                name
+            ))),
+            Some(command) => command.run(command_args),
         }
     }
 }

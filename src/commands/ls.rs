@@ -1,35 +1,17 @@
 use crate::errors::ShellError;
 use crate::object::{dir_entry_dict, Value};
 use crate::prelude::*;
-use crate::Command;
 use derive_new::new;
-use std::path::PathBuf;
 
 #[derive(new)]
-pub struct LsBlueprint;
-
-impl crate::CommandBlueprint for LsBlueprint {
-    fn create(
-        &self,
-        _args: Vec<Value>,
-        _host: &dyn crate::Host,
-        env: &mut crate::Environment,
-    ) -> Result<Box<dyn Command>, ShellError> {
-        Ok(Box::new(Ls {
-            cwd: env.cwd().to_path_buf(),
-        }))
-    }
-}
-
-#[derive(new)]
-pub struct Ls {
-    cwd: PathBuf,
-}
+pub struct Ls;
 
 impl crate::Command for Ls {
-    fn run(&mut self, _stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn run(&self, args: CommandArgs<'value>) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let cwd = args.env.cwd().to_path_buf();
+
         let entries =
-            std::fs::read_dir(&self.cwd).map_err(|e| ShellError::string(format!("{:?}", e)))?;
+            std::fs::read_dir(&cwd).map_err(|e| ShellError::string(format!("{:?}", e)))?;
 
         let mut shell_entries = VecDeque::new();
 

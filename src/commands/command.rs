@@ -3,6 +3,13 @@ use crate::object::Value;
 use crate::prelude::*;
 use std::path::PathBuf;
 
+pub struct CommandArgs<'caller> {
+    pub host: &'caller dyn Host,
+    pub env: &'caller crate::Environment,
+    pub args: Vec<Value>,
+    pub input: VecDeque<Value>,
+}
+
 pub trait CommandBlueprint {
     fn create(
         &self,
@@ -36,5 +43,5 @@ impl ReturnValue {
 }
 
 pub trait Command {
-    fn run(&mut self, stream: VecDeque<Value>) -> Result<VecDeque<ReturnValue>, ShellError>;
+    fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError>;
 }

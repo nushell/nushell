@@ -1,6 +1,9 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
 
+#[allow(unused)]
+use crate::prelude::*;
+
 mod commands;
 mod context;
 mod env;
@@ -53,13 +56,13 @@ fn main() -> Result<(), Box<Error>> {
         use crate::commands::*;
 
         context.lock().unwrap().add_commands(vec![
-            ("ps", Box::new(ps::PsBlueprint)),
-            ("ls", Box::new(ls::LsBlueprint)),
-            ("cd", Box::new(cd::CdBlueprint)),
-            ("take", Box::new(take::TakeBlueprint)),
-            ("select", Box::new(select::SelectBlueprint)),
-            ("reject", Box::new(reject::RejectBlueprint)),
-            ("to-array", Box::new(to_array::ToArrayBlueprint)),
+            ("ps", Box::new(ps::Ps)),
+            ("ls", Box::new(ls::Ls)),
+            ("cd", Box::new(cd::Cd)),
+            ("take", Box::new(take::Take)),
+            ("select", Box::new(select::Select)),
+            ("reject", Box::new(reject::Reject)),
+            ("to-array", Box::new(to_array::ToArray)),
         ]);
     }
 
@@ -140,9 +143,11 @@ fn process_command(
 
         match ctx.has_command(*command) {
             true => {
-                let mut instance = ctx.create_command(command, arg_list)?;
+                // let mut instance = ctx.create_command(command, arg_list)?;
 
-                let result = instance.run(input)?;
+                let result = ctx.run_command(command, arg_list, input)?;
+
+                // let result = command.run(input_args)?;
                 let mut next = VecDeque::new();
 
                 for v in result {
