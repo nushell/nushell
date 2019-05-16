@@ -120,6 +120,17 @@ impl Value {
         }
     }
 
+    crate fn as_bool(&self) -> Result<bool, ShellError> {
+        match self {
+            Value::Primitive(Primitive::Boolean(b)) => Ok(*b),
+            // TODO: this should definitely be more general with better errors
+            other => Err(ShellError::string(format!(
+                "Expected integer, got {:?}",
+                other
+            ))),
+        }
+    }
+
     crate fn string(s: impl Into<String>) -> Value {
         Value::Primitive(Primitive::String(s.into()))
     }
@@ -130,6 +141,10 @@ impl Value {
 
     crate fn int(s: impl Into<i64>) -> Value {
         Value::Primitive(Primitive::Int(s.into()))
+    }
+
+    crate fn bool(s: impl Into<bool>) -> Value {
+        Value::Primitive(Primitive::Boolean(s.into()))
     }
 
     #[allow(unused)]
@@ -187,4 +202,87 @@ crate fn reject(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
     }
 
     out
+}
+
+crate fn find(obj: &Value, field: &str, op: &str, rhs: &Value) -> bool {
+    let descs = obj.data_descriptors();
+    match descs.iter().find(|d| d.name == *field) {
+        None => false,
+        Some(desc) => {
+            let v = obj.get_data(desc).borrow().copy();
+            //println!("'{:?}' '{}' '{:?}'", v, op, rhs);
+
+            match v {
+                Value::Primitive(Primitive::Boolean(b)) => {
+                    match (op, rhs) {
+                        ("-eq", Value::Primitive(Primitive::Boolean(b2))) => {
+                            b == *b2
+                        }
+                        ("-ne", Value::Primitive(Primitive::Boolean(b2))) => {
+                            b != *b2
+                        }
+                        _ => false
+                    }
+                }
+                Value::Primitive(Primitive::Bytes(i)) => {
+                    match (op, rhs) {
+                        ("-lt", Value::Primitive(Primitive::Int(i2))) => {
+                            i < (*i2 as u128)
+                        }
+                        ("-gt", Value::Primitive(Primitive::Int(i2))) => {
+                            i > (*i2 as u128)
+                        }
+                        ("-le", Value::Primitive(Primitive::Int(i2))) => {
+                            i <= (*i2 as u128)
+                        }
+                        ("-ge", Value::Primitive(Primitive::Int(i2))) => {
+                            i >= (*i2 as u128)
+                        }
+                        ("-eq", Value::Primitive(Primitive::Int(i2))) => {
+                            i == (*i2 as u128)
+                        }
+                        ("-ne", Value::Primitive(Primitive::Int(i2))) => {
+                            i != (*i2 as u128)
+                        }
+                        _ => false
+                    }
+                }
+                Value::Primitive(Primitive::Int(i)) => {
+                    match (op, rhs) {
+                        ("-lt", Value::Primitive(Primitive::Int(i2))) => {
+                            i < *i2
+                        }
+                        ("-gt", Value::Primitive(Primitive::Int(i2))) => {
+                            i > *i2
+                        }
+                        ("-le", Value::Primitive(Primitive::Int(i2))) => {
+                            i <= *i2
+                        }
+                        ("-ge", Value::Primitive(Primitive::Int(i2))) => {
+                            i >= *i2
+                        }
+                        ("-eq", Value::Primitive(Primitive::Int(i2))) => {
+                            i == *i2
+                        }
+                        ("-ne", Value::Primitive(Primitive::Int(i2))) => {
+                            i != *i2
+                        }
+                        _ => false
+                    }
+                }
+                Value::Primitive(Primitive::String(s)) => {
+                    match (op, rhs) {
+                        ("-eq", Value::Primitive(Primitive::String(s2))) => {
+                            s == *s2
+                        }
+                        ("-ne", Value::Primitive(Primitive::String(s2))) => {
+                            s != *s2
+                        }
+                        _ => false
+                    }
+                }
+                _ => false,
+            }
+        }
+    }
 }

@@ -13,6 +13,7 @@ pub enum Item {
     Quoted(String),
     Bare(String),
     Int(i64),
+    Boolean(bool),
 }
 
 impl Item {
@@ -21,6 +22,7 @@ impl Item {
             Item::Quoted(s) => Value::Primitive(Primitive::String(s.clone())),
             Item::Bare(s) => Value::Primitive(Primitive::String(s.clone())),
             Item::Int(i) => Value::Primitive(Primitive::Int(*i)),
+            Item::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)),
         }
     }
 }
@@ -30,6 +32,7 @@ crate fn print_items(items: &[Item]) -> String {
         Item::Bare(s) => format!("{}", s),
         Item::Quoted(s) => format!("{:?}", s),
         Item::Int(i) => format!("{:?}", i),
+        Item::Boolean(b) => format!("{:?}", b),
     });
 
     itertools::join(formatted, " ")
@@ -40,7 +43,7 @@ impl Item {
         match self {
             Item::Quoted(s) => s,
             Item::Bare(s) => s,
-            Item::Int(_) => unimplemented!(),
+            Item::Boolean(_) | Item::Int(_) => unimplemented!(),
         }
     }
 }
@@ -62,8 +65,13 @@ fn int(s: &str) -> IResult<&str, Item> {
     is_a("1234567890")(s).map(|(a, b)| (a, Item::Int(FromStr::from_str(b).unwrap())))
 }
 
+fn boolean(s: &str) -> IResult<&str, Item> {
+    alt((tag("true"), tag("false")))(s)
+        .map(|(a, b)| (a, Item::Boolean(FromStr::from_str(b).unwrap())))
+}
+
 fn command_token(s: &str) -> IResult<&str, Item> {
-    alt((int, quoted, unquoted))(s)
+    alt((boolean, int, quoted, unquoted))(s)
 }
 
 fn command_args(s: &str) -> IResult<&str, Vec<Item>> {
