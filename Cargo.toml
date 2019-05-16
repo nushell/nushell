@@ -2,6 +2,8 @@
 name = "nushell"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>"]
+description = "A shell for the GitHub era"
+license = "ISC"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
