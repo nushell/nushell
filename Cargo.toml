@@ -1,5 +1,5 @@
 [package]
-name = "nushell"
+name = "nu"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>"]
 description = "A shell for the GitHub era"

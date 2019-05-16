@@ -372,6 +372,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "byte-unit 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chrono-humanize 0.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chrono-tz 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "conch-parser 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "derive-new 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dunce 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom 5.0.0-beta1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustyline 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subprocess 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sysinfo 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -396,29 +419,6 @@ dependencies = [
 name = "numtoa"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "nushell"
-version = "0.1.0"
-dependencies = [
- "ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "byte-unit 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "chrono-humanize 0.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
- "chrono-tz 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "conch-parser 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "derive-new 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "dunce 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-core 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "nom 5.0.0-beta1 (registry+https://github.com/rust-lang/crates.io-index)",
- "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustyline 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "subprocess 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
- "sysinfo 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "parse-zoneinfo"
