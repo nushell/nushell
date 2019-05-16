@@ -39,11 +39,12 @@ crate fn print_items(items: &[Item]) -> String {
 }
 
 impl Item {
-    crate fn name(&self) -> &str {
+    crate fn name(&self) -> Result<&str, ShellError> {
         match self {
-            Item::Quoted(s) => s,
-            Item::Bare(s) => s,
-            Item::Boolean(_) | Item::Int(_) => unimplemented!(),
+            Item::Quoted(s) => Ok(s),
+            Item::Bare(s) => Ok(s),
+            Item::Boolean(i) => Err(ShellError::string(format!("{} is not a valid command", i))),
+            Item::Int(i) => Err(ShellError::string(format!("{} is not a valid command", i))),
         }
     }
 }

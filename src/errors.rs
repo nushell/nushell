@@ -21,6 +21,10 @@ impl ShellError {
             error: self.error.copy(),
         }
     }
+
+    crate fn description(&self) -> String {
+        self.title.clone()
+    }
 }
 
 impl std::fmt::Display for ShellError {

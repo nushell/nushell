@@ -120,6 +120,7 @@ impl Value {
         }
     }
 
+    #[allow(unused)]
     crate fn as_bool(&self) -> Result<bool, ShellError> {
         match self {
             Value::Primitive(Primitive::Boolean(b)) => Ok(*b),
@@ -143,6 +144,7 @@ impl Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
+    #[allow(unused)]
     crate fn bool(s: impl Into<bool>) -> Value {
         Value::Primitive(Primitive::Boolean(s.into()))
     }
@@ -213,74 +215,34 @@ crate fn find(obj: &Value, field: &str, op: &str, rhs: &Value) -> bool {
             //println!("'{:?}' '{}' '{:?}'", v, op, rhs);
 
             match v {
-                Value::Primitive(Primitive::Boolean(b)) => {
-                    match (op, rhs) {
-                        ("-eq", Value::Primitive(Primitive::Boolean(b2))) => {
-                            b == *b2
-                        }
-                        ("-ne", Value::Primitive(Primitive::Boolean(b2))) => {
-                            b != *b2
-                        }
-                        _ => false
-                    }
-                }
-                Value::Primitive(Primitive::Bytes(i)) => {
-                    match (op, rhs) {
-                        ("-lt", Value::Primitive(Primitive::Int(i2))) => {
-                            i < (*i2 as u128)
-                        }
-                        ("-gt", Value::Primitive(Primitive::Int(i2))) => {
-                            i > (*i2 as u128)
-                        }
-                        ("-le", Value::Primitive(Primitive::Int(i2))) => {
-                            i <= (*i2 as u128)
-                        }
-                        ("-ge", Value::Primitive(Primitive::Int(i2))) => {
-                            i >= (*i2 as u128)
-                        }
-                        ("-eq", Value::Primitive(Primitive::Int(i2))) => {
-                            i == (*i2 as u128)
-                        }
-                        ("-ne", Value::Primitive(Primitive::Int(i2))) => {
-                            i != (*i2 as u128)
-                        }
-                        _ => false
-                    }
-                }
-                Value::Primitive(Primitive::Int(i)) => {
-                    match (op, rhs) {
-                        ("-lt", Value::Primitive(Primitive::Int(i2))) => {
-                            i < *i2
-                        }
-                        ("-gt", Value::Primitive(Primitive::Int(i2))) => {
-                            i > *i2
-                        }
-                        ("-le", Value::Primitive(Primitive::Int(i2))) => {
-                            i <= *i2
-                        }
-                        ("-ge", Value::Primitive(Primitive::Int(i2))) => {
-                            i >= *i2
-                        }
-                        ("-eq", Value::Primitive(Primitive::Int(i2))) => {
-                            i == *i2
-                        }
-                        ("-ne", Value::Primitive(Primitive::Int(i2))) => {
-                            i != *i2
-                        }
-                        _ => false
-                    }
-                }
-                Value::Primitive(Primitive::String(s)) => {
-                    match (op, rhs) {
-                        ("-eq", Value::Primitive(Primitive::String(s2))) => {
-                            s == *s2
-                        }
-                        ("-ne", Value::Primitive(Primitive::String(s2))) => {
-                            s != *s2
-                        }
-                        _ => false
-                    }
-                }
+                Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {
+                    ("-eq", Value::Primitive(Primitive::Boolean(b2))) => b == *b2,
+                    ("-ne", Value::Primitive(Primitive::Boolean(b2))) => b != *b2,
+                    _ => false,
+                },
+                Value::Primitive(Primitive::Bytes(i)) => match (op, rhs) {
+                    ("-lt", Value::Primitive(Primitive::Int(i2))) => i < (*i2 as u128),
+                    ("-gt", Value::Primitive(Primitive::Int(i2))) => i > (*i2 as u128),
+                    ("-le", Value::Primitive(Primitive::Int(i2))) => i <= (*i2 as u128),
+                    ("-ge", Value::Primitive(Primitive::Int(i2))) => i >= (*i2 as u128),
+                    ("-eq", Value::Primitive(Primitive::Int(i2))) => i == (*i2 as u128),
+                    ("-ne", Value::Primitive(Primitive::Int(i2))) => i != (*i2 as u128),
+                    _ => false,
+                },
+                Value::Primitive(Primitive::Int(i)) => match (op, rhs) {
+                    ("-lt", Value::Primitive(Primitive::Int(i2))) => i < *i2,
+                    ("-gt", Value::Primitive(Primitive::Int(i2))) => i > *i2,
+                    ("-le", Value::Primitive(Primitive::Int(i2))) => i <= *i2,
+                    ("-ge", Value::Primitive(Primitive::Int(i2))) => i >= *i2,
+                    ("-eq", Value::Primitive(Primitive::Int(i2))) => i == *i2,
+                    ("-ne", Value::Primitive(Primitive::Int(i2))) => i != *i2,
+                    _ => false,
+                },
+                Value::Primitive(Primitive::String(s)) => match (op, rhs) {
+                    ("-eq", Value::Primitive(Primitive::String(s2))) => s == *s2,
+                    ("-ne", Value::Primitive(Primitive::String(s2))) => s != *s2,
+                    _ => false,
+                },
                 _ => false,
             }
         }
