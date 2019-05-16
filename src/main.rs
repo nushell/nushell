@@ -59,10 +59,12 @@ fn main() -> Result<(), Box<Error>> {
             ("ps", Box::new(ps::Ps)),
             ("ls", Box::new(ls::Ls)),
             ("cd", Box::new(cd::Cd)),
+            ("skip", Box::new(skip::Skip)),
             ("take", Box::new(take::Take)),
             ("select", Box::new(select::Select)),
             ("reject", Box::new(reject::Reject)),
             ("to-array", Box::new(to_array::ToArray)),
+            ("where", Box::new(where_::Where))
         ]);
     }
 
@@ -73,6 +75,9 @@ fn main() -> Result<(), Box<Error>> {
         ));
 
         match readline {
+            Ok(ref line) if line.trim() == "exit" => {
+                break;
+            }
             Ok(line) => {
                 let result = crate::parser::shell_parser(&line)
                     .map_err(|e| ShellError::string(format!("{:?}", e)))?;

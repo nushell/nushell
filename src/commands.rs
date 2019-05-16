@@ -5,7 +5,9 @@ crate mod ls;
 crate mod ps;
 crate mod reject;
 crate mod select;
+crate mod skip;
 crate mod take;
 crate mod to_array;
+crate mod where_;
 
 crate use to_array::to_array;
