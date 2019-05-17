@@ -389,7 +389,7 @@ dependencies = [
  "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom 5.0.0-beta1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustyline 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustyline 4.0.0 (git+https://github.com/wycats/rustyline.git)",
  "subprocess 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "sysinfo 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -564,7 +564,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "rustyline"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/wycats/rustyline.git#c999735aebe563a9b8c772094fafc7f524677bca"
 dependencies = [
  "dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.54 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -827,7 +827,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum regex 1.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "8f0a0bcab2fd7d1d7c54fa9eae6f43eddeb9ce2e7352f8518a814a4f65d60c58"
 "checksum regex-syntax 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)" = "dcfd8681eebe297b81d98498869d4aae052137651ad7b96822f09ceb690d0a96"
 "checksum rustc-demangle 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "ccc78bfd5acd7bf3e89cffcf899e5cb1a52d6fafa8dec2739ad70c9577a57288"
-"checksum rustyline 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf0a3bbb3167469f834da68a6636b93d4f6838f5438dd53ac02668abee8b997a"
+"checksum rustyline 4.0.0 (git+https://github.com/wycats/rustyline.git)" = "<none>"
 "checksum ryu 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "b96a9549dc8d48f2c283938303c4b5a77aa29bfbc5b54b084fb1630408899a8f"
 "checksum scoped_threadpool 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "1d51f5df5af43ab3f1360b429fa5e0152ac5ce8c0bd6485cae490332e96846a8"
 "checksum scopeguard 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "94258f53601af11e6a49f722422f6e3425c52b06245a5cf9bc09908b174f5e27"

@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<Error>> {
 
         match process_line(readline, context.clone()) {
             LineResult::Success(line) => {
-                rl.add_history_entry(line.as_ref());
+                rl.add_history_entry(line.clone());
             }
 
             LineResult::Error(err) => {
