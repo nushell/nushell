@@ -16,6 +16,7 @@ crate fn process_dict(proc: &sysinfo::Process) -> Dictionary {
     };
 
     dict.add("cmd", cmd_value);
+    dict.add("cpu", Value::float(proc.cpu_usage() as f64));
     dict.add("pid", Value::int(proc.pid() as i64));
     dict.add("status", Value::string(proc.status().to_string()));
 

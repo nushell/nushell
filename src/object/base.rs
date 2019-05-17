@@ -3,14 +3,17 @@ use crate::object::desc::DataDescriptor;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
+use ordered_float::OrderedFloat;
 use std::time::SystemTime;
+
+type OF64 = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Primitive {
     Nothing,
     Int(i64),
     #[allow(unused)]
-    Float(ordered_float::OrderedFloat<f64>),
+    Float(OF64),
     Bytes(u128),
     String(String),
     Boolean(bool),
@@ -36,7 +39,7 @@ impl Primitive {
                 }
             }
             Primitive::Int(i) => format!("{}", i),
-            Primitive::Float(f) => format!("{}", f),
+            Primitive::Float(f) => format!("{:.*}", 2, f.into_inner()),
             Primitive::String(s) => format!("{}", s),
             Primitive::Boolean(b) => match (b, field_name) {
                 (true, None) => format!("Yes"),
@@ -155,6 +158,10 @@ impl Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
+    crate fn float(s: impl Into<OF64>) -> Value {
+        Value::Primitive(Primitive::Float(s.into()))
+    }
+
     #[allow(unused)]
     crate fn bool(s: impl Into<bool>) -> Value {
         Value::Primitive(Primitive::Boolean(s.into()))
@@ -247,6 +254,22 @@ crate fn find(obj: &Value, field: &str, op: &str, rhs: &Value) -> bool {
                     ("-ge", Value::Primitive(Primitive::Int(i2))) => i >= *i2,
                     ("-eq", Value::Primitive(Primitive::Int(i2))) => i == *i2,
                     ("-ne", Value::Primitive(Primitive::Int(i2))) => i != *i2,
+                    _ => false,
+                },
+                Value::Primitive(Primitive::Float(i)) => match (op, rhs) {
+                    ("-lt", Value::Primitive(Primitive::Float(i2))) => i < *i2,
+                    ("-gt", Value::Primitive(Primitive::Float(i2))) => i > *i2,
+                    ("-le", Value::Primitive(Primitive::Float(i2))) => i <= *i2,
+                    ("-ge", Value::Primitive(Primitive::Float(i2))) => i >= *i2,
+                    ("-eq", Value::Primitive(Primitive::Float(i2))) => i == *i2,
+                    ("-ne", Value::Primitive(Primitive::Float(i2))) => i != *i2,
+                    ("-lt", Value::Primitive(Primitive::Int(i2))) => (i.into_inner()) < *i2 as f64,
+                    ("-gt", Value::Primitive(Primitive::Int(i2))) => i.into_inner() > *i2 as f64,
+                    ("-le", Value::Primitive(Primitive::Int(i2))) => i.into_inner() <= *i2 as f64,
+                    ("-ge", Value::Primitive(Primitive::Int(i2))) => i.into_inner() >= *i2 as f64,
+                    ("-eq", Value::Primitive(Primitive::Int(i2))) => i.into_inner() == *i2 as f64,
+                    ("-ne", Value::Primitive(Primitive::Int(i2))) => i.into_inner() != *i2 as f64,
+
                     _ => false,
                 },
                 Value::Primitive(Primitive::String(s)) => match (op, rhs) {
