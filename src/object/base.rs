@@ -54,6 +54,8 @@ pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
     List(Vec<Value>),
+
+    #[allow(unused)]
     Error(Box<ShellError>),
 }
 
@@ -149,11 +151,11 @@ impl Value {
         Value::Primitive(Primitive::Boolean(s.into()))
     }
 
-    #[allow(unused)]
     crate fn system_date(s: SystemTime) -> Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
+    #[allow(unused)]
     crate fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
         match s {
             Ok(time) => Value::Primitive(Primitive::Date(time.into())),

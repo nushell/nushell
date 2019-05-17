@@ -49,7 +49,8 @@ fn main() -> Result<(), Box<Error>> {
     let h = crate::shell::Helper::new();
     let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
 
-    if cfg!(windows) {
+    #[cfg(windows)]
+    {
         let _ = ansi_term::enable_ansi_support();
     }
 

@@ -32,9 +32,20 @@ crate fn dir_entry_dict(entry: &std::fs::DirEntry) -> Result<Dictionary, ShellEr
 
     dict.add("size", Value::bytes(metadata.len() as u128));
 
-    dict.add("created", Value::system_date_result(metadata.created()));
-    dict.add("accessed", Value::system_date_result(metadata.accessed()));
-    dict.add("modified", Value::system_date_result(metadata.modified()));
+    match metadata.created() {
+        Ok(c) => dict.add("created", Value::system_date(c)),
+        Err(_) => {}
+    }
+
+    match metadata.accessed() {
+        Ok(a) => dict.add("accessed", Value::system_date(a)),
+        Err(_) => {}
+    }
+
+    match metadata.modified() {
+        Ok(m) => dict.add("modified", Value::system_date(m)),
+        Err(_) => {}
+    }
 
     Ok(dict)
 }
