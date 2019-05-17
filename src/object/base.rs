@@ -5,12 +5,12 @@ use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use std::time::SystemTime;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Primitive {
     Nothing,
     Int(i64),
     #[allow(unused)]
-    Float(f64),
+    Float(ordered_float::OrderedFloat<f64>),
     Bytes(u128),
     String(String),
     Boolean(bool),
@@ -49,7 +49,7 @@ impl Primitive {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
@@ -66,6 +66,15 @@ impl Value {
             Value::Object(o) => o.data_descriptors(),
             Value::List(_) => vec![],
             Value::Error(_) => vec![],
+        }
+    }
+
+    crate fn get_data_by_key(&'a self, name: &str) -> crate::MaybeOwned<'a, Value> {
+        match self {
+            Value::Primitive(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Object(o) => o.get_data_by_key(name),
+            Value::List(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => crate::MaybeOwned::Owned(Value::nothing()),
         }
     }
 

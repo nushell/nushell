@@ -4,7 +4,7 @@ use crate::prelude::*;
 use crate::Value;
 use derive_new::new;
 
-#[derive(Debug, new)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new)]
 pub struct ShellError {
     title: String,
     error: Value,
