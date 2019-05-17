@@ -6,6 +6,7 @@ crate mod ps;
 crate mod reject;
 crate mod select;
 crate mod skip;
+crate mod sort_by;
 crate mod take;
 crate mod to_array;
 crate mod where_;

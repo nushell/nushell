@@ -74,6 +74,7 @@ fn main() -> Result<(), Box<Error>> {
             ("reject", Box::new(reject::Reject)),
             ("to-array", Box::new(to_array::ToArray)),
             ("where", Box::new(where_::Where)),
+            ("sort-by", Box::new(sort_by::SortBy)),
         ]);
     }
 
