@@ -48,6 +48,11 @@ fn main() -> Result<(), Box<Error>> {
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let h = crate::shell::Helper::new();
     let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
+
+    if cfg!(windows) {
+        let _ = ansi_term::enable_ansi_support();
+    }
+
     rl.set_helper(Some(h));
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
