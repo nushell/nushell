@@ -15,23 +15,12 @@ impl Completer for NuCompleter {
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
-        let mut pairs = vec![
-            completion::Pair {
-                display: "exit".to_string(),
-                replacement: "exit".to_string(),
-            },
-            completion::Pair {
-                display: "ls".to_string(),
-                replacement: "ls".to_string(),
-            },
-            completion::Pair {
-                display: "ps".to_string(),
-                replacement: "ps".to_string(),
-            },
+        let commands = [
+            "ps", "ls", "cd", "bat", "skip", "take", "select", "reject", "to-array", "where",
+            "sort-by",
         ];
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;
-        completions.append(&mut pairs);
 
         let line_chars: Vec<_> = line.chars().collect();
         let mut replace_pos = pos;
@@ -40,6 +29,30 @@ impl Completer for NuCompleter {
                 break;
             }
             replace_pos -= 1;
+        }
+
+        for command in commands.iter() {
+            let mut pos = replace_pos;
+            let mut matched = true;
+            if pos < line_chars.len() {
+                for chr in command.chars() {
+                    if line_chars[pos] != chr {
+                        matched = false;
+                        break;
+                    }
+                    pos += 1;
+                    if pos == line_chars.len() {
+                        break;
+                    }
+                }
+            }
+
+            if matched {
+                completions.push(completion::Pair {
+                    display: command.to_string(),
+                    replacement: command.to_string(),
+                });
+            }
         }
 
         Ok((replace_pos, completions))
