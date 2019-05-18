@@ -65,18 +65,16 @@ impl Item {
             Item::Operator(o) => Value::Primitive(Primitive::Operator(o.clone())),
         }
     }
-}
 
-crate fn print_items(items: &[Item]) -> String {
-    let formatted = items.iter().map(|item| match item {
-        Item::Bare(s) => format!("{}", s),
-        Item::Quoted(s) => format!("{:?}", s),
-        Item::Int(i) => format!("{:?}", i),
-        Item::Boolean(b) => format!("{:?}", b),
-        Item::Operator(o) => o.print(),
-    });
-
-    itertools::join(formatted, " ")
+    pub fn print(&self) -> String {
+        match self {
+            Item::Bare(s) => format!("{}", s),
+            Item::Quoted(s) => format!("{}", s),
+            Item::Int(i) => format!("{:?}", i),
+            Item::Boolean(b) => format!("{:?}", b),
+            Item::Operator(o) => o.print(),
+        }
+    }
 }
 
 impl Item {
