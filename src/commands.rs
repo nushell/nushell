@@ -1,4 +1,5 @@
 crate mod args;
+crate mod bat;
 crate mod cd;
 crate mod command;
 crate mod ls;
