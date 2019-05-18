@@ -145,7 +145,6 @@ fn process_line(
 
             for item in parsed {
                 input = match process_command(
-                    crate::parser::print_items(&item),
                     item.clone(),
                     input,
                     context.clone(),
@@ -181,13 +180,13 @@ fn process_line(
 }
 
 fn process_command(
-    line: String,
     parsed: Vec<crate::parser::Item>,
     input: VecDeque<Value>,
     context: Arc<Mutex<Context>>,
 ) -> Result<VecDeque<Value>, ShellError> {
     let command = &parsed[0].name()?;
     let arg_list = parsed[1..].iter().map(|i| i.as_value()).collect();
+    let arg_list_strings: Vec<String> = parsed[1..].iter().map(|i| i.print()).collect();
 
     if command == &"format" {
         format(input, context);
@@ -225,7 +224,11 @@ fn process_command(
             }
 
             false => {
-                Exec::shell(line).cwd(ctx.env.cwd()).join().unwrap();
+                Exec::shell(command)
+                    .args(&arg_list_strings)
+                    .cwd(ctx.env.cwd())
+                    .join()
+                    .unwrap();
                 Ok(VecDeque::new())
             }
         }
