@@ -4,9 +4,9 @@ use derive_new::new;
 use prettyprint::PrettyPrinter;
 
 #[derive(new)]
-pub struct Bat;
+pub struct View;
 
-impl crate::Command for Bat {
+impl crate::Command for View {
     fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
         let target = match args.args.first() {
             // TODO: This needs better infra

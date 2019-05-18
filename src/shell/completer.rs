@@ -16,7 +16,7 @@ impl Completer for NuCompleter {
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
         let commands = [
-            "ps", "ls", "cd", "bat", "skip", "take", "select", "reject", "to-array", "where",
+            "ps", "ls", "cd", "view", "skip", "take", "select", "reject", "to-array", "where",
             "sort-by",
         ];
 
