@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<Error>> {
             ("ps", Box::new(ps::Ps)),
             ("ls", Box::new(ls::Ls)),
             ("cd", Box::new(cd::Cd)),
-            ("bat", Box::new(bat::Bat)),
+            ("view", Box::new(view::View)),
             ("skip", Box::new(skip::Skip)),
             ("take", Box::new(take::Take)),
             ("select", Box::new(select::Select)),
