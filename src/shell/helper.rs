@@ -1,6 +1,6 @@
-use crate::shell::completer::{NuCompleter, NuPair};
+use crate::shell::completer::NuCompleter;
 
-use rustyline::completion::Completer;
+use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::{Hinter, HistoryHinter};
@@ -15,7 +15,9 @@ crate struct Helper {
 impl Helper {
     crate fn new() -> Helper {
         Helper {
-            completer: NuCompleter,
+            completer: NuCompleter {
+                file_completer: FilenameCompleter::new(),
+            },
             highlighter: MatchingBracketHighlighter::new(),
             hinter: HistoryHinter {},
         }
@@ -23,14 +25,14 @@ impl Helper {
 }
 
 impl Completer for Helper {
-    type Candidate = NuPair;
+    type Candidate = completion::Pair;
 
     fn complete(
         &self,
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<NuPair>), ReadlineError> {
+    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
         self.completer.complete(line, pos, ctx)
     }
 }
