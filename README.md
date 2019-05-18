@@ -38,7 +38,7 @@ Priority #3: It's an object shell like PowerShell.
 # A Taste of Nu
 
 ```text
-~\Code\nushell> ps | where cpu -gt 0
+~\Code\nushell> ps | where cpu > 0
 +-------------------+-----+-------+-------+----------+
 | name              | cmd | cpu   | pid   | status   |
 +-------------------+-----+-------+-------+----------+
@@ -53,7 +53,7 @@ Priority #3: It's an object shell like PowerShell.
 | BlueJeans.exe     | -   | 7.83  | 6968  | Runnable |
 +-------------------+-----+-------+-------+----------+
 
-~\Code\nushell> ps | where name -eq chrome.exe | take 10
+~\Code\nushell> ps | where name == chrome.exe | take 10
 
 +------------+-----+------+-------+----------+
 | name       | cmd | cpu  | pid   | status   |
