@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Yehuda Katz <wycats@gmail.com>"]
 description = "A shell for the GitHub era"
 license = "ISC"
