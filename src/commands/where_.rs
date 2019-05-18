@@ -15,16 +15,21 @@ impl crate::Command for Where {
         let field: Result<String, _> = args.args[0].as_string();
         let field = field?;
 
-        let op: Result<String, _> = args.args[1].as_string();
-        let op = op?;
+        match args.args[1] {
+            Value::Primitive(Primitive::Operator(ref operator)) => {
+                let objects = args
+                    .input
+                    .iter()
+                    .filter(|item| find(&item, &field, operator, &args.args[2]))
+                    .map(|item| ReturnValue::Value(item.copy()))
+                    .collect();
 
-        let objects = args
-            .input
-            .iter()
-            .filter(|item| find(&item, &field, &op, &args.args[2]))
-            .map(|item| ReturnValue::Value(item.copy()))
-            .collect();
-
-        Ok(objects)
+                Ok(objects)
+            }
+            ref x => {
+                println!("{:?}", x);
+                Err(ShellError::string("expected a comparison operator"))
+            }
+        }
     }
 }
