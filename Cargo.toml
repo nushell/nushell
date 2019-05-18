@@ -9,7 +9,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = { version = "4.0.0", git = "https://github.com/wycats/rustyline.git" } 
+rustyline = "4.0.0"
 sysinfo = "0.8.3"
 chrono = "0.4.6"
 chrono-tz = "0.5.1"
