@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::prelude::*;
 use derive_new::new;
+use std::env;
 
 #[derive(new)]
 pub struct Cd;
@@ -17,6 +18,7 @@ impl crate::Command for Cd {
 
         let mut stream = VecDeque::new();
         let path = dunce::canonicalize(cwd.join(&target).as_path())?;
+        let _ = env::set_current_dir(&path);
         stream.push_back(ReturnValue::change_cwd(path));
         Ok(stream)
     }
