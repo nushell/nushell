@@ -15,7 +15,7 @@ impl completion::Completer for Completer {
         _pos: usize,
         _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
-        let pairs = self
+        let pairs: Vec<completion::Pair> = self
             .commands
             .keys()
             .map(|k| completion::Pair {
