@@ -14,8 +14,9 @@ mod parser;
 mod prelude;
 mod shell;
 
+use crate::commands::classified::{ClassifiedCommand, ExternalCommand, InternalCommand};
 use crate::commands::command::ReturnValue;
-crate use crate::commands::command::{Command, CommandAction, CommandBlueprint};
+crate use crate::commands::command::{Command, CommandAction};
 use crate::context::Context;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
@@ -26,8 +27,7 @@ use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
 use std::collections::VecDeque;
 use std::error::Error;
-use std::sync::{Arc, Mutex};
-use subprocess::Exec;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -59,39 +59,38 @@ fn main() -> Result<(), Box<Error>> {
         println!("No previous history.");
     }
 
-    let context = Arc::new(Mutex::new(Context::basic()?));
+    let mut context = Context::basic()?;
 
     {
         use crate::commands::*;
 
-        context.lock().unwrap().add_commands(vec![
-            ("ps", Box::new(ps::Ps)),
-            ("ls", Box::new(ls::Ls)),
-            ("cd", Box::new(cd::Cd)),
-            ("view", Box::new(view::View)),
-            ("skip", Box::new(skip::Skip)),
-            ("take", Box::new(take::Take)),
-            ("select", Box::new(select::Select)),
-            ("reject", Box::new(reject::Reject)),
-            ("to-array", Box::new(to_array::ToArray)),
-            ("where", Box::new(where_::Where)),
-            ("sort-by", Box::new(sort_by::SortBy)),
+        context.add_commands(vec![
+            ("format", Arc::new(format)),
+            ("format-list", Arc::new(format_list)),
+            ("ps", Arc::new(ps::ps)),
+            ("ls", Arc::new(ls::ls)),
+            ("cd", Arc::new(cd::cd)),
+            ("view", Arc::new(view::view)),
+            ("skip", Arc::new(skip::skip)),
+            ("take", Arc::new(take::take)),
+            ("select", Arc::new(select::select)),
+            ("reject", Arc::new(reject::reject)),
+            ("to-array", Arc::new(to_array::to_array)),
+            ("where", Arc::new(where_::r#where)),
+            ("sort-by", Arc::new(sort_by::sort_by)),
         ]);
     }
 
     loop {
-        let readline = rl.readline(&format!(
-            "{}> ",
-            context.lock().unwrap().env.cwd().display().to_string()
-        ));
+        let readline = rl.readline(&format!("{}> ", context.env.cwd().display().to_string()));
 
-        match process_line(readline, context.clone()) {
+        match process_line(readline, &mut context) {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
             }
 
             LineResult::Error(err) => {
-                context.lock().unwrap().host.stdout(&err);
+                context.host.stdout(&err);
             }
 
             LineResult::Break => {
@@ -100,8 +99,6 @@ fn main() -> Result<(), Box<Error>> {
 
             LineResult::FatalError(err) => {
                 context
-                    .lock()
-                    .unwrap()
                     .host
                     .stdout(&format!("A surprising fatal error occurred.\n{:?}", err));
             }
@@ -121,10 +118,7 @@ enum LineResult {
     FatalError(ShellError),
 }
 
-fn process_line(
-    readline: Result<String, ReadlineError>,
-    context: Arc<Mutex<Context>>,
-) -> LineResult {
+fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "exit" => LineResult::Break,
 
@@ -144,11 +138,7 @@ fn process_line(
             let mut input = VecDeque::new();
 
             for item in parsed {
-                input = match process_command(
-                    item.clone(),
-                    input,
-                    context.clone(),
-                ) {
+                input = match process_command(item.clone(), input, ctx) {
                     Ok(val) => val,
                     Err(err) => return LineResult::Error(format!("{}", err.description())),
                 };
@@ -156,9 +146,18 @@ fn process_line(
 
             if input.len() > 0 {
                 if equal_shapes(&input) {
-                    format(crate::commands::to_array(input), context.clone());
+                    let array = crate::commands::stream_to_array(input);
+                    let args = CommandArgs::from_context(ctx, vec![], array);
+                    match format(args) {
+                        Ok(_) => {}
+                        Err(err) => return LineResult::Error(err.to_string()),
+                    }
                 } else {
-                    format(input, context.clone());
+                    let args = CommandArgs::from_context(ctx, vec![], input);
+                    match format(args) {
+                        Ok(_) => {}
+                        Err(err) => return LineResult::Error(err.to_string()),
+                    }
                 }
             }
 
@@ -182,69 +181,58 @@ fn process_line(
 fn process_command(
     parsed: Vec<crate::parser::Item>,
     input: VecDeque<Value>,
-    context: Arc<Mutex<Context>>,
+    context: &mut Context,
 ) -> Result<VecDeque<Value>, ShellError> {
-    let command = &parsed[0].name()?;
-    let arg_list = parsed[1..].iter().map(|i| i.as_value()).collect();
-    let arg_list_strings: Vec<String> = parsed[1..].iter().map(|i| i.print()).collect();
+    let command = classify_command(&parsed, context)?;
 
-    if command == &"format" {
-        format(input, context);
+    command.run(input, context)
+}
 
-        Ok(VecDeque::new())
-    } else if command == &"format-list" {
-        let view = EntriesListView::from_stream(input);
+fn classify_command(
+    command: &[crate::parser::Item],
+    context: &Context,
+) -> Result<ClassifiedCommand, ShellError> {
+    let command_name = &command[0].name()?;
 
-        crate::format::print_view(&view, context.clone());
+    let arg_list: Vec<Value> = command[1..].iter().map(|i| i.as_value()).collect();
+    let arg_list_strings: Vec<String> = command[1..].iter().map(|i| i.print()).collect();
 
-        Ok(VecDeque::new())
-    } else {
-        let mut ctx = context.lock().unwrap();
-
-        match ctx.has_command(*command) {
+    match *command_name {
+        other => match context.has_command(*command_name) {
             true => {
-                // let mut instance = ctx.create_command(command, arg_list)?;
-
-                let result = ctx.run_command(command, arg_list, input)?;
-
-                // let result = command.run(input_args)?;
-                let mut next = VecDeque::new();
-
-                for v in result {
-                    match v {
-                        ReturnValue::Action(action) => match action {
-                            crate::CommandAction::ChangeCwd(cwd) => ctx.env.cwd = cwd,
-                        },
-
-                        ReturnValue::Value(v) => next.push_back(v),
-                    }
-                }
-
-                Ok(next)
+                let command = context.get_command(command_name);
+                Ok(ClassifiedCommand::Internal(InternalCommand {
+                    command,
+                    args: arg_list,
+                }))
             }
-
-            false => {
-                Exec::shell(command)
-                    .args(&arg_list_strings)
-                    .cwd(ctx.env.cwd())
-                    .join()
-                    .unwrap();
-                Ok(VecDeque::new())
-            }
-        }
+            false => Ok(ClassifiedCommand::External(ExternalCommand {
+                name: other.to_string(),
+                args: arg_list_strings,
+            })),
+        },
     }
 }
 
-fn format(input: VecDeque<Value>, context: Arc<Mutex<Context>>) {
-    let last = input.len() - 1;
-    for (i, item) in input.iter().enumerate() {
+fn format(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+    let last = args.input.len() - 1;
+    for (i, item) in args.input.iter().enumerate() {
         let view = GenericView::new(item);
-        crate::format::print_view(&view, context.clone());
+        crate::format::print_view(&view, args.host);
 
         if last != i {
             println!("");
         }
     }
+
+    Ok(VecDeque::new())
+}
+
+fn format_list(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+    let view = EntriesListView::from_stream(args.input);
+    crate::format::print_view(&view, args.host);
+
+    Ok(VecDeque::new())
 }
 
 fn equal_shapes(input: &VecDeque<Value>) -> bool {

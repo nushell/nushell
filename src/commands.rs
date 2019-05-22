@@ -1,5 +1,6 @@
 crate mod args;
 crate mod cd;
+crate mod classified;
 crate mod command;
 crate mod ls;
 crate mod ps;
@@ -12,4 +13,4 @@ crate mod to_array;
 crate mod view;
 crate mod where_;
 
-crate use to_array::to_array;
+crate use to_array::stream_to_array;

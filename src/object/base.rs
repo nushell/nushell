@@ -1,11 +1,11 @@
 use crate::errors::ShellError;
 use crate::object::desc::DataDescriptor;
+use crate::parser::parse::Operator;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use ordered_float::OrderedFloat;
 use std::time::SystemTime;
-use crate::parser::parse::Operator;
 
 type OF64 = OrderedFloat<f64>;
 
@@ -50,7 +50,7 @@ impl Primitive {
                 (false, Some(_)) => format!(""),
             },
             Primitive::Date(d) => format!("{}", d.humanize()),
-            Primitive::Operator(o) => o.print()
+            Primitive::Operator(o) => o.print(),
         }
     }
 }
@@ -196,7 +196,7 @@ impl Value {
     }
 }
 
-crate fn select(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
+crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
     let mut out = crate::object::Dictionary::default();
 
     let descs = obj.data_descriptors();
@@ -211,7 +211,7 @@ crate fn select(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
     out
 }
 
-crate fn reject(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
+crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
     let mut out = crate::object::Dictionary::default();
 
     let descs = obj.data_descriptors();
@@ -243,18 +243,28 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
                 },
                 Value::Primitive(Primitive::Bytes(i)) => match (op, rhs) {
                     (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < (*i2 as u128),
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => i > (*i2 as u128),
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i <= (*i2 as u128),
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i >= (*i2 as u128),
+                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
+                        i > (*i2 as u128)
+                    }
+                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i <= (*i2 as u128)
+                    }
+                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i >= (*i2 as u128)
+                    }
                     (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == (*i2 as u128),
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != (*i2 as u128),
+                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i != (*i2 as u128)
+                    }
                     _ => false,
                 },
                 Value::Primitive(Primitive::Int(i)) => match (op, rhs) {
                     (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < *i2,
                     (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => i > *i2,
                     (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i <= *i2,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i >= *i2,
+                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i >= *i2
+                    }
                     (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == *i2,
                     (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != *i2,
                     _ => false,
@@ -263,15 +273,29 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
                     (Operator::LessThan, Value::Primitive(Primitive::Float(i2))) => i < *i2,
                     (Operator::GreaterThan, Value::Primitive(Primitive::Float(i2))) => i > *i2,
                     (Operator::LessThanOrEqual, Value::Primitive(Primitive::Float(i2))) => i <= *i2,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Float(i2))) => i >= *i2,
+                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Float(i2))) => {
+                        i >= *i2
+                    }
                     (Operator::Equal, Value::Primitive(Primitive::Float(i2))) => i == *i2,
                     (Operator::NotEqual, Value::Primitive(Primitive::Float(i2))) => i != *i2,
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => (i.into_inner()) < *i2 as f64,
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => i.into_inner() > *i2 as f64,
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i.into_inner() <= *i2 as f64,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i.into_inner() >= *i2 as f64,
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i.into_inner() == *i2 as f64,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i.into_inner() != *i2 as f64,
+                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
+                        (i.into_inner()) < *i2 as f64
+                    }
+                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
+                        i.into_inner() > *i2 as f64
+                    }
+                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i.into_inner() <= *i2 as f64
+                    }
+                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i.into_inner() >= *i2 as f64
+                    }
+                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
+                        i.into_inner() == *i2 as f64
+                    }
+                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        i.into_inner() != *i2 as f64
+                    }
 
                     _ => false,
                 },

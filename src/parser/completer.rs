@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 
 #[allow(unused)]
 crate struct Completer {
-    commands: BTreeMap<String, Box<dyn crate::CommandBlueprint>>,
+    commands: BTreeMap<String, Box<dyn crate::Command>>,
 }
 
 impl completion::Completer for Completer {

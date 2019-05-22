@@ -5,9 +5,6 @@ crate mod table;
 
 use crate::prelude::*;
 
-use crate::Context;
-use std::sync::{Arc, Mutex};
-
 crate use entries::{EntriesListView, EntriesView};
 crate use generic::GenericView;
 crate use table::TableView;
@@ -22,7 +19,7 @@ fn print_rendered(lines: &[String], host: &mut dyn Host) {
     }
 }
 
-crate fn print_view(view: &impl RenderView, context: Arc<Mutex<Context>>) {
-    let mut ctx = context.lock().unwrap();
-    crate::format::print_rendered(&view.render_view(&ctx.host), &mut ctx.host);
+crate fn print_view(view: &impl RenderView, host: &mut Host) {
+    // let mut ctx = context.lock().unwrap();
+    crate::format::print_rendered(&view.render_view(host), host);
 }

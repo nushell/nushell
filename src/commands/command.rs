@@ -1,22 +1,29 @@
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
+use crate::Context;
 use std::path::PathBuf;
 
 pub struct CommandArgs<'caller> {
-    pub host: &'caller dyn Host,
+    pub host: &'caller mut dyn Host,
     pub env: &'caller crate::Environment,
     pub args: Vec<Value>,
     pub input: VecDeque<Value>,
 }
 
-pub trait CommandBlueprint {
-    fn create(
-        &self,
-        input: Vec<Value>,
-        host: &dyn crate::Host,
-        env: &mut crate::Environment,
-    ) -> Result<Box<dyn Command>, ShellError>;
+impl CommandArgs<'caller> {
+    crate fn from_context(
+        ctx: &'caller mut Context,
+        args: Vec<Value>,
+        input: VecDeque<Value>,
+    ) -> CommandArgs<'caller> {
+        CommandArgs {
+            host: &mut ctx.host,
+            env: &ctx.env,
+            args,
+            input,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -44,4 +51,13 @@ impl ReturnValue {
 
 pub trait Command {
     fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError>;
+}
+
+impl<F> Command for F
+where
+    F: Fn(CommandArgs<'_>) -> Result<VecDeque<ReturnValue>, ShellError>,
+{
+    fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+        self(args)
+    }
 }

@@ -1,9 +1,10 @@
 use crate::prelude::*;
 
 use std::error::Error;
+use std::sync::Arc;
 
 pub struct Context {
-    commands: indexmap::IndexMap<String, Box<dyn crate::Command>>,
+    commands: indexmap::IndexMap<String, Arc<dyn crate::Command>>,
     crate host: Box<dyn crate::Host>,
     crate env: Environment,
 }
@@ -17,35 +18,33 @@ impl Context {
         })
     }
 
-    pub fn add_commands(&mut self, commands: Vec<(&str, Box<dyn crate::Command>)>) {
+    pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn crate::Command>)>) {
         for (name, command) in commands {
             self.commands.insert(name.to_string(), command);
         }
     }
 
-    crate fn has_command(&mut self, name: &str) -> bool {
+    crate fn has_command(&self, name: &str) -> bool {
         self.commands.contains_key(name)
     }
 
+    crate fn get_command(&self, name: &str) -> Arc<dyn Command> {
+        self.commands.get(name).unwrap().clone()
+    }
+
     crate fn run_command(
-        &self,
-        name: &str,
+        &mut self,
+        command: Arc<dyn Command>,
         arg_list: Vec<Value>,
         input: VecDeque<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         let command_args = CommandArgs {
-            host: &self.host,
+            host: &mut self.host,
             env: &self.env,
             args: arg_list,
             input,
         };
 
-        match self.commands.get(name) {
-            None => Err(ShellError::string(format!(
-                "Command {} did not exist",
-                name
-            ))),
-            Some(command) => command.run(command_args),
-        }
+        command.run(command_args)
     }
 }
