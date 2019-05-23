@@ -3,22 +3,22 @@ use crate::object::Value;
 use crate::prelude::*;
 use std::path::PathBuf;
 
-pub struct CommandArgs<'caller> {
-    pub host: &'caller mut dyn Host,
-    pub env: &'caller Environment,
+pub struct CommandArgs {
+    pub host: Arc<Mutex<dyn Host>>,
+    pub env: Arc<Mutex<Environment>>,
     pub args: Vec<Value>,
-    pub input: VecDeque<Value>,
+    pub input: InputStream,
 }
 
-impl CommandArgs<'caller> {
+impl CommandArgs {
     crate fn from_context(
         ctx: &'caller mut Context,
         args: Vec<Value>,
-        input: VecDeque<Value>,
-    ) -> CommandArgs<'caller> {
+        input: InputStream,
+    ) -> CommandArgs {
         CommandArgs {
-            host: &mut ctx.host,
-            env: &ctx.env,
+            host: ctx.host.clone(),
+            env: ctx.env.clone(),
             args,
             input,
         }
@@ -49,14 +49,14 @@ impl ReturnValue {
 }
 
 pub trait Command {
-    fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError>;
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
 }
 
 impl<F> Command for F
 where
-    F: Fn(CommandArgs<'_>) -> Result<VecDeque<ReturnValue>, ShellError>,
+    F: Fn(CommandArgs) -> Result<OutputStream, ShellError>,
 {
-    fn run(&self, args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
         self(args)
     }
 }

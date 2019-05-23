@@ -2,8 +2,8 @@ use crate::errors::ShellError;
 use crate::object::{dir_entry_dict, Value};
 use crate::prelude::*;
 
-pub fn ls(args: CommandArgs<'value>) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let cwd = args.env.cwd().to_path_buf();
+pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let cwd = args.env.lock().unwrap().cwd().to_path_buf();
 
     let entries = std::fs::read_dir(&cwd).map_err(|e| ShellError::string(format!("{:?}", e)))?;
 
@@ -14,5 +14,5 @@ pub fn ls(args: CommandArgs<'value>) -> Result<VecDeque<ReturnValue>, ShellError
         shell_entries.push_back(ReturnValue::Value(value))
     }
 
-    Ok(shell_entries)
+    Ok(shell_entries.boxed())
 }

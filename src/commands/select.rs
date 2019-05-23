@@ -3,7 +3,7 @@ use crate::object::base::select_fields;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn select(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.args.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
@@ -13,10 +13,9 @@ pub fn select(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, Shell
 
     let objects = args
         .input
-        .iter()
-        .map(|item| Value::Object(select_fields(item, &fields)))
-        .map(|item| ReturnValue::Value(item))
-        .collect();
+        .map(move |item| Value::Object(select_fields(&item, &fields)))
+        .map(|item| ReturnValue::Value(item));
 
-    Ok(objects)
+    let stream = Pin::new(Box::new(objects));
+    Ok(stream)
 }

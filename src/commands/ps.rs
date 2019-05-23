@@ -4,7 +4,7 @@ use crate::object::Value;
 use crate::prelude::*;
 use sysinfo::SystemExt;
 
-pub fn ps(_args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn ps(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut system = sysinfo::System::new();
     system.refresh_all();
 
@@ -15,5 +15,5 @@ pub fn ps(_args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellErr
         .map(|(_, process)| ReturnValue::Value(Value::Object(process_dict(process))))
         .collect::<VecDeque<_>>();
 
-    Ok(list)
+    Ok(list.boxed())
 }

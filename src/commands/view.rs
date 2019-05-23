@@ -2,14 +2,14 @@ use crate::errors::ShellError;
 use crate::prelude::*;
 use prettyprint::PrettyPrinter;
 
-pub fn view(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let target = match args.args.first() {
         // TODO: This needs better infra
         None => return Err(ShellError::string(format!("cat must take one arg"))),
         Some(v) => v.as_string()?.clone(),
     };
 
-    let cwd = args.env.cwd().to_path_buf();
+    let cwd = args.env.lock().unwrap().cwd().to_path_buf();
 
     let printer = PrettyPrinter::default()
         .line_numbers(false)
@@ -22,5 +22,5 @@ pub fn view(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellEr
 
     let _ = printer.file(file.display().to_string());
 
-    Ok(VecDeque::new())
+    Ok(VecDeque::new().boxed())
 }

@@ -1,5 +1,6 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
+#![feature(async_await)]
 
 mod cli;
 mod commands;
@@ -16,5 +17,6 @@ mod stream;
 use std::error::Error;
 
 fn main() -> Result<(), Box<Error>> {
-    crate::cli::cli()
+    futures::executor::block_on(crate::cli::cli());
+    Ok(())
 }

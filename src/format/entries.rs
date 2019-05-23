@@ -50,8 +50,10 @@ pub struct EntriesListView {
 }
 
 impl EntriesListView {
-    crate fn from_stream(values: VecDeque<Value>) -> EntriesListView {
-        EntriesListView { values }
+    crate async fn from_stream(values: InputStream) -> EntriesListView {
+        EntriesListView {
+            values: values.collect().await,
+        }
     }
 }
 

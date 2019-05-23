@@ -1,12 +1,11 @@
 use crate::prelude::*;
 
 use crate::commands::classified::{ClassifiedCommand, ExternalCommand, InternalCommand};
-use crate::commands::command::ReturnValue;
 use crate::context::Context;
-crate use crate::env::Host;
 crate use crate::errors::ShellError;
 crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
+use crate::stream::empty_stream;
 
 use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
@@ -29,7 +28,7 @@ impl<T> MaybeOwned<'a, T> {
     }
 }
 
-pub fn cli() -> Result<(), Box<Error>> {
+pub async fn cli() -> Result<(), Box<Error>> {
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let h = crate::shell::Helper::new();
     let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
@@ -50,8 +49,6 @@ pub fn cli() -> Result<(), Box<Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            ("format", Arc::new(format)),
-            ("format-list", Arc::new(format_list)),
             ("ps", Arc::new(ps::ps)),
             ("ls", Arc::new(ls::ls)),
             ("cd", Arc::new(cd::cd)),
@@ -67,15 +64,18 @@ pub fn cli() -> Result<(), Box<Error>> {
     }
 
     loop {
-        let readline = rl.readline(&format!("{}> ", context.env.cwd().display().to_string()));
+        let readline = rl.readline(&format!(
+            "{}> ",
+            context.env.lock().unwrap().cwd().display().to_string()
+        ));
 
-        match process_line(readline, &mut context) {
+        match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
             }
 
             LineResult::Error(err) => {
-                context.host.stdout(&err);
+                context.host.lock().unwrap().stdout(&err);
             }
 
             LineResult::Break => {
@@ -85,6 +85,8 @@ pub fn cli() -> Result<(), Box<Error>> {
             LineResult::FatalError(err) => {
                 context
                     .host
+                    .lock()
+                    .unwrap()
                     .stdout(&format!("A surprising fatal error occurred.\n{:?}", err));
             }
         }
@@ -103,7 +105,7 @@ enum LineResult {
     FatalError(ShellError),
 }
 
-fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
+async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "exit" => LineResult::Break,
 
@@ -120,29 +122,25 @@ fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> L
 
             let parsed = result.1;
 
-            let mut input = VecDeque::new();
+            let mut input: InputStream = VecDeque::new().boxed();
 
             for item in parsed {
-                input = match process_command(item.clone(), input, ctx) {
+                input = match process_command(item.clone(), input, ctx).await {
                     Ok(val) => val,
                     Err(err) => return LineResult::Error(format!("{}", err.description())),
                 };
             }
 
-            if input.len() > 0 {
-                if equal_shapes(&input) {
-                    let array = crate::commands::stream_to_array(input);
+            let input_vec: VecDeque<_> = input.collect().await;
+
+            if input_vec.len() > 0 {
+                if equal_shapes(&input_vec) {
+                    let array = crate::commands::stream_to_array(input_vec.boxed()).await;
                     let args = CommandArgs::from_context(ctx, vec![], array);
-                    match format(args) {
-                        Ok(_) => {}
-                        Err(err) => return LineResult::Error(err.to_string()),
-                    }
+                    format(args).await;
                 } else {
-                    let args = CommandArgs::from_context(ctx, vec![], input);
-                    match format(args) {
-                        Ok(_) => {}
-                        Err(err) => return LineResult::Error(err.to_string()),
-                    }
+                    let args = CommandArgs::from_context(ctx, vec![], input_vec.boxed());
+                    format(args).await;
                 }
             }
 
@@ -163,14 +161,14 @@ fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> L
     }
 }
 
-fn process_command(
+async fn process_command(
     parsed: Vec<crate::parser::Item>,
-    input: VecDeque<Value>,
+    input: InputStream,
     context: &mut Context,
-) -> Result<VecDeque<Value>, ShellError> {
+) -> Result<InputStream, ShellError> {
     let command = classify_command(&parsed, context)?;
 
-    command.run(input, context)
+    command.run(input, context).await
 }
 
 fn classify_command(
@@ -199,25 +197,26 @@ fn classify_command(
     }
 }
 
-fn format(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let last = args.input.len() - 1;
-    for (i, item) in args.input.iter().enumerate() {
+async fn format(args: CommandArgs) -> OutputStream {
+    let input: Vec<_> = args.input.collect().await;
+    let last = input.len() - 1;
+    for (i, item) in input.iter().enumerate() {
         let view = GenericView::new(item);
-        crate::format::print_view(&view, args.host);
+        crate::format::print_view(&view, &mut *args.host.lock().unwrap());
 
         if last != i {
             println!("");
         }
     }
 
-    Ok(VecDeque::new())
+    empty_stream()
 }
 
-fn format_list(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let view = EntriesListView::from_stream(args.input);
-    crate::format::print_view(&view, args.host);
+async fn format_list(args: CommandArgs) -> OutputStream {
+    let view = EntriesListView::from_stream(args.input).await;
+    crate::format::print_view(&view, &mut *args.host.lock().unwrap());
 
-    Ok(VecDeque::new())
+    empty_stream()
 }
 
 fn equal_shapes(input: &VecDeque<Value>) -> bool {
