@@ -4,8 +4,8 @@ use std::error::Error;
 use std::sync::Arc;
 
 pub struct Context {
-    commands: indexmap::IndexMap<String, Arc<dyn crate::Command>>,
-    crate host: Box<dyn crate::Host>,
+    commands: indexmap::IndexMap<String, Arc<dyn Command>>,
+    crate host: Box<dyn Host>,
     crate env: Environment,
 }
 
@@ -14,11 +14,11 @@ impl Context {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
             host: Box::new(crate::env::host::BasicHost),
-            env: crate::Environment::basic()?,
+            env: Environment::basic()?,
         })
     }
 
-    pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn crate::Command>)>) {
+    pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn Command>)>) {
         for (name, command) in commands {
             self.commands.insert(name.to_string(), command);
         }

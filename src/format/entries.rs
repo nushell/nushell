@@ -1,6 +1,5 @@
 use crate::format::RenderView;
 use crate::prelude::*;
-use crate::Host;
 
 use derive_new::new;
 

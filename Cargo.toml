@@ -21,11 +21,14 @@ conch-parser = "0.1.1"
 nom = "5.0.0-beta1"
 subprocess = "0.1.18"
 dunce = "1.0.0"
-futures = "0.1.27"
-futures-core = "0.2.1"
 indexmap = "1.0.2"
 chrono-humanize = "0.0.11"
 byte-unit = "2.1.0"
 ordered-float = "1.0.2"
 prettyprint = "0.6.0"
 cursive = { version = "0.12.0", features = ["pancurses-backend"], default-features = false }
+futures-preview = "0.3.0-alpha.16"
+
+[dependencies.pancurses]
+version = "0.16"
+features = ["win32a"]

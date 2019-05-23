@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::desc::DataDescriptor;
 use crate::parser::parse::Operator;
+use crate::prelude::*;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
@@ -75,21 +76,21 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> crate::MaybeOwned<'a, Value> {
+    crate fn get_data_by_key(&'a self, name: &str) -> MaybeOwned<'a, Value> {
         match self {
-            Value::Primitive(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Primitive(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data_by_key(name),
-            Value::List(_) => crate::MaybeOwned::Owned(Value::nothing()),
-            Value::Error(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
-    crate fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
+    crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         match self {
-            Value::Primitive(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Primitive(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data(desc),
-            Value::List(_) => crate::MaybeOwned::Owned(Value::nothing()),
-            Value::Error(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 

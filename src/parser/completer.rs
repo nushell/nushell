@@ -1,9 +1,10 @@
+use crate::prelude::*;
 use rustyline::{completion, Context};
 use std::collections::BTreeMap;
 
 #[allow(unused)]
 crate struct Completer {
-    commands: BTreeMap<String, Box<dyn crate::Command>>,
+    commands: BTreeMap<String, Box<dyn Command>>,
 }
 
 impl completion::Completer for Completer {

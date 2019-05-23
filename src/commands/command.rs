@@ -1,12 +1,11 @@
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
-use crate::Context;
 use std::path::PathBuf;
 
 pub struct CommandArgs<'caller> {
     pub host: &'caller mut dyn Host,
-    pub env: &'caller crate::Environment,
+    pub env: &'caller Environment,
     pub args: Vec<Value>,
     pub input: VecDeque<Value>,
 }

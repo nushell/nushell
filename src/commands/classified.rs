@@ -11,7 +11,7 @@ impl ClassifiedCommand {
     crate fn run(
         self,
         input: VecDeque<Value>,
-        context: &mut crate::Context,
+        context: &mut Context,
     ) -> Result<VecDeque<Value>, ShellError> {
         match self {
             ClassifiedCommand::Internal(internal) => {
@@ -22,7 +22,7 @@ impl ClassifiedCommand {
                 for v in result {
                     match v {
                         ReturnValue::Action(action) => match action {
-                            crate::CommandAction::ChangeCwd(cwd) => context.env.cwd = cwd,
+                            CommandAction::ChangeCwd(cwd) => context.env.cwd = cwd,
                         },
 
                         ReturnValue::Value(v) => next.push_back(v),

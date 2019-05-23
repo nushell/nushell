@@ -1,9 +1,7 @@
-#[allow(unused)]
 use crate::prelude::*;
 
 use crate::object::desc::DataDescriptor;
 use crate::object::{Primitive, Value};
-use crate::MaybeOwned;
 use indexmap::IndexMap;
 use std::cmp::{Ordering, PartialOrd};
 
