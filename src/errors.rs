@@ -51,3 +51,12 @@ impl std::convert::From<futures_sink::VecSinkError> for ShellError {
         }
     }
 }
+
+impl std::convert::From<subprocess::PopenError> for ShellError {
+    fn from(input: subprocess::PopenError) -> ShellError {
+        ShellError {
+            title: format!("{}", input),
+            error: Value::nothing(),
+        }
+    }
+}

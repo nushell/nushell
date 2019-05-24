@@ -1,6 +1,8 @@
 use crate::prelude::*;
 
-use crate::commands::classified::{ClassifiedCommand, ExternalCommand, InternalCommand};
+use crate::commands::classified::{
+    ClassifiedCommand, ClassifiedInputStream, ExternalCommand, InternalCommand,
+};
 use crate::context::Context;
 crate use crate::errors::ShellError;
 crate use crate::format::{EntriesListView, GenericView};
@@ -11,6 +13,7 @@ use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
 use std::collections::VecDeque;
 use std::error::Error;
+use std::iter::Iterator;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -145,18 +148,72 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Ok(val) => val,
             };
 
-            let parsed = result.1;
+            let parsed: Result<Vec<_>, _> = result
+                .1
+                .into_iter()
+                .map(|item| classify_command(&item, ctx))
+                .collect();
 
-            let mut input: InputStream = VecDeque::new().boxed();
+            let parsed = parsed?;
 
-            for item in parsed {
-                input = match process_command(item.clone(), input, ctx).await {
-                    Ok(val) => val,
-                    Err(err) => return LineResult::Error(format!("{}", err.description())),
-                };
+            let mut input = ClassifiedInputStream::new();
+
+            let mut iter = parsed.into_iter().peekable();
+
+            loop {
+                let item: Option<ClassifiedCommand> = iter.next();
+                let next: Option<&ClassifiedCommand> = iter.peek();
+
+                input = match (item, next) {
+                    (None, _) => break,
+
+                    (
+                        Some(ClassifiedCommand::Internal(left)),
+                        Some(ClassifiedCommand::Internal(_)),
+                    ) => match left.run(ctx, input).await {
+                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                        Err(err) => return LineResult::Error(format!("{}", err.description())),
+                    },
+
+                    (Some(ClassifiedCommand::Internal(left)), None) => {
+                        match left.run(ctx, input).await {
+                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                            Err(err) => return LineResult::Error(format!("{}", err.description())),
+                        }
+                    }
+
+                    (
+                        Some(ClassifiedCommand::External(left)),
+                        Some(ClassifiedCommand::External(_)),
+                    ) => match left.run(ctx, input, true).await {
+                        Ok(val) => val,
+                        Err(err) => return LineResult::Error(format!("{}", err.description())),
+                    },
+
+                    (
+                        Some(ClassifiedCommand::Internal(_)),
+                        Some(ClassifiedCommand::External(_)),
+                    ) => unimplemented!(),
+
+                    (
+                        Some(ClassifiedCommand::External(_)),
+                        Some(ClassifiedCommand::Internal(_)),
+                    ) => unimplemented!(),
+
+                    (Some(ClassifiedCommand::External(left)), None) => {
+                        match left.run(ctx, input, false).await {
+                            Ok(val) => val,
+                            Err(err) => return LineResult::Error(format!("{}", err.description())),
+                        }
+                    }
+                }
+                // input = match process_command(item.clone(), input, ctx).await {
+                //     Ok(val) => val,
+                //     Err(err) => return LineResult::Error(format!("{}", err.description())),
+                // };
             }
 
-            let input_vec: VecDeque<_> = input.collect().await;
+            let input_vec: VecDeque<_> = input.objects.collect().await;
 
             if input_vec.len() > 0 {
                 if equal_shapes(&input_vec) {
@@ -188,15 +245,15 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
     }
 }
 
-async fn process_command(
-    parsed: Vec<crate::parser::Item>,
-    input: InputStream,
-    context: &mut Context,
-) -> Result<InputStream, ShellError> {
-    let command = classify_command(&parsed, context)?;
+// async fn process_command(
+//     parsed: Vec<crate::parser::Item>,
+//     input: InputStream,
+//     context: &mut Context,
+// ) -> Result<InputStream, ShellError> {
+//     let command = classify_command(&parsed, context)?;
 
-    command.run(input, context).await
-}
+//     command.run(context, input).await
+// }
 
 fn classify_command(
     command: &[crate::parser::Item],
