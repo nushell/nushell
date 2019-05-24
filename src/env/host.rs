@@ -1,3 +1,5 @@
+use crate::prelude::*;
+
 pub trait Host {
     fn out_terminal(&self) -> Box<term::StdoutTerminal>;
     fn err_terminal(&self) -> Box<term::StderrTerminal>;
@@ -47,5 +49,16 @@ impl Host for BasicHost {
             "\n" => eprintln!(""),
             other => eprintln!("{}", other),
         }
+    }
+}
+
+crate fn handle_unexpected<T>(
+    host: &mut dyn Host,
+    func: impl FnOnce(&mut dyn Host) -> Result<T, ShellError>,
+) {
+    let result = func(host);
+
+    if let Err(err) = result {
+        host.stderr(&format!("Something unexpected happened:\n{:?}", err));
     }
 }

@@ -1,7 +1,6 @@
 use crate::format::RenderView;
 use crate::object::Value;
 use crate::prelude::*;
-use ansi_term::Color;
 use derive_new::new;
 use prettytable::{color, Attr, Cell, Row, Table};
 
@@ -50,9 +49,6 @@ impl RenderView for TableView {
         }
 
         let mut table = Table::new();
-
-        // let format = prettytable::format::FormatBuilder::new();
-        // .column_separator(Color::Black.bold().paint("|"));
 
         table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
 

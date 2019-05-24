@@ -14,7 +14,6 @@ crate fn dir_entry_dict(entry: &std::fs::DirEntry) -> Result<Dictionary, ShellEr
     dict.add("file name", Value::string(filename.to_string_lossy()));
 
     let metadata = entry.metadata()?;
-    // let file_type = inner.file_type()?;
 
     let kind = if metadata.is_dir() {
         FileType::Directory

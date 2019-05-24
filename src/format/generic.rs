@@ -17,7 +17,7 @@ impl RenderView for GenericView<'value> {
                 let view = TableView::from_list(l);
 
                 if let Some(view) = view {
-                    view.render_view(host);
+                    view.render_view(host)?;
                 }
 
                 Ok(())
@@ -39,7 +39,7 @@ impl RenderView for GenericView<'value> {
 
             o @ Value::Object(_) => {
                 let view = EntriesView::from_value(o);
-                view.render_view(host);
+                view.render_view(host)?;
                 Ok(())
             }
 
