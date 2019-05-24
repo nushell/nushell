@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use futures::compat::AsyncRead01CompatExt;
 use futures_codec::{Framed, LinesCodec};
 use std::sync::Arc;
 use subprocess::Exec;
@@ -35,44 +34,6 @@ impl ClassifiedInputStream {
 crate enum ClassifiedCommand {
     Internal(InternalCommand),
     External(ExternalCommand),
-}
-
-impl ClassifiedCommand {
-    crate async fn run(
-        self,
-        context: &mut Context,
-        input: ClassifiedInputStream,
-    ) -> Result<InputStream, ShellError> {
-        match self {
-            ClassifiedCommand::Internal(internal) => {
-                let result = context.run_command(internal.command, internal.args, input.objects)?;
-                let env = context.env.clone();
-
-                let stream = result.filter_map(move |v| match v {
-                    ReturnValue::Action(action) => match action {
-                        CommandAction::ChangeCwd(cwd) => {
-                            env.lock().unwrap().cwd = cwd;
-                            futures::future::ready(None)
-                        }
-                    },
-
-                    ReturnValue::Value(v) => futures::future::ready(Some(v)),
-                });
-
-                Ok(stream.boxed() as InputStream)
-            }
-
-            ClassifiedCommand::External(external) => {
-                Exec::shell(&external.name)
-                    .args(&external.args)
-                    .cwd(context.env.lock().unwrap().cwd())
-                    .join()
-                    .unwrap();
-
-                Ok(VecDeque::new().boxed() as InputStream)
-            }
-        }
-    }
 }
 
 crate struct InternalCommand {
@@ -119,10 +80,10 @@ impl ExternalCommand {
     crate async fn run(
         self,
         context: &mut Context,
-        mut input: ClassifiedInputStream,
+        input: ClassifiedInputStream,
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
-        let mut process = Exec::shell(&self.name)
+        let process = Exec::shell(&self.name)
             .args(&self.args)
             .cwd(context.env.lock().unwrap().cwd());
 
@@ -156,14 +117,5 @@ impl ExternalCommand {
                 Ok(ClassifiedInputStream::from_input_stream(stream.boxed()))
             }
         }
-
-        // if stream_next {
-        //     let stdout = popen.stdout.take().unwrap();
-        //     Ok(ClassifiedInputStream::from_stdout(stdout))
-        // } else {
-        //     // popen.stdin.take();
-        //     popen.wait()?;
-        //     Ok(ClassifiedInputStream::new())
-        // }
     }
 }

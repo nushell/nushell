@@ -210,10 +210,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         }
                     }
                 }
-                // input = match process_command(item.clone(), input, ctx).await {
-                //     Ok(val) => val,
-                //     Err(err) => return LineResult::Error(format!("{}", err.description())),
-                // };
             }
 
             let input_vec: VecDeque<_> = input.objects.collect().await;
@@ -247,16 +243,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         }
     }
 }
-
-// async fn process_command(
-//     parsed: Vec<crate::parser::Item>,
-//     input: InputStream,
-//     context: &mut Context,
-// ) -> Result<InputStream, ShellError> {
-//     let command = classify_command(&parsed, context)?;
-
-//     command.run(context, input).await
-// }
 
 fn classify_command(
     command: &[crate::parser::Item],
@@ -295,10 +281,11 @@ crate fn format(args: CommandArgs) -> OutputStream {
             let mut host = host.lock().unwrap();
             for (i, item) in input.iter().enumerate() {
                 let view = GenericView::new(item);
-                crate::format::print_view(&view, &mut *host);
+
+                handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
 
                 if last != i {
-                    println!("");
+                    host.stdout("");
                 }
             }
 
@@ -310,31 +297,19 @@ crate fn format(args: CommandArgs) -> OutputStream {
 
 crate fn format_list(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let host = args.host.clone();
-    // let input = args.input.map(|a| a.copy());
-    // let input = input.collect::<Vec<_>>();
 
     let view = EntriesListView::from_stream(args.input);
 
     Ok(view
         .then(move |view| {
-            crate::format::print_view(&view, &mut *host.lock().unwrap());
+            handle_unexpected(&mut *host.lock().unwrap(), |host| {
+                crate::format::print_view(&view, host)
+            });
 
             futures::future::ready(empty_stream())
         })
         .flatten_stream()
         .boxed())
-
-    // Ok(empty_stream())
-    // Ok(args
-    //     .input
-    //     .map(|input| {
-    //         let view = EntriesListView::from_stream(input);
-    //         crate::format::print_view(&view, &mut *args.host.lock().unwrap());
-    //     })
-    //     .collect()
-    //     .then(|_| empty_stream())
-    //     .flatten_stream()
-    //     .boxed())
 }
 
 fn equal_shapes(input: &VecDeque<Value>) -> bool {

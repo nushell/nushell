@@ -1,13 +1,12 @@
 crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{Command, CommandAction, CommandArgs, ReturnValue};
 crate use crate::context::Context;
+crate use crate::env::host::handle_unexpected;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
 crate use crate::object::{Primitive, Value};
-#[allow(unused)]
-crate use crate::stream::{empty_stream, single_output, InputStream, OutputStream};
-#[allow(unused)]
-crate use futures::{Future, FutureExt, Sink, SinkExt, Stream, StreamExt};
+crate use crate::stream::{single_output, InputStream, OutputStream};
+crate use futures::{FutureExt, SinkExt, StreamExt};
 crate use std::collections::VecDeque;
 crate use std::pin::Pin;
 crate use std::sync::{Arc, Mutex};

@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{DataDescriptor, DescriptorName};
+use crate::object::DataDescriptor;
 use crate::parser::parse::Operator;
 use crate::prelude::*;
 use ansi_term::Color;
@@ -221,7 +221,7 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
         match desc.name.as_string() {
             None => continue,
             Some(s) if fields.iter().any(|field| field == s) => continue,
-            Some(s) => out.add(desc.copy(), obj.get_data(&desc).borrow().copy()),
+            Some(_) => out.add(desc.copy(), obj.get_data(&desc).borrow().copy()),
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use crate::object::{DataDescriptor, DescriptorName};
+use crate::object::DataDescriptor;
 use crate::object::{Primitive, Value};
 use indexmap::IndexMap;
 use std::cmp::{Ordering, PartialOrd};

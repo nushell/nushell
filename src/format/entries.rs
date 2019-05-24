@@ -78,7 +78,7 @@ impl RenderView for EntriesListView {
 
         for (i, item) in self.values.iter().enumerate() {
             let view = EntriesView::from_value(item);
-            view.render_view(host);
+            view.render_view(host)?;
 
             if i != last {
                 host.stdout("\n");
