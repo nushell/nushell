@@ -4,7 +4,7 @@ use crate::prelude::*;
 use std::path::PathBuf;
 
 pub struct CommandArgs {
-    pub host: Arc<Mutex<dyn Host>>,
+    pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<Environment>>,
     pub args: Vec<Value>,
     pub input: InputStream,
@@ -37,12 +37,6 @@ pub enum ReturnValue {
 }
 
 impl ReturnValue {
-    crate fn single(value: Value) -> VecDeque<ReturnValue> {
-        let mut v = VecDeque::new();
-        v.push_back(ReturnValue::Value(value));
-        v
-    }
-
     crate fn change_cwd(path: PathBuf) -> ReturnValue {
         ReturnValue::Action(CommandAction::ChangeCwd(path))
     }

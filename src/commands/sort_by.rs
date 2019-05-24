@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::prelude::*;
-use futures::stream::BoxStream;
 
 pub fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let fields: Result<Vec<_>, _> = args.args.iter().map(|a| a.as_string()).collect();

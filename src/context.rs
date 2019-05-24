@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 pub struct Context {
     commands: indexmap::IndexMap<String, Arc<dyn Command>>,
-    crate host: Arc<Mutex<dyn Host>>,
+    crate host: Arc<Mutex<dyn Host + Send>>,
     crate env: Arc<Mutex<Environment>>,
 }
 

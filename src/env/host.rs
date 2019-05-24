@@ -17,10 +17,16 @@ crate struct BasicHost;
 
 impl Host for BasicHost {
     fn stdout(&mut self, out: &str) {
-        println!("{}", out)
+        match out {
+            "\n" => println!(""),
+            other => println!("{}", other),
+        }
     }
 
     fn stderr(&mut self, out: &str) {
-        eprintln!("{}", out)
+        match out {
+            "\n" => eprintln!(""),
+            other => eprintln!("{}", other),
+        }
     }
 }

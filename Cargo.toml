@@ -28,6 +28,7 @@ ordered-float = "1.0.2"
 prettyprint = "0.6.0"
 cursive = { version = "0.12.0", features = ["pancurses-backend"], default-features = false }
 futures-preview = "0.3.0-alpha.16"
+futures-sink-preview = "0.3.0-alpha.16"
 
 [dependencies.pancurses]
 version = "0.16"
