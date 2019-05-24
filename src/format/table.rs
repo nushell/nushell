@@ -1,8 +1,9 @@
 use crate::format::RenderView;
 use crate::object::Value;
-use crate::Host;
+use crate::prelude::*;
+use ansi_term::Color;
 use derive_new::new;
-use prettytable::{Cell, Row, Table};
+use prettytable::{color, Attr, Cell, Row, Table};
 
 // An entries list is printed like this:
 //
@@ -24,7 +25,7 @@ impl TableView {
         let item = &values[0];
         let descs = item.data_descriptors();
 
-        let headers: Vec<String> = descs.iter().map(|d| d.name.clone()).collect();
+        let headers: Vec<String> = descs.iter().map(|d| d.name.display().to_string()).collect();
 
         let mut entries = vec![];
 
@@ -43,13 +44,27 @@ impl TableView {
 }
 
 impl RenderView for TableView {
-    fn render_view(&self, _host: &dyn Host) -> Vec<String> {
+    fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         if self.entries.len() == 0 {
-            return vec![];
+            return Ok(());
         }
 
         let mut table = Table::new();
-        let header: Vec<Cell> = self.headers.iter().map(|h| Cell::new(h)).collect();
+
+        // let format = prettytable::format::FormatBuilder::new();
+        // .column_separator(Color::Black.bold().paint("|"));
+
+        table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
+
+        let header: Vec<Cell> = self
+            .headers
+            .iter()
+            .map(|h| {
+                Cell::new(h)
+                    .with_style(Attr::ForegroundColor(color::GREEN))
+                    .with_style(Attr::Bold)
+            })
+            .collect();
 
         table.add_row(Row::new(header));
 
@@ -57,9 +72,8 @@ impl RenderView for TableView {
             table.add_row(Row::new(row.iter().map(|h| Cell::new(h)).collect()));
         }
 
-        let mut out = vec![];
-        table.print(&mut out).unwrap();
+        table.print_term(&mut *host.out_terminal()).unwrap();
 
-        vec![String::from_utf8_lossy(&out).to_string()]
+        Ok(())
     }
 }

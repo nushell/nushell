@@ -1,11 +1,14 @@
 use std::any::Any;
+use std::fmt::Debug;
 
-pub trait Type {
+pub trait Type: Debug + Send {
     fn as_any(&self) -> &dyn Any;
     fn equal(&self, other: &dyn Type) -> bool;
+    fn id(&self) -> u64;
+    fn copy(&self) -> Box<Type>;
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct AnyShell;
 
 impl Type for AnyShell {
@@ -15,5 +18,13 @@ impl Type for AnyShell {
 
     fn equal(&self, other: &dyn Type) -> bool {
         other.as_any().is::<AnyShell>()
+    }
+
+    fn id(&self) -> u64 {
+        0
+    }
+
+    fn copy(&self) -> Box<Type> {
+        Box::new(AnyShell)
     }
 }

@@ -3,7 +3,7 @@ use crate::object::base::reject_fields;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn reject(args: CommandArgs<'value>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.args.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
@@ -11,12 +11,10 @@ pub fn reject(args: CommandArgs<'value>) -> Result<VecDeque<ReturnValue>, ShellE
     let fields: Result<Vec<String>, _> = args.args.iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
-    let objects = args
+    let stream = args
         .input
-        .iter()
-        .map(|item| Value::Object(reject_fields(item, &fields)))
-        .map(|item| ReturnValue::Value(item))
-        .collect();
+        .map(move |item| Value::Object(reject_fields(&item, &fields)))
+        .map(|item| ReturnValue::Value(item));
 
-    Ok(objects)
+    Ok(stream.boxed())
 }

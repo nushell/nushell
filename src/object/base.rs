@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
-use crate::object::desc::DataDescriptor;
+use crate::object::{DataDescriptor, DescriptorName};
 use crate::parser::parse::Operator;
+use crate::prelude::*;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
@@ -68,28 +69,28 @@ pub enum Value {
 impl Value {
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
-            Value::Primitive(_) => vec![],
+            Value::Primitive(_) => vec![DataDescriptor::value_of()],
             Value::Object(o) => o.data_descriptors(),
             Value::List(_) => vec![],
             Value::Error(_) => vec![],
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> crate::MaybeOwned<'a, Value> {
+    crate fn get_data_by_key(&'a self, name: &str) -> MaybeOwned<'a, Value> {
         match self {
-            Value::Primitive(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::Primitive(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data_by_key(name),
-            Value::List(_) => crate::MaybeOwned::Owned(Value::nothing()),
-            Value::Error(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
-    crate fn get_data(&'a self, desc: &DataDescriptor) -> crate::MaybeOwned<'a, Value> {
+    crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         match self {
-            Value::Primitive(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
-            Value::List(_) => crate::MaybeOwned::Owned(Value::nothing()),
-            Value::Error(_) => crate::MaybeOwned::Owned(Value::nothing()),
+            Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -202,9 +203,9 @@ crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     let descs = obj.data_descriptors();
 
     for field in fields {
-        match descs.iter().find(|d| d.name == *field) {
-            None => out.add(field.to_string(), Value::nothing()),
-            Some(desc) => out.add(field.to_string(), obj.get_data(desc).borrow().copy()),
+        match descs.iter().find(|d| d.name.is_string(field)) {
+            None => out.add(DataDescriptor::for_string_name(field), Value::nothing()),
+            Some(desc) => out.add(desc.copy(), obj.get_data(desc).borrow().copy()),
         }
     }
 
@@ -217,10 +218,10 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     let descs = obj.data_descriptors();
 
     for desc in descs {
-        if fields.contains(&desc.name) {
-            continue;
-        } else {
-            out.add(desc.name.clone(), obj.get_data(&desc).borrow().copy())
+        match desc.name.as_string() {
+            None => continue,
+            Some(s) if fields.iter().any(|field| field == s) => continue,
+            Some(s) => out.add(desc.copy(), obj.get_data(&desc).borrow().copy()),
         }
     }
 
@@ -229,7 +230,7 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
 
 crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     let descs = obj.data_descriptors();
-    match descs.iter().find(|d| d.name == *field) {
+    match descs.iter().find(|d| d.name.is_string(field)) {
         None => false,
         Some(desc) => {
             let v = obj.get_data(desc).borrow().copy();

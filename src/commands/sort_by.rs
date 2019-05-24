@@ -1,23 +1,25 @@
 use crate::errors::ShellError;
 use crate::prelude::*;
 
-pub fn sort_by(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let fields: Result<Vec<_>, _> = args.args.iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
-    let mut output = args.input.into_iter().collect::<Vec<_>>();
+    let output = args.input.collect::<Vec<_>>();
 
-    output.sort_by_key(|item| {
-        fields
-            .iter()
-            .map(|f| item.get_data_by_key(f).borrow().copy())
-            .collect::<Vec<Value>>()
+    let output = output.map(move |mut vec| {
+        vec.sort_by_key(|item| {
+            fields
+                .iter()
+                .map(|f| item.get_data_by_key(f).borrow().copy())
+                .collect::<Vec<Value>>()
+        });
+
+        vec.into_iter()
+            .map(|v| ReturnValue::Value(v.copy()))
+            .collect::<VecDeque<_>>()
+            .boxed()
     });
 
-    let output = output
-        .iter()
-        .map(|o| ReturnValue::Value(o.copy()))
-        .collect();
-
-    Ok(output)
+    Ok(output.flatten_stream().boxed())
 }

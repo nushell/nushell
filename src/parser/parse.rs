@@ -17,7 +17,7 @@ pub enum Item {
     Operator(Operator),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Operator {
     Equal,
     NotEqual,

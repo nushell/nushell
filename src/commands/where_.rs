@@ -2,26 +2,27 @@ use crate::errors::ShellError;
 use crate::object::base::find;
 use crate::prelude::*;
 
-pub fn r#where(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.args.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
 
     let field: Result<String, _> = args.args[0].as_string();
     let field = field?;
+    let input = args.input;
+    let operator = args.args[1].copy();
 
-    match args.args[1] {
-        Value::Primitive(Primitive::Operator(ref operator)) => {
-            let objects = args
-                .input
-                .iter()
-                .filter(|item| find(&item, &field, operator, &args.args[2]))
-                .map(|item| ReturnValue::Value(item.copy()))
-                .collect();
+    match operator {
+        Value::Primitive(Primitive::Operator(operator)) => {
+            let right = args.args[2].copy();
 
-            Ok(objects)
+            let objects = input
+                .filter(move |item| futures::future::ready(find(&item, &field, &operator, &right)))
+                .map(|item| ReturnValue::Value(item.copy()));
+
+            Ok(objects.boxed())
         }
-        ref x => {
+        x => {
             println!("{:?}", x);
             Err(ShellError::string("expected a comparison operator"))
         }

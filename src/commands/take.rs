@@ -3,21 +3,13 @@ use crate::prelude::*;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn take(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
+pub fn take(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let amount = args.args[0].as_int()?;
 
-    let amount = if args.input.len() > amount as usize {
-        amount as usize
-    } else {
-        args.input.len()
-    };
+    let input = args.input;
 
-    let out: VecDeque<ReturnValue> = args
-        .input
-        .into_iter()
-        .take(amount)
+    Ok(input
+        .take(amount as u64)
         .map(|v| ReturnValue::Value(v))
-        .collect();
-
-    Ok(out)
+        .boxed())
 }

@@ -1,15 +1,17 @@
-use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn to_array(args: CommandArgs<'caller>) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let out = args.input.into_iter().collect();
-    Ok(ReturnValue::single(Value::List(out)))
+pub fn to_array(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    let out = args.input.collect();
+    Ok(out
+        .map(|vec: Vec<_>| single_output(Value::List(vec)))
+        .flatten_stream()
+        .boxed())
 }
 
-crate fn stream_to_array(stream: VecDeque<Value>) -> VecDeque<Value> {
-    let out = Value::List(stream.into_iter().collect());
+crate async fn stream_to_array(stream: InputStream) -> InputStream {
+    let out = Value::List(stream.collect().await);
     let mut stream = VecDeque::new();
     stream.push_back(out);
-    stream
+    stream.boxed() as InputStream
 }

@@ -10,16 +10,9 @@ crate use generic::GenericView;
 crate use table::TableView;
 
 crate trait RenderView {
-    fn render_view(&self, host: &dyn Host) -> Vec<String>;
+    fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError>;
 }
 
-fn print_rendered(lines: &[String], host: &mut dyn Host) {
-    for line in lines {
-        host.stdout(line);
-    }
-}
-
-crate fn print_view(view: &impl RenderView, host: &mut Host) {
-    // let mut ctx = context.lock().unwrap();
-    crate::format::print_rendered(&view.render_view(host), host);
+crate fn print_view(view: &impl RenderView, host: &mut dyn Host) -> Result<(), ShellError> {
+    view.render_view(host)
 }

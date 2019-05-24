@@ -4,21 +4,21 @@ use std::error::Error;
 use std::sync::Arc;
 
 pub struct Context {
-    commands: indexmap::IndexMap<String, Arc<dyn crate::Command>>,
-    crate host: Box<dyn crate::Host>,
-    crate env: Environment,
+    commands: indexmap::IndexMap<String, Arc<dyn Command>>,
+    crate host: Arc<Mutex<dyn Host + Send>>,
+    crate env: Arc<Mutex<Environment>>,
 }
 
 impl Context {
     crate fn basic() -> Result<Context, Box<Error>> {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
-            host: Box::new(crate::env::host::BasicHost),
-            env: crate::Environment::basic()?,
+            host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
+            env: Arc::new(Mutex::new(Environment::basic()?)),
         })
     }
 
-    pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn crate::Command>)>) {
+    pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn Command>)>) {
         for (name, command) in commands {
             self.commands.insert(name.to_string(), command);
         }
@@ -36,11 +36,11 @@ impl Context {
         &mut self,
         command: Arc<dyn Command>,
         arg_list: Vec<Value>,
-        input: VecDeque<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        input: InputStream,
+    ) -> Result<OutputStream, ShellError> {
         let command_args = CommandArgs {
-            host: &mut self.host,
-            env: &self.env,
+            host: self.host.clone(),
+            env: self.env.clone(),
             args: arg_list,
             input,
         };

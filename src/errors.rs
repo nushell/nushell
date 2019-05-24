@@ -1,7 +1,6 @@
 #[allow(unused)]
 use crate::prelude::*;
 
-use crate::Value;
 use derive_new::new;
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new)]
@@ -37,6 +36,24 @@ impl std::error::Error for ShellError {}
 
 impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
+        ShellError {
+            title: format!("{}", input),
+            error: Value::nothing(),
+        }
+    }
+}
+
+impl std::convert::From<futures_sink::VecSinkError> for ShellError {
+    fn from(_input: futures_sink::VecSinkError) -> ShellError {
+        ShellError {
+            title: format!("Unexpected Vec Sink Error"),
+            error: Value::nothing(),
+        }
+    }
+}
+
+impl std::convert::From<subprocess::PopenError> for ShellError {
+    fn from(input: subprocess::PopenError) -> ShellError {
         ShellError {
             title: format!("{}", input),
             error: Value::nothing(),
