@@ -10,7 +10,7 @@ use derive_new::new;
 // another_name : ...
 #[derive(new)]
 pub struct EntriesView {
-    entries: Vec<(String, String)>,
+    entries: Vec<(crate::object::DescriptorName, String)>,
 }
 
 impl EntriesView {
@@ -31,17 +31,28 @@ impl EntriesView {
 }
 
 impl RenderView for EntriesView {
-    fn render_view(&self, _host: &dyn Host) -> Vec<String> {
+    fn render_view(&self, _host: &mut dyn Host) -> Result<(), ShellError> {
         if self.entries.len() == 0 {
-            return vec![];
+            return Ok(());
         }
 
-        let max_name_size: usize = self.entries.iter().map(|(n, _)| n.len()).max().unwrap();
-
-        self.entries
+        let max_name_size: usize = self
+            .entries
             .iter()
-            .map(|(k, v)| format!("{:width$} : {}", k, v, width = max_name_size))
-            .collect()
+            .map(|(n, _)| n.display().len())
+            .max()
+            .unwrap();
+
+        for (name, value) in &self.entries {
+            println!(
+                "{:width$} : {}",
+                name.display(),
+                value,
+                width = max_name_size
+            )
+        }
+
+        Ok(())
     }
 }
 
@@ -58,26 +69,22 @@ impl EntriesListView {
 }
 
 impl RenderView for EntriesListView {
-    fn render_view(&self, host: &dyn Host) -> Vec<String> {
+    fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         if self.values.len() == 0 {
-            return vec![];
+            return Ok(());
         }
-
-        let mut strings = vec![];
 
         let last = self.values.len() - 1;
 
         for (i, item) in self.values.iter().enumerate() {
             let view = EntriesView::from_value(item);
-            let out = view.render_view(host);
-
-            strings.extend(out);
+            view.render_view(host);
 
             if i != last {
-                strings.push("\n".to_string());
+                host.stdout("\n");
             }
         }
 
-        strings
+        Ok(())
     }
 }

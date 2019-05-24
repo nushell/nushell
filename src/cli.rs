@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 use crate::commands::classified::{
-    ClassifiedCommand, ClassifiedInputStream, ExternalCommand, InternalCommand,
+    ClassifiedCommand, ClassifiedInputStream, ExternalCommand, InternalCommand, StreamNext,
 };
 use crate::context::Context;
 crate use crate::errors::ShellError;
@@ -185,7 +185,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::External(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, true).await {
+                    ) => match left.run(ctx, input, StreamNext::External).await {
                         Ok(val) => val,
                         Err(err) => return LineResult::Error(format!("{}", err.description())),
                     },
@@ -196,12 +196,15 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     ) => unimplemented!(),
 
                     (
-                        Some(ClassifiedCommand::External(_)),
+                        Some(ClassifiedCommand::External(left)),
                         Some(ClassifiedCommand::Internal(_)),
-                    ) => unimplemented!(),
+                    ) => match left.run(ctx, input, StreamNext::Internal).await {
+                        Ok(val) => val,
+                        Err(err) => return LineResult::Error(format!("{}", err.description())),
+                    },
 
                     (Some(ClassifiedCommand::External(left)), None) => {
-                        match left.run(ctx, input, false).await {
+                        match left.run(ctx, input, StreamNext::Last).await {
                             Ok(val) => val,
                             Err(err) => return LineResult::Error(format!("{}", err.description())),
                         }

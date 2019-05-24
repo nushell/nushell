@@ -1,13 +1,13 @@
 use crate::prelude::*;
 
-use crate::object::desc::DataDescriptor;
+use crate::object::{DataDescriptor, DescriptorName};
 use crate::object::{Primitive, Value};
 use indexmap::IndexMap;
 use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct Dictionary {
-    entries: IndexMap<String, Value>,
+    entries: IndexMap<DataDescriptor, Value>,
 }
 
 impl PartialOrd for Dictionary {
@@ -41,7 +41,7 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    crate fn add(&mut self, name: impl Into<String>, value: Value) {
+    crate fn add(&mut self, name: impl Into<DataDescriptor>, value: Value) {
         self.entries.insert(name.into(), value);
     }
 
@@ -49,31 +49,30 @@ impl Dictionary {
         let mut out = Dictionary::default();
 
         for (key, value) in self.entries.iter() {
-            out.add(key.clone(), value.copy());
+            out.add(key.copy(), value.copy());
         }
 
         out
     }
 
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
-        self.entries
-            .iter()
-            .map(|(name, _)| {
-                DataDescriptor::new(name.clone(), true, Box::new(crate::object::types::AnyShell))
-            })
-            .collect()
+        self.entries.iter().map(|(name, _)| name.copy()).collect()
     }
 
     crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
-        match self.entries.get(&desc.name) {
+        match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),
         }
     }
 
     crate fn get_data_by_key(&self, name: &str) -> MaybeOwned<'_, Value> {
-        match self.entries.get(name) {
-            Some(v) => MaybeOwned::Borrowed(v),
+        match self
+            .entries
+            .iter()
+            .find(|(desc_name, _)| desc_name.name.is_string(name))
+        {
+            Some((_, v)) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),
         }
     }
