@@ -122,8 +122,12 @@ impl ExternalCommand {
         input: ClassifiedInputStream,
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
-        let process = Exec::shell(&self.name)
-            .args(&self.args)
+        let mut cmd = self.name.clone();
+        for arg in self.args {
+            cmd.push_str(" ");
+            cmd.push_str(&arg);
+        }
+        let process = Exec::shell(&cmd)
             .cwd(context.env.lock().unwrap().cwd());
 
         let mut process = match stream_next {
