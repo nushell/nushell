@@ -32,6 +32,7 @@ futures-sink-preview = "0.3.0-alpha.16"
 tokio-fs = "0.1.6"
 futures_codec = "0.2.2"
 term = "0.5.2"
+bytes = "0.4.12"
 
 [dependencies.pancurses]
 version = "0.16"
