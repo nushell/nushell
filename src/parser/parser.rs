@@ -1,5 +1,5 @@
 // auto-generated: "lalrpop 0.17.0"
-// sha256: f99d6ffb543c2f4bf7dd50b8ef84cfc8bc946c3a5d6bccb5d5cffcb5de020da
+// sha256: 96c6cfd0a47cfd4cec5e50bf6f3af9de58e9593ac9944479c364be989f6acfe
 use std::str::FromStr;
 use crate::parser::tokens::*;
 use byte_unit::Byte;
@@ -1955,8 +1955,8 @@ fn __action20<
 ) -> Leaf
 {
     match __0.as_ref() {
-        "true" => Leaf::Boolean(true),
-        "false" => Leaf::Boolean(false),
+        "$true" => Leaf::Boolean(true),
+        "$false" => Leaf::Boolean(false),
         _ => Leaf::Bare(__0),
     }
 }

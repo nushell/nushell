@@ -7,3 +7,8 @@ args = ["src/parser/parser.lalrpop"]
 command = "cargo"
 args = ["build"]
 dependencies = ["lalrpop"]
+
+[tasks.run]
+command = "cargo"
+args = ["run"]
+dependencies = ["build"]

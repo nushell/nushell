@@ -46,8 +46,8 @@ Leaf: Leaf = {
     <Size> => Leaf::Int(<>),
     <Num> => Leaf::Int(<>),
     <RawBareWord> => match <>.as_ref() {
-        "true" => Leaf::Boolean(true),
-        "false" => Leaf::Boolean(false),
+        "$true" => Leaf::Boolean(true),
+        "$false" => Leaf::Boolean(false),
         _ => Leaf::Bare(<>),
     }
 }
