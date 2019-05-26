@@ -17,7 +17,7 @@ impl Completer for NuCompleter {
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
         let commands = [
             "ps", "ls", "cd", "view", "skip", "take", "select", "reject", "to-array", "where",
-            "sort-by",
+            "sort-by", "size",
         ];
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;

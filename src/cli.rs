@@ -60,6 +60,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             ("skip", Arc::new(skip::skip)),
             ("first", Arc::new(take::take)),
             ("select", Arc::new(select::select)),
+            ("size", Arc::new(size::size)),
             ("split", Arc::new(split::split)),
             ("reject", Arc::new(reject::reject)),
             ("to-array", Arc::new(to_array::to_array)),
