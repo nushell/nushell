@@ -12,43 +12,25 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let cwd = args.env.lock().unwrap().cwd().to_path_buf();
 
     let mut contents = String::new();
-    let mut total_lines = 0;
-    let mut total_words = 0;
-    let mut total_chars = 0;
-    let mut total_bytes = 0;
 
     let mut list = VecDeque::new();
     for name in args.args {
         let name = name.as_string()?;
         let path = cwd.join(&name);
         let mut file = File::open(path)?;
-
         file.read_to_string(&mut contents)?;
-        let (lines, words, chars, bytes) = count(&contents);
-
-        total_lines += lines;
-        total_words += words;
-        total_chars += chars;
-        total_bytes += bytes;
-
-        list.push_back(dict(&name, lines, words, chars, bytes));
+        list.push_back(count(&name, &contents));
         contents.clear();
     }
-    list.push_back(dict(
-        &"total".to_string(),
-        total_lines,
-        total_words,
-        total_chars,
-        total_bytes,
-    ));
 
     Ok(list.boxed())
 }
 
-fn count(contents: &str) -> (i64, i64, i64, i64) {
+fn count(name: &str, contents: &str) -> ReturnValue {
     let mut lines: i64 = 0;
     let mut words: i64 = 0;
     let mut chars: i64 = 0;
+    let bytes = contents.len() as i64;
     let mut end_of_word = true;
 
     for c in contents.chars() {
@@ -69,10 +51,6 @@ fn count(contents: &str) -> (i64, i64, i64, i64) {
         }
     }
 
-    (lines, words, chars, contents.len() as i64)
-}
-
-fn dict(name: &str, lines: i64, words: i64, chars: i64, bytes: i64) -> ReturnValue {
     let mut dict = Dictionary::default();
     dict.add("name", Value::string(name.to_owned()));
     dict.add("lines", Value::int(lines));
