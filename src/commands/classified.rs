@@ -1,10 +1,9 @@
 use crate::prelude::*;
-use futures::TryStreamExt;
-use futures_codec::{Encoder, Decoder, Framed};
+use bytes::{BufMut, BytesMut};
+use futures_codec::{Decoder, Encoder, Framed};
+use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use subprocess::Exec;
-use std::io::{Error, ErrorKind};
-use bytes::{BufMut, BytesMut};
 
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}
@@ -37,7 +36,7 @@ impl Decoder for LinesCodec {
                     .map(Some)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
 }
@@ -68,6 +67,10 @@ impl ClassifiedInputStream {
             stdin: Some(stdout),
         }
     }
+}
+
+crate struct ClassifiedPipeline {
+    crate commands: Vec<ClassifiedCommand>,
 }
 
 crate enum ClassifiedCommand {
@@ -127,8 +130,7 @@ impl ExternalCommand {
             cmd.push_str(" ");
             cmd.push_str(&arg);
         }
-        let process = Exec::shell(&cmd)
-            .cwd(context.env.lock().unwrap().cwd());
+        let process = Exec::shell(&cmd).cwd(context.env.lock().unwrap().cwd());
 
         let mut process = match stream_next {
             StreamNext::Last => process,

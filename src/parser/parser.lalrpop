@@ -1,0 +1,56 @@
+use std::str::FromStr;
+use crate::parser::tokens::*;
+
+grammar;
+
+pub Pipeline: Pipeline = {
+  <first:Command> => Pipeline::new(vec![first]),
+  <first:Command> <rest: ( "|" <Command> )+> => Pipeline::from_parts(first, rest),
+}
+
+Command: ParsedCommand = {
+    <command:RawBareWord> <expr:Expr*> => ParsedCommand::new(command, expr)
+}
+
+Expr: Expression = {
+    <Leaf> => Expression::Leaf(<>),
+    <Binary> => Expression::Binary(<>),
+}
+
+Operator: Operator = {
+    "==" => Operator::Equal,
+    "!=" => Operator::NotEqual,
+    "<" => Operator::LessThan,
+    ">" => Operator::GreaterThan,
+    "<=" => Operator::LessThanOrEqual,
+    ">=" => Operator::GreaterThanOrEqual
+}
+
+Binary: Binary = {
+    <left:Leaf> <op:Operator> <right:Leaf> => Binary::new(left, op, right),
+}
+
+Flag: Flag = {
+    "-" <RawBareWord> => Flag::Shorthand(<>.to_string()),
+    "--" <RawBareWord> => Flag::Longhand(<>.to_string()),
+}
+
+String: String = {
+    SQString,
+    DQString,
+}
+
+Leaf: Leaf = {
+    <String> => Leaf::String(<>),
+    <Num> => Leaf::Int(<>),
+    <RawBareWord> => match <>.as_ref() {
+        "true" => Leaf::Boolean(true),
+        "false" => Leaf::Boolean(false),
+        _ => Leaf::Bare(<>),
+    }
+}
+
+RawBareWord: String = <s:r#"[^0-9"'\-][^\s]*"#> => <>.to_string();
+DQString: String = <s:r#""([^"]|\\")*""#> => s[1..s.len() - 1].to_string();
+SQString: String = <s:r#"'([^']|\\')*'"#> => s[1..s.len() - 1].to_string();
+Num: i64 = <s:r"-?[0-9]+"> => i64::from_str(s).unwrap();

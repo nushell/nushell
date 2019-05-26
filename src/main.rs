@@ -19,6 +19,7 @@ mod stream;
 use std::error::Error;
 
 fn main() -> Result<(), Box<Error>> {
+    pretty_env_logger::init();
     futures::executor::block_on(crate::cli::cli())?;
     Ok(())
 }

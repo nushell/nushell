@@ -1,0 +1,9 @@
+[tasks.lalrpop]
+install_crate = { crate_name = "lalrpop", binary = "lalrpop", test_arg = "--help" }
+command = "lalrpop"
+args = ["src/parser/parser.lalrpop"]
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+dependencies = ["lalrpop"]

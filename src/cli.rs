@@ -1,14 +1,17 @@
 use crate::prelude::*;
 
 use crate::commands::classified::{
-    ClassifiedCommand, ClassifiedInputStream, ExternalCommand, InternalCommand, StreamNext,
+    ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
+    StreamNext,
 };
 use crate::context::Context;
 crate use crate::errors::ShellError;
 crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
+use crate::parser::{ParsedCommand, Pipeline};
 use crate::stream::empty_stream;
 
+use log::debug;
 use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
 use std::collections::VecDeque;
@@ -32,20 +35,6 @@ impl<T> MaybeOwned<'a, T> {
 }
 
 pub async fn cli() -> Result<(), Box<Error>> {
-    let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let h = crate::shell::Helper::new();
-    let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
-
-    #[cfg(windows)]
-    {
-        let _ = ansi_term::enable_ansi_support();
-    }
-
-    rl.set_helper(Some(h));
-    if rl.load_history("history.txt").is_err() {
-        println!("No previous history.");
-    }
-
     let mut context = Context::basic()?;
 
     {
@@ -66,6 +55,20 @@ pub async fn cli() -> Result<(), Box<Error>> {
             ("where", Arc::new(where_::r#where)),
             ("sort-by", Arc::new(sort_by::sort_by)),
         ]);
+    }
+
+    let config = Config::builder().color_mode(ColorMode::Forced).build();
+    let h = crate::shell::Helper::new(context.clone_commands());
+    let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
+
+    #[cfg(windows)]
+    {
+        let _ = ansi_term::enable_ansi_support();
+    }
+
+    rl.set_helper(Some(h));
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
     }
 
     loop {
@@ -141,7 +144,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
-            let result = match crate::parser::shell_parser(&line) {
+            let result = match crate::parser::parse(&line, &ctx.registry()) {
                 Err(err) => {
                     return LineResult::Error(format!("{:?}", err));
                 }
@@ -149,17 +152,14 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Ok(val) => val,
             };
 
-            let parsed: Result<Vec<_>, _> = result
-                .1
-                .into_iter()
-                .map(|item| classify_command(&item, ctx))
-                .collect();
+            debug!("=== Parsed ===");
+            debug!("{:#?}", result);
 
-            let parsed = parsed?;
+            let pipeline = classify_pipeline(&result, ctx)?;
 
             let mut input = ClassifiedInputStream::new();
 
-            let mut iter = parsed.into_iter().peekable();
+            let mut iter = pipeline.commands.into_iter().peekable();
 
             loop {
                 let item: Option<ClassifiedCommand> = iter.next();
@@ -194,7 +194,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(_)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => unimplemented!(),
+                    ) => return LineResult::Error(format!("Unimplemented Internal -> External",)),
 
                     (
                         Some(ClassifiedCommand::External(left)),
@@ -245,17 +245,34 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
     }
 }
 
+fn classify_pipeline(
+    pipeline: &Pipeline,
+    context: &Context,
+) -> Result<ClassifiedPipeline, ShellError> {
+    let commands: Result<Vec<_>, _> = pipeline
+        .commands
+        .iter()
+        .cloned()
+        .map(|item| classify_command(&item, context))
+        .collect();
+
+    Ok(ClassifiedPipeline {
+        commands: commands?,
+    })
+}
+
 fn classify_command(
-    command: &[crate::parser::Item],
+    command: &ParsedCommand,
     context: &Context,
 ) -> Result<ClassifiedCommand, ShellError> {
-    let command_name = &command[0].name()?;
+    let command_name = &command.name[..];
+    let args = &command.args;
 
-    let arg_list: Vec<Value> = command[1..].iter().map(|i| i.as_value()).collect();
-    let arg_list_strings: Vec<String> = command[1..].iter().map(|i| i.print()).collect();
+    let arg_list: Vec<Value> = args.iter().map(|i| Value::from_expr(i)).collect();
+    let arg_list_strings: Vec<String> = args.iter().map(|i| i.print()).collect();
 
-    match *command_name {
-        other => match context.has_command(*command_name) {
+    match command_name {
+        other => match context.has_command(command_name) {
             true => {
                 let command = context.get_command(command_name);
                 Ok(ClassifiedCommand::Internal(InternalCommand {
