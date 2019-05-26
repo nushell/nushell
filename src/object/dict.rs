@@ -5,7 +5,7 @@ use crate::object::{Primitive, Value};
 use indexmap::IndexMap;
 use std::cmp::{Ordering, PartialOrd};
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Dictionary {
     entries: IndexMap<DataDescriptor, Value>,
 }

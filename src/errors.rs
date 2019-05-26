@@ -3,7 +3,7 @@ use crate::prelude::*;
 
 use derive_new::new;
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone)]
 pub struct ShellError {
     title: String,
     error: Value,
@@ -56,6 +56,15 @@ impl std::convert::From<subprocess::PopenError> for ShellError {
     fn from(input: subprocess::PopenError) -> ShellError {
         ShellError {
             title: format!("{}", input),
+            error: Value::nothing(),
+        }
+    }
+}
+
+impl std::convert::From<nom::Err<(&str, nom::error::ErrorKind)>> for ShellError {
+    fn from(input: nom::Err<(&str, nom::error::ErrorKind)>) -> ShellError {
+        ShellError {
+            title: format!("{:?}", input),
             error: Value::nothing(),
         }
     }

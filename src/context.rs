@@ -1,10 +1,12 @@
+use crate::parser::{CommandConfig, CommandRegistry};
 use crate::prelude::*;
 
+use indexmap::IndexMap;
 use std::error::Error;
 use std::sync::Arc;
 
 pub struct Context {
-    commands: indexmap::IndexMap<String, Arc<dyn Command>>,
+    commands: IndexMap<String, Arc<dyn Command>>,
     crate host: Arc<Mutex<dyn Host + Send>>,
     crate env: Arc<Mutex<Environment>>,
 }
@@ -21,6 +23,16 @@ impl Context {
     pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn Command>)>) {
         for (name, command) in commands {
             self.commands.insert(name.to_string(), command);
+        }
+    }
+
+    pub fn clone_commands(&self) -> indexmap::IndexMap<String, Arc<dyn Command>> {
+        self.commands.clone()
+    }
+
+    pub fn registry(&self) -> CommandMap {
+        CommandMap {
+            commands: self.clone_commands(),
         }
     }
 
@@ -46,5 +58,22 @@ impl Context {
         };
 
         command.run(command_args)
+    }
+}
+
+pub struct CommandMap {
+    #[allow(unused)]
+    commands: IndexMap<String, Arc<dyn Command>>,
+}
+
+impl CommandRegistry for CommandMap {
+    fn get(&self, name: &str) -> CommandConfig {
+        CommandConfig {
+            name: name.to_string(),
+            mandatory_positional: vec![],
+            optional_positional: vec![],
+            rest_positional: true,
+            named: IndexMap::new(),
+        }
     }
 }

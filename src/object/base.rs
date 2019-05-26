@@ -1,10 +1,11 @@
 use crate::errors::ShellError;
 use crate::object::DataDescriptor;
-use crate::parser::parse::Operator;
+use crate::parser::tokens::{self, Operator};
 use crate::prelude::*;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
+use derive_new::new;
 use ordered_float::OrderedFloat;
 use std::time::SystemTime;
 
@@ -20,7 +21,6 @@ pub enum Primitive {
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
-    Operator(Operator),
 }
 
 impl Primitive {
@@ -51,27 +51,64 @@ impl Primitive {
                 (false, Some(_)) => format!(""),
             },
             Primitive::Date(d) => format!("{}", d.humanize()),
-            Primitive::Operator(o) => o.print(),
         }
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
+pub struct Operation {
+    crate left: Value,
+    crate operator: Operator,
+    crate right: Value,
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
     List(Vec<Value>),
+    Operation(Box<Operation>),
 
     #[allow(unused)]
     Error(Box<ShellError>),
 }
 
 impl Value {
+    crate fn from_leaf(leaf: &tokens::Leaf) -> Value {
+        use tokens::*;
+
+        match leaf {
+            Leaf::String(s) => Value::string(s),
+            Leaf::Bare(s) => Value::string(s),
+            Leaf::Boolean(b) => Value::boolean(*b),
+            Leaf::Int(i) => Value::int(*i),
+        }
+    }
+
+    crate fn from_expr(expr: &tokens::Expression) -> Value {
+        use tokens::*;
+
+        match expr {
+            Expression::Leaf(leaf) => Value::from_leaf(leaf),
+
+            Expression::Binary(Binary {
+                left,
+                operator,
+                right,
+            }) => Value::Operation(Box::new(Operation::new(
+                Value::from_leaf(left),
+                *operator,
+                Value::from_leaf(right),
+            ))),
+        }
+    }
+
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
             Value::Primitive(_) => vec![DataDescriptor::value_of()],
             Value::Object(o) => o.data_descriptors(),
             Value::List(_) => vec![],
+            Value::Operation(_) => vec![],
             Value::Error(_) => vec![],
         }
     }
@@ -81,6 +118,7 @@ impl Value {
             Value::Primitive(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Operation(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
@@ -90,6 +128,7 @@ impl Value {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Operation(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
@@ -102,6 +141,7 @@ impl Value {
                 let list = l.iter().map(|i| i.copy()).collect();
                 Value::List(list)
             }
+            Value::Operation(o) => Value::Operation(o.clone()),
             Value::Error(e) => Value::Error(Box::new(e.copy_error())),
         }
     }
@@ -111,6 +151,7 @@ impl Value {
             Value::Primitive(p) => p.format(field_name),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
+            Value::Operation(_) => format!("[operation Operation]"),
             Value::Error(e) => format!("{}", e),
         }
     }
@@ -122,6 +163,18 @@ impl Value {
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
+                other
+            ))),
+        }
+    }
+
+    crate fn as_operation(&self) -> Result<Operation, ShellError> {
+        match self {
+            Value::Operation(o) => Ok(*o.clone()),
+
+            // TODO: this should definitely be more general with better errors
+            other => Err(ShellError::string(format!(
+                "Expected operation, got {:?}",
                 other
             ))),
         }
