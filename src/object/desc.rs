@@ -79,6 +79,16 @@ impl DescriptorName {
     }
 }
 
+impl Clone for DataDescriptor {
+    fn clone(&self) -> DataDescriptor {
+        DataDescriptor {
+            name: self.name.clone(),
+            readonly: self.readonly,
+            ty: self.ty.copy(),
+        }
+    }
+}
+
 impl DataDescriptor {
     crate fn value_of() -> DataDescriptor {
         DataDescriptor {

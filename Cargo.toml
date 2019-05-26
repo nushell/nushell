@@ -33,6 +33,10 @@ tokio-fs = "0.1.6"
 futures_codec = "0.2.2"
 term = "0.5.2"
 bytes = "0.4.12"
+log = "0.4.6"
+pretty_env_logger = "0.3.0"
+lalrpop-util = "0.17.0"
+regex = "1.1.6"
 
 [dependencies.pancurses]
 version = "0.16"

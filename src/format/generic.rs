@@ -43,6 +43,14 @@ impl RenderView for GenericView<'value> {
                 Ok(())
             }
 
+            Value::Operation(o) => {
+                host.stdout(&format!(
+                    "Unexpectedly trying to print an operation: {:?}",
+                    o
+                ));
+                Ok(())
+            }
+
             Value::Error(e) => {
                 host.stdout(&format!("{:?}", e));
                 Ok(())

@@ -1,5 +1,6 @@
 use crate::shell::completer::NuCompleter;
 
+use crate::prelude::*;
 use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
@@ -13,10 +14,11 @@ crate struct Helper {
 }
 
 impl Helper {
-    crate fn new() -> Helper {
+    crate fn new(commands: indexmap::IndexMap<String, Arc<dyn Command>>) -> Helper {
         Helper {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
+                commands,
             },
             highlighter: MatchingBracketHighlighter::new(),
             hinter: HistoryHinter {},
