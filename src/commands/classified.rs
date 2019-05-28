@@ -1,3 +1,5 @@
+use crate::evaluate::Scope;
+use crate::parser::CommandConfig;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures_codec::{Decoder, Encoder, Framed};
@@ -105,6 +107,44 @@ impl InternalCommand {
 
         Ok(stream.boxed() as InputStream)
     }
+
+    crate fn name(&self) -> &str {
+        self.command.name()
+    }
+
+    crate fn evaluate_args(
+        &self,
+        exprs: Vec<ast::Expression>,
+        scope: &Scope,
+    ) -> Result<Vec<Value>, ShellError> {
+        let CommandConfig {
+            name,
+            mandatory_positional,
+            optional_positional,
+            rest_positional,
+            named,
+        } = self.command.config();
+
+        let mut args = exprs.into_iter();
+        let mut evaluated = vec![];
+
+        for param in mandatory_positional {
+            let arg = match args.next() {
+                None => {
+                    return Err(ShellError::string(&format!(
+                        "Missing mandatory argument: {}",
+                        param.name()
+                    )))
+                }
+
+                Some(arg) => param.evaluate(arg, scope),
+            };
+
+            evaluated.push(arg);
+        }
+
+        unimplemented!()
+    }
 }
 
 crate struct ExternalCommand {
@@ -162,5 +202,9 @@ impl ExternalCommand {
                 Ok(ClassifiedInputStream::from_input_stream(stream.boxed()))
             }
         }
+    }
+
+    crate fn name(&self) -> &str {
+        &self.name[..]
     }
 }

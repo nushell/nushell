@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::prelude::*;
 
 pub fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let amount = args.args[0].as_int()?;
+    let amount = args.args[0].as_i64()?;
 
     let input = args.input;
 

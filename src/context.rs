@@ -20,9 +20,9 @@ impl Context {
         })
     }
 
-    pub fn add_commands(&mut self, commands: Vec<(&str, Arc<dyn Command>)>) {
-        for (name, command) in commands {
-            self.commands.insert(name.to_string(), command);
+    pub fn add_commands(&mut self, commands: Vec<Arc<dyn Command>>) {
+        for command in commands {
+            self.commands.insert(command.name().to_string(), command);
         }
     }
 

@@ -7,15 +7,27 @@ pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
         return Err(ShellError::string("select requires a field"));
     }
 
-    let operation = args.args[0].as_operation()?;
-    let field = operation.left.as_string()?;
-    let operator = operation.operator;
-    let right = operation.right;
+    let block = args.args[0].as_block()?;
     let input = args.input;
 
-    let objects = input
-        .filter(move |item| futures::future::ready(find(&item, &field, &operator, &right)))
-        .map(|item| ReturnValue::Value(item.copy()));
+    let objects = input.filter_map(move |item| {
+        let result = block.invoke(&item);
+
+        let return_value = match result {
+            Err(err) => {
+                println!("{:?}", err);
+                Some(ReturnValue::Value(Value::Error(Box::new(err))))
+            }
+            Ok(v) if v.is_true() => Some(ReturnValue::Value(item.copy())),
+            _ => None,
+        };
+
+        futures::future::ready(return_value)
+        // futures::future::ready(as_bool)
+        // futures::future::ready(block.invoke(&item).
+    });
+    // .map(|item| )
+    // .map(|item| ReturnValue::Value(item.copy()));
 
     Ok(objects.boxed())
 }

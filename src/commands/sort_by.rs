@@ -11,8 +11,8 @@ pub fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
         vec.sort_by_key(|item| {
             fields
                 .iter()
-                .map(|f| item.get_data_by_key(f).borrow().copy())
-                .collect::<Vec<Value>>()
+                .map(|f| item.get_data_by_key(f).map(|i| i.copy()))
+                .collect::<Vec<Option<Value>>>()
         });
 
         vec.into_iter()

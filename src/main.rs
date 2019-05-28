@@ -9,6 +9,7 @@ mod commands;
 mod context;
 mod env;
 mod errors;
+mod evaluate;
 mod format;
 mod object;
 mod parser;

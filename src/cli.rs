@@ -6,6 +6,7 @@ use crate::commands::classified::{
 };
 use crate::context::Context;
 crate use crate::errors::ShellError;
+use crate::evaluate::{evaluate_expr, Scope};
 crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
 use crate::parser::{ParsedCommand, Pipeline};
@@ -17,7 +18,6 @@ use rustyline::{self, ColorMode, Config, Editor};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::iter::Iterator;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -41,23 +41,23 @@ pub async fn cli() -> Result<(), Box<Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            ("format-list", Arc::new(format_list)),
-            ("ps", Arc::new(ps::ps)),
-            ("ls", Arc::new(ls::ls)),
-            ("cd", Arc::new(cd::cd)),
-            ("view", Arc::new(view::view)),
-            ("skip", Arc::new(skip::skip)),
-            ("first", Arc::new(take::take)),
-            ("size", Arc::new(size::size)),
-            ("from-json", Arc::new(from_json::from_json)),
-            ("open", Arc::new(open::open)),
-            ("column", Arc::new(column::column)),
-            ("split", Arc::new(split::split)),
-            ("reject", Arc::new(reject::reject)),
-            ("to-array", Arc::new(to_array::to_array)),
-            ("to-json", Arc::new(to_json::to_json)),
-            ("where", Arc::new(where_::r#where)),
-            ("sort-by", Arc::new(sort_by::sort_by)),
+            command("format-list", format_list),
+            command("ps", ps::ps),
+            command("ls", ls::ls),
+            command("cd", cd::cd),
+            command("view", view::view),
+            command("skip", skip::skip),
+            command("first", take::take),
+            command("size", size::size),
+            command("from-json", from_json::from_json),
+            command("open", open::open),
+            command("column", column::column),
+            command("split", split::split),
+            command("reject", reject::reject),
+            command("to-array", to_array::to_array),
+            command("to-json", to_json::to_json),
+            command("where", where_::r#where),
+            command("sort-by", sort_by::sort_by),
         ]);
     }
 
@@ -196,9 +196,15 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     },
 
                     (
-                        Some(ClassifiedCommand::Internal(_)),
-                        Some(ClassifiedCommand::External(_)),
-                    ) => return LineResult::Error(format!("Unimplemented Internal -> External",)),
+                        Some(ClassifiedCommand::Internal(ref i)),
+                        Some(ClassifiedCommand::External(ref e)),
+                    ) => {
+                        return LineResult::Error(format!(
+                            "Unimplemented Internal({}) -> External({})",
+                            i.name(),
+                            e.name()
+                        ))
+                    }
 
                     (
                         Some(ClassifiedCommand::External(left)),
@@ -272,8 +278,10 @@ fn classify_command(
     let command_name = &command.name[..];
     let args = &command.args;
 
-    let arg_list: Vec<Value> = args.iter().map(|i| Value::from_expr(i)).collect();
-    let arg_list_strings: Vec<String> = args.iter().map(|i| i.print()).collect();
+    let arg_list: Result<Vec<Value>, _> = args
+        .iter()
+        .map(|i| evaluate_expr(i, &Scope::empty()))
+        .collect();
 
     match command_name {
         other => match context.has_command(command_name) {
@@ -281,13 +289,17 @@ fn classify_command(
                 let command = context.get_command(command_name);
                 Ok(ClassifiedCommand::Internal(InternalCommand {
                     command,
-                    args: arg_list,
+                    args: arg_list?,
                 }))
             }
-            false => Ok(ClassifiedCommand::External(ExternalCommand {
-                name: other.to_string(),
-                args: arg_list_strings,
-            })),
+            false => {
+                let arg_list_strings: Vec<String> = args.iter().map(|i| i.print()).collect();
+
+                Ok(ClassifiedCommand::External(ExternalCommand {
+                    name: other.to_string(),
+                    args: arg_list_strings,
+                }))
+            }
         },
     }
 }

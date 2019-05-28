@@ -21,20 +21,6 @@ impl RenderView for GenericView<'value> {
                 }
 
                 Ok(())
-                // let mut list: Vec<String> = vec![];
-                // for item in l {
-                //     match item {
-                //         Value::Primitive(p) => list.push(p.format()),
-                //         Value::List(l) => list.push(format!("{:?}", l)),
-                //         Value::Object(o) => {
-                //             let view = o.to_entries_view();
-                //             let out = view.render_view(host);
-                //             list.extend(out);
-                //         }
-                //     }
-                //     list.push("\n".to_string());
-                // }
-                // list
             }
 
             o @ Value::Object(_) => {
@@ -43,15 +29,15 @@ impl RenderView for GenericView<'value> {
                 Ok(())
             }
 
-            Value::Operation(o) => {
-                host.stdout(&format!(
-                    "Unexpectedly trying to print an operation: {:?}",
-                    o
-                ));
+            b @ Value::Block(_) => {
+                let printed = b.format_leaf(None);
+                let view = EntriesView::from_value(&Value::string(&printed));
+                view.render_view(host)?;
                 Ok(())
             }
 
             Value::Error(e) => {
+                // println!("ERROR: {:?}", e);
                 host.stdout(&format!("{:?}", e));
                 Ok(())
             }

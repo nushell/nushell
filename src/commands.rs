@@ -18,4 +18,5 @@ crate mod to_json;
 crate mod view;
 crate mod where_;
 
+crate use command::command;
 crate use to_array::stream_to_array;
