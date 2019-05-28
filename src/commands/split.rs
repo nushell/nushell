@@ -19,7 +19,22 @@ pub fn split(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 debug!("split result = {:?}", split_result);
 
-                if split_result.len() == (args.len() - 1) {
+                // If they didn't provide column names, make up our own
+                if (args.len() - 1) == 0 {
+                    let mut gen_columns = vec![];
+                    for i in 0..split_result.len() {
+                        gen_columns.push(format!("Column{}", i + 1));
+                    }
+
+                    let mut dict = crate::object::Dictionary::default();
+                    for (k, v) in split_result.iter().zip(gen_columns.iter()) {
+                        dict.add(
+                            v.clone(),
+                            Value::Primitive(Primitive::String(k.to_string())),
+                        );
+                    }
+                    ReturnValue::Value(Value::Object(dict))
+                } else if split_result.len() == (args.len() - 1) {
                     let mut dict = crate::object::Dictionary::default();
                     for (k, v) in split_result.iter().zip(args.iter().skip(1)) {
                         dict.add(

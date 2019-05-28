@@ -1,5 +1,6 @@
 use crate::object::types::{AnyShell, Type};
 use derive_new::new;
+use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum DescriptorName {
@@ -35,6 +36,18 @@ pub struct DataDescriptor {
     crate name: DescriptorName,
     crate readonly: bool,
     crate ty: Box<dyn Type>,
+}
+
+impl Serialize for DataDescriptor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.name {
+            DescriptorName::String(ref s) => serializer.serialize_str(s),
+            DescriptorName::ValueOf => serializer.serialize_str("value_of")
+        }
+    }
 }
 
 impl From<&str> for DataDescriptor {
