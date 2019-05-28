@@ -3,11 +3,25 @@ use crate::prelude::*;
 use crate::object::DataDescriptor;
 use crate::object::{Primitive, Value};
 use indexmap::IndexMap;
+use serde::ser::{Serialize, Serializer, SerializeMap};
 use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct Dictionary {
     entries: IndexMap<DataDescriptor, Value>,
+}
+
+impl Serialize for Dictionary {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.entries.len()))?;
+        for (k, v) in &self.entries {
+            map.serialize_entry(&k, &v)?;
+        }
+        map.end()
+    }
 }
 
 impl PartialOrd for Dictionary {

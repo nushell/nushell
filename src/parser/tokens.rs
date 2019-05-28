@@ -1,7 +1,8 @@
 use derive_new::new;
 use std::str::FromStr;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum Operator {
     Equal,
     NotEqual,

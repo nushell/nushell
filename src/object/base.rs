@@ -9,6 +9,9 @@ use derive_new::new;
 use ordered_float::OrderedFloat;
 use std::time::SystemTime;
 
+use serde::{Serialize, Serializer};
+use serde_derive::Serialize;
+
 type OF64 = OrderedFloat<f64>;
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -21,6 +24,23 @@ pub enum Primitive {
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
+}
+
+impl Serialize for Primitive {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Primitive::Nothing => serializer.serialize_i32(0),
+            Primitive::Int(i) => serializer.serialize_i64(*i),
+            Primitive::Float(f) => serializer.serialize_f64(f.into_inner()),
+            Primitive::Bytes(b) => serializer.serialize_u128(*b),
+            Primitive::String(ref s) => serializer.serialize_str(s),
+            Primitive::Boolean(b) => serializer.serialize_bool(*b),
+            Primitive::Date(d) => serializer.serialize_str(&d.to_string()),
+        }
+    }
 }
 
 impl Primitive {
@@ -55,7 +75,7 @@ impl Primitive {
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
 pub struct Operation {
     crate left: Value,
     crate operator: Operator,
@@ -71,6 +91,21 @@ pub enum Value {
 
     #[allow(unused)]
     Error(Box<ShellError>),
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Value::Primitive(p) => p.serialize(serializer),
+            Value::Object(o) => o.serialize(serializer),
+            Value::List(l) => l.serialize(serializer),
+            Value::Operation(o) => o.serialize(serializer),
+            Value::Error(e) => e.serialize(serializer),
+        }
+    }
 }
 
 impl Value {

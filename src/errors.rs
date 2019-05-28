@@ -1,9 +1,9 @@
 #[allow(unused)]
 use crate::prelude::*;
-
+use serde_derive::Serialize;
 use derive_new::new;
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone, Serialize)]
 pub struct ShellError {
     title: String,
     error: Value,
