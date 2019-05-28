@@ -80,14 +80,14 @@ impl Dictionary {
         }
     }
 
-    crate fn get_data_by_key(&self, name: &str) -> MaybeOwned<'_, Value> {
+    crate fn get_data_by_key(&self, name: &str) -> Option<&Value> {
         match self
             .entries
             .iter()
             .find(|(desc_name, _)| desc_name.name.is_string(name))
         {
-            Some((_, v)) => MaybeOwned::Borrowed(v),
-            None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),
+            Some((_, v)) => Some(v),
+            None => None,
         }
     }
 }

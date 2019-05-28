@@ -1,4 +1,5 @@
 use derive_new::new;
+use getset::Getters;
 use std::str::FromStr;
 use serde_derive::{Deserialize, Serialize};
 
@@ -40,25 +41,106 @@ impl FromStr for Operator {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Expression {
     Leaf(Leaf),
-    Binary(Binary),
+    Parenthesized(Box<Parenthesized>),
+    Block(Box<Block>),
+    Binary(Box<Binary>),
+    Path(Box<Path>),
+    VariableReference(Variable),
 }
 
 impl Expression {
     crate fn print(&self) -> String {
         match self {
             Expression::Leaf(l) => l.print(),
+            Expression::Parenthesized(p) => p.print(),
+            Expression::Block(b) => b.print(),
+            Expression::VariableReference(r) => r.print(),
+            Expression::Path(p) => p.print(),
             Expression::Binary(b) => b.print(),
+        }
+    }
+
+    crate fn as_string(&self) -> Option<String> {
+        match self {
+            Expression::Leaf(Leaf::String(s)) | Expression::Leaf(Leaf::Bare(s)) => {
+                Some(s.to_string())
+            }
+            _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
+pub struct Block {
+    crate expr: Expression,
+}
+
+impl Block {
+    fn print(&self) -> String {
+        format!("{{ {} }}", self.expr.print())
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
+pub struct Parenthesized {
+    crate expr: Expression,
+}
+
+impl Parenthesized {
+    fn print(&self) -> String {
+        format!("({})", self.expr.print())
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Getters, new)]
+pub struct Path {
+    #[get = "crate"]
+    head: Expression,
+
+    #[get = "crate"]
+    tail: Vec<String>,
+}
+
+impl Path {
+    crate fn print(&self) -> String {
+        let mut out = self.head.print();
+
+        for item in self.tail.iter() {
+            out.push_str(&format!(".{}", item));
+        }
+
+        out
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Variable {
+    It,
+    True,
+    False,
+    Other(String),
+}
+
+impl Variable {
+    fn print(&self) -> String {
+        match self {
+            Variable::It => format!("$it"),
+            Variable::True => format!("$true"),
+            Variable::False => format!("$false"),
+            Variable::Other(s) => format!("${}", s),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Leaf {
     String(String),
     Bare(String),
+
+    #[allow(unused)]
     Boolean(bool),
     Int(i64),
 }
@@ -74,11 +156,11 @@ impl Leaf {
     }
 }
 
-#[derive(Debug, Clone, new)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
 pub struct Binary {
-    crate left: Leaf,
+    crate left: Expression,
     crate operator: Operator,
-    crate right: Leaf,
+    crate right: Expression,
 }
 
 impl Binary {

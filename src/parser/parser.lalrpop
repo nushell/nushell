@@ -1,6 +1,6 @@
 use std::str::FromStr;
-use crate::parser::tokens::*;
 use byte_unit::Byte;
+use crate::parser::ast::*;
 
 grammar;
 
@@ -10,12 +10,59 @@ pub Pipeline: Pipeline = {
 }
 
 Command: ParsedCommand = {
-    <command:RawBareWord> <expr:Expr*> => ParsedCommand::new(command, expr)
+    <command:RawBareWord> <expr:Expr*> => ParsedCommand::new(command, expr),
+    <command:RawBareWord> <expr:BinaryExpression> => ParsedCommand::new(command, vec![expr]),
+}
+
+Leaf: Expression = {
+    <String> => Expression::Leaf(Leaf::String(<>)),
+    <Num> => Expression::Leaf(Leaf::Int(<>)),
+    <Variable> => Expression::VariableReference(<>),
+}
+
+BinaryExpression: Expression = {
+    <left:Expr> <op:Operator> <right:Leaf> => Expression::Binary(Box::new(Binary::new(left, op, right))),
+}
+
+Parenthesized: Expression = {
+    "(" <Leaf> ")" => Expression::Parenthesized(Box::new(Parenthesized::new(<>))),
+    "(" <BinaryExpression> ")" => Expression::Parenthesized(Box::new(Parenthesized::new(<>))),
+}
+
+AtomicExpression: Expression = {
+    <Parenthesized>,
+    <Leaf>,
+}
+
+Block: Expression = {
+    "{" <AtomicExpression> "}" => Expression::Block(Box::new(Block::new(<>))),
+    "{" <BinaryExpression> "}" => Expression::Block(Box::new(Block::new(<>))),
+}
+
+WholeExpression: Expression = {
+    <AtomicExpression>,
+    <Block>,
+}
+
+PathExpression: Expression = {
+    <head:WholeExpression> <tail: ( "." <Member> )*> => Expression::Path(Box::new(Path::new(head, tail)))
 }
 
 Expr: Expression = {
-    <Leaf> => Expression::Leaf(<>),
-    <Binary> => Expression::Binary(<>),
+    <RawBareWord> => Expression::Leaf(Leaf::Bare(<>)),
+    <PathExpression>
+}
+
+Variable: Variable = {
+    "$true" => Variable::True,
+    "$false" => Variable::False,
+    "$it" => Variable::It,
+    "$" <RawBareWord> => Variable::Other(<>.to_string()),
+}
+
+Member: String = {
+    <RawBareWord>,
+    <String>
 }
 
 Operator: Operator = {
@@ -25,10 +72,6 @@ Operator: Operator = {
     ">" => Operator::GreaterThan,
     "<=" => Operator::LessThanOrEqual,
     ">=" => Operator::GreaterThanOrEqual
-}
-
-Binary: Binary = {
-    <left:Leaf> <op:Operator> <right:Leaf> => Binary::new(left, op, right),
 }
 
 Flag: Flag = {
@@ -41,18 +84,7 @@ String: String = {
     DQString,
 }
 
-Leaf: Leaf = {
-    <String> => Leaf::String(<>),
-    <Size> => Leaf::Int(<>),
-    <Num> => Leaf::Int(<>),
-    <RawBareWord> => match <>.as_ref() {
-        "true" => Leaf::Boolean(true),
-        "false" => Leaf::Boolean(false),
-        _ => Leaf::Bare(<>),
-    }
-}
-
-RawBareWord: String = <s:r#"[^0-9"'\-][^\s]*"#> => <>.to_string();
+RawBareWord: String = <s:r#"[^0-9"'\-][^\s"']*"#> => <>.to_string();
 DQString: String = <s:r#""([^"]|\\")*""#> => s[1..s.len() - 1].to_string();
 SQString: String = <s:r#"'([^']|\\')*'"#> => s[1..s.len() - 1].to_string();
 Num: i64 = <s:r"-?[0-9]+"> => i64::from_str(s).unwrap();

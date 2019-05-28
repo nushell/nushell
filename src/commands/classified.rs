@@ -105,6 +105,10 @@ impl InternalCommand {
 
         Ok(stream.boxed() as InputStream)
     }
+
+    crate fn name(&self) -> &str {
+        self.command.name()
+    }
 }
 
 crate struct ExternalCommand {
@@ -162,5 +166,9 @@ impl ExternalCommand {
                 Ok(ClassifiedInputStream::from_input_stream(stream.boxed()))
             }
         }
+    }
+
+    crate fn name(&self) -> &str {
+        &self.name[..]
     }
 }

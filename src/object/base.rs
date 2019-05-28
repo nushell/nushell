@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
+use crate::evaluate::{evaluate_expr, Scope};
 use crate::object::DataDescriptor;
-use crate::parser::tokens::{self, Operator};
+use crate::parser::ast::{self, Operator};
 use crate::prelude::*;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
@@ -82,12 +83,33 @@ pub struct Operation {
     crate right: Value,
 }
 
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
+pub struct Block {
+    crate expression: ast::Expression,
+}
+
+impl Serialize for Block {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.expression.print())
+    }
+}
+
+impl Block {
+    pub fn invoke(&self, value: &Value) -> Result<Value, ShellError> {
+        let scope = Scope::new(value.copy());
+        evaluate_expr(&self.expression, &scope)
+    }
+}
+
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
     List(Vec<Value>),
-    Operation(Box<Operation>),
+    Block(Block),
 
     #[allow(unused)]
     Error(Box<ShellError>),
@@ -102,59 +124,27 @@ impl Serialize for Value {
             Value::Primitive(p) => p.serialize(serializer),
             Value::Object(o) => o.serialize(serializer),
             Value::List(l) => l.serialize(serializer),
-            Value::Operation(o) => o.serialize(serializer),
+            Value::Block(b) => b.serialize(serializer),
             Value::Error(e) => e.serialize(serializer),
         }
     }
 }
 
 impl Value {
-    crate fn from_leaf(leaf: &tokens::Leaf) -> Value {
-        use tokens::*;
-
-        match leaf {
-            Leaf::String(s) => Value::string(s),
-            Leaf::Bare(s) => Value::string(s),
-            Leaf::Boolean(b) => Value::boolean(*b),
-            Leaf::Int(i) => Value::int(*i),
-        }
-    }
-
-    crate fn from_expr(expr: &tokens::Expression) -> Value {
-        use tokens::*;
-
-        match expr {
-            Expression::Leaf(leaf) => Value::from_leaf(leaf),
-
-            Expression::Binary(Binary {
-                left,
-                operator,
-                right,
-            }) => Value::Operation(Box::new(Operation::new(
-                Value::from_leaf(left),
-                *operator,
-                Value::from_leaf(right),
-            ))),
-        }
-    }
-
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
             Value::Primitive(_) => vec![DataDescriptor::value_of()],
             Value::Object(o) => o.data_descriptors(),
+            Value::Block(_) => vec![DataDescriptor::value_of()],
             Value::List(_) => vec![],
-            Value::Operation(_) => vec![],
-            Value::Error(_) => vec![],
+            Value::Error(_) => vec![DataDescriptor::value_of()],
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> MaybeOwned<'a, Value> {
+    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Value> {
         match self {
-            Value::Primitive(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Object(o) => o.get_data_by_key(name),
-            Value::List(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Operation(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
+            _ => None,
         }
     }
 
@@ -162,9 +152,9 @@ impl Value {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
+            Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Operation(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(e) => MaybeOwned::Owned(Value::string(&format!("{:#?}", e))),
         }
     }
 
@@ -172,11 +162,11 @@ impl Value {
         match self {
             Value::Primitive(p) => Value::Primitive(p.clone()),
             Value::Object(o) => Value::Object(o.copy_dict()),
+            Value::Block(b) => Value::Block(b.clone()),
             Value::List(l) => {
                 let list = l.iter().map(|i| i.copy()).collect();
                 Value::List(list)
             }
-            Value::Operation(o) => Value::Operation(o.clone()),
             Value::Error(e) => Value::Error(Box::new(e.copy_error())),
         }
     }
@@ -184,17 +174,41 @@ impl Value {
     crate fn format_leaf(&self, field_name: Option<&str>) -> String {
         match self {
             Value::Primitive(p) => p.format(field_name),
+            Value::Block(b) => b.expression.print(),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
-            Value::Operation(_) => format!("[operation Operation]"),
             Value::Error(e) => format!("{}", e),
+        }
+    }
+
+    crate fn compare(&self, operator: ast::Operator, other: &Value) -> Option<bool> {
+        match operator {
+            ast::Operator::Equal | ast::Operator::NotEqual => unimplemented!(),
+            _ => {
+                let coerced = coerce_compare(self, other)?;
+                let ordering = coerced.compare();
+
+                use std::cmp::Ordering;
+
+                let result = match (operator, ordering) {
+                    (Operator::Equal, Ordering::Equal) => true,
+                    (Operator::LessThan, Ordering::Less) => true,
+                    (Operator::GreaterThan, Ordering::Greater) => true,
+                    (Operator::GreaterThanOrEqual, Ordering::Greater)
+                    | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
+                    (Operator::LessThanOrEqual, Ordering::Less)
+                    | (Operator::LessThanOrEqual, Ordering::Equal) => true,
+                    _ => false,
+                };
+
+                Some(result)
+            }
         }
     }
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Primitive(Primitive::String(s)) => Ok(s.to_string()),
-
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
@@ -203,24 +217,24 @@ impl Value {
         }
     }
 
-    crate fn as_operation(&self) -> Result<Operation, ShellError> {
+    crate fn as_i64(&self) -> Result<i64, ShellError> {
         match self {
-            Value::Operation(o) => Ok(*o.clone()),
-
+            Value::Primitive(Primitive::Int(i)) => Ok(*i),
+            Value::Primitive(Primitive::Bytes(b)) if *b <= std::i64::MAX as u128 => Ok(*b as i64),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
-                "Expected operation, got {:?}",
+                "Expected integer, got {:?}",
                 other
             ))),
         }
     }
 
-    crate fn as_int(&self) -> Result<i64, ShellError> {
+    crate fn as_block(&self) -> Result<Block, ShellError> {
         match self {
-            Value::Primitive(Primitive::Int(i)) => Ok(*i),
+            Value::Block(block) => Ok(block.clone()),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
-                "Expected integer, got {:?}",
+                "Expected block, got {:?}",
                 other
             ))),
         }
@@ -236,6 +250,17 @@ impl Value {
                 other
             ))),
         }
+    }
+
+    crate fn is_true(&self) -> bool {
+        match self {
+            Value::Primitive(Primitive::Boolean(true)) => true,
+            _ => false,
+        }
+    }
+
+    crate fn block(e: ast::Expression) -> Value {
+        Value::Block(Block::new(e))
     }
 
     crate fn string(s: impl Into<String>) -> Value {
@@ -316,13 +341,13 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     out
 }
 
+#[allow(unused)]
 crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     let descs = obj.data_descriptors();
     match descs.iter().find(|d| d.name.is_string(field)) {
         None => false,
         Some(desc) => {
             let v = obj.get_data(desc).borrow().copy();
-            //println!("'{:?}' '{:?}' '{:?}'", v, op, rhs);
 
             match v {
                 Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {
@@ -396,5 +421,41 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
                 _ => false,
             }
         }
+    }
+}
+
+enum CompareValues {
+    Ints(i64, i64),
+    Bytes(i128, i128),
+    String(String, String),
+}
+
+impl CompareValues {
+    fn compare(&self) -> std::cmp::Ordering {
+        match self {
+            CompareValues::Ints(left, right) => left.cmp(right),
+            CompareValues::Bytes(left, right) => left.cmp(right),
+            CompareValues::String(left, right) => left.cmp(right),
+        }
+    }
+}
+
+fn coerce_compare(left: &Value, right: &Value) -> Option<CompareValues> {
+    match (left, right) {
+        (Value::Primitive(left), Value::Primitive(right)) => coerce_compare_primitive(left, right),
+
+        _ => None,
+    }
+}
+
+fn coerce_compare_primitive(left: &Primitive, right: &Primitive) -> Option<CompareValues> {
+    use Primitive::*;
+
+    match (left, right) {
+        (Int(left), Int(right)) => Some(CompareValues::Ints(*left, *right)),
+        (Int(left), Bytes(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
+        (Bytes(left), Int(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
+        (String(left), String(right)) => Some(CompareValues::String(left.clone(), right.clone())),
+        _ => None,
     }
 }

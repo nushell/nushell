@@ -1,10 +1,10 @@
+crate mod ast;
 crate mod completer;
 crate mod parser;
 crate mod registry;
-crate mod tokens;
 
+crate use ast::{ParsedCommand, Pipeline};
 crate use registry::{CommandConfig, CommandRegistry};
-crate use tokens::{ParsedCommand, Pipeline};
 
 use crate::errors::ShellError;
 use parser::PipelineParser;
