@@ -2,7 +2,9 @@ crate mod args;
 crate mod cd;
 crate mod classified;
 crate mod command;
+crate mod from_json;
 crate mod ls;
+crate mod open;
 crate mod ps;
 crate mod reject;
 crate mod select;
@@ -11,6 +13,7 @@ crate mod sort_by;
 crate mod split;
 crate mod take;
 crate mod to_array;
+crate mod to_json;
 crate mod view;
 crate mod where_;
 
