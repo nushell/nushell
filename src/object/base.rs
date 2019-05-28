@@ -88,6 +88,15 @@ pub struct Block {
     crate expression: ast::Expression,
 }
 
+impl Serialize for Block {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.expression.print())
+    }
+}
+
 impl Block {
     pub fn invoke(&self, value: &Value) -> Result<Value, ShellError> {
         let scope = Scope::new(value.copy());
@@ -115,7 +124,7 @@ impl Serialize for Value {
             Value::Primitive(p) => p.serialize(serializer),
             Value::Object(o) => o.serialize(serializer),
             Value::List(l) => l.serialize(serializer),
-            Value::Operation(o) => o.serialize(serializer),
+            Value::Block(b) => b.serialize(serializer),
             Value::Error(e) => e.serialize(serializer),
         }
     }

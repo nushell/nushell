@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use byte_unit::Byte;
 use crate::parser::ast::*;
 
 grammar;
@@ -83,7 +84,7 @@ String: String = {
     DQString,
 }
 
-RawBareWord: String = <s:r#"[^0-9"'\-\.][^\s"'\.]*"#> => <>.to_string();
+RawBareWord: String = <s:r#"[^0-9"'\-][^\s"']*"#> => <>.to_string();
 DQString: String = <s:r#""([^"]|\\")*""#> => s[1..s.len() - 1].to_string();
 SQString: String = <s:r#"'([^']|\\')*'"#> => s[1..s.len() - 1].to_string();
 Num: i64 = <s:r"-?[0-9]+"> => i64::from_str(s).unwrap();

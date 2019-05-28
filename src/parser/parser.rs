@@ -1,6 +1,7 @@
 // auto-generated: "lalrpop 0.17.0"
-// sha256: 347c9d51fb526e7c1b1440f4e4a3f5e56f21d618a4d53bf27751cbc31d96dae4
+// sha256: 4ee276758faf25a1744699f385437040e58a7988edbff39291ce342def61
 use std::str::FromStr;
+use byte_unit::Byte;
 use crate::parser::ast::*;
 #[allow(unused_extern_crates)]
 extern crate lalrpop_util as __lalrpop_util;
@@ -12,6 +13,7 @@ mod __parse__Pipeline {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
     use std::str::FromStr;
+    use byte_unit::Byte;
     use crate::parser::ast::*;
     #[allow(unused_extern_crates)]
     extern crate lalrpop_util as __lalrpop_util;
@@ -424,7 +426,7 @@ mod __parse__Pipeline {
             r###"r#"\'([^\']|\\\\\')*\'"#"###,
             r###"r#"-?[0-9]+"#"###,
             r###"r#"-?[0-9]+[A-Za-z]+"#"###,
-            r###"r#"[^0-9\"\'\\-\\.][^\\s\"\'\\.]*"#"###,
+            r###"r#"[^0-9\"\'\\-][^\\s\"\']*"#"###,
         ];
         __ACTION[(__state * 23)..].iter().zip(__TERMINAL).filter_map(|(&state, terminal)| {
             if state == 0 {
@@ -2212,7 +2214,7 @@ mod __parse__Pipeline {
         _: ::std::marker::PhantomData<(&'input ())>,
     ) -> (usize, usize)
     {
-        // RawBareWord = r#"[^0-9\"\'\\-\\.][^\\s\"\'\\.]*"# => ActionFn(36);
+        // RawBareWord = r#"[^0-9\"\'\\-][^\\s\"\']*"# => ActionFn(36);
         let __sym0 = __pop_Variant0(__symbols);
         let __start = __sym0.0.clone();
         let __end = __sym0.2.clone();
@@ -2417,6 +2419,7 @@ pub use self::__parse__Pipeline::PipelineParser;
 mod __intern_token {
     #![allow(unused_imports)]
     use std::str::FromStr;
+    use byte_unit::Byte;
     use crate::parser::ast::*;
     #[allow(unused_extern_crates)]
     extern crate lalrpop_util as __lalrpop_util;
@@ -2445,7 +2448,7 @@ mod __intern_token {
                 "^(\'([\u{0}-\\&\\(-\u{10ffff}]|\\\\\')*\')",
                 "^(\\-?[0-9]+)",
                 "^(\\-?[0-9]+[A-Za-z]+)",
-                "^([\u{0}-!\\#-\\&\\(-,/:-\u{10ffff}][\u{0}-\u{8}\u{e}-\u{1f}!\\#-\\&\\(-\\-/-\u{84}\u{86}-\u{9f}¡-ᙿᚁ-\u{1fff}\u{200b}-‧\u{202a}-\u{202e}‰-⁞\u{2060}-\u{2fff}、-\u{10ffff}]*)",
+                "^([\u{0}-!\\#-\\&\\(-,\\.-/:-\u{10ffff}][\u{0}-\u{8}\u{e}-\u{1f}!\\#-\\&\\(-\u{84}\u{86}-\u{9f}¡-ᙿᚁ-\u{1fff}\u{200b}-‧\u{202a}-\u{202e}‰-⁞\u{2060}-\u{2fff}、-\u{10ffff}]*)",
                 "^(!=)",
                 "^(\\$)",
                 "^(\\$false)",
@@ -2471,7 +2474,7 @@ mod __intern_token {
                 __regex::Regex::new("^(\'([\u{0}-\\&\\(-\u{10ffff}]|\\\\\')*\')").unwrap(),
                 __regex::Regex::new("^(\\-?[0-9]+)").unwrap(),
                 __regex::Regex::new("^(\\-?[0-9]+[A-Za-z]+)").unwrap(),
-                __regex::Regex::new("^([\u{0}-!\\#-\\&\\(-,/:-\u{10ffff}][\u{0}-\u{8}\u{e}-\u{1f}!\\#-\\&\\(-\\-/-\u{84}\u{86}-\u{9f}¡-ᙿᚁ-\u{1fff}\u{200b}-‧\u{202a}-\u{202e}‰-⁞\u{2060}-\u{2fff}、-\u{10ffff}]*)").unwrap(),
+                __regex::Regex::new("^([\u{0}-!\\#-\\&\\(-,\\.-/:-\u{10ffff}][\u{0}-\u{8}\u{e}-\u{1f}!\\#-\\&\\(-\u{84}\u{86}-\u{9f}¡-ᙿᚁ-\u{1fff}\u{200b}-‧\u{202a}-\u{202e}‰-⁞\u{2060}-\u{2fff}、-\u{10ffff}]*)").unwrap(),
                 __regex::Regex::new("^(!=)").unwrap(),
                 __regex::Regex::new("^(\\$)").unwrap(),
                 __regex::Regex::new("^(\\$false)").unwrap(),
