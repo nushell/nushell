@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use crate::parser::tokens::*;
+use byte_unit::Byte;
 
 grammar;
 
@@ -42,6 +43,7 @@ String: String = {
 
 Leaf: Leaf = {
     <String> => Leaf::String(<>),
+    <Size> => Leaf::Int(<>),
     <Num> => Leaf::Int(<>),
     <RawBareWord> => match <>.as_ref() {
         "true" => Leaf::Boolean(true),
@@ -54,3 +56,4 @@ RawBareWord: String = <s:r#"[^0-9"'\-][^\s]*"#> => <>.to_string();
 DQString: String = <s:r#""([^"]|\\")*""#> => s[1..s.len() - 1].to_string();
 SQString: String = <s:r#"'([^']|\\')*'"#> => s[1..s.len() - 1].to_string();
 Num: i64 = <s:r"-?[0-9]+"> => i64::from_str(s).unwrap();
+Size: i64 = <s:r"-?[0-9]+[A-Za-z]+"> => Byte::from_string(s).unwrap().get_bytes() as i64;

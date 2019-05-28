@@ -51,7 +51,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             ("size", Arc::new(size::size)),
             ("from-json", Arc::new(from_json::from_json)),
             ("open", Arc::new(open::open)),
-            ("column", Arc::new(select::select)),
+            ("column", Arc::new(column::column)),
             ("split", Arc::new(split::split)),
             ("reject", Arc::new(reject::reject)),
             ("to-array", Arc::new(to_array::to_array)),
