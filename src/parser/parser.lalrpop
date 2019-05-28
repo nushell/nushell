@@ -17,6 +17,7 @@ Command: ParsedCommand = {
 Leaf: Expression = {
     <String> => Expression::Leaf(Leaf::String(<>)),
     <Num> => Expression::Leaf(Leaf::Int(<>)),
+    <Size> => Expression::Leaf(Leaf::Int(<>)),
     <Variable> => Expression::VariableReference(<>),
 }
 

@@ -426,6 +426,7 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
 
 enum CompareValues {
     Ints(i64, i64),
+    Floats(OF64, OF64),
     Bytes(i128, i128),
     String(String, String),
 }
@@ -434,6 +435,7 @@ impl CompareValues {
     fn compare(&self) -> std::cmp::Ordering {
         match self {
             CompareValues::Ints(left, right) => left.cmp(right),
+            CompareValues::Floats(left, right) => left.cmp(right),
             CompareValues::Bytes(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
         }
@@ -453,6 +455,8 @@ fn coerce_compare_primitive(left: &Primitive, right: &Primitive) -> Option<Compa
 
     match (left, right) {
         (Int(left), Int(right)) => Some(CompareValues::Ints(*left, *right)),
+        (Float(left), Int(right)) => Some(CompareValues::Floats(*left, (*right as f64).into())),
+        (Int(left), Float(right)) => Some(CompareValues::Floats((*left as f64).into(), *right)),
         (Int(left), Bytes(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
         (Bytes(left), Int(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
         (String(left), String(right)) => Some(CompareValues::String(left.clone(), right.clone())),
