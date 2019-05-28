@@ -8,6 +8,7 @@ crate mod open;
 crate mod ps;
 crate mod reject;
 crate mod select;
+crate mod size;
 crate mod skip;
 crate mod sort_by;
 crate mod split;

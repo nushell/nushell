@@ -19,6 +19,7 @@ impl Completer for NuCompleter {
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
+
         let commands: Vec<String> = self.commands.keys().cloned().collect();
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;

@@ -48,6 +48,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             ("view", Arc::new(view::view)),
             ("skip", Arc::new(skip::skip)),
             ("first", Arc::new(take::take)),
+            ("size", Arc::new(size::size)),
             ("from-json", Arc::new(from_json::from_json)),
             ("open", Arc::new(open::open)),
             ("column", Arc::new(select::select)),
