@@ -9,22 +9,18 @@ pub Pipeline: Pipeline = {
 }
 
 Command: ParsedCommand = {
-    <command:RawBareWord> <expr:Expr*> => ParsedCommand::new(command, expr)
+    <command:RawBareWord> <expr:Expr*> => ParsedCommand::new(command, expr),
+    <command:RawBareWord> <expr:BinaryExpression> => ParsedCommand::new(command, vec![expr]),
 }
 
 Leaf: Expression = {
     <String> => Expression::Leaf(Leaf::String(<>)),
     <Num> => Expression::Leaf(Leaf::Int(<>)),
     <Variable> => Expression::VariableReference(<>),
-    <RawBareWord> => match <>.as_ref() {
-        "$true" => Expression::Leaf(Leaf::Boolean(true)),
-        "$false" => Expression::Leaf(Leaf::Boolean(false)),
-        _ => Expression::Leaf(Leaf::Bare(<>)),
-    }
 }
 
 BinaryExpression: Expression = {
-    <left:PathExpression> <op:Operator> <right:Leaf> => Expression::Binary(Box::new(Binary::new(left, op, right))),
+    <left:Expr> <op:Operator> <right:Leaf> => Expression::Binary(Box::new(Binary::new(left, op, right))),
 }
 
 Parenthesized: Expression = {
@@ -52,6 +48,7 @@ PathExpression: Expression = {
 }
 
 Expr: Expression = {
+    <RawBareWord> => Expression::Leaf(Leaf::Bare(<>)),
     <PathExpression>
 }
 

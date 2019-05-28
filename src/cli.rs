@@ -6,7 +6,7 @@ use crate::commands::classified::{
 };
 use crate::context::Context;
 crate use crate::errors::ShellError;
-use crate::evaluate::{evaluate_expr, Scope};
+use crate::evaluate::Scope;
 crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
 use crate::parser::{ParsedCommand, Pipeline};
@@ -56,7 +56,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("reject", reject::reject),
             command("to-array", to_array::to_array),
             command("to-json", to_json::to_json),
-            command("where", where_::r#where),
+            Arc::new(Where),
             command("sort-by", sort_by::sort_by),
         ]);
     }
@@ -278,18 +278,18 @@ fn classify_command(
     let command_name = &command.name[..];
     let args = &command.args;
 
-    let arg_list: Result<Vec<Value>, _> = args
-        .iter()
-        .map(|i| evaluate_expr(i, &Scope::empty()))
-        .collect();
-
     match command_name {
         other => match context.has_command(command_name) {
             true => {
                 let command = context.get_command(command_name);
+                let config = command.config();
+                let scope = Scope::empty();
+
+                let args = config.evaluate_args(args.iter(), &scope)?;
+
                 Ok(ClassifiedCommand::Internal(InternalCommand {
                     command,
-                    args: arg_list?,
+                    args,
                 }))
             }
             false => {

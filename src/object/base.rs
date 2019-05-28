@@ -208,20 +208,11 @@ impl Value {
         }
     }
 
-    crate fn is_intish(&self) -> bool {
-        match self {
-            Value::Primitive(Primitive::Int(i)) => true,
-            // TODO: this should definitely be more general with better errors
-            Value::Primitive(Primitive::Bytes(b)) if *b <= std::i64::MAX as u128 => true,
-            _ => false,
-        }
-    }
-
     crate fn as_i64(&self) -> Result<i64, ShellError> {
         match self {
             Value::Primitive(Primitive::Int(i)) => Ok(*i),
-            // TODO: this should definitely be more general with better errors
             Value::Primitive(Primitive::Bytes(b)) if *b <= std::i64::MAX as u128 => Ok(*b as i64),
+            // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected integer, got {:?}",
                 other
@@ -255,7 +246,7 @@ impl Value {
     crate fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
-            other => false,
+            _ => false,
         }
     }
 
@@ -341,13 +332,13 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     out
 }
 
+#[allow(unused)]
 crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     let descs = obj.data_descriptors();
     match descs.iter().find(|d| d.name.is_string(field)) {
         None => false,
         Some(desc) => {
             let v = obj.get_data(desc).borrow().copy();
-            //println!("'{:?}' '{:?}' '{:?}'", v, op, rhs);
 
             match v {
                 Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {

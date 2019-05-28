@@ -37,7 +37,6 @@ impl RenderView for GenericView<'value> {
             }
 
             Value::Error(e) => {
-                // println!("ERROR: {:?}", e);
                 host.stdout(&format!("{:?}", e));
                 Ok(())
             }

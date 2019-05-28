@@ -1,4 +1,3 @@
-use crate::object::base as obj;
 use crate::parser::ast;
 use crate::prelude::*;
 use derive_new::new;

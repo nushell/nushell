@@ -139,6 +139,8 @@ impl Variable {
 pub enum Leaf {
     String(String),
     Bare(String),
+
+    #[allow(unused)]
     Boolean(bool),
     Int(i64),
 }
