@@ -54,7 +54,7 @@ impl Primitive {
                     return Color::Black.bold().paint("Empty".to_string()).to_string();
                 }
 
-                let byte = byte.get_appropriate_unit(true);
+                let byte = byte.get_appropriate_unit(false);
 
                 match byte.get_unit() {
                     byte_unit::ByteUnit::B => format!("{}", byte.format(0)),
