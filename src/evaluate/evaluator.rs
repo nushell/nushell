@@ -17,7 +17,6 @@ impl Scope {
 
 crate fn evaluate_expr(expr: &ast::Expression, scope: &Scope) -> Result<Value, ShellError> {
     use ast::*;
-
     match expr {
         Expression::Leaf(l) => Ok(evaluate_leaf(l)),
         Expression::Parenthesized(p) => evaluate_expr(&p.expr, scope),
