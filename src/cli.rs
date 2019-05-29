@@ -54,6 +54,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("column", column::column),
             command("split", split::split),
             command("reject", reject::reject),
+            command("select", select::select),
             command("to-array", to_array::to_array),
             command("to-json", to_json::to_json),
             Arc::new(Where),
