@@ -12,16 +12,21 @@ There is not yet support for piping external commands to each other; piping is l
 
 Nu currently has the following built-in commands:
 
--   cd
+-   cd directory
 -   ls
 -   ps
--   select ...fields
+-   column ...fields 
 -   reject ...fields
 -   sort-by ...fields
 -   where condition
 -   skip amount
--   take amount
+-   first amount
 -   to-array
+-   to-json
+-   from-json
+-   open filename
+-   split sep ...fields
+-   select field 
 
 # Goals
 
@@ -102,7 +107,7 @@ Priority #3: It's an object shell like PowerShell.
 | Cargo.lock    | File      |          | 38.6 KiB | 42 minutes ago | 42 minutes ago | 42 minutes ago |
 +---------------+-----------+----------+----------+----------------+----------------+----------------+
 
-~\Code\nushell> ls | select "file name" "file type" size | sort-by "file type"
+~\Code\nushell> ls | column "file name" "file type" size | sort-by "file type"
 +---------------+-----------+----------+
 | file name     | file type | size     |
 +---------------+-----------+----------+
