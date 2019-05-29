@@ -1,5 +1,6 @@
 crate mod ast;
 crate mod completer;
+crate mod lexer;
 crate mod parser;
 crate mod registry;
 

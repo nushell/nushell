@@ -10,8 +10,8 @@ pub Pipeline: Pipeline = {
 }
 
 Command: ParsedCommand = {
-    <command:RawBareWord> <expr:Expr*> => ParsedCommand::new(command, expr),
-    <command:RawBareWord> <expr:BinaryExpression> => ParsedCommand::new(command, vec![expr]),
+    <command:BareWord> <expr:Expr*> => ParsedCommand::new(command, expr),
+    <command:BareWord> <expr:BinaryExpression> => ParsedCommand::new(command, vec![expr]),
 }
 
 Leaf: Expression = {
@@ -46,11 +46,12 @@ WholeExpression: Expression = {
 }
 
 PathExpression: Expression = {
-    <head:WholeExpression> <tail: ( "." <Member> )*> => Expression::Path(Box::new(Path::new(head, tail)))
+    <head:WholeExpression> <tail: ( "." <Member> )+> => Expression::Path(Box::new(Path::new(head, tail)))
 }
 
 Expr: Expression = {
-    <RawBareWord> => Expression::Leaf(Leaf::Bare(<>)),
+    <BareWord> => Expression::Leaf(Leaf::Bare(<>)),
+    <WholeExpression> => <>,
     <PathExpression>
 }
 
@@ -58,11 +59,11 @@ Variable: Variable = {
     "$true" => Variable::True,
     "$false" => Variable::False,
     "$it" => Variable::It,
-    "$" <RawBareWord> => Variable::Other(<>.to_string()),
+    <VariableBody> => Variable::Other(<>[1..].to_string()),
 }
 
 Member: String = {
-    <RawBareWord>,
+    <BareWord>,
     <String>
 }
 
@@ -76,8 +77,8 @@ Operator: Operator = {
 }
 
 Flag: Flag = {
-    "-" <RawBareWord> => Flag::Shorthand(<>.to_string()),
-    "--" <RawBareWord> => Flag::Longhand(<>.to_string()),
+    "-" <BareWord> => Flag::Shorthand(<>.to_string()),
+    "--" <BareWord> => Flag::Longhand(<>.to_string()),
 }
 
 String: String = {
@@ -85,7 +86,12 @@ String: String = {
     DQString,
 }
 
-RawBareWord: String = <s:r#"[^0-9"'\-][^\s"']*"#> => <>.to_string();
+BareWord = {
+    <RawBareWord>,
+}
+
+VariableBody: &'input str = <s:r"\$\p{XID_Start}(\p{XID_Continue}|[\-?!])*"> => <>;
+RawBareWord: String = <s:r#"[^0-9"'$\-\.][^\s"']*"#> => <>.to_string();
 DQString: String = <s:r#""([^"]|\\")*""#> => s[1..s.len() - 1].to_string();
 SQString: String = <s:r#"'([^']|\\')*'"#> => s[1..s.len() - 1].to_string();
 Num: i64 = <s:r"-?[0-9]+"> => i64::from_str(s).unwrap();
