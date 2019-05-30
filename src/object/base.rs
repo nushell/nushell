@@ -183,7 +183,7 @@ impl Value {
 
     crate fn compare(&self, operator: ast::Operator, other: &Value) -> Option<bool> {
         match operator {
-            ast::Operator::Equal | ast::Operator::NotEqual => unimplemented!(),
+            //ast::Operator::Equal | ast::Operator::NotEqual => unimplemented!(),
             _ => {
                 let coerced = coerce_compare(self, other)?;
                 let ordering = coerced.compare();
