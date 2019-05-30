@@ -64,6 +64,17 @@ impl Expression {
         }
     }
 
+    crate fn as_external_arg(&self) -> String {
+        match self {
+            Expression::Leaf(l) => l.as_external_arg(),
+            Expression::Parenthesized(p) => p.as_external_arg(),
+            Expression::Block(b) => b.as_external_arg(),
+            Expression::VariableReference(r) => r.as_external_arg(),
+            Expression::Path(p) => p.as_external_arg(),
+            Expression::Binary(b) => b.as_external_arg(),
+        }
+    }
+
     crate fn as_string(&self) -> Option<String> {
         match self {
             Expression::Leaf(Leaf::String(s)) => Some(s.to_string()),
@@ -82,6 +93,10 @@ impl Block {
     fn print(&self) -> String {
         format!("{{ {} }}", self.expr.print())
     }
+
+    fn as_external_arg(&self) -> String {
+        format!("{{ {} }}", self.expr.as_external_arg())
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
@@ -92,6 +107,10 @@ pub struct Parenthesized {
 impl Parenthesized {
     fn print(&self) -> String {
         format!("({})", self.expr.print())
+    }
+
+    fn as_external_arg(&self) -> String {
+        format!("({})", self.expr.as_external_arg())
     }
 }
 
@@ -107,6 +126,16 @@ pub struct Path {
 impl Path {
     crate fn print(&self) -> String {
         let mut out = self.head.print();
+
+        for item in self.tail.iter() {
+            out.push_str(&format!(".{}", item));
+        }
+
+        out
+    }
+
+    crate fn as_external_arg(&self) -> String {
+        let mut out = self.head.as_external_arg();
 
         for item in self.tail.iter() {
             out.push_str(&format!(".{}", item));
@@ -132,6 +161,10 @@ impl Variable {
             Variable::False => format!("$false"),
             Variable::Other(s) => format!("${}", s),
         }
+    }
+
+    fn as_external_arg(&self) -> String {
+        self.print()
     }
 }
 
@@ -191,6 +224,15 @@ impl Leaf {
             Leaf::Int(i) => format!("{}", i),
         }
     }
+
+    fn as_external_arg(&self) -> String {
+        match self {
+            Leaf::String(s) => format!("{}", s),
+            Leaf::Bare(path) => format!("{}", path.to_string()),
+            Leaf::Boolean(b) => format!("{}", b),
+            Leaf::Int(i) => format!("{}", i),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
@@ -207,6 +249,15 @@ impl Binary {
             self.left.print(),
             self.operator.print(),
             self.right.print()
+        )
+    }
+
+    fn as_external_arg(&self) -> String {
+        format!(
+            "{} {} {}",
+            self.left.as_external_arg(),
+            self.operator.print(),
+            self.right.as_external_arg()
         )
     }
 }
