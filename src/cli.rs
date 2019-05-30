@@ -87,9 +87,23 @@ pub async fn cli() -> Result<(), Box<Error>> {
                 rl.add_history_entry(line.clone());
             }
 
-            LineResult::Error(err) => {
-                context.host.lock().unwrap().stdout(&err);
-            }
+            LineResult::Error(err) => match err {
+                ShellError::Diagnostic(diag, source) => {
+                    let host = context.host.lock().unwrap();
+                    let writer = host.err_termcolor();
+                    let files = crate::parser::span::Files::new(source);
+
+                    language_reporting::emit(
+                        &mut writer.lock(),
+                        &files,
+                        &diag.diagnostic,
+                        &language_reporting::DefaultConfig,
+                    )
+                    .unwrap();
+                }
+
+                ShellError::String(s) => context.host.lock().unwrap().stdout(&format!("{:?}", s)),
+            },
 
             LineResult::Break => {
                 break;
@@ -111,7 +125,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
 
 enum LineResult {
     Success(String),
-    Error(String),
+    Error(ShellError),
     Break,
 
     #[allow(unused)]
@@ -125,13 +139,13 @@ impl std::ops::Try for LineResult {
     fn into_result(self) -> Result<Option<String>, ShellError> {
         match self {
             LineResult::Success(s) => Ok(Some(s)),
-            LineResult::Error(s) => Err(ShellError::string(s)),
+            LineResult::Error(s) => Err(s),
             LineResult::Break => Ok(None),
             LineResult::FatalError(err) => Err(err),
         }
     }
     fn from_error(v: ShellError) -> Self {
-        LineResult::Error(v.to_string())
+        LineResult::Error(v)
     }
 
     fn from_ok(v: Option<String>) -> Self {
@@ -151,7 +165,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) => {
             let result = match crate::parser::parse(&line, &ctx.registry()) {
                 Err(err) => {
-                    return LineResult::Error(format!("{:?}", err));
+                    return LineResult::Error(err);
                 }
 
                 Ok(val) => val,
@@ -178,13 +192,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::Internal(_)),
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(format!("{}", err.description())),
+                        Err(err) => return LineResult::Error(err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
                         match left.run(ctx, input).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(format!("{}", err.description())),
+                            Err(err) => return LineResult::Error(err),
                         }
                     }
 
@@ -193,18 +207,18 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input, StreamNext::External).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(format!("{}", err.description())),
+                        Err(err) => return LineResult::Error(err),
                     },
 
                     (
                         Some(ClassifiedCommand::Internal(ref i)),
                         Some(ClassifiedCommand::External(ref e)),
                     ) => {
-                        return LineResult::Error(format!(
+                        return LineResult::Error(ShellError::string(&format!(
                             "Unimplemented Internal({}) -> External({})",
                             i.name(),
                             e.name()
-                        ))
+                        )))
                     }
 
                     (
@@ -212,13 +226,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::Internal(_)),
                     ) => match left.run(ctx, input, StreamNext::Internal).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(format!("{}", err.description())),
+                        Err(err) => return LineResult::Error(err),
                     },
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(format!("{}", err.description())),
+                            Err(err) => return LineResult::Error(err),
                         }
                     }
                 }

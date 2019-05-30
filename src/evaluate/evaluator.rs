@@ -32,7 +32,7 @@ fn evaluate_leaf(leaf: &ast::Leaf) -> Value {
 
     match leaf {
         Leaf::String(s) => Value::string(s),
-        Leaf::Bare(s) => Value::string(s),
+        Leaf::Bare(path) => Value::string(path.to_string()),
         Leaf::Boolean(b) => Value::boolean(*b),
         Leaf::Int(i) => Value::int(*i),
     }

@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use derive_new::new;
+use log::debug;
 use logos_derive::Logos;
 use std::ops::Range;
 
@@ -68,17 +69,57 @@ crate enum TopToken {
     #[token = "!="]
     OpNeq,
 
+    #[token = "--"]
+    DashDash,
+
+    #[token = "-"]
+    Dash,
+
     #[regex = r"\s+"]
     Whitespace,
 }
 
+impl TopToken {
+    fn to_token(&self) -> Option<Token> {
+        use TopToken::*;
+
+        let result = match self {
+            END => return None,
+            Num => Token::Num,
+            SQString => Token::SQString,
+            DQString => Token::DQString,
+            Size => Token::Size,
+            Dollar => Token::Dollar,
+            Bare => Token::Bare,
+            Pipe => Token::Pipe,
+            Dot => Token::Dot,
+            OpenBrace => Token::OpenBrace,
+            CloseBrace => Token::CloseBrace,
+            OpenParen => Token::OpenParen,
+            CloseParen => Token::CloseParen,
+            OpGt => Token::OpGt,
+            OpLt => Token::OpLt,
+            OpGte => Token::OpGte,
+            OpLte => Token::OpLte,
+            OpEq => Token::OpEq,
+            OpNeq => Token::OpNeq,
+            DashDash => Token::DashDash,
+            Dash => Token::Dash,
+            Whitespace => Token::Whitespace,
+            Error => unreachable!("Don't call to_token with the error variant"),
+        };
+
+        Some(result)
+    }
+}
+
 fn start_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
-    println!("start_variable EXTRAS={:?}", lex.extras);
+    debug!("start_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::Var;
 }
 
 fn end_bare_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
-    println!("end_variable EXTRAS={:?}", lex.extras);
+    debug!("end_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
 }
 
@@ -96,8 +137,22 @@ crate enum VariableToken {
     Variable,
 }
 
+impl VariableToken {
+    fn to_token(&self) -> Option<Token> {
+        use VariableToken::*;
+
+        let result = match self {
+            END => return None,
+            Variable => Token::Variable,
+            Error => unreachable!("Don't call to_token with the error variant"),
+        };
+
+        Some(result)
+    }
+}
+
 fn end_variable<S>(lex: &mut logos::Lexer<VariableToken, S>) {
-    println!("end_variable EXTRAS={:?}", lex.extras);
+    debug!("end_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
 }
 
@@ -119,13 +174,28 @@ crate enum AfterVariableToken {
     Whitespace,
 }
 
+impl AfterVariableToken {
+    fn to_token(&self) -> Option<Token> {
+        use AfterVariableToken::*;
+
+        let result = match self {
+            END => return None,
+            Dot => Token::Dot,
+            Whitespace => Token::Whitespace,
+            Error => unreachable!("Don't call to_token with the error variant"),
+        };
+
+        Some(result)
+    }
+}
+
 fn start_member<S>(lex: &mut logos::Lexer<AfterVariableToken, S>) {
-    println!("start_variable EXTRAS={:?}", lex.extras);
+    debug!("start_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterMemberDot;
 }
 
 fn terminate_variable<S>(lex: &mut logos::Lexer<AfterVariableToken, S>) {
-    println!("terminate_variable EXTRAS={:?}", lex.extras);
+    debug!("terminate_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::Top;
 }
 
@@ -146,8 +216,23 @@ crate enum AfterMemberDot {
     Whitespace,
 }
 
+impl AfterMemberDot {
+    fn to_token(&self) -> Option<Token> {
+        use AfterMemberDot::*;
+
+        let result = match self {
+            END => return None,
+            Member => Token::Member,
+            Whitespace => Token::Whitespace,
+            Error => unreachable!("Don't call to_token with the error variant"),
+        };
+
+        Some(result)
+    }
+}
+
 fn finish_member<S>(lex: &mut logos::Lexer<AfterMemberDot, S>) {
-    println!("finish_member EXTRAS={:?}", lex.extras);
+    debug!("finish_member EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
 }
 
@@ -175,43 +260,117 @@ impl logos::Extras for LexerState {
     fn on_whitespace(&mut self, _byte: u8) {}
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub struct Span {
+    start: usize,
+    end: usize,
+    // source: &'source str,
+}
+
+impl From<(usize, usize)> for Span {
+    fn from(input: (usize, usize)) -> Span {
+        Span {
+            start: input.0,
+            end: input.1,
+        }
+    }
+}
+
+impl From<&std::ops::Range<usize>> for Span {
+    fn from(input: &std::ops::Range<usize>) -> Span {
+        Span {
+            start: input.start,
+            end: input.end,
+        }
+    }
+}
+
+impl Span {
+    fn new(range: &Range<usize>) -> Span {
+        Span {
+            start: range.start,
+            end: range.end,
+            // source,
+        }
+    }
+}
+
+impl language_reporting::ReportingSpan for Span {
+    fn with_start(&self, start: usize) -> Self {
+        Span {
+            start,
+            end: self.end,
+        }
+    }
+
+    fn with_end(&self, end: usize) -> Self {
+        Span {
+            start: self.start,
+            end,
+        }
+    }
+
+    fn start(&self) -> usize {
+        self.start
+    }
+
+    fn end(&self) -> usize {
+        self.end
+    }
+}
+
 #[derive(new, Debug, Clone, Eq, PartialEq)]
-crate struct SpannedToken<'source, T> {
-    span: std::ops::Range<usize>,
-    slice: &'source str,
-    token: T,
+pub struct SpannedToken<'source> {
+    crate span: Span,
+    crate slice: &'source str,
+    crate token: Token,
+}
+
+impl SpannedToken<'source> {
+    crate fn to_string(&self) -> String {
+        self.slice.to_string()
+    }
+
+    crate fn as_slice(&self) -> &str {
+        self.slice
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-crate enum Token<'source> {
-    Top(SpannedToken<'source, TopToken>),
-    Var(SpannedToken<'source, VariableToken>),
-    Dot(SpannedToken<'source, &'source str>),
-    Member(SpannedToken<'source, &'source str>),
-    Whitespace(SpannedToken<'source, &'source str>),
+pub enum Token {
+    Variable,
+    Dot,
+    Member,
+    Num,
+    SQString,
+    DQString,
+    Size,
+    Dollar,
+    Bare,
+    Pipe,
+    OpenBrace,
+    CloseBrace,
+    OpenParen,
+    CloseParen,
+    OpGt,
+    OpLt,
+    OpGte,
+    OpLte,
+    OpEq,
+    OpNeq,
+    Dash,
+    DashDash,
+    Whitespace,
 }
 
-impl Token<'source> {
-    crate fn range(&self) -> &Range<usize> {
-        match self {
-            Token::Top(spanned) => &spanned.span,
-            Token::Var(spanned) => &spanned.span,
-            Token::Dot(spanned) => &spanned.span,
-            Token::Member(spanned) => &spanned.span,
-            Token::Whitespace(spanned) => &spanned.span,
-        }
-    }
-
-    crate fn slice(&self) -> &str {
-        match self {
-            Token::Top(spanned) => spanned.slice,
-            Token::Var(spanned) => spanned.slice,
-            Token::Dot(spanned) => spanned.slice,
-            Token::Member(spanned) => spanned.slice,
-            Token::Whitespace(spanned) => spanned.slice,
-        }
-    }
-}
+// #[derive(Debug, Clone, Eq, PartialEq)]
+// crate enum Token<'source> {
+//     Top(SpannedToken<'source, TopToken>),
+//     Var(SpannedToken<'source, VariableToken>),
+//     Dot(SpannedToken<'source, &'source str>),
+//     Member(SpannedToken<'source, &'source str>),
+//     Whitespace(SpannedToken<'source, &'source str>),
+// }
 
 crate struct Lexer<'source> {
     lexer: logos::Lexer<TopToken, &'source str>,
@@ -230,30 +389,24 @@ impl Lexer<'source> {
 }
 
 impl Iterator for Lexer<'source> {
-    type Item = Result<Token<'source>, ShellError>;
+    type Item = Result<(usize, SpannedToken<'source>, usize), ShellError>;
+    // type Item = Result<Token<'source>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.first {
             self.first = false;
 
             match self.lexer.token {
-                TopToken::END => None,
-                TopToken::Whitespace => Some(Ok(Token::Whitespace(SpannedToken::new(
-                    self.lexer.range(),
-                    self.lexer.slice(),
-                    self.lexer.slice(),
-                )))),
-                _ => {
-                    let token = Token::Top(SpannedToken::new(
-                        self.lexer.range(),
-                        self.lexer.slice(),
-                        self.lexer.token,
-                    ));
-                    Some(Ok(token))
+                TopToken::Error => {
+                    return Some(Err(lex_error(&self.lexer.range(), self.lexer.source)))
+                }
+                TopToken::Whitespace => return self.next(),
+                other => {
+                    return spanned(other.to_token()?, self.lexer.slice(), &self.lexer.range())
                 }
             }
         } else {
-            println!("STATE={:?}", self.lexer.extras);
+            debug!("STATE={:?}", self.lexer.extras);
 
             match self.lexer.extras.current {
                 LexerStateName::Top => {
@@ -261,14 +414,9 @@ impl Iterator for Lexer<'source> {
                     self.lexer = lexer;
 
                     match token {
-                        TopToken::END => None,
-                        TopToken::Whitespace => Some(Ok(Token::Whitespace(SpannedToken::new(
-                            range, slice, slice,
-                        )))),
-                        other => {
-                            let token = Token::Top(SpannedToken::new(range, slice, other));
-                            Some(Ok(token))
-                        }
+                        TopToken::Error => return Some(Err(lex_error(&range, self.lexer.source))),
+                        TopToken::Whitespace => return self.next(),
+                        other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
 
@@ -278,16 +426,11 @@ impl Iterator for Lexer<'source> {
                     self.lexer = lexer;
 
                     match token {
-                        AfterMemberDot::END => None,
                         AfterMemberDot::Error => {
-                            Some(Err(ShellError::string(&format!("Lex error at {}", slice))))
+                            return Some(Err(lex_error(&range, self.lexer.source)))
                         }
-                        AfterMemberDot::Whitespace => Some(Ok(Token::Whitespace(
-                            SpannedToken::new(range, slice, slice),
-                        ))),
-                        AfterMemberDot::Member => {
-                            Some(Ok(Token::Member(SpannedToken::new(range, slice, slice))))
-                        }
+                        AfterMemberDot::Whitespace => self.next(),
+                        other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
 
@@ -297,16 +440,12 @@ impl Iterator for Lexer<'source> {
                     self.lexer = lexer;
 
                     match token {
-                        AfterVariableToken::END => None,
                         AfterVariableToken::Error => {
-                            Some(Err(ShellError::string(&format!("Lex error at {}", slice))))
+                            return Some(Err(lex_error(&range, self.lexer.source)))
                         }
-                        AfterVariableToken::Whitespace => Some(Ok(Token::Whitespace(
-                            SpannedToken::new(range, slice, slice),
-                        ))),
-                        AfterVariableToken::Dot => {
-                            Some(Ok(Token::Dot(SpannedToken::new(range, slice, slice))))
-                        }
+                        AfterVariableToken::Whitespace => self.next(),
+
+                        other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
 
@@ -315,16 +454,34 @@ impl Iterator for Lexer<'source> {
                     self.lexer = lexer;
 
                     match token {
-                        VariableToken::END => None,
-                        other => {
-                            let token = Token::Var(SpannedToken::new(range, slice, other));
-                            Some(Ok(token))
+                        VariableToken::Error => {
+                            return Some(Err(lex_error(&range, self.lexer.source)))
                         }
+                        other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
             }
         }
     }
+}
+
+fn lex_error(range: &Range<usize>, source: &str) -> ShellError {
+    use language_reporting::*;
+
+    ShellError::diagnostic(
+        Diagnostic::new(Severity::Error, "Lex error")
+            .with_label(Label::new_primary(Span::new(range))),
+        source.to_string(),
+    )
+}
+
+fn spanned<'source>(
+    token: Token,
+    slice: &'source str,
+    range: &Range<usize>,
+) -> Option<Result<(usize, SpannedToken<'source>, usize), ShellError>> {
+    let token = SpannedToken::new(Span::new(range), slice, token);
+    Some(Ok((range.start, token, range.end)))
 }
 
 fn advance<T>(
@@ -348,34 +505,37 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use logos::Logos;
     use pretty_assertions::assert_eq;
 
     fn assert_lex(source: &str, tokens: &[TestToken<'_>]) {
         let lex = Lexer::new(source);
         let mut current = 0;
 
-        let expected_tokens: Vec<Token> = tokens
+        let expected_tokens: Vec<SpannedToken> = tokens
             .iter()
-            .map(|token_desc| {
-                println!("{:?}", token_desc);
+            .filter_map(|token_desc| {
+                debug!("{:?}", token_desc);
 
                 let len = token_desc.source.len();
                 let range = current..(current + len);
-                let token = token_desc.to_token(range);
+                let token = token_desc.to_token(&range);
 
                 current = current + len;
 
-                token
+                if let SpannedToken {
+                    token: Token::Whitespace,
+                    ..
+                } = token
+                {
+                    None
+                } else {
+                    Some(token)
+                }
             })
             .collect();
 
-        let actual_tokens: Result<Vec<Token>, _> = lex
-            .map(|i| {
-                println!("{:?}", i);
-                i
-            })
-            .collect();
+        let actual_tokens: Result<Vec<SpannedToken>, _> =
+            lex.map(|result| result.map(|(_, i, _)| i)).collect();
 
         let actual_tokens = actual_tokens.unwrap();
 
@@ -397,18 +557,23 @@ mod tests {
     }
 
     impl TestToken<'source> {
-        fn to_token(&self, span: std::ops::Range<usize>) -> Token {
+        fn to_token(&self, range: &std::ops::Range<usize>) -> SpannedToken<'source> {
             match self.desc {
                 TokenDesc::Top(TopToken::Dot) => {
-                    Token::Dot(SpannedToken::new(span, self.source, "."))
+                    SpannedToken::new(Span::new(range), self.source, Token::Dot)
                 }
-                TokenDesc::Top(tok) => Token::Top(SpannedToken::new(span, self.source, tok)),
-                TokenDesc::Var(tok) => Token::Var(SpannedToken::new(span, self.source, tok)),
+                TokenDesc::Top(tok) => {
+                    SpannedToken::new(Span::new(range), self.source, tok.to_token().unwrap())
+                }
+                TokenDesc::Var(tok) => {
+                    SpannedToken::new(Span::new(range), self.source, tok.to_token().unwrap())
+                }
                 TokenDesc::Member => {
-                    Token::Member(SpannedToken::new(span, self.source, self.source))
+                    SpannedToken::new(Span::new(range), self.source, Token::Member)
                 }
+
                 TokenDesc::Ws => {
-                    Token::Whitespace(SpannedToken::new(span, self.source, self.source))
+                    SpannedToken::new(Span::new(range), self.source, Token::Whitespace)
                 }
             }
         }

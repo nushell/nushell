@@ -43,6 +43,7 @@ serde_derive = "1.0.91"
 getset = "0.0.7"
 logos = "0.10.0-rc2"
 logos-derive = "0.10.0-rc2"
+language-reporting = "0.3.0"
 
 [dependencies.pancurses]
 version = "0.16"

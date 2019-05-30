@@ -1,8 +1,12 @@
 use crate::prelude::*;
+use language_reporting::termcolor;
 
 pub trait Host {
     fn out_terminal(&self) -> Box<term::StdoutTerminal>;
     fn err_terminal(&self) -> Box<term::StderrTerminal>;
+
+    fn out_termcolor(&self) -> termcolor::StandardStream;
+    fn err_termcolor(&self) -> termcolor::StandardStream;
 
     fn stdout(&mut self, out: &str);
     fn stderr(&mut self, out: &str);
@@ -23,6 +27,14 @@ impl Host for Box<dyn Host> {
 
     fn stderr(&mut self, out: &str) {
         (**self).stderr(out)
+    }
+
+    fn out_termcolor(&self) -> termcolor::StandardStream {
+        (**self).out_termcolor()
+    }
+
+    fn err_termcolor(&self) -> termcolor::StandardStream {
+        (**self).err_termcolor()
     }
 }
 
@@ -49,6 +61,13 @@ impl Host for BasicHost {
             "\n" => eprintln!(""),
             other => eprintln!("{}", other),
         }
+    }
+
+    fn out_termcolor(&self) -> termcolor::StandardStream {
+        termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto)
+    }
+    fn err_termcolor(&self) -> termcolor::StandardStream {
+        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto)
     }
 }
 

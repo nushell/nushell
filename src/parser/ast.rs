@@ -1,7 +1,8 @@
+use crate::parser::lexer::SpannedToken;
 use derive_new::new;
 use getset::Getters;
-use std::str::FromStr;
 use serde_derive::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum Operator {
@@ -65,9 +66,8 @@ impl Expression {
 
     crate fn as_string(&self) -> Option<String> {
         match self {
-            Expression::Leaf(Leaf::String(s)) | Expression::Leaf(Leaf::Bare(s)) => {
-                Some(s.to_string())
-            }
+            Expression::Leaf(Leaf::String(s)) => Some(s.to_string()),
+            Expression::Leaf(Leaf::Bare(path)) => Some(path.to_string()),
             _ => None,
         }
     }
@@ -135,21 +135,58 @@ impl Variable {
     }
 }
 
+impl FromStr for Variable {
+    type Err = ();
+    fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
+        Ok(match input {
+            "it" => Variable::It,
+            "true" => Variable::True,
+            "false" => Variable::False,
+            other => Variable::Other(other.to_string()),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct BarePath {
+    head: String,
+    tail: Vec<String>,
+}
+
+impl BarePath {
+    crate fn from_tokens(head: SpannedToken, tail: Vec<SpannedToken>) -> BarePath {
+        BarePath {
+            head: head.to_string(),
+            tail: tail.iter().map(|i| i.to_string()).collect(),
+        }
+    }
+
+    crate fn to_string(&self) -> String {
+        bare_string(&self.head, &self.tail)
+    }
+}
+
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Leaf {
     String(String),
-    Bare(String),
+    Bare(BarePath),
 
     #[allow(unused)]
     Boolean(bool),
     Int(i64),
 }
 
+crate fn bare_string(head: &String, tail: &Vec<String>) -> String {
+    let mut out = vec![head.clone()];
+    out.extend(tail.clone());
+    itertools::join(out, ".")
+}
+
 impl Leaf {
     fn print(&self) -> String {
         match self {
             Leaf::String(s) => format!("{:?}", s),
-            Leaf::Bare(s) => format!("{}", s),
+            Leaf::Bare(path) => format!("{}", path.to_string()),
             Leaf::Boolean(b) => format!("{}", b),
             Leaf::Int(i) => format!("{}", i),
         }
