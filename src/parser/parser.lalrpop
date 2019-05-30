@@ -1,8 +1,11 @@
-use std::str::FromStr;
-use byte_unit::Byte;
-use crate::parser::ast::*;
+#![allow(unused)]
 
-grammar;
+use std::str::FromStr;
+use crate::parser::ast::*;
+use crate::prelude::*;
+use crate::parser::lexer::{SpannedToken, Token};
+
+grammar<'input>;
 
 pub Pipeline: Pipeline = {
   <first:Command> => Pipeline::new(vec![first]),
@@ -10,19 +13,20 @@ pub Pipeline: Pipeline = {
 }
 
 Command: ParsedCommand = {
-    <command:BareWord> <expr:Expr*> => ParsedCommand::new(command, expr),
-    <command:BareWord> <expr:BinaryExpression> => ParsedCommand::new(command, vec![expr]),
+    <command:BarePath> => ParsedCommand::new(command.to_string(), vec![]),
+    <command:BarePath> <expr:Expr+> => ParsedCommand::new(command.to_string(), expr),
+    <command:BarePath> <expr:BinaryExpression> => ParsedCommand::new(command.to_string(), vec![expr]),
 }
 
 Leaf: Expression = {
     <String> => Expression::Leaf(Leaf::String(<>)),
-    <Num> => Expression::Leaf(Leaf::Int(<>)),
-    <Size> => Expression::Leaf(Leaf::Int(<>)),
+    <Int> => Expression::Leaf(Leaf::Int(<>)),
+    //<Size> => Expression::Leaf(Leaf::Int(<>)),
     <Variable> => Expression::VariableReference(<>),
 }
 
 BinaryExpression: Expression = {
-    <left:Expr> <op:Operator> <right:Leaf> => Expression::Binary(Box::new(Binary::new(left, op, right))),
+    <left:Expr> <op:Operator> <right:Expr> => Expression::Binary(Box::new(Binary::new(left, op, right))),
 }
 
 Parenthesized: Expression = {
@@ -45,25 +49,26 @@ WholeExpression: Expression = {
     <Block>,
 }
 
+PathHead: Expression = {
+    <WholeExpression>,
+    <BarePath> => Expression::Leaf(Leaf::Bare(<>)),
+}
+
 PathExpression: Expression = {
     <head:WholeExpression> <tail: ( "." <Member> )+> => Expression::Path(Box::new(Path::new(head, tail)))
 }
 
 Expr: Expression = {
-    <BareWord> => Expression::Leaf(Leaf::Bare(<>)),
-    <WholeExpression> => <>,
-    <PathExpression>
+    <PathExpression>,
+    <PathHead>
 }
 
 Variable: Variable = {
-    "$true" => Variable::True,
-    "$false" => Variable::False,
-    "$it" => Variable::It,
-    <VariableBody> => Variable::Other(<>[1..].to_string()),
+    "$" <"variable"> => Variable::from_str(<>.as_slice()).unwrap(),
 }
 
 Member: String = {
-    <BareWord>,
+    <"member"> => <>.to_string(),
     <String>
 }
 
@@ -77,22 +82,49 @@ Operator: Operator = {
 }
 
 Flag: Flag = {
-    "-" <BareWord> => Flag::Shorthand(<>.to_string()),
-    "--" <BareWord> => Flag::Longhand(<>.to_string()),
+    "-" <BarePath> => Flag::Shorthand(<>.to_string()),
+    "--" <BarePath> => Flag::Longhand(<>.to_string()),
 }
 
 String: String = {
-    SQString,
-    DQString,
+    <"sqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string(),
+    <"dqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string()
 }
 
-BareWord = {
-    <RawBareWord>,
+BarePath: BarePath = {
+    <head: "bare"> <tail: ( "." <"member"> )*> => BarePath::from_tokens(head, tail)
 }
 
-VariableBody: &'input str = <s:r"\$\p{XID_Start}(\p{XID_Continue}|[\-?!])*"> => <>;
-RawBareWord: String = <s:r#"[^0-9"'$\-\.][^\s"']*"#> => <>.to_string();
-DQString: String = <s:r#""([^"]|\\")*""#> => s[1..s.len() - 1].to_string();
-SQString: String = <s:r#"'([^']|\\')*'"#> => s[1..s.len() - 1].to_string();
-Num: i64 = <s:r"-?[0-9]+"> => i64::from_str(s).unwrap();
-Size: i64 = <s:r"-?[0-9]+[A-Za-z]+"> => Byte::from_string(s).unwrap().get_bytes() as i64;
+Int: i64 = {
+    <"num"> => i64::from_str(<>.as_slice()).unwrap()
+}
+
+extern {
+    type Location = usize;
+    type Error = ShellError;
+
+    enum SpannedToken<'input> {
+        "." => SpannedToken { token: Token::Dot, .. },
+        "|" => SpannedToken { token: Token::Pipe, .. },
+        "(" => SpannedToken { token: Token::OpenParen, .. },
+        ")" => SpannedToken { token: Token::CloseParen, .. },
+        "{" => SpannedToken { token: Token::OpenBrace, .. },
+        "}" => SpannedToken { token: Token::CloseBrace, .. },
+        "==" => SpannedToken { token: Token::OpEq, .. },
+        "!=" => SpannedToken { token: Token::OpNeq, .. },
+        "<" => SpannedToken { token: Token::OpLt, .. },
+        "<=" => SpannedToken { token: Token::OpLte, .. },
+        ">" => SpannedToken { token: Token::OpGt, .. },
+        ">=" => SpannedToken { token: Token::OpGte, .. },
+        "-" => SpannedToken { token: Token::Dash, .. },
+        "--" => SpannedToken { token: Token::DashDash, .. },
+        "$" => SpannedToken { token: Token::Dollar, .. },
+        "num" => SpannedToken { token: Token::Num, .. },
+        "member" => SpannedToken { token: Token::Member, .. },
+        "variable" => SpannedToken { token: Token::Variable, .. },
+        "bare" => SpannedToken { token: Token::Bare, .. },
+        "dqstring" => SpannedToken { token: Token::DQString, .. },
+        "sqstring" => SpannedToken { token: Token::SQString, .. },
+        "size" => SpannedToken { token: Token::Size, .. },
+    }
+}
