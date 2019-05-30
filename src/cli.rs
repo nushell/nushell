@@ -308,7 +308,8 @@ fn classify_command(
                 }))
             }
             false => {
-                let arg_list_strings: Vec<String> = args.iter().map(|i| i.print()).collect();
+                let arg_list_strings: Vec<String> =
+                    args.iter().map(|i| i.as_external_arg()).collect();
 
                 Ok(ClassifiedCommand::External(ExternalCommand {
                     name: other.to_string(),
