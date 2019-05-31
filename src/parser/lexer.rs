@@ -23,7 +23,7 @@ crate enum TopToken {
     DQString,
 
     #[regex = "-?[0-9]+[A-Za-z]+"]
-    Size,
+    UnitsNum,
 
     #[regex = r"\$"]
     #[callback = "start_variable"]
@@ -88,7 +88,7 @@ impl TopToken {
             Num => Token::Num,
             SQString => Token::SQString,
             DQString => Token::DQString,
-            Size => Token::Size,
+            UnitsNum => Token::UnitsNum,
             Dollar => Token::Dollar,
             Bare => Token::Bare,
             Pipe => Token::Pipe,
@@ -344,7 +344,7 @@ pub enum Token {
     Num,
     SQString,
     DQString,
-    Size,
+    UnitsNum,
     Dollar,
     Bare,
     Pipe,

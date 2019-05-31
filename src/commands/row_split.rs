@@ -27,7 +27,7 @@ pub fn row_split(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
             _ => {
                 let mut result = VecDeque::new();
-                result.push_back(ReturnValue::Value(Value::Object(crate::object::Dictionary::default())));
+                //result.push_back(ReturnValue::Value(Value::Object(crate::object::Dictionary::default())));
                 result
             }
         })
