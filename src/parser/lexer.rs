@@ -92,7 +92,7 @@ impl TopToken {
             Dollar => Token::Dollar,
             Bare => Token::Bare,
             Pipe => Token::Pipe,
-            Dot => Token::Dot,
+            Dot => Token::Bare,
             OpenBrace => Token::OpenBrace,
             CloseBrace => Token::CloseBrace,
             OpenParen => Token::OpenParen,
@@ -180,7 +180,7 @@ impl AfterVariableToken {
 
         let result = match self {
             END => return None,
-            Dot => Token::Dot,
+            Dot => Token::PathDot,
             Whitespace => Token::Whitespace,
             Error => unreachable!("Don't call to_token with the error variant"),
         };
@@ -340,6 +340,7 @@ impl SpannedToken<'source> {
 pub enum Token {
     Variable,
     Dot,
+    PathDot,
     Member,
     Num,
     SQString,
@@ -375,14 +376,15 @@ pub enum Token {
 crate struct Lexer<'source> {
     lexer: logos::Lexer<TopToken, &'source str>,
     first: bool,
-    // state: LexerState,
+    whitespace: bool, // state: LexerState
 }
 
 impl Lexer<'source> {
-    crate fn new(source: &str) -> Lexer<'_> {
+    crate fn new(source: &str, whitespace: bool) -> Lexer<'_> {
         Lexer {
             first: true,
             lexer: logos::Logos::lexer(source),
+            whitespace
             // state: LexerState::default(),
         }
     }
@@ -400,7 +402,7 @@ impl Iterator for Lexer<'source> {
                 TopToken::Error => {
                     return Some(Err(lex_error(&self.lexer.range(), self.lexer.source)))
                 }
-                TopToken::Whitespace => return self.next(),
+                TopToken::Whitespace if !self.whitespace => return self.next(),
                 other => {
                     return spanned(other.to_token()?, self.lexer.slice(), &self.lexer.range())
                 }
@@ -415,7 +417,7 @@ impl Iterator for Lexer<'source> {
 
                     match token {
                         TopToken::Error => return Some(Err(lex_error(&range, self.lexer.source))),
-                        TopToken::Whitespace => return self.next(),
+                        TopToken::Whitespace if !self.whitespace => return self.next(),
                         other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
@@ -429,7 +431,7 @@ impl Iterator for Lexer<'source> {
                         AfterMemberDot::Error => {
                             return Some(Err(lex_error(&range, self.lexer.source)))
                         }
-                        AfterMemberDot::Whitespace => self.next(),
+                        AfterMemberDot::Whitespace if !self.whitespace => self.next(),
                         other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
@@ -443,8 +445,7 @@ impl Iterator for Lexer<'source> {
                         AfterVariableToken::Error => {
                             return Some(Err(lex_error(&range, self.lexer.source)))
                         }
-                        AfterVariableToken::Whitespace => self.next(),
-
+                        AfterVariableToken::Whitespace if !self.whitespace => self.next(),
                         other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
@@ -508,7 +509,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn assert_lex(source: &str, tokens: &[TestToken<'_>]) {
-        let lex = Lexer::new(source);
+        let lex = Lexer::new(source, false);
         let mut current = 0;
 
         let expected_tokens: Vec<SpannedToken> = tokens
@@ -546,6 +547,7 @@ mod tests {
     enum TokenDesc {
         Ws,
         Member,
+        PathDot,
         Top(TopToken),
         Var(VariableToken),
     }
@@ -574,6 +576,10 @@ mod tests {
 
                 TokenDesc::Ws => {
                     SpannedToken::new(Span::new(range), self.source, Token::Whitespace)
+                }
+
+                TokenDesc::PathDot => {
+                    SpannedToken::new(Span::new(range), self.source, Token::PathDot)
                 }
             }
         }
@@ -650,42 +656,45 @@ mod tests {
 
     #[test]
     fn test_tokenize_path() {
-        assert_lex("$var.bar", tokens![ "$" Var("var") "." Member("bar") ]);
-        assert_lex("$it.bar", tokens![ "$" Var("it") "." Member("bar") ]);
-        assert_lex("$var. bar", tokens![ "$" Var("var") "." SP Member("bar") ]);
-        assert_lex("$it. bar", tokens![ "$" Var("it") "." SP Member("bar") ]);
+        assert_lex("$var.bar", tokens![ "$" Var("var") "???." Member("bar") ]);
+        assert_lex("$it.bar", tokens![ "$" Var("it") "???." Member("bar") ]);
+        assert_lex(
+            "$var. bar",
+            tokens![ "$" Var("var") "???." SP Member("bar") ],
+        );
+        assert_lex("$it. bar", tokens![ "$" Var("it") "???." SP Member("bar") ]);
     }
 
     #[test]
     fn test_tokenize_operator() {
         assert_lex(
             "$it.cpu > 10",
-            tokens![ "$" Var("it") "." Member("cpu") SP ">" SP Num("10") ],
+            tokens![ "$" Var("it") "???." Member("cpu") SP ">" SP Num("10") ],
         );
 
         assert_lex(
             "$it.cpu < 10",
-            tokens![ "$" Var("it") "." Member("cpu") SP "<" SP Num("10") ],
+            tokens![ "$" Var("it") "???." Member("cpu") SP "<" SP Num("10") ],
         );
 
         assert_lex(
             "$it.cpu >= 10",
-            tokens![ "$" Var("it") "." Member("cpu") SP ">=" SP Num("10") ],
+            tokens![ "$" Var("it") "???." Member("cpu") SP ">=" SP Num("10") ],
         );
 
         assert_lex(
             "$it.cpu <= 10",
-            tokens![ "$" Var("it") "." Member("cpu") SP "<=" SP Num("10") ],
+            tokens![ "$" Var("it") "???." Member("cpu") SP "<=" SP Num("10") ],
         );
 
         assert_lex(
             "$it.cpu == 10",
-            tokens![ "$" Var("it") "." Member("cpu") SP "==" SP Num("10") ],
+            tokens![ "$" Var("it") "???." Member("cpu") SP "==" SP Num("10") ],
         );
 
         assert_lex(
             "$it.cpu != 10",
-            tokens![ "$" Var("it") "." Member("cpu") SP "!=" SP Num("10") ],
+            tokens![ "$" Var("it") "???." Member("cpu") SP "!=" SP Num("10") ],
         );
     }
 
@@ -698,13 +707,18 @@ mod tests {
 
         assert_lex(
             "ls | where { $it.cpu > 10 }",
-            tokens![ Bare("ls") SP "|" SP Bare("where") SP "{" SP "$" Var("it") "." Member("cpu") SP ">" SP Num("10") SP "}" ],
+            tokens![ Bare("ls") SP "|" SP Bare("where") SP "{" SP "$" Var("it") "???." Member("cpu") SP ">" SP Num("10") SP "}" ],
         );
 
         assert_lex(
             "open input2.json | from-json | select glossary",
-            tokens![ Bare("open") SP Bare("input2") "." Member("json") SP "|" SP Bare("from-json") SP "|" SP Bare("select") SP Bare("glossary") ],
+            tokens![ Bare("open") SP Bare("input2") "???." Member("json") SP "|" SP Bare("from-json") SP "|" SP Bare("select") SP Bare("glossary") ],
         );
+
+        assert_lex(
+            "git add . -v",
+            tokens![ Bare("git") SP Bare("add") SP Bare(".") SP "-" Bare("v") ],
+        )
     }
 
     fn tok(name: &str, value: &'source str) -> TestToken<'source> {
@@ -721,7 +735,10 @@ mod tests {
 
     fn tk(name: &'source str) -> TestToken<'source> {
         let token = match name {
+            "???." => return TestToken::new(TokenDesc::PathDot, "."),
             "." => TopToken::Dot,
+            "--" => TopToken::DashDash,
+            "-" => TopToken::Dash,
             "$" => TopToken::Dollar,
             "|" => TopToken::Pipe,
             "{" => TopToken::OpenBrace,
