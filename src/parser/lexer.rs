@@ -375,14 +375,15 @@ pub enum Token {
 crate struct Lexer<'source> {
     lexer: logos::Lexer<TopToken, &'source str>,
     first: bool,
-    // state: LexerState,
+    whitespace: bool, // state: LexerState
 }
 
 impl Lexer<'source> {
-    crate fn new(source: &str) -> Lexer<'_> {
+    crate fn new(source: &str, whitespace: bool) -> Lexer<'_> {
         Lexer {
             first: true,
             lexer: logos::Logos::lexer(source),
+            whitespace
             // state: LexerState::default(),
         }
     }
@@ -400,7 +401,7 @@ impl Iterator for Lexer<'source> {
                 TopToken::Error => {
                     return Some(Err(lex_error(&self.lexer.range(), self.lexer.source)))
                 }
-                TopToken::Whitespace => return self.next(),
+                TopToken::Whitespace if !self.whitespace => return self.next(),
                 other => {
                     return spanned(other.to_token()?, self.lexer.slice(), &self.lexer.range())
                 }
@@ -415,7 +416,7 @@ impl Iterator for Lexer<'source> {
 
                     match token {
                         TopToken::Error => return Some(Err(lex_error(&range, self.lexer.source))),
-                        TopToken::Whitespace => return self.next(),
+                        TopToken::Whitespace if !self.whitespace => return self.next(),
                         other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
@@ -429,7 +430,7 @@ impl Iterator for Lexer<'source> {
                         AfterMemberDot::Error => {
                             return Some(Err(lex_error(&range, self.lexer.source)))
                         }
-                        AfterMemberDot::Whitespace => self.next(),
+                        AfterMemberDot::Whitespace if !self.whitespace => self.next(),
                         other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
@@ -443,7 +444,7 @@ impl Iterator for Lexer<'source> {
                         AfterVariableToken::Error => {
                             return Some(Err(lex_error(&range, self.lexer.source)))
                         }
-                        AfterVariableToken::Whitespace => self.next(),
+                        AfterVariableToken::Whitespace if !self.whitespace => self.next(),
 
                         other => return spanned(other.to_token()?, slice, &range),
                     }
@@ -508,7 +509,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn assert_lex(source: &str, tokens: &[TestToken<'_>]) {
-        let lex = Lexer::new(source);
+        let lex = Lexer::new(source, false);
         let mut current = 0;
 
         let expected_tokens: Vec<SpannedToken> = tokens

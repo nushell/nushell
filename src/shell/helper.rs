@@ -1,15 +1,17 @@
 use crate::shell::completer::NuCompleter;
 
+use crate::parser::lexer::SpannedToken;
 use crate::prelude::*;
+use ansi_term::Color;
+use log::debug;
 use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
-use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
+use rustyline::highlight::Highlighter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::borrow::Cow::{self, Owned};
 
 crate struct Helper {
     completer: NuCompleter,
-    highlighter: MatchingBracketHighlighter,
     hinter: HistoryHinter,
 }
 
@@ -20,7 +22,6 @@ impl Helper {
                 file_completer: FilenameCompleter::new(),
                 commands,
             },
-            highlighter: MatchingBracketHighlighter::new(),
             hinter: HistoryHinter {},
         }
     }
@@ -54,12 +55,78 @@ impl Highlighter for Helper {
         Owned("\x1b[1m".to_owned() + hint + "\x1b[m")
     }
 
-    fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
-        self.highlighter.highlight(line, pos)
+    fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
+        let tokens = crate::parser::lexer::Lexer::new(line, true);
+        let tokens: Result<Vec<(usize, SpannedToken, usize)>, _> = tokens.collect();
+
+        match tokens {
+            Err(_) => Cow::Borrowed(line),
+            Ok(v) => {
+                let mut out = String::new();
+                let mut iter = v.iter();
+
+                let mut state = State::Command;
+
+                loop {
+                    match iter.next() {
+                        None => return Cow::Owned(out),
+                        Some((start, token, end)) => {
+                            let (style, new_state) = token_style(&token, state);
+
+                            debug!("token={:?}", token);
+                            debug!("style={:?}", style);
+                            debug!("new_state={:?}", new_state);
+
+                            state = new_state;
+                            let slice = &line[*start..*end];
+                            let styled = style.paint(slice);
+                            out.push_str(&styled.to_string());
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    fn highlight_char(&self, line: &str, pos: usize) -> bool {
-        self.highlighter.highlight_char(line, pos)
+    fn highlight_char(&self, _line: &str, _pos: usize) -> bool {
+        true
+    }
+}
+
+#[derive(Debug)]
+enum State {
+    Command,
+    Flag,
+    Var,
+    Bare,
+    None,
+}
+
+fn token_style(
+    token: &crate::parser::lexer::SpannedToken,
+    state: State,
+) -> (ansi_term::Style, State) {
+    use crate::parser::lexer::Token::*;
+
+    match (state, &token.token) {
+        (State::Command, Bare) => (Color::Cyan.bold(), State::None),
+        (State::Command, Whitespace) => (Color::White.normal(), State::Command),
+
+        (State::Flag, Bare) => (Color::Black.bold(), State::None),
+
+        (State::Var, Variable) => (Color::Yellow.bold(), State::None),
+
+        (State::Bare, Dot) => (Color::Green.normal(), State::Bare),
+        (State::Bare, Member) => (Color::Green.normal(), State::Bare),
+
+        (_, Dash) | (_, DashDash) => (Color::Black.bold(), State::Flag),
+        (_, Dollar) => (Color::Yellow.bold(), State::Var),
+        (_, Bare) => (Color::Green.normal(), State::Bare),
+        (_, Member) => (Color::Cyan.normal(), State::None),
+        (_, Num) => (Color::Purple.bold(), State::None),
+        (_, DQString) | (_, SQString) => (Color::Green.normal(), State::None),
+        (_, Pipe) => (Color::White.normal(), State::Command),
+        _ => (Color::White.normal(), State::None),
     }
 }
 
