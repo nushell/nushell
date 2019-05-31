@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::Value;
-use crate::object::base::select_fields;
 use crate::prelude::*;
 
 fn get_member(path: &str, obj: &Value) -> Option<Value> {
