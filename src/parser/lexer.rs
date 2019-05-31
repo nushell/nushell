@@ -339,7 +339,6 @@ impl SpannedToken<'source> {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Token {
     Variable,
-    Dot,
     PathDot,
     Member,
     Num,
@@ -561,9 +560,6 @@ mod tests {
     impl TestToken<'source> {
         fn to_token(&self, range: &std::ops::Range<usize>) -> SpannedToken<'source> {
             match self.desc {
-                TokenDesc::Top(TopToken::Dot) => {
-                    SpannedToken::new(Span::new(range), self.source, Token::Dot)
-                }
                 TokenDesc::Top(tok) => {
                     SpannedToken::new(Span::new(range), self.source, tok.to_token().unwrap())
                 }
