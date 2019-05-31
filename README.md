@@ -25,7 +25,8 @@ Nu currently has the following built-in commands:
 -   to-json
 -   from-json
 -   open filename
--   split sep ...fields
+-   split-column sep ...fields
+-   split-row sep ...fields
 -   select field 
 
 # Goals

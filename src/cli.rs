@@ -52,8 +52,8 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("from-json", from_json::from_json),
             command("open", open::open),
             command("column", column::column),
-            command("column-split", col_split::col_split),
-            command("row-split", row_split::row_split),
+            command("split-column", split_column::split_column),
+            command("split-row", split_row::split_row),
             command("reject", reject::reject),
             command("select", select::select),
             command("to-array", to_array::to_array),
@@ -212,14 +212,11 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     },
 
                     (
-                        Some(ClassifiedCommand::Internal(ref i)),
-                        Some(ClassifiedCommand::External(ref e)),
-                    ) => {
-                        return LineResult::Error(ShellError::string(&format!(
-                            "Unimplemented Internal({}) -> External({})",
-                            i.name(),
-                            e.name()
-                        )))
+                        Some(ClassifiedCommand::Internal(left)),
+                        Some(ClassifiedCommand::External(_)),
+                    ) => match left.run(ctx, input).await {
+                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                        Err(err) => return LineResult::Error(err),
                     }
 
                     (

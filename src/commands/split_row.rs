@@ -5,8 +5,7 @@ use log::debug;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn row_split(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    //let splitter = args.args[0].as_string()?;
+pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let args = args.args;
 
@@ -26,8 +25,7 @@ pub fn row_split(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 result
             }
             _ => {
-                let mut result = VecDeque::new();
-                //result.push_back(ReturnValue::Value(Value::Object(crate::object::Dictionary::default())));
+                let result = VecDeque::new();
                 result
             }
         })
