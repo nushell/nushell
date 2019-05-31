@@ -14,7 +14,7 @@ use parser::PipelineParser;
 
 pub fn parse(input: &str, _registry: &dyn CommandRegistry) -> Result<Pipeline, ShellError> {
     let parser = PipelineParser::new();
-    let tokens = Lexer::new(input);
+    let tokens = Lexer::new(input, false);
 
     match parser.parse(tokens) {
         Ok(val) => Ok(val),

@@ -52,10 +52,11 @@ WholeExpression: Expression = {
 PathHead: Expression = {
     <WholeExpression>,
     <BarePath> => Expression::Leaf(Leaf::Bare(<>)),
+    <Flag> => Expression::Flag(<>),
 }
 
 PathExpression: Expression = {
-    <head:WholeExpression> <tail: ( "." <Member> )+> => Expression::Path(Box::new(Path::new(head, tail)))
+    <head:WholeExpression> <tail: ( "???." <Member> )+> => Expression::Path(Box::new(Path::new(head, tail)))
 }
 
 Expr: Expression = {
@@ -92,7 +93,7 @@ String: String = {
 }
 
 BarePath: BarePath = {
-    <head: "bare"> <tail: ( "." <"member"> )*> => BarePath::from_tokens(head, tail)
+    <head: "bare"> <tail: ( "???." <"member"> )*> => BarePath::from_tokens(head, tail)
 }
 
 Int: i64 = {
@@ -119,6 +120,7 @@ extern {
         "-" => SpannedToken { token: Token::Dash, .. },
         "--" => SpannedToken { token: Token::DashDash, .. },
         "$" => SpannedToken { token: Token::Dollar, .. },
+        "???." => SpannedToken { token: Token::PathDot, .. },
         "num" => SpannedToken { token: Token::Num, .. },
         "member" => SpannedToken { token: Token::Member, .. },
         "variable" => SpannedToken { token: Token::Variable, .. },
