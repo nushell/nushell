@@ -29,7 +29,7 @@ crate enum TopToken {
     #[callback = "start_variable"]
     Dollar,
 
-    #[regex = r#"[^\s0-9"'$\-][^\s"'\.]*"#]
+    #[regex = r#"[^\s0-9"'$\-][^\s"']*"#]
     #[callback = "end_bare_variable"]
     Bare,
 

@@ -3,6 +3,20 @@ use crate::object::Value;
 use crate::object::base::select_fields;
 use crate::prelude::*;
 
+fn get_member(path: &str, obj: &Value) -> Option<Value> {
+    let mut current = obj;
+    for p in path.split(".") {
+        match current.get_data_by_key(p) {
+            Some(v) => current = v,
+            None => {
+                return Some(Value::Error(Box::new(ShellError::string(format!("Object field name not found: {}", p)))))
+            }
+        }
+    }
+
+    Some(current.copy())
+}
+
 pub fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.args.is_empty() {
         return Err(ShellError::string("select requires a field"));
@@ -15,9 +29,8 @@ pub fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .input
         .map(move |item| {
             let mut result = VecDeque::new();
-            let column = select_fields(&item, &fields);
             for field in &fields {
-                match column.get_data_by_key(&field) {
+                match get_member(field, &item) {
                     Some(Value::List(l)) => {
                         for item in l {
                             result.push_back(ReturnValue::Value(item.copy()));
