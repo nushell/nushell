@@ -5,8 +5,7 @@ use log::debug;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn col_split(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    //let splitter = args.args[0].as_string()?;
+pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let args = args.args;
 
