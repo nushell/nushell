@@ -116,7 +116,7 @@ fn token_style(
 
         (State::Var, Variable) => (Color::Yellow.bold(), State::None),
 
-        (State::Bare, Dot) => (Color::Green.normal(), State::Bare),
+        (State::Bare, PathDot) => (Color::Green.normal(), State::Bare),
         (State::Bare, Member) => (Color::Green.normal(), State::Bare),
 
         (_, Dash) | (_, DashDash) => (Color::Black.bold(), State::Flag),

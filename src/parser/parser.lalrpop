@@ -105,7 +105,6 @@ extern {
     type Error = ShellError;
 
     enum SpannedToken<'input> {
-        "." => SpannedToken { token: Token::Dot, .. },
         "|" => SpannedToken { token: Token::Pipe, .. },
         "(" => SpannedToken { token: Token::OpenParen, .. },
         ")" => SpannedToken { token: Token::CloseParen, .. },
