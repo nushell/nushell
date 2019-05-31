@@ -45,6 +45,7 @@ impl FromStr for Operator {
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Expression {
     Leaf(Leaf),
+    Flag(Flag),
     Parenthesized(Box<Parenthesized>),
     Block(Box<Block>),
     Binary(Box<Binary>),
@@ -56,6 +57,7 @@ impl Expression {
     crate fn print(&self) -> String {
         match self {
             Expression::Leaf(l) => l.print(),
+            Expression::Flag(f) => f.print(),
             Expression::Parenthesized(p) => p.print(),
             Expression::Block(b) => b.print(),
             Expression::VariableReference(r) => r.print(),
@@ -67,6 +69,7 @@ impl Expression {
     crate fn as_external_arg(&self) -> String {
         match self {
             Expression::Leaf(l) => l.as_external_arg(),
+            Expression::Flag(f) => f.as_external_arg(),
             Expression::Parenthesized(p) => p.as_external_arg(),
             Expression::Block(b) => b.as_external_arg(),
             Expression::VariableReference(r) => r.as_external_arg(),
@@ -262,7 +265,7 @@ impl Binary {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Flag {
     Shorthand(String),
     Longhand(String),
@@ -270,11 +273,16 @@ pub enum Flag {
 
 impl Flag {
     #[allow(unused)]
-    fn print(&self) -> String {
+    crate fn print(&self) -> String {
         match self {
             Flag::Shorthand(s) => format!("-{}", s),
             Flag::Longhand(s) => format!("--{}", s),
         }
+    }
+
+    #[allow(unused)]
+    crate fn as_external_arg(&self) -> String {
+        self.print()
     }
 }
 

@@ -20,6 +20,10 @@ crate fn evaluate_expr(expr: &ast::Expression, scope: &Scope) -> Result<Value, S
     match expr {
         Expression::Leaf(l) => Ok(evaluate_leaf(l)),
         Expression::Parenthesized(p) => evaluate_expr(&p.expr, scope),
+        Expression::Flag(f) => Err(ShellError::string(format!(
+            "can't evaluate the flag {}",
+            f.print()
+        ))),
         Expression::Block(b) => evaluate_block(&b, scope),
         Expression::Path(p) => evaluate_path(&p, scope),
         Expression::Binary(b) => evaluate_binary(b, scope),
