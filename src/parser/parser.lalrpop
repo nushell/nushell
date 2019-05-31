@@ -4,6 +4,7 @@ use std::str::FromStr;
 use crate::parser::ast::*;
 use crate::prelude::*;
 use crate::parser::lexer::{SpannedToken, Token};
+use byte_unit::Byte;
 
 grammar<'input>;
 
@@ -21,7 +22,7 @@ Command: ParsedCommand = {
 Leaf: Expression = {
     <String> => Expression::Leaf(Leaf::String(<>)),
     <Int> => Expression::Leaf(Leaf::Int(<>)),
-    //<Size> => Expression::Leaf(Leaf::Int(<>)),
+    <UnitsNum> => Expression::Leaf(Leaf::Int(<>)),
     <Variable> => Expression::VariableReference(<>),
 }
 
@@ -100,6 +101,10 @@ Int: i64 = {
     <"num"> => i64::from_str(<>.as_slice()).unwrap()
 }
 
+UnitsNum: i64 = {
+    <"unitsnum"> => Byte::from_string(<>.as_slice()).unwrap().get_bytes() as i64
+}
+
 extern {
     type Location = usize;
     type Error = ShellError;
@@ -126,6 +131,6 @@ extern {
         "bare" => SpannedToken { token: Token::Bare, .. },
         "dqstring" => SpannedToken { token: Token::DQString, .. },
         "sqstring" => SpannedToken { token: Token::SQString, .. },
-        "size" => SpannedToken { token: Token::Size, .. },
+        "unitsnum" => SpannedToken { token: Token::UnitsNum, .. },
     }
 }

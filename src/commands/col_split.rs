@@ -5,7 +5,7 @@ use log::debug;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn split(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn col_split(args: CommandArgs) -> Result<OutputStream, ShellError> {
     //let splitter = args.args[0].as_string()?;
     let input = args.input;
     let args = args.args;
@@ -13,7 +13,7 @@ pub fn split(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .map(move |v| match v {
             Value::Primitive(Primitive::String(s)) => {
-                let splitter = args[0].as_string().unwrap();
+                let splitter = args[0].as_string().unwrap().replace("\\n", "\n");
                 debug!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
