@@ -129,6 +129,7 @@ impl ExternalCommand {
 
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {
+            arg_string.push_str(" ");
             arg_string.push_str(&arg);
         }
         let mut process = Exec::shell(&self.name);
