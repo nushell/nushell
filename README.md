@@ -24,6 +24,7 @@ Nu currently has the following built-in commands:
 -   to-array
 -   to-json
 -   from-json
+-   from-toml
 -   open filename
 -   split-column sep ...fields
 -   split-row sep ...fields
