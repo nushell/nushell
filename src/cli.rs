@@ -60,6 +60,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("trim", trim::trim),
             command("to-array", to_array::to_array),
             command("to-json", to_json::to_json),
+            command("to-toml", to_toml::to_toml),
             Arc::new(Where),
             Arc::new(Config),
             command("sort-by", sort_by::sort_by),
