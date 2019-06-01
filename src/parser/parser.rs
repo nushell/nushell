@@ -1,5 +1,5 @@
 // auto-generated: "lalrpop 0.17.0"
-// sha256: 327a2eaaded6615e365add5d44719ae0dd3217f5b0fc3ba130f052328c2bd439
+// sha256: b26b8a2cdaceecc744b5554b038a811430dd7af761c75685fc9e389596528
 #![allow(unused)]
 use std::str::FromStr;
 use crate::parser::ast::*;
@@ -2009,7 +2009,7 @@ mod __parse__Pipeline {
         _: ::std::marker::PhantomData<(&'input ())>,
     ) -> (usize, usize)
     {
-        // Leaf = Variable => ActionFn(9);
+        // Leaf = Var => ActionFn(9);
         let __sym0 = __pop_Variant6(__symbols);
         let __start = __sym0.0.clone();
         let __end = __sym0.2.clone();
@@ -2375,7 +2375,7 @@ mod __parse__Pipeline {
         _: ::std::marker::PhantomData<(&'input ())>,
     ) -> (usize, usize)
     {
-        // Variable = "$", "variable" => ActionFn(25);
+        // Var = "$", "variable" => ActionFn(25);
         let __sym1 = __pop_Variant0(__symbols);
         let __sym0 = __pop_Variant0(__symbols);
         let __start = __sym0.0.clone();
@@ -2513,7 +2513,7 @@ fn __action9<
     (_, __0, _): (usize, Expression, usize),
 ) -> Expression
 {
-    Expression::VariableReference(__0)
+    __0
 }
 
 fn __action10<

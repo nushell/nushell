@@ -5,6 +5,7 @@ crate mod column;
 crate mod command;
 crate mod config;
 crate mod from_json;
+crate mod from_toml;
 crate mod ls;
 crate mod open;
 crate mod ps;

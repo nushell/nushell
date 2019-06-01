@@ -7,7 +7,7 @@ use log::debug;
 
 pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
-    let args = args.args;
+    let args = args.positional;
 
     let stream = input
         .map(move |v| match v {
