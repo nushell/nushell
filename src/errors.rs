@@ -3,10 +3,10 @@ use crate::parser::lexer::{Span, SpannedToken};
 use crate::prelude::*;
 use derive_new::new;
 use language_reporting::Diagnostic;
-use serde::{Serialize, Serializer};
-use serde_derive::Serialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ShellError {
     String(StringError),
     Diagnostic(ShellDiagnostic, String),
@@ -85,7 +85,20 @@ impl Serialize for ShellDiagnostic {
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone, Serialize)]
+impl Deserialize<'de> for ShellDiagnostic {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(ShellDiagnostic {
+            diagnostic: Diagnostic::new(
+                language_reporting::Severity::Error,
+                "deserialize not implemented for ShellDiagnostic",
+            ),
+        })
+    }
+}
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone, Serialize, Deserialize)]
 pub struct StringError {
     title: String,
     error: Value,
@@ -131,6 +144,15 @@ impl std::convert::From<subprocess::PopenError> for ShellError {
 
 impl std::convert::From<nom::Err<(&str, nom::error::ErrorKind)>> for ShellError {
     fn from(input: nom::Err<(&str, nom::error::ErrorKind)>) -> ShellError {
+        ShellError::String(StringError {
+            title: format!("{:?}", input),
+            error: Value::nothing(),
+        })
+    }
+}
+
+impl std::convert::From<toml::ser::Error> for ShellError {
+    fn from(input: toml::ser::Error) -> ShellError {
         ShellError::String(StringError {
             title: format!("{:?}", input),
             error: Value::nothing(),

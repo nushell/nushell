@@ -6,7 +6,7 @@ crate mod registry;
 crate mod span;
 
 crate use ast::{ParsedCommand, Pipeline};
-crate use registry::{CommandConfig, CommandRegistry};
+crate use registry::{Args, CommandConfig, CommandRegistry};
 
 use crate::errors::ShellError;
 use lexer::Lexer;

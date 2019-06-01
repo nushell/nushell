@@ -7,20 +7,22 @@ use std::path::PathBuf;
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<Environment>>,
-    pub args: Vec<Value>,
+    pub positional: Vec<Value>,
+    pub named: indexmap::IndexMap<String, Value>,
     pub input: InputStream,
 }
 
 impl CommandArgs {
     crate fn from_context(
         ctx: &'caller mut Context,
-        args: Vec<Value>,
+        positional: Vec<Value>,
         input: InputStream,
     ) -> CommandArgs {
         CommandArgs {
             host: ctx.host.clone(),
             env: ctx.env.clone(),
-            args,
+            positional,
+            named: indexmap::IndexMap::default(),
             input,
         }
     }

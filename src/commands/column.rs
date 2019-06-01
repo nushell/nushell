@@ -4,11 +4,11 @@ use crate::object::Value;
 use crate::prelude::*;
 
 pub fn column(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.args.is_empty() {
+    if args.positional.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
 
-    let fields: Result<Vec<String>, _> = args.args.iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
     let objects = args

@@ -1,8 +1,8 @@
-use crate::object::types::{AnyShell, Type};
+use crate::object::types::Type;
 use derive_new::new;
-use serde::{Serialize, Serializer};
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub enum DescriptorName {
     String(String),
     ValueOf,
@@ -31,23 +31,11 @@ impl DescriptorName {
     }
 }
 
-#[derive(Debug, new)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, new)]
 pub struct DataDescriptor {
     crate name: DescriptorName,
     crate readonly: bool,
-    crate ty: Box<dyn Type>,
-}
-
-impl Serialize for DataDescriptor {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self.name {
-            DescriptorName::String(ref s) => serializer.serialize_str(s),
-            DescriptorName::ValueOf => serializer.serialize_str("value_of")
-        }
-    }
+    crate ty: Type,
 }
 
 impl From<&str> for DataDescriptor {
@@ -55,7 +43,7 @@ impl From<&str> for DataDescriptor {
         DataDescriptor {
             name: DescriptorName::String(input.to_string()),
             readonly: true,
-            ty: Box::new(AnyShell),
+            ty: Type::Any,
         }
     }
 }
@@ -65,40 +53,14 @@ impl From<String> for DataDescriptor {
         DataDescriptor {
             name: DescriptorName::String(input),
             readonly: true,
-            ty: Box::new(AnyShell),
+            ty: Type::Any,
         }
     }
 }
-
-impl PartialEq for DataDescriptor {
-    fn eq(&self, other: &DataDescriptor) -> bool {
-        self.name == other.name && self.readonly == other.readonly && self.ty.equal(&*other.ty)
-    }
-}
-
-impl std::hash::Hash for DataDescriptor {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-        self.readonly.hash(state);
-        self.ty.id().hash(state);
-    }
-}
-
-impl Eq for DataDescriptor {}
 
 impl DescriptorName {
     crate fn for_string_name(name: impl Into<String>) -> DescriptorName {
         DescriptorName::String(name.into())
-    }
-}
-
-impl Clone for DataDescriptor {
-    fn clone(&self) -> DataDescriptor {
-        DataDescriptor {
-            name: self.name.clone(),
-            readonly: self.readonly,
-            ty: self.ty.copy(),
-        }
     }
 }
 
@@ -107,7 +69,7 @@ impl DataDescriptor {
         DataDescriptor {
             name: DescriptorName::ValueOf,
             readonly: true,
-            ty: Box::new(AnyShell),
+            ty: Type::Any,
         }
     }
 
@@ -115,7 +77,7 @@ impl DataDescriptor {
         DataDescriptor {
             name: name.into(),
             readonly: true,
-            ty: Box::new(AnyShell),
+            ty: Type::Any,
         }
     }
 
@@ -124,10 +86,6 @@ impl DataDescriptor {
     }
 
     crate fn copy(&self) -> DataDescriptor {
-        DataDescriptor {
-            name: self.name.clone(),
-            readonly: self.readonly,
-            ty: self.ty.copy(),
-        }
+        self.clone()
     }
 }

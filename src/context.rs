@@ -1,4 +1,4 @@
-use crate::parser::{CommandConfig, CommandRegistry};
+use crate::parser::{Args, CommandConfig, CommandRegistry};
 use crate::prelude::*;
 
 use indexmap::IndexMap;
@@ -47,13 +47,14 @@ impl Context {
     crate fn run_command(
         &mut self,
         command: Arc<dyn Command>,
-        arg_list: Vec<Value>,
+        args: Args,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = CommandArgs {
             host: self.host.clone(),
             env: self.env.clone(),
-            args: arg_list,
+            positional: args.positional,
+            named: args.named,
             input,
         };
 

@@ -10,12 +10,27 @@ use derive_new::new;
 use ordered_float::OrderedFloat;
 use std::time::SystemTime;
 
-use serde::{Serialize, Serializer};
-use serde_derive::Serialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_derive::{Deserialize, Serialize};
 
-type OF64 = OrderedFloat<f64>;
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new)]
+pub struct OF64 {
+    crate inner: OrderedFloat<f64>,
+}
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+impl OF64 {
+    crate fn into_inner(&self) -> f64 {
+        self.inner.into_inner()
+    }
+}
+
+impl From<f64> for OF64 {
+    fn from(float: f64) -> Self {
+        OF64::new(OrderedFloat(float))
+    }
+}
+
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize)]
 pub enum Primitive {
     Nothing,
     Int(i64),
@@ -35,7 +50,7 @@ impl Serialize for Primitive {
         match self {
             Primitive::Nothing => serializer.serialize_i32(0),
             Primitive::Int(i) => serializer.serialize_i64(*i),
-            Primitive::Float(f) => serializer.serialize_f64(f.into_inner()),
+            Primitive::Float(OF64 { inner: f }) => serializer.serialize_f64(f.into_inner()),
             Primitive::Bytes(b) => serializer.serialize_u128(*b),
             Primitive::String(ref s) => serializer.serialize_str(s),
             Primitive::Boolean(b) => serializer.serialize_bool(*b),
@@ -63,7 +78,7 @@ impl Primitive {
                 }
             }
             Primitive::Int(i) => format!("{}", i),
-            Primitive::Float(f) => format!("{:.*}", 2, f.into_inner()),
+            Primitive::Float(OF64 { inner: f }) => format!("{:.*}", 2, f.into_inner()),
             Primitive::String(s) => format!("{}", s),
             Primitive::Boolean(b) => match (b, field_name) {
                 (true, None) => format!("Yes"),
@@ -97,6 +112,17 @@ impl Serialize for Block {
     }
 }
 
+impl Deserialize<'de> for Block {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Block::new(ast::Expression::Leaf(ast::Leaf::String(
+            format!("Unserializable block"),
+        ))))
+    }
+}
+
 impl Block {
     pub fn invoke(&self, value: &Value) -> Result<Value, ShellError> {
         let scope = Scope::new(value.copy());
@@ -113,21 +139,6 @@ pub enum Value {
 
     #[allow(unused)]
     Error(Box<ShellError>),
-}
-
-impl Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Value::Primitive(p) => p.serialize(serializer),
-            Value::Object(o) => o.serialize(serializer),
-            Value::List(l) => l.serialize(serializer),
-            Value::Block(b) => b.serialize(serializer),
-            Value::Error(e) => e.serialize(serializer),
-        }
-    }
 }
 
 impl Value {
@@ -207,6 +218,24 @@ impl Value {
         }
     }
 
+    #[allow(unused)]
+    crate fn is_string(&self, expected: &str) -> bool {
+        match self {
+            Value::Primitive(Primitive::String(s)) if s == expected => true,
+            other => false,
+        }
+    }
+
+    crate fn as_pair(&self) -> Result<(Value, Value), ShellError> {
+        match self {
+            Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
+            other => Err(ShellError::string(format!(
+                "Expected pair, got {:?}",
+                other
+            ))),
+        }
+    }
+
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Primitive(Primitive::String(s)) => Ok(s.to_string()),
@@ -280,8 +309,7 @@ impl Value {
         Value::Primitive(Primitive::Float(s.into()))
     }
 
-    #[allow(unused)]
-    crate fn bool(s: impl Into<bool>) -> Value {
+    crate fn boolean(s: impl Into<bool>) -> Value {
         Value::Primitive(Primitive::Boolean(s.into()))
     }
 
@@ -290,15 +318,21 @@ impl Value {
     }
 
     #[allow(unused)]
+    crate fn date_from_str(s: &str) -> Result<Value, ShellError> {
+        let date = DateTime::parse_from_rfc3339(s)
+            .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
+
+        let date = date.with_timezone(&chrono::offset::Utc);
+
+        Ok(Value::Primitive(Primitive::Date(date)))
+    }
+
+    #[allow(unused)]
     crate fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
         match s {
             Ok(time) => Value::Primitive(Primitive::Date(time.into())),
             Err(err) => Value::Error(Box::new(ShellError::string(format!("{}", err)))),
         }
-    }
-
-    crate fn boolean(s: impl Into<bool>) -> Value {
-        Value::Primitive(Primitive::Boolean(s.into()))
     }
 
     crate fn nothing() -> Value {

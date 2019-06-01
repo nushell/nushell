@@ -47,8 +47,6 @@ fn evaluate_reference(r: &ast::Variable, scope: &Scope) -> Result<Value, ShellEr
 
     match r {
         It => Ok(scope.it.copy()),
-        True => Ok(Value::boolean(true)),
-        False => Ok(Value::boolean(false)),
         Other(s) => Err(ShellError::string(&format!(
             "Unimplemented variable reference: {}",
             s

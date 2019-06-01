@@ -24,6 +24,10 @@ impl TableView {
         let item = &values[0];
         let descs = item.data_descriptors();
 
+        if descs.len() == 0 {
+            return None;
+        }
+
         let headers: Vec<String> = descs.iter().map(|d| d.name.display().to_string()).collect();
 
         let mut entries = vec![];

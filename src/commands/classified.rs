@@ -1,3 +1,4 @@
+use crate::parser::registry::Args;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures_codec::{Decoder, Encoder, Framed};
@@ -80,7 +81,7 @@ crate enum ClassifiedCommand {
 
 crate struct InternalCommand {
     crate command: Arc<dyn Command>,
-    crate args: Vec<Value>,
+    crate args: Args,
 }
 
 impl InternalCommand {

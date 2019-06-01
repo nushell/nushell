@@ -8,7 +8,10 @@ fn get_member(path: &str, obj: &Value) -> Option<Value> {
         match current.get_data_by_key(p) {
             Some(v) => current = v,
             None => {
-                return Some(Value::Error(Box::new(ShellError::string(format!("Object field name not found: {}", p)))))
+                return Some(Value::Error(Box::new(ShellError::string(format!(
+                    "Object field name not found: {}",
+                    p
+                )))))
             }
         }
     }
@@ -17,11 +20,11 @@ fn get_member(path: &str, obj: &Value) -> Option<Value> {
 }
 
 pub fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.args.is_empty() {
+    if args.positional.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
 
-    let fields: Result<Vec<String>, _> = args.args.iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
     let stream = args

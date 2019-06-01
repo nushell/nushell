@@ -3,7 +3,7 @@ use crate::prelude::*;
 use prettyprint::PrettyPrinter;
 
 pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let target = match args.args.first() {
+    let target = match args.positional.first() {
         // TODO: This needs better infra
         None => return Err(ShellError::string(format!("cat must take one arg"))),
         Some(v) => v.as_string()?.clone(),

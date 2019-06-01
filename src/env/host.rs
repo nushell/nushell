@@ -1,7 +1,8 @@
 use crate::prelude::*;
 use language_reporting::termcolor;
+use std::fmt::Debug;
 
-pub trait Host {
+pub trait Host: Debug {
     fn out_terminal(&self) -> Box<term::StdoutTerminal>;
     fn err_terminal(&self) -> Box<term::StderrTerminal>;
 
@@ -38,6 +39,7 @@ impl Host for Box<dyn Host> {
     }
 }
 
+#[derive(Debug)]
 crate struct BasicHost;
 
 impl Host for BasicHost {
