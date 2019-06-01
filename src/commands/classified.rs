@@ -125,47 +125,33 @@ impl ExternalCommand {
         input: ClassifiedInputStream,
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
-        let mut process;
-        #[cfg(windows)]
-        {
-            process = Exec::cmd("cmd.exe");
-        }
-        #[cfg(not(windows))]
-        {
-            process = Exec::cmd("sh");
-        }
         let inputs: Vec<Value> = input.objects.collect().await;
 
         let mut arg_string = format!("{}", self.name);
-        for arg in self.args {
+        for arg in &self.args {
             arg_string.push_str(" ");
             arg_string.push_str(&arg);
         }
+        let mut process = Exec::shell(&self.name);
 
         if arg_string.contains("$it") {
-            let mut new_arg_string = String::new();
-
-            let tmp = arg_string.clone();
             let mut first = true;
             for i in &inputs {
                 if !first {
-                    new_arg_string.push_str(" && ");
+                    process = process.arg("&&");
+                    process = process.arg(&self.name);
                 } else {
                     first = false;
                 }
-                new_arg_string.push_str(&tmp.replace("$it", &i.as_string().unwrap()));
+
+                for arg in &self.args {
+                    process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
+                }        
             }
-
-            arg_string = new_arg_string;
-        }
-
-        #[cfg(windows)]
-        {
-            process = process.args(&["/c", &arg_string]);
-        }
-        #[cfg(not(windows))]
-        {
-            process = process.args(&["-c", &arg_string]);
+        } else {
+            for arg in &self.args {
+                process = process.arg(arg);
+            }
         }
 
         process = process.cwd(context.env.lock().unwrap().cwd());
