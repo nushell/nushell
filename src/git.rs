@@ -1,7 +1,9 @@
-use git2::Repository;
+use git2::{Repository, RepositoryOpenFlags};
+use std::ffi::OsString;
 
 pub fn current_branch() -> Option<String> {
-    match Repository::open(".") {
+    let v: Vec<OsString> = vec![];
+    match Repository::open_ext(".", RepositoryOpenFlags::empty(), v) {
         Ok(repo) => {
             let r = repo.head();
             match r {
