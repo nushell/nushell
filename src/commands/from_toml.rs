@@ -20,13 +20,17 @@ fn convert_toml_value_to_nu_value(v: &toml::Value) -> Value {
     }
 }
 
+pub fn from_toml_string_to_value(s: String) -> Value {
+    let v: toml::Value = s.parse::<toml::Value>().unwrap();
+    convert_toml_value_to_nu_value(&v)
+}
+
 pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
     Ok(out
         .map(|a| match a {
             Value::Primitive(Primitive::String(s)) => {
-                let v: toml::Value = s.parse::<toml::Value>().unwrap();
-                ReturnValue::Value(convert_toml_value_to_nu_value(&v))
+                ReturnValue::Value(from_toml_string_to_value(s))
             }
             _ => ReturnValue::Value(Value::Primitive(Primitive::String("".to_string()))),
         })

@@ -18,13 +18,17 @@ fn convert_json_value_to_nu_value(v: &serde_json::Value) -> Value {
     }
 }
 
+pub fn from_json_string_to_value(s: String) -> Value {
+    let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+    convert_json_value_to_nu_value(&v)
+}
+
 pub fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
     Ok(out
         .map(|a| match a {
             Value::Primitive(Primitive::String(s)) => {
-                let v: serde_json::Value = serde_json::from_str(&s).unwrap();
-                ReturnValue::Value(convert_json_value_to_nu_value(&v))
+                ReturnValue::Value(from_json_string_to_value(s))
             }
             _ => ReturnValue::Value(Value::Primitive(Primitive::String("".to_string()))),
         })
