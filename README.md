@@ -28,6 +28,7 @@ Nu currently has the following built-in commands:
 -   split-column sep ...fields
 -   split-row sep ...fields
 -   select field 
+-   trim
 
 # Goals
 
