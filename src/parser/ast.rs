@@ -85,6 +85,13 @@ impl Expression {
             _ => None,
         }
     }
+
+    crate fn is_flag(&self, value: &str) -> bool {
+        match self {
+            Expression::Flag(Flag::Longhand(f)) if value == f => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
@@ -151,35 +158,28 @@ impl Path {
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Variable {
     It,
-    True,
-    False,
     Other(String),
 }
 
 impl Variable {
+    crate fn from_str(input: &str) -> Expression {
+        match input {
+            "it" => Expression::VariableReference(Variable::It),
+            "true" => Expression::Leaf(Leaf::Boolean(true)),
+            "false" => Expression::Leaf(Leaf::Boolean(false)),
+            other => Expression::VariableReference(Variable::Other(other.to_string())),
+        }
+    }
+
     fn print(&self) -> String {
         match self {
             Variable::It => format!("$it"),
-            Variable::True => format!("$true"),
-            Variable::False => format!("$false"),
             Variable::Other(s) => format!("${}", s),
         }
     }
 
     fn as_external_arg(&self) -> String {
         self.print()
-    }
-}
-
-impl FromStr for Variable {
-    type Err = ();
-    fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
-        Ok(match input {
-            "it" => Variable::It,
-            "true" => Variable::True,
-            "false" => Variable::False,
-            other => Variable::Other(other.to_string()),
-        })
     }
 }
 

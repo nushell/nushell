@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 rustyline = "4.1.0"
 sysinfo = "0.8.4"
-chrono = "0.4.6"
+chrono = { version = "0.4.6", features = ["serde"] }
 chrono-tz = "0.5.1"
 derive-new = "0.5.6"
 prettytable-rs = "0.8.0"
@@ -21,7 +21,7 @@ conch-parser = "0.1.1"
 nom = "5.0.0-beta1"
 subprocess = "0.1.18"
 dunce = "1.0.0"
-indexmap = "1.0.2"
+indexmap = { version = "1.0.2", features = ["serde-1"] }
 chrono-humanize = "0.0.11"
 byte-unit = "2.1.0"
 ordered-float = "1.0.2"
@@ -44,6 +44,9 @@ getset = "0.0.7"
 logos = "0.10.0-rc2"
 logos-derive = "0.10.0-rc2"
 language-reporting = "0.3.0"
+app_dirs = "1.2.1"
+toml = "0.5.1"
+toml-query = "0.9.0"
 
 [dependencies.pancurses]
 version = "0.16"

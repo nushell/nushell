@@ -65,8 +65,8 @@ Expr: Expression = {
     <PathHead>
 }
 
-Variable: Variable = {
-    "$" <"variable"> => Variable::from_str(<>.as_slice()).unwrap(),
+Variable: Expression = {
+    "$" <"variable"> => Variable::from_str(<>.as_slice()),
 }
 
 Member: String = {

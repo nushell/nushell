@@ -25,11 +25,11 @@ impl Command for Where {
 }
 
 pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.args.is_empty() {
+    if args.positional.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
 
-    let block = args.args[0].as_block()?;
+    let block = args.positional[0].as_block()?;
     let input = args.input;
 
     let objects = input.filter_map(move |item| {

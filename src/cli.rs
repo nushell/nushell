@@ -60,6 +60,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("to-array", to_array::to_array),
             command("to-json", to_json::to_json),
             Arc::new(Where),
+            Arc::new(Config),
             command("sort-by", sort_by::sort_by),
         ]);
     }

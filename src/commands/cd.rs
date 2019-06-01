@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::env;
 
 pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let target = match args.args.first() {
+    let target = match args.positional.first() {
         // TODO: This needs better infra
         None => return Err(ShellError::string(format!("cd must take one arg"))),
         Some(v) => v.as_string()?.clone(),

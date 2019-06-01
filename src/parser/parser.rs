@@ -1,5 +1,5 @@
 // auto-generated: "lalrpop 0.17.0"
-// sha256: efaf89a1d956869b47a3f5daff048341c19934c68ad5e1ed9fe8e5c4222d2
+// sha256: 327a2eaaded6615e365add5d44719ae0dd3217f5b0fc3ba130f052328c2bd439
 #![allow(unused)]
 use std::str::FromStr;
 use crate::parser::ast::*;
@@ -41,7 +41,6 @@ mod __parse__Pipeline {
         Variant10(i64),
         Variant11(Operator),
         Variant12(Pipeline),
-        Variant13(Variable),
     }
     const __ACTION: &'static [i8] = &[
         // State 0
@@ -1364,17 +1363,6 @@ mod __parse__Pipeline {
             _ => panic!("symbol type mismatch")
         }
     }
-    fn __pop_Variant13<
-      'input,
-    >(
-        __symbols: &mut ::std::vec::Vec<(usize,__Symbol<'input>,usize)>
-    ) -> (usize, Variable, usize)
-     {
-        match __symbols.pop().unwrap() {
-            (__l, __Symbol::Variant13(__v), __r) => (__l, __v, __r),
-            _ => panic!("symbol type mismatch")
-        }
-    }
     fn __pop_Variant10<
       'input,
     >(
@@ -2022,7 +2010,7 @@ mod __parse__Pipeline {
     ) -> (usize, usize)
     {
         // Leaf = Variable => ActionFn(9);
-        let __sym0 = __pop_Variant13(__symbols);
+        let __sym0 = __pop_Variant6(__symbols);
         let __start = __sym0.0.clone();
         let __end = __sym0.2.clone();
         let __nt = super::__action9::<>(__sym0);
@@ -2393,7 +2381,7 @@ mod __parse__Pipeline {
         let __start = __sym0.0.clone();
         let __end = __sym1.2.clone();
         let __nt = super::__action25::<>(__sym0, __sym1);
-        __symbols.push((__start, __Symbol::Variant13(__nt), __end));
+        __symbols.push((__start, __Symbol::Variant6(__nt), __end));
         (2, 25)
     }
     pub(crate) fn __reduce52<
@@ -2522,7 +2510,7 @@ fn __action8<
 fn __action9<
     'input,
 >(
-    (_, __0, _): (usize, Variable, usize),
+    (_, __0, _): (usize, Expression, usize),
 ) -> Expression
 {
     Expression::VariableReference(__0)
@@ -2679,9 +2667,9 @@ fn __action25<
 >(
     (_, _, _): (usize, SpannedToken<'input>, usize),
     (_, __0, _): (usize, SpannedToken<'input>, usize),
-) -> Variable
+) -> Expression
 {
-    Variable::from_str(__0.as_slice()).unwrap()
+    Variable::from_str(__0.as_slice())
 }
 
 fn __action26<

@@ -3,6 +3,7 @@ crate mod cd;
 crate mod classified;
 crate mod column;
 crate mod command;
+crate mod config;
 crate mod from_json;
 crate mod ls;
 crate mod open;
@@ -22,5 +23,6 @@ crate mod view;
 crate mod where_;
 
 crate use command::command;
+crate use config::Config;
 crate use to_array::stream_to_array;
 crate use where_::Where;

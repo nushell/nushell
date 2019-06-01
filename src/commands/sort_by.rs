@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::prelude::*;
 
 pub fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let fields: Result<Vec<_>, _> = args.args.iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<_>, _> = args.positional.iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
     let output = args.input.collect::<Vec<_>>();

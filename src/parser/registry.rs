@@ -5,10 +5,21 @@ use indexmap::IndexMap;
 #[allow(unused)]
 #[derive(Debug)]
 pub enum NamedType {
-    Switch(String),
-    Single(String),
-    Array(String),
-    Block(String),
+    Switch,
+    Mandatory(NamedValue),
+    Optional(NamedValue),
+}
+
+#[derive(Debug)]
+pub enum NamedValue {
+    Single,
+    Tuple,
+
+    #[allow(unused)]
+    Block,
+
+    #[allow(unused)]
+    Array,
 }
 
 #[allow(unused)]
@@ -62,13 +73,55 @@ pub struct CommandConfig {
     crate named: IndexMap<String, NamedType>,
 }
 
+pub struct Args {
+    pub positional: Vec<Value>,
+    pub named: IndexMap<String, Value>,
+}
+
 impl CommandConfig {
     crate fn evaluate_args(
         &self,
-        mut args: impl Iterator<Item = &'expr ast::Expression>,
+        args: impl Iterator<Item = &'expr ast::Expression>,
         scope: &Scope,
-    ) -> Result<Vec<Value>, ShellError> {
-        let mut results: Vec<Value> = vec![];
+    ) -> Result<Args, ShellError> {
+        let mut positional: Vec<Value> = vec![];
+        let mut named: IndexMap<String, Value> = IndexMap::default();
+
+        let mut args: Vec<ast::Expression> = args.cloned().collect();
+
+        for (key, ty) in self.named.iter() {
+            let index = args.iter().position(|a| a.is_flag(&key));
+
+            match (index, ty) {
+                (Some(i), NamedType::Switch) => {
+                    args.remove(i);
+                    named.insert(key.clone(), Value::boolean(true));
+                }
+
+                (None, NamedType::Switch) => {}
+
+                (Some(i), NamedType::Optional(v)) => {
+                    args.remove(i);
+                    named.insert(key.clone(), extract_named(&mut args, i, v)?);
+                }
+
+                (None, NamedType::Optional(_)) => {}
+
+                (Some(i), NamedType::Mandatory(v)) => {
+                    args.remove(i);
+                    named.insert(key.clone(), extract_named(&mut args, i, v)?);
+                }
+
+                (None, NamedType::Mandatory(_)) => {
+                    return Err(ShellError::string(&format!(
+                        "Expected mandatory argument {}, but it was missing",
+                        key
+                    )))
+                }
+            }
+        }
+
+        let mut args = args.into_iter();
 
         for param in &self.mandatory_positional {
             let arg = args.next();
@@ -84,26 +137,73 @@ impl CommandConfig {
                 Some(arg) => param.evaluate(arg.clone(), scope)?,
             };
 
-            results.push(value);
+            positional.push(value);
         }
 
         if self.rest_positional {
             let rest: Result<Vec<Value>, _> =
-                args.map(|i| evaluate_expr(i, &Scope::empty())).collect();
-            results.extend(rest?);
+                args.map(|i| evaluate_expr(&i, &Scope::empty())).collect();
+            positional.extend(rest?);
         } else {
-            match args.next() {
-                None => {}
-                Some(_) => return Err(ShellError::string("Too many arguments")),
+            let rest: Vec<ast::Expression> = args.collect();
+
+            if rest.len() > 0 {
+                return Err(ShellError::string(&format!(
+                    "Too many arguments, extras: {:?}",
+                    rest
+                )));
             }
         }
 
-        Ok(results)
+        Ok(Args { positional, named })
     }
 
     #[allow(unused)]
     crate fn signature(&self) -> String {
         format!("TODO")
+    }
+}
+
+fn extract_named(
+    v: &mut Vec<ast::Expression>,
+    position: usize,
+    ty: &NamedValue,
+) -> Result<Value, ShellError> {
+    match ty {
+        NamedValue::Single => {
+            let expr = v.remove(position);
+            expect_simple_expr(expr)
+        }
+
+        NamedValue::Tuple => {
+            let expr = v.remove(position);
+            let next = v.remove(position);
+
+            let list = vec![expect_simple_expr(expr)?, expect_simple_expr(next)?];
+            Ok(Value::List(list))
+        }
+
+        other => Err(ShellError::string(&format!(
+            "Unimplemented named argument {:?}",
+            other
+        ))),
+    }
+}
+
+fn expect_simple_expr(expr: ast::Expression) -> Result<Value, ShellError> {
+    match expr {
+        ast::Expression::Leaf(l) => Ok(match l {
+            ast::Leaf::Bare(s) => Value::string(s.to_string()),
+            ast::Leaf::String(s) => Value::string(s),
+            ast::Leaf::Boolean(b) => Value::boolean(b),
+            ast::Leaf::Int(i) => Value::int(i),
+        }),
+
+        // TODO: Diagnostic
+        other => Err(ShellError::string(&format!(
+            "Expected a value, found {}",
+            other.print()
+        ))),
     }
 }
 
