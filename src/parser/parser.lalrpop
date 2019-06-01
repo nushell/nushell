@@ -23,7 +23,7 @@ Leaf: Expression = {
     <String> => Expression::Leaf(Leaf::String(<>)),
     <Int> => Expression::Leaf(Leaf::Int(<>)),
     <UnitsNum> => Expression::Leaf(Leaf::Int(<>)),
-    <Variable> => Expression::VariableReference(<>),
+    <Var> => <>,
 }
 
 BinaryExpression: Expression = {
@@ -65,7 +65,7 @@ Expr: Expression = {
     <PathHead>
 }
 
-Variable: Expression = {
+Var: Expression = {
     "$" <"variable"> => Variable::from_str(<>.as_slice()),
 }
 

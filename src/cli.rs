@@ -50,6 +50,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("first", take::take),
             command("size", size::size),
             command("from-json", from_json::from_json),
+            command("from-toml", from_toml::from_toml),
             command("open", open::open),
             command("column", column::column),
             command("split-column", split_column::split_column),
