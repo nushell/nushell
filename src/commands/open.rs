@@ -14,9 +14,25 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let contents = std::fs::read_to_string(&full_path).unwrap();
 
     let mut stream = VecDeque::new();
-    stream.push_back(ReturnValue::Value(Value::Primitive(Primitive::String(
-        contents,
-    ))));
+
+    let open_raw = match args.positional.get(1) {
+        Some(Value::Primitive(Primitive::String(s))) if s == "--raw" => true,
+        _ => false,
+    };
+
+    match full_path.extension() {
+        Some(x) if x == "toml" && !open_raw => {
+            stream.push_back(ReturnValue::Value(crate::commands::from_toml::from_toml_string_to_value(contents)));
+        }
+        Some(x) if x == "json" && !open_raw => {
+            stream.push_back(ReturnValue::Value(crate::commands::from_json::from_json_string_to_value(contents)));
+        }
+        _ => {
+            stream.push_back(ReturnValue::Value(Value::Primitive(Primitive::String(
+                contents,
+            ))));
+        }
+    }
 
     Ok(stream.boxed())
 }
