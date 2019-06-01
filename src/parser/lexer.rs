@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
 use derive_new::new;
-use log::debug;
+use log::trace;
 use logos_derive::Logos;
 use std::ops::Range;
 
@@ -114,12 +114,12 @@ impl TopToken {
 }
 
 fn start_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
-    debug!("start_variable EXTRAS={:?}", lex.extras);
+    trace!("start_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::Var;
 }
 
 fn end_bare_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
-    debug!("end_variable EXTRAS={:?}", lex.extras);
+    trace!("end_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
 }
 
@@ -152,7 +152,7 @@ impl VariableToken {
 }
 
 fn end_variable<S>(lex: &mut logos::Lexer<VariableToken, S>) {
-    debug!("end_variable EXTRAS={:?}", lex.extras);
+    trace!("end_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
 }
 
@@ -190,12 +190,12 @@ impl AfterVariableToken {
 }
 
 fn start_member<S>(lex: &mut logos::Lexer<AfterVariableToken, S>) {
-    debug!("start_variable EXTRAS={:?}", lex.extras);
+    trace!("start_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterMemberDot;
 }
 
 fn terminate_variable<S>(lex: &mut logos::Lexer<AfterVariableToken, S>) {
-    debug!("terminate_variable EXTRAS={:?}", lex.extras);
+    trace!("terminate_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::Top;
 }
 
@@ -232,7 +232,7 @@ impl AfterMemberDot {
 }
 
 fn finish_member<S>(lex: &mut logos::Lexer<AfterMemberDot, S>) {
-    debug!("finish_member EXTRAS={:?}", lex.extras);
+    trace!("finish_member EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
 }
 
@@ -407,7 +407,7 @@ impl Iterator for Lexer<'source> {
                 }
             }
         } else {
-            debug!("STATE={:?}", self.lexer.extras);
+            trace!("STATE={:?}", self.lexer.extras);
 
             match self.lexer.extras.current {
                 LexerStateName::Top => {
@@ -514,7 +514,7 @@ mod tests {
         let expected_tokens: Vec<SpannedToken> = tokens
             .iter()
             .filter_map(|token_desc| {
-                debug!("{:?}", token_desc);
+                trace!("{:?}", token_desc);
 
                 let len = token_desc.source.len();
                 let range = current..(current + len);

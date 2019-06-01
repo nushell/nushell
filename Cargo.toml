@@ -47,6 +47,7 @@ language-reporting = "0.3.0"
 app_dirs = "1.2.1"
 toml = "0.5.1"
 toml-query = "0.9.0"
+clap = "2.33.0"
 
 [dependencies.pancurses]
 version = "0.16"

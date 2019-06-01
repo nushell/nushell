@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
-use log::debug;
+use log::trace;
 
 // TODO: "Amount remaining" wrapper
 
@@ -13,10 +13,10 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(move |v| match v {
             Value::Primitive(Primitive::String(s)) => {
                 let splitter = args[0].as_string().unwrap().replace("\\n", "\n");
-                debug!("splitting with {:?}", splitter);
+                trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
-                debug!("split result = {:?}", split_result);
+                trace!("split result = {:?}", split_result);
 
                 // If they didn't provide column names, make up our own
                 if (args.len() - 1) == 0 {
