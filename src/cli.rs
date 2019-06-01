@@ -212,14 +212,11 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     },
 
                     (
-                        Some(ClassifiedCommand::Internal(ref i)),
-                        Some(ClassifiedCommand::External(ref e)),
-                    ) => {
-                        return LineResult::Error(ShellError::string(&format!(
-                            "Unimplemented Internal({}) -> External({})",
-                            i.name(),
-                            e.name()
-                        )))
+                        Some(ClassifiedCommand::Internal(left)),
+                        Some(ClassifiedCommand::External(_)),
+                    ) => match left.run(ctx, input).await {
+                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                        Err(err) => return LineResult::Error(err),
                     }
 
                     (

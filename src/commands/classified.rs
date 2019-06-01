@@ -105,10 +105,6 @@ impl InternalCommand {
 
         Ok(stream.boxed() as InputStream)
     }
-
-    crate fn name(&self) -> &str {
-        self.command.name()
-    }
 }
 
 crate struct ExternalCommand {
@@ -129,10 +125,33 @@ impl ExternalCommand {
         input: ClassifiedInputStream,
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
+        let inputs: Vec<Value> = input.objects.collect().await;
+
+        let mut arg_string = format!("{}", self.name);
+        for arg in &self.args {
+            arg_string.push_str(" ");
+            arg_string.push_str(&arg);
+        }
         let mut process = Exec::shell(&self.name);
 
-        for arg in self.args {
-            process = process.arg(arg)
+        if arg_string.contains("$it") {
+            let mut first = true;
+            for i in &inputs {
+                if !first {
+                    process = process.arg("&&");
+                    process = process.arg(&self.name);
+                } else {
+                    first = false;
+                }
+
+                for arg in &self.args {
+                    process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
+                }        
+            }
+        } else {
+            for arg in &self.args {
+                process = process.arg(arg);
+            }
         }
 
         process = process.cwd(context.env.lock().unwrap().cwd());
@@ -167,9 +186,5 @@ impl ExternalCommand {
                 Ok(ClassifiedInputStream::from_input_stream(stream.boxed()))
             }
         }
-    }
-
-    crate fn name(&self) -> &str {
-        &self.name[..]
     }
 }
