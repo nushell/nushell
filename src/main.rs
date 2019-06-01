@@ -60,15 +60,16 @@ fn main() -> Result<(), Box<Error>> {
 
     match matches.values_of("develop") {
         None => {}
-        Some(values) => for item in values {
-            println!("filtering {:?}", item);
-            builder.filter_module(&format!("nu::{}", item), LevelFilter::Trace);
-        } //println!("{:?}", values.collect::<Vec<&str>>()),
+        Some(values) => {
+            for item in values {
+                println!("filtering {:?}", item);
+                builder.filter_module(&format!("nu::{}", item), LevelFilter::Trace);
+            }
+        }
     }
 
     builder.try_init()?;
 
-    // pretty_env_logger::init();
     futures::executor::block_on(crate::cli::cli())?;
     Ok(())
 }
