@@ -105,10 +105,6 @@ impl InternalCommand {
 
         Ok(stream.boxed() as InputStream)
     }
-
-    crate fn name(&self) -> &str {
-        self.command.name()
-    }
 }
 
 crate struct ExternalCommand {
@@ -129,10 +125,47 @@ impl ExternalCommand {
         input: ClassifiedInputStream,
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
-        let mut process = Exec::shell(&self.name);
+        let mut process;
+        #[cfg(windows)]
+        {
+            process = Exec::cmd("cmd.exe");
+        }
+        #[cfg(not(windows))]
+        {
+            process = Exec::cmd("sh");
+        }
+        let inputs: Vec<Value> = input.objects.collect().await;
 
+        let mut arg_string = format!("{}", self.name);
         for arg in self.args {
-            process = process.arg(arg)
+            arg_string.push_str(" ");
+            arg_string.push_str(&arg);
+        }
+
+        if arg_string.contains("$it") {
+            let mut new_arg_string = String::new();
+
+            let tmp = arg_string.clone();
+            let mut first = true;
+            for i in &inputs {
+                if !first {
+                    new_arg_string.push_str(" && ");
+                } else {
+                    first = false;
+                }
+                new_arg_string.push_str(&tmp.replace("$it", &i.as_string().unwrap()));
+            }
+
+            arg_string = new_arg_string;
+        }
+
+        #[cfg(windows)]
+        {
+            process = process.args(&["/c", &arg_string]);
+        }
+        #[cfg(not(windows))]
+        {
+            process = process.args(&["-c", &arg_string]);
         }
 
         process = process.cwd(context.env.lock().unwrap().cwd());
@@ -167,9 +200,5 @@ impl ExternalCommand {
                 Ok(ClassifiedInputStream::from_input_stream(stream.boxed()))
             }
         }
-    }
-
-    crate fn name(&self) -> &str {
-        &self.name[..]
     }
 }
