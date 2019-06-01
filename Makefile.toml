@@ -16,6 +16,11 @@ command = "cargo"
 args = ["run", "--release"]
 dependencies = ["baseline"]
 
+[tasks.release]
+command = "cargo"
+args = ["build", "--release"]
+dependencies = ["baseline"]
+
 [tasks.test]
 command = "cargo"
 args = ["test"]

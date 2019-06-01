@@ -3,7 +3,7 @@ use crate::shell::completer::NuCompleter;
 use crate::parser::lexer::SpannedToken;
 use crate::prelude::*;
 use ansi_term::Color;
-use log::debug;
+use log::trace;
 use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -73,9 +73,9 @@ impl Highlighter for Helper {
                         Some((start, token, end)) => {
                             let (style, new_state) = token_style(&token, state);
 
-                            debug!("token={:?}", token);
-                            debug!("style={:?}", style);
-                            debug!("new_state={:?}", new_state);
+                            trace!("token={:?}", token);
+                            trace!("style={:?}", style);
+                            trace!("new_state={:?}", new_state);
 
                             state = new_state;
                             let slice = &line[*start..*end];
