@@ -4,10 +4,11 @@ use crate::object::DataDescriptor;
 use crate::object::{Primitive, Value};
 use derive_new::new;
 use indexmap::IndexMap;
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
+use serde::ser::{Serialize, Serializer, SerializeMap};
 use std::cmp::{Ordering, PartialOrd};
 
-#[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, new)]
+#[derive(Debug, Default, Eq, PartialEq, Deserialize, Clone, new)]
 pub struct Dictionary {
     entries: IndexMap<DataDescriptor, Value>,
 }
@@ -16,6 +17,28 @@ impl PartialOrd for Dictionary {
     // TODO: FIXME
     fn partial_cmp(&self, _other: &Dictionary) -> Option<Ordering> {
         Some(Ordering::Less)
+    }
+}
+
+impl Serialize for Dictionary {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.entries.len()))?;
+        for (k, v) in self.entries.iter() {
+            match v {
+                Value::Object(_) => {},
+                _ => map.serialize_entry(k, v)?
+            }
+        }
+        for (k, v) in self.entries.iter() {
+            match v {
+                Value::Object(_) => map.serialize_entry(k, v)?,
+                _ => {}
+            }
+        }
+        map.end()
     }
 }
 

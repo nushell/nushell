@@ -19,6 +19,7 @@ crate mod split_row;
 crate mod take;
 crate mod to_array;
 crate mod to_json;
+crate mod to_toml;
 crate mod trim;
 crate mod view;
 crate mod where_;
