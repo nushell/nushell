@@ -11,6 +11,7 @@ mod env;
 mod errors;
 mod evaluate;
 mod format;
+mod git;
 mod object;
 mod parser;
 mod prelude;
