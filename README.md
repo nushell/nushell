@@ -23,6 +23,7 @@ Nu currently has the following built-in commands:
 -   first amount
 -   to-array
 -   to-json
+-   to-toml
 -   from-json
 -   from-toml
 -   open filename
