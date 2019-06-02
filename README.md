@@ -50,95 +50,116 @@ The project is made available under the MIT license. See "LICENSE" for more info
 
 # A Taste of Nu
 
+Nu has built-in commands for ls and ps, loading these results into a table you can work with.
+
 ```text
 ~\Code\nushell> ps | where cpu > 0
-+-------------------+-----+-------+-------+----------+
-| name              | cmd | cpu   | pid   | status   |
-+-------------------+-----+-------+-------+----------+
-| chrome.exe        | -   | 7.83  | 10508 | Runnable |
-+-------------------+-----+-------+-------+----------+
-| SearchIndexer.exe | -   | 7.83  | 4568  | Runnable |
-+-------------------+-----+-------+-------+----------+
-| nu.exe            | -   | 54.83 | 15436 | Runnable |
-+-------------------+-----+-------+-------+----------+
-| chrome.exe        | -   | 7.83  | 10000 | Runnable |
-+-------------------+-----+-------+-------+----------+
-| BlueJeans.exe     | -   | 7.83  | 6968  | Runnable |
-+-------------------+-----+-------+-------+----------+
-
-~\Code\nushell> ps | where name == chrome.exe | take 10
-
-+------------+-----+------+-------+----------+
-| name       | cmd | cpu  | pid   | status   |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 22092 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 17324 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 16376 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 21876 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 13432 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 11772 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 13796 | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 1608  | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 3340  | Runnable |
-+------------+-----+------+-------+----------+
-| chrome.exe | -   | 0.00 | 20268 | Runnable |
-+------------+-----+------+-------+----------+
-
-~\Code\nushell> ls | sort-by "file type" size
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| file name     | file type | readonly | size     | created        | accessed       | modified       |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| .git          | Directory |          | Empty    | a week ago     | 2 minutes ago  | 2 minutes ago  |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| src           | Directory |          | Empty    | a week ago     | 42 minutes ago | 42 minutes ago |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| target        | Directory |          | Empty    | a day ago      | 19 hours ago   | 19 hours ago   |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| .gitignore    | File      |          | 30 B     | a week ago     | 2 days ago     | 2 days ago     |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| .editorconfig | File      |          | 148 B    | 6 days ago     | 6 days ago     | 6 days ago     |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| Cargo.toml    | File      |          | 714 B    | 42 minutes ago | 42 minutes ago | 42 minutes ago |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| history.txt   | File      |          | 1.4 KiB  | 2 days ago     | 30 minutes ago | 30 minutes ago |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| README.md     | File      |          | 2.3 KiB  | an hour ago    | 30 seconds ago | 30 seconds ago |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-| Cargo.lock    | File      |          | 38.6 KiB | 42 minutes ago | 42 minutes ago | 42 minutes ago |
-+---------------+-----------+----------+----------+----------------+----------------+----------------+
-
-~\Code\nushell> ls | column "file name" "file type" size | sort-by "file type"
-+---------------+-----------+----------+
-| file name     | file type | size     |
-+---------------+-----------+----------+
-| .git          | Directory | Empty    |
-+---------------+-----------+----------+
-| src           | Directory | Empty    |
-+---------------+-----------+----------+
-| target        | Directory | Empty    |
-+---------------+-----------+----------+
-| .editorconfig | File      | 148 B    |
-+---------------+-----------+----------+
-| .gitignore    | File      | 30 B     |
-+---------------+-----------+----------+
-| Cargo.lock    | File      | 38.6 KiB |
-+---------------+-----------+----------+
-| Cargo.toml    | File      | 714 B    |
-+---------------+-----------+----------+
-| history.txt   | File      | 1.4 KiB  |
-+---------------+-----------+----------+
-| README.md     | File      | 2.3 KiB  |
-+---------------+-----------+----------+
+C:\Source\Play\nushell(master)> ps | where cpu > 0
+------------------------------------------------
+ name               cmd  cpu    pid    status
+------------------------------------------------
+ msedge.exe         -    0.77   26472  Runnable
+------------------------------------------------
+ nu.exe             -    7.83   15473  Runnable
+------------------------------------------------
+ SearchIndexer.exe  -    82.17  23476  Runnable
+------------------------------------------------
+ BlueJeans.exe      -    4.54   10000  Runnable
+------------------------------------------------
 ```
 
+Commands are linked together with pipes, allowing you to select the data you want to use.
+
+```text
+~\Code\nushell> ps | where name == chrome.exe | first 5
+
+----------------------------------------
+ name        cmd  cpu   pid    status
+----------------------------------------
+ chrome.exe  -    0.00  22092  Runnable
+----------------------------------------
+ chrome.exe  -    0.00  17324  Runnable
+----------------------------------------
+ chrome.exe  -    0.00  16376  Runnable
+----------------------------------------
+ chrome.exe  -    0.00  21876  Runnable
+----------------------------------------
+ chrome.exe  -    0.00  13432  Runnable
+----------------------------------------
+```
+
+The name of the columns in the table can be used to sort the table.
+
+```text
+~\Code\nushell> ls | sort-by "file type" size
+----------------------------------------------------------------------------------------
+ file name      file type  readonly  size      created       accessed      modified
+----------------------------------------------------------------------------------------
+ .cargo         Directory            Empty     a week ago    a week ago    a week ago
+----------------------------------------------------------------------------------------
+ .git           Directory            Empty     2 weeks ago   9 hours ago   9 hours ago
+----------------------------------------------------------------------------------------
+ images         Directory            Empty     2 weeks ago   2 weeks ago   2 weeks ago
+----------------------------------------------------------------------------------------
+ src            Directory            Empty     2 weeks ago   10 hours ago  10 hours ago
+----------------------------------------------------------------------------------------
+ target         Directory            Empty     10 hours ago  10 hours ago  10 hours ago
+----------------------------------------------------------------------------------------
+ tests          Directory            Empty     14 hours ago  10 hours ago  10 hours ago
+----------------------------------------------------------------------------------------
+ tmp            Directory            Empty     2 days ago    2 days ago    2 days ago
+----------------------------------------------------------------------------------------
+ rustfmt.toml   File                 16 B      a week ago    a week ago    a week ago
+----------------------------------------------------------------------------------------
+ .gitignore     File                 32 B      2 weeks ago   2 weeks ago   2 weeks ago
+----------------------------------------------------------------------------------------
+ .editorconfig  File                 156 B     2 weeks ago   2 weeks ago   2 weeks ago
+----------------------------------------------------------------------------------------
+```
+
+You can also use the names of the columns to down-select to only the data you want.
+```text
+~\Code\nushell> ls | column "file name" "file type" size | sort-by "file type"
+------------------------------------
+ file name      file type  size
+------------------------------------
+ .cargo         Directory  Empty
+------------------------------------
+ .git           Directory  Empty
+------------------------------------
+ images         Directory  Empty
+------------------------------------
+ src            Directory  Empty
+------------------------------------
+ target         Directory  Empty
+------------------------------------
+ tests          Directory  Empty
+------------------------------------
+ rustfmt.toml   File       16 B
+------------------------------------
+ .gitignore     File       32 B
+------------------------------------
+ .editorconfig  File       156 B
+------------------------------------
+```
+
+Some file times can be loaded as tables.
+
+```text
+~\Code\nushell> open Cargo.toml
+----------------------------------------------------
+ dependencies     dev-dependencies  package
+----------------------------------------------------
+ [object Object]  [object Object]   [object Object]
+----------------------------------------------------
+
+~\Code\nushell> open Cargo.toml | select package
+--------------------------------------------------------------------------
+ authors      description                 edition  license  name  version
+--------------------------------------------------------------------------
+ [list List]  A shell for the GitHub era  2018     MIT      nu    0.1.1
+--------------------------------------------------------------------------
+```
 Nu currently has fish-style completion of previous commands, as well ctrl-r reverse search.
 
 ![autocompletion][fish-style]
