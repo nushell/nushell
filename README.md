@@ -167,7 +167,7 @@ Some file types can be loaded as tables.
 --------------------------------------------------------------------------
 ```
 
-Once you've cound the data, you can call out to external applications and use it.
+Once you've found the data, you can call out to external applications and use it.
 
 ```text
 ~\Code\nushell> open Cargo.toml | select package.version | echo $it
