@@ -133,28 +133,59 @@ impl ExternalCommand {
             arg_string.push_str(" ");
             arg_string.push_str(&arg);
         }
-        let mut process = Exec::shell(&self.name);
 
-        if arg_string.contains("$it") {
-            let mut first = true;
-            for i in &inputs {
-                if !first {
-                    process = process.arg("&&");
-                    process = process.arg(&self.name);
-                } else {
-                    first = false;
+        let mut process;
+        #[cfg(windows)]
+        {
+            process = Exec::shell(&self.name);
+
+            if arg_string.contains("$it") {
+                let mut first = true;
+                for i in &inputs {
+                    if !first {
+                        process = process.arg("&&");
+                        process = process.arg(&self.name);
+                    } else {
+                        first = false;
+                    }
+
+                    for arg in &self.args {
+                        process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
+                    }
                 }
-
+            } else {
                 for arg in &self.args {
-                    process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
-                }        
-            }
-        } else {
-            for arg in &self.args {
-                process = process.arg(arg);
+                    process = process.arg(arg);
+                }
             }
         }
+        #[cfg(not(windows))]
+        {
+            let mut new_arg_string = self.name.to_string();
 
+            if arg_string.contains("$it") {
+                let mut first = true;
+                for i in &inputs {
+                    if !first {
+                        new_arg_string.push_str(" && ");
+                        new_arg_string.push_str(&self.name);
+                    } else {
+                        first = false;
+                    }
+
+                    for arg in &self.args {
+                        new_arg_string.push_str(" ");
+                        new_arg_string.push_str(&arg.replace("$it", &i.as_string().unwrap()));
+                    }
+                }
+            } else {
+                for arg in &self.args {
+                    new_arg_string.push_str(" ");
+                    new_arg_string.push_str(&arg);
+                }
+            }
+            process = Exec::shell(new_arg_string);
+        }
         process = process.cwd(context.env.lock().unwrap().cwd());
 
         let mut process = match stream_next {
