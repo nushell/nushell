@@ -149,7 +149,7 @@ You can also use the names of the columns to down-select to only the data you wa
 ------------------------------------
 ```
 
-Some file times can be loaded as tables.
+Some file types can be loaded as tables.
 
 ```text
 ~\Code\nushell> open Cargo.toml
