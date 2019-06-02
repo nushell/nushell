@@ -17,6 +17,7 @@ mod parser;
 mod prelude;
 mod shell;
 mod stream;
+mod tests;
 
 use clap::{App, Arg};
 use log::LevelFilter;
