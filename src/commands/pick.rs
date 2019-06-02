@@ -3,7 +3,7 @@ use crate::object::base::select_fields;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn column(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }

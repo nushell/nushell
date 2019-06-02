@@ -1,7 +1,7 @@
 crate mod args;
 crate mod cd;
 crate mod classified;
-crate mod column;
+crate mod pick;
 crate mod command;
 crate mod config;
 crate mod from_json;
@@ -16,7 +16,7 @@ crate mod skip;
 crate mod sort_by;
 crate mod split_column;
 crate mod split_row;
-crate mod take;
+crate mod first;
 crate mod to_array;
 crate mod to_json;
 crate mod to_toml;

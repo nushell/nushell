@@ -19,7 +19,7 @@ At the moment, executing a command that isn't identified as a built-in new comma
 ## Commands on tables
 | command | description |
 | ------------- | ------------- | 
-| column ...columns | Down-select table to only these columns |
+| pick ...columns | Down-select table to only these columns |
 | reject ...columns | Remove the given columns from the table |
 | select column-or-column-path | Open given cells as text |
 | sort-by ...columns | Sort by the given columns |
@@ -125,7 +125,7 @@ The name of the columns in the table can be used to sort the table.
 
 You can also use the names of the columns to down-select to only the data you want.
 ```text
-~\Code\nushell> ls | column "file name" "file type" size | sort-by "file type"
+~\Code\nushell> ls | pick "file name" "file type" size | sort-by "file type"
 ------------------------------------
  file name      file type  size
 ------------------------------------
