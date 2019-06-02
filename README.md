@@ -19,9 +19,10 @@ At the moment, executing a command that isn't identified as a built-in new comma
 ## Commands on tables
 | command | description |
 | ------------- | ------------- | 
-| column ...fields | Down-select table to only these columns |
-| reject ...fields | Remove the given columns from the table |
-| sort-by ...fields | Sort by the given columns |
+| column ...columns | Down-select table to only these columns |
+| reject ...columns | Remove the given columns from the table |
+| select column-or-column-path | Open given cells as text |
+| sort-by ...columns | Sort by the given columns |
 | where condition | Filter table to match the condition |
 | skip amount | Skip a number of rows |
 | first amount | Show only the first number of rows |
@@ -37,6 +38,7 @@ At the moment, executing a command that isn't identified as a built-in new comma
 | split-column sep ...fields | Split row contents across multiple rows via the separator |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
+| {external-command} $it | Run external command with given arguments, replacing $it with each row text | 
 
 # Goals
 
