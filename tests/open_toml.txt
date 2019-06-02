@@ -1,0 +1,2 @@
+open tests\test.toml | select package.edition | echo $it
+exit
