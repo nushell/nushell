@@ -3,7 +3,7 @@ use crate::prelude::*;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn take(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let amount = args.positional[0].as_i64()?;
 
     let input = args.input;
