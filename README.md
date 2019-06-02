@@ -54,7 +54,6 @@ Nu has built-in commands for ls and ps, loading these results into a table you c
 
 ```text
 ~\Code\nushell> ps | where cpu > 0
-C:\Source\Play\nushell(master)> ps | where cpu > 0
 ------------------------------------------------
  name               cmd  cpu    pid    status
 ------------------------------------------------
@@ -72,7 +71,6 @@ Commands are linked together with pipes, allowing you to select the data you wan
 
 ```text
 ~\Code\nushell> ps | where name == chrome.exe | first 5
-
 ----------------------------------------
  name        cmd  cpu   pid    status
 ----------------------------------------
