@@ -1,4 +1,4 @@
-use crate::parser::{Args, CommandConfig, CommandRegistry};
+use crate::parser::Args;
 use crate::prelude::*;
 
 use indexmap::IndexMap;
@@ -30,12 +30,6 @@ impl Context {
         self.commands.clone()
     }
 
-    pub fn registry(&self) -> CommandMap {
-        CommandMap {
-            commands: self.clone_commands(),
-        }
-    }
-
     crate fn has_command(&self, name: &str) -> bool {
         self.commands.contains_key(name)
     }
@@ -59,22 +53,5 @@ impl Context {
         };
 
         command.run(command_args)
-    }
-}
-
-pub struct CommandMap {
-    #[allow(unused)]
-    commands: IndexMap<String, Arc<dyn Command>>,
-}
-
-impl CommandRegistry for CommandMap {
-    fn get(&self, name: &str) -> CommandConfig {
-        CommandConfig {
-            name: name.to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
-            rest_positional: true,
-            named: IndexMap::new(),
-        }
     }
 }

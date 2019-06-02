@@ -37,6 +37,7 @@ fn evaluate_leaf(leaf: &ast::Leaf) -> Value {
         Leaf::Bare(path) => Value::string(path.to_string()),
         Leaf::Boolean(b) => Value::boolean(*b),
         Leaf::Int(i) => Value::int(*i),
+        Leaf::Unit(i, unit) => unit.compute(*i),
     }
 }
 
