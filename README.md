@@ -35,7 +35,7 @@ At the moment, executing a command that isn't identified as a built-in new comma
 | ------------- | ------------- | 
 | from-json | Parse text as .json and create table |
 | from-toml | Parse text as .toml and create table |
-| split-column sep ...fields | Split row contents across multiple rows via the separator |
+| split-column sep ...fields | Split row contents across multiple columns via the separator |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
 | {external-command} $it | Run external command with given arguments, replacing $it with each row text | 
