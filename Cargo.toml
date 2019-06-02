@@ -1,9 +1,9 @@
 [package]
 name = "nu"
 version = "0.1.1"
-authors = ["Yehuda Katz <wycats@gmail.com>"]
+authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>"]
 description = "A shell for the GitHub era"
-license = "ISC"
+license = "MIT"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
