@@ -11,6 +11,7 @@ crate use crate::format::{EntriesListView, GenericView};
 use crate::object::Value;
 use crate::parser::{ParsedCommand, Pipeline};
 use crate::stream::empty_stream;
+use crate::git::current_branch;
 
 use log::debug;
 use rustyline::error::ReadlineError;
@@ -60,6 +61,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
             command("trim", trim::trim),
             command("to-array", to_array::to_array),
             command("to-json", to_json::to_json),
+            command("to-toml", to_toml::to_toml),
             Arc::new(Where),
             Arc::new(Config),
             command("sort-by", sort_by::sort_by),
@@ -82,8 +84,12 @@ pub async fn cli() -> Result<(), Box<Error>> {
 
     loop {
         let readline = rl.readline(&format!(
-            "{}> ",
-            context.env.lock().unwrap().cwd().display().to_string()
+            "{}{}> ",
+            context.env.lock().unwrap().cwd().display().to_string(),
+            match current_branch() {
+                Some(s) => format!("({})", s),
+                None => "".to_string()
+            }
         ));
 
         match process_line(readline, &mut context).await {
