@@ -1,7 +1,10 @@
 use crate::parser::lexer::SpannedToken;
+use crate::prelude::*;
+use adhoc_derive::FromStr;
 use derive_new::new;
 use getset::Getters;
 use serde_derive::{Deserialize, Serialize};
+use std::io::Write;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -24,6 +27,12 @@ impl Operator {
             Operator::LessThanOrEqual => "<=".to_string(),
             Operator::GreaterThanOrEqual => ">=".to_string(),
         }
+    }
+}
+
+impl From<&str> for Operator {
+    fn from(input: &str) -> Operator {
+        Operator::from_str(input).unwrap()
     }
 }
 
@@ -51,6 +60,42 @@ pub enum Expression {
     Binary(Box<Binary>),
     Path(Box<Path>),
     VariableReference(Variable),
+}
+
+impl From<&str> for Expression {
+    fn from(input: &str) -> Expression {
+        Expression::Leaf(Leaf::String(input.into()))
+    }
+}
+
+impl From<i64> for Expression {
+    fn from(input: i64) -> Expression {
+        Expression::Leaf(Leaf::Int(input.into()))
+    }
+}
+
+impl From<BarePath> for Expression {
+    fn from(input: BarePath) -> Expression {
+        Expression::Leaf(Leaf::Bare(input))
+    }
+}
+
+impl From<Variable> for Expression {
+    fn from(input: Variable) -> Expression {
+        Expression::VariableReference(input)
+    }
+}
+
+impl From<Flag> for Expression {
+    fn from(input: Flag) -> Expression {
+        Expression::Flag(input)
+    }
+}
+
+impl From<Binary> for Expression {
+    fn from(input: Binary) -> Expression {
+        Expression::Binary(Box::new(input))
+    }
 }
 
 impl Expression {
@@ -161,6 +206,13 @@ pub enum Variable {
     Other(String),
 }
 
+crate fn var(name: &str) -> Expression {
+    match name {
+        "it" => Expression::VariableReference(Variable::It),
+        other => Expression::VariableReference(Variable::Other(other.to_string())),
+    }
+}
+
 impl Variable {
     crate fn from_str(input: &str) -> Expression {
         match input {
@@ -183,6 +235,13 @@ impl Variable {
     }
 }
 
+pub fn bare(s: &str) -> BarePath {
+    BarePath {
+        head: s.into(),
+        tail: vec![],
+    }
+}
+
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct BarePath {
     head: String,
@@ -202,6 +261,45 @@ impl BarePath {
     }
 }
 
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, FromStr)]
+pub enum Unit {
+    #[adhoc(regex = "^B$")]
+    B,
+    #[adhoc(regex = "^KB$")]
+    KB,
+    #[adhoc(regex = "^MB$")]
+    MB,
+    #[adhoc(regex = "^GB$")]
+    GB,
+    #[adhoc(regex = "^TB$")]
+    TB,
+    #[adhoc(regex = "^PB$")]
+    PB,
+}
+
+impl From<&str> for Unit {
+    fn from(input: &str) -> Unit {
+        Unit::from_str(input).unwrap()
+    }
+}
+
+impl Unit {
+    crate fn compute(&self, size: i64) -> Value {
+        Value::int(match self {
+            Unit::B => size,
+            Unit::KB => size * 1024,
+            Unit::MB => size * 1024 * 1024,
+            Unit::GB => size * 1024 * 1024 * 1024,
+            Unit::TB => size * 1024 * 1024 * 1024 * 1024,
+            Unit::PB => size * 1024 * 1024 * 1024 * 1024 * 1024,
+        })
+    }
+}
+
+pub fn unit(num: i64, unit: impl Into<Unit>) -> Expression {
+    Expression::Leaf(Leaf::Unit(num, unit.into()))
+}
+
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Leaf {
     String(String),
@@ -210,6 +308,7 @@ pub enum Leaf {
     #[allow(unused)]
     Boolean(bool),
     Int(i64),
+    Unit(i64, Unit),
 }
 
 crate fn bare_string(head: &String, tail: &Vec<String>) -> String {
@@ -225,6 +324,7 @@ impl Leaf {
             Leaf::Bare(path) => format!("{}", path.to_string()),
             Leaf::Boolean(b) => format!("{}", b),
             Leaf::Int(i) => format!("{}", i),
+            Leaf::Unit(i, unit) => format!("{}{:?}", i, unit),
         }
     }
 
@@ -234,15 +334,42 @@ impl Leaf {
             Leaf::Bare(path) => format!("{}", path.to_string()),
             Leaf::Boolean(b) => format!("{}", b),
             Leaf::Int(i) => format!("{}", i),
+            Leaf::Unit(i, unit) => format!("{}{:?}", i, unit),
         }
     }
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Binary {
     crate left: Expression,
     crate operator: Operator,
     crate right: Expression,
+}
+
+impl Binary {
+    crate fn new(
+        left: impl Into<Expression>,
+        operator: Operator,
+        right: impl Into<Expression>,
+    ) -> Binary {
+        Binary {
+            left: left.into(),
+            operator,
+            right: right.into(),
+        }
+    }
+}
+
+crate fn binary(
+    left: impl Into<Expression>,
+    operator: impl Into<Operator>,
+    right: impl Into<Expression>,
+) -> Binary {
+    Binary {
+        left: left.into(),
+        operator: operator.into(),
+        right: right.into(),
+    }
 }
 
 impl Binary {
@@ -271,6 +398,14 @@ pub enum Flag {
     Longhand(String),
 }
 
+crate fn flag(s: &str) -> Flag {
+    Flag::Longhand(s.into())
+}
+
+crate fn short(s: &str) -> Flag {
+    Flag::Shorthand(s.into())
+}
+
 impl Flag {
     #[allow(unused)]
     crate fn print(&self) -> String {
@@ -286,13 +421,45 @@ impl Flag {
     }
 }
 
-#[derive(new, Debug, Clone)]
+#[derive(new, Debug, Clone, Eq, PartialEq)]
 pub struct ParsedCommand {
     crate name: String,
     crate args: Vec<Expression>,
 }
 
-#[derive(new, Debug)]
+impl ParsedCommand {
+    fn print(&self) -> String {
+        let mut out = vec![];
+
+        write!(out, "{}", self.name).unwrap();
+
+        for arg in self.args.iter() {
+            write!(out, " {}", arg.print()).unwrap();
+        }
+
+        String::from_utf8_lossy(&out).into_owned()
+    }
+}
+
+impl From<&str> for ParsedCommand {
+    fn from(input: &str) -> ParsedCommand {
+        ParsedCommand {
+            name: input.to_string(),
+            args: vec![],
+        }
+    }
+}
+
+impl From<(&str, Vec<Expression>)> for ParsedCommand {
+    fn from(input: (&str, Vec<Expression>)) -> ParsedCommand {
+        ParsedCommand {
+            name: input.0.to_string(),
+            args: input.1,
+        }
+    }
+}
+
+#[derive(new, Debug, Eq, PartialEq)]
 pub struct Pipeline {
     crate commands: Vec<ParsedCommand>,
 }
@@ -303,5 +470,9 @@ impl Pipeline {
         commands.extend(rest);
 
         Pipeline { commands }
+    }
+
+    crate fn print(&self) -> String {
+        itertools::join(self.commands.iter().map(|i| i.print()), " | ")
     }
 }

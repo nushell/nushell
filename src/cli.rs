@@ -167,7 +167,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
-            let result = match crate::parser::parse(&line, &ctx.registry()) {
+            let result = match crate::parser::parse(&line) {
                 Err(err) => {
                     return LineResult::Error(err);
                 }
@@ -220,7 +220,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(err),
-                    }
+                    },
 
                     (
                         Some(ClassifiedCommand::External(left)),

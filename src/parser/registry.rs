@@ -197,6 +197,7 @@ fn expect_simple_expr(expr: ast::Expression) -> Result<Value, ShellError> {
             ast::Leaf::String(s) => Value::string(s),
             ast::Leaf::Boolean(b) => Value::boolean(b),
             ast::Leaf::Int(i) => Value::int(i),
+            ast::Leaf::Unit(i, unit) => unit.compute(i),
         }),
 
         // TODO: Diagnostic

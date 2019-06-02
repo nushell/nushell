@@ -22,7 +22,7 @@ Command: ParsedCommand = {
 Leaf: Expression = {
     <String> => Expression::Leaf(Leaf::String(<>)),
     <Int> => Expression::Leaf(Leaf::Int(<>)),
-    <UnitsNum> => Expression::Leaf(Leaf::Int(<>)),
+    <UnitsNum> => Expression::Leaf(<>),
     <Var> => <>,
 }
 
@@ -101,8 +101,8 @@ Int: i64 = {
     <"num"> => i64::from_str(<>.as_slice()).unwrap()
 }
 
-UnitsNum: i64 = {
-    <"unitsnum"> => Byte::from_string(<>.as_slice()).unwrap().get_bytes() as i64
+UnitsNum: Leaf = {
+    <num: Int> <unit: "unit"> => Leaf::Unit(num, Unit::from_str(unit.as_slice()).unwrap())
 }
 
 extern {
@@ -131,6 +131,6 @@ extern {
         "bare" => SpannedToken { token: Token::Bare, .. },
         "dqstring" => SpannedToken { token: Token::DQString, .. },
         "sqstring" => SpannedToken { token: Token::SQString, .. },
-        "unitsnum" => SpannedToken { token: Token::UnitsNum, .. },
+        "unit" => SpannedToken { token: Token::Unit, .. },
     }
 }

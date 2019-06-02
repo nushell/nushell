@@ -48,6 +48,9 @@ app_dirs = "1.2.1"
 toml = "0.5.1"
 toml-query = "0.9.0"
 clap = "2.33.0"
+enum_derive = "0.1.7"
+adhoc_derive = "0.1.2"
+lazy_static = "1.3.0"
 
 [dependencies.pancurses]
 version = "0.16"

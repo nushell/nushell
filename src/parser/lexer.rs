@@ -14,6 +14,7 @@ crate enum TopToken {
     END,
 
     #[regex = "-?[0-9]+"]
+    #[callback = "after_num"]
     Num,
 
     #[regex = r#"'([^']|\\')*'"#]
@@ -21,9 +22,6 @@ crate enum TopToken {
 
     #[regex = r#""([^"]|\\")*""#]
     DQString,
-
-    #[regex = "-?[0-9]+[A-Za-z]+"]
-    UnitsNum,
 
     #[regex = r"\$"]
     #[callback = "start_variable"]
@@ -88,7 +86,6 @@ impl TopToken {
             Num => Token::Num,
             SQString => Token::SQString,
             DQString => Token::DQString,
-            UnitsNum => Token::UnitsNum,
             Dollar => Token::Dollar,
             Bare => Token::Bare,
             Pipe => Token::Pipe,
@@ -113,6 +110,11 @@ impl TopToken {
     }
 }
 
+fn after_num<S>(lex: &mut logos::Lexer<TopToken, S>) {
+    trace!("after_num EXTRAS={:?}", lex.extras);
+    lex.extras.current = LexerStateName::AfterNum;
+}
+
 fn start_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
     trace!("start_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::Var;
@@ -121,6 +123,49 @@ fn start_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
 fn end_bare_variable<S>(lex: &mut logos::Lexer<TopToken, S>) {
     trace!("end_variable EXTRAS={:?}", lex.extras);
     lex.extras.current = LexerStateName::AfterVariableToken;
+}
+
+#[derive(Logos, Debug, Clone, Copy, Eq, PartialEq)]
+#[extras = "LexerState"]
+crate enum AfterNum {
+    #[error]
+    Error,
+
+    #[end]
+    END,
+
+    #[regex = "(B|KB|MB|GB|TB|PB)"]
+    #[callback = "end_unit"]
+    Unit,
+
+    #[regex = r"\s"]
+    #[callback = "end_number"]
+    Whitespace,
+}
+
+impl AfterNum {
+    fn to_token(&self) -> Option<Token> {
+        use AfterNum::*;
+
+        let result = match self {
+            END => return None,
+            Unit => Token::Unit,
+            Whitespace => Token::Whitespace,
+            Error => unreachable!("Don't call to_token with the error variant"),
+        };
+
+        Some(result)
+    }
+}
+
+fn end_unit<S>(lex: &mut logos::Lexer<AfterNum, S>) {
+    trace!("end_unit EXTRAS={:?}", lex.extras);
+    lex.extras.current = LexerStateName::Top;
+}
+
+fn end_number<S>(lex: &mut logos::Lexer<AfterNum, S>) {
+    trace!("end_unit EXTRAS={:?}", lex.extras);
+    lex.extras.current = LexerStateName::Top;
 }
 
 #[derive(Logos, Debug, Clone, Copy, Eq, PartialEq)]
@@ -241,6 +286,7 @@ crate enum LexerStateName {
     Top,
     Var,
     AfterMemberDot,
+    AfterNum,
     AfterVariableToken,
 }
 
@@ -344,7 +390,7 @@ pub enum Token {
     Num,
     SQString,
     DQString,
-    UnitsNum,
+    Unit,
     Dollar,
     Bare,
     Pipe,
@@ -417,6 +463,17 @@ impl Iterator for Lexer<'source> {
                     match token {
                         TopToken::Error => return Some(Err(lex_error(&range, self.lexer.source))),
                         TopToken::Whitespace if !self.whitespace => return self.next(),
+                        other => return spanned(other.to_token()?, slice, &range),
+                    }
+                }
+
+                LexerStateName::AfterNum => {
+                    let (lexer, range, slice, token) = advance::<AfterNum>(self.lexer.clone());
+                    self.lexer = lexer;
+
+                    match token {
+                        AfterNum::Error => return Some(Err(lex_error(&range, self.lexer.source))),
+                        AfterNum::Whitespace if !self.whitespace => self.next(),
                         other => return spanned(other.to_token()?, slice, &range),
                     }
                 }
@@ -708,7 +765,7 @@ mod tests {
 
         assert_lex(
             "open input2.json | from-json | select glossary",
-            tokens![ Bare("open") SP Bare("input2") "???." Member("json") SP "|" SP Bare("from-json") SP "|" SP Bare("select") SP Bare("glossary") ],
+            tokens![ Bare("open") SP Bare("input2.json") SP "|" SP Bare("from-json") SP "|" SP Bare("select") SP Bare("glossary") ],
         );
 
         assert_lex(
