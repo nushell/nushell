@@ -8,29 +8,35 @@ This project has little of what will eventually be necessary for Nu to serve as 
 
 At the moment, executing a command that isn't identified as a built-in new command will fall back to running it as a shell command (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
-There is not yet support for piping external commands to each other; piping is limited to Nu commands at the moment.
+## Commands
+| command | description |
+| ------------- | ------------- | 
+| cd directory | Change to the given directory |
+| ls | View current directory contents |
+| ps | View current processes |
+| open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 
-Nu currently has the following built-in commands:
+## Commands on tables
+| command | description |
+| ------------- | ------------- | 
+| column ...fields | Down-select table to only these columns |
+| reject ...fields | Remove the given columns from the table |
+| sort-by ...fields | Sort by the given columns |
+| where condition | Filter table to match the condition |
+| skip amount | Skip a number of rows |
+| first amount | Show only the first number of rows |
+| to-array | Collapse rows into a single list |
+| to-json | Convert table into .json text |
+| to-toml | Convert table into .toml text |
 
--   cd directory
--   ls
--   ps
--   column ...fields 
--   reject ...fields
--   sort-by ...fields
--   where condition
--   skip amount
--   first amount
--   to-array
--   to-json
--   to-toml
--   from-json
--   from-toml
--   open filename
--   split-column sep ...fields
--   split-row sep ...fields
--   select field 
--   trim
+## Commands on text
+| command | description |
+| ------------- | ------------- | 
+| from-json | Parse text as .json and create table |
+| from-toml | Parse text as .toml and create table |
+| split-column sep ...fields | Split row contents across multiple rows via the separator |
+| split-row sep | Split row contents over multiple rows via the separator |
+| trim | Trim leading and following whitespace from text data |
 
 # Goals
 
