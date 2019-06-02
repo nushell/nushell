@@ -2,10 +2,6 @@
 
 A shell for the GitHub era. A shell you can hack on.
 
-# License
-
-The project is made available under the MIT license. See "LICENSE" for more information.
-
 # Status
 
 This project has little of what will eventually be necessary for Nu to serve as your day-to-day shell. It already works well enough for contributors to dogfood it as their daily driver, but there are too many basic deficiencies for it to be useful for most people.
@@ -47,6 +43,10 @@ Priority #2: Create workflow tools that more closely match the day-to-day experi
 Priority #3: It's an object shell like PowerShell.
 
 > These goals are all critical, project-defining priorities. Priority #1 is "direct compatibility" because any new shell absolutely needs a way to use existing executables in a direct and natural way.
+
+# License
+
+The project is made available under the MIT license. See "LICENSE" for more information.
 
 # A Taste of Nu
 
