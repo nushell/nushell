@@ -178,4 +178,4 @@ Nu currently has fish-style completion of previous commands, as well ctrl-r reve
 
 ![autocompletion][fish-style]
 
-[fish-style]: ./images/nushell-autocomplete.gif "Fish-style autocomplete"
+[fish-style]: ./images/nushell-autocomplete3.gif "Fish-style autocomplete"
