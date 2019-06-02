@@ -1,6 +1,6 @@
 # Nu Shell
 
-A shell for the GitHub era. A shell you can hack on.
+A shell for the GitHub era. Like having a playground for a shell.
 
 # Status
 
@@ -160,6 +160,14 @@ Some file times can be loaded as tables.
  [list List]  A shell for the GitHub era  2018     MIT      nu    0.1.1
 --------------------------------------------------------------------------
 ```
+
+Once you've cound the data, you can call out to external applications and use it.
+
+```text
+~\Code\nushell> open Cargo.toml | select package.version | echo $it
+0.1.1
+```
+
 Nu currently has fish-style completion of previous commands, as well ctrl-r reverse search.
 
 ![autocompletion][fish-style]
