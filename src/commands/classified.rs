@@ -167,7 +167,7 @@ impl ExternalCommand {
                 let mut first = true;
                 for i in &inputs {
                     if !first {
-                        new_arg_string.push_str(" && ");
+                        new_arg_string.push_str("&&");
                         new_arg_string.push_str(&self.name);
                     } else {
                         first = false;

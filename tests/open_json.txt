@@ -1,0 +1,2 @@
+open tests\test.json | select glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it
+exit

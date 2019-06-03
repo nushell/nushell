@@ -1,0 +1,2 @@
+open tests\test.json | to-json | from-json | select glossary.title | echo $it
+exit
