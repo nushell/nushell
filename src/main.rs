@@ -63,7 +63,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         None => {}
         Some(values) => {
             for item in values {
-                println!("filtering {:?}", item);
                 builder.filter_module(&format!("nu::{}", item), LevelFilter::Trace);
             }
         }

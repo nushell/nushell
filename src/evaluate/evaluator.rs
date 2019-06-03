@@ -1,17 +1,21 @@
+use crate::object::Primitive;
 use crate::parser::ast;
 use crate::prelude::*;
-use crate::object::Primitive;
 use derive_new::new;
+use indexmap::IndexMap;
 
 #[derive(new)]
 crate struct Scope {
     it: Value,
+    #[new(default)]
+    vars: IndexMap<String, Value>,
 }
 
 impl Scope {
     crate fn empty() -> Scope {
         Scope {
             it: Value::nothing(),
+            vars: IndexMap::new(),
         }
     }
 }
@@ -46,10 +50,11 @@ fn evaluate_reference(r: &ast::Variable, scope: &Scope) -> Result<Value, ShellEr
 
     match r {
         It => Ok(scope.it.copy()),
-        Other(s) => Err(ShellError::string(&format!(
-            "Unimplemented variable reference: {}",
-            s
-        ))),
+        Other(s) => Ok(scope
+            .vars
+            .get(s)
+            .map(|v| v.copy())
+            .unwrap_or_else(|| Value::nothing())),
     }
 }
 
@@ -59,9 +64,10 @@ fn evaluate_binary(binary: &ast::Binary, scope: &Scope) -> Result<Value, ShellEr
 
     match left.compare(binary.operator, &right) {
         Some(v) => Ok(Value::boolean(v)),
-        None => Err(ShellError::string(&format!(
-            "Unimplemented evaluate_binary:\n{:#?}",
-            binary
+        None => Err(ShellError::TypeError(format!(
+            "Can't compare {} and {}",
+            left.type_name(),
+            right.type_name()
         ))),
     }
 }
@@ -73,17 +79,18 @@ fn evaluate_block(block: &ast::Block, _scope: &Scope) -> Result<Value, ShellErro
 fn evaluate_path(path: &ast::Path, scope: &Scope) -> Result<Value, ShellError> {
     let head = path.head();
     let mut value = &evaluate_expr(head, scope)?;
+    let mut seen = vec![];
 
     for name in path.tail() {
         let next = value.get_data_by_key(&name);
+        seen.push(name);
 
         match next {
             None => {
-                return Err(ShellError::string(&format!(
-                    "No key {} found in {}",
-                    name,
-                    path.print(),
-                )))
+                return Err(ShellError::MissingProperty {
+                    expr: path.print(),
+                    subpath: itertools::join(seen, "."),
+                });
             }
             Some(v) => value = v,
         }

@@ -60,6 +60,21 @@ impl Serialize for Primitive {
 }
 
 impl Primitive {
+    crate fn type_name(&self) -> String {
+        use Primitive::*;
+
+        match self {
+            Nothing => "nothing",
+            Int(_) => "int",
+            Float(_) => "float",
+            Bytes(_) => "bytes",
+            String(_) => "string",
+            Boolean(_) => "boolean",
+            Date(_) => "date",
+        }
+        .to_string()
+    }
+
     crate fn format(&self, field_name: Option<&str>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
@@ -142,6 +157,16 @@ pub enum Value {
 }
 
 impl Value {
+    crate fn type_name(&self) -> String {
+        match self {
+            Value::Primitive(p) => p.type_name(),
+            Value::Object(_) => format!("object"),
+            Value::List(_) => format!("list"),
+            Value::Block(_) => format!("block"),
+            Value::Error(_) => format!("error"),
+        }
+    }
+
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
         match self {
             Value::Primitive(_) => vec![DataDescriptor::value_of()],
