@@ -1,2 +1,3 @@
-open tests\test.toml | to-toml | from-toml | select package.name | echo $it
+cd tests
+open test.toml | to-toml | from-toml | select package.name | echo $it
 exit

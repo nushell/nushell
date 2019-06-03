@@ -1,2 +1,3 @@
-open tests\test.json | to-json | from-json | select glossary.title | echo $it
+cd tests
+open test.json | to-json | from-json | select glossary.GlossDiv.title | echo $it
 exit
