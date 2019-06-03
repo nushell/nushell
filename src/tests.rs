@@ -40,7 +40,7 @@ mod tests {
         match process.stdin.unwrap().write_all(input_commands.as_bytes()) {
             Err(why) => panic!("couldn't write to wc stdin: {}",
                             why.description()),
-            Ok(_) => println!("sent pangram to wc"),
+            Ok(_) => {},
         }
 
         let mut s = String::new();
