@@ -78,9 +78,7 @@ pub async fn cli() -> Result<(), Box<Error>> {
     }
 
     rl.set_helper(Some(h));
-    if rl.load_history("history.txt").is_err() {
-        println!("No previous history.");
-    }
+    let _ = rl.load_history("history.txt");
 
     loop {
         let readline = rl.readline(&format!(
