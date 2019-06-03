@@ -58,4 +58,29 @@ mod tests {
     fn test_toml() {
         test_helper("open_toml");
     }
+
+    #[test]
+    fn test_json() {
+        test_helper("open_json");
+    }
+
+    #[test]
+    fn json_roundtrip() {
+        test_helper("json_roundtrip");
+    }
+
+    #[test]
+    fn toml_roundtrip() {
+        test_helper("toml_roundtrip");
+    }
+
+    #[test]
+    fn sort_by() {
+        test_helper("sort_by");
+    }
+
+    #[test]
+    fn split() {
+        test_helper("split");
+    }
 }

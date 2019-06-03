@@ -1,0 +1,2 @@
+open tests\test.toml --raw | split-row "\n" | skip 1 | first 2 | split-column "=" | select Column1 | trim | echo $it
+exit
