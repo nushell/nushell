@@ -1,2 +1,3 @@
-open tests\test.json | select glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it
+cd tests
+open test.json | select glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it
 exit

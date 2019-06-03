@@ -1,2 +1,3 @@
-open tests\test.toml | select package.edition | echo $it
+cd tests
+open test.toml | select package.edition | echo $it
 exit

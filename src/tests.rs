@@ -55,12 +55,12 @@ mod tests {
     }
 
     #[test]
-    fn test_toml() {
+    fn open_toml() {
         test_helper("open_toml");
     }
 
     #[test]
-    fn test_json() {
+    fn open_json() {
         test_helper("open_json");
     }
 
