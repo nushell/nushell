@@ -12,7 +12,7 @@ pub struct Context {
 }
 
 impl Context {
-    crate fn basic() -> Result<Context, Box<Error>> {
+    crate fn basic() -> Result<Context, Box<dyn Error>> {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
