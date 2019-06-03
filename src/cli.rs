@@ -35,7 +35,7 @@ impl<T> MaybeOwned<'a, T> {
     }
 }
 
-pub async fn cli() -> Result<(), Box<Error>> {
+pub async fn cli() -> Result<(), Box<dyn Error>> {
     let mut context = Context::basic()?;
 
     {
