@@ -52,6 +52,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("size", size::size),
             command("from-json", from_json::from_json),
             command("from-toml", from_toml::from_toml),
+            command("from-yaml", from_yaml::from_yaml),
             command("open", open::open),
             command("pick", pick::pick),
             command("split-column", split_column::split_column),
