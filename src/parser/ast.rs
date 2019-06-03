@@ -206,6 +206,7 @@ pub enum Variable {
     Other(String),
 }
 
+#[cfg(test)]
 crate fn var(name: &str) -> Expression {
     match name {
         "it" => Expression::VariableReference(Variable::It),
@@ -235,6 +236,7 @@ impl Variable {
     }
 }
 
+#[cfg(test)]
 pub fn bare(s: &str) -> BarePath {
     BarePath {
         head: s.into(),
@@ -296,6 +298,7 @@ impl Unit {
     }
 }
 
+#[cfg(test)]
 pub fn unit(num: i64, unit: impl Into<Unit>) -> Expression {
     Expression::Leaf(Leaf::Unit(num, unit.into()))
 }
@@ -360,6 +363,7 @@ impl Binary {
     }
 }
 
+#[cfg(test)]
 crate fn binary(
     left: impl Into<Expression>,
     operator: impl Into<Operator>,
@@ -398,10 +402,12 @@ pub enum Flag {
     Longhand(String),
 }
 
+#[cfg(test)]
 crate fn flag(s: &str) -> Flag {
     Flag::Longhand(s.into())
 }
 
+#[cfg(test)]
 crate fn short(s: &str) -> Flag {
     Flag::Shorthand(s.into())
 }
@@ -428,6 +434,7 @@ pub struct ParsedCommand {
 }
 
 impl ParsedCommand {
+    #[allow(unused)]
     fn print(&self) -> String {
         let mut out = vec![];
 
@@ -472,6 +479,7 @@ impl Pipeline {
         Pipeline { commands }
     }
 
+    #[allow(unused)]
     crate fn print(&self) -> String {
         itertools::join(self.commands.iter().map(|i| i.print()), " | ")
     }

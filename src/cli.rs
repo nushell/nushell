@@ -8,10 +8,10 @@ use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
 crate use crate::format::{EntriesListView, GenericView};
+use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::{ParsedCommand, Pipeline};
 use crate::stream::empty_stream;
-use crate::git::current_branch;
 
 use log::debug;
 use rustyline::error::ReadlineError;
@@ -86,7 +86,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             context.env.lock().unwrap().cwd().display().to_string(),
             match current_branch() {
                 Some(s) => format!("({})", s),
-                None => "".to_string()
+                None => "".to_string(),
             }
         ));
 
@@ -109,6 +109,18 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     )
                     .unwrap();
                 }
+
+                ShellError::TypeError(desc) => context
+                    .host
+                    .lock()
+                    .unwrap()
+                    .stdout(&format!("TypeError: {}", desc)),
+
+                ShellError::MissingProperty { subpath, .. } => context
+                    .host
+                    .lock()
+                    .unwrap()
+                    .stdout(&format!("Missing property {}", subpath)),
 
                 ShellError::String(s) => context.host.lock().unwrap().stdout(&format!("{:?}", s)),
             },

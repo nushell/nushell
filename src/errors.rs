@@ -9,6 +9,8 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ShellError {
     String(StringError),
+    TypeError(String),
+    MissingProperty { subpath: String, expr: String },
     Diagnostic(ShellDiagnostic, String),
 }
 
@@ -108,6 +110,8 @@ impl std::fmt::Display for ShellError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             ShellError::String(s) => write!(f, "{}", &s.title),
+            ShellError::TypeError { .. } => write!(f, "TypeError"),
+            ShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
             ShellError::Diagnostic(_, _) => write!(f, "<diagnostic>"),
         }
     }
