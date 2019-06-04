@@ -23,6 +23,7 @@ impl Scope {
 crate fn evaluate_expr(expr: &ast::Expression, scope: &Scope) -> Result<Value, ShellError> {
     use ast::*;
     match expr {
+        Expression::Call(c) => Err(ShellError::unimplemented("Evaluating call expression")),
         Expression::Leaf(l) => Ok(evaluate_leaf(l)),
         Expression::Parenthesized(p) => evaluate_expr(&p.expr, scope),
         Expression::Flag(f) => Ok(Value::Primitive(Primitive::String(f.print()))),

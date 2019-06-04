@@ -6,72 +6,117 @@ use crate::prelude::*;
 use crate::parser::lexer::{SpannedToken, Token};
 use byte_unit::Byte;
 
+// nu's grammar is a little bit different from a lot of other languages, to better match
+// the idioms and constraints of a shell environment. A lot of the constraints are
+// the same as PowerShell, but mostly derived from the same first principles.
+//
+// - Other than at the beginning of a command, bare words are virtually always parsed as
+//   strings. This means that, in general, bare words cannot be used as keywords or
+//   variables.
+// - Variable names begin with `$`, and so do keywords
+// - Functions are invoked without `()` and without comma separation
+// - In general, because of the lack of comma-separation, expressions must be grouped:
+//   - a single token
+//   - a path ($variable followed by any number of `"." member`)
+//   - parenthesized expression
+// - This means that more elaborate expressions, like binary expressions, must usually
+//   be parenthesized
+// - There is a special case for a command that takes a single expression, which can
+//   omit the parens
+
 grammar<'input>;
 
 pub Pipeline: Pipeline = {
-  <first:Command> => Pipeline::new(vec![first]),
-  <first:Command> <rest: ( "|" <Command> )+> => Pipeline::from_parts(first, rest),
+  <first:PipelineElement> <rest: ( "|" <PipelineElement> )*> => Pipeline::from_parts(first, rest),
 }
 
-Command: ParsedCommand = {
-    <command:BarePath> => ParsedCommand::new(command.to_string(), vec![]),
-    <command:BarePath> <expr:Expr+> => ParsedCommand::new(command.to_string(), expr),
-    <command:BarePath> <expr:BinaryExpression> => ParsedCommand::new(command.to_string(), vec![expr]),
+PipelineElement: Expression = {
+    <Bare> => Expression::call(Expression::bare(<>), vec![]),
+    <SingleExpression> => <>,
 }
 
-Leaf: Expression = {
-    <String> => Expression::Leaf(Leaf::String(<>)),
-    <Int> => Expression::Leaf(Leaf::Int(<>)),
-    <UnitsNum> => Expression::Leaf(<>),
+// A leaf expression is a single logical token that directly represents an expression
+LeafExpression: Expression = {
+    <String> => <>,
+    <Int> => Expression::leaf(Leaf::Int(<>)),
+    <UnitsNum> => <>,
     <Var> => <>,
 }
 
-BinaryExpression: Expression = {
-    <left:Expr> <op:Operator> <right:Expr> => Expression::Binary(Box::new(Binary::new(left, op, right))),
+pub Call: Expression = {
+    <expr:Expression> <rest:SingleCallArgument> => Expression::call(expr, vec![rest]),
+    <expr:Expression> <first:CallArgument> <rest:( <CallArgument> )+> => Expression::call(expr, { let mut rest = rest; let mut v = vec![first]; v.append(&mut rest); v }),
+    <expr:Bare> <rest:SingleCallArgument> => Expression::call(Expression::bare(expr), vec![rest]),
+    <expr:Bare> <first:CallArgument> <rest:( <CallArgument> )+> => Expression::call(Expression::bare(expr), { let mut v = vec![first]; let mut rest = rest; v.append(&mut rest); v }),
 }
 
-Parenthesized: Expression = {
-    "(" <Leaf> ")" => Expression::Parenthesized(Box::new(Parenthesized::new(<>))),
-    "(" <BinaryExpression> ")" => Expression::Parenthesized(Box::new(Parenthesized::new(<>))),
+Binary: Expression = {
+    <left:ArgumentExpression> <op:Operator> <right:ArgumentExpression> => Expression::binary(left, op, right),
 }
 
-AtomicExpression: Expression = {
-    <Parenthesized>,
-    <Leaf>,
-}
-
+// In a block, a single bare word is interpreted as a call:
+//
+// foreach { ls }
 Block: Expression = {
-    "{" <AtomicExpression> "}" => Expression::Block(Box::new(Block::new(<>))),
-    "{" <BinaryExpression> "}" => Expression::Block(Box::new(Block::new(<>))),
+    "{" <SingleExpression> "}" => Expression::block(<>),
+    "{" <Bare> "}" => Expression::block(Expression::call(Expression::bare(<>), vec![])),
 }
 
-WholeExpression: Expression = {
-    <AtomicExpression>,
-    <Block>,
+// An `Expression` is the most general kind of expression. It can go anywhere, even right next to another expression, and
+// even as the first part of a call.
+Expression: Expression = {
+    <LeafExpression> => <>,
+    <Block> => <>,
+    "(" <Call> ")" => <>,
+    "(" <Bare> ")" => Expression::call(Expression::bare(<>), vec![]),
+    "(" <Binary> ")" => <>,
 }
 
-PathHead: Expression = {
-    <WholeExpression>,
-    <BarePath> => Expression::Leaf(Leaf::Bare(<>)),
-    <Flag> => Expression::Flag(<>),
+// An `ArgumentExpression` is an expression that appears in an argument list. It includes all of `Expression`, and
+// bare words are interpreted as strings.
+ArgumentExpression: Expression = {
+    <Expression>,
+    <Bare> => Expression::bare(<>),
 }
 
-PathExpression: Expression = {
-    <head:WholeExpression> <tail: ( "???." <Member> )+> => Expression::Path(Box::new(Path::new(head, tail)))
+CallArgument: Expression = {
+    <ArgumentExpression> => <>,
+    <Flag> => Expression::flag(<>),
 }
 
-Expr: Expression = {
-    <PathExpression>,
-    <PathHead>
+SingleCallArgument: Expression = {
+    <CallArgument>,
+    <Binary>,
 }
 
-Var: Expression = {
-    "$" <"variable"> => Variable::from_str(<>.as_slice()),
+// A `SingleExpression` is a special-case of `Expression` for situations where expressions do not appear side-by-side.
+// Because expression lists in nu are not comma-separated, composite expressions (like binary expressions) must be
+// parenthesized in lists. If only a single expression appears alone, the parentheses may be left out.
+//
+// `SingleExpression` does not include `Bare`, because expressions that include `SingleExpression` must decide how
+// to interpret a single bare word (`foreach { ls }` vs `cd ls`).
+SingleExpression: Expression = {
+    <Expression>,
+    <Call>,
+    <Binary>,
 }
 
+// === LOGICAL TOKENS === //
+
+// A logical token may be composed of more than one raw token, but the tokens must be emitted
+// from the stream in exactly one sequence. This allows us to use parser infrastructure to
+// compose tokens without the risk that these logical tokens will introduce ambiguities.
+
+Bare: BarePath = {
+    <head: "bare"> => BarePath::from_token(head)
+}
+
+// A member is a special token that represents bare words or string literals immediate
+// following a dot.
 Member: String = {
     <"member"> => <>.to_string(),
-    <String>
+    <"dqmember"> => <>.to_string(),
+    <"sqmember"> => <>.to_string(),
 }
 
 Operator: Operator = {
@@ -83,26 +128,26 @@ Operator: Operator = {
     ">=" => Operator::GreaterThanOrEqual
 }
 
-Flag: Flag = {
-    "-" <BarePath> => Flag::Shorthand(<>.to_string()),
-    "--" <BarePath> => Flag::Longhand(<>.to_string()),
-}
-
-String: String = {
-    <"sqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string(),
-    <"dqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string()
-}
-
-BarePath: BarePath = {
-    <head: "bare"> <tail: ( "???." <"member"> )*> => BarePath::from_tokens(head, tail)
-}
-
 Int: i64 = {
     <"num"> => i64::from_str(<>.as_slice()).unwrap()
 }
 
-UnitsNum: Leaf = {
-    <num: Int> <unit: "unit"> => Leaf::Unit(num, Unit::from_str(unit.as_slice()).unwrap())
+UnitsNum: Expression = {
+    <num: Int> <unit: "unit"> => Expression::leaf(Leaf::Unit(num, Unit::from_str(unit.as_slice()).unwrap()))
+}
+
+String: Expression = {
+    <"sqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string().into(),
+    <"dqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string().into()
+}
+
+Flag: Flag = {
+    "-" <Bare> => Flag::Shorthand(<>.to_string()),
+    "--" <Bare> => Flag::Longhand(<>.to_string()),
+}
+
+Var: Expression = {
+    "$" <"variable"> => Variable::from_str(<>.as_slice()).into(),
 }
 
 extern {
@@ -127,6 +172,8 @@ extern {
         "???." => SpannedToken { token: Token::PathDot, .. },
         "num" => SpannedToken { token: Token::Num, .. },
         "member" => SpannedToken { token: Token::Member, .. },
+        "sqmember" => SpannedToken { token: Token::SQMember, .. },
+        "dqmember" => SpannedToken { token: Token::SQMember, .. },
         "variable" => SpannedToken { token: Token::Variable, .. },
         "bare" => SpannedToken { token: Token::Bare, .. },
         "dqstring" => SpannedToken { token: Token::DQString, .. },

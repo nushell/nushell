@@ -23,7 +23,7 @@ crate enum TopToken {
     #[regex = r#""([^"]|\\")*""#]
     DQString,
 
-    #[regex = r"\$"]
+    #[token = "$"]
     #[callback = "start_variable"]
     Dollar,
 
@@ -257,6 +257,12 @@ crate enum AfterMemberDot {
     #[callback = "finish_member"]
     Member,
 
+    #[regex = r#"'([^']|\\')*'"#]
+    SQString,
+
+    #[regex = r#""([^"]|\\")*""#]
+    DQString,
+
     #[regex = r"\s"]
     Whitespace,
 }
@@ -268,6 +274,9 @@ impl AfterMemberDot {
         let result = match self {
             END => return None,
             Member => Token::Member,
+            SQString => Token::SQMember,
+            DQString => Token::DQMember,
+
             Whitespace => Token::Whitespace,
             Error => unreachable!("Don't call to_token with the error variant"),
         };
@@ -387,6 +396,8 @@ pub enum Token {
     Variable,
     PathDot,
     Member,
+    SQMember,
+    DQMember,
     Num,
     SQString,
     DQString,
@@ -418,6 +429,7 @@ pub enum Token {
 //     Whitespace(SpannedToken<'source, &'source str>),
 // }
 
+#[derive(Clone)]
 crate struct Lexer<'source> {
     lexer: logos::Lexer<TopToken, &'source str>,
     first: bool,

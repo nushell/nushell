@@ -48,6 +48,10 @@ impl ShellError {
         ShellError::String(StringError::new(title.into(), Value::nothing()))
     }
 
+    crate fn unimplemented(title: impl Into<String>) -> ShellError {
+        ShellError::string(&format!("Unimplemented: {}", title.into()))
+    }
+
     crate fn copy_error(&self) -> ShellError {
         self.clone()
     }
@@ -56,6 +60,23 @@ impl ShellError {
 #[derive(Debug, Clone)]
 pub struct ShellDiagnostic {
     crate diagnostic: Diagnostic<Span>,
+}
+
+impl ShellDiagnostic {
+    crate fn simple_diagnostic(
+        span: impl Into<Span>,
+        source: impl Into<String>,
+    ) -> ShellDiagnostic {
+        use language_reporting::*;
+
+        let span = span.into();
+        let source = source.into();
+
+        let diagnostic =
+            Diagnostic::new(Severity::Error, "Parse error").with_label(Label::new_primary(span));
+
+        ShellDiagnostic { diagnostic }
+    }
 }
 
 impl PartialEq for ShellDiagnostic {

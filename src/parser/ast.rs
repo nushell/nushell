@@ -59,11 +59,18 @@ pub enum Expression {
     Block(Box<Block>),
     Binary(Box<Binary>),
     Path(Box<Path>),
+    Call(Box<ParsedCommand>),
     VariableReference(Variable),
 }
 
 impl From<&str> for Expression {
     fn from(input: &str) -> Expression {
+        Expression::Leaf(Leaf::String(input.into()))
+    }
+}
+
+impl From<String> for Expression {
+    fn from(input: String) -> Expression {
         Expression::Leaf(Leaf::String(input.into()))
     }
 }
@@ -99,8 +106,41 @@ impl From<Binary> for Expression {
 }
 
 impl Expression {
+    crate fn leaf(leaf: impl Into<Leaf>) -> Expression {
+        Expression::Leaf(leaf.into())
+    }
+
+    crate fn flag(flag: impl Into<Flag>) -> Expression {
+        Expression::Flag(flag.into())
+    }
+
+    crate fn call(head: Expression, tail: Vec<Expression>) -> Expression {
+        if tail.len() == 0 {
+            Expression::Call(Box::new(ParsedCommand::new(head.into(), None)))
+        } else {
+            Expression::Call(Box::new(ParsedCommand::new(head.into(), Some(tail))))
+        }
+    }
+
+    crate fn binary(
+        left: impl Into<Expression>,
+        operator: impl Into<Operator>,
+        right: impl Into<Expression>,
+    ) -> Expression {
+        Expression::Binary(Box::new(Binary {
+            left: left.into(),
+            operator: operator.into(),
+            right: right.into(),
+        }))
+    }
+
+    crate fn block(expr: impl Into<Expression>) -> Expression {
+        Expression::Block(Box::new(Block::new(expr.into())))
+    }
+
     crate fn print(&self) -> String {
         match self {
+            Expression::Call(c) => c.print(),
             Expression::Leaf(l) => l.print(),
             Expression::Flag(f) => f.print(),
             Expression::Parenthesized(p) => p.print(),
@@ -113,6 +153,7 @@ impl Expression {
 
     crate fn as_external_arg(&self) -> String {
         match self {
+            Expression::Call(c) => c.as_external_arg(),
             Expression::Leaf(l) => l.as_external_arg(),
             Expression::Flag(f) => f.as_external_arg(),
             Expression::Parenthesized(p) => p.as_external_arg(),
@@ -123,10 +164,21 @@ impl Expression {
         }
     }
 
+    crate fn bare(path: impl Into<BarePath>) -> Expression {
+        Expression::Leaf(Leaf::Bare(path.into()))
+    }
+
     crate fn as_string(&self) -> Option<String> {
         match self {
             Expression::Leaf(Leaf::String(s)) => Some(s.to_string()),
             Expression::Leaf(Leaf::Bare(path)) => Some(path.to_string()),
+            _ => None,
+        }
+    }
+
+    crate fn as_bare(&self) -> Option<String> {
+        match self {
+            Expression::Leaf(Leaf::Bare(p)) => Some(p.to_string()),
             _ => None,
         }
     }
@@ -218,8 +270,8 @@ impl Variable {
     crate fn from_str(input: &str) -> Expression {
         match input {
             "it" => Expression::VariableReference(Variable::It),
-            "true" => Expression::Leaf(Leaf::Boolean(true)),
-            "false" => Expression::Leaf(Leaf::Boolean(false)),
+            "yes" => Expression::Leaf(Leaf::Boolean(true)),
+            "no" => Expression::Leaf(Leaf::Boolean(false)),
             other => Expression::VariableReference(Variable::Other(other.to_string())),
         }
     }
@@ -236,8 +288,7 @@ impl Variable {
     }
 }
 
-#[cfg(test)]
-pub fn bare(s: &str) -> BarePath {
+pub fn bare(s: impl Into<String>) -> BarePath {
     BarePath {
         head: s.into(),
         tail: vec![],
@@ -250,7 +301,23 @@ pub struct BarePath {
     tail: Vec<String>,
 }
 
+impl<T: Into<String>> From<T> for BarePath {
+    fn from(input: T) -> BarePath {
+        BarePath {
+            head: input.into(),
+            tail: vec![],
+        }
+    }
+}
+
 impl BarePath {
+    crate fn from_token(head: SpannedToken) -> BarePath {
+        BarePath {
+            head: head.to_string(),
+            tail: vec![],
+        }
+    }
+
     crate fn from_tokens(head: SpannedToken, tail: Vec<SpannedToken>) -> BarePath {
         BarePath {
             head: head.to_string(),
@@ -363,19 +430,6 @@ impl Binary {
     }
 }
 
-#[cfg(test)]
-crate fn binary(
-    left: impl Into<Expression>,
-    operator: impl Into<Operator>,
-    right: impl Into<Expression>,
-) -> Binary {
-    Binary {
-        left: left.into(),
-        operator: operator.into(),
-        right: right.into(),
-    }
-}
-
 impl Binary {
     fn print(&self) -> String {
         format!(
@@ -427,21 +481,36 @@ impl Flag {
     }
 }
 
-#[derive(new, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, new)]
 pub struct ParsedCommand {
-    crate name: String,
-    crate args: Vec<Expression>,
+    crate name: Expression,
+    crate args: Option<Vec<Expression>>,
 }
 
 impl ParsedCommand {
-    #[allow(unused)]
+    fn as_external_arg(&self) -> String {
+        let mut out = vec![];
+
+        write!(out, "{}", self.name.as_external_arg()).unwrap();
+
+        if let Some(args) = &self.args {
+            for arg in args.iter() {
+                write!(out, " {}", arg.as_external_arg()).unwrap();
+            }
+        }
+
+        String::from_utf8_lossy(&out).into_owned()
+    }
+
     fn print(&self) -> String {
         let mut out = vec![];
 
-        write!(out, "{}", self.name).unwrap();
+        write!(out, "{}", self.name.print()).unwrap();
 
-        for arg in self.args.iter() {
-            write!(out, " {}", arg.print()).unwrap();
+        if let Some(args) = &self.args {
+            for arg in args.iter() {
+                write!(out, " {}", arg.print()).unwrap();
+            }
         }
 
         String::from_utf8_lossy(&out).into_owned()
@@ -451,8 +520,8 @@ impl ParsedCommand {
 impl From<&str> for ParsedCommand {
     fn from(input: &str) -> ParsedCommand {
         ParsedCommand {
-            name: input.to_string(),
-            args: vec![],
+            name: Expression::Leaf(Leaf::Bare(bare(input))),
+            args: None,
         }
     }
 }
@@ -460,19 +529,19 @@ impl From<&str> for ParsedCommand {
 impl From<(&str, Vec<Expression>)> for ParsedCommand {
     fn from(input: (&str, Vec<Expression>)) -> ParsedCommand {
         ParsedCommand {
-            name: input.0.to_string(),
-            args: input.1,
+            name: Expression::bare(input.0),
+            args: Some(input.1),
         }
     }
 }
 
 #[derive(new, Debug, Eq, PartialEq)]
 pub struct Pipeline {
-    crate commands: Vec<ParsedCommand>,
+    crate commands: Vec<Expression>,
 }
 
 impl Pipeline {
-    crate fn from_parts(command: ParsedCommand, rest: Vec<ParsedCommand>) -> Pipeline {
+    crate fn from_parts(command: Expression, rest: Vec<Expression>) -> Pipeline {
         let mut commands = vec![command];
         commands.extend(rest);
 

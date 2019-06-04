@@ -73,6 +73,7 @@ pub struct CommandConfig {
     crate named: IndexMap<String, NamedType>,
 }
 
+#[derive(Debug, Default)]
 pub struct Args {
     pub positional: Vec<Value>,
     pub named: IndexMap<String, Value>,

@@ -1,7 +1,7 @@
 use crate::object::types::Type;
 use derive_new::new;
-use serde_derive::{Deserialize, Serialize};
 use serde::{Serialize, Serializer};
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub enum DescriptorName {
@@ -39,18 +39,27 @@ pub struct DataDescriptor {
     crate ty: Type,
 }
 
+impl DataDescriptor {
+    crate fn display_header(&self) -> &str {
+        self.name.display()
+    }
+
+    crate fn is_string_name(&self) -> bool {
+        match self.name {
+            DescriptorName::String(_) => true,
+            DescriptorName::ValueOf => false,
+        }
+    }
+}
+
 impl Serialize for DataDescriptor {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match self.name {
-            DescriptorName::String(ref s) => {
-                serializer.serialize_str(s)
-            }
-            DescriptorName::ValueOf => {
-                serializer.serialize_str("value")
-            }
+            DescriptorName::String(ref s) => serializer.serialize_str(s),
+            DescriptorName::ValueOf => serializer.serialize_str("value"),
         }
     }
 }
