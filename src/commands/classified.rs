@@ -1,3 +1,4 @@
+use crate::parser::ast::Expression;
 use crate::parser::registry::Args;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
@@ -75,6 +76,7 @@ crate struct ClassifiedPipeline {
 }
 
 crate enum ClassifiedCommand {
+    Expr(Expression),
     Internal(InternalCommand),
     External(ExternalCommand),
 }

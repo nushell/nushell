@@ -75,7 +75,7 @@ impl Primitive {
         .to_string()
     }
 
-    crate fn format(&self, field_name: Option<&str>) -> String {
+    crate fn format(&self, field_name: Option<&DataDescriptor>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
             Primitive::Bytes(b) => {
@@ -98,8 +98,10 @@ impl Primitive {
             Primitive::Boolean(b) => match (b, field_name) {
                 (true, None) => format!("Yes"),
                 (false, None) => format!("No"),
-                (true, Some(s)) => format!("{}", s),
-                (false, Some(_)) => format!(""),
+                (true, Some(s)) if s.is_string_name() => format!("{}", s.display_header()),
+                (false, Some(s)) if s.is_string_name() => format!(""),
+                (true, Some(_)) => format!("Yes"),
+                (false, Some(_)) => format!("No"),
             },
             Primitive::Date(d) => format!("{}", d.humanize()),
         }
@@ -207,9 +209,9 @@ impl Value {
         }
     }
 
-    crate fn format_leaf(&self, field_name: Option<&str>) -> String {
+    crate fn format_leaf(&self, desc: Option<&DataDescriptor>) -> String {
         match self {
-            Value::Primitive(p) => p.format(field_name),
+            Value::Primitive(p) => p.format(desc),
             Value::Block(b) => b.expression.print(),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),

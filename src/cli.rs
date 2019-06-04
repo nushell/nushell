@@ -10,7 +10,8 @@ use crate::evaluate::Scope;
 crate use crate::format::{EntriesListView, GenericView};
 use crate::git::current_branch;
 use crate::object::Value;
-use crate::parser::{ParsedCommand, Pipeline};
+use crate::parser::ast::{Expression, Leaf};
+use crate::parser::{Args, ParsedCommand, Pipeline};
 use crate::stream::empty_stream;
 
 use log::debug;
@@ -208,6 +209,18 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 input = match (item, next) {
                     (None, _) => break,
 
+                    (Some(ClassifiedCommand::Expr(_)), _) => {
+                        return LineResult::Error(ShellError::unimplemented(
+                            "Expression-only commands",
+                        ))
+                    }
+
+                    (_, Some(ClassifiedCommand::Expr(_))) => {
+                        return LineResult::Error(ShellError::unimplemented(
+                            "Expression-only commands",
+                        ))
+                    }
+
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::Internal(_)),
@@ -305,36 +318,55 @@ fn classify_pipeline(
 }
 
 fn classify_command(
-    command: &ParsedCommand,
+    command: &Expression,
     context: &Context,
 ) -> Result<ClassifiedCommand, ShellError> {
-    let command_name = &command.name[..];
-    let args = &command.args;
+    // let command_name = &command.name[..];
+    // let args = &command.args;
 
-    match command_name {
-        other => match context.has_command(command_name) {
-            true => {
-                let command = context.get_command(command_name);
-                let config = command.config();
-                let scope = Scope::empty();
+    if let Expression::Call(call) = command {
+        match (&call.name, &call.args) {
+            (Expression::Leaf(Leaf::Bare(name)), args) => {
+                match context.has_command(&name.to_string()) {
+                    true => {
+                        let command = context.get_command(&name.to_string());
+                        let config = command.config();
+                        let scope = Scope::empty();
 
-                let args = config.evaluate_args(args.iter(), &scope)?;
+                        let args = match args {
+                            Some(args) => config.evaluate_args(args.iter(), &scope)?,
+                            None => Args::default(),
+                        };
 
-                Ok(ClassifiedCommand::Internal(InternalCommand {
-                    command,
-                    args,
-                }))
+                        Ok(ClassifiedCommand::Internal(InternalCommand {
+                            command,
+                            args,
+                        }))
+                    }
+                    false => {
+                        let arg_list_strings: Vec<String> = match args {
+                            Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
+                            None => vec![],
+                        };
+
+                        Ok(ClassifiedCommand::External(ExternalCommand {
+                            name: name.to_string(),
+                            args: arg_list_strings,
+                        }))
+                    }
+                }
             }
-            false => {
-                let arg_list_strings: Vec<String> =
-                    args.iter().map(|i| i.as_external_arg()).collect();
 
-                Ok(ClassifiedCommand::External(ExternalCommand {
-                    name: other.to_string(),
-                    args: arg_list_strings,
-                }))
-            }
-        },
+            (_, None) => Err(ShellError::string(
+                "Unimplemented command that is just an expression (1)",
+            )),
+            (_, Some(args)) => Err(ShellError::string("Unimplemented dynamic command")),
+        }
+    } else {
+        Err(ShellError::string(&format!(
+            "Unimplemented command that is just an expression (2) -- {:?}",
+            command
+        )))
     }
 }
 

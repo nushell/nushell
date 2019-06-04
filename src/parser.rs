@@ -10,11 +10,19 @@ crate use registry::{Args, CommandConfig};
 
 use crate::errors::ShellError;
 use lexer::Lexer;
+use log::trace;
 use parser::PipelineParser;
 
 pub fn parse(input: &str) -> Result<Pipeline, ShellError> {
+    let _ = pretty_env_logger::try_init();
+
     let parser = PipelineParser::new();
     let tokens = Lexer::new(input, false);
+
+    trace!(
+        "Tokens: {:?}",
+        tokens.clone().collect::<Result<Vec<_>, _>>()
+    );
 
     match parser.parse(tokens) {
         Ok(val) => Ok(val),
@@ -25,12 +33,33 @@ pub fn parse(input: &str) -> Result<Pipeline, ShellError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::ast::{bare, binary, flag, short, unit, var, Pipeline};
+    use crate::parser::ast::{bare, flag, short, unit, var, Expression, Operator, Pipeline};
     use pretty_assertions::assert_eq;
 
     fn assert_parse(source: &str, expected: Pipeline) {
-        let parsed = parse(source).unwrap();
+        let parsed = match parse(source) {
+            Ok(p) => p,
+            Err(ShellError::Diagnostic(diag, source)) => {
+                use language_reporting::termcolor;
+
+                let writer = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+                let files = crate::parser::span::Files::new(source);
+
+                language_reporting::emit(
+                    &mut writer.lock(),
+                    &files,
+                    &diag.diagnostic,
+                    &language_reporting::DefaultConfig,
+                )
+                .unwrap();
+
+                panic!("Test failed")
+            }
+            Err(err) => panic!("Something went wrong during parse: {:#?}", err),
+        };
+
         let printed = parsed.print();
+
         assert_eq!(parsed, expected);
         assert_eq!(source, printed);
     }
@@ -47,15 +76,15 @@ mod tests {
 
     macro_rules! command {
         ($name:ident $( $command:expr )*) => {
-            ParsedCommand::new(stringify!($name).into(), vec![ $($command.into()),* ])
+            Expression::call(Expression::bare(stringify!($name)), vec![ $($command.into()),* ])
         };
 
         ($name:ident $( $command:expr )*) => {
-            ParsedCommand::new(stringify!($name).into(), vec![ $($command.into()),* ])
+            Expression::call(Expression::bare(stringify!($name)), vec![ $($command.into()),* ])
         };
 
         ($name:tt $( $command:expr )*) => {
-            ParsedCommand::new($name.into(), vec![ $($command.into()),* ])
+            Expression::call(Expression::bare($name), vec![ $($command.into()),* ])
         };
     }
 
@@ -163,5 +192,13 @@ mod tests {
                 (ls) | (where binary(bare("size"), "<", unit(1, "KB")))
             ],
         );
+    }
+
+    fn binary(
+        left: impl Into<Expression>,
+        op: impl Into<Operator>,
+        right: impl Into<Expression>,
+    ) -> Expression {
+        Expression::binary(left, op, right)
     }
 }
