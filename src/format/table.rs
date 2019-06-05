@@ -55,7 +55,8 @@ impl RenderView for TableView {
         let mut table = Table::new();
 
         let fb = FormatBuilder::new()
-            .separator(LinePosition::Top, LineSeparator::new(' ', ' ', ' ', ' '))
+            .separator(LinePosition::Top, LineSeparator::new('-', '+', ' ', ' '))
+            .separator(LinePosition::Bottom, LineSeparator::new('-', '+', ' ', ' '))
             .separator(LinePosition::Title, LineSeparator::new('-', '+', '|', '|'))
             .column_separator('|')
             .padding(1, 1);
