@@ -2,6 +2,8 @@ use crate::format::RenderView;
 use crate::object::{DataDescriptor, Value};
 use crate::prelude::*;
 use derive_new::new;
+use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
+
 use prettytable::{color, Attr, Cell, Row, Table};
 
 // An entries list is printed like this:
@@ -52,7 +54,14 @@ impl RenderView for TableView {
 
         let mut table = Table::new();
 
-        table.set_format(*prettytable::format::consts::FORMAT_NO_COLSEP);
+        let fb = FormatBuilder::new()
+            .separator(LinePosition::Top, LineSeparator::new(' ', ' ', ' ', ' '))
+            .separator(LinePosition::Title, LineSeparator::new('-', '+', '|', '|'))
+            .column_separator('|')
+            .padding(1, 1);
+
+        //table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+        table.set_format(fb.build());
 
         let header: Vec<Cell> = self
             .headers
@@ -64,7 +73,7 @@ impl RenderView for TableView {
             })
             .collect();
 
-        table.add_row(Row::new(header));
+        table.set_titles(Row::new(header));
 
         for row in &self.entries {
             table.add_row(Row::new(row.iter().map(|h| Cell::new(h)).collect()));
