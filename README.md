@@ -21,7 +21,7 @@ At the moment, executing a command that isn't identified as a built-in new comma
 | ------------- | ------------- | 
 | pick ...columns | Down-select table to only these columns |
 | reject ...columns | Remove the given columns from the table |
-| select column-or-column-path | Open given cells as text |
+| get column-or-column-path | Open given cells as text |
 | sort-by ...columns | Sort by the given columns |
 | where condition | Filter table to match the condition |
 | skip amount | Skip a number of rows |
@@ -159,7 +159,7 @@ Some file types can be loaded as tables.
  [object Object]  [object Object]   [object Object]
 ----------------------------------------------------
 
-~\Code\nushell> open Cargo.toml | select package
+~\Code\nushell> open Cargo.toml | get package
 --------------------------------------------------------------------------
  authors      description                 edition  license  name  version
 --------------------------------------------------------------------------
@@ -170,7 +170,7 @@ Some file types can be loaded as tables.
 Once you've found the data, you can call out to external applications and use it.
 
 ```text
-~\Code\nushell> open Cargo.toml | select package.version | echo $it
+~\Code\nushell> open Cargo.toml | get package.version | echo $it
 0.1.1
 ```
 
