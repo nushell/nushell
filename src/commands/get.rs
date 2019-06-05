@@ -19,7 +19,7 @@ fn get_member(path: &str, obj: &Value) -> Option<Value> {
     Some(current.copy())
 }
 
-pub fn select(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.is_empty() {
         return Err(ShellError::string("select requires a field"));
     }
