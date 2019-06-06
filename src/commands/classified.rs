@@ -76,6 +76,7 @@ crate struct ClassifiedPipeline {
 }
 
 crate enum ClassifiedCommand {
+    #[allow(unused)]
     Expr(Expression),
     Internal(InternalCommand),
     External(ExternalCommand),

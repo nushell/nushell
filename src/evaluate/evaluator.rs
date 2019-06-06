@@ -22,15 +22,15 @@ impl Scope {
 
 crate fn evaluate_expr(expr: &ast::Expression, scope: &Scope) -> Result<Value, ShellError> {
     use ast::*;
-    match expr {
-        Expression::Call(c) => Err(ShellError::unimplemented("Evaluating call expression")),
-        Expression::Leaf(l) => Ok(evaluate_leaf(l)),
-        Expression::Parenthesized(p) => evaluate_expr(&p.expr, scope),
-        Expression::Flag(f) => Ok(Value::Primitive(Primitive::String(f.print()))),
-        Expression::Block(b) => evaluate_block(&b, scope),
-        Expression::Path(p) => evaluate_path(&p, scope),
-        Expression::Binary(b) => evaluate_binary(b, scope),
-        Expression::VariableReference(r) => evaluate_reference(r, scope),
+    match &expr.expr {
+        RawExpression::Call(_) => Err(ShellError::unimplemented("Evaluating call expression")),
+        RawExpression::Leaf(l) => Ok(evaluate_leaf(l)),
+        RawExpression::Parenthesized(p) => evaluate_expr(&p.expr, scope),
+        RawExpression::Flag(f) => Ok(Value::Primitive(Primitive::String(f.print()))),
+        RawExpression::Block(b) => evaluate_block(&b, scope),
+        RawExpression::Path(p) => evaluate_path(&p, scope),
+        RawExpression::Binary(b) => evaluate_binary(b, scope),
+        RawExpression::VariableReference(r) => evaluate_reference(r, scope),
     }
 }
 
@@ -63,7 +63,7 @@ fn evaluate_binary(binary: &ast::Binary, scope: &Scope) -> Result<Value, ShellEr
     let left = evaluate_expr(&binary.left, scope)?;
     let right = evaluate_expr(&binary.right, scope)?;
 
-    match left.compare(binary.operator, &right) {
+    match left.compare(&binary.operator, &right) {
         Some(v) => Ok(Value::boolean(v)),
         None => Err(ShellError::TypeError(format!(
             "Can't compare {} and {}",
@@ -83,8 +83,8 @@ fn evaluate_path(path: &ast::Path, scope: &Scope) -> Result<Value, ShellError> {
     let mut seen = vec![];
 
     for name in path.tail() {
-        let next = value.get_data_by_key(&name);
-        seen.push(name);
+        let next = value.get_data_by_key(&name.item);
+        seen.push(name.item.clone());
 
         match next {
             None => {
