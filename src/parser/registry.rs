@@ -41,21 +41,31 @@ impl PositionalType {
         match self {
             PositionalType::Value(_) => evaluate_expr(&arg, scope),
             PositionalType::Block(_) => match arg {
-                ast::Expression::Block(b) => Ok(Value::block(b.expr)),
-                ast::Expression::Binary(b) => {
-                    if let Some(s) = b.left.as_string() {
-                        Ok(Value::block(ast::Expression::Binary(Box::new(
-                            ast::Binary::new(
-                                ast::Expression::Path(Box::new(ast::Path::new(
-                                    ast::Expression::VariableReference(ast::Variable::It),
-                                    vec![s],
-                                ))),
-                                b.operator,
-                                b.right,
-                            ),
+                ast::Expression {
+                    expr: ast::RawExpression::Block(b),
+                    ..
+                } => Ok(Value::block(b.expr)),
+                ast::Expression {
+                    expr: ast::RawExpression::Binary(binary),
+                    ..
+                } => {
+                    // TODO: Use original spans
+                    let mut b = ast::ExpressionBuilder::new();
+                    if let Some(s) = binary.left.as_string() {
+                        Ok(Value::block(b.binary((
+                            &|b| b.path((&|b| b.var("it"), vec![s.clone()])),
+                            &|_| binary.operator.clone(),
+                            &|_| binary.right.clone(),
                         ))))
                     } else {
-                        Ok(Value::block(ast::Expression::Binary(b)))
+                        let mut b = ast::ExpressionBuilder::new();
+                        let expr = b.binary((
+                            &|_| binary.left.clone(),
+                            &|_| binary.operator.clone(),
+                            &|_| binary.right.clone(),
+                        ));
+
+                        Ok(Value::block(expr))
                     }
                 }
                 other => Ok(Value::block(other)), // other =>
@@ -192,13 +202,13 @@ fn extract_named(
 }
 
 fn expect_simple_expr(expr: ast::Expression) -> Result<Value, ShellError> {
-    match expr {
-        ast::Expression::Leaf(l) => Ok(match l {
+    match &*expr {
+        ast::RawExpression::Leaf(l) => Ok(match l {
             ast::Leaf::Bare(s) => Value::string(s.to_string()),
             ast::Leaf::String(s) => Value::string(s),
-            ast::Leaf::Boolean(b) => Value::boolean(b),
-            ast::Leaf::Int(i) => Value::int(i),
-            ast::Leaf::Unit(i, unit) => unit.compute(i),
+            ast::Leaf::Boolean(b) => Value::boolean(*b),
+            ast::Leaf::Int(i) => Value::int(*i),
+            ast::Leaf::Unit(i, unit) => unit.compute(*i),
         }),
 
         // TODO: Diagnostic

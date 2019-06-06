@@ -317,8 +317,8 @@ impl logos::Extras for LexerState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Span {
-    start: usize,
-    end: usize,
+    crate start: usize,
+    crate end: usize,
     // source: &'source str,
 }
 
@@ -374,6 +374,26 @@ impl language_reporting::ReportingSpan for Span {
     }
 }
 
+#[derive(new, Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Spanned<T> {
+    crate span: Span,
+    crate item: T,
+}
+
+impl<T> std::ops::Deref for Spanned<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.item
+    }
+}
+
+impl<T> Spanned<T> {
+    crate fn from_item(item: T, span: Span) -> Spanned<T> {
+        Spanned { span, item }
+    }
+}
+
 #[derive(new, Debug, Clone, Eq, PartialEq)]
 pub struct SpannedToken<'source> {
     crate span: Span,
@@ -382,6 +402,10 @@ pub struct SpannedToken<'source> {
 }
 
 impl SpannedToken<'source> {
+    crate fn to_spanned_string(&self) -> Spanned<String> {
+        Spanned::from_item(self.slice.to_string(), self.span)
+    }
+
     crate fn to_string(&self) -> String {
         self.slice.to_string()
     }

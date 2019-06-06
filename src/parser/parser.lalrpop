@@ -3,7 +3,7 @@
 use std::str::FromStr;
 use crate::parser::ast::*;
 use crate::prelude::*;
-use crate::parser::lexer::{SpannedToken, Token};
+use crate::parser::lexer::{SpannedToken, Spanned, Span, Token};
 use byte_unit::Byte;
 
 // nu's grammar is a little bit different from a lot of other languages, to better match
@@ -27,61 +27,69 @@ use byte_unit::Byte;
 grammar<'input>;
 
 pub Pipeline: Pipeline = {
-  <first:PipelineElement> <rest: ( "|" <PipelineElement> )*> => Pipeline::from_parts(first, rest),
+  <l: @L> <first:PipelineElement> <rest: ( "|" <PipelineElement> )*> <r: @R> => Pipeline::from_parts(first, rest, l, r),
 }
 
 PipelineElement: Expression = {
-    <Bare> => Expression::call(Expression::bare(<>), vec![]),
+    <l: @L> <bare: BareExpression> <r: @R> => ExpressionBuilder::spanned_call((bare, vec![]), l, r),
     <SingleExpression> => <>,
 }
 
 // A leaf expression is a single logical token that directly represents an expression
 LeafExpression: Expression = {
-    <String> => <>,
-    <Int> => Expression::leaf(Leaf::Int(<>)),
-    <UnitsNum> => <>,
-    <Var> => <>,
+    <String>,
+    <l: @L> <int: Int> <r: @R> => ExpressionBuilder::spanned_int(int, l, r),
+    <UnitsNum>,
+    <Var>,
 }
 
 pub Call: Expression = {
-    <expr:Expression> <rest:SingleCallArgument> => Expression::call(expr, vec![rest]),
-    <expr:Expression> <first:CallArgument> <rest:( <CallArgument> )+> => Expression::call(expr, { let mut rest = rest; let mut v = vec![first]; v.append(&mut rest); v }),
-    <expr:Bare> <rest:SingleCallArgument> => Expression::call(Expression::bare(expr), vec![rest]),
-    <expr:Bare> <first:CallArgument> <rest:( <CallArgument> )+> => Expression::call(Expression::bare(expr), { let mut v = vec![first]; let mut rest = rest; v.append(&mut rest); v }),
+    <l: @L> <expr:Expression> <rest:SingleCallArgument> <r: @R> => ExpressionBuilder::spanned_call((expr, vec![rest]), l, r),
+    <l: @L> <expr:Expression> <first:CallArgument> <rest:( <CallArgument> )+> <r: @R> => ExpressionBuilder::spanned_call((expr, { let mut rest = rest; let mut v = vec![first]; v.append(&mut rest); v }), l, r),
+    <l: @L> <expr:BareExpression> <rest:SingleCallArgument> <r: @R> => ExpressionBuilder::spanned_call((expr, vec![rest]), l, r),
+    <l: @L> <expr:BareExpression> <first:CallArgument> <rest:( <CallArgument> )+> <r: @R> => ExpressionBuilder::spanned_call((expr, { let mut v = vec![first]; let mut rest = rest; v.append(&mut rest); v }), l, r),
 }
 
 Binary: Expression = {
-    <left:ArgumentExpression> <op:Operator> <right:ArgumentExpression> => Expression::binary(left, op, right),
+    <l: @L> <left:ArgumentExpression> <op:SpannedOperator> <right:ArgumentExpression> <r: @R> => ExpressionBuilder::spanned_binary((left, op, right), l, r)
 }
 
 // In a block, a single bare word is interpreted as a call:
 //
 // foreach { ls }
 Block: Expression = {
-    "{" <SingleExpression> "}" => Expression::block(<>),
-    "{" <Bare> "}" => Expression::block(Expression::call(Expression::bare(<>), vec![])),
+    <l: @L> "{" <expr: SingleExpression> "}" <r: @R> => ExpressionBuilder::spanned_block(expr, l, r),
+    <l: @L> "{" <bare: BareExpression> "}" <r: @R> => {
+        let call = ExpressionBuilder::spanned_call(bare.clone(), bare.span.start, bare.span.end);
+        ExpressionBuilder::spanned_block(call, l, r)
+    }
 }
 
 // An `Expression` is the most general kind of expression. It can go anywhere, even right next to another expression, and
 // even as the first part of a call.
-Expression: Expression = {
+MemberHeadExpression: Expression = {
     <LeafExpression> => <>,
     <Block> => <>,
-    "(" <Call> ")" => <>,
-    "(" <Bare> ")" => Expression::call(Expression::bare(<>), vec![]),
-    "(" <Binary> ")" => <>,
+    <l: @L> "(" <expr: Call> ")" <r: @R> => ExpressionBuilder::spanned_call(expr, l, r),
+    <l: @L> "(" <expr: BareExpression> ")" <r: @R> => ExpressionBuilder::spanned_call((expr, vec![]), l, r),
+    <l: @L> "(" <expr:Binary> ")" <r: @R> => ExpressionBuilder::spanned_parens(expr, l, r),
+}
+
+Expression: Expression = {
+    <MemberHeadExpression> => <>,
+    <l: @L> <expr:MemberHeadExpression> <rest: ( "???." <"member"> )+> <r: @R> => ExpressionBuilder::spanned_path((expr, rest.iter().map(|i| i.to_spanned_string()).collect()), l, r),
 }
 
 // An `ArgumentExpression` is an expression that appears in an argument list. It includes all of `Expression`, and
 // bare words are interpreted as strings.
 ArgumentExpression: Expression = {
     <Expression>,
-    <Bare> => Expression::bare(<>),
+    <BareExpression>,
 }
 
 CallArgument: Expression = {
-    <ArgumentExpression> => <>,
-    <Flag> => Expression::flag(<>),
+    <ArgumentExpression>,
+    <Flag>,
 }
 
 SingleCallArgument: Expression = {
@@ -101,14 +109,22 @@ SingleExpression: Expression = {
     <Binary>,
 }
 
+BareExpression: Expression = {
+    <l: @L> <bare: Bare> <r: @R> => ExpressionBuilder::spanned_bare(bare, l, r)
+}
+
+SpannedOperator: Spanned<Operator> = {
+    <l: @L> <op: Operator> <r: @R> => Spanned::from_item(op, Span::from((l, r)))
+}
+
 // === LOGICAL TOKENS === //
 
 // A logical token may be composed of more than one raw token, but the tokens must be emitted
 // from the stream in exactly one sequence. This allows us to use parser infrastructure to
 // compose tokens without the risk that these logical tokens will introduce ambiguities.
 
-Bare: BarePath = {
-    <head: "bare"> => BarePath::from_token(head)
+Bare: Bare = {
+    <head: "bare"> => Bare::from_string(head.as_slice())
 }
 
 // A member is a special token that represents bare words or string literals immediate
@@ -129,25 +145,25 @@ Operator: Operator = {
 }
 
 Int: i64 = {
-    <"num"> => i64::from_str(<>.as_slice()).unwrap()
+    <n: "num"> => i64::from_str(<>.as_slice()).unwrap(),
 }
 
 UnitsNum: Expression = {
-    <num: Int> <unit: "unit"> => Expression::leaf(Leaf::Unit(num, Unit::from_str(unit.as_slice()).unwrap()))
+    <l: @L> <num: Int> <unit: "unit"> <r: @R> => ExpressionBuilder::spanned_unit((num, Unit::from_str(unit.as_slice()).unwrap()), l, r),
 }
 
 String: Expression = {
-    <"sqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string().into(),
-    <"dqstring"> => <>.as_slice()[1..(<>.as_slice().len() - 1)].to_string().into()
+    <l: @L> <s: "sqstring"> <r: @R> => ExpressionBuilder::spanned_string(&s.as_slice()[1..(s.as_slice().len() - 1)], l, r),
+    <l: @L> <s: "dqstring"> <r: @R> => ExpressionBuilder::spanned_string(&s.as_slice()[1..(s.as_slice().len() - 1)], l, r),
 }
 
-Flag: Flag = {
-    "-" <Bare> => Flag::Shorthand(<>.to_string()),
-    "--" <Bare> => Flag::Longhand(<>.to_string()),
+Flag: Expression = {
+    <l: @L> "-" <b: Bare> <r: @R> => ExpressionBuilder::spanned_shorthand(b.to_string(), l, r),
+    <l: @L> "--" <b: Bare> <r: @R> => ExpressionBuilder::spanned_flag(b.to_string(), l, r),
 }
 
 Var: Expression = {
-    "$" <"variable"> => Variable::from_str(<>.as_slice()).into(),
+    <l: @L> "$" <v: "variable"> <r: @R> => ExpressionBuilder::spanned_var(v.as_slice(), l, r),
 }
 
 extern {

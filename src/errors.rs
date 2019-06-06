@@ -63,6 +63,7 @@ pub struct ShellDiagnostic {
 }
 
 impl ShellDiagnostic {
+    #[allow(unused)]
     crate fn simple_diagnostic(
         span: impl Into<Span>,
         source: impl Into<String>,

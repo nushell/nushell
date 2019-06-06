@@ -10,8 +10,8 @@ use crate::evaluate::Scope;
 crate use crate::format::{EntriesListView, GenericView};
 use crate::git::current_branch;
 use crate::object::Value;
-use crate::parser::ast::{Expression, Leaf};
-use crate::parser::{Args, ParsedCommand, Pipeline};
+use crate::parser::ast::{Expression, Leaf, RawExpression};
+use crate::parser::{Args, Pipeline};
 use crate::stream::empty_stream;
 
 use log::debug;
@@ -324,43 +324,51 @@ fn classify_command(
     // let command_name = &command.name[..];
     // let args = &command.args;
 
-    if let Expression::Call(call) = command {
+    if let Expression {
+        expr: RawExpression::Call(call),
+        ..
+    } = command
+    {
         match (&call.name, &call.args) {
-            (Expression::Leaf(Leaf::Bare(name)), args) => {
-                match context.has_command(&name.to_string()) {
-                    true => {
-                        let command = context.get_command(&name.to_string());
-                        let config = command.config();
-                        let scope = Scope::empty();
+            (
+                Expression {
+                    expr: RawExpression::Leaf(Leaf::Bare(name)),
+                    ..
+                },
+                args,
+            ) => match context.has_command(&name.to_string()) {
+                true => {
+                    let command = context.get_command(&name.to_string());
+                    let config = command.config();
+                    let scope = Scope::empty();
 
-                        let args = match args {
-                            Some(args) => config.evaluate_args(args.iter(), &scope)?,
-                            None => Args::default(),
-                        };
+                    let args = match args {
+                        Some(args) => config.evaluate_args(args.iter(), &scope)?,
+                        None => Args::default(),
+                    };
 
-                        Ok(ClassifiedCommand::Internal(InternalCommand {
-                            command,
-                            args,
-                        }))
-                    }
-                    false => {
-                        let arg_list_strings: Vec<String> = match args {
-                            Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
-                            None => vec![],
-                        };
-
-                        Ok(ClassifiedCommand::External(ExternalCommand {
-                            name: name.to_string(),
-                            args: arg_list_strings,
-                        }))
-                    }
+                    Ok(ClassifiedCommand::Internal(InternalCommand {
+                        command,
+                        args,
+                    }))
                 }
-            }
+                false => {
+                    let arg_list_strings: Vec<String> = match args {
+                        Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
+                        None => vec![],
+                    };
+
+                    Ok(ClassifiedCommand::External(ExternalCommand {
+                        name: name.to_string(),
+                        args: arg_list_strings,
+                    }))
+                }
+            },
 
             (_, None) => Err(ShellError::string(
                 "Unimplemented command that is just an expression (1)",
             )),
-            (_, Some(args)) => Err(ShellError::string("Unimplemented dynamic command")),
+            (_, Some(_)) => Err(ShellError::string("Unimplemented dynamic command")),
         }
     } else {
         Err(ShellError::string(&format!(

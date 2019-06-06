@@ -134,9 +134,10 @@ impl Deserialize<'de> for Block {
     where
         D: Deserializer<'de>,
     {
-        Ok(Block::new(ast::Expression::Leaf(ast::Leaf::String(
-            format!("Unserializable block"),
-        ))))
+        let mut builder = ast::ExpressionBuilder::new();
+        let expr: ast::Expression = builder.string("Unserializable block");
+
+        Ok(Block::new(expr))
     }
 }
 
@@ -219,7 +220,7 @@ impl Value {
         }
     }
 
-    crate fn compare(&self, operator: ast::Operator, other: &Value) -> Option<bool> {
+    crate fn compare(&self, operator: &ast::Operator, other: &Value) -> Option<bool> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
