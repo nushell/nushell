@@ -1,4 +1,5 @@
 use crate::evaluate::{evaluate_expr, Scope};
+use crate::parser::lexer::Spanned;
 use crate::prelude::*;
 use indexmap::IndexMap;
 
@@ -37,14 +38,18 @@ impl PositionalType {
         }
     }
 
-    crate fn evaluate(&self, arg: ast::Expression, scope: &Scope) -> Result<Value, ShellError> {
+    crate fn evaluate(
+        &self,
+        arg: ast::Expression,
+        scope: &Scope,
+    ) -> Result<Spanned<Value>, ShellError> {
         match self {
             PositionalType::Value(_) => evaluate_expr(&arg, scope),
             PositionalType::Block(_) => match arg {
                 ast::Expression {
                     expr: ast::RawExpression::Block(b),
                     ..
-                } => Ok(Value::block(b.expr)),
+                } => Ok(Spanned::from_item(Value::block(b.expr), arg.span.clone())),
                 ast::Expression {
                     expr: ast::RawExpression::Binary(binary),
                     ..
@@ -52,11 +57,14 @@ impl PositionalType {
                     // TODO: Use original spans
                     let mut b = ast::ExpressionBuilder::new();
                     if let Some(s) = binary.left.as_string() {
-                        Ok(Value::block(b.binary((
-                            &|b| b.path((&|b| b.var("it"), vec![s.clone()])),
-                            &|_| binary.operator.clone(),
-                            &|_| binary.right.clone(),
-                        ))))
+                        Ok(Spanned::from_item(
+                            Value::block(b.binary((
+                                &|b| b.path((&|b| b.var("it"), vec![s.clone()])),
+                                &|_| binary.operator.clone(),
+                                &|_| binary.right.clone(),
+                            ))),
+                            arg.span.clone(),
+                        ))
                     } else {
                         let mut b = ast::ExpressionBuilder::new();
                         let expr = b.binary((
@@ -65,10 +73,13 @@ impl PositionalType {
                             &|_| binary.right.clone(),
                         ));
 
-                        Ok(Value::block(expr))
+                        Ok(Spanned::from_item(Value::block(expr), arg.span.clone()))
                     }
                 }
-                other => Ok(Value::block(other)), // other =>
+                other => {
+                    let span = other.span.clone();
+                    Ok(Spanned::from_item(Value::block(other), span))
+                }
             },
         }
     }
@@ -85,7 +96,7 @@ pub struct CommandConfig {
 
 #[derive(Debug, Default)]
 pub struct Args {
-    pub positional: Vec<Value>,
+    pub positional: Vec<Spanned<Value>>,
     pub named: IndexMap<String, Value>,
 }
 
@@ -95,7 +106,7 @@ impl CommandConfig {
         args: impl Iterator<Item = &'expr ast::Expression>,
         scope: &Scope,
     ) -> Result<Args, ShellError> {
-        let mut positional: Vec<Value> = vec![];
+        let mut positional: Vec<Spanned<Value>> = vec![];
         let mut named: IndexMap<String, Value> = IndexMap::default();
 
         let mut args: Vec<ast::Expression> = args.cloned().collect();
@@ -152,7 +163,7 @@ impl CommandConfig {
         }
 
         if self.rest_positional {
-            let rest: Result<Vec<Value>, _> =
+            let rest: Result<Vec<Spanned<Value>>, _> =
                 args.map(|i| evaluate_expr(&i, &Scope::empty())).collect();
             positional.extend(rest?);
         } else {

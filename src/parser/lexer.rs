@@ -558,13 +558,12 @@ impl Iterator for Lexer<'source> {
     }
 }
 
-fn lex_error(range: &Range<usize>, source: &str) -> ShellError {
+fn lex_error(range: &Range<usize>, _source: &str) -> ShellError {
     use language_reporting::*;
 
     ShellError::diagnostic(
         Diagnostic::new(Severity::Error, "Lex error")
             .with_label(Label::new_primary(Span::new(range))),
-        source.to_string(),
     )
 }
 

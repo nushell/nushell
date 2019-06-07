@@ -4,8 +4,16 @@ use crate::object::Value;
 use crate::prelude::*;
 
 pub fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.is_empty() {
-        return Err(ShellError::string("select requires a field"));
+    if args.positional.len() == 0 {
+        if let Some(span) = args.name_span {
+            return Err(ShellError::labeled_error(
+                "Reject requires fields",
+                "needs parameter",
+                span,
+            ));
+        } else {
+            return Err(ShellError::string("reject requires fields."));
+        }
     }
 
     let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();

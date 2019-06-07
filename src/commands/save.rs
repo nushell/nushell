@@ -1,7 +1,7 @@
 use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::prelude::*;
+use crate::parser::lexer::Spanned;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
@@ -11,13 +11,16 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
 
     let cwd = args.ctx.env.lock().unwrap().cwd().to_path_buf();
     let mut full_path = PathBuf::from(cwd);
-    match &args.positional[0] {
+    match &(args.positional[0].item) {
         Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),
         _ => {}
     }
 
     let save_raw = match args.positional.get(1) {
-        Some(Value::Primitive(Primitive::String(s))) if s == "--raw" => true,
+        Some(Spanned {
+            item: Value::Primitive(Primitive::String(s)),
+            ..
+        }) if s == "--raw" => true,
         _ => false,
     };
 

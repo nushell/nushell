@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
+use crate::parser::lexer::Spanned;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -10,17 +11,44 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let cwd = args.env.lock().unwrap().cwd().to_path_buf();
     let mut full_path = PathBuf::from(cwd);
-    match &args.positional[0] {
-        Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),
-        _ => {}
-    }
 
-    let contents = std::fs::read_to_string(&full_path).unwrap();
+    let contents = match &args.positional[0].item {
+        Value::Primitive(Primitive::String(s)) => {
+            full_path.push(Path::new(&s));
+            match std::fs::read_to_string(&full_path) {
+                Ok(s) => s,
+                Err(_) => {
+                    return Err(ShellError::labeled_error(
+                        "File cound not be opened",
+                        "file not found",
+                        args.positional[0].span,
+                    ));
+                }
+            }
+        }
+        _ => {
+            return Err(ShellError::labeled_error(
+                "Expected string value for filename",
+                "expected filename",
+                args.positional[0].span,
+            ));
+        }
+    };
 
     let mut stream = VecDeque::new();
 
     let open_raw = match args.positional.get(1) {
-        Some(Value::Primitive(Primitive::String(s))) if s == "--raw" => true,
+        Some(Spanned {
+            item: Value::Primitive(Primitive::String(s)),
+            ..
+        }) if s == "--raw" => true,
+        Some(v) => {
+            return Err(ShellError::labeled_error(
+                "Unknown flag for open",
+                "unknown flag",
+                v.span,
+            ))
+        }
         _ => false,
     };
 

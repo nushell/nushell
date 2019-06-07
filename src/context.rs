@@ -1,5 +1,6 @@
 use crate::commands::command::Sink;
 use crate::commands::command::SinkCommandArgs;
+use crate::parser::lexer::Span;
 use crate::parser::Args;
 use crate::prelude::*;
 
@@ -37,10 +38,6 @@ impl Context {
         }
     }
 
-    pub fn clone_sinks(&self) -> indexmap::IndexMap<String, Arc<dyn Sink>> {
-        self.sinks.clone()
-    }
-
     crate fn has_sink(&self, name: &str) -> bool {
         self.sinks.contains_key(name)
     }
@@ -52,11 +49,13 @@ impl Context {
     crate fn run_sink(
         &mut self,
         command: Arc<dyn Sink>,
+        name_span: Option<Span>,
         args: Args,
         input: Vec<Value>,
     ) -> Result<(), ShellError> {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),
+            name_span,
             positional: args.positional,
             named: args.named,
             input,
@@ -80,12 +79,14 @@ impl Context {
     crate fn run_command(
         &mut self,
         command: Arc<dyn Command>,
+        name_span: Option<Span>,
         args: Args,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = CommandArgs {
             host: self.host.clone(),
             env: self.env.clone(),
+            name_span,
             positional: args.positional,
             named: args.named,
             input,

@@ -1,54 +1,26 @@
 use crate::errors::ShellError;
 use crate::object::Value;
+use crate::parser::lexer::Span;
+use crate::parser::lexer::Spanned;
 use crate::parser::CommandConfig;
 use crate::prelude::*;
-use core::future::Future;
 use std::path::PathBuf;
 
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<Environment>>,
-    pub positional: Vec<Value>,
+    pub name_span: Option<Span>,
+    pub positional: Vec<Spanned<Value>>,
     pub named: indexmap::IndexMap<String, Value>,
     pub input: InputStream,
 }
 
-impl CommandArgs {
-    crate fn from_context(
-        ctx: &'caller mut Context,
-        positional: Vec<Value>,
-        input: InputStream,
-    ) -> CommandArgs {
-        CommandArgs {
-            host: ctx.host.clone(),
-            env: ctx.env.clone(),
-            positional,
-            named: indexmap::IndexMap::default(),
-            input,
-        }
-    }
-}
-
 pub struct SinkCommandArgs {
     pub ctx: Context,
-    pub positional: Vec<Value>,
+    pub name_span: Option<Span>,
+    pub positional: Vec<Spanned<Value>>,
     pub named: indexmap::IndexMap<String, Value>,
     pub input: Vec<Value>,
-}
-
-impl SinkCommandArgs {
-    crate fn from_context(
-        ctx: &'caller mut Context,
-        positional: Vec<Value>,
-        input: Vec<Value>,
-    ) -> SinkCommandArgs {
-        SinkCommandArgs {
-            ctx: ctx.clone(),
-            positional,
-            named: indexmap::IndexMap::default(),
-            input,
-        }
-    }
 }
 
 #[derive(Debug)]

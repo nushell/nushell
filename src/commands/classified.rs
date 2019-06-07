@@ -1,5 +1,6 @@
 use crate::commands::command::Sink;
 use crate::parser::ast::Expression;
+use crate::parser::lexer::Span;
 use crate::parser::registry::Args;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
@@ -86,17 +87,19 @@ crate enum ClassifiedCommand {
 
 crate struct SinkCommand {
     crate command: Arc<dyn Sink>,
+    crate name_span: Option<Span>,
     crate args: Args,
 }
 
 impl SinkCommand {
     crate fn run(self, context: &mut Context, input: Vec<Value>) -> Result<(), ShellError> {
-        context.run_sink(self.command, self.args, input)
+        context.run_sink(self.command, self.name_span.clone(), self.args, input)
     }
 }
 
 crate struct InternalCommand {
     crate command: Arc<dyn Command>,
+    crate name_span: Option<Span>,
     crate args: Args,
 }
 
@@ -106,7 +109,12 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
     ) -> Result<InputStream, ShellError> {
-        let result = context.run_command(self.command, self.args, input.objects)?;
+        let result = context.run_command(
+            self.command,
+            self.name_span.clone(),
+            self.args,
+            input.objects,
+        )?;
         let env = context.env.clone();
 
         let stream = result.filter_map(move |v| match v {

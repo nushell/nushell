@@ -6,9 +6,8 @@ crate mod tree;
 
 use crate::prelude::*;
 
-crate use entries::{EntriesListView, EntriesView};
+crate use entries::EntriesView;
 crate use generic::GenericView;
-crate use list::ListView;
 crate use table::TableView;
 crate use tree::TreeView;
 
