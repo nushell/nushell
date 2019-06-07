@@ -20,6 +20,7 @@ use rustyline::{self, ColorMode, Config, Editor};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::iter::Iterator;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -82,7 +83,22 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     rl.set_helper(Some(h));
     let _ = rl.load_history("history.txt");
 
+    let ctrl_c = Arc::new(AtomicBool::new(false));
+    let cc = ctrl_c.clone();
+    ctrlc::set_handler(move || {
+        cc.store(true, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
+
     loop {
+        if ctrl_c.load(Ordering::SeqCst) {
+            ctrl_c.store(false, Ordering::SeqCst);
+            if let ShellError::String(s) = ShellError::string("CTRL-C") {
+                context.host.lock().unwrap().stdout(&format!("{:?}", s));
+            }
+            continue;
+        }
+
         let readline = rl.readline(&format!(
             "{}{}> ",
             context.env.lock().unwrap().cwd().display().to_string(),
@@ -286,10 +302,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             LineResult::Success(line.to_string())
         }
-        Err(ReadlineError::Interrupted) => {
-            println!("CTRL-C");
-            LineResult::Break
-        }
+        Err(ReadlineError::Interrupted) => LineResult::Error(ShellError::string("CTRL-C")),
         Err(ReadlineError::Eof) => {
             println!("CTRL-D");
             LineResult::Break
