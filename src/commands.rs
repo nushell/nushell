@@ -15,6 +15,7 @@ crate mod open;
 crate mod pick;
 crate mod ps;
 crate mod reject;
+crate mod save;
 crate mod size;
 crate mod skip;
 crate mod sort_by;
