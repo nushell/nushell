@@ -1,3 +1,5 @@
+use crate::commands::command::Sink;
+use crate::commands::command::SinkCommandArgs;
 use crate::parser::Args;
 use crate::prelude::*;
 
@@ -5,8 +7,10 @@ use indexmap::IndexMap;
 use std::error::Error;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct Context {
     commands: IndexMap<String, Arc<dyn Command>>,
+    sinks: IndexMap<String, Arc<dyn Sink>>,
     crate host: Arc<Mutex<dyn Host + Send>>,
     crate env: Arc<Mutex<Environment>>,
 }
@@ -15,6 +19,7 @@ impl Context {
     crate fn basic() -> Result<Context, Box<dyn Error>> {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
+            sinks: indexmap::IndexMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             env: Arc::new(Mutex::new(Environment::basic()?)),
         })
@@ -24,6 +29,40 @@ impl Context {
         for command in commands {
             self.commands.insert(command.name().to_string(), command);
         }
+    }
+
+    pub fn add_sinks(&mut self, sinks: Vec<Arc<dyn Sink>>) {
+        for sink in sinks {
+            self.sinks.insert(sink.name().to_string(), sink);
+        }
+    }
+
+    pub fn clone_sinks(&self) -> indexmap::IndexMap<String, Arc<dyn Sink>> {
+        self.sinks.clone()
+    }
+
+    crate fn has_sink(&self, name: &str) -> bool {
+        self.sinks.contains_key(name)
+    }
+
+    crate fn get_sink(&self, name: &str) -> Arc<dyn Sink> {
+        self.sinks.get(name).unwrap().clone()
+    }
+
+    crate fn run_sink(
+        &mut self,
+        command: Arc<dyn Sink>,
+        args: Args,
+        input: Vec<Value>,
+    ) -> Result<(), ShellError> {
+        let command_args = SinkCommandArgs {
+            ctx: self.clone(),
+            positional: args.positional,
+            named: args.named,
+            input,
+        };
+
+        command.run(command_args)
     }
 
     pub fn clone_commands(&self) -> indexmap::IndexMap<String, Arc<dyn Command>> {

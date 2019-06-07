@@ -1,4 +1,4 @@
-use crate::format::{EntriesView, RenderView, TableView};
+use crate::format::{EntriesView, ListView, RenderView, TableView};
 use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;

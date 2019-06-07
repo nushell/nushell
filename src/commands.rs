@@ -1,4 +1,5 @@
 crate mod args;
+crate mod autoview;
 crate mod cd;
 crate mod classified;
 crate mod command;
