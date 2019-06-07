@@ -4,13 +4,13 @@ use crate::object::DataDescriptor;
 use crate::object::{Primitive, Value};
 use derive_new::new;
 use indexmap::IndexMap;
+use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_derive::Deserialize;
-use serde::ser::{Serialize, Serializer, SerializeMap};
 use std::cmp::{Ordering, PartialOrd};
 
 #[derive(Debug, Default, Eq, PartialEq, Deserialize, Clone, new)]
 pub struct Dictionary {
-    entries: IndexMap<DataDescriptor, Value>,
+    pub entries: IndexMap<DataDescriptor, Value>,
 }
 
 impl PartialOrd for Dictionary {
@@ -28,8 +28,8 @@ impl Serialize for Dictionary {
         let mut map = serializer.serialize_map(Some(self.entries.len()))?;
         for (k, v) in self.entries.iter() {
             match v {
-                Value::Object(_) => {},
-                _ => map.serialize_entry(k, v)?
+                Value::Object(_) => {}
+                _ => map.serialize_entry(k, v)?,
             }
         }
         for (k, v) in self.entries.iter() {

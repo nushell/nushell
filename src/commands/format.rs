@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::{EntriesListView, GenericView};
+use crate::{EntriesListView, GenericView, TreeView};
 use futures::stream::{self, StreamExt};
 use std::sync::{Arc, Mutex};
 

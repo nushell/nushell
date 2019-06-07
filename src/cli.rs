@@ -1,6 +1,6 @@
-use crate::commands::autoview;
 use crate::commands::classified::SinkCommand;
 use crate::commands::command::sink;
+use crate::commands::{autoview, tree};
 
 use crate::prelude::*;
 
@@ -72,7 +72,10 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("sort-by", sort_by::sort_by),
         ]);
 
-        context.add_sinks(vec![sink("autoview", autoview::autoview)]);
+        context.add_sinks(vec![
+            sink("autoview", autoview::autoview),
+            sink("tree", tree::tree),
+        ]);
     }
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
