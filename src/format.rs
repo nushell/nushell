@@ -2,12 +2,15 @@ crate mod entries;
 crate mod generic;
 crate mod list;
 crate mod table;
+crate mod tree;
 
 use crate::prelude::*;
 
 crate use entries::{EntriesListView, EntriesView};
 crate use generic::GenericView;
+crate use list::ListView;
 crate use table::TableView;
+crate use tree::TreeView;
 
 crate trait RenderView {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError>;

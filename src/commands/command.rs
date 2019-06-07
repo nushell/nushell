@@ -2,6 +2,7 @@ use crate::errors::ShellError;
 use crate::object::Value;
 use crate::parser::CommandConfig;
 use crate::prelude::*;
+use core::future::Future;
 use std::path::PathBuf;
 
 pub struct CommandArgs {
@@ -21,6 +22,28 @@ impl CommandArgs {
         CommandArgs {
             host: ctx.host.clone(),
             env: ctx.env.clone(),
+            positional,
+            named: indexmap::IndexMap::default(),
+            input,
+        }
+    }
+}
+
+pub struct SinkCommandArgs {
+    pub ctx: Context,
+    pub positional: Vec<Value>,
+    pub named: indexmap::IndexMap<String, Value>,
+    pub input: Vec<Value>,
+}
+
+impl SinkCommandArgs {
+    crate fn from_context(
+        ctx: &'caller mut Context,
+        positional: Vec<Value>,
+        input: Vec<Value>,
+    ) -> SinkCommandArgs {
+        SinkCommandArgs {
+            ctx: ctx.clone(),
             positional,
             named: indexmap::IndexMap::default(),
             input,
@@ -60,6 +83,21 @@ pub trait Command {
     }
 }
 
+pub trait Sink {
+    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError>;
+    fn name(&self) -> &str;
+
+    fn config(&self) -> CommandConfig {
+        CommandConfig {
+            name: self.name().to_string(),
+            mandatory_positional: vec![],
+            optional_positional: vec![],
+            rest_positional: true,
+            named: indexmap::IndexMap::new(),
+        }
+    }
+}
+
 pub struct FnCommand {
     name: String,
     func: fn(CommandArgs) -> Result<OutputStream, ShellError>,
@@ -80,6 +118,28 @@ pub fn command(
     func: fn(CommandArgs) -> Result<OutputStream, ShellError>,
 ) -> Arc<dyn Command> {
     Arc::new(FnCommand {
+        name: name.to_string(),
+        func,
+    })
+}
+
+pub struct FnSink {
+    name: String,
+    func: fn(SinkCommandArgs) -> Result<(), ShellError>,
+}
+
+impl Sink for FnSink {
+    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError> {
+        (self.func)(args)
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+pub fn sink(name: &str, func: fn(SinkCommandArgs) -> Result<(), ShellError>) -> Arc<dyn Sink> {
+    Arc::new(FnSink {
         name: name.to_string(),
         func,
     })

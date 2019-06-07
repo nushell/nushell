@@ -1,3 +1,7 @@
+use crate::commands::classified::SinkCommand;
+use crate::commands::command::sink;
+use crate::commands::{autoview, tree};
+
 use crate::prelude::*;
 
 use crate::commands::classified::{
@@ -7,17 +11,16 @@ use crate::commands::classified::{
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
-crate use crate::format::{EntriesListView, GenericView};
+
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::ast::{Expression, Leaf, RawExpression};
 use crate::parser::{Args, Pipeline};
-use crate::stream::empty_stream;
 
 use log::debug;
 use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
-use std::collections::VecDeque;
+
 use std::error::Error;
 use std::iter::Iterator;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -44,7 +47,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            command("format-list", format_list),
             command("ps", ps::ps),
             command("ls", ls::ls),
             command("cd", cd::cd),
@@ -68,6 +70,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Where),
             Arc::new(Config),
             command("sort-by", sort_by::sort_by),
+        ]);
+
+        context.add_sinks(vec![
+            sink("autoview", autoview::autoview),
+            sink("tree", tree::tree),
         ]);
     }
 
@@ -212,7 +219,19 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let pipeline = classify_pipeline(&result, ctx)?;
+            let mut pipeline = classify_pipeline(&result, ctx)?;
+
+            match pipeline.commands.last() {
+                Some(ClassifiedCommand::Sink(_)) => {}
+                Some(ClassifiedCommand::External(_)) => {}
+                _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
+                    command: sink("autoview", autoview::autoview),
+                    args: Args {
+                        positional: vec![],
+                        named: indexmap::IndexMap::new(),
+                    },
+                })),
+            }
 
             let mut input = ClassifiedInputStream::new();
 
@@ -237,9 +256,30 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         ))
                     }
 
+                    (Some(ClassifiedCommand::Sink(_)), Some(_)) => {
+                        return LineResult::Error(ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
+                    }
+
+                    (Some(ClassifiedCommand::Sink(left)), None) => {
+                        let input_vec: Vec<Value> = input.objects.collect().await;
+                        left.run(
+                            ctx,
+                            input_vec,
+                        )?;
+                        break;
+                    }
+
                     (
                         Some(ClassifiedCommand::Internal(left)),
-                        Some(ClassifiedCommand::Internal(_)),
+                        Some(ClassifiedCommand::External(_)),
+                    ) => match left.run(ctx, input).await {
+                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                        Err(err) => return LineResult::Error(err),
+                    },
+
+                    (
+                        Some(ClassifiedCommand::Internal(left)),
+                        Some(_),
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(err),
@@ -261,16 +301,8 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     },
 
                     (
-                        Some(ClassifiedCommand::Internal(left)),
-                        Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input).await {
-                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(err),
-                    },
-
-                    (
                         Some(ClassifiedCommand::External(left)),
-                        Some(ClassifiedCommand::Internal(_)),
+                        Some(_),
                     ) => match left.run(ctx, input, StreamNext::Internal).await {
                         Ok(val) => val,
                         Err(err) => return LineResult::Error(err),
@@ -282,21 +314,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Err(err) => return LineResult::Error(err),
                         }
                     }
-                }
-            }
-
-            let input_vec: VecDeque<_> = input.objects.collect().await;
-
-            if input_vec.len() > 0 {
-                if equal_shapes(&input_vec) {
-                    let array = crate::commands::stream_to_array(input_vec.boxed()).await;
-                    let args = CommandArgs::from_context(ctx, vec![], array);
-                    let mut result = format(args);
-                    let mut vec = vec![];
-                    vec.send_all(&mut result).await?;
-                } else {
-                    let args = CommandArgs::from_context(ctx, vec![], input_vec.boxed());
-                    format(args).collect::<Vec<_>>().await;
                 }
             }
 
@@ -365,17 +382,31 @@ fn classify_command(
                         args,
                     }))
                 }
-                false => {
-                    let arg_list_strings: Vec<String> = match args {
-                        Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
-                        None => vec![],
-                    };
+                false => match context.has_sink(&name.to_string()) {
+                    true => {
+                        let command = context.get_sink(&name.to_string());
+                        let config = command.config();
+                        let scope = Scope::empty();
 
-                    Ok(ClassifiedCommand::External(ExternalCommand {
-                        name: name.to_string(),
-                        args: arg_list_strings,
-                    }))
-                }
+                        let args = match args {
+                            Some(args) => config.evaluate_args(args.iter(), &scope)?,
+                            None => Args::default(),
+                        };
+
+                        Ok(ClassifiedCommand::Sink(SinkCommand { command, args }))
+                    }
+                    false => {
+                        let arg_list_strings: Vec<String> = match args {
+                            Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
+                            None => vec![],
+                        };
+
+                        Ok(ClassifiedCommand::External(ExternalCommand {
+                            name: name.to_string(),
+                            args: arg_list_strings,
+                        }))
+                    }
+                },
             },
 
             (_, None) => Err(ShellError::string(
@@ -389,65 +420,4 @@ fn classify_command(
             command
         )))
     }
-}
-
-crate fn format(args: CommandArgs) -> OutputStream {
-    let host = args.host.clone();
-    let input = args.input.map(|a| a.copy());
-    let input = input.collect::<Vec<_>>();
-
-    input
-        .then(move |input| {
-            let last = input.len() - 1;
-            let mut host = host.lock().unwrap();
-            for (i, item) in input.iter().enumerate() {
-                let view = GenericView::new(item);
-
-                handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
-
-                if last != i {
-                    host.stdout("");
-                }
-            }
-
-            futures::future::ready(empty_stream())
-        })
-        .flatten_stream()
-        .boxed()
-}
-
-crate fn format_list(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let host = args.host.clone();
-
-    let view = EntriesListView::from_stream(args.input);
-
-    Ok(view
-        .then(move |view| {
-            handle_unexpected(&mut *host.lock().unwrap(), |host| {
-                crate::format::print_view(&view, host)
-            });
-
-            futures::future::ready(empty_stream())
-        })
-        .flatten_stream()
-        .boxed())
-}
-
-fn equal_shapes(input: &VecDeque<Value>) -> bool {
-    let mut items = input.iter();
-
-    let item = match items.next() {
-        Some(item) => item,
-        None => return false,
-    };
-
-    let desc = item.data_descriptors();
-
-    for item in items {
-        if desc != item.data_descriptors() {
-            return false;
-        }
-    }
-
-    true
 }

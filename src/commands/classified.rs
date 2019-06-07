@@ -1,3 +1,4 @@
+use crate::commands::command::Sink;
 use crate::parser::ast::Expression;
 use crate::parser::registry::Args;
 use crate::prelude::*;
@@ -79,7 +80,19 @@ crate enum ClassifiedCommand {
     #[allow(unused)]
     Expr(Expression),
     Internal(InternalCommand),
+    Sink(SinkCommand),
     External(ExternalCommand),
+}
+
+crate struct SinkCommand {
+    crate command: Arc<dyn Sink>,
+    crate args: Args,
+}
+
+impl SinkCommand {
+    crate fn run(self, context: &mut Context, input: Vec<Value>) -> Result<(), ShellError> {
+        context.run_sink(self.command, self.args, input)
+    }
 }
 
 crate struct InternalCommand {

@@ -1,4 +1,5 @@
 crate mod args;
+crate mod autoview;
 crate mod cd;
 crate mod classified;
 crate mod command;
@@ -21,11 +22,12 @@ crate mod split_row;
 crate mod to_array;
 crate mod to_json;
 crate mod to_toml;
+crate mod tree;
 crate mod trim;
 crate mod view;
 crate mod where_;
 
 crate use command::command;
 crate use config::Config;
-crate use to_array::stream_to_array;
+
 crate use where_::Where;
