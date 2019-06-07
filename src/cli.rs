@@ -1,6 +1,6 @@
+use crate::commands::autoview;
 use crate::commands::classified::SinkCommand;
 use crate::commands::command::sink;
-use crate::commands::{autoview, tree};
 
 use crate::prelude::*;
 
@@ -74,6 +74,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         context.add_sinks(vec![
             sink("autoview", autoview::autoview),
+            sink("clipboard", clipboard::clipboard),
             sink("tree", tree::tree),
         ]);
     }
