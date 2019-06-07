@@ -223,6 +223,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             match pipeline.commands.last() {
                 Some(ClassifiedCommand::Sink(_)) => {}
+                Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
                     command: sink("autoview", autoview::autoview),
                     args: Args {
