@@ -75,6 +75,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         context.add_sinks(vec![
             sink("autoview", autoview::autoview),
             sink("clip", clip::clip),
+            sink("save", save::save),
             sink("tree", tree::tree),
         ]);
     }
