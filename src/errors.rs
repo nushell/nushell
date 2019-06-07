@@ -2,7 +2,7 @@ use crate::parser::lexer::{Span, SpannedToken};
 #[allow(unused)]
 use crate::prelude::*;
 use derive_new::new;
-use language_reporting::Diagnostic;
+use language_reporting::{Diagnostic, Label, Severity};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::{Deserialize, Serialize};
 
@@ -11,13 +11,12 @@ pub enum ShellError {
     String(StringError),
     TypeError(String),
     MissingProperty { subpath: String, expr: String },
-    Diagnostic(ShellDiagnostic, String),
+    Diagnostic(ShellDiagnostic),
 }
 
 impl ShellError {
     crate fn parse_error(
         error: lalrpop_util::ParseError<usize, SpannedToken, ShellError>,
-        source: String,
     ) -> ShellError {
         use lalrpop_util::ParseError;
         use language_reporting::*;
@@ -33,15 +32,26 @@ impl ShellError {
                 )
                 .with_label(Label::new_primary(Span::from((start, end))));
 
-                ShellError::diagnostic(diagnostic, source)
+                ShellError::diagnostic(diagnostic)
             }
-
+            ParseError::User { error } => error,
             other => ShellError::string(format!("{:?}", other)),
         }
     }
 
-    crate fn diagnostic(diagnostic: Diagnostic<Span>, source: String) -> ShellError {
-        ShellError::Diagnostic(ShellDiagnostic { diagnostic }, source)
+    crate fn diagnostic(diagnostic: Diagnostic<Span>) -> ShellError {
+        ShellError::Diagnostic(ShellDiagnostic { diagnostic })
+    }
+
+    crate fn labeled_error(
+        msg: impl Into<String>,
+        label: impl Into<String>,
+        span: Span,
+    ) -> ShellError {
+        ShellError::diagnostic(
+            Diagnostic::new(Severity::Error, msg.into())
+                .with_label(Label::new_primary(span).with_message(label.into())),
+        )
     }
 
     crate fn string(title: impl Into<String>) -> ShellError {
@@ -134,7 +144,7 @@ impl std::fmt::Display for ShellError {
             ShellError::String(s) => write!(f, "{}", &s.title),
             ShellError::TypeError { .. } => write!(f, "TypeError"),
             ShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
-            ShellError::Diagnostic(_, _) => write!(f, "<diagnostic>"),
+            ShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
         }
     }
 }

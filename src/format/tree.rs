@@ -21,7 +21,9 @@ pub struct TreeView {
 impl TreeView {
     fn from_value_helper(value: &Value, mut builder: &mut TreeBuilder) {
         match value {
-            Value::Primitive(p) => builder = builder.add_empty_child(p.format(None)),
+            Value::Primitive(p) => {
+                let _ = builder.add_empty_child(p.format(None));
+            }
             Value::Object(o) => {
                 for (k, v) in o.entries.iter() {
                     builder = builder.begin_child(k.name.display().to_string());

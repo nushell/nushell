@@ -7,7 +7,7 @@ crate use crate::errors::ShellError;
 crate use crate::object::Value;
 crate use crate::parser::ast;
 crate use crate::stream::{single_output, InputStream, OutputStream};
-crate use futures::{FutureExt, SinkExt, StreamExt};
+crate use futures::{FutureExt, StreamExt};
 crate use std::collections::VecDeque;
 crate use std::pin::Pin;
 crate use std::sync::{Arc, Mutex};

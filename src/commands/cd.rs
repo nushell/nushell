@@ -11,12 +11,34 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
         },
         Some(v) => {
             let target = v.as_string()?.clone();
-            dunce::canonicalize(cwd.join(&target).as_path())?
+            match dunce::canonicalize(cwd.join(&target).as_path()) {
+                Ok(p) => p,
+                Err(_) => {
+                    return Err(ShellError::labeled_error(
+                        "Can not change to directory",
+                        "directory not found",
+                        args.positional[0].span.clone(),
+                    ));
+                }
+            }
         }
     };
 
     let mut stream = VecDeque::new();
-    let _ = env::set_current_dir(&path);
+    match env::set_current_dir(&path) {
+        Ok(_) => {}
+        Err(_) => {
+            if args.positional.len() > 0 {
+                return Err(ShellError::labeled_error(
+                    "Can not change to directory",
+                    "directory not found",
+                    args.positional[0].span.clone(),
+                ));
+            } else {
+                return Err(ShellError::string("Can not change to directory"));
+            }
+        }
+    }
     stream.push_back(ReturnValue::change_cwd(path));
     Ok(stream.boxed())
 }

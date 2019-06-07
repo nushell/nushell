@@ -20,8 +20,16 @@ fn get_member(path: &str, obj: &Value) -> Option<Value> {
 }
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.is_empty() {
-        return Err(ShellError::string("select requires a field"));
+    if args.positional.len() == 0 {
+        if let Some(span) = args.name_span {
+            return Err(ShellError::labeled_error(
+                "Get requires a field or field path",
+                "needs parameter",
+                span,
+            ));
+        } else {
+            return Err(ShellError::string("get requires fields."));
+        }
     }
 
     let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();

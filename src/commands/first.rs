@@ -4,7 +4,30 @@ use crate::prelude::*;
 // TODO: "Amount remaining" wrapper
 
 pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let amount = args.positional[0].as_i64()?;
+    if args.positional.len() == 0 {
+        if let Some(span) = args.name_span {
+            return Err(ShellError::labeled_error(
+                "First requires an amount",
+                "needs parameter",
+                span,
+            ));
+        } else {
+            return Err(ShellError::string("first requires an amount."));
+        }
+    }
+
+    let amount = args.positional[0].as_i64();
+
+    let amount = match amount {
+        Ok(o) => o,
+        Err(_) => {
+            return Err(ShellError::labeled_error(
+                "Value is not a number",
+                "expected integer",
+                args.positional[0].span,
+            ))
+        }
+    };
 
     let input = args.input;
 

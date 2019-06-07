@@ -122,11 +122,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(line.clone());
             }
 
-            LineResult::Error(err) => match err {
-                ShellError::Diagnostic(diag, source) => {
+            LineResult::Error(mut line, err) => match err {
+                ShellError::Diagnostic(diag) => {
                     let host = context.host.lock().unwrap();
                     let writer = host.err_termcolor();
-                    let files = crate::parser::span::Files::new(source);
+                    line.push_str(" ");
+                    let files = crate::parser::span::Files::new(line);
 
                     language_reporting::emit(
                         &mut writer.lock(),
@@ -149,7 +150,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     .unwrap()
                     .stdout(&format!("Missing property {}", subpath)),
 
-                ShellError::String(s) => context.host.lock().unwrap().stdout(&format!("{:?}", s)),
+                ShellError::String(_) => context.host.lock().unwrap().stdout(&format!("{}", err)),
             },
 
             LineResult::Break => {
@@ -172,7 +173,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
 enum LineResult {
     Success(String),
-    Error(ShellError),
+    Error(String, ShellError),
     Break,
 
     #[allow(unused)]
@@ -186,13 +187,13 @@ impl std::ops::Try for LineResult {
     fn into_result(self) -> Result<Option<String>, ShellError> {
         match self {
             LineResult::Success(s) => Ok(Some(s)),
-            LineResult::Error(s) => Err(s),
+            LineResult::Error(_, s) => Err(s),
             LineResult::Break => Ok(None),
             LineResult::FatalError(err) => Err(err),
         }
     }
     fn from_error(v: ShellError) -> Self {
-        LineResult::Error(v)
+        LineResult::Error(String::new(), v)
     }
 
     fn from_ok(v: Option<String>) -> Self {
@@ -212,7 +213,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) => {
             let result = match crate::parser::parse(&line) {
                 Err(err) => {
-                    return LineResult::Error(err);
+                    return LineResult::Error(line.to_string(), err);
                 }
 
                 Ok(val) => val,
@@ -228,6 +229,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
                     command: sink("autoview", autoview::autoview),
+                    name_span: None,
                     args: Args {
                         positional: vec![],
                         named: indexmap::IndexMap::new(),
@@ -247,19 +249,19 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (None, _) => break,
 
                     (Some(ClassifiedCommand::Expr(_)), _) => {
-                        return LineResult::Error(ShellError::unimplemented(
+                        return LineResult::Error(line.to_string(), ShellError::unimplemented(
                             "Expression-only commands",
                         ))
                     }
 
                     (_, Some(ClassifiedCommand::Expr(_))) => {
-                        return LineResult::Error(ShellError::unimplemented(
+                        return LineResult::Error(line.to_string(), ShellError::unimplemented(
                             "Expression-only commands",
                         ))
                     }
 
                     (Some(ClassifiedCommand::Sink(_)), Some(_)) => {
-                        return LineResult::Error(ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
+                        return LineResult::Error(line.to_string(), ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
@@ -276,7 +278,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (
@@ -284,13 +286,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(_),
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
                         match left.run(ctx, input).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
@@ -299,7 +301,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input, StreamNext::External).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (
@@ -307,13 +309,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(_),
                     ) => match left.run(ctx, input, StreamNext::Internal).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
                 }
@@ -321,7 +323,9 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             LineResult::Success(line.to_string())
         }
-        Err(ReadlineError::Interrupted) => LineResult::Error(ShellError::string("CTRL-C")),
+        Err(ReadlineError::Interrupted) => {
+            LineResult::Error("".to_string(), ShellError::string("CTRL-C"))
+        }
         Err(ReadlineError::Eof) => {
             println!("CTRL-D");
             LineResult::Break
@@ -365,7 +369,7 @@ fn classify_command(
             (
                 Expression {
                     expr: RawExpression::Leaf(Leaf::Bare(name)),
-                    ..
+                    span,
                 },
                 args,
             ) => match context.has_command(&name.to_string()) {
@@ -381,6 +385,7 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
+                        name_span: Some(span.clone()),
                         args,
                     }))
                 }
@@ -395,7 +400,11 @@ fn classify_command(
                             None => Args::default(),
                         };
 
-                        Ok(ClassifiedCommand::Sink(SinkCommand { command, args }))
+                        Ok(ClassifiedCommand::Sink(SinkCommand {
+                            command,
+                            name_span: Some(span.clone()),
+                            args,
+                        }))
                     }
                     false => {
                         let arg_list_strings: Vec<String> = match args {

@@ -26,7 +26,7 @@ pub fn parse(input: &str) -> Result<Pipeline, ShellError> {
 
     match parser.parse(tokens) {
         Ok(val) => Ok(val),
-        Err(err) => Err(ShellError::parse_error(err, input.to_string())),
+        Err(err) => Err(ShellError::parse_error(err)),
     }
 }
 
@@ -39,11 +39,11 @@ mod tests {
     fn assert_parse(source: &str, expected: Pipeline) {
         let parsed = match parse(source) {
             Ok(p) => p,
-            Err(ShellError::Diagnostic(diag, source)) => {
+            Err(ShellError::Diagnostic(diag)) => {
                 use language_reporting::termcolor;
 
                 let writer = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
-                let files = crate::parser::span::Files::new(source);
+                let files = crate::parser::span::Files::new(source.to_string());
 
                 language_reporting::emit(
                     &mut writer.lock(),

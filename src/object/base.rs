@@ -2,6 +2,7 @@ use crate::errors::ShellError;
 use crate::evaluate::{evaluate_expr, Scope};
 use crate::object::DataDescriptor;
 use crate::parser::ast::{self, Operator};
+use crate::parser::lexer::Spanned;
 use crate::prelude::*;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
@@ -142,7 +143,7 @@ impl Deserialize<'de> for Block {
 }
 
 impl Block {
-    pub fn invoke(&self, value: &Value) -> Result<Value, ShellError> {
+    pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
         let scope = Scope::new(value.copy());
         evaluate_expr(&self.expression, &scope)
     }
