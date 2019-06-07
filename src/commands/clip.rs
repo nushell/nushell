@@ -2,7 +2,7 @@ use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
 use clipboard::{ClipboardContext, ClipboardProvider};
 
-pub fn clipboard(args: SinkCommandArgs) -> Result<(), ShellError> {
+pub fn clip(args: SinkCommandArgs) -> Result<(), ShellError> {
     let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
     let mut new_copy_data = String::new();
     if args.input.len() > 0 {
