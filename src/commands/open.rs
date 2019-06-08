@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        return Err(ShellError::string("open requires a filepath"));
+        return Err(ShellError::string("open requires a filepath or url"));
     }
 
     let cwd = args.env.lock().unwrap().cwd().to_path_buf();
@@ -14,15 +14,38 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let contents = match &args.positional[0].item {
         Value::Primitive(Primitive::String(s)) => {
-            full_path.push(Path::new(&s));
-            match std::fs::read_to_string(&full_path) {
-                Ok(s) => s,
-                Err(_) => {
-                    return Err(ShellError::labeled_error(
-                        "File cound not be opened",
-                        "file not found",
-                        args.positional[0].span,
-                    ));
+            if s.starts_with("http:") || s.starts_with("https:") {
+                let response = reqwest::get(s);
+                match response {
+                    Ok(mut r) => match r.text() {
+                        Ok(s) => s,
+                        Err(_) => {
+                            return Err(ShellError::labeled_error(
+                                "Web page contents corrupt",
+                                "received garbled data",
+                                args.positional[0].span,
+                            ));
+                        }
+                    },
+                    Err(_) => {
+                        return Err(ShellError::labeled_error(
+                            "URL could not be opened",
+                            "url not found",
+                            args.positional[0].span,
+                        ));
+                    }
+                }
+            } else {
+                full_path.push(Path::new(&s));
+                match std::fs::read_to_string(&full_path) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        return Err(ShellError::labeled_error(
+                            "File cound not be opened",
+                            "file not found",
+                            args.positional[0].span,
+                        ));
+                    }
                 }
             }
         }

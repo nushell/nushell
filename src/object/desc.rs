@@ -1,7 +1,6 @@
 use crate::object::types::Type;
 use derive_new::new;
-use serde::{Serialize, Serializer};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub enum DescriptorName {
