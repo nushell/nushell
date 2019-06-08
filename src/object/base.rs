@@ -12,7 +12,6 @@ use ordered_float::OrderedFloat;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new)]
 pub struct OF64 {

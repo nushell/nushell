@@ -4,7 +4,6 @@ use crate::prelude::*;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ShellError {
