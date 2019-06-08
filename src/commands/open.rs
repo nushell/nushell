@@ -12,13 +12,25 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let cwd = args.env.lock().unwrap().cwd().to_path_buf();
     let mut full_path = PathBuf::from(cwd);
 
-    let contents = match &args.positional[0].item {
+    let (file_extension, contents) = match &args.positional[0].item {
         Value::Primitive(Primitive::String(s)) => {
             if s.starts_with("http:") || s.starts_with("https:") {
                 let response = reqwest::get(s);
                 match response {
                     Ok(mut r) => match r.text() {
-                        Ok(s) => s,
+                        Ok(s) => {
+                            let fname = r
+                                .url()
+                                .path_segments()
+                                .and_then(|segments| segments.last())
+                                .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                                .and_then(|name| {
+                                    PathBuf::from(name)
+                                        .extension()
+                                        .map(|name| name.to_string_lossy().to_string())
+                                });
+                            (fname, s)
+                        }
                         Err(_) => {
                             return Err(ShellError::labeled_error(
                                 "Web page contents corrupt",
@@ -38,7 +50,12 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
             } else {
                 full_path.push(Path::new(&s));
                 match std::fs::read_to_string(&full_path) {
-                    Ok(s) => s,
+                    Ok(s) => (
+                        full_path
+                            .extension()
+                            .map(|name| name.to_string_lossy().to_string()),
+                        s,
+                    ),
                     Err(_) => {
                         return Err(ShellError::labeled_error(
                             "File cound not be opened",
@@ -75,7 +92,7 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => false,
     };
 
-    match full_path.extension() {
+    match file_extension {
         Some(x) if x == "toml" && !open_raw => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_toml::from_toml_string_to_value(contents),
