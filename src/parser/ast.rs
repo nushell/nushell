@@ -527,7 +527,7 @@ impl RawExpression {
 
     crate fn as_string(&self) -> Option<String> {
         match self {
-            RawExpression::Leaf(Leaf::String(s)) => Some(s.to_string()),
+            RawExpression::Leaf(Leaf::String(s)) => Some(s.clone()),
             RawExpression::Leaf(Leaf::Bare(path)) => Some(path.to_string()),
             _ => None,
         }
@@ -737,9 +737,9 @@ impl Leaf {
     fn as_external_arg(&self) -> String {
         match self {
             Leaf::String(s) => format!("\"{}\"", s),
-            Leaf::Bare(path) => format!("{}", path.to_string()),
-            Leaf::Boolean(b) => format!("{}", b),
-            Leaf::Int(i) => format!("{}", i),
+            Leaf::Bare(path) => path.to_string(),
+            Leaf::Boolean(b) => b.to_string(),
+            Leaf::Int(i) => i.to_string(),
             Leaf::Unit(i, unit) => format!("{}{:?}", i, unit),
         }
     }
