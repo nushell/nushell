@@ -110,7 +110,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         let readline = rl.readline(&format!(
             "{}{}> ",
-            context.env.lock().unwrap().cwd().display().to_string(),
+            context.env.lock().unwrap().cwd().display(),
             match current_branch() {
                 Some(s) => format!("({})", s),
                 None => "".to_string(),
@@ -213,7 +213,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) => {
             let result = match crate::parser::parse(&line) {
                 Err(err) => {
-                    return LineResult::Error(line.to_string(), err);
+                    return LineResult::Error(line.clone(), err);
                 }
 
                 Ok(val) => val,
@@ -249,19 +249,19 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (None, _) => break,
 
                     (Some(ClassifiedCommand::Expr(_)), _) => {
-                        return LineResult::Error(line.to_string(), ShellError::unimplemented(
+                        return LineResult::Error(line.clone(), ShellError::unimplemented(
                             "Expression-only commands",
                         ))
                     }
 
                     (_, Some(ClassifiedCommand::Expr(_))) => {
-                        return LineResult::Error(line.to_string(), ShellError::unimplemented(
+                        return LineResult::Error(line.clone(), ShellError::unimplemented(
                             "Expression-only commands",
                         ))
                     }
 
                     (Some(ClassifiedCommand::Sink(_)), Some(_)) => {
-                        return LineResult::Error(line.to_string(), ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
+                        return LineResult::Error(line.clone(), ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
@@ -278,7 +278,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.to_string(), err),
+                        Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (
@@ -286,13 +286,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(_),
                     ) => match left.run(ctx, input).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.to_string(), err),
+                        Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
                         match left.run(ctx, input).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.to_string(), err),
+                            Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
 
@@ -301,7 +301,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input, StreamNext::External).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.to_string(), err),
+                        Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (
@@ -309,19 +309,19 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(_),
                     ) => match left.run(ctx, input, StreamNext::Internal).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.to_string(), err),
+                        Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.to_string(), err),
+                            Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
                 }
             }
 
-            LineResult::Success(line.to_string())
+            LineResult::Success(line.clone())
         }
         Err(ReadlineError::Interrupted) => {
             LineResult::Error("".to_string(), ShellError::string("CTRL-C"))

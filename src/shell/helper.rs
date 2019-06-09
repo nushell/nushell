@@ -47,7 +47,7 @@ impl Hinter for Helper {
 }
 
 impl Highlighter for Helper {
-    fn highlight_prompt<'p>(&self, prompt: &'p str) -> Cow<'p, str> {
+    fn highlight_prompt<'b, 's: 'b, 'p:'b>(&'s self, prompt: &'p str, _: bool) -> Cow<'b, str> {
         Owned("\x1b[32m".to_owned() + &prompt[0..prompt.len() - 2] + "\x1b[m> ")
     }
 

@@ -266,7 +266,7 @@ impl Value {
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
-            Value::Primitive(Primitive::String(s)) => Ok(s.to_string()),
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
