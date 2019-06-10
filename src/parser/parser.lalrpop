@@ -1,7 +1,11 @@
 #![allow(unused)]
 
 use std::str::FromStr;
-use crate::parser::ast::*;
+use crate::parser::ast::expression::*;
+use crate::parser::ast::module::*;
+use crate::parser::ast::parser_utils::*;
+use crate::parser::ast::{ExpressionBuilder, ModuleBuilder};
+
 use crate::prelude::*;
 use crate::parser::lexer::{SpannedToken, Spanned, Span, Token};
 use byte_unit::Byte;
@@ -26,7 +30,73 @@ use byte_unit::Byte;
 
 grammar<'input>;
 
-pub Pipeline: Pipeline = {
+// === MODULES === //
+
+pub Module: Module = {
+    <l: @L> <first:Item> <items: ( ("newline")+ <Item> )*> <r: @R> => ModuleBuilder::spanned_items(concat(first, items), l, r),
+}
+
+Item: Item = {
+    <l: @L> <pipeline:Pipeline> <r: @R> => Spanned::from_item(RawItem::Expression(pipeline), Span::from((l, r))),
+    <l: @L> <function:Function> <r: @R> => Spanned::from_item(RawItem::Function(function), Span::from((l, r))),
+}
+
+// === FUNCTIONS === //
+
+Function: Function = {
+    <l: @L> "function" <bare: CommandName> "start-params"
+        <params: ParameterList>
+    "end-params" <ret: ("->" <Type>)?> <block: Block> <r: @R> => {
+        ModuleBuilder::spanned_function((bare, params, ret, block), l, r)
+    }
+}
+
+ParameterList: Vec<FormalParameter> = {
+    <params: Comma<FormalParameter>> => params
+}
+
+FormalParameter: FormalParameter = {
+    <l: @L> <name: ParameterName> ":" <ty: Type> <r: @R> => ModuleBuilder::spanned_formal_parameter((name, ty), l, r),
+}
+
+ParameterName: ParameterIdentifier = {
+    <l: @L> "-" <b: SpannedBare> <r: @R> => ParameterIdentifier::shorthand(b.map(|b| b.to_string()), (l, r)),
+    <l: @L> "--" <b: SpannedBare> <r: @R> => ParameterIdentifier::flag(b.map(|b| b.to_string()), (l, r)),
+    <l: @L> <var: ParameterVariable> <r: @R> => ParameterIdentifier::var(var, (l, r)),
+}
+
+ParameterVariable: Spanned<Variable> = {
+    <l: @L> "$" <v: "variable"> <r: @R> => Spanned::from_item(ast::Variable::from_string(v.as_slice()), (l, r)),
+}
+
+// === TYPES === //
+
+Type: Spanned<Type> = {
+    <l: @L> <ty: RawType> <r: @R> => Spanned::from_item(ty, (l, r)),
+}
+
+RawType: Type = {
+    "any" => Type::Any,
+    "int" => Type::Int,
+    "decimal" => Type::Decimal,
+    "bytes" => Type::Bytes,
+    "text" => Type::Text,
+    "boolean" => Type::Boolean,
+    "date" => Type::Date,
+
+    // TODO: generics
+    "object" => Type::Object,
+    "list" => Type::List,
+    "block" => Type::Block,
+}
+
+// === EXPRESSIONS === //
+
+pub ReplLine: Pipeline = {
+    <Pipeline> ("newline")*
+}
+
+Pipeline: Pipeline = {
   <l: @L> <first:PipelineElement> <rest: ( "|" <PipelineElement> )*> <r: @R> => Pipeline::from_parts(first, rest, l, r),
 }
 
@@ -57,7 +127,18 @@ Binary: Expression = {
 // In a block, a single bare word is interpreted as a call:
 //
 // foreach { ls }
-Block: Expression = {
+Block: Spanned<Block> = {
+    <l: @L> "{" <expr: SingleExpression> "}" <r: @R> => ExpressionBuilder::spanned_raw_block(expr, l, r),
+    <l: @L> "{" <bare: BareExpression> "}" <r: @R> => {
+        let call = ExpressionBuilder::spanned_call(bare.clone(), bare.span.start, bare.span.end);
+        ExpressionBuilder::spanned_raw_block(call, l, r)
+    }
+}
+
+// In a block, a single bare word is interpreted as a call:
+//
+// foreach { ls }
+BlockExpression: Expression = {
     <l: @L> "{" <expr: SingleExpression> "}" <r: @R> => ExpressionBuilder::spanned_block(expr, l, r),
     <l: @L> "{" <bare: BareExpression> "}" <r: @R> => {
         let call = ExpressionBuilder::spanned_call(bare.clone(), bare.span.start, bare.span.end);
@@ -69,7 +150,7 @@ Block: Expression = {
 // even as the first part of a call.
 MemberHeadExpression: Expression = {
     <LeafExpression> => <>,
-    <Block> => <>,
+    <BlockExpression> => <>,
     <l: @L> "(" <expr: Call> ")" <r: @R> => ExpressionBuilder::spanned_call(expr, l, r),
     <l: @L> "(" <expr: BareExpression> ")" <r: @R> => ExpressionBuilder::spanned_call((expr, vec![]), l, r),
     <l: @L> "(" <expr:Binary> ")" <r: @R> => ExpressionBuilder::spanned_parens(expr, l, r),
@@ -77,7 +158,7 @@ MemberHeadExpression: Expression = {
 
 Expression: Expression = {
     <MemberHeadExpression> => <>,
-    <l: @L> <expr:MemberHeadExpression> <rest: ( "???." <"member"> )+> <r: @R> => ExpressionBuilder::spanned_path((expr, rest.iter().map(|i| i.to_spanned_string()).collect()), l, r),
+    <l: @L> <expr:MemberHeadExpression> <rest: ( "???." <Member> )+> <r: @R> => ExpressionBuilder::spanned_path((expr, rest), l, r),
 }
 
 // An `ArgumentExpression` is an expression that appears in an argument list. It includes all of `Expression`, and
@@ -117,6 +198,14 @@ SpannedOperator: Spanned<Operator> = {
     <l: @L> <op: Operator> <r: @R> => Spanned::from_item(op, Span::from((l, r)))
 }
 
+Newlines: () = {
+    ("newline")+
+}
+
+OptionalNewlines: () = {
+    ("newline")*
+}
+
 // === LOGICAL TOKENS === //
 
 // A logical token may be composed of more than one raw token, but the tokens must be emitted
@@ -129,11 +218,17 @@ Bare: Bare = {
 
 // A member is a special token that represents bare words or string literals immediate
 // following a dot.
-Member: String = {
-    <"member"> => <>.to_string(),
-    <"dqmember"> => <>.to_string(),
-    <"sqmember"> => <>.to_string(),
+Member: Spanned<String> = {
+    <"member"> => <>.to_spanned_string(),
+    <"dqmember"> => <>.to_spanned_string(),
+    <"sqmember"> => <>.to_spanned_string(),
+    <"function"> => <>.to_spanned_string(),
 }
+
+CommandName: Spanned<Bare> = {
+    <l: @L> <name: "command-name"> <r: @R> => Spanned::from_item(Bare::from_string(name.as_slice()), (l, r)),
+}
+
 
 Operator: Operator = {
     "==" => Operator::Equal,
@@ -166,11 +261,42 @@ Var: Expression = {
     <l: @L> "$" <v: "variable"> <r: @R> => ExpressionBuilder::spanned_var(v.as_slice(), l, r),
 }
 
+SpannedBare: Spanned<Bare> = {
+    <l: @L> <bare: Bare> <r: @R> => Spanned::from_item(bare, (l, r)),
+}
+
+// === MACROS === //
+
+Comma<T>: Vec<T> = { // (1)
+    <v:(<T> OptionalNewlines "," OptionalNewlines)*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
+
 extern {
     type Location = usize;
     type Error = ShellError;
 
     enum SpannedToken<'input> {
+        "any" => SpannedToken { token: Token::TyAny, .. },
+        "int" => SpannedToken { token: Token::TyInt, .. },
+        "decimal" => SpannedToken { token: Token::TyDecimal, .. },
+        "bytes" => SpannedToken { token: Token::TyBytes, .. },
+        "text" => SpannedToken { token: Token::TyText, .. },
+        "boolean" => SpannedToken { token: Token::TyBoolean, .. },
+        "date" => SpannedToken { token: Token::TyDate, .. },
+        "object" => SpannedToken { token: Token::TyObject, .. },
+        "list" => SpannedToken { token: Token::TyList, .. },
+        "block" => SpannedToken { token: Token::TyBlock, .. },
+
+        "->" => SpannedToken { token: Token::ReturnArrow, .. },
+        "," => SpannedToken { token: Token::Comma, .. },
+        ":" => SpannedToken { token: Token::Colon, .. },
         "|" => SpannedToken { token: Token::Pipe, .. },
         "(" => SpannedToken { token: Token::OpenParen, .. },
         ")" => SpannedToken { token: Token::CloseParen, .. },
@@ -186,6 +312,9 @@ extern {
         "--" => SpannedToken { token: Token::DashDash, .. },
         "$" => SpannedToken { token: Token::Dollar, .. },
         "???." => SpannedToken { token: Token::PathDot, .. },
+        "command-name" => SpannedToken { token: Token::CommandName, .. },
+        "start-params" => SpannedToken { token: Token::StartParamList, .. },
+        "end-params" => SpannedToken { token: Token::EndParamList, .. },
         "num" => SpannedToken { token: Token::Num, .. },
         "member" => SpannedToken { token: Token::Member, .. },
         "sqmember" => SpannedToken { token: Token::SQMember, .. },
@@ -195,5 +324,7 @@ extern {
         "dqstring" => SpannedToken { token: Token::DQString, .. },
         "sqstring" => SpannedToken { token: Token::SQString, .. },
         "unit" => SpannedToken { token: Token::Unit, .. },
+        "newline" => SpannedToken { token: Token::Newline, .. },
+        "function" => SpannedToken { token: Token::KeywordFunction, .. },
     }
 }

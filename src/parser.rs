@@ -9,14 +9,33 @@ crate use ast::Pipeline;
 crate use registry::{Args, CommandConfig};
 
 use crate::errors::ShellError;
+use ast::Module;
 use lexer::Lexer;
 use log::trace;
-use parser::PipelineParser;
+use parser::{ModuleParser, ReplLineParser};
 
 pub fn parse(input: &str) -> Result<Pipeline, ShellError> {
     let _ = pretty_env_logger::try_init();
 
-    let parser = PipelineParser::new();
+    let parser = ReplLineParser::new();
+    let tokens = Lexer::new(input, false);
+
+    trace!(
+        "Tokens: {:?}",
+        tokens.clone().collect::<Result<Vec<_>, _>>()
+    );
+
+    match parser.parse(tokens) {
+        Ok(val) => Ok(val),
+        Err(err) => Err(ShellError::parse_error(err)),
+    }
+}
+
+#[allow(unused)]
+pub fn parse_module(input: &str) -> Result<Module, ShellError> {
+    let _ = pretty_env_logger::try_init();
+
+    let parser = ModuleParser::new();
     let tokens = Lexer::new(input, false);
 
     trace!(
@@ -38,6 +57,44 @@ mod tests {
 
     fn assert_parse(source: &str, expected: Pipeline) {
         let parsed = match parse(source) {
+            Ok(p) => p,
+            Err(ShellError::Diagnostic(diag)) => {
+                use language_reporting::termcolor;
+
+                let writer = termcolor::StandardStream::stdout(termcolor::ColorChoice::Auto);
+                let files = crate::parser::span::Files::new(source.to_string());
+
+                language_reporting::emit(
+                    &mut writer.lock(),
+                    &files,
+                    &diag.diagnostic,
+                    &language_reporting::DefaultConfig,
+                )
+                .unwrap();
+
+                panic!("Test failed")
+            }
+            Err(err) => panic!("Something went wrong during parse: {:#?}", err),
+        };
+
+        let printed = parsed.print();
+
+        assert_eq!(parsed, expected);
+        assert_eq!(printed, source);
+
+        let span = expected.span;
+
+        let expected_module = ModuleBuilder::spanned_items(
+            vec![Spanned::from_item(RawItem::Expression(expected), span)],
+            span.start,
+            span.end,
+        );
+
+        assert_parse_module(source, expected_module);
+    }
+
+    fn assert_parse_module(source: &str, expected: Module) {
+        let parsed = match parse_module(source) {
             Ok(p) => p,
             Err(ShellError::Diagnostic(diag)) => {
                 use language_reporting::termcolor;
@@ -214,4 +271,8 @@ mod tests {
             ],
         )
     }
+
+    use crate::parser::ast::{ModuleBuilder, RawItem};
+    use crate::parser::lexer::Spanned;
+
 }
