@@ -35,6 +35,8 @@ At the moment, executing a command that isn't identified as a built-in new comma
 | ------------- | ------------- | 
 | from-json | Parse text as .json and create table |
 | from-toml | Parse text as .toml and create table |
+| from-xml | Parse text as .xml and create a table |
+| from-yaml | Parse text as a .yaml/.yml and create a table |
 | split-column sep ...fields | Split row contents across multiple columns via the separator |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
