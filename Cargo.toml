@@ -60,6 +60,7 @@ ptree = "0.2"
 clipboard = "0.5"
 reqwest = "0.9"
 roxmltree = "0.6.0"
+pretty = "0.5.2"
 
 [dependencies.pancurses]
 version = "0.16"
