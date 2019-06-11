@@ -103,6 +103,11 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 crate::commands::from_json::from_json_string_to_value(contents),
             ));
         }
+        Some(x) if x == "xml" && !open_raw => {
+            stream.push_back(ReturnValue::Value(
+                crate::commands::from_xml::from_xml_string_to_value(contents),
+            ));
+        }
         Some(x) if x == "yml" && !open_raw => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_yaml::from_yaml_string_to_value(contents),

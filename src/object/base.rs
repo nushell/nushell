@@ -183,6 +183,18 @@ impl Value {
     crate fn get_data_by_key(&'a self, name: &str) -> Option<&Value> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
+            Value::List(l) => {
+                for item in l {
+                    match item {
+                        Value::Object(o) => match o.get_data_by_key(name) {
+                            Some(v) => return Some(v),
+                            None => {}
+                        }
+                        _ => {}
+                    }
+                }
+                None
+            }
             _ => None,
         }
     }
