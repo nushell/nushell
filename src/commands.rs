@@ -8,6 +8,7 @@ crate mod config;
 crate mod first;
 crate mod from_json;
 crate mod from_toml;
+crate mod from_xml;
 crate mod from_yaml;
 crate mod get;
 crate mod ls;

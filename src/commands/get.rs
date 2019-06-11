@@ -32,6 +32,18 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
+    let amount = args.positional[0].as_i64();
+
+    // If it's a number, get the row instead of the column
+    if let Ok(amount) = amount {
+        return Ok(args
+            .input
+            .skip(amount as u64)
+            .take(1)
+            .map(|v| ReturnValue::Value(v))
+            .boxed());
+    }
+
     let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
