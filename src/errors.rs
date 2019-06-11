@@ -177,8 +177,8 @@ impl std::convert::From<subprocess::PopenError> for ShellError {
     }
 }
 
-impl std::convert::From<nom::Err<(&str, nom::error::ErrorKind)>> for ShellError {
-    fn from(input: nom::Err<(&str, nom::error::ErrorKind)>) -> ShellError {
+impl std::convert::From<nom::Err<(&str, nom::ErrorKind)>> for ShellError {
+    fn from(input: nom::Err<(&str, nom::ErrorKind)>) -> ShellError {
         ShellError::String(StringError {
             title: format!("{:?}", input),
             error: Value::nothing(),

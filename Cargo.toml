@@ -19,7 +19,7 @@ prettytable-rs = "0.8.0"
 itertools = "0.8.0"
 ansi_term = "0.11.0"
 conch-parser = "0.1.1"
-nom = "5.0.0-beta1"
+nom = "4.2.3"
 dunce = "1.0.0"
 indexmap = { version = "1.0.2", features = ["serde-1"] }
 chrono-humanize = "0.0.11"
@@ -60,6 +60,7 @@ ptree = "0.2"
 clipboard = "0.5"
 reqwest = "0.9"
 pretty = "0.5.2"
+nom_locate = "0.3.1"
 
 [dependencies.pancurses]
 version = "0.16"

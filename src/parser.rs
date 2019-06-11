@@ -4,6 +4,7 @@ crate mod lexer;
 crate mod parser;
 crate mod registry;
 crate mod span;
+crate mod parse2;
 
 crate use ast::Pipeline;
 crate use registry::{Args, CommandConfig};
