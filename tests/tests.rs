@@ -65,6 +65,11 @@ mod tests {
     }
 
     #[test]
+    fn open_xml() {
+        test_helper("open_xml");
+    }
+
+    #[test]
     fn json_roundtrip() {
         test_helper("json_roundtrip");
     }
