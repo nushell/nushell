@@ -62,6 +62,9 @@ reqwest = "0.9"
 roxmltree = "0.6.0"
 pretty = "0.5.2"
 nom_locate = "0.3.1"
+derive_more = "0.15.0"
+enum-utils = "0.1.0"
+unicode-xid = "0.1.0"
 
 [dependencies.pancurses]
 version = "0.16"
