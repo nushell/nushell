@@ -2,6 +2,7 @@
 
 use crate::parser::parse2::{flag::*, operator::*, span::*, token_tree::*, tokens::*, unit::*};
 use nom;
+use nom::dbg;
 use nom::types::CompleteStr;
 use nom::*;
 use nom_locate::{position, LocatedSpan};
@@ -102,13 +103,13 @@ named!(pub var( NomSpan ) -> Token,
     )
 );
 
-named!(pub identifier( NomSpan ) -> Spanned<()>,
+named!(pub identifier( NomSpan ) -> Token,
     do_parse!(
             l: position!()
         >>  take_while1!(is_id_start)
         >>  take_while!(is_id_continue)
         >>  r: position!()
-        >>  (Spanned::from_nom((), l, r))
+        >>  (Spanned::from_nom(RawToken::Identifier, l, r))
     )
 );
 
@@ -159,7 +160,7 @@ named!(pub size( NomSpan ) -> Token,
 // )
 
 named!(pub leaf( NomSpan ) -> Token,
-    alt!(size | integer | string | operator | flag | shorthand | bare)
+    alt!(size | integer | string | operator | flag | shorthand | var | bare)
 );
 
 named!(pub leaf_node( NomSpan ) -> TokenNode,
@@ -182,8 +183,23 @@ named!(pub delimited_paren( NomSpan ) -> TokenNode,
     )
 );
 
-named!(pub node( NomSpan ) -> TokenNode,
+named!(pub path( NomSpan ) -> TokenNode,
+    do_parse!(
+            l: position!()
+        >>  head: node1
+        >>  tag!(".")
+        >>  tail: separated_list!(tag!("."), alt!(identifier | string))
+        >>  r: position!()
+        >>  (TokenNode::Path(Spanned::from_nom(PathNode::new(Box::new(head), tail), l, r)))
+    )
+);
+
+named!(pub node1( NomSpan ) -> TokenNode,
     alt!(leaf_node | delimited_paren)
+);
+
+named!(pub node( NomSpan ) -> TokenNode,
+    alt!(path | leaf_node | delimited_paren)
 );
 
 fn int<T>(frag: &str, neg: Option<T>) -> i64 {
@@ -237,6 +253,7 @@ fn is_id_continue(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom_trace::{print_trace, reset_trace};
     use pretty_assertions::assert_eq;
 
     macro_rules! assert_leaf {
@@ -390,6 +407,7 @@ mod tests {
         }
     }
 
+    #[test]
     fn test_variable() {
         assert_leaf! {
             parsers [ var ]
@@ -453,8 +471,101 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_path() {
+        assert_eq!(
+            apply(node, "$it.print"),
+            path(
+                TokenNode::Token(token(RawToken::Variable(Span::from((1, 3))), 0, 3)),
+                vec![token(RawToken::Identifier, 4, 9)],
+                0,
+                9
+            )
+        );
+
+        assert_eq!(
+            apply(node, "$head.part1.part2"),
+            path(
+                TokenNode::Token(token(RawToken::Variable(Span::from((1, 5))), 0, 5)),
+                vec![
+                    token(RawToken::Identifier, 6, 11),
+                    token(RawToken::Identifier, 12, 17)
+                ],
+                0,
+                17
+            )
+        );
+
+        assert_eq!(
+            apply(node, "( hello ).world"),
+            path(
+                delimited(
+                    Delimiter::Paren,
+                    vec![TokenNode::Token(token(RawToken::Bare, 2, 7))],
+                    0,
+                    9
+                ),
+                vec![token(RawToken::Identifier, 10, 15)],
+                0,
+                15
+            )
+        );
+
+        assert_eq!(
+            apply(node, "( hello ).\"world\""),
+            path(
+                delimited(
+                    Delimiter::Paren,
+                    vec![TokenNode::Token(token(RawToken::Bare, 2, 7))],
+                    0,
+                    9
+                ),
+                vec![token(RawToken::String(Span::from((11, 16))), 10, 17)],
+                0,
+                17
+            )
+        );
+    }
+
+    #[test]
+    fn test_nested_path() {
+        assert_eq!(
+            apply(node, "( $it.is.\"great news\".right yep $yep ).\"world\""),
+            path(
+                delimited(
+                    Delimiter::Paren,
+                    vec![
+                        path(
+                            TokenNode::Token(token(RawToken::Variable(Span::from((3, 5))), 2, 5)),
+                            vec![
+                                token(RawToken::Identifier, 6, 8),
+                                token(RawToken::String(Span::from((10, 20))), 9, 21),
+                                token(RawToken::Identifier, 22, 27)
+                            ],
+                            2,
+                            27
+                        ),
+                        leaf_token(RawToken::Bare, 28, 31),
+                        leaf_token(RawToken::Variable(Span::from((33, 36))), 32, 36)
+                    ],
+                    0,
+                    38
+                ),
+                vec![token(RawToken::String(Span::from((40, 45))), 39, 46)],
+                0,
+                46
+            )
+        );
+    }
+
     fn apply<T>(f: impl Fn(NomSpan) -> Result<(NomSpan, T), nom::Err<NomSpan>>, string: &str) -> T {
-        f(NomSpan::new(CompleteStr(string))).unwrap().1
+        match f(NomSpan::new(CompleteStr(string))) {
+            Ok(v) => v.1,
+            Err(other) => {
+                println!("{:?}", other);
+                panic!("No dice");
+            }
+        }
     }
 
     fn span(left: usize, right: usize) -> Span {
@@ -470,6 +581,16 @@ mod tests {
         let node = DelimitedNode::new(delimiter, children);
         let spanned = Spanned::from_item(node, (left, right));
         TokenNode::Delimited(spanned)
+    }
+
+    fn path(head: TokenNode, tail: Vec<Token>, left: usize, right: usize) -> TokenNode {
+        let node = PathNode::new(Box::new(head), tail);
+        let spanned = Spanned::from_item(node, (left, right));
+        TokenNode::Path(spanned)
+    }
+
+    fn leaf_token(token: RawToken, left: usize, right: usize) -> TokenNode {
+        TokenNode::Token(Spanned::from_item(token, (left, right)))
     }
 
     fn token(token: RawToken, left: usize, right: usize) -> Token {

@@ -64,6 +64,7 @@ nom_locate = "0.3.1"
 derive_more = "0.15.0"
 enum-utils = "0.1.0"
 unicode-xid = "0.1.0"
+nom-trace = { version = "0.1.0", git = "https://github.com/pythondude325/nom-trace.git" }
 
 [dependencies.pancurses]
 version = "0.16"
