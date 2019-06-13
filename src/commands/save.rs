@@ -9,7 +9,15 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
         return Err(ShellError::string("save requires a filepath"));
     }
 
-    let cwd = args.ctx.env.lock().unwrap().cwd().to_path_buf();
+    let cwd = args
+        .ctx
+        .env
+        .lock()
+        .unwrap()
+        .first()
+        .unwrap()
+        .path()
+        .to_path_buf();
     let mut full_path = PathBuf::from(cwd);
     match &(args.positional[0].item) {
         Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),

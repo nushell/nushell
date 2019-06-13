@@ -60,6 +60,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-yaml", from_yaml::from_yaml),
             command("get", get::get),
             command("open", open::open),
+            command("enter", enter::enter),
+            command("exit", exit::exit),
             command("pick", pick::pick),
             command("split-column", split_column::split_column),
             command("split-row", split_row::split_row),
@@ -109,14 +111,22 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let readline = rl.readline(&format!(
-            "{}{}> ",
-            context.env.lock().unwrap().cwd().display(),
-            match current_branch() {
-                Some(s) => format!("({})", s),
-                None => "".to_string(),
-            }
-        ));
+        let (obj, cwd) = {
+            let env = context.env.lock().unwrap();
+            let last = env.last().unwrap();
+            (last.obj().clone(), last.path().display().to_string())
+        };
+        let readline = match obj {
+            Value::Filesystem => rl.readline(&format!(
+                "{}{}> ",
+                cwd,
+                match current_branch() {
+                    Some(s) => format!("({})", s),
+                    None => "".to_string(),
+                }
+            )),
+            _ => rl.readline(&format!("{}{}> ", obj.type_name(), cwd)),
+        };
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {

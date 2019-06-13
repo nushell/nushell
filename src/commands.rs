@@ -5,6 +5,8 @@ crate mod classified;
 crate mod clip;
 crate mod command;
 crate mod config;
+crate mod enter;
+crate mod exit;
 crate mod first;
 crate mod from_json;
 crate mod from_toml;

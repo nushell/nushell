@@ -30,7 +30,14 @@ pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let cwd = args.env.lock().unwrap().cwd().to_path_buf();
+    let cwd = args
+        .env
+        .lock()
+        .unwrap()
+        .first()
+        .unwrap()
+        .path()
+        .to_path_buf();
 
     let printer = PrettyPrinter::default()
         .line_numbers(false)
