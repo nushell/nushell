@@ -154,6 +154,7 @@ pub enum Value {
     Object(crate::object::Dictionary),
     List(Vec<Value>),
     Block(Block),
+    Filesystem,
 
     #[allow(unused)]
     Error(Box<ShellError>),
@@ -167,6 +168,7 @@ impl Value {
             Value::List(_) => format!("list"),
             Value::Block(_) => format!("block"),
             Value::Error(_) => format!("error"),
+            Value::Filesystem => format!("filesystem"),
         }
     }
 
@@ -177,6 +179,7 @@ impl Value {
             Value::Block(_) => vec![DataDescriptor::value_of()],
             Value::List(_) => vec![],
             Value::Error(_) => vec![DataDescriptor::value_of()],
+            Value::Filesystem => vec![],
         }
     }
 
@@ -189,7 +192,7 @@ impl Value {
                         Value::Object(o) => match o.get_data_by_key(name) {
                             Some(v) => return Some(v),
                             None => {}
-                        }
+                        },
                         _ => {}
                     }
                 }
@@ -202,6 +205,7 @@ impl Value {
     crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
+            p @ Value::Filesystem => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
@@ -219,6 +223,7 @@ impl Value {
                 Value::List(list)
             }
             Value::Error(e) => Value::Error(Box::new(e.copy_error())),
+            Value::Filesystem => Value::Filesystem,
         }
     }
 
@@ -229,6 +234,7 @@ impl Value {
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
+            Value::Filesystem => format!("<filesystem>"),
         }
     }
 

@@ -9,7 +9,14 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.is_empty() {
         return Err(ShellError::string("size requires at least one file"));
     }
-    let cwd = args.env.lock().unwrap().cwd().to_path_buf();
+    let cwd = args
+        .env
+        .lock()
+        .unwrap()
+        .first()
+        .unwrap()
+        .path()
+        .to_path_buf();
 
     let mut contents = String::new();
 

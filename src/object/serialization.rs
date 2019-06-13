@@ -44,6 +44,7 @@ impl Serialize for Value {
             Value::List(l) => l.serialize(serializer),
             Value::Block(b) => b.serialize(serializer),
             Value::Error(e) => e.serialize(serializer),
+            Value::Filesystem => "".serialize(serializer),
         }
     }
 }

@@ -6,9 +6,9 @@ use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures_codec::{Decoder, Encoder, Framed};
 use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
 use std::sync::Arc;
 use subprocess::Exec;
-
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}
 
@@ -119,8 +119,27 @@ impl InternalCommand {
 
         let stream = result.filter_map(move |v| match v {
             ReturnValue::Action(action) => match action {
-                CommandAction::ChangeCwd(cwd) => {
-                    env.lock().unwrap().cwd = cwd;
+                CommandAction::ChangePath(path) => {
+                    env.lock().unwrap().last_mut().map(|x| {
+                        x.path = path;
+                        x
+                    });
+                    futures::future::ready(None)
+                }
+                CommandAction::Enter(obj) => {
+                    let new_env = Environment {
+                        obj: obj,
+                        path: PathBuf::from("/"),
+                    };
+                    env.lock().unwrap().push(new_env);
+                    futures::future::ready(None)
+                }
+                CommandAction::Exit => {
+                    let mut v = env.lock().unwrap();
+                    if v.len() == 1 {
+                        std::process::exit(0);
+                    }
+                    v.pop();
                     futures::future::ready(None)
                 }
             },
@@ -210,7 +229,7 @@ impl ExternalCommand {
             }
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().cwd());
+        process = process.cwd(context.env.lock().unwrap().first().unwrap().path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,

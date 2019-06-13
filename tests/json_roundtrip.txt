@@ -1,3 +1,3 @@
 cd tests
-open test.json | to-json | from-json | get glossary.GlossDiv.title | echo $it
+open test.json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it
 exit

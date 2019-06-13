@@ -1,10 +1,11 @@
+use crate::commands::command::CommandAction;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::lexer::Spanned;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
-pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
         return Err(ShellError::string("open requires a filepath or url"));
     }
@@ -101,33 +102,33 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     match file_extension {
         Some(x) if x == "toml" && !open_raw => {
-            stream.push_back(ReturnValue::Value(
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(
                 crate::commands::from_toml::from_toml_string_to_value(contents),
-            ));
+            )));
         }
         Some(x) if x == "json" && !open_raw => {
-            stream.push_back(ReturnValue::Value(
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(
                 crate::commands::from_json::from_json_string_to_value(contents),
-            ));
+            )));
         }
         Some(x) if x == "xml" && !open_raw => {
-            stream.push_back(ReturnValue::Value(
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(
                 crate::commands::from_xml::from_xml_string_to_value(contents),
-            ));
+            )));
         }
         Some(x) if x == "yml" && !open_raw => {
-            stream.push_back(ReturnValue::Value(
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(
                 crate::commands::from_yaml::from_yaml_string_to_value(contents),
-            ));
+            )));
         }
         Some(x) if x == "yaml" && !open_raw => {
-            stream.push_back(ReturnValue::Value(
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(
                 crate::commands::from_yaml::from_yaml_string_to_value(contents),
-            ));
+            )));
         }
         _ => {
-            stream.push_back(ReturnValue::Value(Value::Primitive(Primitive::String(
-                contents,
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(Value::Primitive(
+                Primitive::String(contents),
             ))));
         }
     }

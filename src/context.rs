@@ -13,7 +13,7 @@ pub struct Context {
     commands: IndexMap<String, Arc<dyn Command>>,
     sinks: IndexMap<String, Arc<dyn Sink>>,
     crate host: Arc<Mutex<dyn Host + Send>>,
-    crate env: Arc<Mutex<Environment>>,
+    crate env: Arc<Mutex<Vec<Environment>>>,
 }
 
 impl Context {
@@ -22,7 +22,7 @@ impl Context {
             commands: indexmap::IndexMap::new(),
             sinks: indexmap::IndexMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
-            env: Arc::new(Mutex::new(Environment::basic()?)),
+            env: Arc::new(Mutex::new(vec![Environment::basic()?])),
         })
     }
 
