@@ -6,6 +6,7 @@ use enum_utils::FromStr;
 pub enum TokenNode {
     Token(Token),
     Delimited(Spanned<DelimitedNode>),
+    Path(Spanned<PathNode>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, new)]
@@ -19,4 +20,10 @@ pub enum Delimiter {
     Paren,
     Brace,
     Square,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, new)]
+pub struct PathNode {
+    head: Box<TokenNode>,
+    tail: Vec<Token>,
 }

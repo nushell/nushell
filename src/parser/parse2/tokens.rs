@@ -10,6 +10,7 @@ pub enum RawToken {
     Operator(Operator),
     String(Span),
     Variable(Span),
+    Identifier,
     Bare,
     Flag(Flag, Span),
 }
