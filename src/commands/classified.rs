@@ -135,7 +135,11 @@ impl InternalCommand {
                     futures::future::ready(None)
                 }
                 CommandAction::Exit => {
-                    let _ = env.lock().unwrap().pop();
+                    let mut v = env.lock().unwrap();
+                    if v.len() == 1 {
+                        std::process::exit(0);
+                    }
+                    v.pop();
                     futures::future::ready(None)
                 }
             },

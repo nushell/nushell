@@ -217,8 +217,6 @@ impl std::ops::Try for LineResult {
 
 async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
-        Ok(line) if line.trim() == "exit" => LineResult::Break,
-
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
