@@ -51,14 +51,50 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let sep_string = std::path::MAIN_SEPARATOR.to_string();
             let sep = OsStr::new(&sep_string);
             for p in full_path.iter() {
+                //let p = p.to_string_lossy();
                 match p {
                     x if x == sep => {}
-                    step => match viewed.get_data_by_key(step.to_str().unwrap()) {
-                        Some(v) => {
-                            viewed = v;
+                    step => {
+                        let tmp = step.to_string_lossy();
+                        let split_tmp = tmp.split('[');
+                        let mut first = true;
+
+                        for s in split_tmp {
+                            if !first {
+                                match s.find(']') {
+                                    Some(finish) => {
+                                        let idx = s[0..finish].parse::<usize>();
+                                        match idx {
+                                            Ok(idx) => match viewed.get_data_by_index(idx) {
+                                                Some(v) => {
+                                                    viewed = v;
+                                                }
+                                                _ => println!("Idx not found"),
+                                            },
+                                            _ => println!("idx not a number"),
+                                        }
+                                    }
+                                    _ => println!("obj not some"),
+                                    /*
+                                    _ => match viewed.get_data_by_key(s) {
+                                        Some(v) => {
+                                            viewed = v;
+                                        }
+                                        _ => println!("Obj not Some"),
+                                    },
+                                    */
+                                }
+                            } else {
+                                match viewed.get_data_by_key(s) {
+                                    Some(v) => {
+                                        viewed = v;
+                                    }
+                                    _ => println!("Obj not Some"),
+                                }
+                                first = false;
+                            }
                         }
-                        _ => println!("Obj not Some"),
-                    },
+                    }
                 }
             }
             match viewed {

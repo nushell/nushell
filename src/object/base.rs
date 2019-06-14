@@ -202,6 +202,13 @@ impl Value {
         }
     }
 
+    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Value> {
+        match self {
+            Value::List(l) => l.iter().nth(idx),
+            _ => None,
+        }
+    }
+
     crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
