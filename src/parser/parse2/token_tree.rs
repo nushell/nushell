@@ -25,5 +25,5 @@ pub enum Delimiter {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, new)]
 pub struct PathNode {
     head: Box<TokenNode>,
-    tail: Vec<Token>,
+    tail: Vec<TokenNode>,
 }
