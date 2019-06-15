@@ -84,43 +84,54 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut stream = VecDeque::new();
 
-    let open_raw = match args.positional.get(1) {
+    let file_extension = match args.positional.get(1) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
-            ..
-        }) if s == "--raw" => true,
-        Some(v) => {
-            return Err(ShellError::labeled_error(
-                "Unknown flag for open",
-                "unknown flag",
-                v.span,
-            ))
+            span,
+        }) => {
+            if s == "--raw" {
+                None
+            } else if s == "--json" {
+                Some("json".to_string())
+            } else if s == "--xml" {
+                Some("xml".to_string())
+            } else if s == "--yaml" {
+                Some("yaml".to_string())
+            } else if s == "--toml" {
+                Some("toml".to_string())
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Unknown flag for open",
+                    "unknown flag",
+                    span.clone(),
+                ));
+            }
         }
-        _ => false,
+        _ => file_extension,
     };
 
     match file_extension {
-        Some(x) if x == "toml" && !open_raw => {
+        Some(x) if x == "toml" => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_toml::from_toml_string_to_value(contents),
             ));
         }
-        Some(x) if x == "json" && !open_raw => {
+        Some(x) if x == "json" => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_json::from_json_string_to_value(contents),
             ));
         }
-        Some(x) if x == "xml" && !open_raw => {
+        Some(x) if x == "xml" => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_xml::from_xml_string_to_value(contents),
             ));
         }
-        Some(x) if x == "yml" && !open_raw => {
+        Some(x) if x == "yml" => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_yaml::from_yaml_string_to_value(contents),
             ));
         }
-        Some(x) if x == "yaml" && !open_raw => {
+        Some(x) if x == "yaml" => {
             stream.push_back(ReturnValue::Value(
                 crate::commands::from_yaml::from_yaml_string_to_value(contents),
             ));
