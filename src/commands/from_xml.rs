@@ -15,7 +15,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
             .filter(|x| match x {
                 Value::Primitive(Primitive::String(f)) => {
                     if f.trim() == "" {
-                        false 
+                        false
                     } else {
                         true
                     }
@@ -57,11 +57,16 @@ pub fn from_xml_string_to_value(s: String) -> Value {
 
 pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
+    let span = args.name_span;
     Ok(out
-        .map(|a| match a {
-            Value::Primitive(Primitive::String(s)) => ReturnValue::Value(from_xml_string_to_value(s)),
-            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::string(
+        .map(move |a| match a {
+            Value::Primitive(Primitive::String(s)) => {
+                ReturnValue::Value(from_xml_string_to_value(s))
+            }
+            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
                 "Trying to convert XML from non-string".to_string(),
+                "given non-string",
+                span,
             )))),
         })
         .boxed())

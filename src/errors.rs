@@ -53,6 +53,20 @@ impl ShellError {
         )
     }
 
+    crate fn maybe_labeled_error(
+        msg: impl Into<String>,
+        label: impl Into<String>,
+        span: Option<Span>,
+    ) -> ShellError {
+        match span {
+            Some(span) => ShellError::diagnostic(
+                Diagnostic::new(Severity::Error, msg.into())
+                    .with_label(Label::new_primary(span).with_message(label.into())),
+            ),
+            None => ShellError::string(msg),
+        }
+    }
+
     crate fn string(title: impl Into<String>) -> ShellError {
         ShellError::String(StringError::new(title.into(), Value::nothing()))
     }

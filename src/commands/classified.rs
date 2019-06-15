@@ -4,6 +4,7 @@ use crate::parser::lexer::Span;
 use crate::parser::registry::Args;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
+use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
@@ -109,44 +110,47 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
     ) -> Result<InputStream, ShellError> {
-        let result = context.run_command(
+        let mut result = context.run_command(
             self.command,
             self.name_span.clone(),
             self.args,
             input.objects,
         )?;
-        let env = context.env.clone();
-
-        let stream = result.filter_map(move |v| match v {
-            ReturnValue::Action(action) => match action {
-                CommandAction::ChangePath(path) => {
-                    env.lock().unwrap().last_mut().map(|x| {
-                        x.path = path;
-                        x
-                    });
-                    futures::future::ready(None)
+        let mut stream = VecDeque::new();
+        while let Some(item) = result.next().await {
+            match item {
+                ReturnValue::Value(Value::Error(err)) => {
+                    return Err(*err);
                 }
-                CommandAction::Enter(obj) => {
-                    let new_env = Environment {
-                        obj: obj,
-                        path: PathBuf::from("/"),
-                    };
-                    env.lock().unwrap().push(new_env);
-                    futures::future::ready(None)
-                }
-                CommandAction::Exit => {
-                    let mut v = env.lock().unwrap();
-                    if v.len() == 1 {
-                        std::process::exit(0);
+                ReturnValue::Action(action) => match action {
+                    CommandAction::ChangePath(path) => {
+                        context.env.lock().unwrap().back_mut().map(|x| {
+                            x.path = path;
+                            x
+                        });
                     }
-                    v.pop();
-                    futures::future::ready(None)
+                    CommandAction::Enter(obj) => {
+                        let new_env = Environment {
+                            obj: obj,
+                            path: PathBuf::from("/"),
+                        };
+                        context.env.lock().unwrap().push_back(new_env);
+                    }
+                    CommandAction::Exit => match context.env.lock().unwrap().pop_back() {
+                        Some(Environment {
+                            obj: Value::Filesystem,
+                            ..
+                        }) => std::process::exit(0),
+                        None => std::process::exit(-1),
+                        _ => {}
+                    },
+                },
+
+                ReturnValue::Value(v) => {
+                    stream.push_back(v);
                 }
-            },
-
-            ReturnValue::Value(v) => futures::future::ready(Some(v)),
-        });
-
+            }
+        }
         Ok(stream.boxed() as InputStream)
     }
 }
@@ -229,7 +233,7 @@ impl ExternalCommand {
             }
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().first().unwrap().path());
+        process = process.cwd(context.env.lock().unwrap().front().unwrap().path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,

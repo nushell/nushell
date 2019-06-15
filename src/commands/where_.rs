@@ -25,8 +25,12 @@ impl Command for Where {
 }
 
 pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.is_empty() {
-        return Err(ShellError::string("select requires a field"));
+    if args.positional.len() == 0 {
+        return Err(ShellError::maybe_labeled_error(
+            "Where requires a condition",
+            "needs condition",
+            args.name_span,
+        ));
     }
 
     let block = args.positional[0].as_block()?;

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let env = args.env.lock().unwrap();
-    let latest = env.last().unwrap();
+    let latest = env.back().unwrap();
 
     match latest.obj {
         Value::Filesystem => {
@@ -13,17 +13,23 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let path = match args.positional.first() {
                 None => match dirs::home_dir() {
                     Some(o) => o,
-                    _ => return Err(ShellError::string("Can not change to home directory")),
+                    _ => {
+                        return Err(ShellError::maybe_labeled_error(
+                            "Can not change to home directory",
+                            "can not go to home",
+                            args.name_span,
+                        ))
+                    }
                 },
                 Some(v) => {
                     let target = v.as_string()?.clone();
                     match dunce::canonicalize(cwd.join(&target).as_path()) {
                         Ok(p) => p,
                         Err(_) => {
-                            return Err(ShellError::labeled_error(
+                            return Err(ShellError::maybe_labeled_error(
                                 "Can not change to directory",
                                 "directory not found",
-                                args.positional[0].span.clone(),
+                                Some(args.positional[0].span.clone()),
                             ));
                         }
                     }
@@ -35,10 +41,10 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(_) => {}
                 Err(_) => {
                     if args.positional.len() > 0 {
-                        return Err(ShellError::labeled_error(
+                        return Err(ShellError::maybe_labeled_error(
                             "Can not change to directory",
                             "directory not found",
-                            args.positional[0].span.clone(),
+                            Some(args.positional[0].span.clone()),
                         ));
                     } else {
                         return Err(ShellError::string("Can not change to directory"));
