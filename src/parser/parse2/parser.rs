@@ -1,6 +1,8 @@
 #![allow(unused)]
 
-use crate::parser::parse2::{flag::*, operator::*, span::*, token_tree::*, tokens::*, unit::*};
+use crate::parser::parse2::{
+    flag::*, operator::*, span::*, token_tree::*, token_tree_builder::*, tokens::*, unit::*,
+};
 use nom;
 use nom::dbg;
 use nom::types::CompleteStr;
@@ -12,12 +14,13 @@ type NomSpan<'a> = LocatedSpan<CompleteStr<'a>>;
 
 macro_rules! operator {
     ($name:tt : $token:tt ) => {
-        named!($name( NomSpan ) -> Token,
+        named!($name( NomSpan ) -> TokenNode,
             do_parse!(
                 l: position!()
                     >> t: tag!(stringify!($token))
                     >> r: position!()
-                    >> (Spanned::from_nom(RawToken::Operator(Operator::from_str(t.fragment.0).unwrap()), l, r))
+                    >> (TokenTreeBuilder::spanned_op(t.fragment.0, (l, r)))
+                    // >> (Spanned::from_nom(RawToken::Operator(Operator::from_str(t.fragment.0).unwrap()), l, r))
             )
         );
     };
@@ -40,20 +43,20 @@ named!(pub raw_integer( NomSpan ) -> Spanned<i64>,
     )
 );
 
-named!(pub integer( NomSpan ) -> Token,
+named!(pub integer( NomSpan ) -> TokenNode,
     do_parse!(
             int: raw_integer
-        >>  (int.map(|i| RawToken::Integer(i)))
+        >>  (TokenTreeBuilder::spanned_int(*int, int.span))
     )
 );
 
-named!(pub operator( NomSpan ) -> Token,
+named!(pub operator( NomSpan ) -> TokenNode,
     alt!(
         gte | lte | neq | gt | lt | eq
     )
 );
 
-named!(pub dq_string( NomSpan ) -> Token,
+named!(pub dq_string( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  char!('"')
@@ -62,11 +65,11 @@ named!(pub dq_string( NomSpan ) -> Token,
         >>  r1: position!()
         >>  char!('"')
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::String(Span::from((l1, r1))), l, r))
+        >>  (TokenTreeBuilder::spanned_string((l1, r1), (l, r)))
     )
 );
 
-named!(pub sq_string( NomSpan ) -> Token,
+named!(pub sq_string( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  char!('\'')
@@ -75,61 +78,61 @@ named!(pub sq_string( NomSpan ) -> Token,
         >>  r1: position!()
         >>  char!('\'')
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::String(Span::from((l1, r1))), l, r))
+        >>  (TokenTreeBuilder::spanned_string((l1, r1), (l, r)))
     )
 );
 
-named!(pub string( NomSpan ) -> Token,
+named!(pub string( NomSpan ) -> TokenNode,
     alt!(sq_string | dq_string)
 );
 
-named!(pub bare( NomSpan ) -> Token,
+named!(pub bare( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  take_while1!(is_start_bare_char)
         >>  take_while!(is_bare_char)
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::Bare, l, r))
+        >>  (TokenTreeBuilder::spanned_bare((l, r)))
     )
 );
 
-named!(pub var( NomSpan ) -> Token,
+named!(pub var( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  tag!("$")
         >>  bare: identifier
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::Variable(bare.span), l, r))
+        >>  (TokenTreeBuilder::spanned_var(bare.span(), (l, r)))
     )
 );
 
-named!(pub identifier( NomSpan ) -> Token,
+named!(pub identifier( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  take_while1!(is_id_start)
         >>  take_while!(is_id_continue)
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::Identifier, l, r))
+        >>  (TokenTreeBuilder::spanned_ident((l, r)))
     )
 );
 
-named!(pub flag( NomSpan ) -> Token,
+named!(pub flag( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  tag!("--")
         >>  bare: bare
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::Flag(Flag::Longhand, bare.span), l, r))
+        >>  (TokenTreeBuilder::spanned_flag(bare.span(), (l, r)))
     )
 );
 
-named!(pub shorthand( NomSpan ) -> Token,
+named!(pub shorthand( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  tag!("-")
         >>  bare: bare
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::Flag(Flag::Shorthand, bare.span), l, r))
+        >>  (TokenTreeBuilder::spanned_shorthand(bare.span(), (l, r)))
     )
 );
 
@@ -142,32 +145,18 @@ named!(pub raw_unit( NomSpan ) -> Spanned<Unit>,
     )
 );
 
-named!(pub size( NomSpan ) -> Token,
+named!(pub size( NomSpan ) -> TokenNode,
     do_parse!(
             l: position!()
         >>  int: raw_integer
         >>  unit: raw_unit
         >>  r: position!()
-        >>  (Spanned::from_nom(RawToken::Size(int.item, unit.item), l, r))
+        >>  (TokenTreeBuilder::spanned_size((*int, *unit), (l, r)))
     )
 );
 
-// named!(pub unit_num( NomSpan ) -> Token,
-//     do_parse!(
-//             l: position!()
-//         >>
-//     )
-// )
-
-named!(pub leaf( NomSpan ) -> Token,
+named!(pub leaf( NomSpan ) -> TokenNode,
     alt!(size | integer | string | operator | flag | shorthand | var | bare)
-);
-
-named!(pub leaf_node( NomSpan ) -> TokenNode,
-    do_parse!(
-            leaf: leaf
-        >>  (TokenNode::Token(leaf))
-    )
 );
 
 named!(pub delimited_paren( NomSpan ) -> TokenNode,
@@ -179,7 +168,30 @@ named!(pub delimited_paren( NomSpan ) -> TokenNode,
                 char!(')')
             )
         >>  r: position!()
-        >>  (TokenNode::Delimited(Spanned::from_nom(DelimitedNode::new(Delimiter::Paren, items), l, r)))
+        >>  (TokenTreeBuilder::spanned_parens(items, (l, r)))
+    )
+);
+
+named!(pub delimited_brace( NomSpan ) -> TokenNode,
+    do_parse!(
+            l: position!()
+        >>  items: delimited!(
+                char!('{'),
+                delimited!(space0, separated_list!(space1, node), space0),
+                char!('}')
+            )
+        >>  r: position!()
+        >>  (TokenTreeBuilder::spanned_brace(items, (l, r)))
+    )
+);
+
+named!(pub raw_call( NomSpan ) -> TokenNode,
+    do_parse!(
+            l: position!()
+        >>  head: node
+        >>  items: opt!(preceded!(space0, separated_nonempty_list!(space1, node)))
+        >>  r: position!()
+        >>  (TokenTreeBuilder::spanned_call((head, items), (l, r)))
     )
 );
 
@@ -190,16 +202,25 @@ named!(pub path( NomSpan ) -> TokenNode,
         >>  tag!(".")
         >>  tail: separated_list!(tag!("."), alt!(identifier | string))
         >>  r: position!()
-        >>  (TokenNode::Path(Spanned::from_nom(PathNode::new(Box::new(head), tail.into_iter().map(TokenNode::Token).collect()), l, r)))
+        >>  (TokenTreeBuilder::spanned_path((head, tail), (l, r)))
     )
 );
 
 named!(pub node1( NomSpan ) -> TokenNode,
-    alt!(leaf_node | delimited_paren)
+    alt!(leaf | delimited_paren)
 );
 
 named!(pub node( NomSpan ) -> TokenNode,
-    alt!(path | leaf_node | delimited_paren)
+    alt!(path | leaf | delimited_paren | delimited_brace)
+);
+
+named!(pub pipeline( NomSpan ) -> TokenNode,
+    do_parse!(
+            l: position!()
+        >>  list: separated_list!(delimited!(space0, tag!("|"), space0), raw_call)
+        >>  r: position!()
+        >>  (TokenTreeBuilder::spanned_pipeline(list, (l, r)))
+    )
 );
 
 fn int<T>(frag: &str, neg: Option<T>) -> i64 {
@@ -273,13 +294,13 @@ mod tests {
             );
 
             assert_eq!(
-                apply(leaf_node, $input),
-                TokenNode::Token(token(RawToken::$kind $parens, $left, $right))
+                apply(leaf, $input),
+                token(RawToken::$kind $parens, $left, $right)
             );
 
             assert_eq!(
                 apply(node, $input),
-                TokenNode::Token(token(RawToken::$kind $parens, $left, $right))
+                token(RawToken::$kind $parens, $left, $right)
             );
         };
 
@@ -512,6 +533,117 @@ mod tests {
         )
     }
 
+    #[test]
+    fn test_smoke_single_command() {
+        assert_eq!(
+            apply(raw_call, "git add ."),
+            build(b::call(
+                b::bare("git"),
+                vec![b::sp(), b::bare("add"), b::sp(), b::bare(".")]
+            ))
+        );
+
+        assert_eq!(
+            apply(raw_call, "open Cargo.toml"),
+            build(b::call(
+                b::bare("open"),
+                vec![b::sp(), b::bare("Cargo.toml")]
+            ))
+        );
+
+        assert_eq!(
+            apply(raw_call, "select package.version"),
+            build(b::call(
+                b::bare("select"),
+                vec![b::sp(), b::bare("package.version")]
+            ))
+        );
+
+        assert_eq!(
+            apply(raw_call, "echo $it"),
+            build(b::call(b::bare("echo"), vec![b::sp(), b::var("it")]))
+        );
+
+        assert_eq!(
+            apply(raw_call, "open Cargo.toml --raw"),
+            build(b::call(
+                b::bare("open"),
+                vec![b::sp(), b::bare("Cargo.toml"), b::sp(), b::flag("raw")]
+            ))
+        );
+
+        assert_eq!(
+            apply(raw_call, "open Cargo.toml -r"),
+            build(b::call(
+                b::bare("open"),
+                vec![b::sp(), b::bare("Cargo.toml"), b::sp(), b::shorthand("r")]
+            ))
+        );
+
+        assert_eq!(
+            apply(raw_call, "config --set tabs 2"),
+            build(b::call(
+                b::bare("config"),
+                vec![
+                    b::sp(),
+                    b::flag("set"),
+                    b::sp(),
+                    b::bare("tabs"),
+                    b::sp(),
+                    b::int(2)
+                ]
+            ))
+        );
+    }
+
+    #[test]
+    fn test_smoke_pipeline() {
+        assert_eq!(
+            apply(
+                pipeline,
+                r#"git branch --merged | split-row "`n" | where $it != "* master""#
+            ),
+            build(b::pipeline(vec![
+                b::call(
+                    b::bare("git"),
+                    vec![b::sp(), b::bare("branch"), b::sp(), b::flag("merged")]
+                ),
+                b::call(b::bare("split-row"), vec![b::sp(), b::string("`n")]),
+                b::call(
+                    b::bare("where"),
+                    vec![
+                        b::sp(),
+                        b::var("it"),
+                        b::sp(),
+                        b::op("!="),
+                        b::sp(),
+                        b::string("* master")
+                    ]
+                )
+            ]))
+        );
+
+        assert_eq!(
+            apply(pipeline, "ls | where { $it.size > 100 }"),
+            build(b::pipeline(vec![
+                b::call(b::bare("ls"), vec![]),
+                b::call(
+                    b::bare("where"),
+                    vec![
+                        b::sp(),
+                        b::braced(vec![
+                            b::path(b::var("it"), vec![b::ident("size")]),
+                            b::sp(),
+                            b::op(">"),
+                            b::sp(),
+                            b::int(100)
+                        ])
+                    ]
+                )
+            ]))
+        )
+    }
+
     fn apply<T>(f: impl Fn(NomSpan) -> Result<(NomSpan, T), nom::Err<NomSpan>>, string: &str) -> T {
         match f(NomSpan::new(CompleteStr(string))) {
             Ok(v) => v.1,
@@ -550,8 +682,8 @@ mod tests {
         TokenNode::Token(Spanned::from_item(token, (left, right)))
     }
 
-    fn token(token: RawToken, left: usize, right: usize) -> Token {
-        Spanned::from_item(token, (left, right))
+    fn token(token: RawToken, left: usize, right: usize) -> TokenNode {
+        TokenNode::Token(Spanned::from_item(token, (left, right)))
     }
 
     fn build(block: CurriedToken) -> TokenNode {
