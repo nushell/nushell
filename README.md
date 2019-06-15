@@ -25,22 +25,22 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 ```
 /home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory" | autoview
 -----------+-----------+----------+--------+--------------+----------------
- file name | file type | readonly | size   | accessed     | modified 
+ file name | file type | readonly | size   | accessed     | modified
 -----------+-----------+----------+--------+--------------+----------------
- target    | Directory |          | 4.1 KB | 19 hours ago | 19 hours ago 
- images    | Directory |          | 4.1 KB | 2 weeks ago  | a week ago 
- tests     | Directory |          | 4.1 KB | 2 weeks ago  | 18 minutes ago 
- docs      | Directory |          | 4.1 KB | a week ago   | a week ago 
- .git      | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago 
- src       | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago 
- .cargo    | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago 
+ target    | Directory |          | 4.1 KB | 19 hours ago | 19 hours ago
+ images    | Directory |          | 4.1 KB | 2 weeks ago  | a week ago
+ tests     | Directory |          | 4.1 KB | 2 weeks ago  | 18 minutes ago
+ docs      | Directory |          | 4.1 KB | a week ago   | a week ago
+ .git      | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
+ src       | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
+ .cargo    | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago
 -----------+-----------+----------+--------+--------------+----------------
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
 
 ```
-/home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory" 
+/home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory"
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu. For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
@@ -64,9 +64,9 @@ Nu can load file and URL contents as raw text or as structured data (if it recog
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
 -----------------+------------------+-----------------
- dependencies    | dev-dependencies | package 
+ dependencies    | dev-dependencies | package
 -----------------+------------------+-----------------
- [object Object] | [object Object]  | [object Object] 
+ [object Object] | [object Object]  | [object Object]
 -----------------+------------------+-----------------
 ```
 
@@ -75,9 +75,9 @@ We can pipeline this into a command that gets the contents of one of the columns
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
 -------------+----------------------------+---------+---------+------+---------
- authors     | description                | edition | license | name | version 
+ authors     | description                | edition | license | name | version
 -------------+----------------------------+---------+---------+------+---------
- [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.1.2 
+ [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.1.2
 -------------+----------------------------+---------+---------+------+---------
 ```
 
@@ -105,7 +105,7 @@ In addition to `cd` and `ls`, we can `enter` an object. Entering an object makes
 
 ```
 /home/jonathan/Source/nushell(master)> enter Cargo.toml
-object/> 
+object/>
 ```
 
 As we enter, we create a stack of objects we're navigating:
@@ -115,14 +115,14 @@ As we enter, we create a stack of objects we're navigating:
 | Filesystem | /home/jonathan/Source/nushell |
 | object (from Cargo.toml) | / |
 
-Commands `cd` and `ls` now work on the object being navigated. 
+Commands `cd` and `ls` now work on the object being navigated.
 
 ```
 object/> ls
 -----------------+------------------+-----------------
- dependencies    | dev-dependencies | package 
+ dependencies    | dev-dependencies | package
 -----------------+------------------+-----------------
- [object Object] | [object Object]  | [object Object] 
+ [object Object] | [object Object]  | [object Object]
 -----------------+------------------+-----------------
 ```
 
@@ -130,9 +130,9 @@ object/> ls
 object/> cd package/version
 object/package/version> ls
 -------
- value 
+ value
 -------
- 0.1.2 
+ 0.1.2
 -------
 ```
 
@@ -155,7 +155,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 # Commands
 ## Initial commands
 | command | description |
-| ------------- | ------------- | 
+| ------------- | ------------- |
 | cd path | Change to a new path |
 | ls (path) | View the contents of the current or given path |
 | ps | View current processes |
@@ -167,7 +167,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 
 ## Filters on tables (structured data)
 | command | description |
-| ------------- | ------------- | 
+| ------------- | ------------- |
 | pick ...columns | Down-select table to only these columns |
 | reject ...columns | Remove the given columns from the table |
 | get column-or-column-path | Open given cells as text |
@@ -181,7 +181,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 
 ## Filters on text (unstructured data)
 | command | description |
-| ------------- | ------------- | 
+| ------------- | ------------- |
 | from-json | Parse text as .json and create table |
 | from-toml | Parse text as .toml and create table |
 | from-xml | Parse text as .xml and create a table |
@@ -189,11 +189,11 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | split-column sep ...fields | Split row contents across multiple columns via the separator |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
-| {external-command} $it | Run external command with given arguments, replacing $it with each row text | 
+| {external-command} $it | Run external command with given arguments, replacing $it with each row text |
 
 ## Consuming commands
 | command | description |
-| ------------- | ------------- | 
+| ------------- | ------------- |
 | autoview | View the contents of the pipeline as a table or list |
 | clip | Copy the contents of the pipeline to the copy/paste buffer |
 | save filename | Save the contents of the pipeline to a file |
