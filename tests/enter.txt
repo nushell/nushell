@@ -1,0 +1,7 @@
+cd tests
+enter test.json
+cd glossary
+cd GlossDiv
+ls title | echo $it
+exit
+exit
