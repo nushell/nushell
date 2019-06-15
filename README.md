@@ -162,8 +162,6 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 | enter {filename or url} | Enter (mount) the given contents as the current object |
 | exit | Leave/pop from the current object (exits if in filesystem object) |
-| save filename | Save the incoming object to this filepath |
-| tree | View the incoming object as a tree |
 
 ## Filters on tables (structured data)
 | command | description |
