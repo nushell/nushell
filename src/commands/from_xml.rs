@@ -46,13 +46,9 @@ fn from_document_to_value(d: &roxmltree::Document) -> Value {
     from_node_to_value(&d.root_element())
 }
 
-pub fn from_xml_string_to_value(s: String) -> Value {
-    match roxmltree::Document::parse(&s) {
-        Ok(doc) => from_document_to_value(&doc),
-        Err(_) => Value::Error(Box::new(ShellError::string(
-            "Can't convert string from xml".to_string(),
-        ))),
-    }
+pub fn from_xml_string_to_value(s: String) -> Result<Value, Box<dyn std::error::Error>> {
+    let parsed = roxmltree::Document::parse(&s)?;
+    Ok(from_document_to_value(&parsed))
 }
 
 pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -60,12 +56,19 @@ pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.name_span;
     Ok(out
         .map(move |a| match a {
-            Value::Primitive(Primitive::String(s)) => {
-                ReturnValue::Value(from_xml_string_to_value(s))
-            }
+            Value::Primitive(Primitive::String(s)) => match from_xml_string_to_value(s) {
+                Ok(x) => ReturnValue::Value(x),
+                Err(_) => {
+                    ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+                        "Could not parse as XML",
+                        "piped data failed XML parse",
+                        span,
+                    ))))
+                }
+            },
             _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
-                "Trying to convert XML from non-string".to_string(),
-                "given non-string",
+                "Expected string values from pipeline",
+                "expects strings from pipeline",
                 span,
             )))),
         })

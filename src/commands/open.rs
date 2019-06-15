@@ -13,6 +13,8 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
+    let span = args.name_span;
+
     let cwd = args
         .env
         .lock()
@@ -117,27 +119,67 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     match file_extension {
         Some(x) if x == "toml" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_toml::from_toml_string_to_value(contents),
+                crate::commands::from_toml::from_toml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as TOML",
+                            "could not open as TOML",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
         Some(x) if x == "json" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_json::from_json_string_to_value(contents),
+                crate::commands::from_json::from_json_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as JSON",
+                            "could not open as JSON",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
         Some(x) if x == "xml" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_xml::from_xml_string_to_value(contents),
+                crate::commands::from_xml::from_xml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as XML",
+                            "could not open as XML",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
         Some(x) if x == "yml" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as YAML",
+                            "could not open as YAML",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
         Some(x) if x == "yaml" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as YAML",
+                            "could not open as YAML",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
         _ => {
