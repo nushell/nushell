@@ -1,17 +1,19 @@
 use crate::errors::ShellError;
 use crate::object::Value;
+use crate::parser::lexer::Span;
 use crate::prelude::*;
 
-fn get_member(path: &str, obj: &Value) -> Option<Value> {
+fn get_member(path: &str, span: Span, obj: &Value) -> Option<Value> {
     let mut current = obj;
     for p in path.split(".") {
         match current.get_data_by_key(p) {
             Some(v) => current = v,
             None => {
-                return Some(Value::Error(Box::new(ShellError::string(format!(
-                    "Object field name not found: {}",
-                    p
-                )))))
+                return Some(Value::Error(Box::new(ShellError::labeled_error(
+                    "Unknown field",
+                    "unknown field",
+                    span,
+                ))));
             }
         }
     }
@@ -44,7 +46,11 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .boxed());
     }
 
-    let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<(String, Span)>, _> = args
+        .positional
+        .iter()
+        .map(|a| (a.as_string().map(|x| (x, a.span))))
+        .collect();
     let fields = fields?;
 
     let stream = args
@@ -52,7 +58,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(move |item| {
             let mut result = VecDeque::new();
             for field in &fields {
-                match get_member(field, &item) {
+                match get_member(&field.0, field.1, &item) {
                     Some(Value::List(l)) => {
                         for item in l {
                             result.push_back(ReturnValue::Value(item.copy()));

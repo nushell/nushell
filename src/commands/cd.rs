@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let env = args.env.lock().unwrap();
-    let latest = env.last().unwrap();
+    let latest = env.back().unwrap();
 
     match latest.obj {
         Value::Filesystem => {

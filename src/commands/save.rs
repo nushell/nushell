@@ -14,7 +14,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
         .env
         .lock()
         .unwrap()
-        .first()
+        .front()
         .unwrap()
         .path()
         .to_path_buf();

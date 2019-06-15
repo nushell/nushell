@@ -34,7 +34,7 @@ pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .env
         .lock()
         .unwrap()
-        .first()
+        .front()
         .unwrap()
         .path()
         .to_path_buf();

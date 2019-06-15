@@ -113,7 +113,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         let (obj, cwd) = {
             let env = context.env.lock().unwrap();
-            let last = env.last().unwrap();
+            let last = env.back().unwrap();
             (last.obj().clone(), last.path().display().to_string())
         };
         let readline = match obj {
