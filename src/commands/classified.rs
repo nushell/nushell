@@ -151,38 +151,6 @@ impl InternalCommand {
                 }
             }
         }
-        /*
-        let stream = result.filter_map(move |v| match v {
-            //ReturnValue::Value(Value::Error(err)) => futures::future::err(Err(err)),
-            ReturnValue::Action(action) => match action {
-                CommandAction::ChangePath(path) => {
-                    env.lock().unwrap().last_mut().map(|x| {
-                        x.path = path;
-                        x
-                    });
-                    futures::future::ready(None)
-                }
-                CommandAction::Enter(obj) => {
-                    let new_env = Environment {
-                        obj: obj,
-                        path: PathBuf::from("/"),
-                    };
-                    env.lock().unwrap().push(new_env);
-                    futures::future::ready(None)
-                }
-                CommandAction::Exit => {
-                    let mut v = env.lock().unwrap();
-                    if v.len() == 1 {
-                        std::process::exit(0);
-                    }
-                    v.pop();
-                    futures::future::ready(None)
-                }
-            },
-
-            ReturnValue::Value(v) => futures::future::ready(Some(v)),
-        });
-        */
         Ok(stream.boxed() as InputStream)
     }
 }

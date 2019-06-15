@@ -31,7 +31,11 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             s.span,
                         ));
                     } else {
-                        return Err(ShellError::string(e.to_string()));
+                        return Err(ShellError::maybe_labeled_error(
+                            e.to_string(),
+                            e.to_string(),
+                            args.name_span,
+                        ));
                     }
                 }
                 Ok(o) => o,

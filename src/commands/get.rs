@@ -11,7 +11,7 @@ fn get_member(path: &str, span: Span, obj: &Value) -> Option<Value> {
             None => {
                 return Some(Value::Error(Box::new(ShellError::labeled_error(
                     "Unknown field",
-                    "unknown field",
+                    "object missing field",
                     span,
                 ))));
             }
@@ -23,15 +23,11 @@ fn get_member(path: &str, span: Span, obj: &Value) -> Option<Value> {
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        if let Some(span) = args.name_span {
-            return Err(ShellError::labeled_error(
-                "Get requires a field or field path",
-                "needs parameter",
-                span,
-            ));
-        } else {
-            return Err(ShellError::string("get requires fields."));
-        }
+        return Err(ShellError::maybe_labeled_error(
+            "Get requires a field or field path",
+            "needs parameter",
+            args.name_span,
+        ));
     }
 
     let amount = args.positional[0].as_i64();

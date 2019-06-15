@@ -7,7 +7,11 @@ use std::path::{Path, PathBuf};
 
 pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        return Err(ShellError::string("open requires a filepath or url"));
+        return Err(ShellError::maybe_labeled_error(
+            "open requires a path or url",
+            "missing path",
+            args.name_span,
+        ));
     }
 
     let cwd = args

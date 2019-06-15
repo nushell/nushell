@@ -5,15 +5,11 @@ use crate::prelude::*;
 
 pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        if let Some(span) = args.name_span {
-            return Err(ShellError::labeled_error(
-                "First requires an amount",
-                "needs parameter",
-                span,
-            ));
-        } else {
-            return Err(ShellError::string("first requires an amount."));
-        }
+        return Err(ShellError::maybe_labeled_error(
+            "First requires an amount",
+            "needs parameter",
+            args.name_span,
+        ));
     }
 
     let amount = args.positional[0].as_i64();

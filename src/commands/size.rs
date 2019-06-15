@@ -6,8 +6,12 @@ use std::fs::File;
 use std::io::prelude::*;
 
 pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.is_empty() {
-        return Err(ShellError::string("size requires at least one file"));
+    if args.positional.len() == 0 {
+        return Err(ShellError::maybe_labeled_error(
+            "Size requires a filepath",
+            "needs path",
+            args.name_span,
+        ));
     }
     let cwd = args
         .env
