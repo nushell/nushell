@@ -221,7 +221,7 @@ impl ExternalCommand {
                 }
             } else {
                 for arg in &self.args {
-                    process = process.arg(arg);
+                    process = process.arg(arg.item.clone());
                 }
             }
         }
