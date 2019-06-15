@@ -6,19 +6,21 @@ Like having a playground for a shell.
 
 This project is currently in its early stages, though it already works well enough for contributors to dogfood it as their daily driver. Its design is subject to change as it matures.
 
-Nu has a list of built-in commands (listed belowed). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
+Nu has a list of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
 # Philosophy
 
-Nu draws heavy inspiration from projects like PowerShell. Rather than thinking of you filesystem and services as raw streams of text, Nu looks at each input as something with structure. When you list the contents of a directory, what you get back in a list of objects, where each object represents an item in that directory.
+Nu draws heavy inspiration from projects like PowerShell. Rather than thinking of you filesystem and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back in a list of objects, where each object represents an item in that directory.
 
 ## Pipelines
 
-Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and ready from stdin. Additionally, commands can output structured data (you can think of this as a kind of third stream). Commands that work in the pipeline fit into one of three categories
+Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories
 
-* Commands that produce a stream (eg, "ls")
-* Commands that filter a stream (eg, "where size > 10")
-* Commands that consumes the output of the pipeline (eg, "autoview")
+* Commands that produce a stream (eg, `ls`)
+* Commands that filter a stream (eg, `where "file type" == "Directory"`)
+* Commands that consumes the output of the pipeline (eg, `autoview`)
+
+Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```
 /home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory" | autoview
@@ -35,7 +37,7 @@ Nu takes this a step further and builds heavily on the idea of _pipelines_. Just
 -----------+-----------+----------+--------+--------------+----------------
 ```
 
-Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed, so we could have also written the above:
+Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
 
 ```
 /home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory" 
@@ -97,7 +99,7 @@ By default, Nu opens up into your filesystem and the current working directory. 
 | ------ | ---- |
 | Filesystem | /home/jonathan/Source/nushell |
 
-Using the `cd` command allows you to change the path from the current path to a new path, just as you might expect. Using 'ls' allows you to view the contents of the filesystem at the current path (or at the path of your choosing).
+Using the `cd` command allows you to change the path from the current path to a new path, just as you might expect. Using `ls` allows you to view the contents of the filesystem at the current path (or at the path of your choosing).
 
 In addition to `cd` and `ls`, we can `enter` an object. Entering an object makes it the current object to navigate (similar to the concept of mounting a filesystem in Unix systems).
 
@@ -193,7 +195,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | command | description |
 | ------------- | ------------- | 
 | autoview | View the contents of the pipeline as a table or list |
-| clip | Copy the contents of the pipeline fo the copy/paste buffer |
+| clip | Copy the contents of the pipeline to the copy/paste buffer |
 | save filename | Save the contents of the pipeline to a file |
 | tree | View the contents of the pipeline as a tree |
 
