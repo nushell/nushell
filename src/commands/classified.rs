@@ -153,6 +153,7 @@ impl InternalCommand {
 
 crate struct ExternalCommand {
     crate name: String,
+    #[allow(unused)]
     crate name_span: Option<Span>,
     crate args: Vec<Spanned<String>>,
 }
