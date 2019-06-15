@@ -28,19 +28,31 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value) -> Value {
     }
 }
 
-pub fn from_json_string_to_value(s: String) -> Value {
-    let v: serde_hjson::Value = serde_hjson::from_str(&s).unwrap();
-    convert_json_value_to_nu_value(&v)
+pub fn from_json_string_to_value(s: String) -> serde_hjson::Result<Value> {
+    let v: serde_hjson::Value = serde_hjson::from_str(&s)?;
+    Ok(convert_json_value_to_nu_value(&v))
 }
 
 pub fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
+    let span = args.name_span;
     Ok(out
-        .map(|a| match a {
-            Value::Primitive(Primitive::String(s)) => {
-                ReturnValue::Value(from_json_string_to_value(s))
-            }
-            _ => ReturnValue::Value(Value::Primitive(Primitive::String("".to_string()))),
+        .map(move |a| match a {
+            Value::Primitive(Primitive::String(s)) => match from_json_string_to_value(s) {
+                Ok(x) => ReturnValue::Value(x),
+                Err(_) => {
+                    ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+                        "Could not parse as JSON",
+                        "piped data failed JSON parse",
+                        span,
+                    ))))
+                }
+            },
+            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+                "Expected string values from pipeline",
+                "expects strings from pipeline",
+                span,
+            )))),
         })
         .boxed())
 }

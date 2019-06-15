@@ -14,6 +14,8 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
+    let span = args.name_span;
+
     let cwd = args
         .env
         .lock()
@@ -118,27 +120,67 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     match file_extension {
         Some(x) if x == "toml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_toml::from_toml_string_to_value(contents),
+                crate::commands::from_toml::from_toml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as TOML",
+                            "could not load as TOML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
         Some(x) if x == "json" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_json::from_json_string_to_value(contents),
+                crate::commands::from_json::from_json_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as JSON",
+                            "could not load as JSON",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
         Some(x) if x == "xml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_xml::from_xml_string_to_value(contents),
+                crate::commands::from_xml::from_xml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as XML",
+                            "could not load as XML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
         Some(x) if x == "yml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as YAML",
+                            "could not load as YAML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
         Some(x) if x == "yaml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as YAML",
+                            "could not load as YAML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
         _ => {

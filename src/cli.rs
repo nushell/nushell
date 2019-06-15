@@ -292,7 +292,9 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
                         let input_vec: Vec<Value> = input.objects.collect().await;
-                        left.run(ctx, input_vec)?;
+                        if let Err(err) = left.run(ctx, input_vec) {
+                            return LineResult::Error(line.clone(), err);
+                        }
                         break;
                     }
 
