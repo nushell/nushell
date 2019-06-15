@@ -15,6 +15,7 @@ use crate::evaluate::Scope;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::ast::{Expression, Leaf, RawExpression};
+use crate::parser::lexer::Spanned;
 use crate::parser::{Args, Pipeline};
 
 use log::debug;
@@ -425,13 +426,17 @@ fn classify_command(
                         }))
                     }
                     false => {
-                        let arg_list_strings: Vec<String> = match args {
-                            Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
+                        let arg_list_strings: Vec<Spanned<String>> = match args {
+                            Some(args) => args
+                                .iter()
+                                .map(|i| Spanned::from_item(i.as_external_arg(), i.span))
+                                .collect(),
                             None => vec![],
                         };
 
                         Ok(ClassifiedCommand::External(ExternalCommand {
                             name: name.to_string(),
+                            name_span: Some(span.clone()),
                             args: arg_list_strings,
                         }))
                     }

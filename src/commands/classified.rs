@@ -1,6 +1,6 @@
 use crate::commands::command::Sink;
 use crate::parser::ast::Expression;
-use crate::parser::lexer::Span;
+use crate::parser::lexer::{Span, Spanned};
 use crate::parser::registry::Args;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
@@ -157,7 +157,9 @@ impl InternalCommand {
 
 crate struct ExternalCommand {
     crate name: String,
-    crate args: Vec<String>,
+    #[allow(unused)]
+    crate name_span: Option<Span>,
+    crate args: Vec<Spanned<String>>,
 }
 
 crate enum StreamNext {
@@ -178,7 +180,7 @@ impl ExternalCommand {
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {
             arg_string.push_str(" ");
-            arg_string.push_str(&arg);
+            arg_string.push_str(&arg.item);
         }
 
         let mut process;
@@ -189,6 +191,23 @@ impl ExternalCommand {
             if arg_string.contains("$it") {
                 let mut first = true;
                 for i in &inputs {
+                    if i.as_string().is_err() {
+                        let mut span = None;
+                        for arg in &self.args {
+                            if arg.item.contains("$it") {
+                                span = Some(arg.span);
+                            }
+                        }
+                        if let Some(span) = span {
+                            return Err(ShellError::labeled_error(
+                                "External $it needs string data",
+                                "given object instead of string data",
+                                span,
+                            ));
+                        } else {
+                            return Err(ShellError::string("Error: $it needs string data"));
+                        }
+                    }
                     if !first {
                         process = process.arg("&&");
                         process = process.arg(&self.name);
@@ -213,6 +232,23 @@ impl ExternalCommand {
             if arg_string.contains("$it") {
                 let mut first = true;
                 for i in &inputs {
+                    if i.as_string().is_err() {
+                        let mut span = None;
+                        for arg in &self.args {
+                            if arg.item.contains("$it") {
+                                span = Some(arg.span);
+                            }
+                        }
+                        if let Some(span) = span {
+                            return Err(ShellError::labeled_error(
+                                "External $it needs string data",
+                                "given object instead of string data",
+                                span,
+                            ));
+                        } else {
+                            return Err(ShellError::string("Error: $it needs string data"));
+                        }
+                    }
                     if !first {
                         new_arg_string.push_str("&&");
                         new_arg_string.push_str(&self.name);
