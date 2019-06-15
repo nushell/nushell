@@ -1,6 +1,6 @@
 # Nu Shell
 
-Like having a playground for a shell.
+Like having a shell in a playground.
 
 # Status
 
