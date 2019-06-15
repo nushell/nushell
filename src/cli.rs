@@ -102,19 +102,16 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         cc.store(true, Ordering::SeqCst);
     })
     .expect("Error setting Ctrl-C handler");
-
+    let mut ctrlcbreak = false;
     loop {
         if ctrl_c.load(Ordering::SeqCst) {
             ctrl_c.store(false, Ordering::SeqCst);
-            if let ShellError::String(s) = ShellError::string("CTRL-C") {
-                context.host.lock().unwrap().stdout(&format!("{:?}", s));
-            }
             continue;
         }
 
         let (obj, cwd) = {
             let env = context.env.lock().unwrap();
-            let last = env.last().unwrap();
+            let last = env.back().unwrap();
             (last.obj().clone(), last.path().display().to_string())
         };
         let readline = match obj {
@@ -132,6 +129,20 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
+            }
+
+            LineResult::CtrlC => {
+                if ctrlcbreak {
+                    std::process::exit(0);
+                } else {
+                    context
+                        .host
+                        .lock()
+                        .unwrap()
+                        .stdout("CTRL-C pressed (again to quit)");
+                    ctrlcbreak = true;
+                    continue;
+                }
             }
 
             LineResult::Error(mut line, err) => match err {
@@ -177,6 +188,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     .stdout(&format!("A surprising fatal error occurred.\n{:?}", err));
             }
         }
+        ctrlcbreak = false;
     }
     rl.save_history("history.txt").unwrap();
 
@@ -186,6 +198,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 enum LineResult {
     Success(String),
     Error(String, ShellError),
+    CtrlC,
     Break,
 
     #[allow(unused)]
@@ -201,6 +214,7 @@ impl std::ops::Try for LineResult {
             LineResult::Success(s) => Ok(Some(s)),
             LineResult::Error(_, s) => Err(s),
             LineResult::Break => Ok(None),
+            LineResult::CtrlC => Ok(None),
             LineResult::FatalError(err) => Err(err),
         }
     }
@@ -259,27 +273,26 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (None, _) => break,
 
                     (Some(ClassifiedCommand::Expr(_)), _) => {
-                        return LineResult::Error(line.clone(), ShellError::unimplemented(
-                            "Expression-only commands",
-                        ))
+                        return LineResult::Error(
+                            line.clone(),
+                            ShellError::unimplemented("Expression-only commands"),
+                        )
                     }
 
                     (_, Some(ClassifiedCommand::Expr(_))) => {
-                        return LineResult::Error(line.clone(), ShellError::unimplemented(
-                            "Expression-only commands",
-                        ))
+                        return LineResult::Error(
+                            line.clone(),
+                            ShellError::unimplemented("Expression-only commands"),
+                        )
                     }
 
-                    (Some(ClassifiedCommand::Sink(_)), Some(_)) => {
-                        return LineResult::Error(line.clone(), ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
+                    (Some(ClassifiedCommand::Sink(SinkCommand { name_span, .. })), Some(_)) => {
+                        return LineResult::Error(line.clone(), ShellError::maybe_labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
                         let input_vec: Vec<Value> = input.objects.collect().await;
-                        left.run(
-                            ctx,
-                            input_vec,
-                        )?;
+                        left.run(ctx, input_vec)?;
                         break;
                     }
 
@@ -291,13 +304,12 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
-                    (
-                        Some(ClassifiedCommand::Internal(left)),
-                        Some(_),
-                    ) => match left.run(ctx, input).await {
-                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.clone(), err),
-                    },
+                    (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
+                        match left.run(ctx, input).await {
+                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                            Err(err) => return LineResult::Error(line.clone(), err),
+                        }
+                    }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
                         match left.run(ctx, input).await {
@@ -314,13 +326,12 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
-                    (
-                        Some(ClassifiedCommand::External(left)),
-                        Some(_),
-                    ) => match left.run(ctx, input, StreamNext::Internal).await {
-                        Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.clone(), err),
-                    },
+                    (Some(ClassifiedCommand::External(left)), Some(_)) => {
+                        match left.run(ctx, input, StreamNext::Internal).await {
+                            Ok(val) => val,
+                            Err(err) => return LineResult::Error(line.clone(), err),
+                        }
+                    }
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
@@ -333,9 +344,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             LineResult::Success(line.clone())
         }
-        Err(ReadlineError::Interrupted) => {
-            LineResult::Error("".to_string(), ShellError::string("CTRL-C"))
-        }
+        Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => {
             println!("CTRL-D");
             LineResult::Break

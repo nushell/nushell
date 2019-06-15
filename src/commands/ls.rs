@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 
 pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let env = args.env.lock().unwrap();
-    let path = env.last().unwrap().path.to_path_buf();
-    let obj = &env.last().unwrap().obj;
+    let path = env.back().unwrap().path.to_path_buf();
+    let obj = &env.back().unwrap().obj;
     let mut full_path = PathBuf::from(path);
     match &args.positional.get(0) {
         Some(Spanned {
@@ -31,7 +31,11 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             s.span,
                         ));
                     } else {
-                        return Err(ShellError::string(e.to_string()));
+                        return Err(ShellError::maybe_labeled_error(
+                            e.to_string(),
+                            e.to_string(),
+                            args.name_span,
+                        ));
                     }
                 }
                 Ok(o) => o,
