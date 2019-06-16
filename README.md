@@ -176,10 +176,12 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | to-array | Collapse rows into a single list |
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |
+| to-ini | Convert table into .ini text |
 
 ## Filters on text (unstructured data)
 | command | description |
 | ------------- | ------------- |
+| from-ini | Parse text as .ini and create table |
 | from-json | Parse text as .json and create table |
 | from-toml | Parse text as .toml and create table |
 | from-xml | Parse text as .xml and create a table |
