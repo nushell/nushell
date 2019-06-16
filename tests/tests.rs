@@ -68,6 +68,11 @@ mod tests {
     }
 
     #[test]
+    fn open_ini() {
+        test_helper("open_ini");
+    }
+
+    #[test]
     fn json_roundtrip() {
         test_helper("json_roundtrip");
     }

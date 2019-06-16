@@ -61,6 +61,7 @@ clipboard = "0.5"
 reqwest = "0.9"
 roxmltree = "0.6.0"
 pretty = "0.5.2"
+serde_ini = "0.2.0"
 
 [dependencies.pancurses]
 version = "0.16"
