@@ -101,6 +101,8 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Some("json".to_string())
             } else if s == "--xml" {
                 Some("xml".to_string())
+            } else if s == "--ini" {
+                Some("ini".to_string())
             } else if s == "--yaml" {
                 Some("yaml".to_string())
             } else if s == "--toml" {
@@ -137,6 +139,19 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         ShellError::maybe_labeled_error(
                             "Could not open as JSON",
                             "could not open as JSON",
+                            span,
+                        )
+                    },
+                )?,
+            ));
+        }
+        Some(x) if x == "ini" => {
+            stream.push_back(ReturnValue::Value(
+                crate::commands::from_ini::from_ini_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as INI",
+                            "could not open as INI",
                             span,
                         )
                     },
