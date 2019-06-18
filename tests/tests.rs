@@ -96,4 +96,9 @@ mod tests {
     fn enter() {
         test_helper("enter");
     }
+
+    #[test]
+    fn lines() {
+        test_helper("lines");
+    }
 }
