@@ -62,14 +62,11 @@ reqwest = "0.9"
 roxmltree = "0.6.0"
 pretty = "0.5.2"
 serde_ini = "0.2.0"
+subprocess = "0.1.18"
 
 [dependencies.pancurses]
 version = "0.16"
 features = ["win32a"]
-
-[dependencies.subprocess]
-git = "https://github.com/jonathandturner/rust-subprocess.git"
-branch = "is_already_escaped"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

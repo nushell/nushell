@@ -184,6 +184,7 @@ impl ExternalCommand {
         }
 
         let mut process;
+
         #[cfg(windows)]
         {
             process = Exec::shell(&self.name);
@@ -267,6 +268,7 @@ impl ExternalCommand {
                     new_arg_string.push_str(&arg);
                 }
             }
+
             process = Exec::shell(new_arg_string);
         }
         process = process.cwd(context.env.lock().unwrap().front().unwrap().path());
