@@ -71,8 +71,8 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ),
                     Err(_) => {
                         return Err(ShellError::labeled_error(
-                            "File cound not be opened",
-                            "file not found",
+                            "File could not be opened",
+                            "could not be opened",
                             args.positional[0].span,
                         ));
                     }
