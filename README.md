@@ -1,3 +1,5 @@
+[![Build Status](https://dev.azure.com/nushell/nushell/_apis/build/status/nushell.nushell?branchName=master)](https://dev.azure.com/nushell/nushell/_build/latest?definitionId=2&branchName=master)
+
 # Nu Shell
 
 Like having a shell in a playground.
