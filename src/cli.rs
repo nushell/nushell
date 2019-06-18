@@ -64,6 +64,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("open", open::open),
             command("enter", enter::enter),
             command("exit", exit::exit),
+            command("lines", lines::lines),
             command("pick", pick::pick),
             command("split-column", split_column::split_column),
             command("split-row", split_row::split_row),
@@ -75,6 +76,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-toml", to_toml::to_toml),
             Arc::new(Where),
             Arc::new(Config),
+            Arc::new(SkipWhile),
             command("sort-by", sort_by::sort_by),
         ]);
 
@@ -147,36 +149,41 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            LineResult::Error(mut line, err) => match err {
-                ShellError::Diagnostic(diag) => {
-                    let host = context.host.lock().unwrap();
-                    let writer = host.err_termcolor();
-                    line.push_str(" ");
-                    let files = crate::parser::span::Files::new(line);
+            LineResult::Error(mut line, err) => {
+                rl.add_history_entry(line.clone());
+                match err {
+                    ShellError::Diagnostic(diag) => {
+                        let host = context.host.lock().unwrap();
+                        let writer = host.err_termcolor();
+                        line.push_str(" ");
+                        let files = crate::parser::span::Files::new(line);
 
-                    language_reporting::emit(
-                        &mut writer.lock(),
-                        &files,
-                        &diag.diagnostic,
-                        &language_reporting::DefaultConfig,
-                    )
-                    .unwrap();
+                        language_reporting::emit(
+                            &mut writer.lock(),
+                            &files,
+                            &diag.diagnostic,
+                            &language_reporting::DefaultConfig,
+                        )
+                        .unwrap();
+                    }
+
+                    ShellError::TypeError(desc) => context
+                        .host
+                        .lock()
+                        .unwrap()
+                        .stdout(&format!("TypeError: {}", desc)),
+
+                    ShellError::MissingProperty { subpath, .. } => context
+                        .host
+                        .lock()
+                        .unwrap()
+                        .stdout(&format!("Missing property {}", subpath)),
+
+                    ShellError::String(_) => {
+                        context.host.lock().unwrap().stdout(&format!("{}", err))
+                    }
                 }
-
-                ShellError::TypeError(desc) => context
-                    .host
-                    .lock()
-                    .unwrap()
-                    .stdout(&format!("TypeError: {}", desc)),
-
-                ShellError::MissingProperty { subpath, .. } => context
-                    .host
-                    .lock()
-                    .unwrap()
-                    .stdout(&format!("Missing property {}", subpath)),
-
-                ShellError::String(_) => context.host.lock().unwrap().stdout(&format!("{}", err)),
-            },
+            }
 
             LineResult::Break => {
                 break;
