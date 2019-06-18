@@ -383,7 +383,16 @@ impl Leaf {
 
     fn as_external_arg(&self) -> String {
         match self {
-            Leaf::String(s) => format!("\"{}\"", s),
+            Leaf::String(s) => {
+                #[cfg(windows)]
+                {
+                    format!("{}", s)
+                }
+                #[cfg(not(windows))]
+                {
+                    format!("\"{}\"", s)
+                }
+            }
             Leaf::Bare(path) => format!("{}", path.to_string()),
             Leaf::Boolean(b) => format!("{}", b),
             Leaf::Int(i) => format!("{}", i),
