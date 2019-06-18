@@ -28,4 +28,4 @@ test_script:
 
 cache:
   - target -> Cargo.lock
-- C:\Users\appveyor\.cargo\registry -> Cargo.lock
+  - C:\Users\appveyor\.cargo\registry -> Cargo.lock
