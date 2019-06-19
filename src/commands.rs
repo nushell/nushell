@@ -27,6 +27,7 @@ crate mod skip_while;
 crate mod sort_by;
 crate mod split_column;
 crate mod split_row;
+crate mod sysinfo;
 crate mod to_array;
 crate mod to_ini;
 crate mod to_json;

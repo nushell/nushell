@@ -50,6 +50,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         context.add_commands(vec![
             command("ps", ps::ps),
             command("ls", ls::ls),
+            command("sysinfo", sysinfo::sysinfo),
             command("cd", cd::cd),
             command("view", view::view),
             command("skip", skip::skip),
