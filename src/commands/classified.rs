@@ -240,15 +240,11 @@ impl ExternalCommand {
                                 span = Some(arg.span);
                             }
                         }
-                        if let Some(span) = span {
-                            return Err(ShellError::labeled_error(
-                                "External $it needs string data",
-                                "given object instead of string data",
-                                span,
-                            ));
-                        } else {
-                            return Err(ShellError::string("Error: $it needs string data"));
-                        }
+                        return Err(ShellError::maybe_labeled_error(
+                            "External $it needs string data",
+                            "given object instead of string data",
+                            span,
+                        ));
                     }
                     if !first {
                         new_arg_string.push_str("&&");
