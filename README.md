@@ -161,6 +161,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | cd path | Change to a new path |
 | ls (path) | View the contents of the current or given path |
 | ps | View current processes |
+| sysinfo | View information about the current system |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 | enter {filename or url} | Enter (mount) the given contents as the current object |
 | exit | Leave/pop from the current object (exits if in filesystem object) |
