@@ -101,4 +101,10 @@ mod tests {
     fn lines() {
         test_helper("lines");
     }
+
+
+    #[test]
+    fn external_num() {
+        test_helper("external_num");
+    }
 }
