@@ -13,13 +13,24 @@ pub struct TableView {
 }
 
 impl TableView {
+    fn merge_descriptors(values: &[Value]) -> Vec<DataDescriptor> {
+        let mut ret = vec![];
+        for value in values {
+            for desc in value.data_descriptors() {
+                if !ret.contains(&desc) {
+                    ret.push(desc);
+                }
+            }
+        }
+        ret
+    }
+
     pub fn from_list(values: &[Value]) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }
 
-        let item = &values[0];
-        let headers = item.data_descriptors();
+        let headers = TableView::merge_descriptors(values);
 
         if headers.len() == 0 {
             return None;
