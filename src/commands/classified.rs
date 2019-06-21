@@ -1,14 +1,15 @@
 use crate::commands::command::Sink;
 use crate::parser::ast::Expression;
-use crate::parser::lexer::Span;
+use crate::parser::lexer::{Span, Spanned};
 use crate::parser::registry::Args;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
+use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
 use std::sync::Arc;
 use subprocess::Exec;
-
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}
 
@@ -109,32 +110,56 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
     ) -> Result<InputStream, ShellError> {
-        let result = context.run_command(
+        let mut result = context.run_command(
             self.command,
             self.name_span.clone(),
             self.args,
             input.objects,
         )?;
-        let env = context.env.clone();
-
-        let stream = result.filter_map(move |v| match v {
-            ReturnValue::Action(action) => match action {
-                CommandAction::ChangeCwd(cwd) => {
-                    env.lock().unwrap().cwd = cwd;
-                    futures::future::ready(None)
+        let mut stream = VecDeque::new();
+        while let Some(item) = result.next().await {
+            match item {
+                ReturnValue::Value(Value::Error(err)) => {
+                    return Err(*err);
                 }
-            },
+                ReturnValue::Action(action) => match action {
+                    CommandAction::ChangePath(path) => {
+                        context.env.lock().unwrap().back_mut().map(|x| {
+                            x.path = path;
+                            x
+                        });
+                    }
+                    CommandAction::Enter(obj) => {
+                        let new_env = Environment {
+                            obj: obj,
+                            path: PathBuf::from("/"),
+                        };
+                        context.env.lock().unwrap().push_back(new_env);
+                    }
+                    CommandAction::Exit => match context.env.lock().unwrap().pop_back() {
+                        Some(Environment {
+                            obj: Value::Filesystem,
+                            ..
+                        }) => std::process::exit(0),
+                        None => std::process::exit(-1),
+                        _ => {}
+                    },
+                },
 
-            ReturnValue::Value(v) => futures::future::ready(Some(v)),
-        });
-
+                ReturnValue::Value(v) => {
+                    stream.push_back(v);
+                }
+            }
+        }
         Ok(stream.boxed() as InputStream)
     }
 }
 
 crate struct ExternalCommand {
     crate name: String,
-    crate args: Vec<String>,
+    #[allow(unused)]
+    crate name_span: Option<Span>,
+    crate args: Vec<Spanned<String>>,
 }
 
 crate enum StreamNext {
@@ -155,10 +180,11 @@ impl ExternalCommand {
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {
             arg_string.push_str(" ");
-            arg_string.push_str(&arg);
+            arg_string.push_str(&arg.item);
         }
 
         let mut process;
+
         #[cfg(windows)]
         {
             process = Exec::shell(&self.name);
@@ -166,6 +192,23 @@ impl ExternalCommand {
             if arg_string.contains("$it") {
                 let mut first = true;
                 for i in &inputs {
+                    if i.as_string().is_err() {
+                        let mut span = None;
+                        for arg in &self.args {
+                            if arg.item.contains("$it") {
+                                span = Some(arg.span);
+                            }
+                        }
+                        if let Some(span) = span {
+                            return Err(ShellError::labeled_error(
+                                "External $it needs string data",
+                                "given object instead of string data",
+                                span,
+                            ));
+                        } else {
+                            return Err(ShellError::string("Error: $it needs string data"));
+                        }
+                    }
                     if !first {
                         process = process.arg("&&");
                         process = process.arg(&self.name);
@@ -179,7 +222,7 @@ impl ExternalCommand {
                 }
             } else {
                 for arg in &self.args {
-                    process = process.arg(arg);
+                    process = process.arg(arg.item.clone());
                 }
             }
         }
@@ -190,6 +233,19 @@ impl ExternalCommand {
             if arg_string.contains("$it") {
                 let mut first = true;
                 for i in &inputs {
+                    if i.as_string().is_err() {
+                        let mut span = None;
+                        for arg in &self.args {
+                            if arg.item.contains("$it") {
+                                span = Some(arg.span);
+                            }
+                        }
+                        return Err(ShellError::maybe_labeled_error(
+                            "External $it needs string data",
+                            "given object instead of string data",
+                            span,
+                        ));
+                    }
                     if !first {
                         new_arg_string.push_str("&&");
                         new_arg_string.push_str(&self.name);
@@ -208,9 +264,10 @@ impl ExternalCommand {
                     new_arg_string.push_str(&arg);
                 }
             }
+
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().cwd());
+        process = process.cwd(context.env.lock().unwrap().front().unwrap().path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,

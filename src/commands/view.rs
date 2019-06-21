@@ -4,15 +4,11 @@ use prettyprint::PrettyPrinter;
 
 pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        if let Some(span) = args.name_span {
-            return Err(ShellError::labeled_error(
-                "View requires a filename",
-                "needs parameter",
-                span,
-            ));
-        } else {
-            return Err(ShellError::string("view requires a filename."));
-        }
+        return Err(ShellError::maybe_labeled_error(
+            "View requires a filename",
+            "needs parameter",
+            args.name_span,
+        ));
     }
 
     let target = match args.positional[0].as_string() {
@@ -30,7 +26,14 @@ pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let cwd = args.env.lock().unwrap().cwd().to_path_buf();
+    let cwd = args
+        .env
+        .lock()
+        .unwrap()
+        .front()
+        .unwrap()
+        .path()
+        .to_path_buf();
 
     let printer = PrettyPrinter::default()
         .line_numbers(false)

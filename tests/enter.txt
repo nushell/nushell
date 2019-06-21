@@ -1,0 +1,10 @@
+cd tests
+enter test.json
+cd glossary
+cd GlossDiv
+cd GlossList
+cd GlossEntry
+cd GlossSee
+ls | echo $it
+exit
+exit

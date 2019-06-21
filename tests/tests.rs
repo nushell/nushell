@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use std::io::prelude::*;
-    use std::process::{Command, Stdio};
     use std::error::Error;
+    use std::io::prelude::*;
+    use std::path::PathBuf;
+    use std::process::{Command, Stdio};
 
     fn test_helper(test_name: &str) {
         let mut baseline_path = PathBuf::new();
@@ -27,10 +27,10 @@ mod tests {
         let process = match Command::new(executable)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .spawn() {
-
+            .spawn()
+        {
             Ok(process) => process,
-            Err(why) => panic!("Can't run test {}", why.description())
+            Err(why) => panic!("Can't run test {}", why.description()),
         };
 
         let baseline_out = std::fs::read_to_string(baseline_path).unwrap();
@@ -38,15 +38,13 @@ mod tests {
         let input_commands = std::fs::read_to_string(txt_path).unwrap();
 
         match process.stdin.unwrap().write_all(input_commands.as_bytes()) {
-            Err(why) => panic!("couldn't write to wc stdin: {}",
-                            why.description()),
-            Ok(_) => {},
+            Err(why) => panic!("couldn't write to wc stdin: {}", why.description()),
+            Ok(_) => {}
         }
 
         let mut s = String::new();
         match process.stdout.unwrap().read_to_string(&mut s) {
-            Err(why) => panic!("couldn't read stdout: {}",
-                            why.description()),
+            Err(why) => panic!("couldn't read stdout: {}", why.description()),
             Ok(_) => {
                 let s = s.replace("\r\n", "\n");
                 assert_eq!(s, baseline_out);
@@ -62,6 +60,16 @@ mod tests {
     #[test]
     fn open_json() {
         test_helper("open_json");
+    }
+
+    #[test]
+    fn open_xml() {
+        test_helper("open_xml");
+    }
+
+    #[test]
+    fn open_ini() {
+        test_helper("open_ini");
     }
 
     #[test]
@@ -82,5 +90,21 @@ mod tests {
     #[test]
     fn split() {
         test_helper("split");
+    }
+
+    #[test]
+    fn enter() {
+        test_helper("enter");
+    }
+
+    #[test]
+    fn lines() {
+        test_helper("lines");
+    }
+
+
+    #[test]
+    fn external_num() {
+        test_helper("external_num");
     }
 }

@@ -6,11 +6,6 @@ use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 
 use prettytable::{color, Attr, Cell, Row, Table};
 
-// An entries list is printed like this:
-//
-// name         : ...
-// name2        : ...
-// another_name : ...
 #[derive(new)]
 pub struct TableView {
     headers: Vec<DataDescriptor>,

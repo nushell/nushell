@@ -36,19 +36,31 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
     }
 }
 
-pub fn from_yaml_string_to_value(s: String) -> Value {
-    let v: serde_yaml::Value = serde_yaml::from_str(&s).unwrap();
-    convert_yaml_value_to_nu_value(&v)
+pub fn from_yaml_string_to_value(s: String) -> serde_yaml::Result<Value> {
+    let v: serde_yaml::Value = serde_yaml::from_str(&s)?;
+    Ok(convert_yaml_value_to_nu_value(&v))
 }
 
 pub fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
+    let span = args.name_span;
     Ok(out
-        .map(|a| match a {
-            Value::Primitive(Primitive::String(s)) => {
-                ReturnValue::Value(from_yaml_string_to_value(s))
-            }
-            _ => ReturnValue::Value(Value::Primitive(Primitive::String("".to_string()))),
+        .map(move |a| match a {
+            Value::Primitive(Primitive::String(s)) => match from_yaml_string_to_value(s) {
+                Ok(x) => ReturnValue::Value(x),
+                Err(_) => {
+                    ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+                        "Could not parse as YAML",
+                        "piped data failed YAML parse",
+                        span,
+                    ))))
+                }
+            },
+            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+                "Expected string values from pipeline",
+                "expects strings from pipeline",
+                span,
+            )))),
         })
         .boxed())
 }

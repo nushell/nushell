@@ -11,7 +11,7 @@ edition = "2018"
 [dependencies]
 #rustyline = "4.1.0"
 rustyline = { git ="https://github.com/kkawakam/rustyline.git" }
-sysinfo = "0.8.4"
+sysinfo = "0.8.5"
 chrono = { version = "0.4.6", features = ["serde"] }
 chrono-tz = "0.5.1"
 derive-new = "0.5.6"
@@ -25,7 +25,7 @@ indexmap = { version = "1.0.2", features = ["serde-1"] }
 chrono-humanize = "0.0.11"
 byte-unit = "2.1.0"
 ordered-float = "1.0.2"
-prettyprint = "0.6.0"
+prettyprint = "0.7.0"
 cursive = { version = "0.12.0", features = ["pancurses-backend"], default-features = false }
 futures-preview = { version = "0.3.0-alpha.16", features = ["compat", "io-compat"] }
 futures-sink-preview = "0.3.0-alpha.16"
@@ -37,11 +37,11 @@ log = "0.4.6"
 pretty_env_logger = "0.3.0"
 lalrpop-util = "0.17.0"
 regex = "1.1.6"
-serde = "1.0.91"
+serde = "1.0.92"
 serde_json = "1.0.39"
 serde-hjson = "0.9.0"
 serde_yaml = "0.8"
-serde_derive = "1.0.91"
+serde_derive = "1.0.92"
 getset = "0.0.7"
 logos = "0.10.0-rc2"
 logos-derive = "0.10.0-rc2"
@@ -53,26 +53,26 @@ clap = "2.33.0"
 enum_derive = "0.1.7"
 adhoc_derive = "0.1.2"
 lazy_static = "1.3.0"
-git2 = "0.8.0"
+git2 = "0.9.1"
 dirs = "2.0.1"
 ctrlc = "3.1.3"
 ptree = "0.2"
 clipboard = "0.5"
 reqwest = "0.9"
+roxmltree = "0.6.0"
 pretty = "0.5.2"
 nom_locate = "0.3.1"
 derive_more = "0.15.0"
 enum-utils = "0.1.0"
 unicode-xid = "0.1.0"
 nom-trace = { version = "0.1.0", git = "https://github.com/pythondude325/nom-trace.git" }
+serde_ini = "0.2.0"
+subprocess = "0.1.18"
+sys-info = "0.5.7"
 
 [dependencies.pancurses]
 version = "0.16"
 features = ["win32a"]
-
-[dependencies.subprocess]
-git = "https://github.com/jonathandturner/rust-subprocess.git"
-branch = "is_already_escaped"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

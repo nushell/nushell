@@ -1,18 +1,27 @@
+use crate::object::base::Value;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
-    crate cwd: PathBuf,
+    crate obj: Value,
+    crate path: PathBuf,
 }
 
 impl Environment {
     pub fn basic() -> Result<Environment, std::io::Error> {
-        let cwd = std::env::current_dir()?;
+        let path = std::env::current_dir()?;
 
-        Ok(Environment { cwd })
+        Ok(Environment {
+            obj: Value::Filesystem,
+            path,
+        })
     }
 
-    pub fn cwd(&self) -> &Path {
-        self.cwd.as_path()
+    pub fn path(&self) -> &Path {
+        self.path.as_path()
+    }
+
+    pub fn obj(&self) -> &Value {
+        &self.obj
     }
 }

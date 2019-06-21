@@ -1,0 +1,3 @@
+cd tests
+open test.toml --raw | lines | skip-while $it != "[dependencies]" | skip 1 | first 1 | split-column "=" | get Column1 | trim | echo $it
+exit

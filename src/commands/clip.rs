@@ -13,7 +13,16 @@ pub fn clip(args: SinkCommandArgs) -> Result<(), ShellError> {
             } else {
                 first = false;
             }
-            new_copy_data.push_str(&i.as_string().unwrap());
+            match i.as_string() {
+                Ok(s) => new_copy_data.push_str(&s),
+                Err(_) => {
+                    return Err(ShellError::maybe_labeled_error(
+                        "Given non-string data",
+                        "expected strings from pipeline",
+                        args.name_span,
+                    ))
+                }
+            }
         }
     }
     clip_context.set_contents(new_copy_data).unwrap();

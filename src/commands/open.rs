@@ -6,10 +6,23 @@ use std::path::{Path, PathBuf};
 
 pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        return Err(ShellError::string("open requires a filepath or url"));
+        return Err(ShellError::maybe_labeled_error(
+            "Open requires a path or url",
+            "needs path or url",
+            args.name_span,
+        ));
     }
 
-    let cwd = args.env.lock().unwrap().cwd().to_path_buf();
+    let span = args.name_span;
+
+    let cwd = args
+        .env
+        .lock()
+        .unwrap()
+        .front()
+        .unwrap()
+        .path()
+        .to_path_buf();
     let mut full_path = PathBuf::from(cwd);
 
     let (file_extension, contents) = match &args.positional[0].item {
@@ -58,8 +71,8 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ),
                     Err(_) => {
                         return Err(ShellError::labeled_error(
-                            "File cound not be opened",
-                            "file not found",
+                            "File could not be opened",
+                            "could not be opened",
                             args.positional[0].span,
                         ));
                     }
@@ -77,40 +90,111 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut stream = VecDeque::new();
 
-    let open_raw = match args.positional.get(1) {
+    let file_extension = match args.positional.get(1) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
-            ..
-        }) if s == "--raw" => true,
-        Some(v) => {
-            return Err(ShellError::labeled_error(
-                "Unknown flag for open",
-                "unknown flag",
-                v.span,
-            ))
+            span,
+        }) => {
+            if s == "--raw" {
+                None
+            } else if s == "--json" {
+                Some("json".to_string())
+            } else if s == "--xml" {
+                Some("xml".to_string())
+            } else if s == "--ini" {
+                Some("ini".to_string())
+            } else if s == "--yaml" {
+                Some("yaml".to_string())
+            } else if s == "--toml" {
+                Some("toml".to_string())
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Unknown flag for open",
+                    "unknown flag",
+                    span.clone(),
+                ));
+            }
         }
-        _ => false,
+        _ => file_extension,
     };
 
     match file_extension {
-        Some(x) if x == "toml" && !open_raw => {
+        Some(x) if x == "toml" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_toml::from_toml_string_to_value(contents),
+                crate::commands::from_toml::from_toml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as TOML",
+                            "could not open as TOML",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
-        Some(x) if x == "json" && !open_raw => {
+        Some(x) if x == "json" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_json::from_json_string_to_value(contents),
+                crate::commands::from_json::from_json_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as JSON",
+                            "could not open as JSON",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
-        Some(x) if x == "yml" && !open_raw => {
+        Some(x) if x == "ini" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_ini::from_ini_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as INI",
+                            "could not open as INI",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
-        Some(x) if x == "yaml" && !open_raw => {
+        Some(x) if x == "xml" => {
             stream.push_back(ReturnValue::Value(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_xml::from_xml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as XML",
+                            "could not open as XML",
+                            span,
+                        )
+                    },
+                )?,
+            ));
+        }
+        Some(x) if x == "yml" => {
+            stream.push_back(ReturnValue::Value(
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as YAML",
+                            "could not open as YAML",
+                            span,
+                        )
+                    },
+                )?,
+            ));
+        }
+        Some(x) if x == "yaml" => {
+            stream.push_back(ReturnValue::Value(
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not open as YAML",
+                            "could not open as YAML",
+                            span,
+                        )
+                    },
+                )?,
             ));
         }
         _ => {

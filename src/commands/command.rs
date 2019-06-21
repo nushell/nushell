@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
-    pub env: Arc<Mutex<Environment>>,
+    pub env: Arc<Mutex<VecDeque<Environment>>>,
     pub name_span: Option<Span>,
     pub positional: Vec<Spanned<Value>>,
     pub named: indexmap::IndexMap<String, Value>,
@@ -25,7 +25,9 @@ pub struct SinkCommandArgs {
 
 #[derive(Debug)]
 pub enum CommandAction {
-    ChangeCwd(PathBuf),
+    ChangePath(PathBuf),
+    Enter(Value),
+    Exit,
 }
 
 #[derive(Debug)]
@@ -36,7 +38,7 @@ pub enum ReturnValue {
 
 impl ReturnValue {
     crate fn change_cwd(path: PathBuf) -> ReturnValue {
-        ReturnValue::Action(CommandAction::ChangeCwd(path))
+        ReturnValue::Action(CommandAction::ChangePath(path))
     }
 }
 

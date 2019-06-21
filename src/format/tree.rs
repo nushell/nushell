@@ -38,6 +38,7 @@ impl TreeView {
             }
             Value::Block(_) => {}
             Value::Error(_) => {}
+            Value::Filesystem => {}
         }
     }
     crate fn from_value(value: &Value) -> TreeView {

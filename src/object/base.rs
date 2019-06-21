@@ -154,6 +154,7 @@ pub enum Value {
     Object(crate::object::Dictionary),
     List(Vec<Value>),
     Block(Block),
+    Filesystem,
 
     #[allow(unused)]
     Error(Box<ShellError>),
@@ -167,6 +168,7 @@ impl Value {
             Value::List(_) => format!("list"),
             Value::Block(_) => format!("block"),
             Value::Error(_) => format!("error"),
+            Value::Filesystem => format!("filesystem"),
         }
     }
 
@@ -177,12 +179,32 @@ impl Value {
             Value::Block(_) => vec![DataDescriptor::value_of()],
             Value::List(_) => vec![],
             Value::Error(_) => vec![DataDescriptor::value_of()],
+            Value::Filesystem => vec![],
         }
     }
 
     crate fn get_data_by_key(&'a self, name: &str) -> Option<&Value> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
+            Value::List(l) => {
+                for item in l {
+                    match item {
+                        Value::Object(o) => match o.get_data_by_key(name) {
+                            Some(v) => return Some(v),
+                            None => {}
+                        },
+                        _ => {}
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Value> {
+        match self {
+            Value::List(l) => l.iter().nth(idx),
             _ => None,
         }
     }
@@ -190,6 +212,7 @@ impl Value {
     crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
+            p @ Value::Filesystem => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
@@ -207,6 +230,7 @@ impl Value {
                 Value::List(list)
             }
             Value::Error(e) => Value::Error(Box::new(e.copy_error())),
+            Value::Filesystem => Value::Filesystem,
         }
     }
 
@@ -217,6 +241,7 @@ impl Value {
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
+            Value::Filesystem => format!("<filesystem>"),
         }
     }
 
@@ -266,7 +291,12 @@ impl Value {
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
-            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            Value::Primitive(Primitive::String(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Float(x)) => Ok(format!("{}", x.into_inner())),
+            Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
+            //Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",

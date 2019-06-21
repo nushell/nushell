@@ -15,6 +15,7 @@ use crate::evaluate::Scope;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::ast::{Expression, Leaf, RawExpression};
+use crate::parser::lexer::Spanned;
 use crate::parser::{Args, Pipeline};
 
 use log::debug;
@@ -49,26 +50,34 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         context.add_commands(vec![
             command("ps", ps::ps),
             command("ls", ls::ls),
+            command("sysinfo", sysinfo::sysinfo),
             command("cd", cd::cd),
             command("view", view::view),
             command("skip", skip::skip),
             command("first", first::first),
             command("size", size::size),
+            command("from-ini", from_ini::from_ini),
             command("from-json", from_json::from_json),
             command("from-toml", from_toml::from_toml),
+            command("from-xml", from_xml::from_xml),
             command("from-yaml", from_yaml::from_yaml),
             command("get", get::get),
             command("open", open::open),
+            command("enter", enter::enter),
+            command("exit", exit::exit),
+            command("lines", lines::lines),
             command("pick", pick::pick),
             command("split-column", split_column::split_column),
             command("split-row", split_row::split_row),
             command("reject", reject::reject),
             command("trim", trim::trim),
             command("to-array", to_array::to_array),
+            command("to-ini", to_ini::to_ini),
             command("to-json", to_json::to_json),
             command("to-toml", to_toml::to_toml),
             Arc::new(Where),
             Arc::new(Config),
+            Arc::new(SkipWhile),
             command("sort-by", sort_by::sort_by),
         ]);
 
@@ -76,7 +85,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             sink("autoview", autoview::autoview),
             sink("clip", clip::clip),
             sink("save", save::save),
+            sink("table", table::table),
             sink("tree", tree::tree),
+            sink("vtable", vtable::vtable),
         ]);
     }
 
@@ -98,60 +109,84 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         cc.store(true, Ordering::SeqCst);
     })
     .expect("Error setting Ctrl-C handler");
-
+    let mut ctrlcbreak = false;
     loop {
         if ctrl_c.load(Ordering::SeqCst) {
             ctrl_c.store(false, Ordering::SeqCst);
-            if let ShellError::String(s) = ShellError::string("CTRL-C") {
-                context.host.lock().unwrap().stdout(&format!("{:?}", s));
-            }
             continue;
         }
 
-        let readline = rl.readline(&format!(
-            "{}{}> ",
-            context.env.lock().unwrap().cwd().display(),
-            match current_branch() {
-                Some(s) => format!("({})", s),
-                None => "".to_string(),
-            }
-        ));
+        let (obj, cwd) = {
+            let env = context.env.lock().unwrap();
+            let last = env.back().unwrap();
+            (last.obj().clone(), last.path().display().to_string())
+        };
+        let readline = match obj {
+            Value::Filesystem => rl.readline(&format!(
+                "{}{}> ",
+                cwd,
+                match current_branch() {
+                    Some(s) => format!("({})", s),
+                    None => "".to_string(),
+                }
+            )),
+            _ => rl.readline(&format!("{}{}> ", obj.type_name(), cwd)),
+        };
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
             }
 
-            LineResult::Error(mut line, err) => match err {
-                ShellError::Diagnostic(diag) => {
-                    let host = context.host.lock().unwrap();
-                    let writer = host.err_termcolor();
-                    line.push_str(" ");
-                    let files = crate::parser::span::Files::new(line);
-
-                    language_reporting::emit(
-                        &mut writer.lock(),
-                        &files,
-                        &diag.diagnostic,
-                        &language_reporting::DefaultConfig,
-                    )
-                    .unwrap();
+            LineResult::CtrlC => {
+                if ctrlcbreak {
+                    std::process::exit(0);
+                } else {
+                    context
+                        .host
+                        .lock()
+                        .unwrap()
+                        .stdout("CTRL-C pressed (again to quit)");
+                    ctrlcbreak = true;
+                    continue;
                 }
+            }
 
-                ShellError::TypeError(desc) => context
-                    .host
-                    .lock()
-                    .unwrap()
-                    .stdout(&format!("TypeError: {}", desc)),
+            LineResult::Error(mut line, err) => {
+                rl.add_history_entry(line.clone());
+                match err {
+                    ShellError::Diagnostic(diag) => {
+                        let host = context.host.lock().unwrap();
+                        let writer = host.err_termcolor();
+                        line.push_str(" ");
+                        let files = crate::parser::span::Files::new(line);
 
-                ShellError::MissingProperty { subpath, .. } => context
-                    .host
-                    .lock()
-                    .unwrap()
-                    .stdout(&format!("Missing property {}", subpath)),
+                        language_reporting::emit(
+                            &mut writer.lock(),
+                            &files,
+                            &diag.diagnostic,
+                            &language_reporting::DefaultConfig,
+                        )
+                        .unwrap();
+                    }
 
-                ShellError::String(_) => context.host.lock().unwrap().stdout(&format!("{}", err)),
-            },
+                    ShellError::TypeError(desc) => context
+                        .host
+                        .lock()
+                        .unwrap()
+                        .stdout(&format!("TypeError: {}", desc)),
+
+                    ShellError::MissingProperty { subpath, .. } => context
+                        .host
+                        .lock()
+                        .unwrap()
+                        .stdout(&format!("Missing property {}", subpath)),
+
+                    ShellError::String(_) => {
+                        context.host.lock().unwrap().stdout(&format!("{}", err))
+                    }
+                }
+            }
 
             LineResult::Break => {
                 break;
@@ -165,6 +200,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     .stdout(&format!("A surprising fatal error occurred.\n{:?}", err));
             }
         }
+        ctrlcbreak = false;
     }
     rl.save_history("history.txt").unwrap();
 
@@ -174,6 +210,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 enum LineResult {
     Success(String),
     Error(String, ShellError),
+    CtrlC,
     Break,
 
     #[allow(unused)]
@@ -189,6 +226,7 @@ impl std::ops::Try for LineResult {
             LineResult::Success(s) => Ok(Some(s)),
             LineResult::Error(_, s) => Err(s),
             LineResult::Break => Ok(None),
+            LineResult::CtrlC => Ok(None),
             LineResult::FatalError(err) => Err(err),
         }
     }
@@ -206,8 +244,6 @@ impl std::ops::Try for LineResult {
 
 async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
-        Ok(line) if line.trim() == "exit" => LineResult::Break,
-
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
@@ -249,27 +285,28 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (None, _) => break,
 
                     (Some(ClassifiedCommand::Expr(_)), _) => {
-                        return LineResult::Error(line.clone(), ShellError::unimplemented(
-                            "Expression-only commands",
-                        ))
+                        return LineResult::Error(
+                            line.clone(),
+                            ShellError::unimplemented("Expression-only commands"),
+                        )
                     }
 
                     (_, Some(ClassifiedCommand::Expr(_))) => {
-                        return LineResult::Error(line.clone(), ShellError::unimplemented(
-                            "Expression-only commands",
-                        ))
+                        return LineResult::Error(
+                            line.clone(),
+                            ShellError::unimplemented("Expression-only commands"),
+                        )
                     }
 
-                    (Some(ClassifiedCommand::Sink(_)), Some(_)) => {
-                        return LineResult::Error(line.clone(), ShellError::string("Commands like table, save, and autoview must come last in the pipeline"))
+                    (Some(ClassifiedCommand::Sink(SinkCommand { name_span, .. })), Some(_)) => {
+                        return LineResult::Error(line.clone(), ShellError::maybe_labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
                         let input_vec: Vec<Value> = input.objects.collect().await;
-                        left.run(
-                            ctx,
-                            input_vec,
-                        )?;
+                        if let Err(err) = left.run(ctx, input_vec) {
+                            return LineResult::Error(line.clone(), err);
+                        }
                         break;
                     }
 
@@ -281,13 +318,12 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
-                    (
-                        Some(ClassifiedCommand::Internal(left)),
-                        Some(_),
-                    ) => match left.run(ctx, input).await {
-                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.clone(), err),
-                    },
+                    (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
+                        match left.run(ctx, input).await {
+                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                            Err(err) => return LineResult::Error(line.clone(), err),
+                        }
+                    }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
                         match left.run(ctx, input).await {
@@ -304,13 +340,12 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
-                    (
-                        Some(ClassifiedCommand::External(left)),
-                        Some(_),
-                    ) => match left.run(ctx, input, StreamNext::Internal).await {
-                        Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.clone(), err),
-                    },
+                    (Some(ClassifiedCommand::External(left)), Some(_)) => {
+                        match left.run(ctx, input, StreamNext::Internal).await {
+                            Ok(val) => val,
+                            Err(err) => return LineResult::Error(line.clone(), err),
+                        }
+                    }
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
@@ -323,9 +358,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             LineResult::Success(line.clone())
         }
-        Err(ReadlineError::Interrupted) => {
-            LineResult::Error("".to_string(), ShellError::string("CTRL-C"))
-        }
+        Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => {
             println!("CTRL-D");
             LineResult::Break
@@ -407,13 +440,17 @@ fn classify_command(
                         }))
                     }
                     false => {
-                        let arg_list_strings: Vec<String> = match args {
-                            Some(args) => args.iter().map(|i| i.as_external_arg()).collect(),
+                        let arg_list_strings: Vec<Spanned<String>> = match args {
+                            Some(args) => args
+                                .iter()
+                                .map(|i| Spanned::from_item(i.as_external_arg(), i.span))
+                                .collect(),
                             None => vec![],
                         };
 
                         Ok(ClassifiedCommand::External(ExternalCommand {
                             name: name.to_string(),
+                            name_span: Some(span.clone()),
                             args: arg_list_strings,
                         }))
                     }
