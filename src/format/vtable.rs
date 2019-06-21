@@ -1,5 +1,5 @@
 use crate::format::RenderView;
-use crate::object::{DataDescriptor, Value};
+use crate::object::{DescriptorName, Value};
 use crate::prelude::*;
 use derive_new::new;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
@@ -7,13 +7,12 @@ use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
 
 #[derive(new)]
-pub struct TableView {
-    headers: Vec<DataDescriptor>,
+pub struct VTableView {
     entries: Vec<Vec<String>>,
 }
 
-impl TableView {
-    pub fn from_list(values: &[Value]) -> Option<TableView> {
+impl VTableView {
+    pub fn from_list(values: &[Value]) -> Option<VTableView> {
         if values.len() == 0 {
             return None;
         }
@@ -27,21 +26,25 @@ impl TableView {
 
         let mut entries = vec![];
 
-        for value in values {
-            let row = headers
-                .iter()
-                .enumerate()
-                .map(|(i, d)| value.get_data(d).borrow().format_leaf(Some(&headers[i])))
-                .collect();
+        for header in headers {
+            let mut row = vec![];
 
+            if let DescriptorName::String(s) = &header.name {
+                row.push(s.clone());
+            } else {
+                row.push("value".to_string());
+            }
+            for value in values {
+                row.push(value.get_data(&header).borrow().format_leaf(Some(&header)));
+            }
             entries.push(row);
         }
 
-        Some(TableView { headers, entries })
+        Some(VTableView { entries })
     }
 }
 
-impl RenderView for TableView {
+impl RenderView for VTableView {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         if self.entries.len() == 0 {
             return Ok(());
@@ -52,27 +55,26 @@ impl RenderView for TableView {
         let fb = FormatBuilder::new()
             .separator(LinePosition::Top, LineSeparator::new('-', '+', ' ', ' '))
             .separator(LinePosition::Bottom, LineSeparator::new('-', '+', ' ', ' '))
-            .separator(LinePosition::Title, LineSeparator::new('-', '+', '|', '|'))
             .column_separator('|')
             .padding(1, 1);
 
-        //table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
         table.set_format(fb.build());
 
-        let header: Vec<Cell> = self
-            .headers
-            .iter()
-            .map(|h| {
-                Cell::new(h.display_header())
-                    .with_style(Attr::ForegroundColor(color::GREEN))
-                    .with_style(Attr::Bold)
-            })
-            .collect();
-
-        table.set_titles(Row::new(header));
-
         for row in &self.entries {
-            table.add_row(Row::new(row.iter().map(|h| Cell::new(h)).collect()));
+            table.add_row(Row::new(
+                row.iter()
+                    .enumerate()
+                    .map(|(idx, h)| {
+                        if idx == 0 {
+                            Cell::new(h)
+                                .with_style(Attr::ForegroundColor(color::GREEN))
+                                .with_style(Attr::Bold)
+                        } else {
+                            Cell::new(h)
+                        }
+                    })
+                    .collect(),
+            ));
         }
 
         table.print_term(&mut *host.out_terminal()).unwrap();
