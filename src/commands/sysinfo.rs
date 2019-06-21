@@ -4,6 +4,7 @@ use crate::object::Dictionary;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use sys_info::*;
+use sysinfo::{ComponentExt, DiskExt, NetworkExt, SystemExt};
 
 pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut idx = indexmap::IndexMap::new();
@@ -91,6 +92,7 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
         idx.insert("mem".to_string(), Value::Object(Dictionary::from(mem_idx)));
     }
 
+    /*
     if let Ok(x) = disk_info() {
         let mut disk_idx = indexmap::IndexMap::new();
         disk_idx.insert(
@@ -102,6 +104,7 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value::Primitive(Primitive::Bytes(x.free as u128 * 1024)),
         );
     }
+    */
 
     if let Ok(x) = hostname() {
         idx.insert(
@@ -133,6 +136,67 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
             );
         }
     }
+
+    let system = sysinfo::System::new();
+    let components_list = system.get_components_list();
+    if components_list.len() > 0 {
+        let mut v = vec![];
+        for component in components_list {
+            let mut component_idx = indexmap::IndexMap::new();
+            component_idx.insert(
+                "name".to_string(),
+                Value::string(component.get_label().to_string()),
+            );
+            component_idx.insert(
+                "temp".to_string(),
+                Value::float(component.get_temperature() as f64),
+            );
+            component_idx.insert(
+                "max".to_string(),
+                Value::float(component.get_max() as f64),
+            );
+            if let Some(critical) = component.get_critical() {
+                component_idx.insert("critical".to_string(), Value::float(critical as f64));
+            }
+            v.push(Value::Object(Dictionary::from(component_idx)));
+        }
+        idx.insert("temps".to_string(), Value::List(v));
+    }
+
+    let disks = system.get_disks();
+    if disks.len() > 0 {
+        let mut v = vec![];
+
+        for disk in disks {
+            let mut disk_idx = indexmap::IndexMap::new();
+            disk_idx.insert(
+                "name".to_string(),
+                Value::string(disk.get_name().to_string_lossy()),
+            );
+            disk_idx.insert(
+                "available".to_string(),
+                Value::bytes(disk.get_available_space()),
+            );
+            disk_idx.insert(
+                "total".to_string(),
+                Value::bytes(disk.get_total_space()),
+            );
+            v.push(Value::Object(Dictionary::from(disk_idx)));
+        }
+
+        idx.insert("disks".to_string(), Value::List(v));
+    }
+
+    let network = system.get_network();
+    let incoming = network.get_income();
+    let outgoing = network.get_outcome();
+
+    let mut network_idx = indexmap::IndexMap::new();
+    network_idx.insert("incoming".to_string(), Value::bytes(incoming));
+    network_idx.insert("outgoing".to_string(), Value::bytes(outgoing));
+    idx.insert("network".to_string(), Value::Object(Dictionary::from(network_idx)));
+
+    // println!("{:#?}", system.get_network());
 
     let mut stream = VecDeque::new();
     stream.push_back(ReturnValue::Value(Value::Object(Dictionary::from(idx))));
