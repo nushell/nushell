@@ -200,7 +200,9 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | autoview | View the contents of the pipeline as a table or list |
 | clip | Copy the contents of the pipeline to the copy/paste buffer |
 | save filename | Save the contents of the pipeline to a file |
+| table | View the contents of the pipeline as a table |
 | tree | View the contents of the pipeline as a tree |
+| vtable | View the contents of the pipeline as a vertical (rotated) table |
 
 # License
 
