@@ -73,27 +73,46 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                                 Some(v) => {
                                                     viewed = v;
                                                 }
-                                                _ => println!("Idx not found"),
+                                                _ => {
+                                                    return Err(ShellError::maybe_labeled_error(
+                                                        "Given incorrect index",
+                                                        format!("path given bad index: {}", idx),
+                                                        args.name_span,
+                                                    ))
+                                                }
                                             },
-                                            _ => println!("idx not a number"),
+                                            _ => {
+                                                return Err(ShellError::maybe_labeled_error(
+                                                    "Given incorrect index",
+                                                    format!(
+                                                        "path index not a number: {}",
+                                                        &s[0..finish]
+                                                    ),
+                                                    args.name_span,
+                                                ))
+                                            }
                                         }
                                     }
-                                    _ => println!("obj not some"),
-                                    /*
-                                    _ => match viewed.get_data_by_key(s) {
-                                        Some(v) => {
-                                            viewed = v;
-                                        }
-                                        _ => println!("Obj not Some"),
-                                    },
-                                    */
+                                    _ => {
+                                        return Err(ShellError::maybe_labeled_error(
+                                            "Index not closed",
+                                            format!("path missing closing ']'"),
+                                            if args.positional.len() > 0 { Some(args.positional[0].span) } else { args.name_span },
+                                        ))
+                                    }
                                 }
                             } else {
                                 match viewed.get_data_by_key(s) {
                                     Some(v) => {
                                         viewed = v;
                                     }
-                                    _ => println!("Obj not Some"),
+                                    _ => {
+                                        return Err(ShellError::maybe_labeled_error(
+                                            "Could not find key",
+                                            format!("could not find: {}", s),
+                                            args.name_span,
+                                        ))
+                                    }
                                 }
                                 first = false;
                             }
