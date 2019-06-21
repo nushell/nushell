@@ -85,7 +85,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             sink("autoview", autoview::autoview),
             sink("clip", clip::clip),
             sink("save", save::save),
+            sink("table", table::table),
             sink("tree", tree::tree),
+            sink("vtable", vtable::vtable),
         ]);
     }
 

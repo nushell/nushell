@@ -28,6 +28,7 @@ crate mod sort_by;
 crate mod split_column;
 crate mod split_row;
 crate mod sysinfo;
+crate mod table;
 crate mod to_array;
 crate mod to_ini;
 crate mod to_json;
@@ -35,6 +36,7 @@ crate mod to_toml;
 crate mod tree;
 crate mod trim;
 crate mod view;
+crate mod vtable;
 crate mod where_;
 
 crate use command::command;
