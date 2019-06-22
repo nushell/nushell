@@ -1546,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "nom_locate"
 version = "0.3.1"
-source = "git+https://github.com/wycats/nom_locate.git?branch=nom5#b981e045fdaf29dbbf6e83803a01896cf280d862"
+source = "git+https://github.com/wycats/nom_locate.git?branch=nom5#5baeede19605e2049994eca8f7b366ddc85bb9cd"
 dependencies = [
  "bytecount 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "memchr 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
