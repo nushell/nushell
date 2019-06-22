@@ -39,11 +39,6 @@ pub fn baseline_parse_next_expr(
     source: &str,
     coerce_hint: Option<ExpressionKindHint>,
 ) -> Result<(hir::Expression, &'nodes [TokenNode]), ShellError> {
-    println!(
-        "baseline_parse_next_expr {:?} - {:?}",
-        token_nodes, coerce_hint
-    );
-
     let mut tokens = token_nodes.iter().peekable();
 
     let first = next_token(&mut tokens);
