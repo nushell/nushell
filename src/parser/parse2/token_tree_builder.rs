@@ -1,11 +1,15 @@
-use crate::parser::parse2::flag::Flag;
+#[allow(unused)]
+use crate::prelude::*;
+
+use crate::parser::parse2::flag::{Flag, FlagKind};
 use crate::parser::parse2::operator::Operator;
 use crate::parser::parse2::span::{Span, Spanned};
 use crate::parser::parse2::token_tree::{
-    BinaryNode, CallNode, DelimitedNode, Delimiter, PathNode, TokenNode,
+    DelimitedNode, Delimiter, PathNode, PipelineElement, TokenNode,
 };
 use crate::parser::parse2::tokens::{RawToken, Token};
 use crate::parser::parse2::unit::Unit;
+use crate::parser::CallNode;
 use derive_new::new;
 
 #[derive(new)]
@@ -14,7 +18,10 @@ pub struct TokenTreeBuilder {
     pos: usize,
 }
 
-pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Option<TokenNode> + 'static>;
+#[allow(unused)]
+pub type CurriedNode<T> = Box<dyn FnOnce(&mut TokenTreeBuilder) -> T + 'static>;
+pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
+pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Spanned<CallNode> + 'static>;
 
 #[allow(unused)]
 impl TokenTreeBuilder {
@@ -23,35 +30,57 @@ impl TokenTreeBuilder {
         block(&mut builder)
     }
 
-    pub fn pipeline(input: Vec<CurriedToken>) -> CurriedToken {
+    pub fn pipeline(input: Vec<(Option<&str>, CurriedCall, Option<&str>)>) -> CurriedToken {
+        let input: Vec<(Option<String>, CurriedCall, Option<String>)> = input
+            .into_iter()
+            .map(|(pre, call, post)| {
+                (
+                    pre.map(|s| s.to_string()),
+                    call,
+                    post.map(|s| s.to_string()),
+                )
+            })
+            .collect();
+
         Box::new(move |b| {
             let start = b.pos;
 
-            let mut out = vec![];
+            let mut out: Vec<PipelineElement> = vec![];
 
             let mut input = input.into_iter();
-            let first = input
+            let (pre, call, post) = input
                 .next()
                 .expect("A pipeline must contain at least one element");
 
-            out.push(first(b).expect("The first element of a pipeline must not be whitespace"));
+            let pre_span = pre.map(|pre| b.consume(&pre));
+            let call = call(b);
+            let post_span = post.map(|post| b.consume(&post));
+            out.push(PipelineElement::new(
+                pre_span.map(Span::from),
+                call,
+                post_span.map(Span::from),
+            ));
 
-            for item in input {
-                b.consume(" | ");
+            for (pre, call, post) in input {
+                b.consume("|");
+                let pre_span = pre.map(|pre| b.consume(&pre));
+                let call = call(b);
+                let post_span = post.map(|post| b.consume(&post));
 
-                match item(b) {
-                    None => {}
-                    Some(v) => out.push(v),
-                }
+                out.push(PipelineElement::new(
+                    pre_span.map(Span::from),
+                    call,
+                    post_span.map(Span::from),
+                ));
             }
 
             let end = b.pos;
 
-            Some(TokenTreeBuilder::spanned_pipeline(out, (start, end)))
+            TokenTreeBuilder::spanned_pipeline(out, (start, end))
         })
     }
 
-    pub fn spanned_pipeline(input: Vec<TokenNode>, span: impl Into<Span>) -> TokenNode {
+    pub fn spanned_pipeline(input: Vec<PipelineElement>, span: impl Into<Span>) -> TokenNode {
         TokenNode::Pipeline(Spanned::from_item(input, span))
     }
 
@@ -63,15 +92,12 @@ impl TokenTreeBuilder {
 
             b.pos = end;
 
-            Some(TokenTreeBuilder::spanned_op(input, (start, end)))
+            TokenTreeBuilder::spanned_op(input, (start, end))
         })
     }
 
     pub fn spanned_op(input: impl Into<Operator>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Spanned::from_item(
-            RawToken::Operator(input.into()),
-            span.into(),
-        ))
+        TokenNode::Operator(Spanned::from_item(input.into(), span.into()))
     }
 
     pub fn string(input: impl Into<String>) -> CurriedToken {
@@ -83,10 +109,7 @@ impl TokenTreeBuilder {
             let (_, end) = b.consume("\"");
             b.pos = end;
 
-            Some(TokenTreeBuilder::spanned_string(
-                (inner_start, inner_end),
-                (start, end),
-            ))
+            TokenTreeBuilder::spanned_string((inner_start, inner_end), (start, end))
         })
     }
 
@@ -104,7 +127,7 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            Some(TokenTreeBuilder::spanned_bare((start, end)))
+            TokenTreeBuilder::spanned_bare((start, end))
         })
     }
 
@@ -119,7 +142,7 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&int.to_string());
             b.pos = end;
 
-            Some(TokenTreeBuilder::spanned_int(int, (start, end)))
+            TokenTreeBuilder::spanned_int(int, (start, end))
         })
     }
 
@@ -136,7 +159,7 @@ impl TokenTreeBuilder {
             let (_, end) = b.consume(unit.as_str());
             b.pos = end;
 
-            Some(TokenTreeBuilder::spanned_size((int, unit), (start, end)))
+            TokenTreeBuilder::spanned_size((int, unit), (start, end))
         })
     }
 
@@ -152,22 +175,19 @@ impl TokenTreeBuilder {
     pub fn path(head: CurriedToken, tail: Vec<CurriedToken>) -> CurriedToken {
         Box::new(move |b| {
             let start = b.pos;
-            let head = head(b).expect("The head of a path must not be whitespace");
+            let head = head(b);
 
             let mut output = vec![];
 
             for item in tail {
                 b.consume(".");
 
-                match item(b) {
-                    None => {}
-                    Some(v) => output.push(v),
-                };
+                output.push(item(b));
             }
 
             let end = b.pos;
 
-            Some(TokenTreeBuilder::spanned_path((head, output), (start, end)))
+            TokenTreeBuilder::spanned_path((head, output), (start, end))
         })
     }
 
@@ -185,10 +205,7 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("$");
             let (inner_start, end) = b.consume(&input);
 
-            Some(TokenTreeBuilder::spanned_var(
-                (inner_start, end),
-                (start, end),
-            ))
+            TokenTreeBuilder::spanned_var((inner_start, end), (start, end))
         })
     }
 
@@ -206,16 +223,13 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("--");
             let (inner_start, end) = b.consume(&input);
 
-            Some(TokenTreeBuilder::spanned_flag(
-                (inner_start, end),
-                (start, end),
-            ))
+            TokenTreeBuilder::spanned_flag((inner_start, end), (start, end))
         })
     }
 
     pub fn spanned_flag(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Spanned::from_item(
-            RawToken::Flag(Flag::Longhand, input.into()),
+        TokenNode::Flag(Spanned::from_item(
+            Flag::new(FlagKind::Longhand, input.into()),
             span.into(),
         ))
     }
@@ -227,16 +241,13 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("-");
             let (inner_start, end) = b.consume(&input);
 
-            Some(TokenTreeBuilder::spanned_shorthand(
-                (inner_start, end),
-                (start, end),
-            ))
+            TokenTreeBuilder::spanned_shorthand((inner_start, end), (start, end))
         })
     }
 
     pub fn spanned_shorthand(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Spanned::from_item(
-            RawToken::Flag(Flag::Shorthand, input.into()),
+        TokenNode::Flag(Spanned::from_item(
+            Flag::new(FlagKind::Shorthand, input.into()),
             span.into(),
         ))
     }
@@ -246,45 +257,42 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            Some(TokenTreeBuilder::spanned_ident((start, end)))
+            TokenTreeBuilder::spanned_ident((start, end))
         })
     }
 
     pub fn spanned_ident(span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Spanned::from_item(RawToken::Identifier, span.into()))
+        TokenNode::Identifier(span.into())
     }
 
-    pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedToken {
+    pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedCall {
         Box::new(move |b| {
             let start = b.pos;
 
-            let head_node = head(b).expect("The head of a command must not be whitespace");
+            let head_node = head(b);
 
-            let mut tail_nodes = vec![];
+            let mut nodes = vec![head_node];
             for item in input {
-                match item(b) {
-                    None => {}
-                    Some(v) => tail_nodes.push(v),
-                };
+                nodes.push(item(b));
             }
 
             let end = b.pos;
 
-            Some(TokenTreeBuilder::spanned_call(
-                (head_node, Some(tail_nodes)),
-                (start, end),
-            ))
+            TokenTreeBuilder::spanned_call(nodes, (start, end))
         })
     }
 
-    pub fn spanned_call(
-        input: (TokenNode, Option<Vec<TokenNode>>),
-        span: impl Into<Span>,
-    ) -> TokenNode {
-        TokenNode::Call(Spanned::from_item(
-            CallNode::new(Box::new(input.0), input.1.unwrap_or_else(|| vec![])),
-            span,
-        ))
+    pub fn spanned_call(input: Vec<TokenNode>, span: impl Into<Span>) -> Spanned<CallNode> {
+        if input.len() == 0 {
+            panic!("BUG: spanned call (TODO)")
+        }
+
+        let mut input = input.into_iter();
+
+        let head = input.next().unwrap();
+        let tail = input.collect();
+
+        Spanned::from_item(CallNode::new(Box::new(head), tail), span)
     }
 
     pub fn parens(input: Vec<CurriedToken>) -> CurriedToken {
@@ -292,15 +300,12 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("(");
             let mut output = vec![];
             for item in input {
-                match item(b) {
-                    None => {}
-                    Some(v) => output.push(v),
-                };
+                output.push(item(b));
             }
 
             let (_, end) = b.consume(")");
 
-            Some(TokenTreeBuilder::spanned_parens(output, (start, end)))
+            TokenTreeBuilder::spanned_parens(output, (start, end))
         })
     }
 
@@ -311,20 +316,38 @@ impl TokenTreeBuilder {
         ))
     }
 
+    pub fn square(input: Vec<CurriedToken>) -> CurriedToken {
+        Box::new(move |b| {
+            let (start, _) = b.consume("[");
+            let mut output = vec![];
+            for item in input {
+                output.push(item(b));
+            }
+
+            let (_, end) = b.consume("]");
+
+            TokenTreeBuilder::spanned_square(output, (start, end))
+        })
+    }
+
+    pub fn spanned_square(input: impl Into<Vec<TokenNode>>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Delimited(Spanned::from_item(
+            DelimitedNode::new(Delimiter::Square, input.into()),
+            span,
+        ))
+    }
+
     pub fn braced(input: Vec<CurriedToken>) -> CurriedToken {
         Box::new(move |b| {
             let (start, _) = b.consume("{ ");
             let mut output = vec![];
             for item in input {
-                match item(b) {
-                    None => {}
-                    Some(v) => output.push(v),
-                };
+                output.push(item(b));
             }
 
             let (_, end) = b.consume(" }");
 
-            Some(TokenTreeBuilder::spanned_brace(output, (start, end)))
+            TokenTreeBuilder::spanned_brace(output, (start, end))
         })
     }
 
@@ -335,50 +358,10 @@ impl TokenTreeBuilder {
         ))
     }
 
-    pub fn binary(
-        left: CurriedToken,
-        op: impl Into<Operator>,
-        right: CurriedToken,
-    ) -> CurriedToken {
-        let op = op.into();
-
-        Box::new(move |b| {
-            let start = b.pos;
-
-            let left = left(b).expect("The left side of a binary operation must not be whitespace");
-
-            b.consume(" ");
-
-            b.consume(op.as_str());
-
-            b.consume(" ");
-
-            let right =
-                right(b).expect("The right side of a binary operation must not be whitespace");
-
-            let end = b.pos;
-
-            Some(TokenTreeBuilder::spanned_binary(
-                (left, op, right),
-                (start, end),
-            ))
-        })
-    }
-
-    pub fn spanned_binary(
-        input: (impl Into<TokenNode>, Operator, impl Into<TokenNode>),
-        span: impl Into<Span>,
-    ) -> TokenNode {
-        TokenNode::Binary(Spanned::from_item(
-            BinaryNode::new(Box::new(input.0.into()), input.1, Box::new(input.2.into())),
-            span,
-        ))
-    }
-
     pub fn sp() -> CurriedToken {
         Box::new(|b| {
-            b.consume(" ");
-            None
+            let (start, end) = b.consume(" ");
+            TokenNode::Whitespace(Span::from((start, end)))
         })
     }
 
@@ -386,9 +369,15 @@ impl TokenTreeBuilder {
         let input = input.into();
 
         Box::new(move |b| {
-            b.consume(&input);
-            None
+            let (start, end) = b.consume(&input);
+            TokenTreeBuilder::spanned_ws((start, end))
         })
+    }
+
+    pub fn spanned_ws(span: impl Into<Span>) -> TokenNode {
+        let span = span.into();
+
+        TokenNode::Whitespace(span.into())
     }
 
     fn consume(&mut self, input: &str) -> (usize, usize) {

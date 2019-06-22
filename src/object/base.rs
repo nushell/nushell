@@ -1,16 +1,17 @@
 use crate::errors::ShellError;
-use crate::evaluate::{evaluate_expr, Scope};
+use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::object::DataDescriptor;
-use crate::parser::ast::{self, Operator};
-use crate::parser::lexer::Spanned;
+use crate::parser::{hir, Operator, Spanned};
 use crate::prelude::*;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use ordered_float::OrderedFloat;
+use std::fmt;
 use std::time::SystemTime;
 
+use crate::parser::Text;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new)]
@@ -75,6 +76,20 @@ impl Primitive {
         .to_string()
     }
 
+    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Primitive::*;
+
+        match self {
+            Nothing => write!(f, "Nothing"),
+            Int(int) => write!(f, "{}", int),
+            Float(float) => write!(f, "{:?}", float),
+            Bytes(bytes) => write!(f, "{}", bytes),
+            String(string) => write!(f, "{:?}", string),
+            Boolean(boolean) => write!(f, "{}", boolean),
+            Date(date) => write!(f, "{}", date),
+        }
+    }
+
     crate fn format(&self, field_name: Option<&DataDescriptor>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
@@ -117,7 +132,8 @@ pub struct Operation {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
 pub struct Block {
-    crate expression: ast::Expression,
+    crate expression: hir::Expression,
+    crate source: Text,
 }
 
 impl Serialize for Block {
@@ -125,7 +141,7 @@ impl Serialize for Block {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.expression.print())
+        serializer.serialize_str(&self.expression.source(self.source.as_ref()))
     }
 }
 
@@ -134,17 +150,19 @@ impl Deserialize<'de> for Block {
     where
         D: Deserializer<'de>,
     {
-        let mut builder = ast::ExpressionBuilder::new();
-        let expr: ast::Expression = builder.string("Unserializable block");
-
-        Ok(Block::new(expr))
+        unimplemented!("deserialize block")
+        // let s = "\"unimplemented deserialize block\"";
+        // Ok(Block::new(
+        //     TokenTreeBuilder::spanned_string((1, s.len() - 1), (0, s.len())),
+        //     Text::from(s),
+        // ))
     }
 }
 
 impl Block {
     pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
         let scope = Scope::new(value.copy());
-        evaluate_expr(&self.expression, &scope)
+        evaluate_baseline_expr(&self.expression, &(), &scope, self.source.as_ref())
     }
 }
 
@@ -153,11 +171,45 @@ pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
     List(Vec<Value>),
+    #[allow(unused)]
     Block(Block),
     Filesystem,
 
     #[allow(unused)]
     Error(Box<ShellError>),
+}
+
+pub fn debug_list(values: &'a Vec<Value>) -> ValuesDebug<'a> {
+    ValuesDebug { values }
+}
+
+pub struct ValuesDebug<'a> {
+    values: &'a Vec<Value>,
+}
+
+impl fmt::Debug for ValuesDebug<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_list()
+            .entries(self.values.iter().map(|i| i.debug()))
+            .finish()
+    }
+}
+
+pub struct ValueDebug<'a> {
+    value: &'a Value,
+}
+
+impl fmt::Debug for ValueDebug<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.value {
+            Value::Primitive(p) => p.debug(f),
+            Value::Object(o) => o.debug(f),
+            Value::List(l) => debug_list(l).fmt(f),
+            Value::Block(_) => write!(f, "[[block]]"),
+            Value::Error(err) => write!(f, "[[error :: {} ]]", err),
+            Value::Filesystem => write!(f, "[[filesystem]]"),
+        }
+    }
 }
 
 impl Value {
@@ -170,6 +222,10 @@ impl Value {
             Value::Error(_) => format!("error"),
             Value::Filesystem => format!("filesystem"),
         }
+    }
+
+    crate fn debug(&'a self) -> ValueDebug<'a> {
+        ValueDebug { value: self }
     }
 
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
@@ -237,7 +293,7 @@ impl Value {
     crate fn format_leaf(&self, desc: Option<&DataDescriptor>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
-            Value::Block(b) => b.expression.print(),
+            Value::Block(b) => b.expression.source(b.source.as_ref()).to_string(),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
@@ -245,7 +301,8 @@ impl Value {
         }
     }
 
-    crate fn compare(&self, operator: &ast::Operator, other: &Value) -> Option<bool> {
+    #[allow(unused)]
+    crate fn compare(&self, operator: &Operator, other: &Value) -> Option<bool> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
@@ -347,8 +404,9 @@ impl Value {
         }
     }
 
-    crate fn block(e: ast::Expression) -> Value {
-        Value::Block(Block::new(e))
+    #[allow(unused)]
+    crate fn block(e: hir::Expression, source: Text) -> Value {
+        Value::Block(Block::new(e, source))
     }
 
     crate fn string(s: impl Into<String>) -> Value {

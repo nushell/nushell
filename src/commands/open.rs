@@ -1,11 +1,37 @@
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::parser::lexer::Spanned;
+use crate::parser::registry::{CommandConfig, NamedType};
 use crate::prelude::*;
+use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
+use crate::parser::parse2::span::Spanned;
 
-pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+pub struct Open;
+
+impl Command for Open {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        open(args)
+    }
+    fn name(&self) -> &str {
+        "open"
+    }
+
+    fn config(&self) -> CommandConfig {
+        let mut named: IndexMap<String, NamedType> = IndexMap::new();
+        named.insert("raw".to_string(), NamedType::Switch);
+
+        CommandConfig {
+            name: self.name().to_string(),
+            mandatory_positional: vec![],
+            optional_positional: vec![],
+            rest_positional: false,
+            named,
+        }
+    }
+}
+
+fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    if args.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Open requires a path or url",
             "needs path or url",
@@ -25,7 +51,7 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .to_path_buf();
     let mut full_path = PathBuf::from(cwd);
 
-    let (file_extension, contents) = match &args.positional[0].item {
+    let (file_extension, contents) = match &args.expect_nth(0)?.item {
         Value::Primitive(Primitive::String(s)) => {
             if s.starts_with("http:") || s.starts_with("https:") {
                 let response = reqwest::get(s);
@@ -48,7 +74,7 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             return Err(ShellError::labeled_error(
                                 "Web page contents corrupt",
                                 "received garbled data",
-                                args.positional[0].span,
+                                args.expect_nth(0)?.span,
                             ));
                         }
                     },
@@ -56,7 +82,7 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         return Err(ShellError::labeled_error(
                             "URL could not be opened",
                             "url not found",
-                            args.positional[0].span,
+                            args.expect_nth(0)?.span,
                         ));
                     }
                 }
@@ -71,9 +97,9 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ),
                     Err(_) => {
                         return Err(ShellError::labeled_error(
-                            "File could not be opened",
-                            "could not be opened",
-                            args.positional[0].span,
+                            "File cound not be opened",
+                            "file not found",
+                            args.expect_nth(0)?.span,
                         ));
                     }
                 }
@@ -83,14 +109,14 @@ pub fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
             return Err(ShellError::labeled_error(
                 "Expected string value for filename",
                 "expected filename",
-                args.positional[0].span,
+                args.expect_nth(0)?.span,
             ));
         }
     };
 
     let mut stream = VecDeque::new();
 
-    let file_extension = match args.positional.get(1) {
+    let file_extension = match args.nth(1) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
             span,

@@ -1,17 +1,22 @@
 use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::parser::lexer::Spanned;
+use crate::parser::Spanned;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
-    if args.positional.len() == 0 {
+    if args.args.positional.is_none() {
         return Err(ShellError::maybe_labeled_error(
             "Save requires a filepath",
             "needs path",
             args.name_span,
         ));
     }
+
+    let positional = match args.args.positional {
+        None => return Err(ShellError::string("save requires a filepath")),
+        Some(p) => p,
+    };
 
     let cwd = args
         .ctx
@@ -23,12 +28,12 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
         .path()
         .to_path_buf();
     let mut full_path = PathBuf::from(cwd);
-    match &(args.positional[0].item) {
+    match &(positional[0].item) {
         Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),
         _ => {}
     }
 
-    let save_raw = match args.positional.get(1) {
+    let save_raw = match positional.get(1) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
             ..

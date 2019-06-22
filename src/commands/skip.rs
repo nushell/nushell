@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::prelude::*;
 
 pub fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Skip requires an amount",
             "needs parameter",
@@ -10,7 +10,7 @@ pub fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
-    let amount = args.positional[0].as_i64();
+    let amount = args.expect_nth(0)?.as_i64();
 
     let amount = match amount {
         Ok(o) => o,
@@ -18,7 +18,7 @@ pub fn skip(args: CommandArgs) -> Result<OutputStream, ShellError> {
             return Err(ShellError::labeled_error(
                 "Value is not a number",
                 "expected integer",
-                args.positional[0].span,
+                args.expect_nth(0)?.span,
             ))
         }
     };

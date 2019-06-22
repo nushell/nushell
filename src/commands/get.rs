@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::Value;
-use crate::parser::lexer::Span;
+use crate::parser::Span;
 use crate::prelude::*;
 
 fn get_member(path: &str, span: Span, obj: &Value) -> Option<Value> {
@@ -22,7 +22,7 @@ fn get_member(path: &str, span: Span, obj: &Value) -> Option<Value> {
 }
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Get requires a field or field path",
             "needs parameter",
@@ -30,7 +30,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
-    let amount = args.positional[0].as_i64();
+    let amount = args.expect_nth(0)?.as_i64();
 
     // If it's a number, get the row instead of the column
     if let Ok(amount) = amount {
@@ -43,8 +43,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     let fields: Result<Vec<(String, Span)>, _> = args
-        .positional
-        .iter()
+        .positional_iter()
         .map(|a| (a.as_string().map(|x| (x, a.span))))
         .collect();
     let fields = fields?;

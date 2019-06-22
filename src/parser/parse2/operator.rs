@@ -12,6 +12,7 @@ pub enum Operator {
 }
 
 impl Operator {
+    #[allow(unused)]
     pub fn print(&self) -> String {
         self.as_str().to_string()
     }

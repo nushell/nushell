@@ -7,6 +7,7 @@ use indexmap::IndexMap;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_derive::Deserialize;
 use std::cmp::{Ordering, PartialOrd};
+use std::fmt;
 
 #[derive(Debug, Default, Eq, PartialEq, Deserialize, Clone, new)]
 pub struct Dictionary {
@@ -112,5 +113,15 @@ impl Dictionary {
             Some((_, v)) => Some(v),
             None => None,
         }
+    }
+
+    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut debug = f.debug_struct("Dictionary");
+
+        for (desc, value) in self.entries.iter() {
+            debug.field(desc.name.debug(), &value.debug());
+        }
+
+        debug.finish()
     }
 }

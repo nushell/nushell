@@ -11,14 +11,14 @@ use crate::commands::classified::{
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
+use crate::parser::parse2::span::Spanned;
+use crate::parser::parse2::{PipelineElement, TokenNode};
+use crate::parser::registry;
 
 use crate::git::current_branch;
 use crate::object::Value;
-use crate::parser::ast::{Expression, Leaf, RawExpression};
-use crate::parser::lexer::Spanned;
-use crate::parser::{Args, Pipeline};
 
-use log::debug;
+use log::{debug, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
 
@@ -62,19 +62,21 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-xml", from_xml::from_xml),
             command("from-yaml", from_yaml::from_yaml),
             command("get", get::get),
-            command("open", open::open),
             command("enter", enter::enter),
             command("exit", exit::exit),
             command("lines", lines::lines),
             command("pick", pick::pick),
             command("split-column", split_column::split_column),
             command("split-row", split_row::split_row),
+            command("lines", lines::lines),
             command("reject", reject::reject),
             command("trim", trim::trim),
             command("to-array", to_array::to_array),
             command("to-ini", to_ini::to_ini),
             command("to-json", to_json::to_json),
             command("to-toml", to_toml::to_toml),
+            command("sort-by", sort_by::sort_by),
+            Arc::new(Open),
             Arc::new(Where),
             Arc::new(Config),
             Arc::new(SkipWhile),
@@ -159,7 +161,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                         let host = context.host.lock().unwrap();
                         let writer = host.err_termcolor();
                         line.push_str(" ");
-                        let files = crate::parser::span::Files::new(line);
+                        let files = crate::parser::Files::new(line);
 
                         language_reporting::emit(
                             &mut writer.lock(),
@@ -258,7 +260,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = classify_pipeline(&result, ctx)?;
+            let mut pipeline = classify_pipeline(&result, ctx, &line)?;
 
             match pipeline.commands.last() {
                 Some(ClassifiedCommand::Sink(_)) => {}
@@ -266,9 +268,9 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
                     command: sink("autoview", autoview::autoview),
                     name_span: None,
-                    args: Args {
-                        positional: vec![],
-                        named: indexmap::IndexMap::new(),
+                    args: registry::Args {
+                        positional: None,
+                        named: None,
                     },
                 })),
             }
@@ -371,14 +373,15 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 }
 
 fn classify_pipeline(
-    pipeline: &Pipeline,
+    pipeline: &TokenNode,
     context: &Context,
+    source: &str,
 ) -> Result<ClassifiedPipeline, ShellError> {
-    let commands: Result<Vec<_>, _> = pipeline
-        .commands
+    let pipeline = pipeline.as_pipeline()?;
+
+    let commands: Result<Vec<_>, ShellError> = pipeline
         .iter()
-        .cloned()
-        .map(|item| classify_command(&item, context))
+        .map(|item| classify_command(&item, context, source))
         .collect();
 
     Ok(ClassifiedPipeline {
@@ -387,85 +390,69 @@ fn classify_pipeline(
 }
 
 fn classify_command(
-    command: &Expression,
+    command: &PipelineElement,
     context: &Context,
+    source: &str,
 ) -> Result<ClassifiedCommand, ShellError> {
-    // let command_name = &command.name[..];
-    // let args = &command.args;
+    let call = command.call();
 
-    if let Expression {
-        expr: RawExpression::Call(call),
-        ..
-    } = command
-    {
-        match (&call.name, &call.args) {
-            (
-                Expression {
-                    expr: RawExpression::Leaf(Leaf::Bare(name)),
-                    span,
-                },
-                args,
-            ) => match context.has_command(&name.to_string()) {
+    match call {
+        call if call.head().is_bare() => {
+            let head = call.head();
+            let name = head.source(source);
+
+            match context.has_command(name) {
                 true => {
-                    let command = context.get_command(&name.to_string());
+                    let command = context.get_command(name);
                     let config = command.config();
                     let scope = Scope::empty();
 
-                    let args = match args {
-                        Some(args) => config.evaluate_args(args.iter(), &scope)?,
-                        None => Args::default(),
-                    };
+                    trace!("classifying {:?}", config);
+
+                    let args = config.evaluate_args(call, context, &scope, source)?;
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
-                        name_span: Some(span.clone()),
+                        name_span: Some(head.span().clone()),
                         args,
                     }))
                 }
-                false => match context.has_sink(&name.to_string()) {
+                false => match context.has_sink(name) {
                     true => {
-                        let command = context.get_sink(&name.to_string());
+                        let command = context.get_sink(name);
                         let config = command.config();
                         let scope = Scope::empty();
 
-                        let args = match args {
-                            Some(args) => config.evaluate_args(args.iter(), &scope)?,
-                            None => Args::default(),
-                        };
+                        let args = config.evaluate_args(call, context, &scope, source)?;
 
                         Ok(ClassifiedCommand::Sink(SinkCommand {
                             command,
-                            name_span: Some(span.clone()),
+                            name_span: Some(head.span().clone()),
                             args,
                         }))
                     }
                     false => {
-                        let arg_list_strings: Vec<Spanned<String>> = match args {
+                        let arg_list_strings: Vec<Spanned<String>> = match call.children() {
+                            //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
                             Some(args) => args
                                 .iter()
-                                .map(|i| Spanned::from_item(i.as_external_arg(), i.span))
+                                .map(|i| Spanned::from_item(i.as_external_arg(source), i.span()))
                                 .collect(),
                             None => vec![],
                         };
 
                         Ok(ClassifiedCommand::External(ExternalCommand {
                             name: name.to_string(),
-                            name_span: Some(span.clone()),
+                            name_span: Some(head.span().clone()),
                             args: arg_list_strings,
                         }))
                     }
                 },
-            },
-
-            (_, None) => Err(ShellError::string(
-                "Unimplemented command that is just an expression (1)",
-            )),
-            (_, Some(_)) => Err(ShellError::string("Unimplemented dynamic command")),
+            }
         }
-    } else {
-        Err(ShellError::string(&format!(
-            "Unimplemented command that is just an expression (2) -- {:?}",
-            command
-        )))
+
+        _ => Err(ShellError::unimplemented(
+            "classify_command on command whose head is not bare",
+        )),
     }
 }

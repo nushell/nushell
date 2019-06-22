@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
-use crate::parser::registry::PositionalType;
-use crate::parser::CommandConfig;
+use crate::parser::registry::{CommandConfig, PositionalType};
 use crate::prelude::*;
 
 pub struct Where;
@@ -25,7 +24,7 @@ impl Command for Where {
 }
 
 pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Where requires a condition",
             "needs condition",
@@ -33,7 +32,7 @@ pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
-    let block = args.positional[0].as_block()?;
+    let block = args.expect_nth(0)?.as_block()?;
     let input = args.input;
 
     let objects = input.filter_map(move |item| {

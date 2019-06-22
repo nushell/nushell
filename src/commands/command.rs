@@ -1,25 +1,53 @@
 use crate::errors::ShellError;
 use crate::object::Value;
-use crate::parser::lexer::Span;
-use crate::parser::lexer::Spanned;
-use crate::parser::CommandConfig;
+use crate::parser::{
+    registry::{self, Args},
+    Span, Spanned,
+};
 use crate::prelude::*;
+use getset::Getters;
 use std::path::PathBuf;
 
+#[derive(Getters)]
+#[get = "crate"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<VecDeque<Environment>>>,
     pub name_span: Option<Span>,
-    pub positional: Vec<Spanned<Value>>,
-    pub named: indexmap::IndexMap<String, Value>,
+    pub args: Args,
     pub input: InputStream,
+}
+
+impl CommandArgs {
+    pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
+        self.args.nth(pos)
+    }
+
+    pub fn positional_iter(&self) -> impl Iterator<Item = &Spanned<Value>> {
+        self.args.positional_iter()
+    }
+
+    pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
+        self.args.expect_nth(pos)
+    }
+
+    pub fn len(&self) -> usize {
+        self.args.len()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Spanned<Value>> {
+        self.args.get(name)
+    }
+
+    pub fn has(&self, name: &str) -> bool {
+        self.args.has(name)
+    }
 }
 
 pub struct SinkCommandArgs {
     pub ctx: Context,
     pub name_span: Option<Span>,
-    pub positional: Vec<Spanned<Value>>,
-    pub named: indexmap::IndexMap<String, Value>,
+    pub args: Args,
     pub input: Vec<Value>,
 }
 
@@ -46,8 +74,8 @@ pub trait Command {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
     fn name(&self) -> &str;
 
-    fn config(&self) -> CommandConfig {
-        CommandConfig {
+    fn config(&self) -> registry::CommandConfig {
+        registry::CommandConfig {
             name: self.name().to_string(),
             mandatory_positional: vec![],
             optional_positional: vec![],
@@ -61,8 +89,8 @@ pub trait Sink {
     fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError>;
     fn name(&self) -> &str;
 
-    fn config(&self) -> CommandConfig {
-        CommandConfig {
+    fn config(&self) -> registry::CommandConfig {
+        registry::CommandConfig {
             name: self.name().to_string(),
             mandatory_positional: vec![],
             optional_positional: vec![],

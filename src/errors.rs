@@ -1,6 +1,7 @@
-use crate::parser::lexer::{Span, SpannedToken};
 #[allow(unused)]
 use crate::prelude::*;
+
+use crate::parser::Span;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -15,26 +16,40 @@ pub enum ShellError {
 
 impl ShellError {
     crate fn parse_error(
-        error: lalrpop_util::ParseError<usize, SpannedToken, ShellError>,
+        error: nom::Err<(nom_locate::LocatedSpan<&str>, nom::error::ErrorKind)>,
     ) -> ShellError {
-        use lalrpop_util::ParseError;
         use language_reporting::*;
 
         match error {
-            ParseError::UnrecognizedToken {
-                token: (start, SpannedToken { token, .. }, end),
-                expected,
-            } => {
-                let diagnostic = Diagnostic::new(
-                    Severity::Error,
-                    format!("Unexpected {:?}, expected {:?}", token, expected),
-                )
-                .with_label(Label::new_primary(Span::from((start, end))));
+            nom::Err::Incomplete(_) => unreachable!(),
+            nom::Err::Failure(span) | nom::Err::Error(span) => {
+                let diagnostic =
+                    Diagnostic::new(Severity::Error, format!("{:?}", span))
+                        .with_label(Label::new_primary(Span::from(span.0)));
 
                 ShellError::diagnostic(diagnostic)
+                // nom::Context::Code(span, kind) => {
+                //     let diagnostic =
+                //         Diagnostic::new(Severity::Error, format!("{}", kind.description()))
+                //             .with_label(Label::new_primary(Span::from(span)));
+
+                //     ShellError::diagnostic(diagnostic)
+                // }
             }
-            ParseError::User { error } => error,
-            other => ShellError::string(format!("{:?}", other)),
+            // ParseError::UnrecognizedToken {
+            //     token: (start, SpannedToken { token, .. }, end),
+            //     expected,
+            // } => {
+            //     let diagnostic = Diagnostic::new(
+            //         Severity::Error,
+            //         format!("Unexpected {:?}, expected {:?}", token, expected),
+            //     )
+            //     .with_label(Label::new_primary(Span::from((start, end))));
+
+            //     ShellError::diagnostic(diagnostic)
+            // }
+            // ParseError::User { error } => error,
+            // other => ShellError::string(format!("{:?}", other)),
         }
     }
 
@@ -73,6 +88,10 @@ impl ShellError {
 
     crate fn unimplemented(title: impl Into<String>) -> ShellError {
         ShellError::string(&format!("Unimplemented: {}", title.into()))
+    }
+
+    crate fn unexpected(title: impl Into<String>) -> ShellError {
+        ShellError::string(&format!("Unexpected: {}", title.into()))
     }
 
     crate fn copy_error(&self) -> ShellError {
@@ -191,14 +210,14 @@ impl std::convert::From<subprocess::PopenError> for ShellError {
     }
 }
 
-impl std::convert::From<nom::Err<(&str, nom::ErrorKind)>> for ShellError {
-    fn from(input: nom::Err<(&str, nom::ErrorKind)>) -> ShellError {
-        ShellError::String(StringError {
-            title: format!("{:?}", input),
-            error: Value::nothing(),
-        })
-    }
-}
+// impl std::convert::From<nom::Err<(&str, nom::ErrorKind)>> for ShellError {
+//     fn from(input: nom::Err<(&str, nom::ErrorKind)>) -> ShellError {
+//         ShellError::String(StringError {
+//             title: format!("{:?}", input),
+//             error: Value::nothing(),
+//         })
+//     }
+// }
 
 impl std::convert::From<toml::ser::Error> for ShellError {
     fn from(input: toml::ser::Error) -> ShellError {
