@@ -1,7 +1,8 @@
-use crate::commands::command::Sink;
-use crate::commands::command::SinkCommandArgs;
-use crate::parser::lexer::Span;
-use crate::parser::Args;
+use crate::commands::command::{Sink, SinkCommandArgs};
+use crate::parser::{
+    registry::{Args, CommandConfig, CommandRegistry},
+    Span,
+};
 use crate::prelude::*;
 
 use indexmap::IndexMap;
@@ -56,8 +57,7 @@ impl Context {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),
             name_span,
-            positional: args.positional,
-            named: args.named,
+            args,
             input,
         };
 
@@ -87,11 +87,16 @@ impl Context {
             host: self.host.clone(),
             env: self.env.clone(),
             name_span,
-            positional: args.positional,
-            named: args.named,
+            args,
             input,
         };
 
         command.run(command_args)
+    }
+}
+
+impl CommandRegistry for Context {
+    fn get(&self, name: &str) -> Option<CommandConfig> {
+        self.commands.get(name).map(|c| c.config())
     }
 }

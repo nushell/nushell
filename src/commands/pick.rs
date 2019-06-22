@@ -4,7 +4,7 @@ use crate::object::Value;
 use crate::prelude::*;
 
 pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         if let Some(span) = args.name_span {
             return Err(ShellError::labeled_error(
                 "Pick requires fields",
@@ -16,7 +16,7 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<String>, _> = args.positional_iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
     let objects = args

@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
-use crate::parser::registry::PositionalType;
-use crate::parser::CommandConfig;
+use crate::parser::registry::{CommandConfig, PositionalType};
 use crate::prelude::*;
 
 pub struct Where;
@@ -25,11 +24,11 @@ impl Command for Where {
 }
 
 pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.is_empty() {
+    if args.len() == 0 {
         return Err(ShellError::string("select requires a field"));
     }
 
-    let block = args.positional[0].as_block()?;
+    let block = args.expect_nth(0)?.as_block()?;
     let input = args.input;
 
     let objects = input.filter_map(move |item| {

@@ -1,7 +1,8 @@
 use derive_new::new;
-use std::ops::Range;
+use getset::Getters;
 
-#[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Getters)]
+#[get = "crate"]
 pub struct Spanned<T> {
     crate span: Span,
     crate item: T,
@@ -16,20 +17,6 @@ impl<T> std::ops::Deref for Spanned<T> {
 }
 
 impl<T> Spanned<T> {
-    crate fn from_nom<U>(
-        item: T,
-        start: nom_locate::LocatedSpan<U>,
-        end: nom_locate::LocatedSpan<U>,
-    ) -> Spanned<T> {
-        let start = start.offset;
-        let end = end.offset;
-
-        Spanned {
-            span: Span::from((start, end)),
-            item,
-        }
-    }
-
     crate fn from_item(item: T, span: impl Into<Span>) -> Spanned<T> {
         Spanned {
             span: span.into(),
@@ -43,6 +30,19 @@ impl<T> Spanned<T> {
         let mapped = input(item);
         Spanned { span, item: mapped }
     }
+
+    crate fn copy_span<U>(&self, output: U) -> Spanned<U> {
+        let Spanned { span, item } = self;
+
+        Spanned {
+            span: *span,
+            item: output,
+        }
+    }
+
+    pub fn source(&self, source: &'source str) -> &'source str {
+        self.span().slice(source)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -50,6 +50,21 @@ pub struct Span {
     crate start: usize,
     crate end: usize,
     // source: &'source str,
+}
+
+impl From<&Span> for Span {
+    fn from(input: &Span) -> Span {
+        *input
+    }
+}
+
+impl From<nom_locate::LocatedSpan<&str>> for Span {
+    fn from(input: nom_locate::LocatedSpan<&str>) -> Span {
+        Span {
+            start: input.offset,
+            end: input.offset + input.fragment.len(),
+        }
+    }
 }
 
 impl<T> From<(nom_locate::LocatedSpan<T>, nom_locate::LocatedSpan<T>)> for Span {
@@ -80,12 +95,8 @@ impl From<&std::ops::Range<usize>> for Span {
 }
 
 impl Span {
-    fn new(range: &Range<usize>) -> Span {
-        Span {
-            start: range.start,
-            end: range.end,
-            // source,
-        }
+    pub fn slice(&self, source: &'source str) -> &'source str {
+        &source[self.start..self.end]
     }
 }
 

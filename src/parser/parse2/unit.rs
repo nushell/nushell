@@ -12,10 +12,6 @@ pub enum Unit {
 }
 
 impl Unit {
-    pub fn print(&self) -> String {
-        self.as_str().to_string()
-    }
-
     pub fn as_str(&self) -> &str {
         match *self {
             Unit::B => "B",

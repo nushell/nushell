@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.is_empty() {
+    if args.len() == 0 {
         return Err(ShellError::string("size requires at least one file"));
     }
     let cwd = args
@@ -21,7 +21,7 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut contents = String::new();
 
     let mut list = VecDeque::new();
-    for name in args.positional {
+    for name in args.positional_iter() {
         let name = name.as_string()?;
         let path = cwd.join(&name);
         let mut file = File::open(path)?;

@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::{dir_entry_dict, Primitive, Value};
-use crate::parser::lexer::Spanned;
+use crate::parser::Spanned;
 use crate::prelude::*;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -10,7 +10,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = env.last().unwrap().path.to_path_buf();
     let obj = &env.last().unwrap().obj;
     let mut full_path = PathBuf::from(path);
-    match &args.positional.get(0) {
+    match &args.nth(0) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
             ..
@@ -24,7 +24,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             let entries = match entries {
                 Err(e) => {
-                    if let Some(s) = args.positional.get(0) {
+                    if let Some(s) = args.nth(0) {
                         return Err(ShellError::labeled_error(
                             e.to_string(),
                             e.to_string(),

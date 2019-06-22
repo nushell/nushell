@@ -16,6 +16,13 @@ impl DescriptorName {
         }
     }
 
+    crate fn debug(&self) -> &str {
+        match self {
+            DescriptorName::String(s) => s,
+            DescriptorName::ValueOf => "[[value]]",
+        }
+    }
+
     crate fn as_string(&self) -> Option<&str> {
         match self {
             DescriptorName::String(s) => Some(s),

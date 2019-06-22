@@ -3,7 +3,7 @@ use crate::prelude::*;
 use prettyprint::PrettyPrinter;
 
 pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         if let Some(span) = args.name_span {
             return Err(ShellError::labeled_error(
                 "View requires a filename",
@@ -15,7 +15,7 @@ pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let target = match args.positional[0].as_string() {
+    let target = match args.expect_nth(0)?.as_string() {
         Ok(s) => s.clone(),
         Err(e) => {
             if let Some(span) = args.name_span {

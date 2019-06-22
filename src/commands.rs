@@ -13,6 +13,7 @@ crate mod from_toml;
 crate mod from_xml;
 crate mod from_yaml;
 crate mod get;
+crate mod lines;
 crate mod ls;
 crate mod open;
 crate mod pick;
@@ -34,5 +35,5 @@ crate mod where_;
 
 crate use command::command;
 crate use config::Config;
-
+crate use open::Open;
 crate use where_::Where;

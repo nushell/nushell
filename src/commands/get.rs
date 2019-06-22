@@ -20,7 +20,7 @@ fn get_member(path: &str, obj: &Value) -> Option<Value> {
 }
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         if let Some(span) = args.name_span {
             return Err(ShellError::labeled_error(
                 "Get requires a field or field path",
@@ -32,7 +32,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let amount = args.positional[0].as_i64();
+    let amount = args.expect_nth(0)?.as_i64();
 
     // If it's a number, get the row instead of the column
     if let Ok(amount) = amount {
@@ -44,7 +44,13 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .boxed());
     }
 
-    let fields: Result<Vec<String>, _> = args.positional.iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<String>, _> = args
+        .args
+        .positional
+        .unwrap()
+        .iter()
+        .map(|a| a.as_string())
+        .collect();
     let fields = fields?;
 
     let stream = args
