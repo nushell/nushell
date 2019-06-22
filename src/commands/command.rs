@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
-    pub env: Arc<Mutex<Vec<Environment>>>,
+    pub env: Arc<Mutex<VecDeque<Environment>>>,
     pub name_span: Option<Span>,
     pub positional: Vec<Spanned<Value>>,
     pub named: indexmap::IndexMap<String, Value>,

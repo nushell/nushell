@@ -6,7 +6,11 @@ use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
     if args.positional.len() == 0 {
-        return Err(ShellError::string("save requires a filepath"));
+        return Err(ShellError::maybe_labeled_error(
+            "Save requires a filepath",
+            "needs path",
+            args.name_span,
+        ));
     }
 
     let cwd = args
@@ -14,7 +18,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
         .env
         .lock()
         .unwrap()
-        .first()
+        .front()
         .unwrap()
         .path()
         .to_path_buf();
@@ -40,6 +44,14 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                 ));
             }
             toml::to_string(&args.input[0]).unwrap()
+        }
+        Some(x) if x == "ini" && !save_raw => {
+            if args.input.len() != 1 {
+                return Err(ShellError::string(
+                    "saving to ini requires a single object (or use --raw)",
+                ));
+            }
+            serde_ini::to_string(&args.input[0]).unwrap()
         }
         Some(x) if x == "json" && !save_raw => {
             if args.input.len() != 1 {

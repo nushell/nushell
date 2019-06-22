@@ -6,7 +6,15 @@ use log::trace;
 // TODO: "Amount remaining" wrapper
 
 pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    if args.positional.len() == 0 {
+        return Err(ShellError::maybe_labeled_error(
+            "Split-column needs more information",
+            "needs parameter (eg split-column \",\")",
+            args.name_span,
+        ));
+    }
     let input = args.input;
+    let span = args.name_span;
     let args = args.positional;
 
     Ok(input
@@ -53,7 +61,11 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     ReturnValue::Value(Value::Object(dict))
                 }
             }
-            _ => ReturnValue::Value(Value::Object(crate::object::Dictionary::default())),
+            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+                "Expected string values from pipeline",
+                "expects strings from pipeline",
+                span,
+            )))),
         })
         .boxed())
 }

@@ -3,14 +3,14 @@ use crate::parser::registry::PositionalType;
 use crate::parser::CommandConfig;
 use crate::prelude::*;
 
-pub struct Where;
+pub struct SkipWhile;
 
-impl Command for Where {
+impl Command for SkipWhile {
     fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        r#where(args)
+        skip_while(args)
     }
     fn name(&self) -> &str {
-        "where"
+        "skip-while"
     }
 
     fn config(&self) -> CommandConfig {
@@ -24,7 +24,7 @@ impl Command for Where {
     }
 }
 
-pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn skip_while(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Where requires a condition",
@@ -36,17 +36,16 @@ pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let block = args.positional[0].as_block()?;
     let input = args.input;
 
-    let objects = input.filter_map(move |item| {
+    let objects = input.skip_while(move |item| {
         let result = block.invoke(&item);
 
         let return_value = match result {
-            Err(err) => Some(ReturnValue::Value(Value::Error(Box::new(err)))),
-            Ok(v) if v.is_true() => Some(ReturnValue::Value(item.copy())),
-            _ => None,
+            Ok(v) if v.is_true() => true,
+            _ => false,
         };
 
         futures::future::ready(return_value)
     });
 
-    Ok(objects.boxed())
+    Ok(objects.map(|x| ReturnValue::Value(x)).boxed())
 }

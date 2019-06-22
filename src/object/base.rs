@@ -291,7 +291,12 @@ impl Value {
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
-            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            Value::Primitive(Primitive::String(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Float(x)) => Ok(format!("{}", x.into_inner())),
+            Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
+            //Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",

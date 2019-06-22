@@ -7,14 +7,20 @@ use std::path::{Path, PathBuf};
 
 pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.positional.len() == 0 {
-        return Err(ShellError::string("open requires a filepath or url"));
+        return Err(ShellError::maybe_labeled_error(
+            "open requires a path or url",
+            "missing path",
+            args.name_span,
+        ));
     }
+
+    let span = args.name_span;
 
     let cwd = args
         .env
         .lock()
         .unwrap()
-        .first()
+        .front()
         .unwrap()
         .path()
         .to_path_buf();
@@ -85,45 +91,111 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut stream = VecDeque::new();
 
-    let open_raw = match args.positional.get(1) {
+    let file_extension = match args.positional.get(1) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
-            ..
-        }) if s == "--raw" => true,
-        Some(v) => {
-            return Err(ShellError::labeled_error(
-                "Unknown flag for open",
-                "unknown flag",
-                v.span,
-            ))
+            span,
+        }) => {
+            if s == "--raw" {
+                None
+            } else if s == "--json" {
+                Some("json".to_string())
+            } else if s == "--xml" {
+                Some("xml".to_string())
+            } else if s == "--ini" {
+                Some("ini".to_string())
+            } else if s == "--yaml" {
+                Some("yaml".to_string())
+            } else if s == "--toml" {
+                Some("toml".to_string())
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Unknown flag for open",
+                    "unknown flag",
+                    span.clone(),
+                ));
+            }
         }
-        _ => false,
+        _ => file_extension,
     };
 
     match file_extension {
-        Some(x) if x == "toml" && !open_raw => {
+        Some(x) if x == "toml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_toml::from_toml_string_to_value(contents),
+                crate::commands::from_toml::from_toml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as TOML",
+                            "could not load as TOML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
-        Some(x) if x == "json" && !open_raw => {
+        Some(x) if x == "json" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_json::from_json_string_to_value(contents),
+                crate::commands::from_json::from_json_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as JSON",
+                            "could not load as JSON",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
-        Some(x) if x == "xml" && !open_raw => {
+        Some(x) if x == "xml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_xml::from_xml_string_to_value(contents),
+                crate::commands::from_xml::from_xml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as XML",
+                            "could not load as XML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
-        Some(x) if x == "yml" && !open_raw => {
+        Some(x) if x == "ini" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_ini::from_ini_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as INI",
+                            "could not load as INI",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
-        Some(x) if x == "yaml" && !open_raw => {
+        Some(x) if x == "yml" => {
             stream.push_back(ReturnValue::Action(CommandAction::Enter(
-                crate::commands::from_yaml::from_yaml_string_to_value(contents),
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as YAML",
+                            "could not load as YAML",
+                            span,
+                        )
+                    },
+                )?,
+            )));
+        }
+        Some(x) if x == "yaml" => {
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(
+                crate::commands::from_yaml::from_yaml_string_to_value(contents).map_err(
+                    move |_| {
+                        ShellError::maybe_labeled_error(
+                            "Could not load as YAML",
+                            "could not load as YAML",
+                            span,
+                        )
+                    },
+                )?,
             )));
         }
         _ => {
