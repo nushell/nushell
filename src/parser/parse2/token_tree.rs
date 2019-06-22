@@ -94,10 +94,10 @@ pub struct PathNode {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
 pub struct PipelineElement {
-    pre_ws: Option<Span>,
+    pub pre_ws: Option<Span>,
     #[get = "crate"]
     call: Spanned<CallNode>,
-    post_ws: Option<Span>,
+    pub post_ws: Option<Span>,
 }
 
 impl PipelineElement {
