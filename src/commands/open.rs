@@ -1,10 +1,10 @@
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
+use crate::parser::parse2::span::Spanned;
 use crate::parser::registry::{CommandConfig, NamedType};
 use crate::prelude::*;
 use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
-use crate::parser::parse2::span::Spanned;
 
 pub struct Open;
 
@@ -116,34 +116,32 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut stream = VecDeque::new();
 
-    let file_extension = match args.nth(1) {
-        Some(Spanned {
-            item: Value::Primitive(Primitive::String(s)),
-            span,
-        }) => {
-            if s == "--raw" {
-                None
-            } else if s == "--json" {
-                Some("json".to_string())
-            } else if s == "--xml" {
-                Some("xml".to_string())
-            } else if s == "--ini" {
-                Some("ini".to_string())
-            } else if s == "--yaml" {
-                Some("yaml".to_string())
-            } else if s == "--toml" {
-                Some("toml".to_string())
-            } else {
+    let file_extension = if args.has("raw") {
+        None
+    } else if args.has("json") {
+        Some("json".to_string())
+    } else if args.has("xml") {
+        Some("xml".to_string())
+    } else if args.has("ini") {
+        Some("ini".to_string())
+    } else if args.has("yaml") {
+        Some("yaml".to_string())
+    } else if args.has("toml") {
+        Some("toml".to_string())
+    } else {
+        if let Some(ref named_args) = args.args.named {
+            for named in named_args.iter() {
                 return Err(ShellError::labeled_error(
                     "Unknown flag for open",
                     "unknown flag",
-                    span.clone(),
+                    named.1.span.clone(),
                 ));
             }
+            file_extension
+        } else {
+            file_extension
         }
-        _ => file_extension,
     };
-
     match file_extension {
         Some(x) if x == "toml" => {
             stream.push_back(ReturnValue::Value(
