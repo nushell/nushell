@@ -71,9 +71,7 @@ pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Spanned<i64>> {
     let start = input.offset;
     trace_step(input, "raw_integer", move |input| {
         let (input, neg) = opt(tag("-"))(input)?;
-        println!("(input,neg) = {:?} {:?}", input, neg);
         let (input, num) = digit1(input)?;
-        println!("(input,num) = {:?} {:?}", input, num);
         let end = input.offset;
 
         Ok((
