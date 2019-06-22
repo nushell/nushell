@@ -82,32 +82,49 @@ pub fn baseline_parse_next_expr(
             ExpressionKindHint::Block => {
                 let span = (first.span.start, second.span.end);
 
-                let string: Spanned<String> = match first {
+                let path: Spanned<hir::RawExpression> = match first {
                     Spanned {
                         item: hir::RawExpression::Literal(hir::Literal::Bare),
                         span,
-                    } => Spanned::from_item(span.slice(source).to_string(), span),
+                    } => {
+                        let string = Spanned::from_item(span.slice(source).to_string(), span);
+                        let path = hir::Path::new(
+                            Spanned::from_item(
+                                // TODO: Deal with synthetic nodes that have no representation at all in source
+                                hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
+                                (0, 0),
+                            ),
+                            vec![string],
+                        );
+                        let path = hir::RawExpression::Path(Box::new(path));
+                        Spanned { item: path, span: first.span }
+                    }
                     Spanned {
                         item: hir::RawExpression::Literal(hir::Literal::String(inner)),
                         span,
-                    } => Spanned::from_item(inner.slice(source).to_string(), span),
+                    } => {
+                        let string = Spanned::from_item(inner.slice(source).to_string(), span);
+                        let path = hir::Path::new(
+                            Spanned::from_item(
+                                // TODO: Deal with synthetic nodes that have no representation at all in source
+                                hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
+                                (0, 0),
+                            ),
+                            vec![string],
+                        );
+                        let path = hir::RawExpression::Path(Box::new(path));
+                        Spanned { item: path, span: first.span }
+                    }
+                    Spanned {
+                        item: hir::RawExpression::Variable(..),
+                        ..
+                    } => first,
                     _ => {
                         return Err(ShellError::unimplemented(
                             "The first part of a block must be a string",
                         ))
                     }
                 };
-
-                let path = hir::Path::new(
-                    Spanned::from_item(
-                        // TODO: Deal with synthetic nodes that have no representation at all in source
-                        hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
-                        (0, 0),
-                    ),
-                    vec![string],
-                );
-                let path = hir::RawExpression::Path(Box::new(path));
-                let path = Spanned::from_item(path, first.span);
 
                 let binary = hir::Binary::new(path, *op, second);
                 let binary = hir::RawExpression::Binary(Box::new(binary));
