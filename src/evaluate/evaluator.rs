@@ -1,7 +1,7 @@
 use crate::object::base::Block;
 use crate::parser::{
     hir::{self, Expression, RawExpression},
-    CommandRegistry, Span, Spanned, Text,
+    CommandRegistry, Spanned, Text,
 };
 use crate::prelude::*;
 use derive_new::new;

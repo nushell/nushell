@@ -32,7 +32,7 @@ impl<T> Spanned<T> {
     }
 
     crate fn copy_span<U>(&self, output: U) -> Spanned<U> {
-        let Spanned { span, item } = self;
+        let Spanned { span, .. } = self;
 
         Spanned {
             span: *span,
