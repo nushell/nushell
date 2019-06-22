@@ -1,4 +1,5 @@
 use crate::object::types::Type;
+use crate::Text;
 use derive_new::new;
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -90,9 +91,19 @@ impl From<String> for DataDescriptor {
     }
 }
 
+impl From<Text> for DataDescriptor {
+    fn from(input: Text) -> DataDescriptor {
+        DataDescriptor {
+            name: DescriptorName::String(input.to_string()),
+            readonly: true,
+            ty: Type::Any,
+        }
+    }
+}
+
 impl DescriptorName {
-    crate fn for_string_name(name: impl Into<String>) -> DescriptorName {
-        DescriptorName::String(name.into())
+    crate fn for_string_name(name: impl AsRef<str>) -> DescriptorName {
+        DescriptorName::String(name.as_ref().into())
     }
 }
 
@@ -113,7 +124,7 @@ impl DataDescriptor {
         }
     }
 
-    crate fn for_string_name(name: impl Into<String>) -> DataDescriptor {
+    crate fn for_string_name(name: impl AsRef<str>) -> DataDescriptor {
         DataDescriptor::for_name(DescriptorName::for_string_name(name))
     }
 

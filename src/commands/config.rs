@@ -46,7 +46,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if let Some(v) = args.get("get") {
         let key = v.as_string()?;
         let value = result
-            .get(&key)
+            .get(key.as_ref())
             .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
 
         return Ok(
@@ -57,7 +57,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     if let Some(v) = args.get("set") {
         if let Ok((key, value)) = v.as_pair() {
-            result.insert(key.as_string()?, value.clone());
+            result.insert(key.as_string()?.as_ref().to_string(), value.clone());
 
             config::write_config(&result)?;
 
@@ -86,8 +86,8 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if let Some(v) = args.get("remove") {
         let key = v.as_string()?;
 
-        if result.contains_key(&key) {
-            result.remove(&key);
+        if result.contains_key(key.as_ref()) {
+            result.remove(key.as_ref());
         } else {
             return Err(ShellError::string(&format!(
                 "{} does not exist in config",

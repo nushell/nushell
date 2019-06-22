@@ -232,7 +232,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = classify_pipeline(&result, ctx, &line)?;
+            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line))?;
 
             match pipeline.commands.last() {
                 Some(ClassifiedCommand::Sink(_)) => {}
@@ -350,13 +350,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 fn classify_pipeline(
     pipeline: &TokenNode,
     context: &Context,
-    source: &str,
+    source: &Text,
 ) -> Result<ClassifiedPipeline, ShellError> {
     let pipeline = pipeline.as_pipeline()?;
 
     let commands: Result<Vec<_>, ShellError> = pipeline
         .iter()
-        .map(|item| classify_command(&item, context, source))
+        .map(|item| classify_command(&item, context, &source))
         .collect();
 
     Ok(ClassifiedPipeline {
@@ -367,7 +367,7 @@ fn classify_pipeline(
 fn classify_command(
     command: &PipelineElement,
     context: &Context,
-    source: &str,
+    source: &Text,
 ) -> Result<ClassifiedCommand, ShellError> {
     let call = command.call();
 

@@ -17,8 +17,8 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     _ => return Err(ShellError::string("Can not change to home directory")),
                 },
                 Some(v) => {
-                    let target = v.as_string()?.clone();
-                    match dunce::canonicalize(cwd.join(&target).as_path()) {
+                    let target = v.as_string()?;
+                    match dunce::canonicalize(cwd.join(target.as_ref()).as_path()) {
                         Ok(p) => p,
                         Err(_) => {
                             return Err(ShellError::labeled_error(
@@ -63,9 +63,9 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             cwd.pop();
                         }
                         _ => match target.chars().nth(0) {
-                            Some(x) if x == '/' => cwd = PathBuf::from(target),
+                            Some(x) if x == '/' => cwd = PathBuf::from(target.as_ref()),
                             _ => {
-                                cwd.push(target);
+                                cwd.push(target.as_ref());
                             }
                         },
                     }

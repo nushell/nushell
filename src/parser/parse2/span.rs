@@ -1,3 +1,4 @@
+use crate::Text;
 use derive_new::new;
 use getset::Getters;
 
@@ -40,8 +41,8 @@ impl<T> Spanned<T> {
         }
     }
 
-    pub fn source(&self, source: &'source str) -> &'source str {
-        self.span().slice(source)
+    pub fn source(&self, source: &Text) -> Text {
+        Text::from(self.span().slice(source))
     }
 }
 
@@ -95,7 +96,7 @@ impl From<&std::ops::Range<usize>> for Span {
 }
 
 impl Span {
-    pub fn slice(&self, source: &'source str) -> &'source str {
+    pub fn slice(&self, source: &'a str) -> &'a str {
         &source[self.start..self.end]
     }
 }

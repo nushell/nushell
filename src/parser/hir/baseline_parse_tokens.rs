@@ -1,11 +1,12 @@
 use crate::errors::ShellError;
 use crate::parser::registry::CommandRegistry;
 use crate::parser::{hir, hir::baseline_parse_single_token, Span, Spanned, TokenNode};
+use crate::Text;
 
 pub fn baseline_parse_tokens(
     token_nodes: &[TokenNode],
     registry: &dyn CommandRegistry,
-    source: &str,
+    source: &Text,
 ) -> Result<Vec<hir::Expression>, ShellError> {
     let mut exprs: Vec<hir::Expression> = vec![];
     let mut rest = token_nodes;
@@ -36,14 +37,9 @@ pub enum ExpressionKindHint {
 pub fn baseline_parse_next_expr(
     token_nodes: &'nodes [TokenNode],
     _registry: &dyn CommandRegistry,
-    source: &str,
+    source: &Text,
     coerce_hint: Option<ExpressionKindHint>,
 ) -> Result<(hir::Expression, &'nodes [TokenNode]), ShellError> {
-    println!(
-        "baseline_parse_next_expr {:?} - {:?}",
-        token_nodes, coerce_hint
-    );
-
     let mut tokens = token_nodes.iter().peekable();
 
     let first = next_token(&mut tokens);
@@ -131,7 +127,7 @@ pub fn baseline_parse_next_expr(
 
 pub fn baseline_parse_semantic_token(
     token: &TokenNode,
-    source: &str,
+    source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token {
         TokenNode::Token(token) => Ok(baseline_parse_single_token(token, source)),

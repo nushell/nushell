@@ -23,7 +23,7 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut list = VecDeque::new();
     for name in args.positional_iter() {
         let name = name.as_string()?;
-        let path = cwd.join(&name);
+        let path = cwd.join(name.as_ref());
         let mut file = File::open(path)?;
         file.read_to_string(&mut contents)?;
         list.push_back(count(&name, &contents));
@@ -59,7 +59,7 @@ fn count(name: &str, contents: &str) -> ReturnValue {
     }
 
     let mut dict = Dictionary::default();
-    dict.add("name", Value::string(name.to_owned()));
+    dict.add("name", Value::string(name));
     dict.add("lines", Value::int(lines));
     dict.add("words", Value::int(words));
     dict.add("chars", Value::int(chars));

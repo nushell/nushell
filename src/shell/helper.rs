@@ -70,7 +70,7 @@ impl Highlighter for Helper {
 
                 match iter.next() {
                     None => return Cow::Owned(out),
-                    Some(v) => out.push_str(v.span().slice(line)),
+                    Some(v) => out.push_str(v.span().slice(&Text::from(line))),
                 };
 
                 loop {

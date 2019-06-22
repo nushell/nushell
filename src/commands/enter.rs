@@ -58,7 +58,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 }
             } else {
-                full_path.push(Path::new(&s));
+                full_path.push(Path::new(s));
                 match std::fs::read_to_string(&full_path) {
                     Ok(s) => (
                         full_path

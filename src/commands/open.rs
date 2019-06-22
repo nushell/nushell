@@ -80,7 +80,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 }
             } else {
-                full_path.push(Path::new(&s));
+                full_path.push(Path::new(s));
                 match std::fs::read_to_string(&full_path) {
                     Ok(s) => (
                         full_path
@@ -138,9 +138,7 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
             ));
         }
         _ => {
-            stream.push_back(ReturnValue::Value(Value::Primitive(Primitive::String(
-                contents,
-            ))));
+            stream.push_back(ReturnValue::Value(Value::string(contents)));
         }
     }
 

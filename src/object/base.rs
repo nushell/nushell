@@ -3,16 +3,15 @@ use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::object::DataDescriptor;
 use crate::parser::{hir, Operator, Spanned};
 use crate::prelude::*;
+use crate::Text;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use ordered_float::OrderedFloat;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::time::SystemTime;
-
-use crate::parser::Text;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new)]
 pub struct OF64 {
@@ -141,7 +140,7 @@ impl Serialize for Block {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.expression.source(self.source.as_ref()))
+        serializer.serialize_str(&self.expression.source(&self.source.clone()))
     }
 }
 
@@ -162,7 +161,7 @@ impl Deserialize<'de> for Block {
 impl Block {
     pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
         let scope = Scope::new(value.copy());
-        evaluate_baseline_expr(&self.expression, &(), &scope, self.source.as_ref())
+        evaluate_baseline_expr(&self.expression, &(), &scope, &self.source)
     }
 }
 
@@ -293,7 +292,7 @@ impl Value {
     crate fn format_leaf(&self, desc: Option<&DataDescriptor>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
-            Value::Block(b) => b.expression.source(b.source.as_ref()).to_string(),
+            Value::Block(b) => b.expression.source(&b.source).to_string(),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
@@ -346,9 +345,9 @@ impl Value {
         }
     }
 
-    crate fn as_string(&self) -> Result<String, ShellError> {
+    crate fn as_string(&self) -> Result<Text, ShellError> {
         match self {
-            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            Value::Primitive(Primitive::String(s)) => Ok(Text::from(s.clone())),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
@@ -456,7 +455,7 @@ impl Value {
     }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
+crate fn select_fields(obj: &Value, fields: &[Text]) -> crate::object::Dictionary {
     let mut out = crate::object::Dictionary::default();
 
     let descs = obj.data_descriptors();
@@ -471,7 +470,7 @@ crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     out
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
+crate fn reject_fields(obj: &Value, fields: &[Text]) -> crate::object::Dictionary {
     let mut out = crate::object::Dictionary::default();
 
     let descs = obj.data_descriptors();

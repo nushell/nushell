@@ -15,7 +15,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
             .filter(|x| match x {
                 Value::Primitive(Primitive::String(f)) => {
                     if f.trim() == "" {
-                        false 
+                        false
                     } else {
                         true
                     }
@@ -32,13 +32,13 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
 
         Value::Object(collected)
     } else if n.is_comment() {
-        Value::Primitive(Primitive::String("<comment>".to_string()))
+        Value::string("<comment>")
     } else if n.is_pi() {
-        Value::Primitive(Primitive::String("<processing_instruction>".to_string()))
+        Value::string("<processing_instruction>")
     } else if n.is_text() {
-        Value::Primitive(Primitive::String(n.text().unwrap().to_string()))
+        Value::string(n.text().unwrap())
     } else {
-        Value::Primitive(Primitive::String("<unknown>".to_string()))
+        Value::string("<unknown>")
     }
 }
 
@@ -46,8 +46,8 @@ fn from_document_to_value(d: &roxmltree::Document) -> Value {
     from_node_to_value(&d.root_element())
 }
 
-pub fn from_xml_string_to_value(s: String) -> Value {
-    match roxmltree::Document::parse(&s) {
+pub fn from_xml_string_to_value(s: impl AsRef<str>) -> Value {
+    match roxmltree::Document::parse(s.as_ref()) {
         Ok(doc) => from_document_to_value(&doc),
         Err(_) => Value::Error(Box::new(ShellError::string(
             "Can't convert string from xml".to_string(),
@@ -59,7 +59,9 @@ pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
     Ok(out
         .map(|a| match a {
-            Value::Primitive(Primitive::String(s)) => ReturnValue::Value(from_xml_string_to_value(s)),
+            Value::Primitive(Primitive::String(s)) => {
+                ReturnValue::Value(from_xml_string_to_value(s))
+            }
             _ => ReturnValue::Value(Value::Error(Box::new(ShellError::string(
                 "Trying to convert XML from non-string".to_string(),
             )))),

@@ -10,7 +10,7 @@ pub fn trim(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .map(move |v| match v {
             Value::Primitive(Primitive::String(s)) => {
-                ReturnValue::Value(Value::Primitive(Primitive::String(s.trim().to_string())))
+                ReturnValue::Value(Value::Primitive(Primitive::String(s.trim().into())))
             }
             x => ReturnValue::Value(x),
         })

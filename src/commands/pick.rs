@@ -16,7 +16,7 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let fields: Result<Vec<String>, _> = args.positional_iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<Text>, _> = args.positional_iter().map(|a| a.as_string()).collect();
     let fields = fields?;
 
     let objects = args

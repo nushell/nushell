@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use crate::parser::parse2::{call_node::*, flag::*, operator::*, span::*, tokens::*};
+use crate::Text;
 use derive_new::new;
 use enum_utils::FromStr;
 use getset::Getters;
@@ -36,11 +37,11 @@ impl TokenNode {
         }
     }
 
-    pub fn as_external_arg(&self, source: &str) -> String {
+    pub fn as_external_arg(&self, source: &Text) -> String {
         self.span().slice(source).to_string()
     }
 
-    pub fn source(&self, source: &'source str) -> &'source str {
+    pub fn source(&self, source: &'a Text) -> &'a str {
         self.span().slice(source)
     }
 
@@ -54,7 +55,7 @@ impl TokenNode {
         }
     }
 
-    crate fn as_flag(&self, value: &str, source: &str) -> Option<Spanned<Flag>> {
+    crate fn as_flag(&self, value: &str, source: &Text) -> Option<Spanned<Flag>> {
         match self {
             TokenNode::Flag(
                 flag @ Spanned {

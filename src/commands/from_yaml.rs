@@ -11,7 +11,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
         serde_yaml::Value::Number(n) if n.is_f64() => {
             Value::Primitive(Primitive::Float(OF64::from(n.as_f64().unwrap())))
         }
-        serde_yaml::Value::String(s) => Value::Primitive(Primitive::String(s.clone())),
+        serde_yaml::Value::String(s) => Value::string(s),
         serde_yaml::Value::Sequence(a) => Value::List(
             a.iter()
                 .map(|x| convert_yaml_value_to_nu_value(x))
@@ -36,8 +36,8 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
     }
 }
 
-pub fn from_yaml_string_to_value(s: String) -> Value {
-    let v: serde_yaml::Value = serde_yaml::from_str(&s).unwrap();
+pub fn from_yaml_string_to_value(s: impl AsRef<str>) -> Value {
+    let v: serde_yaml::Value = serde_yaml::from_str(s.as_ref()).unwrap();
     convert_yaml_value_to_nu_value(&v)
 }
 
@@ -48,7 +48,7 @@ pub fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Value::Primitive(Primitive::String(s)) => {
                 ReturnValue::Value(from_yaml_string_to_value(s))
             }
-            _ => ReturnValue::Value(Value::Primitive(Primitive::String("".to_string()))),
+            _ => ReturnValue::Value(Value::Primitive(Primitive::String("".into()))),
         })
         .boxed())
 }

@@ -1,6 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
+use crate::Text;
 
 fn get_member(path: &str, obj: &Value) -> Option<Value> {
     let mut current = obj;
@@ -44,13 +45,14 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .boxed());
     }
 
-    let fields: Result<Vec<String>, _> = args
+    let fields: Result<Vec<Text>, _> = args
         .args
         .positional
         .unwrap()
         .iter()
         .map(|a| a.as_string())
         .collect();
+
     let fields = fields?;
 
     let stream = args

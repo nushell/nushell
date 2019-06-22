@@ -27,7 +27,7 @@ crate fn evaluate_baseline_expr(
     expr: &Expression,
     registry: &dyn CommandRegistry,
     scope: &Scope,
-    source: &str,
+    source: &Text,
 ) -> Result<Spanned<Value>, ShellError> {
     match &expr.item {
         RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
@@ -45,7 +45,7 @@ crate fn evaluate_baseline_expr(
             }
         }
         RawExpression::Block(block) => Ok(Spanned::from_item(
-            Value::Block(Block::new(*block.clone(), Text::from(source))), // TODO: Pass Text around
+            Value::Block(Block::new(*block.clone(), source.clone())),
             block.span(),
         )),
         RawExpression::Path(path) => {
@@ -67,7 +67,7 @@ crate fn evaluate_baseline_expr(
     }
 }
 
-fn evaluate_literal(literal: Spanned<hir::Literal>, source: &str) -> Spanned<Value> {
+fn evaluate_literal(literal: Spanned<hir::Literal>, source: &Text) -> Spanned<Value> {
     let result = match literal.item {
         hir::Literal::Integer(int) => Value::int(int),
         hir::Literal::Size(_int, _unit) => unimplemented!(),
@@ -81,7 +81,7 @@ fn evaluate_literal(literal: Spanned<hir::Literal>, source: &str) -> Spanned<Val
 fn evaluate_reference(
     name: &hir::Variable,
     scope: &Scope,
-    source: &str,
+    source: &Text,
 ) -> Result<Spanned<Value>, ShellError> {
     match name {
         hir::Variable::It(span) => Ok(Spanned::from_item(scope.it.copy(), span)),
