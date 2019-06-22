@@ -1,4 +1,4 @@
-use crate::parser::{hir::Expression, Operator, Spanned};
+use crate::parser::{hir::Expression, Spanned};
 use derive_new::new;
 use getset::Getters;
 

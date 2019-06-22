@@ -44,13 +44,6 @@ impl TokenNode {
         self.span().slice(source)
     }
 
-    pub fn is_ws(&self) -> bool {
-        match self {
-            TokenNode::Whitespace(_) => true,
-            _ => false,
-        }
-    }
-
     pub fn is_bare(&self) -> bool {
         match self {
             TokenNode::Token(Spanned {
@@ -58,20 +51,6 @@ impl TokenNode {
                 ..
             }) => true,
             _ => false,
-        }
-    }
-
-    crate fn as_string(&self, source: &str) -> Option<Spanned<String>> {
-        match self {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
-                span,
-            }) => Some(Spanned::from_item(span.slice(source).to_string(), span)),
-            TokenNode::Token(Spanned {
-                item: RawToken::String(inner),
-                span,
-            }) => Some(Spanned::from_item(inner.slice(source).to_string(), span)),
-            _ => None,
         }
     }
 

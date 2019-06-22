@@ -23,6 +23,7 @@ pub fn baseline_parse_tokens(
     Ok(exprs)
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub enum ExpressionKindHint {
     Literal,
@@ -134,15 +135,15 @@ pub fn baseline_parse_semantic_token(
 ) -> Result<hir::Expression, ShellError> {
     match token {
         TokenNode::Token(token) => Ok(baseline_parse_single_token(token, source)),
-        TokenNode::Call(call) => unimplemented!(),
-        TokenNode::Delimited(delimited) => unimplemented!(),
-        TokenNode::Pipeline(pipeline) => unimplemented!(),
+        TokenNode::Call(_call) => unimplemented!(),
+        TokenNode::Delimited(_delimited) => unimplemented!(),
+        TokenNode::Pipeline(_pipeline) => unimplemented!(),
         TokenNode::Operator(_op) => unreachable!(),
-        TokenNode::Flag(flag) => unimplemented!(),
+        TokenNode::Flag(_flag) => unimplemented!(),
         TokenNode::Identifier(_span) => unreachable!(),
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
-        TokenNode::Path(path) => unimplemented!(),
+        TokenNode::Path(_path) => unimplemented!(),
     }
 }
 
@@ -152,26 +153,5 @@ fn next_token(nodes: &mut impl Iterator<Item = &'a TokenNode>) -> Option<&'a Tok
             Some(TokenNode::Whitespace(_)) => continue,
             other => return other,
         }
-    }
-}
-
-fn baseline_parse_token(
-    token_node: &TokenNode,
-    _registry: &dyn CommandRegistry,
-    source: &str,
-) -> Result<hir::Expression, ShellError> {
-    match token_node {
-        TokenNode::Token(token) => Ok(hir::baseline_parse_single_token(token, source)),
-        TokenNode::Call(_call) => Err(ShellError::unimplemented("baseline_parse Call")),
-        TokenNode::Delimited(_delimited) => {
-            Err(ShellError::unimplemented("baseline_parse Delimited"))
-        }
-        TokenNode::Pipeline(_pipeline) => Err(ShellError::unimplemented("baseline_parse Pipeline")),
-        TokenNode::Path(_path) => Err(ShellError::unimplemented("baseline_parse Path")),
-        TokenNode::Operator(_op) => Err(ShellError::unimplemented("baseline_parse Operator")),
-        TokenNode::Flag(_op) => Err(ShellError::unimplemented("baseline_parse Flag")),
-        TokenNode::Identifier(_op) => Err(ShellError::unimplemented("baseline_parse Identifier")),
-        TokenNode::Whitespace(_op) => Err(ShellError::unimplemented("baseline_parse Whitespace")),
-        TokenNode::Error(err) => Err(*err.item.clone()),
     }
 }

@@ -9,9 +9,7 @@ use derive_new::new;
 use getset::Getters;
 
 crate use baseline_parse::baseline_parse_single_token;
-crate use baseline_parse_tokens::{
-    baseline_parse_next_expr, ExpressionKindHint,
-};
+crate use baseline_parse_tokens::{baseline_parse_next_expr, ExpressionKindHint};
 crate use binary::Binary;
 crate use named::NamedArguments;
 crate use path::Path;

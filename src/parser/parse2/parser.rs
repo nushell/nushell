@@ -244,7 +244,6 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
 pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "leaf", move |input| {
-        println!("alt: {:?}", input);
         let (input, node) =
             alt((size, integer, string, operator, flag, shorthand, var, bare))(input)?;
 

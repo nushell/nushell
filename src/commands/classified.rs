@@ -1,6 +1,5 @@
 use crate::commands::command::Sink;
-use crate::parser::parse2::span::Spanned;
-use crate::parser::{registry::Args, Span, TokenNode};
+use crate::parser::{registry::Args, Span, Spanned, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -195,7 +194,6 @@ impl ExternalCommand {
 
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {
-            //arg_string.push_str(" ");
             arg_string.push_str(&arg);
         }
 

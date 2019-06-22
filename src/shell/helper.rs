@@ -55,7 +55,6 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-
         let tokens = crate::parser::pipeline(nom_input(line));
 
         match tokens {
