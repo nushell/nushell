@@ -126,7 +126,6 @@ impl InternalCommand {
 
         let mut result =
             context.run_command(self.command, self.name_span.clone(), self.args, objects)?;
-        let env = context.env.clone();
 
         let mut stream = VecDeque::new();
         while let Some(item) = result.next().await {

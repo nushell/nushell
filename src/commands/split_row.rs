@@ -32,7 +32,7 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnValue::Value(Value::Primitive(Primitive::String(
-                        s.to_string(),
+                        s.into(),
                     ))));
                 }
                 result

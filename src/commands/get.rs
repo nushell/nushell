@@ -46,6 +46,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .positional_iter()
         .map(|a| (a.as_string().map(|x| (x, a.span))))
         .collect();
+
     let fields = fields?;
 
     let stream = args

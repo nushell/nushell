@@ -63,7 +63,7 @@ fn count(name: &str, contents: &str) -> ReturnValue {
     }
 
     let mut dict = Dictionary::default();
-    dict.add("name", Value::string(name.to_owned()));
+    dict.add("name", Value::string(name));
     dict.add("lines", Value::int(lines));
     dict.add("words", Value::int(words));
     dict.add("chars", Value::int(chars));

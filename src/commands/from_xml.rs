@@ -32,13 +32,13 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
 
         Value::Object(collected)
     } else if n.is_comment() {
-        Value::Primitive(Primitive::String("<comment>".to_string()))
+        Value::string("<comment>")
     } else if n.is_pi() {
-        Value::Primitive(Primitive::String("<processing_instruction>".to_string()))
+        Value::string("<processing_instruction>")
     } else if n.is_text() {
-        Value::Primitive(Primitive::String(n.text().unwrap().to_string()))
+        Value::string(n.text().unwrap())
     } else {
-        Value::Primitive(Primitive::String("<unknown>".to_string()))
+        Value::string("<unknown>")
     }
 }
 

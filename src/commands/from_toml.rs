@@ -7,7 +7,7 @@ fn convert_toml_value_to_nu_value(v: &toml::Value) -> Value {
         toml::Value::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)),
         toml::Value::Integer(n) => Value::Primitive(Primitive::Int(*n)),
         toml::Value::Float(n) => Value::Primitive(Primitive::Float(OF64::from(*n))),
-        toml::Value::String(s) => Value::Primitive(Primitive::String(s.clone())),
+        toml::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))),
         toml::Value::Array(a) => Value::List(
             a.iter()
                 .map(|x| convert_toml_value_to_nu_value(x))

@@ -1,17 +1,18 @@
 use crate::commands::command::CommandAction;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::parser::Spanned;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
 pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = match args.nth(0) {
-        None => return Err(ShellError::maybe_labeled_error(
-            "open requires a path or url",
-            "missing path",
-            args.name_span,
-        )),
+        None => {
+            return Err(ShellError::maybe_labeled_error(
+                "open requires a path or url",
+                "missing path",
+                args.name_span,
+            ))
+        }
         Some(p) => p,
     };
 
@@ -64,7 +65,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 }
             } else {
-                full_path.push(Path::new(&s));
+                full_path.push(Path::new(s));
                 match std::fs::read_to_string(&full_path) {
                     Ok(s) => (
                         full_path

@@ -5,13 +5,14 @@ use crate::parser::{
     hir::{self, NamedArguments},
     Flag, RawToken, TokenNode,
 };
+use crate::Text;
 use log::trace;
 
 pub fn parse_command(
     config: &CommandConfig,
     registry: &dyn CommandRegistry,
     call: &Spanned<CallNode>,
-    source: &str,
+    source: &Text,
 ) -> Result<hir::Call, ShellError> {
     let Spanned { item: call, .. } = call;
 
@@ -64,7 +65,7 @@ fn parse_command_tail(
     config: &CommandConfig,
     registry: &dyn CommandRegistry,
     tail: Option<Vec<TokenNode>>,
-    source: &str,
+    source: &Text,
 ) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
     let mut tail = match tail {
         None => return Ok(None),
@@ -176,7 +177,7 @@ fn parse_command_tail(
 fn extract_switch(
     name: &str,
     mut tokens: Vec<TokenNode>,
-    source: &str,
+    source: &Text,
 ) -> (Vec<TokenNode>, Option<Flag>) {
     let pos = tokens
         .iter()
@@ -196,7 +197,7 @@ fn extract_switch(
 fn extract_mandatory(
     name: &str,
     mut tokens: Vec<TokenNode>,
-    source: &str,
+    source: &Text,
 ) -> Result<(Vec<TokenNode>, usize, Flag), ShellError> {
     let pos = tokens
         .iter()
@@ -225,7 +226,7 @@ fn extract_mandatory(
 fn extract_optional(
     name: &str,
     mut tokens: Vec<TokenNode>,
-    source: &str,
+    source: &Text,
 ) -> Result<(Vec<TokenNode>, Option<(usize, Flag)>), ShellError> {
     let pos = tokens
         .iter()

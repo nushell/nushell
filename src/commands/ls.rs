@@ -14,7 +14,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
             ..
-        }) => full_path.push(Path::new(s)),
+        }) => full_path.push(Path::new(&s)),
         _ => {}
     }
 

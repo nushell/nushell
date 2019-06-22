@@ -23,8 +23,8 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 },
                 Some(v) => {
-                    let target = v.as_string()?.clone();
-                    match dunce::canonicalize(cwd.join(&target).as_path()) {
+                    let target = v.as_string()?;
+                    match dunce::canonicalize(cwd.join(target).as_path()) {
                         Ok(p) => p,
                         Err(_) => {
                             return Err(ShellError::labeled_error(

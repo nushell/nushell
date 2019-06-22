@@ -57,7 +57,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     if let Some(v) = args.get("set") {
         if let Ok((key, value)) = v.as_pair() {
-            result.insert(key.as_string()?, value.clone());
+            result.insert(key.as_string()?.to_string(), value.clone());
 
             config::write_config(&result)?;
 

@@ -36,19 +36,16 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
 
                     let mut dict = crate::object::Dictionary::default();
-                    for (k, v) in split_result.iter().zip(gen_columns.iter()) {
-                        dict.add(
-                            v.clone(),
-                            Value::Primitive(Primitive::String(k.to_string())),
-                        );
+                    for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
+                        dict.add(v.clone(), Value::Primitive(Primitive::String(k.into())));
                     }
                     ReturnValue::Value(Value::Object(dict))
                 } else if split_result.len() == (positional.len() - 1) {
                     let mut dict = crate::object::Dictionary::default();
-                    for (k, v) in split_result.iter().zip(positional.iter().skip(1)) {
+                    for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
                         dict.add(
                             v.as_string().unwrap(),
-                            Value::Primitive(Primitive::String(k.to_string())),
+                            Value::Primitive(Primitive::String(k.into())),
                         );
                     }
                     ReturnValue::Value(Value::Object(dict))
@@ -57,7 +54,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     for k in positional.iter().skip(1) {
                         dict.add(
                             k.as_string().unwrap().trim(),
-                            Value::Primitive(Primitive::String("".to_string())),
+                            Value::Primitive(Primitive::String("".into())),
                         );
                     }
                     ReturnValue::Value(Value::Object(dict))

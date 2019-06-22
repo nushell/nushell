@@ -42,7 +42,7 @@ pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .build()
         .map_err(|e| ShellError::string(e))?;
 
-    let file = cwd.join(target);
+    let file = cwd.join(&target);
 
     let _ = printer.file(file.display().to_string());
 

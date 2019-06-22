@@ -1,6 +1,7 @@
 use crate::parser::{hir, RawToken, Token};
+use crate::Text;
 
-pub fn baseline_parse_single_token(token: &Token, source: &str) -> hir::Expression {
+pub fn baseline_parse_single_token(token: &Token, source: &Text) -> hir::Expression {
     match *token.item() {
         RawToken::Integer(int) => hir::Expression::int(int, token.span),
         RawToken::Size(int, unit) => hir::Expression::size(int, unit, token.span),

@@ -31,7 +31,7 @@ impl Text {
     /// Extract a new `Text` that is a subset of an old `Text`
     /// -- `text.extract(1..3)` is similar to `&foo[1..3]` except that
     /// it gives back an owned value instead of a borrowed value.
-    pub fn extract(&self, range: Range<usize>) -> Self {
+    pub fn slice(&self, range: Range<usize>) -> Self {
         let mut result = self.clone();
         result.select(range);
         result

@@ -189,7 +189,7 @@ impl CommandConfig {
         call: &Spanned<CallNode>,
         registry: &dyn CommandRegistry,
         scope: &Scope,
-        source: &str,
+        source: &Text,
     ) -> Result<Args, ShellError> {
         let args = parse_command(self, registry, call, source)?;
 
@@ -282,7 +282,7 @@ fn evaluate_args(
     args: hir::Call,
     registry: &dyn CommandRegistry,
     scope: &Scope,
-    source: &str,
+    source: &Text,
 ) -> Result<Args, ShellError> {
     let positional: Result<Option<Vec<_>>, _> = args
         .positional()

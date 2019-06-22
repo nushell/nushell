@@ -11,7 +11,7 @@ pub fn trim(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .map(move |v| match v {
             Value::Primitive(Primitive::String(s)) => {
-                ReturnValue::Value(Value::Primitive(Primitive::String(s.trim().to_string())))
+                ReturnValue::Value(Value::Primitive(Primitive::String(s.trim().into())))
             }
             _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
                 "Expected string values from pipeline",
