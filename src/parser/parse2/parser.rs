@@ -429,17 +429,6 @@ pub fn node(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     )
 }
 
-pub fn eof(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    if input.input_len() == 0 {
-        Ok((input, TokenNode::EOF(Span::from(input))))
-    } else {
-        Err(Err::Error(error_position!(
-            input,
-            nom::error::ErrorKind::Eof
-        )))
-    }
-}
-
 pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "pipeline", |input| {
         let start = input.offset;
@@ -450,13 +439,22 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
             many0(tuple((opt(space1), raw_call, opt(space1), opt(tag("|"))))),
         )?;
 
-        let (input, tail) = tuple((opt(space1), eof))(input)?;
+        let (input, tail) = opt(space1)(input)?;
+        let (input, newline) = opt(multispace1)(input)?;
+
+        if input.input_len() != 0 {
+            return Err(Err::Error(error_position!(
+                input,
+                nom::error::ErrorKind::Eof
+            )));
+        }
+
         let end = input.offset;
 
         Ok((
             input,
             TokenTreeBuilder::spanned_pipeline(
-                (make_call_list(head, items), tail.0.map(Span::from)),
+                (make_call_list(head, items), tail.map(Span::from)),
                 (start, end),
             ),
         ))

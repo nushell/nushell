@@ -163,7 +163,6 @@ pub fn baseline_parse_semantic_token(
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
         TokenNode::Path(_path) => unimplemented!(),
-        TokenNode::EOF(_span) => unimplemented!(),
     }
 }
 

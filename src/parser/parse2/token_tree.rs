@@ -18,7 +18,6 @@ pub enum TokenNode {
     #[allow(unused)]
     Error(Spanned<Box<ShellError>>),
     Path(Spanned<PathNode>),
-    EOF(Span),
 }
 
 impl TokenNode {
@@ -34,7 +33,6 @@ impl TokenNode {
             TokenNode::Whitespace(s) => *s,
             TokenNode::Error(s) => s.span,
             TokenNode::Path(s) => s.span,
-            TokenNode::EOF(s) => *s,
         }
     }
 

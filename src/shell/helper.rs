@@ -130,7 +130,6 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
             item: RawToken::Bare,
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),
-        TokenNode::EOF(_) => return format!(""),
     };
 
     styled.to_string()
