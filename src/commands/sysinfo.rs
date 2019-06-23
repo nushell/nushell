@@ -4,7 +4,7 @@ use crate::object::Dictionary;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use sys_info::*;
-use sysinfo::{ComponentExt, DiskExt, NetworkExt, SystemExt};
+use sysinfo::{ComponentExt, DiskExt, NetworkExt, RefreshKind, SystemExt};
 
 pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut idx = indexmap::IndexMap::new();
@@ -137,7 +137,7 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let system = sysinfo::System::new();
+    let system = sysinfo::System::new_with_specifics(RefreshKind::everything().without_processes());
     let components_list = system.get_components_list();
     if components_list.len() > 0 {
         let mut v = vec![];
