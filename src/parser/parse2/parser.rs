@@ -1,8 +1,8 @@
 #![allow(unused)]
 
 use crate::parser::parse2::{
-    call_node::*, flag::*, operator::*, span::*, token_tree::*, token_tree_builder::*, tokens::*,
-    unit::*,
+    call_node::*, flag::*, operator::*, pipeline::*, span::*, token_tree::*, token_tree_builder::*,
+    tokens::*, unit::*,
 };
 use nom;
 use nom::branch::*;
@@ -429,34 +429,63 @@ pub fn node(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     )
 }
 
+pub fn eof(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    if input.input_len() == 0 {
+        Ok((input, TokenNode::EOF(Span::from(input))))
+    } else {
+        Err(Err::Error(error_position!(
+            input,
+            nom::error::ErrorKind::Eof
+        )))
+    }
+}
+
 pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "pipeline", |input| {
         let start = input.offset;
-        let (input, head) = tuple((raw_call, opt(space1)))(input)?;
+        let (input, head) = opt(tuple((raw_call, opt(space1), opt(tag("|")))))(input)?;
         let (input, items) = trace_step(
             input,
             "many0",
-            many0(tuple((tag("|"), opt(space1), raw_call, opt(space1)))),
+            many0(tuple((opt(space1), raw_call, opt(space1), opt(tag("|"))))),
         )?;
+
+        let (input, tail) = tuple((opt(space1), eof))(input)?;
         let end = input.offset;
 
         Ok((
             input,
-            TokenTreeBuilder::spanned_pipeline(make_call_list(head, items), (start, end)),
+            TokenTreeBuilder::spanned_pipeline(
+                (make_call_list(head, items), tail.0.map(Span::from)),
+                (start, end),
+            ),
         ))
     })
 }
 
 fn make_call_list(
-    head: (Spanned<CallNode>, Option<NomSpan>),
-    tail: Vec<(NomSpan, Option<NomSpan>, Spanned<CallNode>, Option<NomSpan>)>,
+    head: Option<(Spanned<CallNode>, Option<NomSpan>, Option<NomSpan>)>,
+    items: Vec<(
+        Option<NomSpan>,
+        Spanned<CallNode>,
+        Option<NomSpan>,
+        Option<NomSpan>,
+    )>,
 ) -> Vec<PipelineElement> {
     let mut out = vec![];
-    let el = PipelineElement::new(None, head.0, head.1.map(Span::from));
-    out.push(el);
 
-    for (pipe, ws1, call, ws2) in tail {
-        let el = PipelineElement::new(ws1.map(Span::from), call, ws2.map(Span::from));
+    if let Some(head) = head {
+        let el = PipelineElement::new(None, head.0, head.1.map(Span::from), head.2.map(Span::from));
+        out.push(el);
+    }
+
+    for (ws1, call, ws2, pipe) in items {
+        let el = PipelineElement::new(
+            ws1.map(Span::from),
+            call,
+            ws2.map(Span::from),
+            pipe.map(Span::from),
+        );
         out.push(el);
     }
 

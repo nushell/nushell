@@ -524,6 +524,7 @@ impl Call {
 #[derive(new, Debug, Eq, PartialEq, Clone)]
 pub struct Pipeline {
     crate commands: Vec<Expression>,
+    crate trailing: Span,
     crate span: Span,
 }
 

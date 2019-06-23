@@ -3,10 +3,9 @@ use crate::prelude::*;
 
 use crate::parser::parse2::flag::{Flag, FlagKind};
 use crate::parser::parse2::operator::Operator;
+use crate::parser::parse2::pipeline::{Pipeline, PipelineElement};
 use crate::parser::parse2::span::{Span, Spanned};
-use crate::parser::parse2::token_tree::{
-    DelimitedNode, Delimiter, PathNode, PipelineElement, TokenNode,
-};
+use crate::parser::parse2::token_tree::{DelimitedNode, Delimiter, PathNode, TokenNode};
 use crate::parser::parse2::tokens::{RawToken, Token};
 use crate::parser::parse2::unit::Unit;
 use crate::parser::CallNode;
@@ -47,7 +46,7 @@ impl TokenTreeBuilder {
 
             let mut out: Vec<PipelineElement> = vec![];
 
-            let mut input = input.into_iter();
+            let mut input = input.into_iter().peekable();
             let (pre, call, post) = input
                 .next()
                 .expect("A pipeline must contain at least one element");
@@ -55,33 +54,48 @@ impl TokenTreeBuilder {
             let pre_span = pre.map(|pre| b.consume(&pre));
             let call = call(b);
             let post_span = post.map(|post| b.consume(&post));
+            let pipe = input.peek().map(|_| Span::from(b.consume("|")));
             out.push(PipelineElement::new(
                 pre_span.map(Span::from),
                 call,
                 post_span.map(Span::from),
+                pipe,
             ));
 
-            for (pre, call, post) in input {
-                b.consume("|");
-                let pre_span = pre.map(|pre| b.consume(&pre));
-                let call = call(b);
-                let post_span = post.map(|post| b.consume(&post));
+            loop {
+                match input.next() {
+                    None => break,
+                    Some((pre, call, post)) => {
+                        let pre_span = pre.map(|pre| b.consume(&pre));
+                        let call = call(b);
+                        let post_span = post.map(|post| b.consume(&post));
 
-                out.push(PipelineElement::new(
-                    pre_span.map(Span::from),
-                    call,
-                    post_span.map(Span::from),
-                ));
+                        let pipe = input.peek().map(|_| Span::from(b.consume("|")));
+
+                        out.push(PipelineElement::new(
+                            pre_span.map(Span::from),
+                            call,
+                            post_span.map(Span::from),
+                            pipe,
+                        ));
+                    }
+                }
             }
 
             let end = b.pos;
 
-            TokenTreeBuilder::spanned_pipeline(out, (start, end))
+            TokenTreeBuilder::spanned_pipeline((out, None), (start, end))
         })
     }
 
-    pub fn spanned_pipeline(input: Vec<PipelineElement>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Pipeline(Spanned::from_item(input, span))
+    pub fn spanned_pipeline(
+        input: (Vec<PipelineElement>, Option<Span>),
+        span: impl Into<Span>,
+    ) -> TokenNode {
+        TokenNode::Pipeline(Spanned::from_item(
+            Pipeline::new(input.0, input.1.into()),
+            span,
+        ))
     }
 
     pub fn op(input: impl Into<Operator>) -> CurriedToken {

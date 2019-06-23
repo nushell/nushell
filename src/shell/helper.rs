@@ -2,7 +2,7 @@ use crate::parser::nom_input;
 use crate::parser::parse2::span::Spanned;
 use crate::parser::parse2::token_tree::TokenNode;
 use crate::parser::parse2::tokens::RawToken;
-use crate::parser::parse2::PipelineElement;
+use crate::parser::{Pipeline, PipelineElement};
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use ansi_term::Color;
@@ -61,34 +61,31 @@ impl Highlighter for Helper {
         let tokens = crate::parser::pipeline(nom_input(line));
 
         match tokens {
-            Err(_) => Cow::Borrowed(line),
+            Err(e) => {
+                println!("error: {:?}", e);
+                Cow::Borrowed(line)
+            }
             Ok((_rest, v)) => {
                 let mut out = String::new();
-                let tokens = match v.as_pipeline() {
+                let pipeline = match v.as_pipeline() {
                     Err(_) => return Cow::Borrowed(line),
                     Ok(v) => v,
                 };
 
-                let mut iter = tokens.into_iter();
-
-                // match iter.next() {
-                //     None => return Cow::Owned(out),
-                //     Some(v) => out.push_str(v.span().slice(line)),
-                // };
-                let mut first = true;
+                let Pipeline { parts, post_ws } = pipeline;
+                let mut iter = parts.into_iter();
 
                 loop {
                     match iter.next() {
-                        None => return Cow::Owned(out),
-                        Some(token) => {
-                            let styled = paint_pipeline_element(&token, line);
-
-                            if !first {
-                                out.push_str("|");
-                            } else {
-                                first = false;
+                        None => {
+                            if let Some(ws) = post_ws {
+                                out.push_str(ws.slice(line));
                             }
 
+                            return Cow::Owned(out);
+                        }
+                        Some(token) => {
+                            let styled = paint_pipeline_element(&token, line);
                             out.push_str(&styled.to_string());
                         }
                     }
@@ -133,6 +130,7 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
             item: RawToken::Bare,
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),
+        TokenNode::EOF(_) => return format!(""),
     };
 
     styled.to_string()
@@ -144,6 +142,7 @@ fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> Str
     if let Some(ws) = pipeline_element.pre_ws {
         styled.push_str(&Color::White.normal().paint(ws.slice(line)));
     }
+
     styled.push_str(&paint_token_node(pipeline_element.call().head(), line));
 
     if let Some(children) = pipeline_element.call().children() {
@@ -151,8 +150,13 @@ fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> Str
             styled.push_str(&paint_token_node(child, line));
         }
     }
+
     if let Some(ws) = pipeline_element.post_ws {
         styled.push_str(&Color::White.normal().paint(ws.slice(line)));
+    }
+
+    if let Some(_) = pipeline_element.post_pipe {
+        styled.push_str(&Color::Purple.paint("|"));
     }
 
     styled.to_string()

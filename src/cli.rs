@@ -12,8 +12,8 @@ use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
 use crate::parser::parse2::span::Spanned;
-use crate::parser::parse2::{PipelineElement, TokenNode};
 use crate::parser::registry;
+use crate::parser::{Pipeline, PipelineElement, TokenNode};
 
 use crate::git::current_branch;
 use crate::object::Value;
@@ -379,7 +379,9 @@ fn classify_pipeline(
 ) -> Result<ClassifiedPipeline, ShellError> {
     let pipeline = pipeline.as_pipeline()?;
 
-    let commands: Result<Vec<_>, ShellError> = pipeline
+    let Pipeline { parts, .. } = pipeline;
+
+    let commands: Result<Vec<_>, ShellError> = parts
         .iter()
         .map(|item| classify_command(&item, context, &source))
         .collect();

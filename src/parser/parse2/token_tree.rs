@@ -1,9 +1,8 @@
 use crate::errors::ShellError;
-use crate::parser::parse2::{call_node::*, flag::*, operator::*, span::*, tokens::*};
+use crate::parser::parse2::{call_node::*, flag::*, operator::*, pipeline::*, span::*, tokens::*};
 use crate::Text;
 use derive_new::new;
 use enum_utils::FromStr;
-use getset::Getters;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TokenNode {
@@ -11,7 +10,7 @@ pub enum TokenNode {
     #[allow(unused)]
     Call(Spanned<CallNode>),
     Delimited(Spanned<DelimitedNode>),
-    Pipeline(Spanned<Vec<PipelineElement>>),
+    Pipeline(Spanned<Pipeline>),
     Operator(Spanned<Operator>),
     Flag(Spanned<Flag>),
     Identifier(Span),
@@ -19,6 +18,7 @@ pub enum TokenNode {
     #[allow(unused)]
     Error(Spanned<Box<ShellError>>),
     Path(Spanned<PathNode>),
+    EOF(Span),
 }
 
 impl TokenNode {
@@ -34,6 +34,7 @@ impl TokenNode {
             TokenNode::Whitespace(s) => *s,
             TokenNode::Error(s) => s.span,
             TokenNode::Path(s) => s.span,
+            TokenNode::EOF(s) => *s,
         }
     }
 
@@ -66,7 +67,7 @@ impl TokenNode {
         }
     }
 
-    pub fn as_pipeline(&self) -> Result<Vec<PipelineElement>, ShellError> {
+    pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
             TokenNode::Pipeline(Spanned { item, .. }) => Ok(item.clone()),
             _ => Err(ShellError::string("unimplemented")),
@@ -91,12 +92,4 @@ pub enum Delimiter {
 pub struct PathNode {
     head: Box<TokenNode>,
     tail: Vec<TokenNode>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
-pub struct PipelineElement {
-    pub pre_ws: Option<Span>,
-    #[get = "crate"]
-    call: Spanned<CallNode>,
-    pub post_ws: Option<Span>,
 }

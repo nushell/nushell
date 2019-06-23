@@ -98,7 +98,10 @@ pub fn baseline_parse_next_expr(
                             vec![string],
                         );
                         let path = hir::RawExpression::Path(Box::new(path));
-                        Spanned { item: path, span: first.span }
+                        Spanned {
+                            item: path,
+                            span: first.span,
+                        }
                     }
                     Spanned {
                         item: hir::RawExpression::Literal(hir::Literal::String(inner)),
@@ -114,7 +117,10 @@ pub fn baseline_parse_next_expr(
                             vec![string],
                         );
                         let path = hir::RawExpression::Path(Box::new(path));
-                        Spanned { item: path, span: first.span }
+                        Spanned {
+                            item: path,
+                            span: first.span,
+                        }
                     }
                     Spanned {
                         item: hir::RawExpression::Variable(..),
@@ -157,6 +163,7 @@ pub fn baseline_parse_semantic_token(
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
         TokenNode::Path(_path) => unimplemented!(),
+        TokenNode::EOF(_span) => unimplemented!(),
     }
 }
 
