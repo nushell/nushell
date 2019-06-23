@@ -10,7 +10,7 @@ edition = "2018"
 
 [dependencies]
 rustyline = "5.0.0"
-sysinfo = "0.8.5"
+sysinfo = "0.8.6"
 chrono = { version = "0.4.6", features = ["serde"] }
 chrono-tz = "0.5.1"
 derive-new = "0.5.6"

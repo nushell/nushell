@@ -665,6 +665,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "doc-comment"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "dtoa"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1611,7 +1616,7 @@ dependencies = [
  "serde_yaml 0.8.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "subprocess 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "sys-info 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "sysinfo 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sysinfo 0.8.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "term 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-fs 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2691,10 +2696,11 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "doc-comment 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
  "rayon 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3303,6 +3309,7 @@ dependencies = [
 "checksum dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "3fd78930633bd1c6e35c4b42b1df7b0cbc6bc191146e512bb3bedf243fcc3901"
 "checksum dirs 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1c4ef5a8b902d393339e2a2c7fe573af92ce7e0ee5a3ff827b4c9ad7e07e4fa1"
 "checksum dirs-sys 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "937756392ec77d1f2dd9dc3ac9d69867d109a2121479d72c364e42f4cab21e2d"
+"checksum doc-comment 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "923dea538cea0aa3025e8685b20d6ee21ef99c4f77e954a30febbaac5ec73a97"
 "checksum dtoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ea57b42383d091c85abcc2706240b94ab2a8fa1fc81c10ff23c4de06e2a90b5e"
 "checksum dunce 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d0ad6bf6a88548d1126045c413548df1453d9be094a8ab9fd59bf1fdd338da4f"
 "checksum either 1.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5527cfe0d098f36e3f8839852688e63c8fff1c90b2b405aef730615f9a7bcf7b"
@@ -3521,7 +3528,7 @@ dependencies = [
 "checksum synstructure 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "02353edf96d6e4dc81aea2d8490a7e9db177bf8acb0e951c24940bf866cb313f"
 "checksum syntect 3.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e80b8831c5a543192ffc3727f01cf0e57579c6ac15558e3048bfb5708892167b"
 "checksum sys-info 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)" = "76d6cf7b349b6a6daaf7a3797227e2f4108c8dd398e0aca7e29b9fb239948541"
-"checksum sysinfo 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)" = "1cf62641ed7e88e20242b948d17b9fcc37e80b5599cf09cde190d6d4bb4bf289"
+"checksum sysinfo 0.8.6 (registry+https://github.com/rust-lang/crates.io-index)" = "d291d07ba27acd519287ca22fb1fb024dcc4b925cddb63d69af24db153ca2c82"
 "checksum tempfile 3.0.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7dc4738f2e68ed2855de5ac9cdbe05c9216773ecde4739b2f095002ab03a13ef"
 "checksum term 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "edd106a334b7657c10b7c540a0106114feadeb4dc314513e97df481d5d966f42"
 "checksum term_size 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "9e5b9a66db815dcfd2da92db471106457082577c3c278d4138ab3e3b4e189327"
