@@ -79,7 +79,7 @@ crate fn evaluate_baseline_expr(
 fn evaluate_literal(literal: Spanned<hir::Literal>, source: &Text) -> Spanned<Value> {
     let result = match literal.item {
         hir::Literal::Integer(int) => Value::int(int),
-        hir::Literal::Size(_int, _unit) => unimplemented!(),
+        hir::Literal::Size(int, unit) => unit.compute(int),
         hir::Literal::String(span) => Value::string(span.slice(source)),
         hir::Literal::Bare => Value::string(literal.span().slice(source)),
     };

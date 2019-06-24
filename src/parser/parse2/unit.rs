@@ -1,5 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 use std::str::FromStr;
+use crate::object::base::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Unit {
@@ -22,6 +23,17 @@ impl Unit {
             Unit::PB => "PB",
         }
     }
+
+    crate fn compute(&self, size: i64) -> Value {
+        Value::int(match self {
+            Unit::B => size,
+            Unit::KB => size * 1024,
+            Unit::MB => size * 1024 * 1024,
+            Unit::GB => size * 1024 * 1024 * 1024,
+            Unit::TB => size * 1024 * 1024 * 1024 * 1024,
+            Unit::PB => size * 1024 * 1024 * 1024 * 1024 * 1024,
+        })
+    }
 }
 
 impl From<&str> for Unit {
@@ -34,12 +46,12 @@ impl FromStr for Unit {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
         match input {
-            "B" => Ok(Unit::B),
-            "KB" => Ok(Unit::KB),
-            "MB" => Ok(Unit::MB),
-            "GB" => Ok(Unit::GB),
-            "TB" => Ok(Unit::TB),
-            "PB" => Ok(Unit::PB),
+            "B" | "b" => Ok(Unit::B),
+            "KB" | "kb" | "Kb" => Ok(Unit::KB),
+            "MB" | "mb" | "Mb" => Ok(Unit::MB),
+            "GB" | "gb" | "Gb" => Ok(Unit::GB),
+            "TB" | "tb" | "Tb" => Ok(Unit::TB),
+            "PB" | "pb" | "Pb" => Ok(Unit::PB),
             _ => Err(()),
         }
     }

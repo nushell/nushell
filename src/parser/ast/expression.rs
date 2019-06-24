@@ -292,17 +292,6 @@ impl From<&str> for Unit {
 }
 
 impl Unit {
-    crate fn compute(&self, size: i64) -> Value {
-        Value::int(match self {
-            Unit::B => size,
-            Unit::KB => size * 1024,
-            Unit::MB => size * 1024 * 1024,
-            Unit::GB => size * 1024 * 1024 * 1024,
-            Unit::TB => size * 1024 * 1024 * 1024 * 1024,
-            Unit::PB => size * 1024 * 1024 * 1024 * 1024 * 1024,
-        })
-    }
-
     crate fn to_string(&self) -> &str {
         match self {
             Unit::B => "B",

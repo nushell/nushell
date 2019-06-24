@@ -107,4 +107,9 @@ mod tests {
     fn external_num() {
         test_helper("external_num");
     }
+
+    #[test]
+    fn unit() {
+        test_helper("unit");
+    }
 }
