@@ -97,7 +97,6 @@ impl Highlighter for Helper {
 }
 
 fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
-    //println!("{:?}", token_node);
     let styled = match token_node {
         TokenNode::Call(..) => Color::Cyan.bold().paint(token_node.span().slice(line)),
         TokenNode::Whitespace(..) => Color::White.normal().paint(token_node.span().slice(line)),
