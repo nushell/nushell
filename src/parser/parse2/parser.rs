@@ -213,11 +213,22 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Spanned<Unit>> {
         let start = input.offset;
         let (input, unit) = alt((
             tag("B"),
+            tag("b"),
             tag("KB"),
+            tag("kb"),
+            tag("Kb"),
             tag("MB"),
+            tag("mb"),
+            tag("Mb"),
             tag("GB"),
+            tag("gb"),
+            tag("Gb"),
             tag("TB"),
+            tag("tb"),
+            tag("Tb"),
             tag("PB"),
+            tag("pb"),
+            tag("Pb"),
         ))(input)?;
         let end = input.offset;
 

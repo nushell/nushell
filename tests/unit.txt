@@ -1,0 +1,4 @@
+cd tests
+cd dirtest
+ls | where size > 1kb | get "file name" | trim | echo $it
+exit
