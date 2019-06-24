@@ -12,8 +12,7 @@ pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let stream = input
         .map(move |v| match v {
             Value::Primitive(Primitive::String(s)) => {
-                let splitter = "\n";
-                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
+                let split_result: Vec<_> = s.lines().filter(|s| s.trim() != "").collect();
 
                 trace!("split result = {:?}", split_result);
 
