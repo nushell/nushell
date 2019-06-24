@@ -45,7 +45,7 @@ pub fn baseline_parse_next_expr(
     let first = next_token(&mut tokens);
 
     let first = match first {
-        None => return Err(ShellError::unimplemented("Expected token, found none")),
+        None => return Err(ShellError::string("Expected token, found none")),
         Some(token) => baseline_parse_semantic_token(token, source)?,
     };
 

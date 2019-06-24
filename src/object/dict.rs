@@ -15,9 +15,18 @@ pub struct Dictionary {
 }
 
 impl PartialOrd for Dictionary {
-    // TODO: FIXME
-    fn partial_cmp(&self, _other: &Dictionary) -> Option<Ordering> {
-        Some(Ordering::Less)
+    fn partial_cmp(&self, other: &Dictionary) -> Option<Ordering> {
+        let this: Vec<&DataDescriptor> = self.entries.keys().collect();
+        let that: Vec<&DataDescriptor> = other.entries.keys().collect();
+
+        if this != that {
+            return this.partial_cmp(&that);
+        }
+
+        let this: Vec<&Value> = self.entries.values().collect();
+        let that: Vec<&Value> = self.entries.values().collect();
+
+        this.partial_cmp(&that)
     }
 }
 
@@ -56,9 +65,18 @@ impl From<IndexMap<String, Value>> for Dictionary {
 }
 
 impl Ord for Dictionary {
-    // TODO: FIXME
-    fn cmp(&self, _other: &Dictionary) -> Ordering {
-        Ordering::Less
+    fn cmp(&self, other: &Dictionary) -> Ordering {
+        let this: Vec<&DataDescriptor> = self.entries.keys().collect();
+        let that: Vec<&DataDescriptor> = other.entries.keys().collect();
+
+        if this != that {
+            return this.cmp(&that);
+        }
+
+        let this: Vec<&Value> = self.entries.values().collect();
+        let that: Vec<&Value> = self.entries.values().collect();
+
+        this.cmp(&that)
     }
 }
 
@@ -69,7 +87,6 @@ impl PartialOrd<Value> for Dictionary {
 }
 
 impl PartialEq<Value> for Dictionary {
-    // TODO: FIXME
     fn eq(&self, other: &Value) -> bool {
         match other {
             Value::Object(d) => self == d,

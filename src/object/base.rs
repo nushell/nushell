@@ -165,7 +165,7 @@ impl Block {
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
@@ -208,6 +208,13 @@ impl fmt::Debug for ValueDebug<'a> {
             Value::Error(err) => write!(f, "[[error :: {} ]]", err),
             Value::Filesystem => write!(f, "[[filesystem]]"),
         }
+    }
+}
+
+impl Spanned<Value> {
+    crate fn spanned_type_name(&self) -> Spanned<String> {
+        let name = self.type_name();
+        Spanned::from_item(name, self.span)
     }
 }
 
@@ -301,7 +308,7 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn compare(&self, operator: &Operator, other: &Value) -> Option<bool> {
+    crate fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
@@ -322,7 +329,7 @@ impl Value {
                     _ => false,
                 };
 
-                Some(result)
+                Ok(result)
             }
         }
     }
@@ -378,18 +385,6 @@ impl Value {
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected block, got {:?}",
-                other
-            ))),
-        }
-    }
-
-    #[allow(unused)]
-    crate fn as_bool(&self) -> Result<bool, ShellError> {
-        match self {
-            Value::Primitive(Primitive::Boolean(b)) => Ok(*b),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected integer, got {:?}",
                 other
             ))),
         }
@@ -591,24 +586,27 @@ impl CompareValues {
     }
 }
 
-fn coerce_compare(left: &Value, right: &Value) -> Option<CompareValues> {
+fn coerce_compare(left: &Value, right: &Value) -> Result<CompareValues, (String, String)> {
     match (left, right) {
         (Value::Primitive(left), Value::Primitive(right)) => coerce_compare_primitive(left, right),
 
-        _ => None,
+        _ => Err((left.type_name(), right.type_name())),
     }
 }
 
-fn coerce_compare_primitive(left: &Primitive, right: &Primitive) -> Option<CompareValues> {
+fn coerce_compare_primitive(
+    left: &Primitive,
+    right: &Primitive,
+) -> Result<CompareValues, (String, String)> {
     use Primitive::*;
 
-    match (left, right) {
-        (Int(left), Int(right)) => Some(CompareValues::Ints(*left, *right)),
-        (Float(left), Int(right)) => Some(CompareValues::Floats(*left, (*right as f64).into())),
-        (Int(left), Float(right)) => Some(CompareValues::Floats((*left as f64).into(), *right)),
-        (Int(left), Bytes(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
-        (Bytes(left), Int(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
-        (String(left), String(right)) => Some(CompareValues::String(left.clone(), right.clone())),
-        _ => None,
-    }
+    Ok(match (left, right) {
+        (Int(left), Int(right)) => CompareValues::Ints(*left, *right),
+        (Float(left), Int(right)) => CompareValues::Floats(*left, (*right as f64).into()),
+        (Int(left), Float(right)) => CompareValues::Floats((*left as f64).into(), *right),
+        (Int(left), Bytes(right)) => CompareValues::Bytes(*left as i128, *right as i128),
+        (Bytes(left), Int(right)) => CompareValues::Bytes(*left as i128, *right as i128),
+        (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
+        _ => return Err((left.type_name(), right.type_name())),
+    })
 }

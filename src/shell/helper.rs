@@ -61,10 +61,7 @@ impl Highlighter for Helper {
         let tokens = crate::parser::pipeline(nom_input(line));
 
         match tokens {
-            Err(e) => {
-                println!("error: {:?}", e);
-                Cow::Borrowed(line)
-            }
+            Err(_) => Cow::Borrowed(line),
             Ok((_rest, v)) => {
                 let mut out = String::new();
                 let pipeline = match v.as_pipeline() {

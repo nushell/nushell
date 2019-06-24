@@ -1,3 +1,4 @@
+use crate::errors::Description;
 use crate::object::base::Block;
 use crate::parser::{
     hir::{self, Expression, RawExpression},
@@ -37,11 +38,11 @@ crate fn evaluate_baseline_expr(
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
 
             match left.compare(binary.op(), &*right) {
-                Some(result) => Ok(Spanned::from_item(Value::boolean(result), *expr.span())),
-                None => Err(ShellError::unimplemented(&format!(
-                    "Comparison failure {:?}",
-                    binary
-                ))),
+                Ok(result) => Ok(Spanned::from_item(Value::boolean(result), *expr.span())),
+                Err((left_type, right_type)) => Err(ShellError::CoerceError {
+                    left: binary.left().copy_span(left_type),
+                    right: binary.right().copy_span(right_type),
+                }),
             }
         }
         RawExpression::Block(block) => Ok(Spanned::from_item(
@@ -50,18 +51,26 @@ crate fn evaluate_baseline_expr(
         )),
         RawExpression::Path(path) => {
             let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;
-            let mut value = value.item();
+            let mut item = value;
 
             for name in path.tail() {
-                let next = value.get_data_by_key(name);
+                let next = item.get_data_by_key(name);
 
                 match next {
-                    None => return Err(ShellError::unimplemented("Invalid property from path")),
-                    Some(next) => value = next,
+                    None => {
+                        return Err(ShellError::MissingProperty {
+                            subpath: Description::from(item.spanned_type_name()),
+                            expr: Description::from(name.clone()),
+                        })
+                    }
+                    Some(next) => {
+                        item =
+                            Spanned::from_item(next.clone(), (expr.span().start, name.span().end))
+                    }
                 };
             }
 
-            Ok(Spanned::from_item(value.clone(), expr.span()))
+            Ok(Spanned::from_item(item.item().clone(), expr.span()))
         }
         RawExpression::Boolean(_boolean) => unimplemented!(),
     }

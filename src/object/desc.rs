@@ -39,7 +39,7 @@ impl DescriptorName {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, new)]
+#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, new)]
 pub struct DataDescriptor {
     crate name: DescriptorName,
     crate readonly: bool,

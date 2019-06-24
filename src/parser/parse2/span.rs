@@ -1,8 +1,11 @@
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Getters)]
+#[derive(
+    new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
+)]
 #[get = "crate"]
 pub struct Spanned<T> {
     crate span: Span,
@@ -46,7 +49,7 @@ impl<T> Spanned<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Span {
     crate start: usize,
     crate end: usize,

@@ -156,45 +156,60 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
             LineResult::Error(mut line, err) => {
                 rl.add_history_entry(line.clone());
-                match err {
-                    ShellError::Diagnostic(diag) => {
-                        let host = context.host.lock().unwrap();
-                        let writer = host.err_termcolor();
-                        line.push_str(" ");
-                        let files = crate::parser::Files::new(line);
 
-                        language_reporting::emit(
-                            &mut writer.lock(),
-                            &files,
-                            &diag.diagnostic,
-                            &language_reporting::DefaultConfig,
-                        )
-                        .unwrap();
-                    }
+                let diag = err.to_diagnostic();
+                let host = context.host.lock().unwrap();
+                let writer = host.err_termcolor();
+                line.push_str(" ");
+                let files = crate::parser::Files::new(line);
 
-                    ShellError::TypeError(desc) => context
-                        .host
-                        .lock()
-                        .unwrap()
-                        .stdout(&format!("TypeError: {}", desc)),
+                language_reporting::emit(
+                    &mut writer.lock(),
+                    &files,
+                    &diag,
+                    &language_reporting::DefaultConfig,
+                )
+                .unwrap();
 
-                    ShellError::MissingProperty { subpath, .. } => context
-                        .host
-                        .lock()
-                        .unwrap()
-                        .stdout(&format!("Missing property {}", subpath)),
+                // match err {
+                //     ShellError::Diagnostic(diag) => {
+                //         let host = context.host.lock().unwrap();
+                //         let writer = host.err_termcolor();
+                //         line.push_str(" ");
+                //         let files = crate::parser::Files::new(line);
 
-                    ShellError::String(_) => {
-                        context.host.lock().unwrap().stdout(&format!("{}", err))
-                    }
-                }
+                //         language_reporting::emit(
+                //             &mut writer.lock(),
+                //             &files,
+                //             &diag.diagnostic,
+                //             &language_reporting::DefaultConfig,
+                //         )
+                //         .unwrap();
+                //     }
+
+                //     ShellError::TypeError(desc) => context
+                //         .host
+                //         .lock()
+                //         .unwrap()
+                //         .stdout(&format!("TypeError: {}", desc)),
+
+                //     ShellError::MissingProperty { subpath, .. } => context
+                //         .host
+                //         .lock()
+                //         .unwrap()
+                //         .stdout(&format!("Missing property {}", subpath)),
+
+                //     ShellError::String(_) => {
+                //         context.host.lock().unwrap().stdout(&format!("{}", err))
+                //     }
+                // }
             }
 
             LineResult::Break => {
                 break;
             }
 
-            LineResult::FatalError(err) => {
+            LineResult::FatalError(_, err) => {
                 context
                     .host
                     .lock()
@@ -216,24 +231,24 @@ enum LineResult {
     Break,
 
     #[allow(unused)]
-    FatalError(ShellError),
+    FatalError(String, ShellError),
 }
 
 impl std::ops::Try for LineResult {
     type Ok = Option<String>;
-    type Error = ShellError;
+    type Error = (String, ShellError);
 
-    fn into_result(self) -> Result<Option<String>, ShellError> {
+    fn into_result(self) -> Result<Option<String>, (String, ShellError)> {
         match self {
             LineResult::Success(s) => Ok(Some(s)),
-            LineResult::Error(_, s) => Err(s),
+            LineResult::Error(string, err) => Err((string, err)),
             LineResult::Break => Ok(None),
             LineResult::CtrlC => Ok(None),
-            LineResult::FatalError(err) => Err(err),
+            LineResult::FatalError(string, err) => Err((string, err)),
         }
     }
-    fn from_error(v: ShellError) -> Self {
-        LineResult::Error(String::new(), v)
+    fn from_error(v: (String, ShellError)) -> Self {
+        LineResult::Error(v.0, v.1)
     }
 
     fn from_ok(v: Option<String>) -> Self {
@@ -260,7 +275,8 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line))?;
+            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line))
+                .map_err(|err| (line.clone(), err))?;
 
             match pipeline.commands.last() {
                 Some(ClassifiedCommand::Sink(_)) => {}
@@ -438,7 +454,13 @@ fn classify_command(
                             //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
                             Some(args) => args
                                 .iter()
-                                .map(|i| Spanned::from_item(i.as_external_arg(source), i.span()))
+                                .filter_map(|i| match i {
+                                    TokenNode::Whitespace(_) => None,
+                                    other => Some(Spanned::from_item(
+                                        other.as_external_arg(source),
+                                        other.span(),
+                                    )),
+                                })
                                 .collect(),
                             None => vec![],
                         };
@@ -453,8 +475,12 @@ fn classify_command(
             }
         }
 
-        _ => Err(ShellError::unimplemented(
-            "classify_command on command whose head is not bare",
+        call => Err(ShellError::diagnostic(
+            language_reporting::Diagnostic::new(
+                language_reporting::Severity::Error,
+                "Invalid command",
+            )
+            .with_label(language_reporting::Label::new_primary(call.head().span())),
         )),
     }
 }
