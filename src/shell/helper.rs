@@ -1,9 +1,11 @@
-use crate::shell::completer::NuCompleter;
-
-use crate::parser::lexer::SpannedToken;
+use crate::parser::nom_input;
+use crate::parser::parse2::span::Spanned;
+use crate::parser::parse2::token_tree::TokenNode;
+use crate::parser::parse2::tokens::RawToken;
+use crate::parser::{Pipeline, PipelineElement};
 use crate::prelude::*;
+use crate::shell::completer::NuCompleter;
 use ansi_term::Color;
-use log::trace;
 use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -47,7 +49,7 @@ impl Hinter for Helper {
 }
 
 impl Highlighter for Helper {
-    fn highlight_prompt<'b, 's: 'b, 'p:'b>(&'s self, prompt: &'p str, _: bool) -> Cow<'b, str> {
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(&'s self, prompt: &'p str, _: bool) -> Cow<'b, str> {
         Owned("\x1b[32m".to_owned() + &prompt[0..prompt.len() - 2] + "\x1b[m> ")
     }
 
@@ -56,30 +58,31 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let tokens = crate::parser::lexer::Lexer::new(line, true);
-        let tokens: Result<Vec<(usize, SpannedToken, usize)>, _> = tokens.collect();
+        let tokens = crate::parser::pipeline(nom_input(line));
 
         match tokens {
             Err(_) => Cow::Borrowed(line),
-            Ok(v) => {
+            Ok((_rest, v)) => {
                 let mut out = String::new();
-                let mut iter = v.iter();
+                let pipeline = match v.as_pipeline() {
+                    Err(_) => return Cow::Borrowed(line),
+                    Ok(v) => v,
+                };
 
-                let mut state = State::Command;
+                let Pipeline { parts, post_ws } = pipeline;
+                let mut iter = parts.into_iter();
 
                 loop {
                     match iter.next() {
-                        None => return Cow::Owned(out),
-                        Some((start, token, end)) => {
-                            let (style, new_state) = token_style(&token, state);
+                        None => {
+                            if let Some(ws) = post_ws {
+                                out.push_str(ws.slice(line));
+                            }
 
-                            trace!("token={:?}", token);
-                            trace!("style={:?}", style);
-                            trace!("new_state={:?}", new_state);
-
-                            state = new_state;
-                            let slice = &line[*start..*end];
-                            let styled = style.paint(slice);
+                            return Cow::Owned(out);
+                        }
+                        Some(token) => {
+                            let styled = paint_pipeline_element(&token, line);
                             out.push_str(&styled.to_string());
                         }
                     }
@@ -93,41 +96,66 @@ impl Highlighter for Helper {
     }
 }
 
-#[derive(Debug)]
-enum State {
-    Command,
-    Flag,
-    Var,
-    Bare,
-    None,
+fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
+    let styled = match token_node {
+        TokenNode::Call(..) => Color::Cyan.bold().paint(token_node.span().slice(line)),
+        TokenNode::Whitespace(..) => Color::White.normal().paint(token_node.span().slice(line)),
+        TokenNode::Flag(..) => Color::Black.bold().paint(token_node.span().slice(line)),
+        TokenNode::Identifier(..) => Color::Yellow.bold().paint(token_node.span().slice(line)),
+        TokenNode::Path(..) => Color::Green.bold().paint(token_node.span().slice(line)),
+        TokenNode::Error(..) => Color::Red.bold().paint(token_node.span().slice(line)),
+        TokenNode::Delimited(..) => Color::White.paint(token_node.span().slice(line)),
+        TokenNode::Operator(..) => Color::Purple.bold().paint(token_node.span().slice(line)),
+        TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.span().slice(line)),
+        TokenNode::Token(Spanned {
+            item: RawToken::Integer(..),
+            ..
+        }) => Color::Purple.bold().paint(token_node.span().slice(line)),
+        TokenNode::Token(Spanned {
+            item: RawToken::Size(..),
+            ..
+        }) => Color::Purple.bold().paint(token_node.span().slice(line)),
+        TokenNode::Token(Spanned {
+            item: RawToken::String(..),
+            ..
+        }) => Color::Green.normal().paint(token_node.span().slice(line)),
+        TokenNode::Token(Spanned {
+            item: RawToken::Variable(..),
+            ..
+        }) => Color::Yellow.bold().paint(token_node.span().slice(line)),
+        TokenNode::Token(Spanned {
+            item: RawToken::Bare,
+            ..
+        }) => Color::Green.normal().paint(token_node.span().slice(line)),
+    };
+
+    styled.to_string()
 }
 
-fn token_style(
-    token: &crate::parser::lexer::SpannedToken,
-    state: State,
-) -> (ansi_term::Style, State) {
-    use crate::parser::lexer::Token::*;
+fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> String {
+    let mut styled = String::new();
 
-    match (state, &token.token) {
-        (State::Command, Bare) => (Color::Cyan.bold(), State::None),
-        (State::Command, Whitespace) => (Color::White.normal(), State::Command),
-
-        (State::Flag, Bare) => (Color::Black.bold(), State::None),
-
-        (State::Var, Variable) => (Color::Yellow.bold(), State::None),
-
-        (State::Bare, PathDot) => (Color::Green.normal(), State::Bare),
-        (State::Bare, Member) => (Color::Green.normal(), State::Bare),
-
-        (_, Dash) | (_, DashDash) => (Color::Black.bold(), State::Flag),
-        (_, Dollar) => (Color::Yellow.bold(), State::Var),
-        (_, Bare) => (Color::Green.normal(), State::Bare),
-        (_, Member) => (Color::Cyan.normal(), State::None),
-        (_, Num) => (Color::Purple.bold(), State::None),
-        (_, DQString) | (_, SQString) => (Color::Green.normal(), State::None),
-        (_, Pipe) => (Color::White.normal(), State::Command),
-        _ => (Color::White.normal(), State::None),
+    if let Some(ws) = pipeline_element.pre_ws {
+        styled.push_str(&Color::White.normal().paint(ws.slice(line)));
     }
+
+    styled.push_str(&paint_token_node(pipeline_element.call().head(), line));
+
+    if let Some(children) = pipeline_element.call().children() {
+        for child in children {
+            styled.push_str(&paint_token_node(child, line));
+        }
+    }
+
+    if let Some(ws) = pipeline_element.post_ws {
+        styled.push_str(&Color::White.normal().paint(ws.slice(line)));
+    }
+
+    if let Some(_) = pipeline_element.post_pipe {
+        styled.push_str(&Color::Purple.paint("|"));
+    }
+
+    styled.to_string()
 }
 
 impl rustyline::Helper for Helper {}

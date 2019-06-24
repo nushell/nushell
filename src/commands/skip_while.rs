@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
+use crate::parser::registry::CommandConfig;
 use crate::parser::registry::PositionalType;
-use crate::parser::CommandConfig;
 use crate::prelude::*;
 
 pub struct SkipWhile;
@@ -25,7 +25,7 @@ impl Command for SkipWhile {
 }
 
 pub fn skip_while(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Where requires a condition",
             "needs condition",
@@ -33,7 +33,7 @@ pub fn skip_while(args: CommandArgs) -> Result<OutputStream, ShellError> {
         ));
     }
 
-    let block = args.positional[0].as_block()?;
+    let block = args.nth(0).unwrap().as_block()?;
     let input = args.input;
 
     let objects = input.skip_while(move |item| {

@@ -1,4 +1,5 @@
 use crate::object::types::Type;
+use crate::Text;
 use derive_new::new;
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -13,6 +14,13 @@ impl DescriptorName {
         match self {
             DescriptorName::String(s) => s,
             DescriptorName::ValueOf => "value",
+        }
+    }
+
+    crate fn debug(&self) -> &str {
+        match self {
+            DescriptorName::String(s) => s,
+            DescriptorName::ValueOf => "[[value]]",
         }
     }
 
@@ -31,7 +39,7 @@ impl DescriptorName {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, new)]
+#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, new)]
 pub struct DataDescriptor {
     crate name: DescriptorName,
     crate readonly: bool,
@@ -83,9 +91,19 @@ impl From<String> for DataDescriptor {
     }
 }
 
+impl From<Text> for DataDescriptor {
+    fn from(input: Text) -> DataDescriptor {
+        DataDescriptor {
+            name: DescriptorName::String(input.to_string()),
+            readonly: true,
+            ty: Type::Any,
+        }
+    }
+}
+
 impl DescriptorName {
-    crate fn for_string_name(name: impl Into<String>) -> DescriptorName {
-        DescriptorName::String(name.into())
+    crate fn for_string_name(name: impl AsRef<str>) -> DescriptorName {
+        DescriptorName::String(name.as_ref().into())
     }
 }
 
@@ -106,7 +124,7 @@ impl DataDescriptor {
         }
     }
 
-    crate fn for_string_name(name: impl Into<String>) -> DataDescriptor {
+    crate fn for_string_name(name: impl AsRef<str>) -> DataDescriptor {
         DataDescriptor::for_name(DescriptorName::for_string_name(name))
     }
 

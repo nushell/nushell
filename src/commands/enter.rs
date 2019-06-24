@@ -1,32 +1,35 @@
 use crate::commands::command::CommandAction;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::parser::lexer::Spanned;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
 pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.positional.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
-            "open requires a path or url",
-            "missing path",
-            args.name_span,
-        ));
-    }
+    let path = match args.nth(0) {
+        None => {
+            return Err(ShellError::maybe_labeled_error(
+                "open requires a path or url",
+                "missing path",
+                args.name_span,
+            ))
+        }
+        Some(p) => p,
+    };
 
     let span = args.name_span;
 
     let cwd = args
-        .env
+        .env()
         .lock()
         .unwrap()
         .front()
         .unwrap()
         .path()
         .to_path_buf();
+
     let mut full_path = PathBuf::from(cwd);
 
-    let (file_extension, contents) = match &args.positional[0].item {
+    let (file_extension, contents) = match path.item() {
         Value::Primitive(Primitive::String(s)) => {
             if s.starts_with("http:") || s.starts_with("https:") {
                 let response = reqwest::get(s);
@@ -49,7 +52,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             return Err(ShellError::labeled_error(
                                 "Web page contents corrupt",
                                 "received garbled data",
-                                args.positional[0].span,
+                                args.expect_nth(0)?.span,
                             ));
                         }
                     },
@@ -57,12 +60,12 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         return Err(ShellError::labeled_error(
                             "URL could not be opened",
                             "url not found",
-                            args.positional[0].span,
+                            args.expect_nth(0)?.span,
                         ));
                     }
                 }
             } else {
-                full_path.push(Path::new(&s));
+                full_path.push(Path::new(s));
                 match std::fs::read_to_string(&full_path) {
                     Ok(s) => (
                         full_path
@@ -74,7 +77,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         return Err(ShellError::labeled_error(
                             "File cound not be opened",
                             "file not found",
-                            args.positional[0].span,
+                            args.expect_nth(0)?.span,
                         ));
                     }
                 }
@@ -84,39 +87,38 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
             return Err(ShellError::labeled_error(
                 "Expected string value for filename",
                 "expected filename",
-                args.positional[0].span,
+                args.expect_nth(0)?.span,
             ));
         }
     };
 
     let mut stream = VecDeque::new();
 
-    let file_extension = match args.positional.get(1) {
-        Some(Spanned {
-            item: Value::Primitive(Primitive::String(s)),
-            span,
-        }) => {
-            if s == "--raw" {
-                None
-            } else if s == "--json" {
-                Some("json".to_string())
-            } else if s == "--xml" {
-                Some("xml".to_string())
-            } else if s == "--ini" {
-                Some("ini".to_string())
-            } else if s == "--yaml" {
-                Some("yaml".to_string())
-            } else if s == "--toml" {
-                Some("toml".to_string())
-            } else {
+    let file_extension = if args.has("raw") {
+        None
+    } else if args.has("json") {
+        Some("json".to_string())
+    } else if args.has("xml") {
+        Some("xml".to_string())
+    } else if args.has("ini") {
+        Some("ini".to_string())
+    } else if args.has("yaml") {
+        Some("yaml".to_string())
+    } else if args.has("toml") {
+        Some("toml".to_string())
+    } else {
+        if let Some(ref named_args) = args.args.named {
+            for named in named_args.iter() {
                 return Err(ShellError::labeled_error(
-                    "Unknown flag for open",
+                    "Unknown flag for enter",
                     "unknown flag",
-                    span.clone(),
+                    named.1.span.clone(),
                 ));
             }
+            file_extension
+        } else {
+            file_extension
         }
-        _ => file_extension,
     };
 
     match file_extension {

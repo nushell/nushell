@@ -1,17 +1,17 @@
 use crate::errors::ShellError;
-use crate::evaluate::{evaluate_expr, Scope};
+use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::object::DataDescriptor;
-use crate::parser::ast::{self, Operator};
-use crate::parser::lexer::Spanned;
+use crate::parser::{hir, Operator, Spanned};
 use crate::prelude::*;
+use crate::Text;
 use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use ordered_float::OrderedFloat;
-use std::time::SystemTime;
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new)]
 pub struct OF64 {
@@ -75,6 +75,20 @@ impl Primitive {
         .to_string()
     }
 
+    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Primitive::*;
+
+        match self {
+            Nothing => write!(f, "Nothing"),
+            Int(int) => write!(f, "{}", int),
+            Float(float) => write!(f, "{:?}", float),
+            Bytes(bytes) => write!(f, "{}", bytes),
+            String(string) => write!(f, "{:?}", string),
+            Boolean(boolean) => write!(f, "{}", boolean),
+            Date(date) => write!(f, "{}", date),
+        }
+    }
+
     crate fn format(&self, field_name: Option<&DataDescriptor>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
@@ -117,7 +131,8 @@ pub struct Operation {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
 pub struct Block {
-    crate expression: ast::Expression,
+    crate expression: hir::Expression,
+    crate source: Text,
 }
 
 impl Serialize for Block {
@@ -125,7 +140,7 @@ impl Serialize for Block {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.expression.print())
+        serializer.serialize_str(&self.expression.source(&self.source.clone()))
     }
 }
 
@@ -134,30 +149,73 @@ impl Deserialize<'de> for Block {
     where
         D: Deserializer<'de>,
     {
-        let mut builder = ast::ExpressionBuilder::new();
-        let expr: ast::Expression = builder.string("Unserializable block");
-
-        Ok(Block::new(expr))
+        unimplemented!("deserialize block")
+        // let s = "\"unimplemented deserialize block\"";
+        // Ok(Block::new(
+        //     TokenTreeBuilder::spanned_string((1, s.len() - 1), (0, s.len())),
+        //     Text::from(s),
+        // ))
     }
 }
 
 impl Block {
     pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
         let scope = Scope::new(value.copy());
-        evaluate_expr(&self.expression, &scope)
+        evaluate_baseline_expr(&self.expression, &(), &scope, &self.source)
     }
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
     List(Vec<Value>),
+    #[allow(unused)]
     Block(Block),
     Filesystem,
 
     #[allow(unused)]
     Error(Box<ShellError>),
+}
+
+pub fn debug_list(values: &'a Vec<Value>) -> ValuesDebug<'a> {
+    ValuesDebug { values }
+}
+
+pub struct ValuesDebug<'a> {
+    values: &'a Vec<Value>,
+}
+
+impl fmt::Debug for ValuesDebug<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_list()
+            .entries(self.values.iter().map(|i| i.debug()))
+            .finish()
+    }
+}
+
+pub struct ValueDebug<'a> {
+    value: &'a Value,
+}
+
+impl fmt::Debug for ValueDebug<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.value {
+            Value::Primitive(p) => p.debug(f),
+            Value::Object(o) => o.debug(f),
+            Value::List(l) => debug_list(l).fmt(f),
+            Value::Block(_) => write!(f, "[[block]]"),
+            Value::Error(err) => write!(f, "[[error :: {} ]]", err),
+            Value::Filesystem => write!(f, "[[filesystem]]"),
+        }
+    }
+}
+
+impl Spanned<Value> {
+    crate fn spanned_type_name(&self) -> Spanned<String> {
+        let name = self.type_name();
+        Spanned::from_item(name, self.span)
+    }
 }
 
 impl Value {
@@ -170,6 +228,10 @@ impl Value {
             Value::Error(_) => format!("error"),
             Value::Filesystem => format!("filesystem"),
         }
+    }
+
+    crate fn debug(&'a self) -> ValueDebug<'a> {
+        ValueDebug { value: self }
     }
 
     crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
@@ -237,7 +299,7 @@ impl Value {
     crate fn format_leaf(&self, desc: Option<&DataDescriptor>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
-            Value::Block(b) => b.expression.print(),
+            Value::Block(b) => b.expression.source(&b.source).to_string(),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
@@ -245,7 +307,8 @@ impl Value {
         }
     }
 
-    crate fn compare(&self, operator: &ast::Operator, other: &Value) -> Option<bool> {
+    #[allow(unused)]
+    crate fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
@@ -266,7 +329,7 @@ impl Value {
                     _ => false,
                 };
 
-                Some(result)
+                Ok(result)
             }
         }
     }
@@ -291,12 +354,11 @@ impl Value {
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
-            Value::Primitive(Primitive::String(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Float(x)) => Ok(format!("{}", x.into_inner())),
             Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
-            //Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
@@ -328,18 +390,6 @@ impl Value {
         }
     }
 
-    #[allow(unused)]
-    crate fn as_bool(&self) -> Result<bool, ShellError> {
-        match self {
-            Value::Primitive(Primitive::Boolean(b)) => Ok(*b),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected integer, got {:?}",
-                other
-            ))),
-        }
-    }
-
     crate fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
@@ -347,8 +397,9 @@ impl Value {
         }
     }
 
-    crate fn block(e: ast::Expression) -> Value {
-        Value::Block(Block::new(e))
+    #[allow(unused)]
+    crate fn block(e: hir::Expression, source: Text) -> Value {
+        Value::Block(Block::new(e, source))
     }
 
     crate fn string(s: impl Into<String>) -> Value {
@@ -535,24 +586,27 @@ impl CompareValues {
     }
 }
 
-fn coerce_compare(left: &Value, right: &Value) -> Option<CompareValues> {
+fn coerce_compare(left: &Value, right: &Value) -> Result<CompareValues, (String, String)> {
     match (left, right) {
         (Value::Primitive(left), Value::Primitive(right)) => coerce_compare_primitive(left, right),
 
-        _ => None,
+        _ => Err((left.type_name(), right.type_name())),
     }
 }
 
-fn coerce_compare_primitive(left: &Primitive, right: &Primitive) -> Option<CompareValues> {
+fn coerce_compare_primitive(
+    left: &Primitive,
+    right: &Primitive,
+) -> Result<CompareValues, (String, String)> {
     use Primitive::*;
 
-    match (left, right) {
-        (Int(left), Int(right)) => Some(CompareValues::Ints(*left, *right)),
-        (Float(left), Int(right)) => Some(CompareValues::Floats(*left, (*right as f64).into())),
-        (Int(left), Float(right)) => Some(CompareValues::Floats((*left as f64).into(), *right)),
-        (Int(left), Bytes(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
-        (Bytes(left), Int(right)) => Some(CompareValues::Bytes(*left as i128, *right as i128)),
-        (String(left), String(right)) => Some(CompareValues::String(left.clone(), right.clone())),
-        _ => None,
-    }
+    Ok(match (left, right) {
+        (Int(left), Int(right)) => CompareValues::Ints(*left, *right),
+        (Float(left), Int(right)) => CompareValues::Floats(*left, (*right as f64).into()),
+        (Int(left), Float(right)) => CompareValues::Floats((*left as f64).into(), *right),
+        (Int(left), Bytes(right)) => CompareValues::Bytes(*left as i128, *right as i128),
+        (Bytes(left), Int(right)) => CompareValues::Bytes(*left as i128, *right as i128),
+        (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
+        _ => return Err((left.type_name(), right.type_name())),
+    })
 }

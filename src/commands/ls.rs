@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::{dir_entry_dict, Primitive, Value};
-use crate::parser::lexer::Spanned;
+use crate::parser::Spanned;
 use crate::prelude::*;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -10,11 +10,11 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = env.back().unwrap().path.to_path_buf();
     let obj = &env.back().unwrap().obj;
     let mut full_path = PathBuf::from(path);
-    match &args.positional.get(0) {
+    match &args.nth(0) {
         Some(Spanned {
             item: Value::Primitive(Primitive::String(s)),
             ..
-        }) => full_path.push(Path::new(s)),
+        }) => full_path.push(Path::new(&s)),
         _ => {}
     }
 
@@ -24,7 +24,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             let entries = match entries {
                 Err(e) => {
-                    if let Some(s) = args.positional.get(0) {
+                    if let Some(s) = args.nth(0) {
                         return Err(ShellError::labeled_error(
                             e.to_string(),
                             e.to_string(),
@@ -97,7 +97,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                         return Err(ShellError::maybe_labeled_error(
                                             "Index not closed",
                                             format!("path missing closing ']'"),
-                                            if args.positional.len() > 0 { Some(args.positional[0].span) } else { args.name_span },
+                                            if args.len() > 0 { Some(args.nth(0).unwrap().span) } else { args.name_span },
                                         ))
                                     }
                                 }

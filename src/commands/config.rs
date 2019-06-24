@@ -1,8 +1,7 @@
 use crate::errors::ShellError;
 use crate::object::config;
 use crate::object::Value;
-use crate::parser::registry::{NamedType, NamedValue};
-use crate::parser::CommandConfig;
+use crate::parser::registry::{CommandConfig, NamedType, NamedValue};
 use crate::prelude::*;
 use indexmap::IndexMap;
 use log::trace;
@@ -19,7 +18,7 @@ impl Command for Config {
 
     fn config(&self) -> CommandConfig {
         let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("set".to_string(), NamedType::Optional(NamedValue::Tuple));
+        named.insert("set".to_string(), NamedType::Optional(NamedValue::Single));
         named.insert("get".to_string(), NamedType::Optional(NamedValue::Single));
         named.insert("clear".to_string(), NamedType::Switch);
 
@@ -41,10 +40,10 @@ impl Command for Config {
 pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut result = crate::object::config::config()?;
 
-    trace!("{:#?}", args.positional);
-    trace!("{:#?}", args.named);
+    trace!("{:#?}", args.args.positional);
+    trace!("{:#?}", args.args.named);
 
-    if let Some(v) = args.named.get("get") {
+    if let Some(v) = args.get("get") {
         let key = v.as_string()?;
         let value = result
             .get(&key)
@@ -56,9 +55,9 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
         );
     }
 
-    if let Some(v) = args.named.get("set") {
+    if let Some(v) = args.get("set") {
         if let Ok((key, value)) = v.as_pair() {
-            result.insert(key.as_string()?, value.clone());
+            result.insert(key.as_string()?.to_string(), value.clone());
 
             config::write_config(&result)?;
 
@@ -71,7 +70,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    if let Some(_) = args.named.get("clear") {
+    if let Some(_) = args.get("clear") {
         result.clear();
 
         config::write_config(&result)?;
@@ -84,7 +83,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
         );
     }
 
-    if let Some(v) = args.named.get("remove") {
+    if let Some(v) = args.get("remove") {
         let key = v.as_string()?;
 
         if result.contains_key(&key) {
@@ -104,7 +103,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
         );
     }
 
-    if args.positional.len() == 0 {
+    if args.len() == 0 {
         return Ok(
             futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
                 result.into(),

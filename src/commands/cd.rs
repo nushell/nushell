@@ -10,7 +10,8 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     match latest.obj {
         Value::Filesystem => {
             let cwd = latest.path().to_path_buf();
-            let path = match args.positional.first() {
+
+            let path = match args.nth(0) {
                 None => match dirs::home_dir() {
                     Some(o) => o,
                     _ => {
@@ -22,14 +23,14 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 },
                 Some(v) => {
-                    let target = v.as_string()?.clone();
-                    match dunce::canonicalize(cwd.join(&target).as_path()) {
+                    let target = v.as_string()?;
+                    match dunce::canonicalize(cwd.join(target).as_path()) {
                         Ok(p) => p,
                         Err(_) => {
-                            return Err(ShellError::maybe_labeled_error(
+                            return Err(ShellError::labeled_error(
                                 "Can not change to directory",
                                 "directory not found",
-                                Some(args.positional[0].span.clone()),
+                                v.span.clone(),
                             ));
                         }
                     }
@@ -40,11 +41,11 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
             match env::set_current_dir(&path) {
                 Ok(_) => {}
                 Err(_) => {
-                    if args.positional.len() > 0 {
-                        return Err(ShellError::maybe_labeled_error(
+                    if args.len() > 0 {
+                        return Err(ShellError::labeled_error(
                             "Can not change to directory",
                             "directory not found",
-                            Some(args.positional[0].span.clone()),
+                            args.nth(0).unwrap().span.clone(),
                         ));
                     } else {
                         return Err(ShellError::string("Can not change to directory"));
@@ -56,7 +57,7 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
         _ => {
             let mut stream = VecDeque::new();
-            match args.positional.first() {
+            match args.nth(0) {
                 None => {
                     stream.push_back(ReturnValue::change_cwd(PathBuf::from("/")));
                 }

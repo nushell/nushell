@@ -11,7 +11,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
         serde_yaml::Value::Number(n) if n.is_f64() => {
             Value::Primitive(Primitive::Float(OF64::from(n.as_f64().unwrap())))
         }
-        serde_yaml::Value::String(s) => Value::Primitive(Primitive::String(s.clone())),
+        serde_yaml::Value::String(s) => Value::string(s),
         serde_yaml::Value::Sequence(a) => Value::List(
             a.iter()
                 .map(|x| convert_yaml_value_to_nu_value(x))

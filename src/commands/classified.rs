@@ -1,15 +1,15 @@
 use crate::commands::command::Sink;
-use crate::parser::ast::Expression;
-use crate::parser::lexer::{Span, Spanned};
-use crate::parser::registry::Args;
+use crate::parser::{registry::Args, Span, Spanned, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
+use log::{log_enabled, trace};
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::sync::Arc;
 use subprocess::Exec;
+
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}
 
@@ -80,7 +80,7 @@ crate struct ClassifiedPipeline {
 
 crate enum ClassifiedCommand {
     #[allow(unused)]
-    Expr(Expression),
+    Expr(TokenNode),
     Internal(InternalCommand),
     Sink(SinkCommand),
     External(ExternalCommand),
@@ -110,18 +110,30 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
     ) -> Result<InputStream, ShellError> {
-        let mut result = context.run_command(
-            self.command,
-            self.name_span.clone(),
-            self.args,
-            input.objects,
-        )?;
+        let objects = if log_enabled!(log::Level::Trace) {
+            trace!("->");
+            trace!("{}", self.command.name());
+            trace!("{:?}", self.args.debug());
+            let objects: Vec<_> = input.objects.collect().await;
+            trace!(
+                "input = {:#?}",
+                objects.iter().map(|o| o.debug()).collect::<Vec<_>>(),
+            );
+            VecDeque::from(objects).boxed()
+        } else {
+            input.objects
+        };
+
+        let mut result =
+            context.run_command(self.command, self.name_span.clone(), self.args, objects)?;
+
         let mut stream = VecDeque::new();
         while let Some(item) = result.next().await {
             match item {
                 ReturnValue::Value(Value::Error(err)) => {
                     return Err(*err);
                 }
+
                 ReturnValue::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
                         context.env.lock().unwrap().back_mut().map(|x| {
@@ -177,10 +189,11 @@ impl ExternalCommand {
     ) -> Result<ClassifiedInputStream, ShellError> {
         let inputs: Vec<Value> = input.objects.collect().await;
 
+        trace!("{:?} -> {}", inputs, self.name);
+
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {
-            arg_string.push_str(" ");
-            arg_string.push_str(&arg.item);
+            arg_string.push_str(&arg);
         }
 
         let mut process;
@@ -191,6 +204,7 @@ impl ExternalCommand {
 
             if arg_string.contains("$it") {
                 let mut first = true;
+
                 for i in &inputs {
                     if i.as_string().is_err() {
                         let mut span = None;
@@ -217,6 +231,10 @@ impl ExternalCommand {
                     }
 
                     for arg in &self.args {
+                        if arg.chars().all(|c| c.is_whitespace()) {
+                            continue;
+                        }
+
                         process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
                     }
                 }
@@ -254,6 +272,10 @@ impl ExternalCommand {
                     }
 
                     for arg in &self.args {
+                        if arg.chars().all(|c| c.is_whitespace()) {
+                            continue;
+                        }
+
                         new_arg_string.push_str(" ");
                         new_arg_string.push_str(&arg.replace("$it", &i.as_string().unwrap()));
                     }

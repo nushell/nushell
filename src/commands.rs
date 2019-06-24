@@ -41,6 +41,6 @@ crate mod where_;
 
 crate use command::command;
 crate use config::Config;
-
+crate use open::Open;
 crate use where_::Where;
 crate use skip_while::SkipWhile;

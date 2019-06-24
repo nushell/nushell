@@ -1,6 +1,9 @@
-use crate::object::Primitive;
-use crate::parser::ast;
-use crate::parser::lexer::Spanned;
+use crate::errors::Description;
+use crate::object::base::Block;
+use crate::parser::{
+    hir::{self, Expression, RawExpression},
+    CommandRegistry, Spanned, Text,
+};
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
@@ -21,96 +24,83 @@ impl Scope {
     }
 }
 
-crate fn evaluate_expr(
-    expr: &ast::Expression,
+crate fn evaluate_baseline_expr(
+    expr: &Expression,
+    registry: &dyn CommandRegistry,
     scope: &Scope,
+    source: &Text,
 ) -> Result<Spanned<Value>, ShellError> {
-    use ast::*;
-    match &expr.expr {
-        RawExpression::Call(_) => Err(ShellError::unimplemented("Evaluating call expression")),
-        RawExpression::Leaf(l) => Ok(Spanned::from_item(evaluate_leaf(l), expr.span.clone())),
-        RawExpression::Parenthesized(p) => evaluate_expr(&p.expr, scope),
-        RawExpression::Flag(f) => Ok(Spanned::from_item(
-            Value::Primitive(Primitive::String(f.print())),
-            expr.span.clone(),
-        )),
-        RawExpression::Block(b) => evaluate_block(&b, scope),
-        RawExpression::Path(p) => evaluate_path(&p, scope),
-        RawExpression::Binary(b) => evaluate_binary(b, scope),
-        RawExpression::VariableReference(r) => {
-            evaluate_reference(r, scope).map(|x| Spanned::from_item(x, expr.span.clone()))
-        }
-    }
-}
+    match &expr.item {
+        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
+        RawExpression::Variable(var) => evaluate_reference(var, scope, source),
+        RawExpression::Binary(binary) => {
+            let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;
+            let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
 
-fn evaluate_leaf(leaf: &ast::Leaf) -> Value {
-    use ast::*;
-
-    match leaf {
-        Leaf::String(s) => Value::string(s),
-        Leaf::Bare(path) => Value::string(path.to_string()),
-        Leaf::Boolean(b) => Value::boolean(*b),
-        Leaf::Int(i) => Value::int(*i),
-        Leaf::Unit(i, unit) => unit.compute(*i),
-    }
-}
-
-fn evaluate_reference(r: &ast::Variable, scope: &Scope) -> Result<Value, ShellError> {
-    use ast::Variable::*;
-
-    match r {
-        It => Ok(scope.it.copy()),
-        Other(s) => Ok(scope
-            .vars
-            .get(s)
-            .map(|v| v.copy())
-            .unwrap_or_else(|| Value::nothing())),
-    }
-}
-
-fn evaluate_binary(binary: &ast::Binary, scope: &Scope) -> Result<Spanned<Value>, ShellError> {
-    let left = evaluate_expr(&binary.left, scope)?;
-    let right = evaluate_expr(&binary.right, scope)?;
-
-    match left.compare(&binary.operator, &right) {
-        Some(v) => Ok(Spanned::from_item(
-            Value::boolean(v),
-            binary.operator.span.clone(),
-        )),
-        None => Err(ShellError::TypeError(format!(
-            "Can't compare {} and {}",
-            left.type_name(),
-            right.type_name()
-        ))),
-    }
-}
-
-fn evaluate_block(block: &ast::Block, _scope: &Scope) -> Result<Spanned<Value>, ShellError> {
-    Ok(Spanned::from_item(
-        Value::block(block.expr.clone()),
-        block.expr.span.clone(),
-    ))
-}
-
-fn evaluate_path(path: &ast::Path, scope: &Scope) -> Result<Spanned<Value>, ShellError> {
-    let head = path.head();
-    let mut value = evaluate_expr(head, scope)?;
-    let mut seen = vec![];
-
-    for name in path.tail() {
-        let next = value.get_data_by_key(&name.item);
-        seen.push(name.item.clone());
-
-        match next {
-            None => {
-                return Err(ShellError::MissingProperty {
-                    expr: path.print(),
-                    subpath: itertools::join(seen, "."),
-                });
+            match left.compare(binary.op(), &*right) {
+                Ok(result) => Ok(Spanned::from_item(Value::boolean(result), *expr.span())),
+                Err((left_type, right_type)) => Err(ShellError::CoerceError {
+                    left: binary.left().copy_span(left_type),
+                    right: binary.right().copy_span(right_type),
+                }),
             }
-            Some(v) => value = Spanned::from_item(v.copy(), name.span.clone()),
         }
-    }
+        RawExpression::Block(block) => Ok(Spanned::from_item(
+            Value::Block(Block::new(*block.clone(), source.clone())),
+            block.span(),
+        )),
+        RawExpression::Path(path) => {
+            let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;
+            let mut item = value;
 
-    Ok(value)
+            for name in path.tail() {
+                let next = item.get_data_by_key(name);
+
+                match next {
+                    None => {
+                        return Err(ShellError::MissingProperty {
+                            subpath: Description::from(item.spanned_type_name()),
+                            expr: Description::from(name.clone()),
+                        })
+                    }
+                    Some(next) => {
+                        item =
+                            Spanned::from_item(next.clone(), (expr.span().start, name.span().end))
+                    }
+                };
+            }
+
+            Ok(Spanned::from_item(item.item().clone(), expr.span()))
+        }
+        RawExpression::Boolean(_boolean) => unimplemented!(),
+    }
+}
+
+fn evaluate_literal(literal: Spanned<hir::Literal>, source: &Text) -> Spanned<Value> {
+    let result = match literal.item {
+        hir::Literal::Integer(int) => Value::int(int),
+        hir::Literal::Size(_int, _unit) => unimplemented!(),
+        hir::Literal::String(span) => Value::string(span.slice(source)),
+        hir::Literal::Bare => Value::string(literal.span().slice(source)),
+    };
+
+    literal.map(|_| result)
+}
+
+fn evaluate_reference(
+    name: &hir::Variable,
+    scope: &Scope,
+    source: &Text,
+) -> Result<Spanned<Value>, ShellError> {
+    match name {
+        hir::Variable::It(span) => Ok(Spanned::from_item(scope.it.copy(), span)),
+        hir::Variable::Other(span) => Ok(Spanned::from_item(
+            scope
+                .vars
+                .get(span.slice(source))
+                .map(|v| v.copy())
+                .unwrap_or_else(|| Value::nothing()),
+            span,
+        )),
+    }
 }

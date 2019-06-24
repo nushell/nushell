@@ -7,6 +7,7 @@ use indexmap::IndexMap;
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_derive::Deserialize;
 use std::cmp::{Ordering, PartialOrd};
+use std::fmt;
 
 #[derive(Debug, Default, Eq, PartialEq, Deserialize, Clone, new)]
 pub struct Dictionary {
@@ -14,9 +15,18 @@ pub struct Dictionary {
 }
 
 impl PartialOrd for Dictionary {
-    // TODO: FIXME
-    fn partial_cmp(&self, _other: &Dictionary) -> Option<Ordering> {
-        Some(Ordering::Less)
+    fn partial_cmp(&self, other: &Dictionary) -> Option<Ordering> {
+        let this: Vec<&DataDescriptor> = self.entries.keys().collect();
+        let that: Vec<&DataDescriptor> = other.entries.keys().collect();
+
+        if this != that {
+            return this.partial_cmp(&that);
+        }
+
+        let this: Vec<&Value> = self.entries.values().collect();
+        let that: Vec<&Value> = self.entries.values().collect();
+
+        this.partial_cmp(&that)
     }
 }
 
@@ -55,9 +65,18 @@ impl From<IndexMap<String, Value>> for Dictionary {
 }
 
 impl Ord for Dictionary {
-    // TODO: FIXME
-    fn cmp(&self, _other: &Dictionary) -> Ordering {
-        Ordering::Less
+    fn cmp(&self, other: &Dictionary) -> Ordering {
+        let this: Vec<&DataDescriptor> = self.entries.keys().collect();
+        let that: Vec<&DataDescriptor> = other.entries.keys().collect();
+
+        if this != that {
+            return this.cmp(&that);
+        }
+
+        let this: Vec<&Value> = self.entries.values().collect();
+        let that: Vec<&Value> = self.entries.values().collect();
+
+        this.cmp(&that)
     }
 }
 
@@ -68,7 +87,6 @@ impl PartialOrd<Value> for Dictionary {
 }
 
 impl PartialEq<Value> for Dictionary {
-    // TODO: FIXME
     fn eq(&self, other: &Value) -> bool {
         match other {
             Value::Object(d) => self == d,
@@ -112,5 +130,15 @@ impl Dictionary {
             Some((_, v)) => Some(v),
             None => None,
         }
+    }
+
+    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut debug = f.debug_struct("Dictionary");
+
+        for (desc, value) in self.entries.iter() {
+            debug.field(desc.name.debug(), &value.debug());
+        }
+
+        debug.finish()
     }
 }
