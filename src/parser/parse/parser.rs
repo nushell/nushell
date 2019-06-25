@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::parser::parse2::{
+use crate::parser::parse::{
     call_node::*, flag::*, operator::*, pipeline::*, span::*, token_tree::*, token_tree_builder::*,
     tokens::*, unit::*,
 };
@@ -552,8 +552,8 @@ fn is_id_continue(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::parse2::token_tree_builder::TokenTreeBuilder as b;
-    use crate::parser::parse2::token_tree_builder::{CurriedToken, TokenTreeBuilder};
+    use crate::parser::parse::token_tree_builder::TokenTreeBuilder as b;
+    use crate::parser::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder};
     use pretty_assertions::assert_eq;
 
     macro_rules! assert_leaf {

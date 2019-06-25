@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::parser::parse2::{call_node::*, flag::*, operator::*, pipeline::*, span::*, tokens::*};
+use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, span::*, tokens::*};
 use crate::Text;
 use derive_new::new;
 use enum_utils::FromStr;

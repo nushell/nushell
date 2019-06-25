@@ -1,13 +1,13 @@
 #[allow(unused)]
 use crate::prelude::*;
 
-use crate::parser::parse2::flag::{Flag, FlagKind};
-use crate::parser::parse2::operator::Operator;
-use crate::parser::parse2::pipeline::{Pipeline, PipelineElement};
-use crate::parser::parse2::span::{Span, Spanned};
-use crate::parser::parse2::token_tree::{DelimitedNode, Delimiter, PathNode, TokenNode};
-use crate::parser::parse2::tokens::{RawToken, Token};
-use crate::parser::parse2::unit::Unit;
+use crate::parser::parse::flag::{Flag, FlagKind};
+use crate::parser::parse::operator::Operator;
+use crate::parser::parse::pipeline::{Pipeline, PipelineElement};
+use crate::parser::parse::span::{Span, Spanned};
+use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, PathNode, TokenNode};
+use crate::parser::parse::tokens::{RawToken, Token};
+use crate::parser::parse::unit::Unit;
 use crate::parser::CallNode;
 use derive_new::new;
 

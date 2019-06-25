@@ -1,9 +1,6 @@
-#[allow(unused)]
-use crate::prelude::*;
-
-use crate::parser::lexer::Span;
+use crate::parser::parse::span::Span;
 use derive_new::new;
-use language_reporting::{FileName, Location, ReportingSpan};
+use language_reporting::{FileName, Location};
 
 #[derive(new, Debug, Clone)]
 pub struct Files {
@@ -75,6 +72,6 @@ impl language_reporting::ReportingFiles for Files {
         }
     }
     fn source(&self, span: Self::Span) -> Option<String> {
-        Some(self.snippet[span.start()..span.end()].to_string())
+        Some(self.snippet[span.start..span.end].to_string())
     }
 }
