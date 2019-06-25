@@ -11,7 +11,7 @@ use crate::commands::classified::{
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
-use crate::parser::parse2::span::Spanned;
+use crate::parser::parse::span::Spanned;
 use crate::parser::registry;
 use crate::parser::{Pipeline, PipelineElement, TokenNode};
 

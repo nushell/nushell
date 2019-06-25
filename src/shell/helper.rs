@@ -1,7 +1,7 @@
 use crate::parser::nom_input;
-use crate::parser::parse2::span::Spanned;
-use crate::parser::parse2::token_tree::TokenNode;
-use crate::parser::parse2::tokens::RawToken;
+use crate::parser::parse::span::Spanned;
+use crate::parser::parse::token_tree::TokenNode;
+use crate::parser::parse::tokens::RawToken;
 use crate::parser::{Pipeline, PipelineElement};
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;

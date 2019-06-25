@@ -1,5 +1,5 @@
-use crate::parser::parse2::span::*;
-use crate::parser::parse2::unit::*;
+use crate::parser::parse::span::*;
+use crate::parser::parse::unit::*;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RawToken {

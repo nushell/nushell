@@ -22,7 +22,7 @@ use clap::{App, Arg};
 use log::LevelFilter;
 use std::error::Error;
 
-crate use parser::parse2::text::Text;
+crate use parser::parse::text::Text;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("nu shell")
