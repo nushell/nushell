@@ -32,7 +32,8 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
             }
             Value::Object(collected)
         }
-        _ => unimplemented!("Unsupported yaml case"),
+        serde_yaml::Value::Null => Value::Primitive(Primitive::Nothing),
+        x => unimplemented!("Unsupported yaml case: {:?}", x),
     }
 }
 
