@@ -518,6 +518,7 @@ fn is_start_bare_char(c: char) -> bool {
         '/' => true,
         '_' => true,
         '-' => true,
+        '@' => true,
         _ => false,
     }
 }
@@ -531,6 +532,7 @@ fn is_bare_char(c: char) -> bool {
         '/' => true,
         '_' => true,
         '-' => true,
+        '@' => true,
         _ => false,
     }
 }
