@@ -1594,6 +1594,7 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "logos 0.10.0-rc2 (registry+https://github.com/rust-lang/crates.io-index)",
  "logos-derive 0.10.0-rc2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mime 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom 5.0.0-beta3 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom_locate 0.3.1 (git+https://github.com/wycats/nom_locate.git?branch=nom5)",
  "ordered-float 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
