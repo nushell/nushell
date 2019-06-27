@@ -4,7 +4,7 @@ crate use crate::context::Context;
 crate use crate::env::host::handle_unexpected;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
-crate use crate::object::Value;
+crate use crate::object::{Primitive, Value};
 crate use crate::stream::{single_output, InputStream, OutputStream};
 crate use crate::Text;
 crate use futures::{FutureExt, StreamExt};

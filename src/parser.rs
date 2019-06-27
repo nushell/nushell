@@ -12,7 +12,7 @@ crate use parse::flag::Flag;
 crate use parse::operator::Operator;
 crate use parse::parser::{nom_input, pipeline};
 crate use parse::pipeline::{Pipeline, PipelineElement};
-crate use parse::span::{Span, Spanned};
+pub use parse::span::{Span, Spanned};
 crate use parse::text::Text;
 crate use parse::token_tree::TokenNode;
 crate use parse::tokens::{RawToken, Token};

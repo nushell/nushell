@@ -6,6 +6,7 @@ use crate::parser::{
 };
 use crate::prelude::*;
 use getset::Getters;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Getters)]
@@ -51,14 +52,14 @@ pub struct SinkCommandArgs {
     pub input: Vec<Value>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(PathBuf),
     Enter(Value),
     Exit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ReturnValue {
     Value(Value),
     Action(CommandAction),

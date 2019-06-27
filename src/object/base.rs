@@ -40,6 +40,8 @@ pub enum Primitive {
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
+
+    EndOfStream,
 }
 
 impl Serialize for Primitive {
@@ -49,6 +51,7 @@ impl Serialize for Primitive {
     {
         match self {
             Primitive::Nothing => serializer.serialize_i32(0),
+            Primitive::EndOfStream => serializer.serialize_i32(0),
             Primitive::Int(i) => serializer.serialize_i64(*i),
             Primitive::Float(OF64 { inner: f }) => serializer.serialize_f64(f.into_inner()),
             Primitive::Bytes(b) => serializer.serialize_u128(*b),
@@ -65,6 +68,7 @@ impl Primitive {
 
         match self {
             Nothing => "nothing",
+            EndOfStream => "end-of-stream",
             Int(_) => "int",
             Float(_) => "float",
             Bytes(_) => "bytes",
@@ -80,6 +84,7 @@ impl Primitive {
 
         match self {
             Nothing => write!(f, "Nothing"),
+            EndOfStream => write!(f, "EndOfStream"),
             Int(int) => write!(f, "{}", int),
             Float(float) => write!(f, "{:?}", float),
             Bytes(bytes) => write!(f, "{}", bytes),
@@ -92,6 +97,7 @@ impl Primitive {
     crate fn format(&self, field_name: Option<&DataDescriptor>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
+            Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
             Primitive::Bytes(b) => {
                 let byte = byte_unit::Byte::from_bytes(*b);
 
@@ -398,36 +404,36 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn block(e: hir::Expression, source: Text) -> Value {
+    pub fn block(e: hir::Expression, source: Text) -> Value {
         Value::Block(Block::new(e, source))
     }
 
-    crate fn string(s: impl Into<String>) -> Value {
+    pub fn string(s: impl Into<String>) -> Value {
         Value::Primitive(Primitive::String(s.into()))
     }
 
-    crate fn bytes(s: impl Into<u128>) -> Value {
+    pub fn bytes(s: impl Into<u128>) -> Value {
         Value::Primitive(Primitive::Bytes(s.into()))
     }
 
-    crate fn int(s: impl Into<i64>) -> Value {
+    pub fn int(s: impl Into<i64>) -> Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
-    crate fn float(s: impl Into<OF64>) -> Value {
+    pub fn float(s: impl Into<OF64>) -> Value {
         Value::Primitive(Primitive::Float(s.into()))
     }
 
-    crate fn boolean(s: impl Into<bool>) -> Value {
+    pub fn boolean(s: impl Into<bool>) -> Value {
         Value::Primitive(Primitive::Boolean(s.into()))
     }
 
-    crate fn system_date(s: SystemTime) -> Value {
+    pub fn system_date(s: SystemTime) -> Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
     #[allow(unused)]
-    crate fn date_from_str(s: &str) -> Result<Value, ShellError> {
+    pub fn date_from_str(s: &str) -> Result<Value, ShellError> {
         let date = DateTime::parse_from_rfc3339(s)
             .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
 
@@ -437,19 +443,19 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
+    pub fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
         match s {
             Ok(time) => Value::Primitive(Primitive::Date(time.into())),
             Err(err) => Value::Error(Box::new(ShellError::string(format!("{}", err)))),
         }
     }
 
-    crate fn nothing() -> Value {
+    pub fn nothing() -> Value {
         Value::Primitive(Primitive::Nothing)
     }
 
     #[allow(unused)]
-    crate fn list(values: impl Into<Vec<Value>>) -> Value {
+    pub fn list(values: impl Into<Vec<Value>>) -> Value {
         Value::List(values.into())
     }
 }

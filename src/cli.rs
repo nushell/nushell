@@ -81,6 +81,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Config),
             Arc::new(SkipWhile),
             command("sort-by", sort_by::sort_by),
+            command("inc", |x| plugin::plugin("inc".into(), x)),
+            command("sum", |x| plugin::plugin("sum".into(), x)),
         ]);
 
         context.add_sinks(vec![
@@ -170,39 +172,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     &language_reporting::DefaultConfig,
                 )
                 .unwrap();
-
-                // match err {
-                //     ShellError::Diagnostic(diag) => {
-                //         let host = context.host.lock().unwrap();
-                //         let writer = host.err_termcolor();
-                //         line.push_str(" ");
-                //         let files = crate::parser::Files::new(line);
-
-                //         language_reporting::emit(
-                //             &mut writer.lock(),
-                //             &files,
-                //             &diag.diagnostic,
-                //             &language_reporting::DefaultConfig,
-                //         )
-                //         .unwrap();
-                //     }
-
-                //     ShellError::TypeError(desc) => context
-                //         .host
-                //         .lock()
-                //         .unwrap()
-                //         .stdout(&format!("TypeError: {}", desc)),
-
-                //     ShellError::MissingProperty { subpath, .. } => context
-                //         .host
-                //         .lock()
-                //         .unwrap()
-                //         .stdout(&format!("Missing property {}", subpath)),
-
-                //     ShellError::String(_) => {
-                //         context.host.lock().unwrap().stdout(&format!("{}", err))
-                //     }
-                // }
             }
 
             LineResult::Break => {

@@ -151,7 +151,7 @@ impl ShellError {
         }
     }
 
-    crate fn string(title: impl Into<String>) -> ShellError {
+    pub fn string(title: impl Into<String>) -> ShellError {
         ShellError::String(StringError::new(title.into(), Value::nothing()))
     }
 

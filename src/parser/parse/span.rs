@@ -8,8 +8,8 @@ use serde_derive::{Deserialize, Serialize};
 )]
 #[get = "crate"]
 pub struct Spanned<T> {
-    crate span: Span,
-    crate item: T,
+    pub span: Span,
+    pub item: T,
 }
 
 impl<T> std::ops::Deref for Spanned<T> {

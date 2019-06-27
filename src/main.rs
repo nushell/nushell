@@ -4,25 +4,9 @@
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
 
-mod cli;
-mod commands;
-mod context;
-mod env;
-mod errors;
-mod evaluate;
-mod format;
-mod git;
-mod object;
-mod parser;
-mod prelude;
-mod shell;
-mod stream;
-
 use clap::{App, Arg};
 use log::LevelFilter;
 use std::error::Error;
-
-crate use parser::parse::text::Text;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("nu shell")
@@ -72,6 +56,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     builder.try_init()?;
 
-    futures::executor::block_on(crate::cli::cli())?;
+    futures::executor::block_on(nu::cli())?;
     Ok(())
 }
