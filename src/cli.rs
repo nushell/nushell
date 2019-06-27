@@ -64,7 +64,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("get", get::get),
             command("enter", enter::enter),
             command("exit", exit::exit),
-            command("inc", plugin_inc::plugin_inc),
             command("lines", lines::lines),
             command("pick", pick::pick),
             command("split-column", split_column::split_column),
@@ -82,6 +81,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Config),
             Arc::new(SkipWhile),
             command("sort-by", sort_by::sort_by),
+            command("inc", |x| plugin::plugin("inc".into(), x)),
+            command("sum", |x| plugin::plugin("sum".into(), x)),
         ]);
 
         context.add_sinks(vec![

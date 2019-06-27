@@ -74,6 +74,10 @@ name = "nu"
 path = "src/lib.rs"
 
 [[bin]]
+name = "nu_plugin_sum"
+path = "src/plugins/sum.rs"
+
+[[bin]]
 name = "nu_plugin_inc"
 path = "src/plugins/inc.rs"
 

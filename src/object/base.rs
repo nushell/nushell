@@ -40,6 +40,8 @@ pub enum Primitive {
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
+
+    EndOfStream,
 }
 
 impl Serialize for Primitive {
@@ -49,6 +51,7 @@ impl Serialize for Primitive {
     {
         match self {
             Primitive::Nothing => serializer.serialize_i32(0),
+            Primitive::EndOfStream => serializer.serialize_i32(0),
             Primitive::Int(i) => serializer.serialize_i64(*i),
             Primitive::Float(OF64 { inner: f }) => serializer.serialize_f64(f.into_inner()),
             Primitive::Bytes(b) => serializer.serialize_u128(*b),
@@ -65,6 +68,7 @@ impl Primitive {
 
         match self {
             Nothing => "nothing",
+            EndOfStream => "end-of-stream",
             Int(_) => "int",
             Float(_) => "float",
             Bytes(_) => "bytes",
@@ -80,6 +84,7 @@ impl Primitive {
 
         match self {
             Nothing => write!(f, "Nothing"),
+            EndOfStream => write!(f, "EndOfStream"),
             Int(int) => write!(f, "{}", int),
             Float(float) => write!(f, "{:?}", float),
             Bytes(bytes) => write!(f, "{}", bytes),
@@ -92,6 +97,7 @@ impl Primitive {
     crate fn format(&self, field_name: Option<&DataDescriptor>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
+            Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
             Primitive::Bytes(b) => {
                 let byte = byte_unit::Byte::from_bytes(*b);
 

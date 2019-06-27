@@ -18,7 +18,7 @@ crate mod lines;
 crate mod ls;
 crate mod open;
 crate mod pick;
-crate mod plugin_inc;
+crate mod plugin;
 crate mod ps;
 crate mod reject;
 crate mod save;
