@@ -1,3 +1,5 @@
+cargo-features = ["default-run"]
+
 [package]
 name = "nu"
 version = "0.1.2"
@@ -5,13 +7,14 @@ authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner
 description = "A shell for the GitHub era"
 license = "MIT"
 edition = "2018"
+default-run = "nu"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 rustyline = "5.0.0"
-sysinfo = "0.8.6"
-chrono = { version = "0.4.6", features = ["serde"] }
+sysinfo = "0.9"
+chrono = { version = "0.4.7", features = ["serde"] }
 chrono-tz = "0.5.1"
 derive-new = "0.5.6"
 prettytable-rs = "0.8.0"
@@ -56,7 +59,7 @@ reqwest = "0.9"
 roxmltree = "0.6.1"
 nom_locate = { git = "https://github.com/wycats/nom_locate.git", branch = "nom5" }
 derive_more = "0.15.0"
-enum-utils = "0.1.0"
+enum-utils = "0.1.1"
 unicode-xid = "0.1.0"
 serde_ini = "0.2.0"
 subprocess = "0.1.18"
@@ -65,3 +68,15 @@ mime = "0.3.13"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
+
+[lib]
+name = "nu"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nu_plugin_inc"
+path = "src/plugins/inc.rs"
+
+[[bin]]
+name = "nu"
+path = "src/main.rs"

@@ -398,36 +398,36 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn block(e: hir::Expression, source: Text) -> Value {
+    pub fn block(e: hir::Expression, source: Text) -> Value {
         Value::Block(Block::new(e, source))
     }
 
-    crate fn string(s: impl Into<String>) -> Value {
+    pub fn string(s: impl Into<String>) -> Value {
         Value::Primitive(Primitive::String(s.into()))
     }
 
-    crate fn bytes(s: impl Into<u128>) -> Value {
+    pub fn bytes(s: impl Into<u128>) -> Value {
         Value::Primitive(Primitive::Bytes(s.into()))
     }
 
-    crate fn int(s: impl Into<i64>) -> Value {
+    pub fn int(s: impl Into<i64>) -> Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
-    crate fn float(s: impl Into<OF64>) -> Value {
+    pub fn float(s: impl Into<OF64>) -> Value {
         Value::Primitive(Primitive::Float(s.into()))
     }
 
-    crate fn boolean(s: impl Into<bool>) -> Value {
+    pub fn boolean(s: impl Into<bool>) -> Value {
         Value::Primitive(Primitive::Boolean(s.into()))
     }
 
-    crate fn system_date(s: SystemTime) -> Value {
+    pub fn system_date(s: SystemTime) -> Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
     #[allow(unused)]
-    crate fn date_from_str(s: &str) -> Result<Value, ShellError> {
+    pub fn date_from_str(s: &str) -> Result<Value, ShellError> {
         let date = DateTime::parse_from_rfc3339(s)
             .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
 
@@ -437,19 +437,19 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
+    pub fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
         match s {
             Ok(time) => Value::Primitive(Primitive::Date(time.into())),
             Err(err) => Value::Error(Box::new(ShellError::string(format!("{}", err)))),
         }
     }
 
-    crate fn nothing() -> Value {
+    pub fn nothing() -> Value {
         Value::Primitive(Primitive::Nothing)
     }
 
     #[allow(unused)]
-    crate fn list(values: impl Into<Vec<Value>>) -> Value {
+    pub fn list(values: impl Into<Vec<Value>>) -> Value {
         Value::List(values.into())
     }
 }
