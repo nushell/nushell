@@ -9,10 +9,10 @@ use std::io;
 pub struct JsonRpc<T> {
     jsonrpc: String,
     pub method: String,
-    pub params: T,
+    pub params: Vec<T>,
 }
 impl<T> JsonRpc<T> {
-    pub fn new<U: Into<String>>(method: U, params: T) -> Self {
+    pub fn new<U: Into<String>>(method: U, params: Vec<T>) -> Self {
         JsonRpc {
             jsonrpc: "2.0".into(),
             method: method.into(),
@@ -21,12 +21,11 @@ impl<T> JsonRpc<T> {
     }
 }
 
-fn send_response<T: Serialize>(result: T) {
+fn send_response<T: Serialize>(result: Vec<T>) {
     let response = JsonRpc::new("response", result);
     let response_raw = serde_json::to_string(&response).unwrap();
     println!("{}", response_raw);
 }
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method")]
 #[allow(non_camel_case_types)]
@@ -56,9 +55,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     inc_by = i;
                                 }
                                 _ => {
-                                    send_response(ReturnValue::Value(Value::Error(Box::new(
-                                        ShellError::string("Unrecognized type in params"),
-                                    ))));
+                                    send_response(vec![ReturnValue::Value(Value::Error(
+                                        Box::new(ShellError::string("Unrecognized type in params")),
+                                    ))]);
                                 }
                             }
                         }
@@ -73,25 +72,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ))]);
                         }
                         _ => {
-                            send_response(ReturnValue::Value(Value::Error(Box::new(
+                            send_response(vec![ReturnValue::Value(Value::Error(Box::new(
                                 ShellError::string("Unrecognized type in stream"),
-                            ))));
+                            )))]);
                         }
                     },
                     Ok(NuCommand::quit) => {
                         break;
                     }
                     Err(_) => {
-                        send_response(ReturnValue::Value(Value::Error(Box::new(
+                        send_response(vec![ReturnValue::Value(Value::Error(Box::new(
                             ShellError::string("Unrecognized type in stream"),
-                        ))));
+                        )))]);
                     }
                 }
             }
-            Err(error) => {
-                send_response(ReturnValue::Value(Value::Error(Box::new(
+            Err(_) => {
+                send_response(vec![ReturnValue::Value(Value::Error(Box::new(
                     ShellError::string("Unrecognized type in stream"),
-                ))));
+                )))]);
             }
         }
     }

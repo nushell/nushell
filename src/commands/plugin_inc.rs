@@ -55,8 +55,6 @@ pub fn plugin_inc(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let request_raw = serde_json::to_string(&request).unwrap();
             stdin.write(format!("{}\n", request_raw).as_bytes());
 
-            // println!("Wrote out init");
-            // println!("{:?}", v);
             let request = JsonRpc::new("filter", v);
             let request_raw = serde_json::to_string(&request).unwrap();
             stdin.write(format!("{}\n", request_raw).as_bytes());
