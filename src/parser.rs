@@ -5,7 +5,7 @@ crate mod registry;
 
 use crate::errors::ShellError;
 
-crate use hir::baseline_parse_tokens::baseline_parse_tokens;
+crate use hir::baseline_parse_tokens::{baseline_parse_tokens, trace_remaining};
 crate use parse::call_node::CallNode;
 crate use parse::files::Files;
 crate use parse::flag::Flag;
@@ -14,7 +14,7 @@ crate use parse::parser::{nom_input, pipeline};
 crate use parse::pipeline::{Pipeline, PipelineElement};
 pub use parse::span::{Span, Spanned};
 crate use parse::text::Text;
-crate use parse::token_tree::TokenNode;
+crate use parse::token_tree::{DelimitedNode, Delimiter, PathNode, TokenNode};
 crate use parse::tokens::{RawToken, Token};
 crate use parse::unit::Unit;
 crate use parse_command::parse_command;

@@ -3,6 +3,8 @@ use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, span
 use crate::Text;
 use derive_new::new;
 use enum_utils::FromStr;
+use getset::Getters;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TokenNode {
@@ -20,6 +22,67 @@ pub enum TokenNode {
     Path(Spanned<PathNode>),
 }
 
+pub struct DebugTokenNode<'a> {
+    node: &'a TokenNode,
+    source: &'a Text,
+}
+
+impl fmt::Debug for DebugTokenNode<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.node {
+            TokenNode::Token(t) => write!(f, "{:?}", t.debug(self.source)),
+            TokenNode::Call(s) => {
+                write!(f, "(")?;
+
+                write!(f, "{:?}", s.head().debug(self.source))?;
+
+                if let Some(children) = s.children() {
+                    for child in children {
+                        write!(f, "{:?}", child.debug(self.source))?;
+                    }
+                }
+
+                write!(f, ")")
+            }
+
+            TokenNode::Delimited(d) => {
+                write!(
+                    f,
+                    "{}",
+                    match d.delimiter {
+                        Delimiter::Brace => "{",
+                        Delimiter::Paren => "(",
+                        Delimiter::Square => "[",
+                    }
+                )?;
+
+                for child in d.children() {
+                    write!(f, "{:?}", child.debug(self.source))?;
+                }
+
+                write!(
+                    f,
+                    "{}",
+                    match d.delimiter {
+                        Delimiter::Brace => "}",
+                        Delimiter::Paren => ")",
+                        Delimiter::Square => "]",
+                    }
+                )
+            }
+            TokenNode::Pipeline(s) => write!(f, "<todo:pipeline>"),
+            TokenNode::Error(s) => write!(f, "<error> for {:?}", s.span().slice(self.source)),
+            rest => write!(f, "{}", rest.span().slice(self.source)),
+        }
+    }
+}
+
+impl From<&TokenNode> for Span {
+    fn from(token: &TokenNode) -> Span {
+        token.span()
+    }
+}
+
 impl TokenNode {
     pub fn span(&self) -> Span {
         match self {
@@ -34,6 +97,10 @@ impl TokenNode {
             TokenNode::Error(s) => s.span,
             TokenNode::Path(s) => s.span,
         }
+    }
+
+    pub fn debug(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
+        DebugTokenNode { node: self, source }
     }
 
     pub fn as_external_arg(&self, source: &Text) -> String {
@@ -73,7 +140,8 @@ impl TokenNode {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, new)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
+#[get = "crate"]
 pub struct DelimitedNode {
     delimiter: Delimiter,
     children: Vec<TokenNode>,
@@ -86,7 +154,8 @@ pub enum Delimiter {
     Square,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, new)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
+#[get = "crate"]
 pub struct PathNode {
     head: Box<TokenNode>,
     tail: Vec<TokenNode>,

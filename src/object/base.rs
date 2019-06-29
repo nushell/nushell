@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::object::DataDescriptor;
-use crate::parser::{hir, Operator, Spanned};
+use crate::parser::{hir, Operator, Span, Spanned};
 use crate::prelude::*;
 use crate::Text;
 use ansi_term::Color;
@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use ordered_float::OrderedFloat;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::time::SystemTime;
 
@@ -137,8 +137,9 @@ pub struct Operation {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
 pub struct Block {
-    crate expression: hir::Expression,
+    crate expressions: Vec<hir::Expression>,
     crate source: Text,
+    crate span: Span,
 }
 
 impl Serialize for Block {
@@ -146,7 +147,18 @@ impl Serialize for Block {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.expression.source(&self.source.clone()))
+        let mut seq = serializer.serialize_seq(None)?;
+
+        let list = self
+            .expressions
+            .iter()
+            .map(|e| e.source(&self.source.clone()));
+
+        for item in list {
+            seq.serialize_element(item.as_ref())?;
+        }
+
+        seq.end()
     }
 }
 
@@ -167,7 +179,18 @@ impl Deserialize<'de> for Block {
 impl Block {
     pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
         let scope = Scope::new(value.copy());
-        evaluate_baseline_expr(&self.expression, &(), &scope, &self.source)
+
+        if self.expressions.len() == 0 {
+            return Ok(Spanned::from_item(Value::nothing(), self.span));
+        }
+
+        let mut last = None;
+
+        for expr in self.expressions.iter() {
+            last = Some(evaluate_baseline_expr(&expr, &(), &scope, &self.source)?)
+        }
+
+        Ok(last.unwrap())
     }
 }
 
@@ -305,7 +328,12 @@ impl Value {
     crate fn format_leaf(&self, desc: Option<&DataDescriptor>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
-            Value::Block(b) => b.expression.source(&b.source).to_string(),
+            Value::Block(b) => itertools::join(
+                b.expressions
+                    .iter()
+                    .map(|e| e.source(&b.source).to_string()),
+                "; ",
+            ),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
@@ -401,11 +429,6 @@ impl Value {
             Value::Primitive(Primitive::Boolean(true)) => true,
             _ => false,
         }
-    }
-
-    #[allow(unused)]
-    pub fn block(e: hir::Expression, source: Text) -> Value {
-        Value::Block(Block::new(e, source))
     }
 
     pub fn string(s: impl Into<String>) -> Value {

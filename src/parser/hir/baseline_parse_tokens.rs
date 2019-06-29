@@ -1,24 +1,27 @@
 use crate::errors::ShellError;
 use crate::parser::registry::CommandRegistry;
-use crate::parser::{hir, hir::baseline_parse_single_token, Span, Spanned, TokenNode};
-use crate::Text;
+use crate::parser::{
+    hir, hir::baseline_parse_single_token, DelimitedNode, Delimiter, PathNode, RawToken, Span,
+    Spanned, TokenNode,
+};
+use crate::{SpannedItem, Text};
+use derive_new::new;
+use log::trace;
 
 pub fn baseline_parse_tokens(
-    token_nodes: &[TokenNode],
+    token_nodes: &mut TokensIterator<'_>,
     registry: &dyn CommandRegistry,
     source: &Text,
 ) -> Result<Vec<hir::Expression>, ShellError> {
     let mut exprs: Vec<hir::Expression> = vec![];
-    let mut rest = token_nodes;
 
     loop {
-        if rest.len() == 0 {
+        if token_nodes.at_end() {
             break;
         }
 
-        let (expr, remainder) = baseline_parse_next_expr(rest, registry, source, None)?;
+        let expr = baseline_parse_next_expr(token_nodes, registry, source, None)?;
         exprs.push(expr);
-        rest = remainder;
     }
 
     Ok(exprs)
@@ -35,25 +38,21 @@ pub enum ExpressionKindHint {
 }
 
 pub fn baseline_parse_next_expr(
-    token_nodes: &'nodes [TokenNode],
-    _registry: &dyn CommandRegistry,
+    tokens: &mut TokensIterator,
+    registry: &dyn CommandRegistry,
     source: &Text,
     coerce_hint: Option<ExpressionKindHint>,
-) -> Result<(hir::Expression, &'nodes [TokenNode]), ShellError> {
-    let mut tokens = token_nodes.iter().peekable();
-
-    let first = next_token(&mut tokens);
-
-    let first = match first {
+) -> Result<hir::Expression, ShellError> {
+    let first = match tokens.next() {
         None => return Err(ShellError::string("Expected token, found none")),
-        Some(token) => baseline_parse_semantic_token(token, source)?,
+        Some(token) => baseline_parse_semantic_token(token, registry, source)?,
     };
 
     let possible_op = tokens.peek();
 
     let op = match possible_op {
-        Some(TokenNode::Operator(op)) => op,
-        _ => return Ok((first, &token_nodes[1..])),
+        Some(TokenNode::Operator(op)) => op.clone(),
+        _ => return Ok(first),
     };
 
     tokens.next();
@@ -64,7 +63,7 @@ pub fn baseline_parse_next_expr(
                 "Expected op followed by another expr, found nothing",
             ))
         }
-        Some(token) => baseline_parse_semantic_token(token, source)?,
+        Some(token) => baseline_parse_semantic_token(token, registry, source)?,
     };
 
     // We definitely have a binary expression here -- let's see if we should coerce it into a block
@@ -72,11 +71,11 @@ pub fn baseline_parse_next_expr(
     match coerce_hint {
         None => {
             let span = (first.span.start, second.span.end);
-            let binary = hir::Binary::new(first, *op, second);
+            let binary = hir::Binary::new(first, op, second);
             let binary = hir::RawExpression::Binary(Box::new(binary));
             let binary = Spanned::from_item(binary, span);
 
-            Ok((binary, &token_nodes[3..]))
+            Ok(binary)
         }
 
         Some(hint) => match hint {
@@ -133,14 +132,14 @@ pub fn baseline_parse_next_expr(
                     }
                 };
 
-                let binary = hir::Binary::new(path, *op, second);
+                let binary = hir::Binary::new(path, op, second);
                 let binary = hir::RawExpression::Binary(Box::new(binary));
                 let binary = Spanned::from_item(binary, span);
 
-                let block = hir::RawExpression::Block(Box::new(binary));
+                let block = hir::RawExpression::Block(vec![binary]);
                 let block = Spanned::from_item(block, span);
 
-                Ok((block, &token_nodes[3..]))
+                Ok(block)
             }
 
             other => unimplemented!("coerce hint {:?}", other),
@@ -150,27 +149,199 @@ pub fn baseline_parse_next_expr(
 
 pub fn baseline_parse_semantic_token(
     token: &TokenNode,
+    registry: &dyn CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token {
         TokenNode::Token(token) => Ok(baseline_parse_single_token(token, source)),
         TokenNode::Call(_call) => unimplemented!(),
-        TokenNode::Delimited(_delimited) => unimplemented!(),
+        TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, registry, source),
         TokenNode::Pipeline(_pipeline) => unimplemented!(),
         TokenNode::Operator(_op) => unreachable!(),
         TokenNode::Flag(_flag) => unimplemented!(),
         TokenNode::Identifier(_span) => unreachable!(),
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
-        TokenNode::Path(_path) => unimplemented!(),
+        TokenNode::Path(path) => baseline_parse_path(path, registry, source),
     }
 }
 
-fn next_token(nodes: &mut impl Iterator<Item = &'a TokenNode>) -> Option<&'a TokenNode> {
-    loop {
-        match nodes.next() {
-            Some(TokenNode::Whitespace(_)) => continue,
-            other => return other,
+pub fn baseline_parse_delimited(
+    token: &Spanned<DelimitedNode>,
+    registry: &dyn CommandRegistry,
+    source: &Text,
+) -> Result<hir::Expression, ShellError> {
+    match token.delimiter() {
+        Delimiter::Brace => {
+            let children = token.children();
+            let exprs =
+                baseline_parse_tokens(&mut TokensIterator::new(children), registry, source)?;
+
+            let expr = hir::RawExpression::Block(exprs);
+            Ok(Spanned::from_item(expr, token.span()))
+        }
+        Delimiter::Paren => unimplemented!(),
+        Delimiter::Square => unimplemented!(),
+    }
+}
+
+pub fn baseline_parse_path(
+    token: &Spanned<PathNode>,
+    registry: &dyn CommandRegistry,
+    source: &Text,
+) -> Result<hir::Expression, ShellError> {
+    let head = baseline_parse_semantic_token(token.head(), registry, source)?;
+
+    let mut tail = vec![];
+
+    for part in token.tail() {
+        let string = match part {
+            TokenNode::Token(token) => match token.item() {
+                RawToken::Bare => token.span().slice(source),
+                RawToken::String(span) => span.slice(source),
+                RawToken::Integer(_) | RawToken::Size(..) | RawToken::Variable(_) => {
+                    return Err(ShellError::type_error(
+                        "String",
+                        token.type_name().spanned(part),
+                    ))
+                }
+            },
+
+            TokenNode::Identifier(span) => span.slice(source),
+
+            // TODO: Make this impossible
+            other => unreachable!("{:?}", other),
+        }
+        .to_string();
+
+        tail.push(string.spanned(part));
+    }
+
+    Ok(hir::path(head, tail).spanned(token).into())
+}
+
+#[derive(Debug, new)]
+pub struct TokensIterator<'a> {
+    tokens: &'a [TokenNode],
+    #[new(default)]
+    index: usize,
+    #[new(default)]
+    seen: indexmap::IndexSet<usize>,
+}
+
+impl TokensIterator<'a> {
+    pub fn remove(&mut self, position: usize) {
+        self.seen.insert(position);
+    }
+
+    pub fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
+    pub fn at_end(&self) -> bool {
+        for index in self.index..self.tokens.len() {
+            if !self.seen.contains(&index) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn advance(&mut self) {
+        self.seen.insert(self.index);
+        self.index += 1;
+    }
+
+    pub fn extract<T>(&mut self, f: impl Fn(&TokenNode) -> Option<T>) -> Option<(usize, T)> {
+        for (i, item) in self.tokens.iter().enumerate() {
+            if self.seen.contains(&i) {
+                continue;
+            }
+
+            match f(item) {
+                None => {
+                    continue;
+                }
+                Some(value) => {
+                    self.seen.insert(i);
+                    return Some((i, value));
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn move_to(&mut self, pos: usize) {
+        self.index = pos;
+    }
+
+    pub fn restart(&mut self) {
+        self.index = 0;
+    }
+
+    pub fn clone(&self) -> TokensIterator {
+        TokensIterator {
+            tokens: self.tokens,
+            index: self.index,
+            seen: self.seen.clone(),
         }
     }
+
+    pub fn peek(&self) -> Option<&TokenNode> {
+        let mut tokens = self.clone();
+
+        tokens.next()
+    }
+
+    pub fn debug_remaining(&self) -> Vec<TokenNode> {
+        let mut tokens = self.clone();
+        tokens.restart();
+        tokens.cloned().collect()
+    }
+}
+
+impl Iterator for TokensIterator<'a> {
+    type Item = &'a TokenNode;
+
+    fn next(&mut self) -> Option<&'a TokenNode> {
+        loop {
+            if self.index >= self.tokens.len() {
+                return None;
+            }
+
+            if self.seen.contains(&self.index) {
+                self.advance();
+                continue;
+            }
+
+            if self.index >= self.tokens.len() {
+                return None;
+            }
+
+            match &self.tokens[self.index] {
+                TokenNode::Whitespace(_) => {
+                    self.advance();
+                }
+                other => {
+                    self.advance();
+                    return Some(other);
+                }
+            }
+        }
+    }
+}
+
+pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'a>, source: &Text) {
+    trace!(
+        "{} = {:?}",
+        desc,
+        itertools::join(
+            tail.debug_remaining()
+                .iter()
+                .map(|i| format!("%{:?}%", i.debug(source))),
+            " "
+        )
+    );
 }

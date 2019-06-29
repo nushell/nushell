@@ -36,7 +36,10 @@ impl Description {
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ShellError {
     String(StringError),
-    TypeError(Spanned<String>),
+    TypeError {
+        expected: String,
+        actual: Spanned<Option<String>>,
+    },
     MissingProperty {
         subpath: Description,
         expr: Description,
@@ -49,6 +52,16 @@ pub enum ShellError {
 }
 
 impl ShellError {
+    crate fn type_error(
+        expected: impl Into<String>,
+        actual: Spanned<impl Into<String>>,
+    ) -> ShellError {
+        ShellError::TypeError {
+            expected: expected.into(),
+            actual: actual.map(|i| Some(i.into())),
+        }
+    }
+
     crate fn parse_error(
         error: nom::Err<(nom_locate::LocatedSpan<&str>, nom::error::ErrorKind)>,
     ) -> ShellError {
@@ -57,9 +70,8 @@ impl ShellError {
         match error {
             nom::Err::Incomplete(_) => unreachable!(),
             nom::Err::Failure(span) | nom::Err::Error(span) => {
-                let diagnostic =
-                    Diagnostic::new(Severity::Error, format!("Parse Error"))
-                        .with_label(Label::new_primary(Span::from(span.0)));
+                let diagnostic = Diagnostic::new(Severity::Error, format!("Parse Error"))
+                    .with_label(Label::new_primary(Span::from(span.0)));
 
                 ShellError::diagnostic(diagnostic)
                 // nom::Context::Code(span, kind) => {
@@ -69,21 +81,20 @@ impl ShellError {
 
                 //     ShellError::diagnostic(diagnostic)
                 // }
-            }
-            // ParseError::UnrecognizedToken {
-            //     token: (start, SpannedToken { token, .. }, end),
-            //     expected,
-            // } => {
-            //     let diagnostic = Diagnostic::new(
-            //         Severity::Error,
-            //         format!("Unexpected {:?}, expected {:?}", token, expected),
-            //     )
-            //     .with_label(Label::new_primary(Span::from((start, end))));
+            } // ParseError::UnrecognizedToken {
+              //     token: (start, SpannedToken { token, .. }, end),
+              //     expected,
+              // } => {
+              //     let diagnostic = Diagnostic::new(
+              //         Severity::Error,
+              //         format!("Unexpected {:?}, expected {:?}", token, expected),
+              //     )
+              //     .with_label(Label::new_primary(Span::from((start, end))));
 
-            //     ShellError::diagnostic(diagnostic)
-            // }
-            // ParseError::User { error } => error,
-            // other => ShellError::string(format!("{:?}", other)),
+              //     ShellError::diagnostic(diagnostic)
+              // }
+              // ParseError::User { error } => error,
+              // other => ShellError::string(format!("{:?}", other)),
         }
     }
 
@@ -96,8 +107,23 @@ impl ShellError {
             ShellError::String(StringError { title, .. }) => {
                 Diagnostic::new(Severity::Error, title)
             }
-            ShellError::TypeError(s) => Diagnostic::new(Severity::Error, "Type Error")
-                .with_label(Label::new_primary(s.span).with_message(s.item)),
+            ShellError::TypeError {
+                expected,
+                actual:
+                    Spanned {
+                        item: Some(actual),
+                        span,
+                    },
+            } => Diagnostic::new(Severity::Error, "Type Error").with_label(
+                Label::new_primary(span)
+                    .with_message(format!("Expected {}, found {}", expected, actual)),
+            ),
+
+            ShellError::TypeError {
+                expected,
+                actual: Spanned { item: None, span },
+            } => Diagnostic::new(Severity::Error, "Type Error")
+                .with_label(Label::new_primary(span).with_message(expected)),
 
             ShellError::MissingProperty { subpath, expr } => {
                 let subpath = subpath.into_label();

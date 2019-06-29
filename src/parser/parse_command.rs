@@ -67,76 +67,80 @@ fn parse_command_tail(
     tail: Option<Vec<TokenNode>>,
     source: &Text,
 ) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
-    let mut tail = match tail {
+    let tail = &mut match &tail {
         None => return Ok(None),
-        Some(tail) => tail,
+        Some(tail) => hir::TokensIterator::new(tail),
     };
 
     let mut named = NamedArguments::new();
+
+    trace_remaining("nodes", tail.clone(), source);
 
     for (name, kind) in config.named() {
         trace!("looking for {} : {:?}", name, kind);
 
         match kind {
             NamedType::Switch => {
-                let (rest, flag) = extract_switch(name, tail, source);
-
-                tail = rest;
+                let flag = extract_switch(name, tail, source);
 
                 named.insert_switch(name, flag);
             }
             NamedType::Mandatory(kind) => match extract_mandatory(name, tail, source) {
                 Err(err) => return Err(err), // produce a correct diagnostic
-                Ok((rest, pos, _flag)) => {
-                    let (expr, rest) = hir::baseline_parse_next_expr(
-                        &rest[pos..],
+                Ok((pos, _flag)) => {
+                    tail.move_to(pos);
+                    let expr = hir::baseline_parse_next_expr(
+                        tail,
                         registry,
                         source,
                         kind.to_coerce_hint(),
                     )?;
-                    tail = rest.to_vec();
 
+                    tail.restart();
                     named.insert_mandatory(name, expr);
                 }
             },
             NamedType::Optional(kind) => match extract_optional(name, tail, source) {
                 Err(err) => return Err(err), // produce a correct diagnostic
-                Ok((rest, Some((pos, _flag)))) => {
-                    let (expr, rest) = hir::baseline_parse_next_expr(
-                        &rest[pos..],
+                Ok(Some((pos, _flag))) => {
+                    tail.move_to(pos);
+                    let expr = hir::baseline_parse_next_expr(
+                        tail,
                         registry,
                         source,
                         kind.to_coerce_hint(),
                     )?;
-                    tail = rest.to_vec();
 
+                    tail.restart();
                     named.insert_optional(name, Some(expr));
                 }
 
-                Ok((rest, None)) => {
-                    tail = rest;
-
+                Ok(None) => {
+                    tail.restart();
                     named.insert_optional(name, None);
                 }
             },
         };
     }
 
+    trace_remaining("after named", tail.clone(), source);
+
     let mut positional = vec![];
     let mandatory = config.mandatory_positional();
 
     for arg in mandatory {
+        trace!("Processing mandatory {:?}", arg);
+
         if tail.len() == 0 {
             return Err(ShellError::unimplemented("Missing mandatory argument"));
         }
 
-        let (result, rest) =
-            hir::baseline_parse_next_expr(&tail, registry, source, arg.to_coerce_hint())?;
+        let result = hir::baseline_parse_next_expr(tail, registry, source, arg.to_coerce_hint())?;
 
         positional.push(result);
-
-        tail = rest.to_vec();
     }
+
+    trace_remaining("after mandatory", tail.clone(), source);
 
     let optional = config.optional_positional();
 
@@ -145,17 +149,18 @@ fn parse_command_tail(
             break;
         }
 
-        let (result, rest) =
-            hir::baseline_parse_next_expr(&tail, registry, source, arg.to_coerce_hint())?;
+        let result = hir::baseline_parse_next_expr(tail, registry, source, arg.to_coerce_hint())?;
 
         positional.push(result);
-
-        tail = rest.to_vec();
     }
 
+    trace_remaining("after optional", tail.clone(), source);
+
     // TODO: Only do this if rest params are specified
-    let remainder = baseline_parse_tokens(&tail, registry, source)?;
+    let remainder = baseline_parse_tokens(tail, registry, source)?;
     positional.extend(remainder);
+
+    trace_remaining("after rest", tail.clone(), source);
 
     trace!("Constructed positional={:?} named={:?}", positional, named);
 
@@ -174,38 +179,20 @@ fn parse_command_tail(
     Ok(Some((positional, named)))
 }
 
-fn extract_switch(
-    name: &str,
-    mut tokens: Vec<TokenNode>,
-    source: &Text,
-) -> (Vec<TokenNode>, Option<Flag>) {
-    let pos = tokens
-        .iter()
-        .enumerate()
-        .filter_map(|(i, t)| t.as_flag(name, source).map(|f| (i, f)))
-        .nth(0);
-
-    match pos {
-        None => (tokens, None),
-        Some((pos, flag)) => {
-            tokens.remove(pos);
-            (tokens, Some(*flag))
-        }
-    }
+fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Text) -> Option<Flag> {
+    tokens
+        .extract(|t| t.as_flag(name, source))
+        .map(|(_pos, flag)| flag.item)
 }
 
 fn extract_mandatory(
     name: &str,
-    mut tokens: Vec<TokenNode>,
+    tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
-) -> Result<(Vec<TokenNode>, usize, Flag), ShellError> {
-    let pos = tokens
-        .iter()
-        .enumerate()
-        .filter_map(|(i, t)| t.as_flag(name, source).map(|f| (i, f)))
-        .nth(0);
+) -> Result<(usize, Flag), ShellError> {
+    let flag = tokens.extract(|t| t.as_flag(name, source));
 
-    match pos {
+    match flag {
         None => Err(ShellError::unimplemented(
             "Better error: mandatory flags must be present",
         )),
@@ -218,24 +205,20 @@ fn extract_mandatory(
 
             tokens.remove(pos);
 
-            Ok((tokens, pos, *flag))
+            Ok((pos, *flag))
         }
     }
 }
 
 fn extract_optional(
     name: &str,
-    mut tokens: Vec<TokenNode>,
+    tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
-) -> Result<(Vec<TokenNode>, Option<(usize, Flag)>), ShellError> {
-    let pos = tokens
-        .iter()
-        .enumerate()
-        .filter_map(|(i, t)| t.as_flag(name, source).map(|f| (i, f)))
-        .nth(0);
+) -> Result<(Option<(usize, Flag)>), ShellError> {
+    let flag = tokens.extract(|t| t.as_flag(name, source));
 
-    match pos {
-        None => Ok((tokens, None)),
+    match flag {
+        None => Ok(None),
         Some((pos, flag)) => {
             if tokens.len() <= pos {
                 return Err(ShellError::unimplemented(
@@ -245,7 +228,20 @@ fn extract_optional(
 
             tokens.remove(pos);
 
-            Ok((tokens, Some((pos, *flag))))
+            Ok(Some((pos, *flag)))
         }
     }
+}
+
+pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'a>, source: &Text) {
+    trace!(
+        "{} = {:?}",
+        desc,
+        itertools::join(
+            tail.debug_remaining()
+                .iter()
+                .map(|i| format!("%{:?}%", i.debug(source))),
+            " "
+        )
+    );
 }
