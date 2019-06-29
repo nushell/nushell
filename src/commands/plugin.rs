@@ -1,12 +1,9 @@
 use crate::errors::ShellError;
-use crate::parser::registry::{CommandConfig, PositionalType};
-use crate::parser::Spanned;
 use crate::prelude::*;
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::io::{Read, Write};
-use subprocess::Exec;
+use std::io::Write;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpc<T> {
@@ -14,6 +11,7 @@ pub struct JsonRpc<T> {
     pub method: String,
     pub params: T,
 }
+
 impl<T> JsonRpc<T> {
     pub fn new<U: Into<String>>(method: U, params: T) -> Self {
         JsonRpc {
@@ -50,15 +48,16 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
         .expect("Failed to spawn child process");
 
     {
-        let mut stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        let mut stdout = child.stdout.as_mut().expect("Failed to open stdout");
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-        let mut reader = BufReader::new(stdout);
+        let _reader = BufReader::new(stdout);
 
         let request = JsonRpc::new("init", args.clone());
         let request_raw = serde_json::to_string(&request).unwrap();
-        stdin.write(format!("{}\n", request_raw).as_bytes());
+        stdin.write(format!("{}\n", request_raw).as_bytes())?;
     }
+
     let mut eos = VecDeque::new();
     eos.push_back(Value::Primitive(Primitive::EndOfStream));
 
@@ -66,25 +65,25 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
         .chain(eos)
         .map(move |v| match v {
             Value::Primitive(Primitive::EndOfStream) => {
-                let mut stdin = child.stdin.as_mut().expect("Failed to open stdin");
-                let mut stdout = child.stdout.as_mut().expect("Failed to open stdout");
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+                let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-                let mut reader = BufReader::new(stdout);
+                let _ = BufReader::new(stdout);
                 let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
                 let request_raw = serde_json::to_string(&request).unwrap();
-                stdin.write(format!("{}\n", request_raw).as_bytes());
+                let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
 
                 VecDeque::new()
             }
             _ => {
-                let mut stdin = child.stdin.as_mut().expect("Failed to open stdin");
-                let mut stdout = child.stdout.as_mut().expect("Failed to open stdout");
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+                let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
                 let mut reader = BufReader::new(stdout);
 
                 let request = JsonRpc::new("filter", v);
                 let request_raw = serde_json::to_string(&request).unwrap();
-                stdin.write(format!("{}\n", request_raw).as_bytes());
+                let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
 
                 let mut input = String::new();
                 match reader.read_line(&mut input) {
@@ -101,7 +100,7 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
                             }
                         }
                     }
-                    Err(x) => {
+                    Err(_) => {
                         let mut result = VecDeque::new();
                         result.push_back(ReturnValue::Value(Value::Error(Box::new(
                             ShellError::string("Error while processing input"),

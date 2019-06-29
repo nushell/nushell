@@ -46,8 +46,8 @@ crate fn evaluate_baseline_expr(
             }
         }
         RawExpression::Block(block) => Ok(Spanned::from_item(
-            Value::Block(Block::new(*block.clone(), source.clone())),
-            block.span(),
+            Value::Block(Block::new(block.clone(), source.clone(), *expr.span())),
+            expr.span(),
         )),
         RawExpression::Path(path) => {
             let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;

@@ -3,6 +3,7 @@
 #![feature(async_await)]
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
+#![feature(box_syntax)]
 
 mod cli;
 mod commands;
@@ -19,6 +20,7 @@ mod shell;
 mod stream;
 
 pub use crate::commands::command::ReturnValue;
+pub use crate::parser::parse::span::SpannedItem;
 pub use crate::parser::Spanned;
 pub use cli::cli;
 pub use errors::ShellError;

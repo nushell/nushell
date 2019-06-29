@@ -9,10 +9,19 @@ use derive_new::new;
 use getset::Getters;
 
 crate use baseline_parse::baseline_parse_single_token;
-crate use baseline_parse_tokens::{baseline_parse_next_expr, ExpressionKindHint};
+crate use baseline_parse_tokens::{baseline_parse_next_expr, ExpressionKindHint, TokensIterator};
 crate use binary::Binary;
 crate use named::NamedArguments;
 crate use path::Path;
+
+pub fn path(head: impl Into<Expression>, tail: Vec<Spanned<impl Into<String>>>) -> Path {
+    Path::new(
+        head.into(),
+        tail.into_iter()
+            .map(|item| item.map(|string| string.into()))
+            .collect(),
+    )
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Getters, new)]
 pub struct Call {
@@ -29,7 +38,7 @@ pub enum RawExpression {
     Literal(Literal),
     Variable(Variable),
     Binary(Box<Binary>),
-    Block(Box<Expression>),
+    Block(Vec<Expression>),
     Path(Box<Path>),
 
     #[allow(unused)]
@@ -73,6 +82,12 @@ impl Expression {
             RawExpression::Variable(Variable::It(inner.into())),
             outer.into(),
         )
+    }
+}
+
+impl From<Spanned<Path>> for Expression {
+    fn from(path: Spanned<Path>) -> Expression {
+        path.map(|p| RawExpression::Path(Box::new(p)))
     }
 }
 

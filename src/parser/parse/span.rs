@@ -12,6 +12,14 @@ pub struct Spanned<T> {
     pub item: T,
 }
 
+pub trait SpannedItem: Sized {
+    fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
+        Spanned::from_item(self, span.into())
+    }
+}
+
+impl<T> SpannedItem for T {}
+
 impl<T> std::ops::Deref for Spanned<T> {
     type Target = T;
 
@@ -54,6 +62,12 @@ pub struct Span {
     crate start: usize,
     crate end: usize,
     // source: &'source str,
+}
+
+impl<T> From<&Spanned<T>> for Span {
+    fn from(input: &Spanned<T>) -> Span {
+        input.span
+    }
 }
 
 impl From<&Span> for Span {
