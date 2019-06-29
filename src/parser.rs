@@ -5,7 +5,7 @@ crate mod registry;
 
 use crate::errors::ShellError;
 
-crate use hir::baseline_parse_tokens::{baseline_parse_tokens, trace_remaining};
+crate use hir::baseline_parse_tokens::baseline_parse_tokens;
 crate use parse::call_node::CallNode;
 crate use parse::files::Files;
 crate use parse::flag::Flag;

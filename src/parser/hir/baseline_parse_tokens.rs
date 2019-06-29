@@ -6,7 +6,6 @@ use crate::parser::{
 };
 use crate::{SpannedItem, Text};
 use derive_new::new;
-use log::trace;
 
 pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
@@ -331,17 +330,4 @@ impl Iterator for TokensIterator<'a> {
             }
         }
     }
-}
-
-pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'a>, source: &Text) {
-    trace!(
-        "{} = {:?}",
-        desc,
-        itertools::join(
-            tail.debug_remaining()
-                .iter()
-                .map(|i| format!("%{:?}%", i.debug(source))),
-            " "
-        )
-    );
 }
