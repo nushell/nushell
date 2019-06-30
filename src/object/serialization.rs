@@ -24,6 +24,7 @@ impl Visitor<'_> for OF64Visitor {
     }
 }
 
+/*
 impl<'de> Deserialize<'de> for OF64 {
     fn deserialize<D>(deserializer: D) -> Result<OF64, D::Error>
     where
@@ -32,7 +33,9 @@ impl<'de> Deserialize<'de> for OF64 {
         deserializer.deserialize_f64(OF64Visitor)
     }
 }
+*/
 
+/*
 impl Serialize for Value {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -48,7 +51,7 @@ impl Serialize for Value {
         }
     }
 }
-
+*/
 struct ValueVisitor;
 
 impl<'de> Visitor<'de> for ValueVisitor {
@@ -102,6 +105,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 }
 
+/*
 impl<'de> Deserialize<'de> for Value {
     fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
     where
@@ -110,3 +114,4 @@ impl<'de> Deserialize<'de> for Value {
         deserializer.deserialize_any(ValueVisitor)
     }
 }
+*/

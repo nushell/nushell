@@ -72,7 +72,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("reject", reject::reject),
             command("trim", trim::trim),
             command("to-array", to_array::to_array),
-            command("to-ini", to_ini::to_ini),
             command("to-json", to_json::to_json),
             command("to-toml", to_toml::to_toml),
             command("sort-by", sort_by::sort_by),
