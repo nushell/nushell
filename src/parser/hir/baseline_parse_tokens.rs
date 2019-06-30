@@ -58,8 +58,10 @@ pub fn baseline_parse_next_expr(
 
     let second = match tokens.next() {
         None => {
-            return Err(ShellError::unimplemented(
-                "Expected op followed by another expr, found nothing",
+            return Err(ShellError::maybe_labeled_error(
+                "Expected something after an operator",
+                "operator",
+                Some(op.span),
             ))
         }
         Some(token) => baseline_parse_semantic_token(token, registry, source)?,
@@ -124,9 +126,11 @@ pub fn baseline_parse_next_expr(
                         item: hir::RawExpression::Variable(..),
                         ..
                     } => first,
-                    _ => {
-                        return Err(ShellError::unimplemented(
-                            "The first part of a block must be a string",
+                    Spanned { span, item } => {
+                        return Err(ShellError::labeled_error(
+                            "The first part of an un-braced block must be a column name",
+                            item.type_name(),
+                            span,
                         ))
                     }
                 };

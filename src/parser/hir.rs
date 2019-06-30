@@ -45,6 +45,19 @@ pub enum RawExpression {
     Boolean(bool),
 }
 
+impl RawExpression {
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            RawExpression::Literal(literal) => literal.type_name(),
+            RawExpression::Variable(..) => "variable",
+            RawExpression::Binary(..) => "binary",
+            RawExpression::Block(..) => "block",
+            RawExpression::Path(..) => "path",
+            RawExpression::Boolean(..) => "boolean",
+        }
+    }
+}
+
 pub type Expression = Spanned<RawExpression>;
 
 impl Expression {
@@ -97,6 +110,17 @@ pub enum Literal {
     Size(i64, Unit),
     String(Span),
     Bare,
+}
+
+impl Literal {
+    fn type_name(&self) -> &'static str {
+        match self {
+            Literal::Integer(_) => "integer",
+            Literal::Size(..) => "size",
+            Literal::String(..) => "string",
+            Literal::Bare => "string",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
