@@ -4,7 +4,6 @@ crate mod desc;
 crate mod dict;
 crate mod files;
 crate mod process;
-crate mod serialization;
 crate mod types;
 
 crate use base::{Primitive, Value};

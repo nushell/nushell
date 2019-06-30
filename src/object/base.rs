@@ -44,26 +44,6 @@ pub enum Primitive {
     EndOfStream,
 }
 
-/*
-impl Serialize for Primitive {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Primitive::Nothing => serializer.serialize_i32(0),
-            Primitive::EndOfStream => serializer.serialize_i32(0),
-            Primitive::Int(i) => serializer.serialize_i64(*i),
-            Primitive::Float(OF64 { inner: f }) => serializer.serialize_f64(f.into_inner()),
-            Primitive::Bytes(b) => serializer.serialize_u128(*b),
-            Primitive::String(ref s) => serializer.serialize_str(s),
-            Primitive::Boolean(b) => serializer.serialize_bool(*b),
-            Primitive::Date(d) => serializer.serialize_str(&d.to_string()),
-        }
-    }
-}
-*/
-
 impl Primitive {
     crate fn type_name(&self) -> String {
         use Primitive::*;
