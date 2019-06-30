@@ -1,6 +1,6 @@
-use crate::errors::ShellError;
+use crate::errors::{ArgumentError, ShellError};
 use crate::parser::registry::{CommandConfig, CommandRegistry, NamedType};
-use crate::parser::{baseline_parse_tokens, CallNode, Spanned};
+use crate::parser::{baseline_parse_tokens, CallNode, Span, Spanned};
 use crate::parser::{
     hir::{self, NamedArguments},
     Flag, RawToken, TokenNode,
@@ -14,13 +14,13 @@ pub fn parse_command(
     call: &Spanned<CallNode>,
     source: &Text,
 ) -> Result<hir::Call, ShellError> {
-    let Spanned { item: call, .. } = call;
+    let Spanned { item: raw_call, .. } = call;
 
     trace!("Processing {:?}", config);
 
     let head = parse_command_head(call.head())?;
 
-    let children: Option<Vec<TokenNode>> = call.children().as_ref().map(|nodes| {
+    let children: Option<Vec<TokenNode>> = raw_call.children().as_ref().map(|nodes| {
         nodes
             .iter()
             .cloned()
@@ -31,7 +31,7 @@ pub fn parse_command(
             .collect()
     });
 
-    match parse_command_tail(&config, registry, children, source)? {
+    match parse_command_tail(&config, registry, children, source, call.span)? {
         None => Ok(hir::Call::new(Box::new(head), None, None)),
         Some((positional, named)) => Ok(hir::Call::new(Box::new(head), positional, named)),
     }
@@ -66,9 +66,10 @@ fn parse_command_tail(
     registry: &dyn CommandRegistry,
     tail: Option<Vec<TokenNode>>,
     source: &Text,
+    command_span: Span,
 ) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
     let tail = &mut match &tail {
-        None => return Ok(None),
+        None => hir::TokensIterator::new(&[]),
         Some(tail) => hir::TokensIterator::new(tail),
     };
 
@@ -85,10 +86,19 @@ fn parse_command_tail(
 
                 named.insert_switch(name, flag);
             }
-            NamedType::Mandatory(kind) => match extract_mandatory(name, tail, source) {
+            NamedType::Mandatory(kind) => match extract_mandatory(name, tail, source, command_span)
+            {
                 Err(err) => return Err(err), // produce a correct diagnostic
-                Ok((pos, _flag)) => {
+                Ok((pos, flag)) => {
                     tail.move_to(pos);
+
+                    if tail.at_end() {
+                        return Err(ShellError::ArgumentError {
+                            error: ArgumentError::MissingValueForName(name.to_string()),
+                            span: flag.span,
+                        });
+                    }
+
                     let expr = hir::baseline_parse_next_expr(
                         tail,
                         registry,
@@ -102,8 +112,16 @@ fn parse_command_tail(
             },
             NamedType::Optional(kind) => match extract_optional(name, tail, source) {
                 Err(err) => return Err(err), // produce a correct diagnostic
-                Ok(Some((pos, _flag))) => {
+                Ok(Some((pos, flag))) => {
                     tail.move_to(pos);
+
+                    if tail.at_end() {
+                        return Err(ShellError::ArgumentError {
+                            error: ArgumentError::MissingValueForName(name.to_string()),
+                            span: flag.span,
+                        });
+                    }
+
                     let expr = hir::baseline_parse_next_expr(
                         tail,
                         registry,
@@ -132,7 +150,10 @@ fn parse_command_tail(
         trace!("Processing mandatory {:?}", arg);
 
         if tail.len() == 0 {
-            return Err(ShellError::unimplemented("Missing mandatory argument"));
+            return Err(ShellError::ArgumentError {
+                error: ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
+                span: command_span,
+            });
         }
 
         let result = hir::baseline_parse_next_expr(tail, registry, source, arg.to_coerce_hint())?;
@@ -189,23 +210,19 @@ fn extract_mandatory(
     name: &str,
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
-) -> Result<(usize, Flag), ShellError> {
+    span: Span,
+) -> Result<(usize, Spanned<Flag>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
-        None => Err(ShellError::unimplemented(
-            "Better error: mandatory flags must be present",
-        )),
+        None => Err(ShellError::ArgumentError {
+            error: ArgumentError::MissingMandatoryFlag(name.to_string()),
+            span,
+        }),
+
         Some((pos, flag)) => {
-            if tokens.len() <= pos {
-                return Err(ShellError::unimplemented(
-                    "Better errors: mandatory flags must be followed by values",
-                ));
-            }
-
             tokens.remove(pos);
-
-            Ok((pos, *flag))
+            Ok((pos, flag))
         }
     }
 }
@@ -214,21 +231,14 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
-) -> Result<(Option<(usize, Flag)>), ShellError> {
+) -> Result<(Option<(usize, Spanned<Flag>)>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
         None => Ok(None),
         Some((pos, flag)) => {
-            if tokens.len() <= pos {
-                return Err(ShellError::unimplemented(
-                    "Better errors: optional flags must be followed by values",
-                ));
-            }
-
             tokens.remove(pos);
-
-            Ok(Some((pos, *flag)))
+            Ok(Some((pos, flag)))
         }
     }
 }
