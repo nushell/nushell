@@ -29,7 +29,7 @@ crate fn dir_entry_dict(entry: &std::fs::DirEntry) -> Result<Dictionary, ShellEr
         Value::boolean(metadata.permissions().readonly()),
     );
 
-    dict.add("size", Value::bytes(metadata.len() as u128));
+    dict.add("size", Value::bytes(metadata.len() as u64));
 
     match metadata.created() {
         Ok(c) => dict.add("created", Value::system_date(c)),

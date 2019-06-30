@@ -62,31 +62,31 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
         let mut mem_idx = indexmap::IndexMap::new();
         mem_idx.insert(
             "total".to_string(),
-            Value::Primitive(Primitive::Bytes(x.total as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.total as u64 * 1024)),
         );
         mem_idx.insert(
             "free".to_string(),
-            Value::Primitive(Primitive::Bytes(x.free as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.free as u64 * 1024)),
         );
         mem_idx.insert(
             "avail".to_string(),
-            Value::Primitive(Primitive::Bytes(x.avail as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.avail as u64 * 1024)),
         );
         mem_idx.insert(
             "buffers".to_string(),
-            Value::Primitive(Primitive::Bytes(x.buffers as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.buffers as u64 * 1024)),
         );
         mem_idx.insert(
             "cached".to_string(),
-            Value::Primitive(Primitive::Bytes(x.cached as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.cached as u64 * 1024)),
         );
         mem_idx.insert(
             "swap total".to_string(),
-            Value::Primitive(Primitive::Bytes(x.swap_total as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.swap_total as u64 * 1024)),
         );
         mem_idx.insert(
             "swap free".to_string(),
-            Value::Primitive(Primitive::Bytes(x.swap_free as u128 * 1024)),
+            Value::Primitive(Primitive::Bytes(x.swap_free as u64 * 1024)),
         );
 
         idx.insert("mem".to_string(), Value::Object(Dictionary::from(mem_idx)));
@@ -151,10 +151,7 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 "temp".to_string(),
                 Value::float(component.get_temperature() as f64),
             );
-            component_idx.insert(
-                "max".to_string(),
-                Value::float(component.get_max() as f64),
-            );
+            component_idx.insert("max".to_string(), Value::float(component.get_max() as f64));
             if let Some(critical) = component.get_critical() {
                 component_idx.insert("critical".to_string(), Value::float(critical as f64));
             }
@@ -177,10 +174,7 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
                 "available".to_string(),
                 Value::bytes(disk.get_available_space()),
             );
-            disk_idx.insert(
-                "total".to_string(),
-                Value::bytes(disk.get_total_space()),
-            );
+            disk_idx.insert("total".to_string(), Value::bytes(disk.get_total_space()));
             v.push(Value::Object(Dictionary::from(disk_idx)));
         }
 
@@ -194,7 +188,10 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut network_idx = indexmap::IndexMap::new();
     network_idx.insert("incoming".to_string(), Value::bytes(incoming));
     network_idx.insert("outgoing".to_string(), Value::bytes(outgoing));
-    idx.insert("network".to_string(), Value::Object(Dictionary::from(network_idx)));
+    idx.insert(
+        "network".to_string(),
+        Value::Object(Dictionary::from(network_idx)),
+    );
 
     // println!("{:#?}", system.get_network());
 

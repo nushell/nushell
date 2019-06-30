@@ -23,7 +23,7 @@ dunce = "1.0.0"
 indexmap = { version = "1.0.2", features = ["serde-1"] }
 chrono-humanize = "0.0.11"
 byte-unit = "2.1.0"
-ordered-float = "1.0.2"
+ordered-float = {version = "1.0.2", features = ["serde"]}
 prettyprint = "0.7.0"
 futures-preview = { version = "0.3.0-alpha.16", features = ["compat", "io-compat"] }
 futures-sink-preview = "0.3.0-alpha.16"

@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         Value::Primitive(Primitive::Bytes(b)) => {
                             total += b as i64;
-                            send_response(vec![ReturnValue::Value(Value::bytes(total as u128))]);
+                            send_response(vec![ReturnValue::Value(Value::bytes(total as u64))]);
                         }
                         _ => {
                             send_response(vec![ReturnValue::Value(Value::Error(Box::new(

@@ -13,7 +13,7 @@ use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer}
 use std::fmt;
 use std::time::SystemTime;
 
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new)]
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new, Serialize, Deserialize)]
 pub struct OF64 {
     crate inner: OrderedFloat<f64>,
 }
@@ -30,36 +30,18 @@ impl From<f64> for OF64 {
     }
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
     Int(i64),
     #[allow(unused)]
     Float(OF64),
-    Bytes(u128),
+    Bytes(u64),
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
 
     EndOfStream,
-}
-
-impl Serialize for Primitive {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Primitive::Nothing => serializer.serialize_i32(0),
-            Primitive::EndOfStream => serializer.serialize_i32(0),
-            Primitive::Int(i) => serializer.serialize_i64(*i),
-            Primitive::Float(OF64 { inner: f }) => serializer.serialize_f64(f.into_inner()),
-            Primitive::Bytes(b) => serializer.serialize_u128(*b),
-            Primitive::String(ref s) => serializer.serialize_str(s),
-            Primitive::Boolean(b) => serializer.serialize_bool(*b),
-            Primitive::Date(d) => serializer.serialize_str(&d.to_string()),
-        }
-    }
 }
 
 impl Primitive {
@@ -99,7 +81,7 @@ impl Primitive {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
             Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
             Primitive::Bytes(b) => {
-                let byte = byte_unit::Byte::from_bytes(*b);
+                let byte = byte_unit::Byte::from_bytes(*b as u128);
 
                 if byte.get_bytes() == 0u128 {
                     return Color::Black.bold().paint("Empty".to_string()).to_string();
@@ -194,7 +176,7 @@ impl Block {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize)]
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
@@ -404,7 +386,7 @@ impl Value {
     crate fn as_i64(&self) -> Result<i64, ShellError> {
         match self {
             Value::Primitive(Primitive::Int(i)) => Ok(*i),
-            Value::Primitive(Primitive::Bytes(b)) if *b <= std::i64::MAX as u128 => Ok(*b as i64),
+            Value::Primitive(Primitive::Bytes(b)) => Ok(*b as i64),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected integer, got {:?}",
@@ -435,7 +417,7 @@ impl Value {
         Value::Primitive(Primitive::String(s.into()))
     }
 
-    pub fn bytes(s: impl Into<u128>) -> Value {
+    pub fn bytes(s: impl Into<u64>) -> Value {
         Value::Primitive(Primitive::Bytes(s.into()))
     }
 
@@ -529,20 +511,18 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
                     _ => false,
                 },
                 Value::Primitive(Primitive::Bytes(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < (*i2 as u128),
+                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < (*i2 as u64),
                     (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i > (*i2 as u128)
+                        i > (*i2 as u64)
                     }
                     (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i <= (*i2 as u128)
+                        i <= (*i2 as u64)
                     }
                     (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= (*i2 as u128)
+                        i >= (*i2 as u64)
                     }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == (*i2 as u128),
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i != (*i2 as u128)
-                    }
+                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == (*i2 as u64),
+                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != (*i2 as u64),
                     _ => false,
                 },
                 Value::Primitive(Primitive::Int(i)) => match (op, rhs) {

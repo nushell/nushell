@@ -68,28 +68,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         Value::Primitive(Primitive::Bytes(b)) => {
                             send_response(vec![ReturnValue::Value(Value::bytes(
-                                b + inc_by as u128,
+                                b + inc_by as u64,
                             ))]);
                         }
-                        _ => {
+                        x => {
                             send_response(vec![ReturnValue::Value(Value::Error(Box::new(
-                                ShellError::string("Unrecognized type in stream"),
+                                ShellError::string(format!("Unrecognized type in stream: {:?}", x)),
                             )))]);
                         }
                     },
                     Ok(NuCommand::quit) => {
                         break;
                     }
-                    Err(_) => {
+                    Err(e) => {
                         send_response(vec![ReturnValue::Value(Value::Error(Box::new(
-                            ShellError::string("Unrecognized type in stream"),
+                            ShellError::string(format!(
+                                "Unrecognized type in stream: {} {:?}",
+                                input, e
+                            )),
                         )))]);
                     }
                 }
             }
             Err(_) => {
                 send_response(vec![ReturnValue::Value(Value::Error(Box::new(
-                    ShellError::string("Unrecognized type in stream"),
+                    ShellError::string(format!("Unrecognized type in stream: {}", input)),
                 )))]);
             }
         }
