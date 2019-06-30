@@ -46,6 +46,13 @@ impl PositionalType {
             PositionalType::Block(_) => Some(ExpressionKindHint::Block),
         }
     }
+
+    crate fn name(&self) -> &str {
+        match self {
+            PositionalType::Value(s) => s,
+            PositionalType::Block(s) => s,
+        }
+    }
 }
 
 #[derive(Debug, Getters)]

@@ -2,6 +2,7 @@
 use crate::prelude::*;
 
 use crate::parser::{Span, Spanned};
+use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -34,6 +35,13 @@ impl Description {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ArgumentError {
+    MissingMandatoryFlag(String),
+    MissingMandatoryPositional(String),
+    MissingValueForName(String),
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ShellError {
     String(StringError),
     TypeError {
@@ -43,6 +51,10 @@ pub enum ShellError {
     MissingProperty {
         subpath: Description,
         expr: Description,
+    },
+    ArgumentError {
+        error: ArgumentError,
+        span: Span,
     },
     Diagnostic(ShellDiagnostic),
     CoerceError {
@@ -107,6 +119,32 @@ impl ShellError {
             ShellError::String(StringError { title, .. }) => {
                 Diagnostic::new(Severity::Error, title)
             }
+            ShellError::ArgumentError { error, span } => match error {
+                ArgumentError::MissingMandatoryFlag(name) => Diagnostic::new(
+                    Severity::Error,
+                    format!(
+                        "Command requires {}{}",
+                        Color::Cyan.paint("--"),
+                        Color::Cyan.paint(name)
+                    ),
+                )
+                .with_label(Label::new_primary(span)),
+                ArgumentError::MissingMandatoryPositional(name) => Diagnostic::new(
+                    Severity::Error,
+                    format!("Command requires {}", Color::Cyan.paint(name)),
+                )
+                .with_label(Label::new_primary(span)),
+
+                ArgumentError::MissingValueForName(name) => Diagnostic::new(
+                    Severity::Error,
+                    format!(
+                        "Missing value for flag {}{}",
+                        Color::Cyan.paint("--"),
+                        Color::Cyan.paint(name)
+                    ),
+                )
+                .with_label(Label::new_primary(span)),
+            },
             ShellError::TypeError {
                 expected,
                 actual:
@@ -271,6 +309,7 @@ impl std::fmt::Display for ShellError {
             ShellError::String(s) => write!(f, "{}", &s.title),
             ShellError::TypeError { .. } => write!(f, "TypeError"),
             ShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
+            ShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
             ShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
             ShellError::CoerceError { .. } => write!(f, "CoerceError"),
         }
