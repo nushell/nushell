@@ -33,6 +33,10 @@ impl Command for Config {
             optional_positional: vec![],
             rest_positional: false,
             named,
+            is_sink: true,
+            is_filter: false,
+            can_load: vec![],
+            can_save: vec![],
         }
     }
 }

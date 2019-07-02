@@ -1,3 +1,4 @@
+use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use serde::{self, Deserialize, Serialize};
@@ -26,21 +27,23 @@ impl<T> JsonRpc<T> {
 #[serde(tag = "method")]
 #[allow(non_camel_case_types)]
 pub enum NuResult {
-    response { params: VecDeque<ReturnValue> },
+    response {
+        params: Result<VecDeque<ReturnValue>, ShellError>,
+    },
 }
 
-pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let input = args.input;
-    let args = if let Some(ref positional) = args.args.positional {
-        positional.clone()
-    } else {
-        vec![]
-    };
-
+pub fn filter_plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut path = std::path::PathBuf::from(".");
     path.push("target");
     path.push("debug");
     path.push(format!("nu_plugin_{}", plugin_name));
+
+    path = if path.exists() {
+        path
+    } else {
+        std::path::PathBuf::from(format!("nu_plugin_{}", plugin_name))
+    };
+
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -53,7 +56,7 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
 
         let _reader = BufReader::new(stdout);
 
-        let request = JsonRpc::new("init", args.clone());
+        let request = JsonRpc::new("begin_filter", args.args);
         let request_raw = serde_json::to_string(&request).unwrap();
         stdin.write(format!("{}\n", request_raw).as_bytes())?;
     }
@@ -61,7 +64,8 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
     let mut eos = VecDeque::new();
     eos.push_back(Value::Primitive(Primitive::EndOfStream));
 
-    let stream = input
+    let stream = args
+        .input
         .chain(eos)
         .map(move |v| match v {
             Value::Primitive(Primitive::EndOfStream) => {
@@ -90,20 +94,30 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
                     Ok(_) => {
                         let response = serde_json::from_str::<NuResult>(&input);
                         match response {
-                            Ok(NuResult::response { params }) => params,
-                            Err(_) => {
+                            Ok(NuResult::response { params }) => match params {
+                                Ok(params) => params,
+                                Err(e) => {
+                                    let mut result = VecDeque::new();
+                                    result.push_back(ReturnValue::Value(Value::Error(Box::new(e))));
+                                    result
+                                }
+                            },
+                            Err(e) => {
                                 let mut result = VecDeque::new();
                                 result.push_back(ReturnValue::Value(Value::Error(Box::new(
-                                    ShellError::string("Error while processing input"),
+                                    ShellError::string(format!(
+                                        "Error while processing input: {:?} {}",
+                                        e, input
+                                    )),
                                 ))));
                                 result
                             }
                         }
                     }
-                    Err(_) => {
+                    Err(e) => {
                         let mut result = VecDeque::new();
                         result.push_back(ReturnValue::Value(Value::Error(Box::new(
-                            ShellError::string("Error while processing input"),
+                            ShellError::string(format!("Error while processing input: {:?}", e)),
                         ))));
                         result
                     }
@@ -113,4 +127,32 @@ pub fn plugin(plugin_name: String, args: CommandArgs) -> Result<OutputStream, Sh
         .flatten();
 
     Ok(stream.boxed())
+}
+
+pub fn sink_plugin(plugin_name: String, args: SinkCommandArgs) -> Result<(), ShellError> {
+    let mut path = std::path::PathBuf::from(".");
+    path.push("target");
+    path.push("debug");
+    path.push(format!("nu_plugin_{}", plugin_name));
+
+    path = if path.exists() {
+        path
+    } else {
+        std::path::PathBuf::from(format!("nu_plugin_{}", plugin_name))
+    };
+
+    let mut child = std::process::Command::new(path)
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn child process");
+
+    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+
+    let request = JsonRpc::new("sink", (args.args, args.input));
+    let request_raw = serde_json::to_string(&request).unwrap();
+    stdin.write(format!("{}\n", request_raw).as_bytes())?;
+
+    let _ = child.wait();
+
+    Ok(())
 }

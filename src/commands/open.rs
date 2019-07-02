@@ -28,11 +28,19 @@ impl Command for Open {
             optional_positional: vec![],
             rest_positional: false,
             named,
+            is_filter: true,
+            is_sink: false,
+            can_load: vec![],
+            can_save: vec![],
         }
     }
 }
 
-pub fn fetch(cwd: &PathBuf, location: &str, span: Span) -> Result<(Option<String>, String), ShellError> {
+pub fn fetch(
+    cwd: &PathBuf,
+    location: &str,
+    span: Span,
+) -> Result<(Option<String>, String), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
@@ -154,9 +162,7 @@ pub fn parse_as_value(
                     name_span,
                 )
             }),
-        _ => {
-            Ok(Value::string(contents))
-        }
+        _ => Ok(Value::string(contents)),
     }
 }
 

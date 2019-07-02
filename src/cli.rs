@@ -80,8 +80,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Config),
             Arc::new(SkipWhile),
             command("sort-by", sort_by::sort_by),
-            command("inc", |x| plugin::plugin("inc".into(), x)),
-            command("sum", |x| plugin::plugin("sum".into(), x)),
+            command("inc", |x| plugin::filter_plugin("inc".into(), x)),
         ]);
 
         context.add_sinks(vec![
@@ -91,6 +90,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             sink("table", table::table),
             sink("tree", tree::tree),
             sink("vtable", vtable::vtable),
+            sink("sum", |x| plugin::sink_plugin("sum".into(), x)),
         ]);
     }
 

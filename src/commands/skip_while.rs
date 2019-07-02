@@ -20,6 +20,10 @@ impl Command for SkipWhile {
             optional_positional: vec![],
             rest_positional: false,
             named: indexmap::IndexMap::new(),
+            is_filter: true,
+            is_sink: false,
+            can_load: vec![],
+            can_save: vec![],
         }
     }
 }

@@ -1,102 +1,49 @@
-use nu::{Primitive, ReturnValue, ShellError, Spanned, Value};
-use serde::{Deserialize, Serialize};
-use std::io;
+use nu::{serve_plugin, Args, Plugin, Primitive, ReturnValue, ShellError, Spanned, Value};
 
-/// A wrapper for proactive notifications to the IDE (eg. diagnostics). These must
-/// follow the JSON 2.0 RPC spec
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JsonRpc<T> {
-    jsonrpc: String,
-    pub method: String,
-    pub params: Vec<T>,
+struct Inc {
+    inc_by: i64,
 }
-impl<T> JsonRpc<T> {
-    pub fn new<U: Into<String>>(method: U, params: Vec<T>) -> Self {
-        JsonRpc {
-            jsonrpc: "2.0".into(),
-            method: method.into(),
-            params,
-        }
+impl Inc {
+    fn new() -> Inc {
+        Inc { inc_by: 1 }
     }
 }
 
-fn send_response<T: Serialize>(result: Vec<T>) {
-    let response = JsonRpc::new("response", result);
-    let response_raw = serde_json::to_string(&response).unwrap();
-    println!("{}", response_raw);
-}
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "method")]
-#[allow(non_camel_case_types)]
-pub enum NuCommand {
-    init { params: Vec<Spanned<Value>> },
-    filter { params: Value },
-    quit,
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut inc_by = 1;
-
-    loop {
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(_) => {
-                let command = serde_json::from_str::<NuCommand>(&input);
-
-                match command {
-                    Ok(NuCommand::init { params }) => {
-                        for param in params {
-                            match param {
-                                Spanned {
-                                    item: Value::Primitive(Primitive::Int(i)),
-                                    ..
-                                } => {
-                                    inc_by = i;
-                                }
-                                _ => {
-                                    send_response(vec![ReturnValue::Value(Value::Error(
-                                        Box::new(ShellError::string("Unrecognized type in params")),
-                                    ))]);
-                                }
-                            }
-                        }
+impl Plugin for Inc {
+    fn begin_filter(&mut self, args: Args) -> Result<(), ShellError> {
+        if let Some(args) = args.positional {
+            for arg in args {
+                match arg {
+                    Spanned {
+                        item: Value::Primitive(Primitive::Int(i)),
+                        ..
+                    } => {
+                        self.inc_by = i;
                     }
-                    Ok(NuCommand::filter { params }) => match params {
-                        Value::Primitive(Primitive::Int(i)) => {
-                            send_response(vec![ReturnValue::Value(Value::int(i + inc_by))]);
-                        }
-                        Value::Primitive(Primitive::Bytes(b)) => {
-                            send_response(vec![ReturnValue::Value(Value::bytes(
-                                b + inc_by as u64,
-                            ))]);
-                        }
-                        x => {
-                            send_response(vec![ReturnValue::Value(Value::Error(Box::new(
-                                ShellError::string(format!("Unrecognized type in stream: {:?}", x)),
-                            )))]);
-                        }
-                    },
-                    Ok(NuCommand::quit) => {
-                        break;
-                    }
-                    Err(e) => {
-                        send_response(vec![ReturnValue::Value(Value::Error(Box::new(
-                            ShellError::string(format!(
-                                "Unrecognized type in stream: {} {:?}",
-                                input, e
-                            )),
-                        )))]);
-                    }
+                    _ => return Err(ShellError::string("Unrecognized type in params")),
                 }
             }
-            Err(_) => {
-                send_response(vec![ReturnValue::Value(Value::Error(Box::new(
-                    ShellError::string(format!("Unrecognized type in stream: {}", input)),
-                )))]);
-            }
         }
+
+        Ok(())
     }
 
-    Ok(())
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
+        match input {
+            Value::Primitive(Primitive::Int(i)) => {
+                Ok(vec![ReturnValue::Value(Value::int(i + self.inc_by))])
+            }
+            Value::Primitive(Primitive::Bytes(b)) => Ok(vec![ReturnValue::Value(Value::bytes(
+                b + self.inc_by as u64,
+            ))]),
+            x => Err(ShellError::string(format!(
+                "Unrecognized type in stream: {:?}",
+                x
+            ))),
+        }
+    }
+}
+
+fn main() {
+    serve_plugin(&mut Inc::new());
 }

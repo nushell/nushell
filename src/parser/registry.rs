@@ -5,17 +5,18 @@ use derive_new::new;
 use getset::Getters;
 use indexmap::IndexMap;
 use log::trace;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum NamedType {
     Switch,
     Mandatory(NamedValue),
     Optional(NamedValue),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum NamedValue {
     Single,
 
@@ -33,7 +34,7 @@ impl NamedValue {
 }
 
 #[allow(unused)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
     Value(String),
     Block(String),
@@ -55,17 +56,21 @@ impl PositionalType {
     }
 }
 
-#[derive(Debug, Getters)]
+#[derive(Debug, Getters, Serialize, Deserialize)]
 #[get = "crate"]
 pub struct CommandConfig {
-    crate name: String,
-    crate mandatory_positional: Vec<PositionalType>,
-    crate optional_positional: Vec<PositionalType>,
-    crate rest_positional: bool,
-    crate named: IndexMap<String, NamedType>,
+    pub name: String,
+    pub mandatory_positional: Vec<PositionalType>,
+    pub optional_positional: Vec<PositionalType>,
+    pub rest_positional: bool,
+    pub named: IndexMap<String, NamedType>,
+    pub is_filter: bool,
+    pub is_sink: bool,
+    pub can_load: Vec<String>,
+    pub can_save: Vec<String>,
 }
 
-#[derive(Debug, Default, new)]
+#[derive(Debug, Default, new, Serialize, Deserialize)]
 pub struct Args {
     pub positional: Option<Vec<Spanned<Value>>>,
     pub named: Option<IndexMap<String, Spanned<Value>>>,
