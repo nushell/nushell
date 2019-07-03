@@ -21,7 +21,7 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
         Value::Object(o) => {
             let mut m = toml::map::Map::new();
             for (k, v) in o.entries.iter() {
-                m.insert(k.name.display().to_string(), value_to_toml_value(v));
+                m.insert(k.clone(), value_to_toml_value(v));
             }
             toml::Value::Table(m)
         }

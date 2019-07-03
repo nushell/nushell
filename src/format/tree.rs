@@ -26,7 +26,7 @@ impl TreeView {
             }
             Value::Object(o) => {
                 for (k, v) in o.entries.iter() {
-                    builder = builder.begin_child(k.name.display().to_string());
+                    builder = builder.begin_child(k.clone());
                     Self::from_value_helper(v, builder);
                     builder = builder.end_child();
                 }
@@ -49,7 +49,7 @@ impl TreeView {
 
         for desc in descs {
             let value = value.get_data(&desc);
-            builder = builder.begin_child(desc.name.display().to_string());
+            builder = builder.begin_child(desc.clone());
             Self::from_value_helper(value.borrow(), &mut builder);
             builder = builder.end_child();
             //entries.push((desc.name.clone(), value.borrow().copy()))

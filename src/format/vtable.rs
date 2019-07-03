@@ -1,5 +1,5 @@
 use crate::format::RenderView;
-use crate::object::{DescriptorName, Value};
+use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
@@ -29,11 +29,7 @@ impl VTableView {
         for header in headers {
             let mut row = vec![];
 
-            if let DescriptorName::String(s) = &header.name {
-                row.push(s.clone());
-            } else {
-                row.push("value".to_string());
-            }
+            row.push(header.clone());
             for value in values {
                 row.push(value.get_data(&header).borrow().format_leaf(Some(&header)));
             }

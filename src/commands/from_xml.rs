@@ -1,4 +1,4 @@
-use crate::object::{DataDescriptor, Dictionary, Primitive, Value};
+use crate::object::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 
 fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
@@ -25,10 +25,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
             .collect();
 
         let mut collected = Dictionary::default();
-        collected.add(
-            DataDescriptor::from(name.clone()),
-            Value::List(children_values),
-        );
+        collected.add(name.clone(), Value::List(children_values));
 
         Value::Object(collected)
     } else if n.is_comment() {

@@ -1,23 +1,21 @@
 use crate::prelude::*;
 
-use crate::object::DataDescriptor;
 use crate::object::{Primitive, Value};
 use derive_new::new;
 use indexmap::IndexMap;
-use serde::ser::{Serialize, SerializeMap, Serializer};
-use serde_derive::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
 use std::fmt;
 
-#[derive(Debug, Default, Eq, PartialEq, Deserialize, Clone, new)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, new)]
 pub struct Dictionary {
-    pub entries: IndexMap<DataDescriptor, Value>,
+    pub entries: IndexMap<String, Value>,
 }
 
 impl PartialOrd for Dictionary {
     fn partial_cmp(&self, other: &Dictionary) -> Option<Ordering> {
-        let this: Vec<&DataDescriptor> = self.entries.keys().collect();
-        let that: Vec<&DataDescriptor> = other.entries.keys().collect();
+        let this: Vec<&String> = self.entries.keys().collect();
+        let that: Vec<&String> = other.entries.keys().collect();
 
         if this != that {
             return this.partial_cmp(&that);
@@ -30,34 +28,12 @@ impl PartialOrd for Dictionary {
     }
 }
 
-impl Serialize for Dictionary {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(self.entries.len()))?;
-        for (k, v) in self.entries.iter() {
-            match v {
-                Value::Object(_) => {}
-                _ => map.serialize_entry(k, v)?,
-            }
-        }
-        for (k, v) in self.entries.iter() {
-            match v {
-                Value::Object(_) => map.serialize_entry(k, v)?,
-                _ => {}
-            }
-        }
-        map.end()
-    }
-}
-
 impl From<IndexMap<String, Value>> for Dictionary {
     fn from(input: IndexMap<String, Value>) -> Dictionary {
         let mut out = IndexMap::default();
 
         for (key, value) in input {
-            out.insert(DataDescriptor::for_string_name(key), value);
+            out.insert(key, value);
         }
 
         Dictionary::new(out)
@@ -66,8 +42,8 @@ impl From<IndexMap<String, Value>> for Dictionary {
 
 impl Ord for Dictionary {
     fn cmp(&self, other: &Dictionary) -> Ordering {
-        let this: Vec<&DataDescriptor> = self.entries.keys().collect();
-        let that: Vec<&DataDescriptor> = other.entries.keys().collect();
+        let this: Vec<&String> = self.entries.keys().collect();
+        let that: Vec<&String> = other.entries.keys().collect();
 
         if this != that {
             return this.cmp(&that);
@@ -96,7 +72,7 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    crate fn add(&mut self, name: impl Into<DataDescriptor>, value: Value) {
+    crate fn add(&mut self, name: impl Into<String>, value: Value) {
         self.entries.insert(name.into(), value);
     }
 
@@ -104,17 +80,13 @@ impl Dictionary {
         let mut out = Dictionary::default();
 
         for (key, value) in self.entries.iter() {
-            out.add(key.copy(), value.copy());
+            out.add(key.clone(), value.copy());
         }
 
         out
     }
 
-    crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
-        self.entries.iter().map(|(name, _)| name.copy()).collect()
-    }
-
-    crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
+    crate fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),
@@ -125,7 +97,7 @@ impl Dictionary {
         match self
             .entries
             .iter()
-            .find(|(desc_name, _)| desc_name.name.is_string(name))
+            .find(|(desc_name, _)| *desc_name == name)
         {
             Some((_, v)) => Some(v),
             None => None,
@@ -136,7 +108,7 @@ impl Dictionary {
         let mut debug = f.debug_struct("Dictionary");
 
         for (desc, value) in self.entries.iter() {
-            debug.field(desc.name.debug(), &value.debug());
+            debug.field(desc, &value.debug());
         }
 
         debug.finish()

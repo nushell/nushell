@@ -1,5 +1,5 @@
 use crate::object::base::OF64;
-use crate::object::{DataDescriptor, Dictionary, Primitive, Value};
+use crate::object::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 
 fn convert_json_value_to_nu_value(v: &serde_hjson::Value) -> Value {
@@ -18,10 +18,7 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value) -> Value {
         serde_hjson::Value::Object(o) => {
             let mut collected = Dictionary::default();
             for (k, v) in o.iter() {
-                collected.add(
-                    DataDescriptor::from(k.clone()),
-                    convert_json_value_to_nu_value(v),
-                );
+                collected.add(k.clone(), convert_json_value_to_nu_value(v));
             }
             Value::Object(collected)
         }

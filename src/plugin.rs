@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::io;
 
 pub trait Plugin {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Err(ShellError::string("`config` not implemented in plugin"))
-    }
+    fn config(&mut self) -> Result<CommandConfig, ShellError>;
     #[allow(unused)]
     fn begin_filter(&mut self, args: Args) -> Result<(), ShellError> {
         Err(ShellError::string(
@@ -50,8 +48,8 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     }
                     e => {
                         send_response(ShellError::string(format!(
-                            "Could not handle plugin message: {:?}",
-                            e,
+                            "Could not handle plugin message: {} {:?}",
+                            input, e
                         )));
                         break;
                     }

@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::object::DataDescriptor;
 use crate::parser::{hir, Operator, Span, Spanned};
 use crate::prelude::*;
 use crate::Text;
@@ -76,7 +75,7 @@ impl Primitive {
         }
     }
 
-    crate fn format(&self, field_name: Option<&DataDescriptor>) -> String {
+    crate fn format(&self, field_name: Option<&String>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
             Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
@@ -100,8 +99,8 @@ impl Primitive {
             Primitive::Boolean(b) => match (b, field_name) {
                 (true, None) => format!("Yes"),
                 (false, None) => format!("No"),
-                (true, Some(s)) if s.is_string_name() => format!("{}", s.display_header()),
-                (false, Some(s)) if s.is_string_name() => format!(""),
+                (true, Some(s)) if !s.is_empty() => format!("{}", s),
+                (false, Some(s)) if !s.is_empty() => format!(""),
                 (true, Some(_)) => format!("Yes"),
                 (false, Some(_)) => format!("No"),
             },
@@ -245,13 +244,18 @@ impl Value {
         ValueDebug { value: self }
     }
 
-    crate fn data_descriptors(&self) -> Vec<DataDescriptor> {
+    crate fn data_descriptors(&self) -> Vec<String> {
         match self {
-            Value::Primitive(_) => vec![DataDescriptor::value_of()],
-            Value::Object(o) => o.data_descriptors(),
-            Value::Block(_) => vec![DataDescriptor::value_of()],
+            Value::Primitive(_) => vec![],
+            Value::Object(o) => o
+                .entries
+                .keys()
+                .into_iter()
+                .map(|x| x.to_string())
+                .collect(),
+            Value::Block(_) => vec![],
             Value::List(_) => vec![],
-            Value::Error(_) => vec![DataDescriptor::value_of()],
+            Value::Error(_) => vec![],
             Value::Filesystem => vec![],
         }
     }
@@ -282,7 +286,7 @@ impl Value {
         }
     }
 
-    crate fn get_data(&'a self, desc: &DataDescriptor) -> MaybeOwned<'a, Value> {
+    crate fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             p @ Value::Filesystem => MaybeOwned::Borrowed(p),
@@ -307,7 +311,7 @@ impl Value {
         }
     }
 
-    crate fn format_leaf(&self, desc: Option<&DataDescriptor>) -> String {
+    crate fn format_leaf(&self, desc: Option<&String>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
             Value::Block(b) => itertools::join(
@@ -471,9 +475,9 @@ crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     let descs = obj.data_descriptors();
 
     for field in fields {
-        match descs.iter().find(|d| d.name.is_string(field)) {
-            None => out.add(DataDescriptor::for_string_name(field), Value::nothing()),
-            Some(desc) => out.add(desc.copy(), obj.get_data(desc).borrow().copy()),
+        match descs.iter().find(|d| *d == field) {
+            None => out.add(field, Value::nothing()),
+            Some(desc) => out.add(desc.clone(), obj.get_data(desc).borrow().copy()),
         }
     }
 
@@ -486,10 +490,9 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     let descs = obj.data_descriptors();
 
     for desc in descs {
-        match desc.name.as_string() {
-            None => continue,
-            Some(s) if fields.iter().any(|field| field == s) => continue,
-            Some(_) => out.add(desc.copy(), obj.get_data(&desc).borrow().copy()),
+        match desc {
+            x if fields.iter().any(|field| *field == x) => continue,
+            _ => out.add(desc.clone(), obj.get_data(&desc).borrow().copy()),
         }
     }
 
@@ -499,7 +502,7 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
 #[allow(unused)]
 crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     let descs = obj.data_descriptors();
-    match descs.iter().find(|d| d.name.is_string(field)) {
+    match descs.iter().find(|d| *d == field) {
         None => false,
         Some(desc) => {
             let v = obj.get_data(desc).borrow().copy();
