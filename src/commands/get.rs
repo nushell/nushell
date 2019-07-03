@@ -3,22 +3,22 @@ use crate::object::Value;
 use crate::parser::Span;
 use crate::prelude::*;
 
-fn get_member(path: &str, span: Span, obj: &Value) -> Option<Value> {
+fn get_member(path: &str, span: Span, obj: &Value) -> Result<Value, ShellError> {
     let mut current = obj;
     for p in path.split(".") {
         match current.get_data_by_key(p) {
             Some(v) => current = v,
             None => {
-                return Some(Value::Error(Box::new(ShellError::labeled_error(
+                return Err(ShellError::labeled_error(
                     "Unknown field",
                     "object missing field",
                     span,
-                ))));
+                ));
             }
         }
     }
 
-    Some(current.copy())
+    Ok(current.copy())
 }
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -36,10 +36,10 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if let Ok(amount) = amount {
         return Ok(args
             .input
+            .values
             .skip(amount as u64)
             .take(1)
-            .map(|v| ReturnValue::Value(v))
-            .boxed());
+            .from_input_stream());
     }
 
     let fields: Result<Vec<(String, Span)>, _> = args
@@ -51,17 +51,18 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let stream = args
         .input
+        .values
         .map(move |item| {
             let mut result = VecDeque::new();
             for field in &fields {
                 match get_member(&field.0, field.1, &item) {
-                    Some(Value::List(l)) => {
+                    Ok(Value::List(l)) => {
                         for item in l {
-                            result.push_back(ReturnValue::Value(item.copy()));
+                            result.push_back(ReturnSuccess::value(item.copy()));
                         }
                     }
-                    Some(x) => result.push_back(ReturnValue::Value(x.copy())),
-                    None => {}
+                    Ok(x) => result.push_back(ReturnSuccess::value(x.copy())),
+                    Err(_) => {}
                 }
             }
 
@@ -69,5 +70,5 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         })
         .flatten();
 
-    Ok(stream.boxed())
+    Ok(stream.to_output_stream())
 }

@@ -35,13 +35,14 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
     let span = args.name_span;
     Ok(out
-        .map(move |a| match toml::to_string(&value_to_toml_value(&a)) {
-            Ok(x) => ReturnValue::Value(Value::Primitive(Primitive::String(x))),
-            Err(_) => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+        .values
+        .map(move |a| match toml::to_string(&a) {
+            Ok(x) => ReturnSuccess::value(Value::Primitive(Primitive::String(x))),
+            Err(_) => Err(ShellError::maybe_labeled_error(
                 "Can not convert to TOML string",
                 "can not convert piped data to TOML string",
                 span,
-            )))),
+            )),
         })
-        .boxed())
+        .to_output_stream())
 }

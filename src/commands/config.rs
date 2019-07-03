@@ -1,10 +1,13 @@
+#[macro_use]
+use crate::prelude::*;
+
 use crate::errors::ShellError;
 use crate::object::config;
 use crate::object::Value;
 use crate::parser::registry::{CommandConfig, NamedType, NamedValue};
-use crate::prelude::*;
 use indexmap::IndexMap;
 use log::trace;
+use std::iter::FromIterator;
 
 pub struct Config;
 
@@ -29,8 +32,7 @@ impl Command for Config {
 
         CommandConfig {
             name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             rest_positional: false,
             named,
             is_sink: true,
@@ -54,8 +56,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
 
         return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(value.clone())))
-                .boxed(),
+            vec![value.clone()].into(), // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
         );
     }
 
@@ -65,12 +66,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             config::write_config(&result)?;
 
-            return Ok(
-                futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                    result.into(),
-                ))))
-                .boxed(),
-            );
+            return Ok(stream![Value::Object(result.into())].from_input_stream());
         }
     }
 
@@ -79,12 +75,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         config::write_config(&result)?;
 
-        return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                result.into(),
-            ))))
-            .boxed(),
-        );
+        return Ok(stream![Value::Object(result.into())].from_input_stream());
     }
 
     if let Some(v) = args.get("remove") {
@@ -99,21 +90,12 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )));
         }
 
-        return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                result.into(),
-            ))))
-            .boxed(),
-        );
+        let obj = VecDeque::from_iter(vec![Value::Object(result.into())]);
+        return Ok(obj.from_input_stream());
     }
 
     if args.len() == 0 {
-        return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                result.into(),
-            ))))
-            .boxed(),
-        );
+        return Ok(vec![Value::Object(result.into())].into());
     }
 
     Err(ShellError::string(format!("Unimplemented")))

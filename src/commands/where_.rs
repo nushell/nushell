@@ -1,55 +1,23 @@
 use crate::errors::ShellError;
-use crate::parser::registry::{CommandConfig, PositionalType};
+use crate::object::Block;
 use crate::prelude::*;
+use futures::future::ready;
+use log::trace;
 
-pub struct Where;
+command! {
+    Where as where(args, condition: Block) {
+        let input: InputStream = trace_stream!("where input" = args.input);
 
-impl Command for Where {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        r#where(args)
+        input.values.filter_map(move |item| {
+            let result = condition.invoke(&item);
+
+            let return_value = match result {
+                Err(err) => Some(Err(err)),
+                Ok(v) if v.is_true() => Some(Ok(ReturnSuccess::Value(item.copy()))),
+                _ => None,
+            };
+
+           ready(return_value)
+        })
     }
-    fn name(&self) -> &str {
-        "where"
-    }
-
-    fn config(&self) -> CommandConfig {
-        CommandConfig {
-            name: self.name().to_string(),
-            mandatory_positional: vec![PositionalType::Block("condition".to_string())],
-            optional_positional: vec![],
-            rest_positional: false,
-            named: indexmap::IndexMap::new(),
-            is_filter: true,
-            is_sink: false,
-            can_load: vec![],
-            can_save: vec![],
-        }
-    }
-}
-
-pub fn r#where(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
-            "Where requires a condition",
-            "needs condition",
-            args.name_span,
-        ));
-    }
-
-    let block = args.expect_nth(0)?.as_block()?;
-    let input = args.input;
-
-    let objects = input.filter_map(move |item| {
-        let result = block.invoke(&item);
-
-        let return_value = match result {
-            Err(err) => Some(ReturnValue::Value(Value::Error(Box::new(err)))),
-            Ok(v) if v.is_true() => Some(ReturnValue::Value(item.copy())),
-            _ => None,
-        };
-
-        futures::future::ready(return_value)
-    });
-
-    Ok(objects.boxed())
 }

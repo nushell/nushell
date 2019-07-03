@@ -8,7 +8,7 @@ use log::trace;
 pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let positional: Vec<_> = args.positional_iter().cloned().collect();
     let span = args.name_span;
-    
+
     if positional.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Split-column needs more information",
@@ -20,6 +20,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
 
     Ok(input
+        .values
         .map(move |v| match v {
             Value::Primitive(Primitive::String(s)) => {
                 let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
@@ -39,7 +40,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
                         dict.add(v.clone(), Value::Primitive(Primitive::String(k.into())));
                     }
-                    ReturnValue::Value(Value::Object(dict))
+                    ReturnSuccess::value(Value::Object(dict))
                 } else if split_result.len() == (positional.len() - 1) {
                     let mut dict = crate::object::Dictionary::default();
                     for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
@@ -48,7 +49,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             Value::Primitive(Primitive::String(k.into())),
                         );
                     }
-                    ReturnValue::Value(Value::Object(dict))
+                    ReturnSuccess::value(Value::Object(dict))
                 } else {
                     let mut dict = crate::object::Dictionary::default();
                     for k in positional.iter().skip(1) {
@@ -57,14 +58,14 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             Value::Primitive(Primitive::String("".into())),
                         );
                     }
-                    ReturnValue::Value(Value::Object(dict))
+                    ReturnSuccess::value(Value::Object(dict))
                 }
             }
-            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+            _ => Err(ShellError::maybe_labeled_error(
                 "Expected string values from pipeline",
                 "expects strings from pipeline",
                 span,
-            )))),
+            )),
         })
-        .boxed())
+        .to_output_stream())
 }

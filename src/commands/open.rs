@@ -1,38 +1,74 @@
 use crate::errors::ShellError;
-use crate::object::{Primitive, Value};
+use crate::object::{Primitive, Switch, Value};
 use crate::parser::parse::span::Span;
-use crate::parser::registry::{CommandConfig, NamedType};
+use crate::parser::registry::NamedType;
 use crate::prelude::*;
-use indexmap::IndexMap;
 use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-pub struct Open;
+command! {
+    Open as open(args, --raw: Switch) {
+        let span = args.name_span;
 
-impl Command for Open {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        open(args)
-    }
-    fn name(&self) -> &str {
-        "open"
-    }
+        let cwd = args
+            .env
+            .lock()
+            .unwrap()
+            .front()
+            .unwrap()
+            .path()
+            .to_path_buf();
 
-    fn config(&self) -> CommandConfig {
-        let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("raw".to_string(), NamedType::Switch);
+        let full_path = PathBuf::from(cwd);
 
-        CommandConfig {
-            name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
-            rest_positional: false,
-            named,
-            is_filter: true,
-            is_sink: false,
-            can_load: vec![],
-            can_save: vec![],
-        }
+        let (file_extension, contents) = match &args.expect_nth(0)?.item {
+            Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Expected string value for filename",
+                    "expected filename",
+                    args.expect_nth(0)?.span,
+                ));
+            }
+        };
+
+        let mut stream = VecDeque::new();
+
+        let file_extension = if raw.is_present() {
+            None
+        } else if args.has("json") {
+            Some("json".to_string())
+        } else if args.has("xml") {
+            Some("xml".to_string())
+        } else if args.has("ini") {
+            Some("ini".to_string())
+        } else if args.has("yaml") {
+            Some("yaml".to_string())
+        } else if args.has("toml") {
+            Some("toml".to_string())
+        } else {
+            if let Some(ref named_args) = args.args.named {
+                for named in named_args.iter() {
+                    return Err(ShellError::labeled_error(
+                        "Unknown flag for open",
+                        "unknown flag",
+                        named.1.span.clone(),
+                    ));
+                }
+                file_extension
+            } else {
+                file_extension
+            }
+        };
+
+        stream.push_back(ReturnSuccess::value(parse_as_value(
+            file_extension,
+            contents,
+            span,
+        )?));
+
+        stream
     }
 }
 
@@ -40,7 +76,7 @@ pub fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
-) -> Result<(Option<String>, Value), ShellError> {
+) -> Result<(Option<String>, String), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
@@ -167,75 +203,4 @@ pub fn parse_as_value(
             }),
         _ => Ok(Value::string(contents)),
     }
-}
-
-fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
-            "Open requires a path or url",
-            "needs path or url",
-            args.name_span,
-        ));
-    }
-
-    let span = args.name_span;
-
-    let cwd = args
-        .env
-        .lock()
-        .unwrap()
-        .front()
-        .unwrap()
-        .path()
-        .to_path_buf();
-    let full_path = PathBuf::from(cwd);
-
-    let (file_extension, contents) = match &args.expect_nth(0)?.item {
-        Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
-        _ => {
-            return Err(ShellError::labeled_error(
-                "Expected string value for filename",
-                "expected filename",
-                args.expect_nth(0)?.span,
-            ));
-        }
-    };
-
-    let mut stream = VecDeque::new();
-
-    let file_extension = if args.has("raw") {
-        None
-    } else if args.has("json") {
-        Some("json".to_string())
-    } else if args.has("xml") {
-        Some("xml".to_string())
-    } else if args.has("ini") {
-        Some("ini".to_string())
-    } else if args.has("yaml") {
-        Some("yaml".to_string())
-    } else if args.has("toml") {
-        Some("toml".to_string())
-    } else {
-        if let Some(ref named_args) = args.args.named {
-            for named in named_args.iter() {
-                return Err(ShellError::labeled_error(
-                    "Unknown flag for open",
-                    "unknown flag",
-                    named.1.span.clone(),
-                ));
-            }
-            file_extension
-        } else {
-            file_extension
-        }
-    };
-
-    match contents {
-        Value::Primitive(Primitive::String(x)) => {
-            stream.push_back(ReturnValue::Value(parse_as_value(file_extension, x, span)?));
-        }
-        x => stream.push_back(ReturnValue::Value(x)),
-    }
-
-    Ok(stream.boxed())
 }

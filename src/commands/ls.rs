@@ -45,9 +45,9 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             for entry in entries {
                 let value = Value::Object(dir_entry_dict(&entry?)?);
-                shell_entries.push_back(ReturnValue::Value(value))
+                shell_entries.push_back(ReturnSuccess::value(value))
             }
-            Ok(shell_entries.boxed())
+            Ok(shell_entries.to_output_stream())
         }
         _ => {
             let mut entries = VecDeque::new();
@@ -97,7 +97,11 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                         return Err(ShellError::maybe_labeled_error(
                                             "Index not closed",
                                             format!("path missing closing ']'"),
-                                            if args.len() > 0 { Some(args.nth(0).unwrap().span) } else { args.name_span },
+                                            if args.len() > 0 {
+                                                Some(args.nth(0).unwrap().span)
+                                            } else {
+                                                args.name_span
+                                            },
                                         ))
                                     }
                                 }
@@ -123,14 +127,14 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
             match viewed {
                 Value::List(l) => {
                     for item in l {
-                        entries.push_back(ReturnValue::Value(item.copy()));
+                        entries.push_back(ReturnSuccess::value(item.copy()));
                     }
                 }
                 x => {
-                    entries.push_back(ReturnValue::Value(x.clone()));
+                    entries.push_back(ReturnSuccess::value(x.clone()));
                 }
             }
-            Ok(entries.boxed())
+            Ok(entries.to_output_stream())
         }
     }
 }

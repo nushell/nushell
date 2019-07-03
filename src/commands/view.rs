@@ -46,5 +46,5 @@ pub fn view(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let _ = printer.file(file.display().to_string());
 
-    Ok(VecDeque::new().boxed())
+    Ok(VecDeque::new().into())
 }

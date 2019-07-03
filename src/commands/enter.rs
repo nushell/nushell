@@ -2,8 +2,30 @@ use crate::commands::command::CommandAction;
 use crate::commands::open::{fetch, parse_as_value};
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
+use crate::parser::registry::{CommandConfig, PositionalType};
 use crate::prelude::*;
 use std::path::PathBuf;
+
+pub struct Enter;
+
+impl Command for Enter {
+    fn config(&self) -> CommandConfig {
+        CommandConfig {
+            name: self.name().to_string(),
+            positional: vec![PositionalType::mandatory("path", "Block")],
+            rest_positional: false,
+            named: indexmap::IndexMap::new(),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "enter"
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        enter(args)
+    }
+}
 
 pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.len() == 0 {
@@ -67,16 +89,9 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    match contents {
-        Value::Primitive(Primitive::String(x)) => {
-            stream.push_back(ReturnValue::Action(CommandAction::Enter(parse_as_value(
-                file_extension,
-                x,
-                span,
-            )?)));
-        }
-        x => stream.push_back(ReturnValue::Action(CommandAction::Enter(x))),
-    }
+    stream.push_back(Ok(ReturnSuccess::Action(CommandAction::Enter(
+        parse_as_value(file_extension, contents, span)?,
+    ))));
 
-    Ok(stream.boxed())
+    Ok(stream.into())
 }

@@ -30,22 +30,21 @@ pub fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
     let span = args.name_span;
     Ok(out
+        .values
         .map(move |a| match a {
             Value::Primitive(Primitive::String(s)) => match from_ini_string_to_value(s) {
-                Ok(x) => ReturnValue::Value(x),
-                Err(e) => {
-                    ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
-                        "Could not parse as INI",
-                        format!("{:#?}", e),
-                        span,
-                    ))))
-                }
+                Ok(x) => Ok(ReturnSuccess::Value(x)),
+                Err(e) => Err(ShellError::maybe_labeled_error(
+                    "Could not parse as INI",
+                    format!("{:#?}", e),
+                    span,
+                )),
             },
-            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+            _ => Err(ShellError::maybe_labeled_error(
                 "Expected string values from pipeline",
                 "expects strings from pipeline",
                 span,
-            )))),
+            )),
         })
-        .boxed())
+        .to_output_stream())
 }

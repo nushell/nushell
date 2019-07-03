@@ -1,3 +1,6 @@
+#[macro_use]
+crate mod macros;
+
 crate mod args;
 crate mod autoview;
 crate mod cd;
@@ -39,6 +42,8 @@ crate mod where_;
 
 crate use command::command;
 crate use config::Config;
+crate use enter::Enter;
 crate use open::Open;
+crate use skip::Skip;
 crate use skip_while::SkipWhile;
 crate use where_::Where;

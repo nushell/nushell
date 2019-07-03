@@ -2,9 +2,10 @@ use crate::object::Value;
 use crate::prelude::*;
 
 pub fn to_array(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let out = args.input.collect();
+    let out = args.input.values.collect();
+
     Ok(out
-        .map(|vec: Vec<_>| single_output(Value::List(vec)))
+        .map(|vec: Vec<_>| stream![Value::List(vec)])
         .flatten_stream()
-        .boxed())
+        .from_input_stream())
 }

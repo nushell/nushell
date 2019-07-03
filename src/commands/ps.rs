@@ -11,8 +11,8 @@ pub fn ps(_args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let list = list
         .into_iter()
-        .map(|(_, process)| ReturnValue::Value(Value::Object(process_dict(process))))
+        .map(|(_, process)| Value::Object(process_dict(process)))
         .collect::<VecDeque<_>>();
 
-    Ok(list.boxed())
+    Ok(list.from_input_stream())
 }

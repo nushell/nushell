@@ -1,5 +1,5 @@
 use crate::errors::{ArgumentError, ShellError};
-use crate::parser::registry::{CommandConfig, CommandRegistry, NamedType};
+use crate::parser::registry::{CommandConfig, CommandRegistry, NamedType, PositionalType};
 use crate::parser::{baseline_parse_tokens, CallNode, Span, Spanned};
 use crate::parser::{
     hir::{self, NamedArguments},
@@ -86,30 +86,32 @@ fn parse_command_tail(
 
                 named.insert_switch(name, flag);
             }
-            NamedType::Mandatory(kind) => match extract_mandatory(name, tail, source, command_span)
-            {
-                Err(err) => return Err(err), // produce a correct diagnostic
-                Ok((pos, flag)) => {
-                    tail.move_to(pos);
+            NamedType::Mandatory(kind) => {
+                match extract_mandatory(config, name, tail, source, command_span) {
+                    Err(err) => return Err(err), // produce a correct diagnostic
+                    Ok((pos, flag)) => {
+                        tail.move_to(pos);
 
-                    if tail.at_end() {
-                        return Err(ShellError::ArgumentError {
-                            error: ArgumentError::MissingValueForName(name.to_string()),
-                            span: flag.span,
-                        });
+                        if tail.at_end() {
+                            return Err(ShellError::ArgumentError {
+                                command: config.name().clone(),
+                                error: ArgumentError::MissingValueForName(name.to_string()),
+                                span: flag.span,
+                            });
+                        }
+
+                        let expr = hir::baseline_parse_next_expr(
+                            tail,
+                            registry,
+                            source,
+                            kind.to_coerce_hint(),
+                        )?;
+
+                        tail.restart();
+                        named.insert_mandatory(name, expr);
                     }
-
-                    let expr = hir::baseline_parse_next_expr(
-                        tail,
-                        registry,
-                        source,
-                        kind.to_coerce_hint(),
-                    )?;
-
-                    tail.restart();
-                    named.insert_mandatory(name, expr);
                 }
-            },
+            }
             NamedType::Optional(kind) => match extract_optional(name, tail, source) {
                 Err(err) => return Err(err), // produce a correct diagnostic
                 Ok(Some((pos, flag))) => {
@@ -117,6 +119,7 @@ fn parse_command_tail(
 
                     if tail.at_end() {
                         return Err(ShellError::ArgumentError {
+                            command: config.name().clone(),
                             error: ArgumentError::MissingValueForName(name.to_string()),
                             span: flag.span,
                         });
@@ -144,16 +147,26 @@ fn parse_command_tail(
     trace_remaining("after named", tail.clone(), source);
 
     let mut positional = vec![];
-    let mandatory = config.mandatory_positional();
 
-    for arg in mandatory {
-        trace!("Processing mandatory {:?}", arg);
+    for arg in config.positional() {
+        trace!("Processing positional {:?}", arg);
 
-        if tail.len() == 0 {
-            return Err(ShellError::ArgumentError {
-                error: ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
-                span: command_span,
-            });
+        match arg {
+            PositionalType::Mandatory(..) => {
+                if tail.len() == 0 {
+                    return Err(ShellError::ArgumentError {
+                        command: config.name().clone(),
+                        error: ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
+                        span: command_span,
+                    });
+                }
+            }
+
+            PositionalType::Optional(..) => {
+                if tail.len() == 0 {
+                    break;
+                }
+            }
         }
 
         let result = hir::baseline_parse_next_expr(tail, registry, source, arg.to_coerce_hint())?;
@@ -161,21 +174,7 @@ fn parse_command_tail(
         positional.push(result);
     }
 
-    trace_remaining("after mandatory", tail.clone(), source);
-
-    let optional = config.optional_positional();
-
-    for arg in optional {
-        if tail.len() == 0 {
-            break;
-        }
-
-        let result = hir::baseline_parse_next_expr(tail, registry, source, arg.to_coerce_hint())?;
-
-        positional.push(result);
-    }
-
-    trace_remaining("after optional", tail.clone(), source);
+    trace_remaining("after positional", tail.clone(), source);
 
     // TODO: Only do this if rest params are specified
     let remainder = baseline_parse_tokens(tail, registry, source)?;
@@ -207,6 +206,7 @@ fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Tex
 }
 
 fn extract_mandatory(
+    config: &CommandConfig,
     name: &str,
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
@@ -216,6 +216,7 @@ fn extract_mandatory(
 
     match flag {
         None => Err(ShellError::ArgumentError {
+            command: config.name().clone(),
             error: ArgumentError::MissingMandatoryFlag(name.to_string()),
             span,
         }),

@@ -7,7 +7,7 @@ use crate::parser::{
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{ops::Try, path::PathBuf};
 
 #[derive(Getters)]
 #[get = "crate"]
@@ -60,14 +60,26 @@ pub enum CommandAction {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum ReturnValue {
+pub enum ReturnSuccess {
     Value(Value),
     Action(CommandAction),
 }
 
-impl ReturnValue {
-    crate fn change_cwd(path: PathBuf) -> ReturnValue {
-        ReturnValue::Action(CommandAction::ChangePath(path))
+pub type ReturnValue = Result<ReturnSuccess, ShellError>;
+
+impl From<Value> for ReturnValue {
+    fn from(input: Value) -> ReturnValue {
+        Ok(ReturnSuccess::Value(input))
+    }
+}
+
+impl ReturnSuccess {
+    pub fn change_cwd(path: PathBuf) -> ReturnValue {
+        Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
+    }
+
+    pub fn value(input: Value) -> ReturnValue {
+        Ok(ReturnSuccess::Value(input))
     }
 }
 
@@ -78,8 +90,7 @@ pub trait Command {
     fn config(&self) -> registry::CommandConfig {
         registry::CommandConfig {
             name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
             is_filter: true,
@@ -97,8 +108,7 @@ pub trait Sink {
     fn config(&self) -> registry::CommandConfig {
         registry::CommandConfig {
             name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
             is_filter: false,

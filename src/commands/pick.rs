@@ -17,9 +17,8 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let objects = args
         .input
-        .map(move |item| Value::Object(select_fields(&item, &fields)))
-        .map(|item| ReturnValue::Value(item));
+        .values
+        .map(move |item| Value::Object(select_fields(&item, &fields)));
 
-    let stream = Pin::new(Box::new(objects));
-    Ok(stream)
+    Ok(objects.from_input_stream())
 }

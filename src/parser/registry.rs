@@ -36,22 +36,38 @@ impl NamedValue {
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
-    Value(String),
-    Block(String),
+    Mandatory(String, PositionalValue),
+    Optional(String, PositionalValue),
+}
+
+#[derive(Debug, Clone)]
+pub enum PositionalValue {
+    Value,
+    Block,
 }
 
 impl PositionalType {
+    crate fn mandatory(name: &str, kind: &str) -> PositionalType {
+        match kind {
+            "Block" => PositionalType::Mandatory(name.to_string(), PositionalValue::Block),
+            _ => PositionalType::Mandatory(name.to_string(), PositionalValue::Value),
+        }
+    }
+
     crate fn to_coerce_hint(&self) -> Option<ExpressionKindHint> {
         match self {
-            PositionalType::Value(_) => None,
-            PositionalType::Block(_) => Some(ExpressionKindHint::Block),
+            PositionalType::Mandatory(_, PositionalValue::Block)
+            | PositionalType::Optional(_, PositionalValue::Block) => {
+                Some(ExpressionKindHint::Block)
+            }
+            _ => None,
         }
     }
 
     crate fn name(&self) -> &str {
         match self {
-            PositionalType::Value(s) => s,
-            PositionalType::Block(s) => s,
+            PositionalType::Mandatory(s, _) => s,
+            PositionalType::Optional(s, _) => s,
         }
     }
 }
@@ -60,8 +76,7 @@ impl PositionalType {
 #[get = "crate"]
 pub struct CommandConfig {
     pub name: String,
-    pub mandatory_positional: Vec<PositionalType>,
-    pub optional_positional: Vec<PositionalType>,
+    crate positional: Vec<PositionalType>,
     pub rest_positional: bool,
     pub named: IndexMap<String, NamedType>,
     pub is_filter: bool,

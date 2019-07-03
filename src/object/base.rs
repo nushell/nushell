@@ -185,9 +185,6 @@ pub enum Value {
     #[allow(unused)]
     Block(Block),
     Filesystem,
-
-    #[allow(unused)]
-    Error(Box<ShellError>),
 }
 
 pub fn debug_list(values: &'a Vec<Value>) -> ValuesDebug<'a> {
@@ -217,7 +214,6 @@ impl fmt::Debug for ValueDebug<'a> {
             Value::Object(o) => o.debug(f),
             Value::List(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
-            Value::Error(err) => write!(f, "[[error :: {} ]]", err),
             Value::Filesystem => write!(f, "[[filesystem]]"),
             Value::Binary(_) => write!(f, "[[binary]]"),
         }
@@ -231,6 +227,65 @@ impl Spanned<Value> {
     }
 }
 
+impl std::convert::TryFrom<&'a Spanned<Value>> for Block {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Spanned<Value>) -> Result<Block, ShellError> {
+        match value.item() {
+            Value::Block(block) => Ok(block.clone()),
+            v => Err(ShellError::type_error(
+                "Block",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Spanned<Value>> for i64 {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Spanned<Value>) -> Result<i64, ShellError> {
+        match value.item() {
+            Value::Primitive(Primitive::Int(int)) => Ok(*int),
+            v => Err(ShellError::type_error(
+                "Integer",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+pub enum Switch {
+    Present,
+    Absent,
+}
+
+impl Switch {
+    pub fn is_present(&self) -> bool {
+        match self {
+            Switch::Present => true,
+            Switch::Absent => false,
+        }
+    }
+}
+
+impl std::convert::TryFrom<Option<&'a Spanned<Value>>> for Switch {
+    type Error = ShellError;
+
+    fn try_from(value: Option<&'a Spanned<Value>>) -> Result<Switch, ShellError> {
+        match value {
+            None => Ok(Switch::Absent),
+            Some(value) => match value.item() {
+                Value::Primitive(Primitive::Boolean(true)) => Ok(Switch::Present),
+                v => Err(ShellError::type_error(
+                    "Boolean",
+                    value.copy_span(v.type_name()),
+                )),
+            },
+        }
+    }
+}
+
 impl Value {
     crate fn type_name(&self) -> String {
         match self {
@@ -238,7 +293,6 @@ impl Value {
             Value::Object(_) => format!("object"),
             Value::List(_) => format!("list"),
             Value::Block(_) => format!("block"),
-            Value::Error(_) => format!("error"),
             Value::Filesystem => format!("filesystem"),
             Value::Binary(_) => format!("binary"),
         }
@@ -312,7 +366,6 @@ impl Value {
                 let list = l.iter().map(|i| i.copy()).collect();
                 Value::List(list)
             }
-            Value::Error(e) => Value::Error(Box::new(e.copy_error())),
             Value::Filesystem => Value::Filesystem,
             Value::Binary(b) => Value::Binary(b.clone()),
         }
@@ -329,7 +382,6 @@ impl Value {
             ),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
-            Value::Error(e) => format!("{}", e),
             Value::Filesystem => format!("<filesystem>"),
             Value::Binary(_) => format!("<binary>"),
         }
@@ -457,14 +509,6 @@ impl Value {
         let date = date.with_timezone(&chrono::offset::Utc);
 
         Ok(Value::Primitive(Primitive::Date(date)))
-    }
-
-    #[allow(unused)]
-    pub fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
-        match s {
-            Ok(time) => Value::Primitive(Primitive::Date(time.into())),
-            Err(err) => Value::Error(Box::new(ShellError::string(format!("{}", err)))),
-        }
     }
 
     pub fn nothing() -> Value {

@@ -34,22 +34,21 @@ pub fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
     let span = args.name_span;
     Ok(out
+        .values
         .map(move |a| match a {
             Value::Primitive(Primitive::String(s)) => match from_json_string_to_value(s) {
-                Ok(x) => ReturnValue::Value(x),
-                Err(_) => {
-                    ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
-                        "Could not parse as JSON",
-                        "piped data failed JSON parse",
-                        span,
-                    ))))
-                }
+                Ok(x) => ReturnSuccess::value(x),
+                Err(_) => Err(ShellError::maybe_labeled_error(
+                    "Could not parse as JSON",
+                    "piped data failed JSON parse",
+                    span,
+                )),
             },
-            _ => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
+            _ => Err(ShellError::maybe_labeled_error(
                 "Expected string values from pipeline",
                 "expects strings from pipeline",
                 span,
-            )))),
+            )),
         })
-        .boxed())
+        .to_output_stream())
 }

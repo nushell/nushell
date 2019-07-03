@@ -4,6 +4,10 @@
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(box_syntax)]
+#![feature(type_ascription)]
+
+#[macro_use]
+mod prelude;
 
 mod cli;
 mod commands;
@@ -16,11 +20,10 @@ mod git;
 mod object;
 mod parser;
 mod plugin;
-mod prelude;
 mod shell;
 mod stream;
 
-pub use crate::commands::command::ReturnValue;
+pub use crate::commands::command::{ReturnSuccess, ReturnValue};
 pub use crate::env::host::BasicHost;
 pub use crate::parser::parse::span::SpannedItem;
 pub use crate::parser::Spanned;

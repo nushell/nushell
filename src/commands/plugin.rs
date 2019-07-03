@@ -93,11 +93,9 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
                             },
                             Err(e) => {
                                 let mut result = VecDeque::new();
-                                result.push_back(ReturnValue::Value(Value::Error(Box::new(
-                                    ShellError::string(format!(
-                                        "Error while processing input: {:?} {}",
-                                        e, input
-                                    )),
+                                result.push_back(Err(ShellError::string(format!(
+                                    "Error while processing input: {:?} {}",
+                                    e, input
                                 ))));
                                 result
                             }
@@ -105,8 +103,9 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
                     }
                     Err(e) => {
                         let mut result = VecDeque::new();
-                        result.push_back(ReturnValue::Value(Value::Error(Box::new(
-                            ShellError::string(format!("Error while processing input: {:?}", e)),
+                        result.push_back(Err(ShellError::string(format!(
+                            "Error while processing input: {:?}",
+                            e
                         ))));
                         result
                     }
@@ -115,7 +114,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
         })
         .flatten();
 
-    Ok(stream.boxed())
+    Ok(stream.to_output_stream())
 }
 
 pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError> {

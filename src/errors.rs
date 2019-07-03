@@ -41,6 +41,16 @@ pub enum ArgumentError {
     MissingValueForName(String),
 }
 
+pub fn labelled(
+    span: impl Into<Option<Span>>,
+    heading: &'a str,
+    span_message: &'a str,
+) -> impl FnOnce(ShellError) -> ShellError + 'a {
+    let span = span.into();
+
+    move |error| ShellError::maybe_labeled_error(heading, span_message, span)
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ShellError {
     String(StringError),
@@ -53,6 +63,7 @@ pub enum ShellError {
         expr: Description,
     },
     ArgumentError {
+        command: String,
         error: ArgumentError,
         span: Span,
     },
@@ -119,28 +130,38 @@ impl ShellError {
             ShellError::String(StringError { title, .. }) => {
                 Diagnostic::new(Severity::Error, title)
             }
-            ShellError::ArgumentError { error, span } => match error {
+            ShellError::ArgumentError {
+                command,
+                error,
+                span,
+            } => match error {
                 ArgumentError::MissingMandatoryFlag(name) => Diagnostic::new(
                     Severity::Error,
                     format!(
-                        "Command requires {}{}",
-                        Color::Cyan.paint("--"),
-                        Color::Cyan.paint(name)
+                        "{} requires {}{}",
+                        Color::Cyan.paint(command),
+                        Color::Black.bold().paint("--"),
+                        Color::Black.bold().paint(name)
                     ),
                 )
                 .with_label(Label::new_primary(span)),
                 ArgumentError::MissingMandatoryPositional(name) => Diagnostic::new(
                     Severity::Error,
-                    format!("Command requires {}", Color::Cyan.paint(name)),
+                    format!(
+                        "{} requires {}",
+                        Color::Cyan.paint(command),
+                        Color::Green.bold().paint(name)
+                    ),
                 )
                 .with_label(Label::new_primary(span)),
 
                 ArgumentError::MissingValueForName(name) => Diagnostic::new(
                     Severity::Error,
                     format!(
-                        "Missing value for flag {}{}",
-                        Color::Cyan.paint("--"),
-                        Color::Cyan.paint(name)
+                        "{} is missing value for flag {}{}",
+                        Color::Cyan.paint(command),
+                        Color::Black.bold().paint("--"),
+                        Color::Black.bold().paint(name)
                     ),
                 )
                 .with_label(Label::new_primary(span)),

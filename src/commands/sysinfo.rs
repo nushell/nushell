@@ -196,7 +196,7 @@ pub fn sysinfo(_args: CommandArgs) -> Result<OutputStream, ShellError> {
     // println!("{:#?}", system.get_network());
 
     let mut stream = VecDeque::new();
-    stream.push_back(ReturnValue::Value(Value::Object(Dictionary::from(idx))));
+    stream.push_back(Value::Object(Dictionary::from(idx)));
 
-    Ok(stream.boxed())
+    Ok(stream.from_input_stream())
 }

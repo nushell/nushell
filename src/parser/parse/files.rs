@@ -23,7 +23,7 @@ impl language_reporting::ReportingFiles for Files {
         0
     }
     fn file_name(&self, _file: Self::FileId) -> FileName {
-        FileName::Verbatim(format!("<eval>"))
+        FileName::Verbatim(format!("shell"))
     }
     fn byte_index(&self, _file: Self::FileId, _line: usize, _column: usize) -> Option<usize> {
         unimplemented!("byte_index")

@@ -34,7 +34,7 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
         contents.clear();
     }
 
-    Ok(list.boxed())
+    Ok(list.to_output_stream())
 }
 
 fn count(name: &str, contents: &str) -> ReturnValue {
@@ -69,5 +69,5 @@ fn count(name: &str, contents: &str) -> ReturnValue {
     dict.add("chars", Value::int(chars));
     dict.add("max length", Value::int(bytes));
 
-    ReturnValue::Value(Value::Object(dict))
+    ReturnSuccess::value(Value::Object(dict))
 }
