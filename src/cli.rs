@@ -34,7 +34,7 @@ pub enum MaybeOwned<'a, T> {
 }
 
 impl<T> MaybeOwned<'a, T> {
-    crate fn borrow(&self) -> &T {
+    pub fn borrow(&self) -> &T {
         match self {
             MaybeOwned::Owned(v) => v,
             MaybeOwned::Borrowed(v) => v,
@@ -59,6 +59,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let request = JsonRpc::new("config", Vec::<Value>::new());
     let request_raw = serde_json::to_string(&request).unwrap();
     stdin.write(format!("{}\n", request_raw).as_bytes())?;
+    let path = dunce::canonicalize(path).unwrap();
 
     let mut input = String::new();
     match reader.read_line(&mut input) {
@@ -129,14 +130,12 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         None => println!("PATH is not defined in the environment."),
     }
 
-    /*
     // Also use our debug output for now
     let mut path = std::path::PathBuf::from(".");
     path.push("target");
     path.push("debug");
 
     let _ = load_plugins_in_dir(&path, context);
-    */
 
     Ok(())
 }

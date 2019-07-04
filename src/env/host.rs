@@ -40,7 +40,7 @@ impl Host for Box<dyn Host> {
 }
 
 #[derive(Debug)]
-crate struct BasicHost;
+pub struct BasicHost;
 
 impl Host for BasicHost {
     fn out_terminal(&self) -> Box<term::StdoutTerminal> {

@@ -67,11 +67,16 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    stream.push_back(ReturnValue::Action(CommandAction::Enter(parse_as_value(
-        file_extension,
-        contents,
-        span,
-    )?)));
+    match contents {
+        Value::Primitive(Primitive::String(x)) => {
+            stream.push_back(ReturnValue::Action(CommandAction::Enter(parse_as_value(
+                file_extension,
+                x,
+                span,
+            )?)));
+        }
+        x => stream.push_back(ReturnValue::Action(CommandAction::Enter(x))),
+    }
 
     Ok(stream.boxed())
 }

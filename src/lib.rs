@@ -21,6 +21,7 @@ mod shell;
 mod stream;
 
 pub use crate::commands::command::ReturnValue;
+pub use crate::env::host::BasicHost;
 pub use crate::parser::parse::span::SpannedItem;
 pub use crate::parser::Spanned;
 pub use crate::plugin::{serve_plugin, Plugin};

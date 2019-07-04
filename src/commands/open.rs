@@ -40,7 +40,7 @@ pub fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
-) -> Result<(Option<String>, String), ShellError> {
+) -> Result<(Option<String>, Value), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
@@ -71,7 +71,7 @@ pub fn fetch(
                         None => path_extension,
                     };
 
-                    Ok((extension, s))
+                    Ok((extension, Value::string(s)))
                 }
                 Err(_) => {
                     return Err(ShellError::labeled_error(
@@ -91,12 +91,15 @@ pub fn fetch(
         }
     } else {
         cwd.push(Path::new(location));
-        match std::fs::read_to_string(&cwd) {
-            Ok(s) => Ok((
-                cwd.extension()
-                    .map(|name| name.to_string_lossy().to_string()),
-                s,
-            )),
+        match std::fs::read(&cwd) {
+            Ok(bytes) => match std::str::from_utf8(&bytes) {
+                Ok(s) => Ok((
+                    cwd.extension()
+                        .map(|name| name.to_string_lossy().to_string()),
+                    Value::string(s),
+                )),
+                Err(_) => Ok((None, Value::Binary(bytes))),
+            },
             Err(_) => {
                 return Err(ShellError::labeled_error(
                     "File cound not be opened",
@@ -227,11 +230,12 @@ fn open(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    stream.push_back(ReturnValue::Value(parse_as_value(
-        file_extension,
-        contents,
-        span,
-    )?));
+    match contents {
+        Value::Primitive(Primitive::String(x)) => {
+            stream.push_back(ReturnValue::Value(parse_as_value(file_extension, x, span)?));
+        }
+        x => stream.push_back(ReturnValue::Value(x)),
+    }
 
     Ok(stream.boxed())
 }

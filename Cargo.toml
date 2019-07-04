@@ -85,5 +85,9 @@ name = "nu_plugin_newskip"
 path = "src/plugins/newskip.rs"
 
 [[bin]]
+name = "nu_plugin_treeview"
+path = "src/plugins/treeview.rs"
+
+[[bin]]
 name = "nu"
 path = "src/main.rs"

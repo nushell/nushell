@@ -75,7 +75,7 @@ impl Primitive {
         }
     }
 
-    crate fn format(&self, field_name: Option<&String>) -> String {
+    pub fn format(&self, field_name: Option<&String>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
             Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
@@ -180,6 +180,8 @@ pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
     List(Vec<Value>),
+    Binary(Vec<u8>),
+
     #[allow(unused)]
     Block(Block),
     Filesystem,
@@ -217,6 +219,7 @@ impl fmt::Debug for ValueDebug<'a> {
             Value::Block(_) => write!(f, "[[block]]"),
             Value::Error(err) => write!(f, "[[error :: {} ]]", err),
             Value::Filesystem => write!(f, "[[filesystem]]"),
+            Value::Binary(_) => write!(f, "[[binary]]"),
         }
     }
 }
@@ -237,6 +240,7 @@ impl Value {
             Value::Block(_) => format!("block"),
             Value::Error(_) => format!("error"),
             Value::Filesystem => format!("filesystem"),
+            Value::Binary(_) => format!("binary"),
         }
     }
 
@@ -244,7 +248,7 @@ impl Value {
         ValueDebug { value: self }
     }
 
-    crate fn data_descriptors(&self) -> Vec<String> {
+    pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
             Value::Object(o) => o
@@ -257,6 +261,7 @@ impl Value {
             Value::List(_) => vec![],
             Value::Error(_) => vec![],
             Value::Filesystem => vec![],
+            Value::Binary(_) => vec![],
         }
     }
 
@@ -286,7 +291,7 @@ impl Value {
         }
     }
 
-    crate fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
+    pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             p @ Value::Filesystem => MaybeOwned::Borrowed(p),
@@ -294,6 +299,7 @@ impl Value {
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Error(e) => MaybeOwned::Owned(Value::string(&format!("{:#?}", e))),
+            Value::Binary(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -308,6 +314,7 @@ impl Value {
             }
             Value::Error(e) => Value::Error(Box::new(e.copy_error())),
             Value::Filesystem => Value::Filesystem,
+            Value::Binary(b) => Value::Binary(b.clone()),
         }
     }
 
@@ -324,6 +331,7 @@ impl Value {
             Value::List(_) => format!("[list List]"),
             Value::Error(e) => format!("{}", e),
             Value::Filesystem => format!("<filesystem>"),
+            Value::Binary(_) => format!("<binary>"),
         }
     }
 
