@@ -5,7 +5,7 @@ use crate::commands::classified::{
     StreamNext,
 };
 use crate::commands::command::sink;
-use crate::commands::plugin::{JsonRpc, NuResult};
+use crate::commands::plugin::JsonRpc;
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
@@ -18,6 +18,7 @@ use crate::parser::{Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
 
 use log::{debug, trace};
+use regex::Regex;
 use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
 use std::env;
@@ -25,7 +26,6 @@ use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::sync::atomic::{AtomicBool, Ordering};
-use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -42,11 +42,10 @@ impl<T> MaybeOwned<'a, T> {
     }
 }
 
-fn load_plugin(fname: &str, context: &mut Context) -> Result<(), ShellError> {
+fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
     use crate::commands::{command, plugin};
 
-    println!("fname: {}", fname);
-    let mut child = std::process::Command::new(fname)
+    let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
@@ -57,8 +56,6 @@ fn load_plugin(fname: &str, context: &mut Context) -> Result<(), ShellError> {
 
     let mut reader = BufReader::new(stdout);
 
-    println!("Sending out config request");
-
     let request = JsonRpc::new("config", Vec::<Value>::new());
     let request_raw = serde_json::to_string(&request).unwrap();
     stdin.write(format!("{}\n", request_raw).as_bytes())?;
@@ -66,13 +63,13 @@ fn load_plugin(fname: &str, context: &mut Context) -> Result<(), ShellError> {
     let mut input = String::new();
     match reader.read_line(&mut input) {
         Ok(_) => {
-            println!("Got a response!: {}", input);
             let response =
                 serde_json::from_str::<JsonRpc<Result<CommandConfig, ShellError>>>(&input);
             match response {
                 Ok(jrpc) => match jrpc.params {
                     Ok(params) => {
-                        println!("Loaded: {}", params.name);
+                        let fname = path.to_string_lossy();
+                        println!("Loaded: {} from {}", params.name, fname);
                         if params.is_filter {
                             let fname = fname.to_string();
                             context.add_commands(vec![command(
@@ -100,25 +97,33 @@ fn load_plugin(fname: &str, context: &mut Context) -> Result<(), ShellError> {
     }
 }
 
+fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
+    let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$").unwrap();
+    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$").unwrap();
+
+    match std::fs::read_dir(path) {
+        Ok(p) => {
+            for entry in p {
+                let entry = entry.unwrap();
+                let filename = entry.file_name();
+                let f_name = filename.to_string_lossy();
+                if re_bin.is_match(&f_name) || re_exe.is_match(&f_name) {
+                    let mut load_path = path.clone();
+                    load_path.push(f_name.to_string());
+                    load_plugin(&load_path, context)?;
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     match env::var_os("PATH") {
         Some(paths) => {
-            //println!("{:?}", paths);
             for path in env::split_paths(&paths) {
-                match std::fs::read_dir(path) {
-                    Ok(path) => {
-                        for entry in path {
-                            let entry = entry.unwrap();
-                            let filename = entry.file_name();
-                            let f_name = filename.to_string_lossy();
-                            if f_name.starts_with("nu_plugin_") && !f_name.ends_with(".d") {
-                                //println!("Found: {}", f_name);
-                                load_plugin(&f_name, context)?;
-                            }
-                        }
-                    }
-                    _ => {}
-                }
+                let _ = load_plugins_in_dir(&path, context);
             }
         }
         None => println!("PATH is not defined in the environment."),
@@ -129,21 +134,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     path.push("target");
     path.push("debug");
 
-    match std::fs::read_dir(path) {
-        Ok(path) => {
-            for entry in path {
-                let entry = entry.unwrap();
-                let filename = entry.file_name();
-                let f_name = filename.to_string_lossy();
-                println!("looking at: {}", f_name);
-                if f_name.starts_with("nu_plugin_") && !f_name.ends_with(".d") {
-                    println!("Found: {}", f_name);
-                    load_plugin(&entry.path().to_string_lossy(), context)?;
-                }
-            }
-        }
-        _ => {}
-    }
+    let _ = load_plugins_in_dir(&path, context);
 
     Ok(())
 }
@@ -187,10 +178,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Config),
             Arc::new(SkipWhile),
             command("sort-by", Box::new(sort_by::sort_by)),
-            /*
-            command("inc", |x| plugin::filter_plugin("inc".into(), x)),
-            command("newskip", |x| plugin::filter_plugin("newskip".into(), x)),
-            */
         ]);
 
         context.add_sinks(vec![
@@ -200,10 +187,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             sink("table", Box::new(table::table)),
             sink("tree", Box::new(tree::tree)),
             sink("vtable", Box::new(vtable::vtable)),
-            //sink("sum", |x| plugin::sink_plugin("sum".into(), x)),
         ]);
     }
-    load_plugins(&mut context);
+    let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let h = crate::shell::Helper::new(context.clone_commands());
