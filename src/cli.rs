@@ -137,6 +137,13 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
     let _ = load_plugins_in_dir(&path, context);
 
+    // Also use our release output for now
+    let mut path = std::path::PathBuf::from(".");
+    path.push("target");
+    path.push("release");
+
+    let _ = load_plugins_in_dir(&path, context);
+
     Ok(())
 }
 

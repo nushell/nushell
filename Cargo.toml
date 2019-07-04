@@ -65,6 +65,11 @@ sys-info = "0.5.7"
 mime = "0.3.13"
 regex = "1.1.7"
 pretty-hex = "0.1.0"
+neso = "0.5.0"
+rawkey = { git = "https://github.com/jonathandturner/rawkey.git" }
+resize = "0.3.0"
+crossterm = "0.9.6"
+tempfile = "3.1.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

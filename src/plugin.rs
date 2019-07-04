@@ -23,44 +23,78 @@ pub trait Plugin {
 }
 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
-    loop {
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(_) => {
-                let command = serde_json::from_str::<NuCommand>(&input);
-                match command {
-                    Ok(NuCommand::config) => {
-                        send_response(plugin.config());
-                    }
-                    Ok(NuCommand::begin_filter { params }) => {
-                        let _ = plugin.begin_filter(params);
-                    }
-                    Ok(NuCommand::filter { params }) => {
-                        send_response(plugin.filter(params));
-                    }
-                    Ok(NuCommand::sink { params }) => {
-                        plugin.sink(params.0, params.1);
-                        break;
-                    }
-                    Ok(NuCommand::quit) => {
-                        plugin.quit();
-                        break;
-                    }
-                    e => {
-                        send_response(ShellError::string(format!(
-                            "Could not handle plugin message: {} {:?}",
-                            input, e
-                        )));
-                        break;
-                    }
+    let args = std::env::args();
+    if args.len() > 1 {
+        let input = std::fs::read_to_string(args.skip(1).next().unwrap());
+        if let Ok(input) = input {
+            let command = serde_json::from_str::<NuCommand>(&input);
+            match command {
+                Ok(NuCommand::config) => {
+                    send_response(plugin.config());
+                }
+                Ok(NuCommand::begin_filter { params }) => {
+                    let _ = plugin.begin_filter(params);
+                }
+                Ok(NuCommand::filter { params }) => {
+                    send_response(plugin.filter(params));
+                }
+                Ok(NuCommand::sink { params }) => {
+                    plugin.sink(params.0, params.1);
+                    return;
+                }
+                Ok(NuCommand::quit) => {
+                    plugin.quit();
+                    return;
+                }
+                e => {
+                    send_response(ShellError::string(format!(
+                        "Could not handle plugin message: {} {:?}",
+                        input, e
+                    )));
+                    return;
                 }
             }
-            e => {
-                send_response(ShellError::string(format!(
-                    "Could not handle plugin message: {:?}",
-                    e,
-                )));
-                break;
+        }
+    } else {
+        loop {
+            let mut input = String::new();
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    let command = serde_json::from_str::<NuCommand>(&input);
+                    match command {
+                        Ok(NuCommand::config) => {
+                            send_response(plugin.config());
+                        }
+                        Ok(NuCommand::begin_filter { params }) => {
+                            let _ = plugin.begin_filter(params);
+                        }
+                        Ok(NuCommand::filter { params }) => {
+                            send_response(plugin.filter(params));
+                        }
+                        Ok(NuCommand::sink { params }) => {
+                            plugin.sink(params.0, params.1);
+                            break;
+                        }
+                        Ok(NuCommand::quit) => {
+                            plugin.quit();
+                            break;
+                        }
+                        e => {
+                            send_response(ShellError::string(format!(
+                                "Could not handle plugin message: {} {:?}",
+                                input, e
+                            )));
+                            break;
+                        }
+                    }
+                }
+                e => {
+                    send_response(ShellError::string(format!(
+                        "Could not handle plugin message: {:?}",
+                        e,
+                    )));
+                    break;
+                }
             }
         }
     }

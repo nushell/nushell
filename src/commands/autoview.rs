@@ -1,6 +1,6 @@
 use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
-use crate::format::{GenericView, TableView};
+use crate::format::GenericView;
 use crate::prelude::*;
 
 pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {

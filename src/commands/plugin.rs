@@ -119,16 +119,17 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
 }
 
 pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError> {
-    let mut child = std::process::Command::new(path)
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-        .expect("Failed to spawn child process");
-
-    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-
+    //use subprocess::Exec;
     let request = JsonRpc::new("sink", (args.args, args.input));
     let request_raw = serde_json::to_string(&request).unwrap();
-    stdin.write(format!("{}\n", request_raw).as_bytes())?;
+    let mut tmpfile = tempfile::NamedTempFile::new()?;
+    let _ = writeln!(tmpfile, "{}", request_raw);
+    let _ = tmpfile.flush();
+
+    let mut child = std::process::Command::new(path)
+        .arg(tmpfile.path())
+        .spawn()
+        .expect("Failed to spawn child process");
 
     let _ = child.wait();
 
