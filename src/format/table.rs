@@ -1,5 +1,5 @@
 use crate::format::RenderView;
-use crate::object::{DataDescriptor, Value};
+use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
@@ -8,12 +8,12 @@ use prettytable::{color, Attr, Cell, Row, Table};
 
 #[derive(new)]
 pub struct TableView {
-    headers: Vec<DataDescriptor>,
+    headers: Vec<String>,
     entries: Vec<Vec<String>>,
 }
 
 impl TableView {
-    fn merge_descriptors(values: &[Value]) -> Vec<DataDescriptor> {
+    fn merge_descriptors(values: &[Value]) -> Vec<String> {
         let mut ret = vec![];
         for value in values {
             for desc in value.data_descriptors() {
@@ -30,10 +30,10 @@ impl TableView {
             return None;
         }
 
-        let headers = TableView::merge_descriptors(values);
+        let mut headers = TableView::merge_descriptors(values);
 
         if headers.len() == 0 {
-            return None;
+            headers.push("value".to_string());
         }
 
         let mut entries = vec![];
@@ -74,7 +74,7 @@ impl RenderView for TableView {
             .headers
             .iter()
             .map(|h| {
-                Cell::new(h.display_header())
+                Cell::new(h)
                     .with_style(Attr::ForegroundColor(color::GREEN))
                     .with_style(Attr::Bold)
             })

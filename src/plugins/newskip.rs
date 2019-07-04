@@ -1,24 +1,23 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, Args, CommandConfig, Plugin, PositionalType, Primitive, ReturnValue, ShellError,
-    Spanned, Value,
+    serve_plugin, Args, CommandConfig, Plugin, Primitive, ReturnValue, ShellError, Spanned, Value,
 };
 
-struct Inc {
-    inc_by: i64,
+struct NewSkip {
+    skip_amount: i64,
 }
-impl Inc {
-    fn new() -> Inc {
-        Inc { inc_by: 1 }
+impl NewSkip {
+    fn new() -> NewSkip {
+        NewSkip { skip_amount: 0 }
     }
 }
 
-impl Plugin for Inc {
+impl Plugin for NewSkip {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
-            name: "inc".to_string(),
+            name: "skip".to_string(),
             mandatory_positional: vec![],
-            optional_positional: vec![PositionalType::Value("Increment".into())],
+            optional_positional: vec![],
             can_load: vec![],
             can_save: vec![],
             is_filter: true,
@@ -35,7 +34,7 @@ impl Plugin for Inc {
                         item: Value::Primitive(Primitive::Int(i)),
                         ..
                     } => {
-                        self.inc_by = i;
+                        self.skip_amount = i;
                     }
                     _ => return Err(ShellError::string("Unrecognized type in params")),
                 }
@@ -46,21 +45,15 @@ impl Plugin for Inc {
     }
 
     fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
-        match input {
-            Value::Primitive(Primitive::Int(i)) => {
-                Ok(vec![ReturnValue::Value(Value::int(i + self.inc_by))])
-            }
-            Value::Primitive(Primitive::Bytes(b)) => Ok(vec![ReturnValue::Value(Value::bytes(
-                b + self.inc_by as u64,
-            ))]),
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+        if self.skip_amount == 0 {
+            Ok(vec![ReturnValue::Value(input)])
+        } else {
+            self.skip_amount -= 1;
+            Ok(vec![])
         }
     }
 }
 
 fn main() {
-    serve_plugin(&mut Inc::new());
+    serve_plugin(&mut NewSkip::new());
 }

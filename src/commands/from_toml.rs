@@ -1,5 +1,5 @@
 use crate::object::base::OF64;
-use crate::object::{DataDescriptor, Dictionary, Primitive, Value};
+use crate::object::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 
 fn convert_toml_value_to_nu_value(v: &toml::Value) -> Value {
@@ -17,10 +17,7 @@ fn convert_toml_value_to_nu_value(v: &toml::Value) -> Value {
         toml::Value::Table(t) => {
             let mut collected = Dictionary::default();
             for (k, v) in t.iter() {
-                collected.add(
-                    DataDescriptor::from(k.clone()),
-                    convert_toml_value_to_nu_value(v),
-                );
+                collected.add(k.clone(), convert_toml_value_to_nu_value(v));
             }
             Value::Object(collected)
         }

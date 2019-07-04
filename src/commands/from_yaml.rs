@@ -1,5 +1,5 @@
 use crate::object::base::OF64;
-use crate::object::{DataDescriptor, Dictionary, Primitive, Value};
+use crate::object::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 
 fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
@@ -22,10 +22,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
             for (k, v) in t.iter() {
                 match k {
                     serde_yaml::Value::String(k) => {
-                        collected.add(
-                            DataDescriptor::from(k.clone()),
-                            convert_yaml_value_to_nu_value(v),
-                        );
+                        collected.add(k.clone(), convert_yaml_value_to_nu_value(v));
                     }
                     _ => unimplemented!("Unknown key type"),
                 }

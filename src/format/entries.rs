@@ -10,7 +10,7 @@ use derive_new::new;
 // another_name : ...
 #[derive(new)]
 pub struct EntriesView {
-    entries: Vec<(crate::object::DescriptorName, String)>,
+    entries: Vec<(String, String)>,
 }
 
 impl EntriesView {
@@ -23,7 +23,7 @@ impl EntriesView {
 
             let formatted_value = value.borrow().format_leaf(None);
 
-            entries.push((desc.name.clone(), formatted_value))
+            entries.push((desc.clone(), formatted_value))
         }
 
         EntriesView::new(entries)
@@ -36,20 +36,10 @@ impl RenderView for EntriesView {
             return Ok(());
         }
 
-        let max_name_size: usize = self
-            .entries
-            .iter()
-            .map(|(n, _)| n.display().len())
-            .max()
-            .unwrap();
+        let max_name_size: usize = self.entries.iter().map(|(n, _)| n.len()).max().unwrap();
 
         for (name, value) in &self.entries {
-            println!(
-                "{:width$} : {}",
-                name.display(),
-                value,
-                width = max_name_size
-            )
+            println!("{:width$} : {}", name, value, width = max_name_size)
         }
 
         Ok(())

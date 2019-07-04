@@ -1,15 +1,14 @@
 use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
-use crate::format::{GenericView, TableView};
+use crate::format::GenericView;
 use crate::prelude::*;
 
 pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
     if args.input.len() > 0 {
-        if equal_shapes(&args.input) {
-            let mut host = args.ctx.host.lock().unwrap();
-            let view = TableView::from_list(&args.input).unwrap();
-
-            handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
+        if let Value::Binary(_) = args.input[0] {
+            args.ctx.get_sink("binaryview").run(args)?;
+        } else if equal_shapes(&args.input) {
+            args.ctx.get_sink("table").run(args)?;
         } else {
             let mut host = args.ctx.host.lock().unwrap();
             for i in args.input.iter() {

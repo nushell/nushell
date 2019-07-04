@@ -1,28 +1,29 @@
 use crate::commands::autoview;
 use crate::commands::classified::SinkCommand;
-use crate::commands::command::sink;
-
-use crate::prelude::*;
-
 use crate::commands::classified::{
     ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
     StreamNext,
 };
+use crate::commands::command::sink;
+use crate::commands::plugin::JsonRpc;
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
-use crate::parser::parse::span::Spanned;
-use crate::parser::registry;
-use crate::parser::{Pipeline, PipelineElement, TokenNode};
-
 use crate::git::current_branch;
 use crate::object::Value;
+use crate::parser::parse::span::Spanned;
+use crate::parser::registry;
+use crate::parser::registry::CommandConfig;
+use crate::parser::{Pipeline, PipelineElement, TokenNode};
+use crate::prelude::*;
 
 use log::{debug, trace};
+use regex::Regex;
 use rustyline::error::ReadlineError;
 use rustyline::{self, ColorMode, Config, Editor};
-
+use std::env;
 use std::error::Error;
+use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -33,12 +34,117 @@ pub enum MaybeOwned<'a, T> {
 }
 
 impl<T> MaybeOwned<'a, T> {
-    crate fn borrow(&self) -> &T {
+    pub fn borrow(&self) -> &T {
         match self {
             MaybeOwned::Owned(v) => v,
             MaybeOwned::Borrowed(v) => v,
         }
     }
+}
+
+fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
+    use crate::commands::{command, plugin};
+
+    let mut child = std::process::Command::new(path)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn child process");
+
+    let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+    let stdout = child.stdout.as_mut().expect("Failed to open stdout");
+
+    let mut reader = BufReader::new(stdout);
+
+    let request = JsonRpc::new("config", Vec::<Value>::new());
+    let request_raw = serde_json::to_string(&request).unwrap();
+    stdin.write(format!("{}\n", request_raw).as_bytes())?;
+    let path = dunce::canonicalize(path).unwrap();
+
+    let mut input = String::new();
+    match reader.read_line(&mut input) {
+        Ok(_) => {
+            let response =
+                serde_json::from_str::<JsonRpc<Result<CommandConfig, ShellError>>>(&input);
+            match response {
+                Ok(jrpc) => match jrpc.params {
+                    Ok(params) => {
+                        let fname = path.to_string_lossy();
+                        //println!("Loaded: {} from {}", params.name, fname);
+                        if params.is_filter {
+                            let fname = fname.to_string();
+                            context.add_commands(vec![command(
+                                &params.name,
+                                Box::new(move |x| plugin::filter_plugin(fname.clone(), x)),
+                            )]);
+                            Ok(())
+                        } else if params.is_sink {
+                            let fname = fname.to_string();
+                            context.add_sinks(vec![sink(
+                                &params.name,
+                                Box::new(move |x| plugin::sink_plugin(fname.clone(), x)),
+                            )]);
+                            Ok(())
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    Err(e) => Err(e),
+                },
+                Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
+            }
+        }
+        Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
+    }
+}
+
+fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
+    let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$").unwrap();
+    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$").unwrap();
+
+    match std::fs::read_dir(path) {
+        Ok(p) => {
+            for entry in p {
+                let entry = entry.unwrap();
+                let filename = entry.file_name();
+                let f_name = filename.to_string_lossy();
+                if re_bin.is_match(&f_name) || re_exe.is_match(&f_name) {
+                    let mut load_path = path.clone();
+                    load_path.push(f_name.to_string());
+                    load_plugin(&load_path, context)?;
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
+    match env::var_os("PATH") {
+        Some(paths) => {
+            for path in env::split_paths(&paths) {
+                let _ = load_plugins_in_dir(&path, context);
+            }
+        }
+        None => println!("PATH is not defined in the environment."),
+    }
+
+    // Also use our debug output for now
+    let mut path = std::path::PathBuf::from(".");
+    path.push("target");
+    path.push("debug");
+
+    let _ = load_plugins_in_dir(&path, context);
+
+    // Also use our release output for now
+    let mut path = std::path::PathBuf::from(".");
+    path.push("target");
+    path.push("release");
+
+    let _ = load_plugins_in_dir(&path, context);
+
+    Ok(())
 }
 
 pub async fn cli() -> Result<(), Box<dyn Error>> {
@@ -48,51 +154,50 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            command("ps", ps::ps),
-            command("ls", ls::ls),
-            command("sysinfo", sysinfo::sysinfo),
-            command("cd", cd::cd),
-            command("view", view::view),
-            command("skip", skip::skip),
-            command("first", first::first),
-            command("size", size::size),
-            command("from-ini", from_ini::from_ini),
-            command("from-json", from_json::from_json),
-            command("from-toml", from_toml::from_toml),
-            command("from-xml", from_xml::from_xml),
-            command("from-yaml", from_yaml::from_yaml),
-            command("get", get::get),
-            command("enter", enter::enter),
-            command("exit", exit::exit),
-            command("lines", lines::lines),
-            command("pick", pick::pick),
-            command("split-column", split_column::split_column),
-            command("split-row", split_row::split_row),
-            command("lines", lines::lines),
-            command("reject", reject::reject),
-            command("trim", trim::trim),
-            command("to-array", to_array::to_array),
-            command("to-json", to_json::to_json),
-            command("to-toml", to_toml::to_toml),
-            command("sort-by", sort_by::sort_by),
+            command("ps", Box::new(ps::ps)),
+            command("ls", Box::new(ls::ls)),
+            command("sysinfo", Box::new(sysinfo::sysinfo)),
+            command("cd", Box::new(cd::cd)),
+            command("view", Box::new(view::view)),
+            command("skip", Box::new(skip::skip)),
+            command("first", Box::new(first::first)),
+            command("size", Box::new(size::size)),
+            command("from-ini", Box::new(from_ini::from_ini)),
+            command("from-json", Box::new(from_json::from_json)),
+            command("from-toml", Box::new(from_toml::from_toml)),
+            command("from-xml", Box::new(from_xml::from_xml)),
+            command("from-yaml", Box::new(from_yaml::from_yaml)),
+            command("get", Box::new(get::get)),
+            command("enter", Box::new(enter::enter)),
+            command("exit", Box::new(exit::exit)),
+            command("lines", Box::new(lines::lines)),
+            command("pick", Box::new(pick::pick)),
+            command("split-column", Box::new(split_column::split_column)),
+            command("split-row", Box::new(split_row::split_row)),
+            command("lines", Box::new(lines::lines)),
+            command("reject", Box::new(reject::reject)),
+            command("trim", Box::new(trim::trim)),
+            command("to-array", Box::new(to_array::to_array)),
+            command("to-json", Box::new(to_json::to_json)),
+            command("to-toml", Box::new(to_toml::to_toml)),
+            command("sort-by", Box::new(sort_by::sort_by)),
             Arc::new(Open),
             Arc::new(Where),
             Arc::new(Config),
             Arc::new(SkipWhile),
-            command("sort-by", sort_by::sort_by),
-            command("inc", |x| plugin::plugin("inc".into(), x)),
-            command("sum", |x| plugin::plugin("sum".into(), x)),
+            command("sort-by", Box::new(sort_by::sort_by)),
         ]);
 
         context.add_sinks(vec![
-            sink("autoview", autoview::autoview),
-            sink("clip", clip::clip),
-            sink("save", save::save),
-            sink("table", table::table),
-            sink("tree", tree::tree),
-            sink("vtable", vtable::vtable),
+            sink("autoview", Box::new(autoview::autoview)),
+            sink("clip", Box::new(clip::clip)),
+            sink("save", Box::new(save::save)),
+            sink("table", Box::new(table::table)),
+            sink("tree", Box::new(tree::tree)),
+            sink("vtable", Box::new(vtable::vtable)),
         ]);
     }
+    let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let h = crate::shell::Helper::new(context.clone_commands());
@@ -250,7 +355,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Some(ClassifiedCommand::Sink(_)) => {}
                 Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
-                    command: sink("autoview", autoview::autoview),
+                    command: sink("autoview", Box::new(autoview::autoview)),
                     name_span: None,
                     args: registry::Args {
                         positional: None,

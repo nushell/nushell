@@ -112,4 +112,9 @@ mod tests {
     fn unit() {
         test_helper("unit");
     }
+
+    #[test]
+    fn inc_plugin() {
+        test_helper("inc_plugin");
+    }
 }

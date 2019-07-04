@@ -24,10 +24,17 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         }
         Value::Error(e) => serde_json::Value::String(e.to_string()),
         Value::Block(_) => serde_json::Value::Null,
+        Value::Binary(b) => serde_json::Value::Array(
+            b.iter()
+                .map(|x| {
+                    serde_json::Value::Number(serde_json::Number::from_f64(*x as f64).unwrap())
+                })
+                .collect(),
+        ),
         Value::Object(o) => {
             let mut m = serde_json::Map::new();
             for (k, v) in o.entries.iter() {
-                m.insert(k.name.display().to_string(), value_to_json_value(v));
+                m.insert(k.clone(), value_to_json_value(v));
             }
             serde_json::Value::Object(m)
         }

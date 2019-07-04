@@ -18,10 +18,13 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
         Value::List(l) => toml::Value::Array(l.iter().map(|x| value_to_toml_value(x)).collect()),
         Value::Error(e) => toml::Value::String(e.to_string()),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
+        Value::Binary(b) => {
+            toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
+        }
         Value::Object(o) => {
             let mut m = toml::map::Map::new();
             for (k, v) in o.entries.iter() {
-                m.insert(k.name.display().to_string(), value_to_toml_value(v));
+                m.insert(k.clone(), value_to_toml_value(v));
             }
             toml::Value::Table(m)
         }

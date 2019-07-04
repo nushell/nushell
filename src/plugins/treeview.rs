@@ -1,6 +1,6 @@
-use crate::format::RenderView;
-use crate::prelude::*;
 use derive_new::new;
+use indexmap::IndexMap;
+use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Value};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
 use ptree::print_config::PrintConfig;
@@ -36,7 +36,8 @@ impl TreeView {
             Value::Binary(_) => {}
         }
     }
-    crate fn from_value(value: &Value) -> TreeView {
+
+    fn from_value(value: &Value) -> TreeView {
         let descs = value.data_descriptors();
 
         let mut tree = TreeBuilder::new("".to_string());
@@ -52,10 +53,8 @@ impl TreeView {
 
         TreeView::new(builder.build())
     }
-}
 
-impl RenderView for TreeView {
-    fn render_view(&self, _host: &mut dyn Host) -> Result<(), ShellError> {
+    fn render_view(&self) -> Result<(), ShellError> {
         // Set up the print configuration
         let config = {
             let mut config = PrintConfig::from_env();
@@ -68,6 +67,7 @@ impl RenderView for TreeView {
                 bold: true,
                 ..Style::default()
             };
+            //config.characters = UTF_CHARS_BOLD.into();
             config.indent = 4;
             config
         };
@@ -77,4 +77,38 @@ impl RenderView for TreeView {
 
         Ok(())
     }
+}
+
+struct TreeViewer;
+
+impl Plugin for TreeViewer {
+    fn config(&mut self) -> Result<CommandConfig, ShellError> {
+        Ok(CommandConfig {
+            name: "treeview".to_string(),
+            mandatory_positional: vec![],
+            optional_positional: vec![],
+            can_load: vec![],
+            can_save: vec![],
+            is_filter: false,
+            is_sink: true,
+            named: IndexMap::new(),
+            rest_positional: true,
+        })
+    }
+
+    fn sink(&mut self, _args: Args, input: Vec<Value>) {
+        if input.len() > 0 {
+            for i in input.iter() {
+                let view = TreeView::from_value(&i);
+                let _ = view.render_view();
+                //handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
+            }
+        }
+
+        //Ok(())
+    }
+}
+
+fn main() {
+    serve_plugin(&mut TreeViewer);
 }

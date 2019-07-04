@@ -82,6 +82,10 @@ pub trait Command {
             optional_positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
+            is_filter: true,
+            is_sink: false,
+            can_load: vec![],
+            can_save: vec![],
         }
     }
 }
@@ -97,13 +101,17 @@ pub trait Sink {
             optional_positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
+            is_filter: false,
+            is_sink: true,
+            can_load: vec![],
+            can_save: vec![],
         }
     }
 }
 
 pub struct FnCommand {
     name: String,
-    func: fn(CommandArgs) -> Result<OutputStream, ShellError>,
+    func: Box<dyn Fn(CommandArgs) -> Result<OutputStream, ShellError>>,
 }
 
 impl Command for FnCommand {
@@ -118,7 +126,7 @@ impl Command for FnCommand {
 
 pub fn command(
     name: &str,
-    func: fn(CommandArgs) -> Result<OutputStream, ShellError>,
+    func: Box<dyn Fn(CommandArgs) -> Result<OutputStream, ShellError>>,
 ) -> Arc<dyn Command> {
     Arc::new(FnCommand {
         name: name.to_string(),
@@ -128,7 +136,7 @@ pub fn command(
 
 pub struct FnSink {
     name: String,
-    func: fn(SinkCommandArgs) -> Result<(), ShellError>,
+    func: Box<dyn Fn(SinkCommandArgs) -> Result<(), ShellError>>,
 }
 
 impl Sink for FnSink {
@@ -141,7 +149,10 @@ impl Sink for FnSink {
     }
 }
 
-pub fn sink(name: &str, func: fn(SinkCommandArgs) -> Result<(), ShellError>) -> Arc<dyn Sink> {
+pub fn sink(
+    name: &str,
+    func: Box<dyn Fn(SinkCommandArgs) -> Result<(), ShellError>>,
+) -> Arc<dyn Sink> {
     Arc::new(FnSink {
         name: name.to_string(),
         func,

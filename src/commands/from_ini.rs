@@ -1,4 +1,4 @@
-use crate::object::{DataDescriptor, Dictionary, Primitive, Value};
+use crate::object::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ fn convert_ini_second_to_nu_value(v: &HashMap<String, String>) -> Value {
     let mut second = Dictionary::new(IndexMap::new());
     for (key, value) in v.into_iter() {
         second.add(
-            DataDescriptor::from(key.as_str()),
+            key.clone(),
             Value::Primitive(Primitive::String(value.clone())),
         );
     }
@@ -16,10 +16,7 @@ fn convert_ini_second_to_nu_value(v: &HashMap<String, String>) -> Value {
 fn convert_ini_top_to_nu_value(v: &HashMap<String, HashMap<String, String>>) -> Value {
     let mut top_level = Dictionary::new(IndexMap::new());
     for (key, value) in v.iter() {
-        top_level.add(
-            DataDescriptor::from(key.as_str()),
-            convert_ini_second_to_nu_value(value),
-        );
+        top_level.add(key.clone(), convert_ini_second_to_nu_value(value));
     }
     Value::Object(top_level)
 }
