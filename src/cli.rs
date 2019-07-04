@@ -69,7 +69,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                 Ok(jrpc) => match jrpc.params {
                     Ok(params) => {
                         let fname = path.to_string_lossy();
-                        println!("Loaded: {} from {}", params.name, fname);
+                        //println!("Loaded: {} from {}", params.name, fname);
                         if params.is_filter {
                             let fname = fname.to_string();
                             context.add_commands(vec![command(
@@ -129,12 +129,14 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         None => println!("PATH is not defined in the environment."),
     }
 
+    /*
     // Also use our debug output for now
     let mut path = std::path::PathBuf::from(".");
     path.push("target");
     path.push("debug");
 
     let _ = load_plugins_in_dir(&path, context);
+    */
 
     Ok(())
 }

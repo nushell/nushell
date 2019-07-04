@@ -33,17 +33,6 @@ pub enum NuResult {
 }
 
 pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
-    //let mut path = std::path::PathBuf::from(".");
-    //path.push("target");
-    //path.push("debug");
-    //path.push(format!("nu_plugin_{}", plugin_name));
-
-    // path = if path.exists() {
-    //     path
-    // } else {
-    //     std::path::PathBuf::from(format!("nu_plugin_{}", plugin_name))
-    // };
-
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -130,17 +119,6 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
 }
 
 pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError> {
-    // let mut path = std::path::PathBuf::from(".");
-    // path.push("target");
-    // path.push("debug");
-    // path.push(format!("nu_plugin_{}", plugin_name));
-
-    // path = if path.exists() {
-    //     path
-    // } else {
-    //     std::path::PathBuf::from(format!("nu_plugin_{}", plugin_name))
-    // };
-
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .spawn()
