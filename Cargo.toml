@@ -70,6 +70,7 @@ rawkey = { git = "https://github.com/jonathandturner/rawkey.git" }
 resize = "0.3.0"
 crossterm = "0.9.6"
 tempfile = "3.1.0"
+image = "0.21.2"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
