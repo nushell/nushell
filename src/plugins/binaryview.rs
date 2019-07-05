@@ -1,4 +1,4 @@
-use crossterm::{cursor, terminal, Attribute, Color, Colored, RawScreen};
+use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
 use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Value};
 
@@ -52,17 +52,6 @@ fn view_binary(b: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[derive(PartialEq, Debug)]
-pub enum JoyButton {
-    A = 0,
-    B = 1,
-    Select = 2,
-    Start = 3,
-    Up = 4,
-    Down = 5,
-    Left = 6,
-    Right = 7,
-}
 pub struct Context {
     pub width: usize,
     pub height: usize,
@@ -86,25 +75,37 @@ impl Context {
         let cursor = cursor();
         cursor.goto(0, 0)?;
 
-        let mut prev_color = None;
+        let mut prev_color: Option<(u8,u8,u8)> = None;
+        let mut prev_count = 1;
 
         for pixel in &self.frame_buffer {
             match prev_color {
                 Some(c) if c == pixel.1 => {
-                    print!("{}", pixel.0);
+                    prev_count += 1;
+                }
+                Some(c) => {
+                    print!(
+                        "{}",
+                        ansi_term::Colour::RGB(c.0, c.1, c.2)
+                            .paint((0..prev_count).map(|_| pixel.0).collect::<String>())
+                    );
+                    prev_color = Some(pixel.1);
+                    prev_count = 1;
                 }
                 _ => {
-                    prev_color = Some(pixel.1);
-                    print!(
-                        "{}{}",
-                        Colored::Fg(Color::Rgb {
-                            r: (pixel.1).0,
-                            g: (pixel.1).1,
-                            b: (pixel.1).2
-                        }),
-                        pixel.0
-                    )
+                    prev_color = Some(pixel.1); 
+                    prev_count = 1;
                 }
+            }
+        }
+
+        if prev_count > 0 {
+            if let Some(color) = prev_color {
+                print!(
+                    "{}",
+                    ansi_term::Colour::RGB(color.0, color.1, color.2)
+                        .paint((0..prev_count).map(|_| "@").collect::<String>())
+                );
             }
         }
 
