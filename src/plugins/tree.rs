@@ -84,7 +84,7 @@ struct TreeViewer;
 impl Plugin for TreeViewer {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
-            name: "treeview".to_string(),
+            name: "tree".to_string(),
             mandatory_positional: vec![],
             optional_positional: vec![],
             can_load: vec![],
