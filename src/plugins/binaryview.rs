@@ -96,16 +96,11 @@ impl Context {
                 _ => {
                     prev_color = Some(pixel.1);
                     print!(
-                        "{}{}{}",
+                        "{}{}",
                         Colored::Fg(Color::Rgb {
                             r: (pixel.1).0,
                             g: (pixel.1).1,
                             b: (pixel.1).2
-                        }),
-                        Colored::Bg(Color::Rgb {
-                            r: 25,
-                            g: 25,
-                            b: 25
                         }),
                         pixel.0
                     )
