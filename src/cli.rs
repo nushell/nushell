@@ -159,7 +159,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("sysinfo", Box::new(sysinfo::sysinfo)),
             command("cd", Box::new(cd::cd)),
             command("view", Box::new(view::view)),
-            command("skip", Box::new(skip::skip)),
             command("first", Box::new(first::first)),
             command("size", Box::new(size::size)),
             command("from-ini", Box::new(from_ini::from_ini)),
@@ -193,7 +192,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             sink("clip", Box::new(clip::clip)),
             sink("save", Box::new(save::save)),
             sink("table", Box::new(table::table)),
-            sink("tree", Box::new(tree::tree)),
             sink("vtable", Box::new(vtable::vtable)),
         ]);
     }
