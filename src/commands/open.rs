@@ -1,7 +1,6 @@
 use crate::errors::ShellError;
 use crate::object::{Primitive, Switch, Value};
 use crate::parser::parse::span::Span;
-use crate::parser::registry::NamedType;
 use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};

@@ -262,7 +262,9 @@ macro_rules! command {
             Extract {
                 $($extract:tt)* {
                     use std::convert::TryInto;
-                    $args.expect_nth($($positional_count)*)?.try_into()?
+                    let value = $args.expect_nth($($positional_count)*)?;
+                    let value = $param_kind.check(value)?;
+                    value.extract()
                 }
             }
         );

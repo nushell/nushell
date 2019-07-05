@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::Block;
+use crate::object::types::*;
 use crate::prelude::*;
 use futures::future::ready;
 use log::trace;

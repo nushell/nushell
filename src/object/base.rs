@@ -149,11 +149,6 @@ impl Deserialize<'de> for Block {
         D: Deserializer<'de>,
     {
         unimplemented!("deserialize block")
-        // let s = "\"unimplemented deserialize block\"";
-        // Ok(Block::new(
-        //     TokenTreeBuilder::spanned_string((1, s.len() - 1), (0, s.len())),
-        //     Text::from(s),
-        // ))
     }
 }
 
