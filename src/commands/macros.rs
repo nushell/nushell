@@ -49,7 +49,7 @@ macro_rules! command {
                     positional: vec![$($mandatory_positional)*],
                     rest_positional: false,
                     named: {
-                        use  $crate::parser::registry::{NamedType, NamedValue};
+                        use $crate::parser::registry::NamedType;
 
                         #[allow(unused_mut)]
                         let mut named: indexmap::IndexMap<String, NamedType> = indexmap::IndexMap::new();
@@ -261,10 +261,10 @@ macro_rules! command {
 
             Extract {
                 $($extract:tt)* {
-                    use std::convert::TryInto;
+                    use $crate::object::types::ExtractType;
                     let value = $args.expect_nth($($positional_count)*)?;
-                    let value = $param_kind.check(value)?;
-                    value.extract()
+                    // let value = $param_kind.check(value)?;
+                    $param_kind::extract(value)?
                 }
             }
         );

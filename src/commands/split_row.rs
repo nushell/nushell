@@ -22,7 +22,7 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let stream = input
         .values
-        .map(move |v| match v {
+        .map(move |v| match v.item {
             Value::Primitive(Primitive::String(s)) => {
                 let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
@@ -32,9 +32,9 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 let mut result = VecDeque::new();
                 for s in split_result {
-                    result.push_back(ReturnSuccess::value(Value::Primitive(Primitive::String(
-                        s.into(),
-                    ))));
+                    result.push_back(ReturnSuccess::value(
+                        Value::Primitive(Primitive::String(s.into())).spanned(v.span),
+                    ));
                 }
                 result
             }

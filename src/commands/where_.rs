@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::types::*;
+use crate::object::Block;
 use crate::prelude::*;
 use futures::future::ready;
 use log::trace;
@@ -13,7 +13,7 @@ command! {
 
             let return_value = match result {
                 Err(err) => Some(Err(err)),
-                Ok(v) if v.is_true() => Some(Ok(ReturnSuccess::Value(item.copy()))),
+                Ok(v) if v.is_true() => Some(Ok(ReturnSuccess::Value(item.clone()))),
                 _ => None,
             };
 

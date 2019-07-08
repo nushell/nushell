@@ -14,7 +14,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
         serde_yaml::Value::String(s) => Value::string(s),
         serde_yaml::Value::Sequence(a) => Value::List(
             a.iter()
-                .map(|x| convert_yaml_value_to_nu_value(x))
+                .map(|x| convert_yaml_value_to_nu_value(x).spanned_unknown())
                 .collect(),
         ),
         serde_yaml::Value::Mapping(t) => {
@@ -44,9 +44,9 @@ pub fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.name_span;
     Ok(out
         .values
-        .map(move |a| match a {
+        .map(move |a| match a.item {
             Value::Primitive(Primitive::String(s)) => match from_yaml_string_to_value(s) {
-                Ok(x) => ReturnSuccess::value(x),
+                Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as YAML",
                     "piped data failed YAML parse",

@@ -12,7 +12,7 @@ pub struct VTableView {
 }
 
 impl VTableView {
-    pub fn from_list(values: &[Value]) -> Option<VTableView> {
+    pub fn from_list(values: &[Spanned<Value>]) -> Option<VTableView> {
         if values.len() == 0 {
             return None;
         }

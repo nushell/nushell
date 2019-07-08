@@ -49,7 +49,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let full_path = PathBuf::from(cwd);
 
-    let (file_extension, contents) = match &args.expect_nth(0)?.item {
+    let (file_extension, contents, contents_span) = match &args.expect_nth(0)?.item {
         Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
         _ => {
             return Err(ShellError::labeled_error(
@@ -90,7 +90,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     stream.push_back(Ok(ReturnSuccess::Action(CommandAction::Enter(
-        parse_as_value(file_extension, contents, span)?,
+        parse_as_value(file_extension, contents, contents_span, span)?,
     ))));
 
     Ok(stream.into())

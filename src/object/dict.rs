@@ -9,7 +9,7 @@ use std::fmt;
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, new)]
 pub struct Dictionary {
-    pub entries: IndexMap<String, Value>,
+    pub entries: IndexMap<String, Spanned<Value>>,
 }
 
 impl PartialOrd for Dictionary {
@@ -28,8 +28,8 @@ impl PartialOrd for Dictionary {
     }
 }
 
-impl From<IndexMap<String, Value>> for Dictionary {
-    fn from(input: IndexMap<String, Value>) -> Dictionary {
+impl From<IndexMap<String, Spanned<Value>>> for Dictionary {
+    fn from(input: IndexMap<String, Spanned<Value>>) -> Dictionary {
         let mut out = IndexMap::default();
 
         for (key, value) in input {
@@ -93,7 +93,7 @@ impl Dictionary {
         }
     }
 
-    crate fn get_data_by_key(&self, name: &str) -> Option<&Value> {
+    crate fn get_data_by_key(&self, name: &str) -> Option<&Spanned<Value>> {
         match self
             .entries
             .iter()
@@ -112,5 +112,43 @@ impl Dictionary {
         }
 
         debug.finish()
+    }
+}
+
+#[derive(Debug)]
+pub struct SpannedDictBuilder {
+    span: Span,
+    dict: IndexMap<DataDescriptor, Spanned<Value>>,
+}
+
+impl SpannedDictBuilder {
+    pub fn new(span: impl Into<Span>) -> SpannedDictBuilder {
+        SpannedDictBuilder {
+            span: span.into(),
+            dict: IndexMap::default(),
+        }
+    }
+
+    pub fn insert(&mut self, key: impl Into<DataDescriptor>, value: impl Into<Value>) {
+        self.dict
+            .insert(key.into(), value.into().spanned(self.span));
+    }
+
+    pub fn insert_spanned(
+        &mut self,
+        key: impl Into<DataDescriptor>,
+        value: impl Into<Spanned<Value>>,
+    ) {
+        self.dict.insert(key.into(), value.into());
+    }
+
+    pub fn into_spanned_value(self) -> Spanned<Value> {
+        Value::Object(Dictionary { entries: self.dict }).spanned(self.span)
+    }
+}
+
+impl From<SpannedDictBuilder> for Spanned<Value> {
+    fn from(input: SpannedDictBuilder) -> Spanned<Value> {
+        input.into_spanned_value()
     }
 }

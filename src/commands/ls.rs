@@ -18,7 +18,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => {}
     }
 
-    match obj {
+    match obj.item {
         Value::Filesystem => {
             let entries = std::fs::read_dir(&full_path);
 
@@ -45,7 +45,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             for entry in entries {
                 let value = Value::Object(dir_entry_dict(&entry?)?);
-                shell_entries.push_back(ReturnSuccess::value(value))
+                shell_entries.push_back(ReturnSuccess::value(value.spanned_unknown()))
             }
             Ok(shell_entries.to_output_stream())
         }
@@ -125,9 +125,12 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }
             }
             match viewed {
-                Value::List(l) => {
+                Spanned {
+                    item: Value::List(l),
+                    ..
+                } => {
                     for item in l {
-                        entries.push_back(ReturnSuccess::value(item.copy()));
+                        entries.push_back(ReturnSuccess::value(item.clone()));
                     }
                 }
                 x => {

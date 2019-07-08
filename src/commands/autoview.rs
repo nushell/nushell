@@ -22,7 +22,7 @@ pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
     Ok(())
 }
 
-fn equal_shapes(input: &Vec<Value>) -> bool {
+fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {
     let mut items = input.iter();
 
     let item = match items.next() {

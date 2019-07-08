@@ -1,4 +1,3 @@
-#[macro_use]
 use crate::prelude::*;
 
 use crate::errors::ShellError;
@@ -44,7 +43,7 @@ impl Command for Config {
 }
 
 pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut result = crate::object::config::config()?;
+    let mut result = crate::object::config::config(args.name_span)?;
 
     trace!("{:#?}", args.args.positional);
     trace!("{:#?}", args.args.named);
@@ -56,7 +55,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
 
         return Ok(
-            vec![value.clone()].into(), // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
+            stream![value.clone()], // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
         );
     }
 
@@ -66,16 +65,21 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             config::write_config(&result)?;
 
-            return Ok(stream![Value::Object(result.into())].from_input_stream());
+            return Ok(
+                stream![Spanned::from_item(Value::Object(result.into()), v.span())]
+                    .from_input_stream(),
+            );
         }
     }
 
-    if let Some(_) = args.get("clear") {
+    if let Some(c) = args.get("clear") {
         result.clear();
 
         config::write_config(&result)?;
 
-        return Ok(stream![Value::Object(result.into())].from_input_stream());
+        return Ok(
+            stream![Spanned::from_item(Value::Object(result.into()), c.span())].from_input_stream(),
+        );
     }
 
     if let Some(v) = args.get("remove") {
@@ -90,7 +94,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )));
         }
 
-        let obj = VecDeque::from_iter(vec![Value::Object(result.into())]);
+        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).spanned(v)]);
         return Ok(obj.from_input_stream());
     }
 

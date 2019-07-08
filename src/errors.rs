@@ -48,7 +48,7 @@ pub fn labelled(
 ) -> impl FnOnce(ShellError) -> ShellError + 'a {
     let span = span.into();
 
-    move |error| ShellError::maybe_labeled_error(heading, span_message, span)
+    move |_| ShellError::maybe_labeled_error(heading, span_message, span)
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
@@ -246,10 +246,6 @@ impl ShellError {
 
     crate fn unexpected(title: impl Into<String>) -> ShellError {
         ShellError::string(&format!("Unexpected: {}", title.into()))
-    }
-
-    crate fn copy_error(&self) -> ShellError {
-        self.clone()
     }
 }
 

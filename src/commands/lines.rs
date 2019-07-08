@@ -11,7 +11,7 @@ pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let stream = input
         .values
-        .map(move |v| match v {
+        .map(move |v| match v.item {
             Value::Primitive(Primitive::String(s)) => {
                 let split_result: Vec<_> = s.lines().filter(|s| s.trim() != "").collect();
 
@@ -19,9 +19,9 @@ pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 let mut result = VecDeque::new();
                 for s in split_result {
-                    result.push_back(ReturnSuccess::value(Value::Primitive(Primitive::String(
-                        s.into(),
-                    ))));
+                    result.push_back(ReturnSuccess::value(
+                        Value::Primitive(Primitive::String(s.into())).spanned_unknown(),
+                    ));
                 }
                 result
             }

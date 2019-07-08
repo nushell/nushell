@@ -50,14 +50,17 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
         stdin.write(format!("{}\n", request_raw).as_bytes())?;
     }
 
-    let mut eos = VecDeque::new();
-    eos.push_back(Value::Primitive(Primitive::EndOfStream));
+    let mut eos: VecDeque<Spanned<Value>> = VecDeque::new();
+    eos.push_back(Value::Primitive(Primitive::EndOfStream).spanned_unknown());
 
     let stream = args
         .input
         .chain(eos)
         .map(move |v| match v {
-            Value::Primitive(Primitive::EndOfStream) => {
+            Spanned {
+                item: Value::Primitive(Primitive::EndOfStream),
+                ..
+            } => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 

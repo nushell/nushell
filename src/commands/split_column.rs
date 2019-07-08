@@ -21,7 +21,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .values
-        .map(move |v| match v {
+        .map(move |v| match v.item {
             Value::Primitive(Primitive::String(s)) => {
                 let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
@@ -40,7 +40,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
                         dict.add(v.clone(), Value::Primitive(Primitive::String(k.into())));
                     }
-                    ReturnSuccess::value(Value::Object(dict))
+                    ReturnSuccess::value(Value::Object(dict).spanned(v.span))
                 } else if split_result.len() == (positional.len() - 1) {
                     let mut dict = crate::object::Dictionary::default();
                     for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
@@ -49,7 +49,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             Value::Primitive(Primitive::String(k.into())),
                         );
                     }
-                    ReturnSuccess::value(Value::Object(dict))
+                    ReturnSuccess::value(Value::Object(dict).spanned(v.span))
                 } else {
                     let mut dict = crate::object::Dictionary::default();
                     for k in positional.iter().skip(1) {
@@ -58,7 +58,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             Value::Primitive(Primitive::String("".into())),
                         );
                     }
-                    ReturnSuccess::value(Value::Object(dict))
+                    ReturnSuccess::value(Value::Object(dict).spanned(v.span))
                 }
             }
             _ => Err(ShellError::maybe_labeled_error(

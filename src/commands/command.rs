@@ -7,7 +7,7 @@ use crate::parser::{
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
-use std::{ops::Try, path::PathBuf};
+use std::path::PathBuf;
 
 #[derive(Getters)]
 #[get = "crate"]
@@ -49,26 +49,26 @@ pub struct SinkCommandArgs {
     pub ctx: Context,
     pub name_span: Option<Span>,
     pub args: Args,
-    pub input: Vec<Value>,
+    pub input: Vec<Spanned<Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(PathBuf),
-    Enter(Value),
+    Enter(Spanned<Value>),
     Exit,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ReturnSuccess {
-    Value(Value),
+    Value(Spanned<Value>),
     Action(CommandAction),
 }
 
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
 
-impl From<Value> for ReturnValue {
-    fn from(input: Value) -> ReturnValue {
+impl From<Spanned<Value>> for ReturnValue {
+    fn from(input: Spanned<Value>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input))
     }
 }
@@ -78,8 +78,12 @@ impl ReturnSuccess {
         Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
     }
 
-    pub fn value(input: Value) -> ReturnValue {
-        Ok(ReturnSuccess::Value(input))
+    pub fn value(input: impl Into<Spanned<Value>>) -> ReturnValue {
+        Ok(ReturnSuccess::Value(input.into()))
+    }
+
+    pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
+        Ok(ReturnSuccess::Value(Spanned::from_item(input, span)))
     }
 }
 

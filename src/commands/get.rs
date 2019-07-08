@@ -3,7 +3,7 @@ use crate::object::Value;
 use crate::parser::Span;
 use crate::prelude::*;
 
-fn get_member(path: &str, span: Span, obj: &Value) -> Result<Value, ShellError> {
+fn get_member(path: &str, span: Span, obj: &Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
     let mut current = obj;
     for p in path.split(".") {
         match current.get_data_by_key(p) {
@@ -18,7 +18,7 @@ fn get_member(path: &str, span: Span, obj: &Value) -> Result<Value, ShellError> 
         }
     }
 
-    Ok(current.copy())
+    Ok(current.clone())
 }
 
 pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -56,12 +56,15 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let mut result = VecDeque::new();
             for field in &fields {
                 match get_member(&field.0, field.1, &item) {
-                    Ok(Value::List(l)) => {
+                    Ok(Spanned {
+                        item: Value::List(l),
+                        ..
+                    }) => {
                         for item in l {
-                            result.push_back(ReturnSuccess::value(item.copy()));
+                            result.push_back(ReturnSuccess::value(item.clone()));
                         }
                     }
-                    Ok(x) => result.push_back(ReturnSuccess::value(x.copy())),
+                    Ok(x) => result.push_back(ReturnSuccess::value(x.clone())),
                     Err(_) => {}
                 }
             }

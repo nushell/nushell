@@ -153,8 +153,8 @@ impl Deserialize<'de> for Block {
 }
 
 impl Block {
-    pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
-        let scope = Scope::new(value.copy());
+    pub fn invoke(&self, value: &Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
+        let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
             return Ok(Spanned::from_item(Value::nothing(), self.span));
@@ -174,20 +174,19 @@ impl Block {
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
-    List(Vec<Value>),
     Binary(Vec<u8>),
-
+    List(Vec<Spanned<Value>>),
     #[allow(unused)]
     Block(Block),
     Filesystem,
 }
 
-pub fn debug_list(values: &'a Vec<Value>) -> ValuesDebug<'a> {
+pub fn debug_list(values: &'a Vec<Spanned<Value>>) -> ValuesDebug<'a> {
     ValuesDebug { values }
 }
 
 pub struct ValuesDebug<'a> {
-    values: &'a Vec<Value>,
+    values: &'a Vec<Spanned<Value>>,
 }
 
 impl fmt::Debug for ValuesDebug<'a> {
@@ -199,12 +198,12 @@ impl fmt::Debug for ValuesDebug<'a> {
 }
 
 pub struct ValueDebug<'a> {
-    value: &'a Value,
+    value: &'a Spanned<Value>,
 }
 
 impl fmt::Debug for ValueDebug<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.value {
+        match self.value.item() {
             Value::Primitive(p) => p.debug(f),
             Value::Object(o) => o.debug(f),
             Value::List(l) => debug_list(l).fmt(f),
@@ -281,6 +280,12 @@ impl std::convert::TryFrom<Option<&'a Spanned<Value>>> for Switch {
     }
 }
 
+impl Spanned<Value> {
+    crate fn debug(&'a self) -> ValueDebug<'a> {
+        ValueDebug { value: self }
+    }
+}
+
 impl Value {
     crate fn type_name(&self) -> String {
         match self {
@@ -314,13 +319,16 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Value> {
+    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Spanned<Value>> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(l) => {
                 for item in l {
                     match item {
-                        Value::Object(o) => match o.get_data_by_key(name) {
+                        Spanned {
+                            item: Value::Object(o),
+                            ..
+                        } => match o.get_data_by_key(name) {
                             Some(v) => return Some(v),
                             None => {}
                         },
@@ -333,7 +341,7 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Value> {
+    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Spanned<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
             _ => None,
@@ -349,20 +357,6 @@ impl Value {
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Error(e) => MaybeOwned::Owned(Value::string(&format!("{:#?}", e))),
             Value::Binary(_) => MaybeOwned::Owned(Value::nothing()),
-        }
-    }
-
-    crate fn copy(&self) -> Value {
-        match self {
-            Value::Primitive(p) => Value::Primitive(p.clone()),
-            Value::Object(o) => Value::Object(o.copy_dict()),
-            Value::Block(b) => Value::Block(b.clone()),
-            Value::List(l) => {
-                let list = l.iter().map(|i| i.copy()).collect();
-                Value::List(list)
-            }
-            Value::Filesystem => Value::Filesystem,
-            Value::Binary(b) => Value::Binary(b.clone()),
         }
     }
 
@@ -417,7 +411,7 @@ impl Value {
         }
     }
 
-    crate fn as_pair(&self) -> Result<(Value, Value), ShellError> {
+    crate fn as_pair(&self) -> Result<(Spanned<Value>, Spanned<Value>), ShellError> {
         match self {
             Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
             other => Err(ShellError::string(format!(
@@ -509,11 +503,6 @@ impl Value {
     pub fn nothing() -> Value {
         Value::Primitive(Primitive::Nothing)
     }
-
-    #[allow(unused)]
-    pub fn list(values: impl Into<Vec<Value>>) -> Value {
-        Value::List(values.into())
-    }
 }
 
 crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
@@ -522,9 +511,9 @@ crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     let descs = obj.data_descriptors();
 
     for field in fields {
-        match descs.iter().find(|d| *d == field) {
+        match descs.iter().find(|d| d.name.is_string(field)) {
             None => out.add(field, Value::nothing()),
-            Some(desc) => out.add(desc.clone(), obj.get_data(desc).borrow().copy()),
+            Some(desc) => out.add(desc.clone(), obj.get_data(desc).borrow().clone()),
         }
     }
 
@@ -539,7 +528,7 @@ crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Diction
     for desc in descs {
         match desc {
             x if fields.iter().any(|field| *field == x) => continue,
-            _ => out.add(desc.clone(), obj.get_data(&desc).borrow().copy()),
+            _ => out.add(desc.clone(), obj.get_data(&desc).borrow().clone()),
         }
     }
 
@@ -552,7 +541,7 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     match descs.iter().find(|d| *d == field) {
         None => false,
         Some(desc) => {
-            let v = obj.get_data(desc).borrow().copy();
+            let v = obj.get_data(desc).borrow().clone();
 
             match v {
                 Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {

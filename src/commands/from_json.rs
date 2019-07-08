@@ -12,7 +12,7 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value) -> Value {
         serde_hjson::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))),
         serde_hjson::Value::Array(a) => Value::List(
             a.iter()
-                .map(|x| convert_json_value_to_nu_value(x))
+                .map(|x| convert_json_value_to_nu_value(x).spanned_unknown())
                 .collect(),
         ),
         serde_hjson::Value::Object(o) => {
@@ -35,9 +35,9 @@ pub fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.name_span;
     Ok(out
         .values
-        .map(move |a| match a {
+        .map(move |a| match a.item {
             Value::Primitive(Primitive::String(s)) => match from_json_string_to_value(s) {
-                Ok(x) => ReturnSuccess::value(x),
+                Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as JSON",
                     "piped data failed JSON parse",

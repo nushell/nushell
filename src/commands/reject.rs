@@ -18,7 +18,7 @@ pub fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let stream = args
         .input
         .values
-        .map(move |item| Value::Object(reject_fields(&item, &fields)));
+        .map(move |item| Value::Object(reject_fields(&item, &fields)).spanned(args.name_span));
 
     Ok(stream.from_input_stream())
 }

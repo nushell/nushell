@@ -10,7 +10,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
             children_values.push(from_node_to_value(&c));
         }
 
-        let children_values: Vec<Value> = children_values
+        let children_values: Vec<Spanned<Value>> = children_values
             .into_iter()
             .filter(|x| match x {
                 Value::Primitive(Primitive::String(f)) => {
@@ -22,6 +22,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>) -> Value {
                 }
                 _ => true,
             })
+            .map(|v| v.spanned_unknown())
             .collect();
 
         let mut collected = Dictionary::default();
@@ -53,9 +54,9 @@ pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.name_span;
     Ok(out
         .values
-        .map(move |a| match a {
+        .map(move |a| match a.item {
             Value::Primitive(Primitive::String(s)) => match from_xml_string_to_value(s) {
-                Ok(x) => ReturnSuccess::value(x),
+                Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as XML",
                     "piped data failed XML parse",

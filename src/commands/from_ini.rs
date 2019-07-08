@@ -31,9 +31,9 @@ pub fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.name_span;
     Ok(out
         .values
-        .map(move |a| match a {
+        .map(move |a| match a.item {
             Value::Primitive(Primitive::String(s)) => match from_ini_string_to_value(s) {
-                Ok(x) => Ok(ReturnSuccess::Value(x)),
+                Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
                 Err(e) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as INI",
                     format!("{:#?}", e),

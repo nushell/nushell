@@ -14,11 +14,11 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let fields: Result<Vec<String>, _> = args.positional_iter().map(|a| a.as_string()).collect();
     let fields = fields?;
+    let input = args.input;
 
-    let objects = args
-        .input
+    let objects = input
         .values
-        .map(move |item| Value::Object(select_fields(&item, &fields)));
+        .map(move |value| Value::Object(select_fields(&value.item, &fields)).spanned(value.span));
 
     Ok(objects.from_input_stream())
 }

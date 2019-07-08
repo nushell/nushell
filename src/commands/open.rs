@@ -21,7 +21,7 @@ command! {
 
         let full_path = PathBuf::from(cwd);
 
-        let (file_extension, contents) = match &args.expect_nth(0)?.item {
+        let (file_extension, contents, contents_span) = match &args.expect_nth(0)?.item {
             Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
             _ => {
                 return Err(ShellError::labeled_error(
@@ -64,6 +64,7 @@ command! {
         stream.push_back(ReturnSuccess::value(parse_as_value(
             file_extension,
             contents,
+            contents_span,
             span,
         )?));
 
@@ -75,7 +76,7 @@ pub fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
-) -> Result<(Option<String>, String), ShellError> {
+) -> Result<(Option<String>, String, Span), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
@@ -106,7 +107,7 @@ pub fn fetch(
                         None => path_extension,
                     };
 
-                    Ok((extension, Value::string(s)))
+                    Ok((extension, s, span))
                 }
                 Err(_) => {
                     return Err(ShellError::labeled_error(
@@ -131,7 +132,8 @@ pub fn fetch(
                 Ok(s) => Ok((
                     cwd.extension()
                         .map(|name| name.to_string_lossy().to_string()),
-                    Value::string(s),
+                    s,
+                    span,
                 )),
                 Err(_) => Ok((None, Value::Binary(bytes))),
             },
@@ -149,10 +151,12 @@ pub fn fetch(
 pub fn parse_as_value(
     extension: Option<String>,
     contents: String,
+    contents_span: Span,
     name_span: Option<Span>,
-) -> Result<Value, ShellError> {
+) -> Result<Spanned<Value>, ShellError> {
     match extension {
         Some(x) if x == "toml" => crate::commands::from_toml::from_toml_string_to_value(contents)
+            .map(|c| c.spanned(contents_span))
             .map_err(move |_| {
                 ShellError::maybe_labeled_error(
                     "Could not open as TOML",
@@ -161,6 +165,7 @@ pub fn parse_as_value(
                 )
             }),
         Some(x) if x == "json" => crate::commands::from_json::from_json_string_to_value(contents)
+            .map(|c| c.spanned(contents_span))
             .map_err(move |_| {
                 ShellError::maybe_labeled_error(
                     "Could not open as JSON",
@@ -169,6 +174,7 @@ pub fn parse_as_value(
                 )
             }),
         Some(x) if x == "ini" => crate::commands::from_ini::from_ini_string_to_value(contents)
+            .map(|c| c.spanned(contents_span))
             .map_err(move |_| {
                 ShellError::maybe_labeled_error(
                     "Could not open as INI",
@@ -177,6 +183,7 @@ pub fn parse_as_value(
                 )
             }),
         Some(x) if x == "xml" => crate::commands::from_xml::from_xml_string_to_value(contents)
+            .map(|c| c.spanned(contents_span))
             .map_err(move |_| {
                 ShellError::maybe_labeled_error(
                     "Could not open as XML",
@@ -185,6 +192,7 @@ pub fn parse_as_value(
                 )
             }),
         Some(x) if x == "yml" => crate::commands::from_yaml::from_yaml_string_to_value(contents)
+            .map(|c| c.spanned(contents_span))
             .map_err(move |_| {
                 ShellError::maybe_labeled_error(
                     "Could not open as YAML",
@@ -193,6 +201,7 @@ pub fn parse_as_value(
                 )
             }),
         Some(x) if x == "yaml" => crate::commands::from_yaml::from_yaml_string_to_value(contents)
+            .map(|c| c.spanned(contents_span))
             .map_err(move |_| {
                 ShellError::maybe_labeled_error(
                     "Could not open as YAML",
@@ -200,6 +209,6 @@ pub fn parse_as_value(
                     name_span,
                 )
             }),
-        _ => Ok(Value::string(contents)),
+        _ => Ok(Value::string(contents).spanned(contents_span)),
     }
 }

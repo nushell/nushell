@@ -37,7 +37,9 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(out
         .values
         .map(move |a| match toml::to_string(&a) {
-            Ok(x) => ReturnSuccess::value(Value::Primitive(Primitive::String(x))),
+            Ok(x) => {
+                ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(args.name_span))
+            }
             Err(_) => Err(ShellError::maybe_labeled_error(
                 "Can not convert to TOML string",
                 "can not convert piped data to TOML string",

@@ -1,15 +1,15 @@
 use crate::prelude::*;
 
 pub struct InputStream {
-    crate values: BoxStream<'static, Value>,
+    crate values: BoxStream<'static, Spanned<Value>>,
 }
 
 impl InputStream {
-    pub fn into_vec(self) -> impl Future<Output = Vec<Value>> {
+    pub fn into_vec(self) -> impl Future<Output = Vec<Spanned<Value>>> {
         self.values.collect()
     }
 
-    pub fn from_stream(input: impl Stream<Item = Value> + Send + 'static) -> InputStream {
+    pub fn from_stream(input: impl Stream<Item = Spanned<Value>> + Send + 'static) -> InputStream {
         InputStream {
             values: input.boxed(),
         }
@@ -22,8 +22,8 @@ impl From<BoxStream<'static, Value>> for InputStream {
     }
 }
 
-impl From<VecDeque<Value>> for InputStream {
-    fn from(input: VecDeque<Value>) -> InputStream {
+impl From<VecDeque<Spanned<Value>>> for InputStream {
+    fn from(input: VecDeque<Spanned<Value>>) -> InputStream {
         InputStream {
             values: input.boxed(),
         }
@@ -46,13 +46,7 @@ pub struct OutputStream {
 }
 
 impl OutputStream {
-    pub fn from_stream(input: impl Stream<Item = ReturnValue> + Send + 'static) -> OutputStream {
-        OutputStream {
-            values: input.boxed(),
-        }
-    }
-
-    pub fn from_input(input: impl Stream<Item = Value> + Send + 'static) -> OutputStream {
+    pub fn from_input(input: impl Stream<Item = Spanned<Value>> + Send + 'static) -> OutputStream {
         OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
         }

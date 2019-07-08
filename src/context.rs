@@ -54,7 +54,7 @@ impl Context {
         command: Arc<dyn Sink>,
         name_span: Option<Span>,
         args: Args,
-        input: Vec<Value>,
+        input: Vec<Spanned<Value>>,
     ) -> Result<(), ShellError> {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),

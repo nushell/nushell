@@ -59,24 +59,6 @@ impl ClassifiedInputStream {
         }
     }
 
-    pub fn into_vec(self) -> impl std::future::Future<Output = Vec<Value>> {
-        self.objects.into_vec()
-    }
-
-    crate fn from_vec(stream: VecDeque<Value>) -> ClassifiedInputStream {
-        ClassifiedInputStream {
-            objects: stream.into(),
-            stdin: None,
-        }
-    }
-
-    crate fn from_list(stream: Vec<Value>) -> ClassifiedInputStream {
-        ClassifiedInputStream {
-            objects: stream.into(),
-            stdin: None,
-        }
-    }
-
     crate fn from_input_stream(stream: impl Into<InputStream>) -> ClassifiedInputStream {
         ClassifiedInputStream {
             objects: stream.into(),
@@ -111,7 +93,11 @@ crate struct SinkCommand {
 }
 
 impl SinkCommand {
-    crate fn run(self, context: &mut Context, input: Vec<Value>) -> Result<(), ShellError> {
+    crate fn run(
+        self,
+        context: &mut Context,
+        input: Vec<Spanned<Value>>,
+    ) -> Result<(), ShellError> {
         context.run_sink(self.command, self.name_span.clone(), self.args, input)
     }
 }
@@ -160,7 +146,11 @@ impl InternalCommand {
                     }
                     CommandAction::Exit => match context.env.lock().unwrap().pop_back() {
                         Some(Environment {
-                            obj: Value::Filesystem,
+                            obj:
+                                Spanned {
+                                    item: Value::Filesystem,
+                                    ..
+                                },
                             ..
                         }) => std::process::exit(0),
                         None => std::process::exit(-1),
@@ -199,7 +189,7 @@ impl ExternalCommand {
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
-        let inputs: Vec<Value> = input.objects.into_vec().await;
+        let inputs: Vec<Spanned<Value>> = input.objects.into_vec().await;
 
         trace!("-> {}", self.name);
         trace!("inputs = {:?}", inputs);

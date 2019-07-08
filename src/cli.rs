@@ -231,7 +231,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             let last = env.back().unwrap();
             (last.obj().clone(), last.path().display().to_string())
         };
-        let readline = match obj {
+        let readline = match obj.item {
             Value::Filesystem => rl.readline(&format!(
                 "{}{}> ",
                 cwd,
@@ -396,7 +396,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
-                        let input_vec: Vec<Value> = input.objects.into_vec().await;
+                        let input_vec: Vec<Spanned<Value>> = input.objects.into_vec().await;
                         if let Err(err) = left.run(ctx, input_vec) {
                             return LineResult::Error(line.clone(), err);
                         }
