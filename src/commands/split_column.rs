@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{Primitive, Value};
+use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
@@ -36,29 +36,27 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         gen_columns.push(format!("Column{}", i + 1));
                     }
 
-                    let mut dict = crate::object::Dictionary::default();
+                    let mut dict = SpannedDictBuilder::new(v.span);
                     for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
-                        dict.add(v.clone(), Value::Primitive(Primitive::String(k.into())));
+                        dict.insert(v.clone(), Primitive::String(k.into()));
                     }
-                    ReturnSuccess::value(Value::Object(dict).spanned(v.span))
+
+                    ReturnSuccess::value(dict.into_spanned_value())
                 } else if split_result.len() == (positional.len() - 1) {
-                    let mut dict = crate::object::Dictionary::default();
+                    let mut dict = SpannedDictBuilder::new(v.span);
                     for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
-                        dict.add(
+                        dict.insert(
                             v.as_string().unwrap(),
                             Value::Primitive(Primitive::String(k.into())),
                         );
                     }
-                    ReturnSuccess::value(Value::Object(dict).spanned(v.span))
+                    ReturnSuccess::value(dict.into_spanned_value())
                 } else {
-                    let mut dict = crate::object::Dictionary::default();
+                    let mut dict = SpannedDictBuilder::new(v.span);
                     for k in positional.iter().skip(1) {
-                        dict.add(
-                            k.as_string().unwrap().trim(),
-                            Value::Primitive(Primitive::String("".into())),
-                        );
+                        dict.insert(k.as_string().unwrap().trim(), Primitive::String("".into()));
                     }
-                    ReturnSuccess::value(Value::Object(dict).spanned(v.span))
+                    ReturnSuccess::value(dict.into_spanned_value())
                 }
             }
             _ => Err(ShellError::maybe_labeled_error(

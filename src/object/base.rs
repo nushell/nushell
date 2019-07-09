@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
+use crate::object::SpannedDictBuilder;
 use crate::parser::{hir, Operator, Span, Spanned};
 use crate::prelude::*;
 use crate::Text;
@@ -505,34 +506,34 @@ impl Value {
     }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
-    let mut out = crate::object::Dictionary::default();
+crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Spanned<Value> {
+    let mut out = SpannedDictBuilder::new(span);
 
     let descs = obj.data_descriptors();
 
     for field in fields {
         match descs.iter().find(|d| d.name.is_string(field)) {
-            None => out.add(field, Value::nothing()),
-            Some(desc) => out.add(desc.clone(), obj.get_data(desc).borrow().clone()),
+            None => out.insert(field, Value::nothing()),
+            Some(desc) => out.insert(desc.clone(), obj.get_data(desc).borrow().clone()),
         }
     }
 
-    out
+    out.into_spanned_value()
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
-    let mut out = crate::object::Dictionary::default();
+crate fn reject_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Spanned<Value> {
+    let mut out = SpannedDictBuilder::new(span);
 
     let descs = obj.data_descriptors();
 
     for desc in descs {
         match desc {
             x if fields.iter().any(|field| *field == x) => continue,
-            _ => out.add(desc.clone(), obj.get_data(&desc).borrow().clone()),
+            _ => out.insert(desc.clone(), obj.get_data(&desc).borrow().clone()),
         }
     }
 
-    out
+    out.into_spanned_value()
 }
 
 #[allow(unused)]

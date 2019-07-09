@@ -10,7 +10,10 @@ pub fn trim(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(input
         .values
-        .map(move |v| ReturnSuccess::value(String::check(&v)?.clone()))
+        .map(move |v| {
+            let string = String::extract(&v)?;
+            ReturnSuccess::value(Value::string(string.trim()).spanned(v.span))
+        })
         // Value::Primitive(Primitive::String(s)) => {
         //     ReturnSuccess::value(Value::Primitive(Primitive::String(s.trim().into())))
         // }

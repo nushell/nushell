@@ -155,60 +155,72 @@ pub fn parse_as_value(
     name_span: Option<Span>,
 ) -> Result<Spanned<Value>, ShellError> {
     match extension {
-        Some(x) if x == "toml" => crate::commands::from_toml::from_toml_string_to_value(contents)
-            .map(|c| c.spanned(contents_span))
-            .map_err(move |_| {
-                ShellError::maybe_labeled_error(
-                    "Could not open as TOML",
-                    "could not open as TOML",
-                    name_span,
-                )
-            }),
-        Some(x) if x == "json" => crate::commands::from_json::from_json_string_to_value(contents)
-            .map(|c| c.spanned(contents_span))
-            .map_err(move |_| {
-                ShellError::maybe_labeled_error(
-                    "Could not open as JSON",
-                    "could not open as JSON",
-                    name_span,
-                )
-            }),
-        Some(x) if x == "ini" => crate::commands::from_ini::from_ini_string_to_value(contents)
-            .map(|c| c.spanned(contents_span))
-            .map_err(move |_| {
-                ShellError::maybe_labeled_error(
-                    "Could not open as INI",
-                    "could not open as INI",
-                    name_span,
-                )
-            }),
-        Some(x) if x == "xml" => crate::commands::from_xml::from_xml_string_to_value(contents)
-            .map(|c| c.spanned(contents_span))
-            .map_err(move |_| {
-                ShellError::maybe_labeled_error(
-                    "Could not open as XML",
-                    "could not open as XML",
-                    name_span,
-                )
-            }),
-        Some(x) if x == "yml" => crate::commands::from_yaml::from_yaml_string_to_value(contents)
-            .map(|c| c.spanned(contents_span))
-            .map_err(move |_| {
-                ShellError::maybe_labeled_error(
-                    "Could not open as YAML",
-                    "could not open as YAML",
-                    name_span,
-                )
-            }),
-        Some(x) if x == "yaml" => crate::commands::from_yaml::from_yaml_string_to_value(contents)
-            .map(|c| c.spanned(contents_span))
-            .map_err(move |_| {
-                ShellError::maybe_labeled_error(
-                    "Could not open as YAML",
-                    "could not open as YAML",
-                    name_span,
-                )
-            }),
+        Some(x) if x == "toml" => {
+            crate::commands::from_toml::from_toml_string_to_value(contents, contents_span)
+                .map(|c| c.spanned(contents_span))
+                .map_err(move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as TOML",
+                        "could not open as TOML",
+                        name_span,
+                    )
+                })
+        }
+        Some(x) if x == "json" => {
+            crate::commands::from_json::from_json_string_to_value(contents, contents_span)
+                .map(|c| c.spanned(contents_span))
+                .map_err(move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as JSON",
+                        "could not open as JSON",
+                        name_span,
+                    )
+                })
+        }
+        Some(x) if x == "ini" => {
+            crate::commands::from_ini::from_ini_string_to_value(contents, contents_span)
+                .map(|c| c.spanned(contents_span))
+                .map_err(move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as INI",
+                        "could not open as INI",
+                        name_span,
+                    )
+                })
+        }
+        Some(x) if x == "xml" => {
+            crate::commands::from_xml::from_xml_string_to_value(contents, contents_span).map_err(
+                move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as XML",
+                        "could not open as XML",
+                        name_span,
+                    )
+                },
+            )
+        }
+        Some(x) if x == "yml" => {
+            crate::commands::from_yaml::from_yaml_string_to_value(contents, contents_span).map_err(
+                move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as YAML",
+                        "could not open as YAML",
+                        name_span,
+                    )
+                },
+            )
+        }
+        Some(x) if x == "yaml" => {
+            crate::commands::from_yaml::from_yaml_string_to_value(contents, contents_span).map_err(
+                move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as YAML",
+                        "could not open as YAML",
+                        name_span,
+                    )
+                },
+            )
+        }
         _ => Ok(Value::string(contents).spanned(contents_span)),
     }
 }

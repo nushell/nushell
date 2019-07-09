@@ -1,15 +1,29 @@
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Serialize, Serializer};
+use serde_derive::Deserialize;
 
-#[derive(
-    new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
-)]
+#[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Deserialize, Hash, Getters)]
 #[get = "crate"]
 pub struct Spanned<T> {
     pub span: Span,
     pub item: T,
+}
+
+impl<T: Serialize> Serialize for Spanned<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.item.serialize(serializer)
+    }
+}
+
+impl<T> Spanned<T> {
+    pub fn spanned(self, span: impl Into<Span>) -> Spanned<T> {
+        Spanned::from_item(self.item, span.into())
+    }
 }
 
 pub trait SpannedItem: Sized {

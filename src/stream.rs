@@ -16,8 +16,8 @@ impl InputStream {
     }
 }
 
-impl From<BoxStream<'static, Value>> for InputStream {
-    fn from(input: BoxStream<'static, Value>) -> InputStream {
+impl From<BoxStream<'static, Spanned<Value>>> for InputStream {
+    fn from(input: BoxStream<'static, Spanned<Value>>) -> InputStream {
         InputStream { values: input }
     }
 }
@@ -30,8 +30,8 @@ impl From<VecDeque<Spanned<Value>>> for InputStream {
     }
 }
 
-impl From<Vec<Value>> for InputStream {
-    fn from(input: Vec<Value>) -> InputStream {
+impl From<Vec<Spanned<Value>>> for InputStream {
+    fn from(input: Vec<Spanned<Value>>) -> InputStream {
         let mut list = VecDeque::default();
         list.extend(input);
 
@@ -46,6 +46,11 @@ pub struct OutputStream {
 }
 
 impl OutputStream {
+    pub fn empty() -> OutputStream {
+        let v: VecDeque<ReturnValue> = VecDeque::new();
+        v.into()
+    }
+
     pub fn from_input(input: impl Stream<Item = Spanned<Value>> + Send + 'static) -> OutputStream {
         OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
@@ -61,8 +66,8 @@ impl From<InputStream> for OutputStream {
     }
 }
 
-impl From<BoxStream<'static, Value>> for OutputStream {
-    fn from(input: BoxStream<'static, Value>) -> OutputStream {
+impl From<BoxStream<'static, Spanned<Value>>> for OutputStream {
+    fn from(input: BoxStream<'static, Spanned<Value>>) -> OutputStream {
         OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
         }
@@ -83,6 +88,18 @@ impl From<VecDeque<ReturnValue>> for OutputStream {
     }
 }
 
+impl From<VecDeque<Spanned<Value>>> for OutputStream {
+    fn from(input: VecDeque<Spanned<Value>>) -> OutputStream {
+        OutputStream {
+            values: input
+                .into_iter()
+                .map(|i| ReturnSuccess::value(i))
+                .collect::<VecDeque<ReturnValue>>()
+                .boxed(),
+        }
+    }
+}
+
 impl From<Vec<ReturnValue>> for OutputStream {
     fn from(input: Vec<ReturnValue>) -> OutputStream {
         let mut list = VecDeque::default();
@@ -94,8 +111,8 @@ impl From<Vec<ReturnValue>> for OutputStream {
     }
 }
 
-impl From<Vec<Value>> for OutputStream {
-    fn from(input: Vec<Value>) -> OutputStream {
+impl From<Vec<Spanned<Value>>> for OutputStream {
+    fn from(input: Vec<Spanned<Value>>) -> OutputStream {
         let mut list = VecDeque::default();
         list.extend(input.into_iter().map(ReturnSuccess::value));
 

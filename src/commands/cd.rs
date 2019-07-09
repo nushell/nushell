@@ -6,9 +6,9 @@ use std::path::PathBuf;
 pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let env = args.env.lock().unwrap();
     let latest = env.back().unwrap();
-    let obj = latest.obj;
+    let obj = &latest.obj;
 
-    match obj.item {
+    match obj.item() {
         Value::Filesystem => {
             let cwd = latest.path().to_path_buf();
 

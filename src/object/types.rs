@@ -8,7 +8,6 @@ pub trait Type: std::fmt::Debug + Send {
     type Extractor: ExtractType;
 
     fn name(&self) -> &'static str;
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError>;
     fn coerce(&self) -> Option<hir::ExpressionKindHint> {
         None
     }
@@ -28,10 +27,6 @@ impl Type for Any {
     fn name(&self) -> &'static str {
         "Any"
     }
-
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
-        Ok(value)
-    }
 }
 
 impl ExtractType for Spanned<Value> {
@@ -39,7 +34,7 @@ impl ExtractType for Spanned<Value> {
         Ok(value.clone())
     }
 
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
         Ok(value)
     }
 }
@@ -52,16 +47,6 @@ impl Type for Integer {
 
     fn name(&self) -> &'static str {
         "Integer"
-    }
-
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
-        match value {
-            v @ Spanned {
-                item: Value::Primitive(Primitive::Int(_)),
-                ..
-            } => Ok(v),
-            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
-        }
     }
 }
 
@@ -76,7 +61,7 @@ impl ExtractType for i64 {
         }
     }
 
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
         match value {
             v @ Spanned {
                 item: Value::Primitive(Primitive::Int(_)),
@@ -96,16 +81,6 @@ impl Type for NuString {
     fn name(&self) -> &'static str {
         "Integer"
     }
-
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
-        match value {
-            v @ Spanned {
-                item: Value::Primitive(Primitive::Int(_)),
-                ..
-            } => Ok(v),
-            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
-        }
-    }
 }
 
 impl ExtractType for String {
@@ -119,13 +94,13 @@ impl ExtractType for String {
         }
     }
 
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
         match value {
             v @ Spanned {
-                item: Value::Primitive(Primitive::Int(_)),
+                item: Value::Primitive(Primitive::String(_)),
                 ..
             } => Ok(v),
-            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
+            other => Err(ShellError::type_error("String", other.spanned_type_name())),
         }
     }
 }
@@ -139,8 +114,10 @@ impl Type for Block {
     fn name(&self) -> &'static str {
         "Block"
     }
+}
 
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+impl ExtractType for value::Block {
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
         match value {
             v @ Spanned {
                 item: Value::Block(_),
@@ -149,25 +126,13 @@ impl Type for Block {
             other => Err(ShellError::type_error("Block", other.spanned_type_name())),
         }
     }
-}
 
-impl ExtractType for value::Block {
     fn extract(value: &Spanned<Value>) -> Result<value::Block, ShellError> {
         match value {
             Spanned {
                 item: Value::Block(block),
                 ..
             } => Ok(block.clone()),
-            other => Err(ShellError::type_error("Block", other.spanned_type_name())),
-        }
-    }
-
-    fn check(&self, value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
-        match value {
-            v @ Spanned {
-                item: Value::Block(_),
-                ..
-            } => Ok(v),
             other => Err(ShellError::type_error("Block", other.spanned_type_name())),
         }
     }

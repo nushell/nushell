@@ -18,7 +18,7 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let objects = input
         .values
-        .map(move |value| Value::Object(select_fields(&value.item, &fields)).spanned(value.span));
+        .map(move |value| select_fields(&value.item, &fields, value.span));
 
     Ok(objects.from_input_stream())
 }

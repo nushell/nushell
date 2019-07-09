@@ -27,10 +27,7 @@ crate fn write_config(config: &IndexMap<String, Spanned<Value>>) -> Result<(), S
     touch(&filename)?;
 
     let contents = toml::to_string(&Config {
-        extra: config
-            .iter()
-            .map(|(k, v)| (k.clone(), v.item.clone()))
-            .collect(),
+        extra: config.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
     })?;
 
     fs::write(&filename, &contents)?;
@@ -54,7 +51,6 @@ crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Spanned<Value>
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
 
     let parsed: Config = toml::from_str(&contents)
-        .map(|v| v.spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't parse config file:\n{}", err)))?;
 
     Ok(parsed.extra)

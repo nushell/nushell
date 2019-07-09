@@ -39,10 +39,10 @@ crate fn evaluate_baseline_expr(
 
             match left.compare(binary.op(), &*right) {
                 Ok(result) => Ok(Spanned::from_item(Value::boolean(result), *expr.span())),
-                Err((left_type, right_type)) => Err(ShellError::CoerceError {
-                    left: binary.left().copy_span(left_type),
-                    right: binary.right().copy_span(right_type),
-                }),
+                Err((left_type, right_type)) => Err(ShellError::coerce_error(
+                    binary.left().copy_span(left_type),
+                    binary.right().copy_span(right_type),
+                )),
             }
         }
         RawExpression::Block(block) => Ok(Spanned::from_item(
@@ -58,10 +58,10 @@ crate fn evaluate_baseline_expr(
 
                 match next {
                     None => {
-                        return Err(ShellError::MissingProperty {
-                            subpath: Description::from(item.spanned_type_name()),
-                            expr: Description::from(name.clone()),
-                        })
+                        return Err(ShellError::missing_property(
+                            Description::from(item.spanned_type_name()),
+                            Description::from(name.clone()),
+                        ))
                     }
                     Some(next) => {
                         item = Spanned::from_item(
@@ -95,7 +95,7 @@ fn evaluate_reference(
     source: &Text,
 ) -> Result<Spanned<Value>, ShellError> {
     match name {
-        hir::Variable::It(span) => Ok(Spanned::from_item(scope.it.item, span)),
+        hir::Variable::It(span) => Ok(Spanned::from_item(scope.it.item.clone(), span)),
         hir::Variable::Other(span) => Ok(scope
             .vars
             .get(span.slice(source))

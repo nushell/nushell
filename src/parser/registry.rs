@@ -102,7 +102,7 @@ impl fmt::Debug for DebugPositional<'a> {
             None => write!(f, "None"),
             Some(positional) => f
                 .debug_list()
-                .entries(positional.iter().map(|p| p.item().debug()))
+                .entries(positional.iter().map(|p| p.debug()))
                 .finish(),
         }
     }
@@ -119,7 +119,7 @@ impl fmt::Debug for DebugNamed<'a> {
             None => write!(f, "None"),
             Some(named) => f
                 .debug_map()
-                .entries(named.iter().map(|(k, v)| (k, v.item().debug())))
+                .entries(named.iter().map(|(k, v)| (k, v.debug())))
                 .finish(),
         }
     }

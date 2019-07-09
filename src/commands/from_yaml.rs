@@ -1,42 +1,50 @@
 use crate::object::base::OF64;
-use crate::object::{Dictionary, Primitive, Value};
+use crate::object::{Dictionary, Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 
-fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value) -> Value {
+fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: impl Into<Span>) -> Spanned<Value> {
+    let span = span.into();
+
     match v {
-        serde_yaml::Value::Bool(b) => Value::Primitive(Primitive::Boolean(*b)),
+        serde_yaml::Value::Bool(b) => Value::Primitive(Primitive::Boolean(*b)).spanned(span),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            Value::Primitive(Primitive::Int(n.as_i64().unwrap()))
+            Value::Primitive(Primitive::Int(n.as_i64().unwrap())).spanned(span)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
-            Value::Primitive(Primitive::Float(OF64::from(n.as_f64().unwrap())))
+            Value::Primitive(Primitive::Float(OF64::from(n.as_f64().unwrap()))).spanned(span)
         }
-        serde_yaml::Value::String(s) => Value::string(s),
+        serde_yaml::Value::String(s) => Value::string(s).spanned(span),
         serde_yaml::Value::Sequence(a) => Value::List(
             a.iter()
-                .map(|x| convert_yaml_value_to_nu_value(x).spanned_unknown())
+                .map(|x| convert_yaml_value_to_nu_value(x, span))
                 .collect(),
-        ),
+        )
+        .spanned(span),
         serde_yaml::Value::Mapping(t) => {
-            let mut collected = Dictionary::default();
+            let mut collected = SpannedDictBuilder::new(span);
+
             for (k, v) in t.iter() {
                 match k {
                     serde_yaml::Value::String(k) => {
-                        collected.add(k.clone(), convert_yaml_value_to_nu_value(v));
+                        collected.add(k.clone(), convert_yaml_value_to_nu_value(v, span));
                     }
                     _ => unimplemented!("Unknown key type"),
                 }
             }
-            Value::Object(collected)
+
+            collected.into_spanned_value()
         }
-        serde_yaml::Value::Null => Value::Primitive(Primitive::Nothing),
+        serde_yaml::Value::Null => Value::Primitive(Primitive::Nothing).spanned(span),
         x => unimplemented!("Unsupported yaml case: {:?}", x),
     }
 }
 
-pub fn from_yaml_string_to_value(s: String) -> serde_yaml::Result<Value> {
+pub fn from_yaml_string_to_value(
+    s: String,
+    span: impl Into<Span>,
+) -> serde_yaml::Result<Spanned<Value>> {
     let v: serde_yaml::Value = serde_yaml::from_str(&s)?;
-    Ok(convert_yaml_value_to_nu_value(&v))
+    Ok(convert_yaml_value_to_nu_value(&v, span))
 }
 
 pub fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -45,7 +53,7 @@ pub fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(out
         .values
         .map(move |a| match a.item {
-            Value::Primitive(Primitive::String(s)) => match from_yaml_string_to_value(s) {
+            Value::Primitive(Primitive::String(s)) => match from_yaml_string_to_value(s, span) {
                 Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as YAML",

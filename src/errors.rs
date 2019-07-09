@@ -52,26 +52,9 @@ pub fn labelled(
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
-pub enum ShellError {
-    String(StringError),
-    TypeError {
-        expected: String,
-        actual: Spanned<Option<String>>,
-    },
-    MissingProperty {
-        subpath: Description,
-        expr: Description,
-    },
-    ArgumentError {
-        command: String,
-        error: ArgumentError,
-        span: Span,
-    },
-    Diagnostic(ShellDiagnostic),
-    CoerceError {
-        left: Spanned<String>,
-        right: Spanned<String>,
-    },
+pub struct ShellError {
+    error: ProximateShellError,
+    cause: Option<Box<ProximateShellError>>,
 }
 
 impl ShellError {
@@ -79,10 +62,39 @@ impl ShellError {
         expected: impl Into<String>,
         actual: Spanned<impl Into<String>>,
     ) -> ShellError {
-        ShellError::TypeError {
+        ProximateShellError::TypeError {
             expected: expected.into(),
             actual: actual.map(|i| Some(i.into())),
         }
+        .start()
+    }
+
+    crate fn coerce_error(
+        left: Spanned<impl Into<String>>,
+        right: Spanned<impl Into<String>>,
+    ) -> ShellError {
+        ProximateShellError::CoerceError {
+            left: left.map(|l| l.into()),
+            right: right.map(|r| r.into()),
+        }
+        .start()
+    }
+
+    crate fn missing_property(subpath: Description, expr: Description) -> ShellError {
+        ProximateShellError::MissingProperty { subpath, expr }.start()
+    }
+
+    crate fn argument_error(
+        command: impl Into<String>,
+        kind: ArgumentError,
+        span: Span,
+    ) -> ShellError {
+        ProximateShellError::ArgumentError {
+            command: command.into(),
+            error: kind,
+            span: span,
+        }
+        .start()
     }
 
     crate fn parse_error(
@@ -97,40 +109,20 @@ impl ShellError {
                     .with_label(Label::new_primary(Span::from(span.0)));
 
                 ShellError::diagnostic(diagnostic)
-                // nom::Context::Code(span, kind) => {
-                //     let diagnostic =
-                //         Diagnostic::new(Severity::Error, format!("{}", kind.description()))
-                //             .with_label(Label::new_primary(Span::from(span)));
-
-                //     ShellError::diagnostic(diagnostic)
-                // }
-            } // ParseError::UnrecognizedToken {
-              //     token: (start, SpannedToken { token, .. }, end),
-              //     expected,
-              // } => {
-              //     let diagnostic = Diagnostic::new(
-              //         Severity::Error,
-              //         format!("Unexpected {:?}, expected {:?}", token, expected),
-              //     )
-              //     .with_label(Label::new_primary(Span::from((start, end))));
-
-              //     ShellError::diagnostic(diagnostic)
-              // }
-              // ParseError::User { error } => error,
-              // other => ShellError::string(format!("{:?}", other)),
+            }
         }
     }
 
     crate fn diagnostic(diagnostic: Diagnostic<Span>) -> ShellError {
-        ShellError::Diagnostic(ShellDiagnostic { diagnostic })
+        ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }).start()
     }
 
     crate fn to_diagnostic(self) -> Diagnostic<Span> {
-        match self {
-            ShellError::String(StringError { title, .. }) => {
+        match self.error {
+            ProximateShellError::String(StringError { title, .. }) => {
                 Diagnostic::new(Severity::Error, title)
             }
-            ShellError::ArgumentError {
+            ProximateShellError::ArgumentError {
                 command,
                 error,
                 span,
@@ -166,7 +158,7 @@ impl ShellError {
                 )
                 .with_label(Label::new_primary(span)),
             },
-            ShellError::TypeError {
+            ProximateShellError::TypeError {
                 expected,
                 actual:
                     Spanned {
@@ -178,13 +170,13 @@ impl ShellError {
                     .with_message(format!("Expected {}, found {}", expected, actual)),
             ),
 
-            ShellError::TypeError {
+            ProximateShellError::TypeError {
                 expected,
                 actual: Spanned { item: None, span },
             } => Diagnostic::new(Severity::Error, "Type Error")
                 .with_label(Label::new_primary(span).with_message(expected)),
 
-            ShellError::MissingProperty { subpath, expr } => {
+            ProximateShellError::MissingProperty { subpath, expr } => {
                 let subpath = subpath.into_label();
                 let expr = expr.into_label();
 
@@ -202,8 +194,8 @@ impl ShellError {
                 diag
             }
 
-            ShellError::Diagnostic(diag) => diag.diagnostic,
-            ShellError::CoerceError { left, right } => {
+            ProximateShellError::Diagnostic(diag) => diag.diagnostic,
+            ProximateShellError::CoerceError { left, right } => {
                 Diagnostic::new(Severity::Error, "Coercion error")
                     .with_label(Label::new_primary(left.span).with_message(left.item))
                     .with_label(Label::new_secondary(right.span).with_message(right.item))
@@ -237,7 +229,7 @@ impl ShellError {
     }
 
     pub fn string(title: impl Into<String>) -> ShellError {
-        ShellError::String(StringError::new(title.into(), Value::nothing()))
+        ProximateShellError::String(StringError::new(title.into(), Value::nothing())).start()
     }
 
     crate fn unimplemented(title: impl Into<String>) -> ShellError {
@@ -246,6 +238,37 @@ impl ShellError {
 
     crate fn unexpected(title: impl Into<String>) -> ShellError {
         ShellError::string(&format!("Unexpected: {}", title.into()))
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ProximateShellError {
+    String(StringError),
+    TypeError {
+        expected: String,
+        actual: Spanned<Option<String>>,
+    },
+    MissingProperty {
+        subpath: Description,
+        expr: Description,
+    },
+    ArgumentError {
+        command: String,
+        error: ArgumentError,
+        span: Span,
+    },
+    Diagnostic(ShellDiagnostic),
+    CoerceError {
+        left: Spanned<String>,
+        right: Spanned<String>,
+    },
+}
+impl ProximateShellError {
+    fn start(self) -> ShellError {
+        ShellError {
+            cause: None,
+            error: self,
+        }
     }
 }
 
@@ -322,13 +345,13 @@ pub struct StringError {
 
 impl std::fmt::Display for ShellError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            ShellError::String(s) => write!(f, "{}", &s.title),
-            ShellError::TypeError { .. } => write!(f, "TypeError"),
-            ShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
-            ShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
-            ShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
-            ShellError::CoerceError { .. } => write!(f, "CoerceError"),
+        match &self.error {
+            ProximateShellError::String(s) => write!(f, "{}", &s.title),
+            ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
+            ProximateShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
+            ProximateShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
+            ProximateShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
+            ProximateShellError::CoerceError { .. } => write!(f, "CoerceError"),
         }
     }
 }
@@ -337,45 +360,40 @@ impl std::error::Error for ShellError {}
 
 impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::String(StringError {
+        ProximateShellError::String(StringError {
             title: format!("{}", input),
             error: Value::nothing(),
         })
+        .start()
     }
 }
 
 impl std::convert::From<futures_sink::VecSinkError> for ShellError {
     fn from(_input: futures_sink::VecSinkError) -> ShellError {
-        ShellError::String(StringError {
+        ProximateShellError::String(StringError {
             title: format!("Unexpected Vec Sink Error"),
             error: Value::nothing(),
         })
+        .start()
     }
 }
 
 impl std::convert::From<subprocess::PopenError> for ShellError {
     fn from(input: subprocess::PopenError) -> ShellError {
-        ShellError::String(StringError {
+        ProximateShellError::String(StringError {
             title: format!("{}", input),
             error: Value::nothing(),
         })
+        .start()
     }
 }
 
-// impl std::convert::From<nom::Err<(&str, nom::ErrorKind)>> for ShellError {
-//     fn from(input: nom::Err<(&str, nom::ErrorKind)>) -> ShellError {
-//         ShellError::String(StringError {
-//             title: format!("{:?}", input),
-//             error: Value::nothing(),
-//         })
-//     }
-// }
-
 impl std::convert::From<toml::ser::Error> for ShellError {
     fn from(input: toml::ser::Error) -> ShellError {
-        ShellError::String(StringError {
+        ProximateShellError::String(StringError {
             title: format!("{:?}", input),
             error: Value::nothing(),
         })
+        .start()
     }
 }

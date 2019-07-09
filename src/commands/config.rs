@@ -55,7 +55,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
 
         return Ok(
-            stream![value.clone()], // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
+            stream![value.clone()].into(), // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
         );
     }
 
@@ -99,7 +99,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     if args.len() == 0 {
-        return Ok(vec![Value::Object(result.into())].into());
+        return Ok(vec![Value::Object(result.into()).spanned(args.name_span)].into());
     }
 
     Err(ShellError::string(format!("Unimplemented")))

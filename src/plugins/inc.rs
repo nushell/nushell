@@ -3,7 +3,7 @@ use nu::{
     serve_plugin, Args, CommandConfig, Plugin, PositionalType, Primitive, ReturnValue, ShellError,
     Spanned, Value,
 };
-use nu::{Primitive, ReturnSuccess, ReturnValue, ShellError, Spanned, Value};
+use nu::{Primitive, ReturnSuccess, ReturnValue, ShellError, Spanned, SpannedItem, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -32,7 +32,7 @@ fn send_error(error: ShellError) {
 #[allow(non_camel_case_types)]
 pub enum NuCommand {
     init { params: Vec<Spanned<Value>> },
-    filter { params: Value },
+    filter { params: Spanned<Value> },
     quit,
 }
 
@@ -62,13 +62,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     Ok(NuCommand::filter { params }) => match params {
-                        Value::Primitive(Primitive::Int(i)) => {
-                            send_response(vec![ReturnSuccess::value(Value::int(i + inc_by))]);
+                        Spanned {
+                            item: Value::Primitive(Primitive::Int(i)),
+                            span,
+                        } => {
+                            send_response(vec![ReturnSuccess::value(
+                                Value::int(i + inc_by).spanned(span),
+                            )]);
                         }
-                        Value::Primitive(Primitive::Bytes(b)) => {
-                            send_response(vec![ReturnSuccess::value(Value::bytes(
-                                b + inc_by as u128,
-                            ))]);
+                        Spanned {
+                            item: Value::Primitive(Primitive::Bytes(b)),
+                            span,
+                        } => {
+                            send_response(vec![ReturnSuccess::value(
+                                Value::bytes(b + inc_by as u128).spanned(span),
+                            )]);
                         }
                         _ => {
                             send_error(ShellError::string("Unrecognized type in stream"));

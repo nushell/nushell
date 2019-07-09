@@ -21,8 +21,8 @@ impl PartialOrd for Dictionary {
             return this.partial_cmp(&that);
         }
 
-        let this: Vec<&Value> = self.entries.values().collect();
-        let that: Vec<&Value> = self.entries.values().collect();
+        let this: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
+        let that: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
 
         this.partial_cmp(&that)
     }
@@ -49,8 +49,8 @@ impl Ord for Dictionary {
             return this.cmp(&that);
         }
 
-        let this: Vec<&Value> = self.entries.values().collect();
-        let that: Vec<&Value> = self.entries.values().collect();
+        let this: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
+        let that: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
 
         this.cmp(&that)
     }
@@ -72,8 +72,8 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    crate fn add(&mut self, name: impl Into<String>, value: Value) {
-        self.entries.insert(name.into(), value);
+    crate fn add(&mut self, name: impl Into<String>, value: impl Into<Spanned<Value>>) {
+        self.entries.insert(name.into(), value.into());
     }
 
     crate fn copy_dict(&self) -> Dictionary {
@@ -115,6 +115,38 @@ impl Dictionary {
     }
 }
 
+pub struct SpannedListBuilder {
+    span: Span,
+    list: Vec<Spanned<Value>>,
+}
+
+impl SpannedListBuilder {
+    pub fn new(span: impl Into<Span>) -> SpannedListBuilder {
+        SpannedListBuilder {
+            span: span.into(),
+            list: vec![],
+        }
+    }
+
+    pub fn push(&mut self, value: impl Into<Value>) {
+        self.list.push(value.into().spanned(self.span));
+    }
+
+    pub fn insert_spanned(&mut self, value: impl Into<Spanned<Value>>) {
+        self.list.push(value.into());
+    }
+
+    pub fn into_spanned_value(self) -> Spanned<Value> {
+        Value::List(self.list).spanned(self.span)
+    }
+}
+
+impl From<SpannedListBuilder> for Spanned<Value> {
+    fn from(input: SpannedListBuilder) -> Spanned<Value> {
+        input.into_spanned_value()
+    }
+}
+
 #[derive(Debug)]
 pub struct SpannedDictBuilder {
     span: Span,
@@ -143,7 +175,11 @@ impl SpannedDictBuilder {
     }
 
     pub fn into_spanned_value(self) -> Spanned<Value> {
-        Value::Object(Dictionary { entries: self.dict }).spanned(self.span)
+        self.into_spanned_dict().map(Value::Object)
+    }
+
+    pub fn into_spanned_dict(self) -> Spanned<Dictionary> {
+        Dictionary { entries: self.dict }.spanned(self.span)
     }
 }
 

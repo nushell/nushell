@@ -86,6 +86,17 @@ crate enum ClassifiedCommand {
     External(ExternalCommand),
 }
 
+impl ClassifiedCommand {
+    pub fn span(&self) -> Span {
+        match self {
+            ClassifiedCommand::Expr(token) => token.span(),
+            ClassifiedCommand::Internal(internal) => internal.name_span.into(),
+            ClassifiedCommand::Sink(sink) => sink.name_span.into(),
+            ClassifiedCommand::External(external) => external.name_span.into(),
+        }
+    }
+}
+
 crate struct SinkCommand {
     crate command: Arc<dyn Sink>,
     crate name_span: Option<Span>,
@@ -190,6 +201,7 @@ impl ExternalCommand {
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
         let inputs: Vec<Spanned<Value>> = input.objects.into_vec().await;
+        let name_span = self.name_span.clone();
 
         trace!("-> {}", self.name);
         trace!("inputs = {:?}", inputs);
@@ -320,9 +332,10 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(|line| Value::string(line.unwrap()));
+                let stream =
+                    stream.map(move |line| Value::string(line.unwrap()).spanned(name_span));
                 Ok(ClassifiedInputStream::from_input_stream(
-                    stream.boxed() as BoxStream<'static, Value>
+                    stream.boxed() as BoxStream<'static, Spanned<Value>>
                 ))
             }
         }

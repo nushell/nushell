@@ -93,11 +93,11 @@ fn parse_command_tail(
                         tail.move_to(pos);
 
                         if tail.at_end() {
-                            return Err(ShellError::ArgumentError {
-                                command: config.name().clone(),
-                                error: ArgumentError::MissingValueForName(name.to_string()),
-                                span: flag.span,
-                            });
+                            return Err(ShellError::argument_error(
+                                config.name.clone(),
+                                ArgumentError::MissingValueForName(name.to_string()),
+                                flag.span,
+                            ));
                         }
 
                         let expr = hir::baseline_parse_next_expr(
@@ -118,11 +118,11 @@ fn parse_command_tail(
                     tail.move_to(pos);
 
                     if tail.at_end() {
-                        return Err(ShellError::ArgumentError {
-                            command: config.name().clone(),
-                            error: ArgumentError::MissingValueForName(name.to_string()),
-                            span: flag.span,
-                        });
+                        return Err(ShellError::argument_error(
+                            config.name().clone(),
+                            ArgumentError::MissingValueForName(name.to_string()),
+                            flag.span,
+                        ));
                     }
 
                     let expr = hir::baseline_parse_next_expr(
@@ -154,11 +154,11 @@ fn parse_command_tail(
         match arg {
             PositionalType::Mandatory(..) => {
                 if tail.len() == 0 {
-                    return Err(ShellError::ArgumentError {
-                        command: config.name().clone(),
-                        error: ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
-                        span: command_span,
-                    });
+                    return Err(ShellError::argument_error(
+                        config.name().clone(),
+                        ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
+                        command_span,
+                    ));
                 }
             }
 
@@ -215,11 +215,11 @@ fn extract_mandatory(
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
-        None => Err(ShellError::ArgumentError {
-            command: config.name().clone(),
-            error: ArgumentError::MissingMandatoryFlag(name.to_string()),
+        None => Err(ShellError::argument_error(
+            config.name().clone(),
+            ArgumentError::MissingMandatoryFlag(name.to_string()),
             span,
-        }),
+        )),
 
         Some((pos, flag)) => {
             tokens.remove(pos);

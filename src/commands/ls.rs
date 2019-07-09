@@ -44,8 +44,8 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let mut shell_entries = VecDeque::new();
 
             for entry in entries {
-                let value = Value::Object(dir_entry_dict(&entry?)?);
-                shell_entries.push_back(ReturnSuccess::value(value.spanned_unknown()))
+                let value = dir_entry_dict(&entry?, args.name_span)?;
+                shell_entries.push_back(ReturnSuccess::value(value))
             }
             Ok(shell_entries.to_output_stream())
         }
