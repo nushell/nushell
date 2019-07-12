@@ -13,8 +13,8 @@ macro_rules! stream {
 
 #[macro_export]
 macro_rules! trace_stream {
-    ($desc:tt = $expr:expr) => {{
-        if log::log_enabled!(target: "nu::trace_stream", log::Level::Trace) {
+    (target: $target:tt, $desc:tt = $expr:expr) => {{
+        if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
             // Blocking is generally quite bad, but this is for debugging
             // let mut local = futures::executor::LocalPool::new();
@@ -22,7 +22,7 @@ macro_rules! trace_stream {
             // let objects: Vec<_> = futures::executor::block_on($expr.into_vec());
 
             let objects = $expr.values.inspect(|o| {
-                trace!(target: "nu::trace_stream", "{} = {:#?}", $desc, o.debug());
+                trace!(target: $target, "{} = {:#?}", $desc, o.debug());
             });
 
             $crate::stream::InputStream::from_stream(objects.boxed())

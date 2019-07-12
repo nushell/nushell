@@ -1,6 +1,5 @@
 use crate::object::{Dictionary, Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
-use indexmap::IndexMap;
 use std::collections::HashMap;
 
 fn convert_ini_second_to_nu_value(

@@ -215,6 +215,61 @@ macro_rules! command {
         );
     };
 
+    // mandatory positional block
+    (
+        Named { $export:ident $args:ident $body:block }
+        Positional { $($positional_count:tt)* }
+        Rest { , $param_name:ident : Block $($rest:tt)* }
+        CommandConfig {
+            name: $config_name:tt,
+            mandatory_positional: vec![ $($mandatory_positional:tt)* ],
+            optional_positional: vec![ $($optional_positional:tt)* ],
+            rest_positional: $rest_positional:tt,
+            named: {
+                $($config_named:tt)*
+            }
+        }
+
+        Function {
+            $($function:tt)*
+        }
+
+        Extract {
+            $($extract:tt)*
+        }
+
+    ) => {
+        command!(
+            Named { $export $args $body }
+            Positional { $($positional_count)* + 1 }
+            Rest { $($rest)* }
+            CommandConfig {
+                name: $config_name,
+                mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory_block(
+                    stringify!($param_name)
+                ), ],
+                optional_positional: vec![ $($optional_positional)* ],
+                rest_positional: $rest_positional,
+                named: {
+                    $($config_named)*
+                }
+            }
+
+            Function {
+                $($function)* ($param_name : Block)
+            }
+
+            Extract {
+                $($extract:tt)* {
+                    use $crate::object::types::ExtractType;
+                    let value = $args.expect_nth($($positional_count)*)?;
+                    Block::extract(value)?
+                }
+            }
+        );
+    };
+
+
     // mandatory positional argument
     (
         Named { $export:ident $args:ident $body:block }
@@ -246,7 +301,7 @@ macro_rules! command {
             CommandConfig {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory(
-                    stringify!($param_name), stringify!($param_kind)
+                    stringify!($param_name)
                 ), ],
                 optional_positional: vec![ $($optional_positional)* ],
                 rest_positional: $rest_positional,

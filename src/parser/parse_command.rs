@@ -78,7 +78,7 @@ fn parse_command_tail(
     trace_remaining("nodes", tail.clone(), source);
 
     for (name, kind) in config.named() {
-        trace!("looking for {} : {:?}", name, kind);
+        trace!(target: "nu::parse", "looking for {} : {:?}", name, kind);
 
         match kind {
             NamedType::Switch => {

@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::base::reject_fields;
-use crate::object::Value;
 use crate::prelude::*;
 
 pub fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {

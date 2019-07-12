@@ -87,6 +87,7 @@ crate enum ClassifiedCommand {
 }
 
 impl ClassifiedCommand {
+    #[allow(unused)]
     pub fn span(&self) -> Span {
         match self {
             ClassifiedCommand::Expr(token) => token.span(),
@@ -126,12 +127,13 @@ impl InternalCommand {
         input: ClassifiedInputStream,
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
-            trace!("->");
-            trace!("{}", self.command.name());
-            trace!("{:?}", self.args.debug());
+            trace!(target: "nu::run::internal", "->");
+            trace!(target: "nu::run::internal", "{}", self.command.name());
+            trace!(target: "nu::run::internal", "{:?}", self.args.debug());
         }
 
-        let objects: InputStream = trace_stream!("input" = input.objects);
+        let objects: InputStream =
+            trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
         let result =
             context.run_command(self.command, self.name_span.clone(), self.args, objects)?;
@@ -203,8 +205,8 @@ impl ExternalCommand {
         let inputs: Vec<Spanned<Value>> = input.objects.into_vec().await;
         let name_span = self.name_span.clone();
 
-        trace!("-> {}", self.name);
-        trace!("inputs = {:?}", inputs);
+        trace!(target: "nu::run::external", "-> {}", self.name);
+        trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {

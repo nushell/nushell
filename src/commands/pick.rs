@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::base::select_fields;
-use crate::object::Value;
 use crate::prelude::*;
 
 pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {

@@ -3,7 +3,6 @@ use crate::object::base::OF64;
 use crate::object::SpannedDictBuilder;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
-use log::trace;
 use sys_info::*;
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, RefreshKind, SystemExt};
 
@@ -127,7 +126,7 @@ pub fn sysinfo(args: CommandArgs) -> Result<OutputStream, ShellError> {
     network_idx.insert("outgoing", Value::bytes(outgoing));
     idx.insert_spanned("network", network_idx);
 
-    let mut stream = stream![idx.into_spanned_value()];
+    let stream = stream![idx.into_spanned_value()];
 
     Ok(stream.from_input_stream())
 }

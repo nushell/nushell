@@ -500,7 +500,7 @@ fn classify_command(
                     let config = command.config();
                     let scope = Scope::empty();
 
-                    trace!("classifying {:?}", config);
+                    trace!(target: "nu::build_pipeline", "classifying {:?}", config);
 
                     let args = config.evaluate_args(call, context, &scope, source)?;
 

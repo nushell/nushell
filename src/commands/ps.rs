@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::process::process_dict;
-use crate::object::Value;
 use crate::prelude::*;
 use sysinfo::{RefreshKind, SystemExt};
 
@@ -11,7 +10,7 @@ pub fn ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let list = list
         .into_iter()
-        .map(|(item, process)| process_dict(process, args.name_span))
+        .map(|(_, process)| process_dict(process, args.name_span))
         .collect::<VecDeque<_>>();
 
     Ok(list.from_input_stream())
