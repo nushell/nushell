@@ -12,11 +12,11 @@ Nu has a list of built-in commands (listed below). If a command is unknown, the 
 
 # Philosophy
 
-Nu draws heavy inspiration from projects like PowerShell. Rather than thinking of you filesystem and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back in a list of objects, where each object represents an item in that directory.
+Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of you filesystem and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back in a list of objects, where each object represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
 
 ## Pipelines
 
-Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories
+In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories
 
 * Commands that produce a stream (eg, `ls`)
 * Commands that filter a stream (eg, `where "file type" == "Directory"`)
