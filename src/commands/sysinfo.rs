@@ -75,7 +75,7 @@ pub fn sysinfo(args: CommandArgs) -> Result<OutputStream, ShellError> {
             boottime_idx.insert("hours", Primitive::Int((x.tv_sec / 3600) % 24));
             boottime_idx.insert("mins", Primitive::Int((x.tv_sec / 60) % 60));
 
-            idx.insert("uptime", boottime_idx);
+            idx.insert_spanned("uptime", boottime_idx);
         }
     }
 
