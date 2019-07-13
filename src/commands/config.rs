@@ -36,8 +36,6 @@ impl Command for Config {
             named,
             is_sink: true,
             is_filter: false,
-            can_load: vec![],
-            can_save: vec![],
         }
     }
 }

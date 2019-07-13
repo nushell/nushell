@@ -82,8 +82,6 @@ pub struct CommandConfig {
     pub named: IndexMap<String, NamedType>,
     pub is_filter: bool,
     pub is_sink: bool,
-    pub can_load: Vec<String>,
-    pub can_save: Vec<String>,
 }
 
 #[derive(Debug, Default, new, Serialize, Deserialize)]

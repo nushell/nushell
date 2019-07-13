@@ -18,8 +18,6 @@ impl Plugin for NewSkip {
         Ok(CommandConfig {
             name: "skip".to_string(),
             positional: vec![],
-            can_load: vec![],
-            can_save: vec![],
             is_filter: true,
             is_sink: false,
             named: IndexMap::new(),
@@ -36,7 +34,7 @@ impl Plugin for NewSkip {
                     } => {
                         self.skip_amount = i;
                     }
-                    _ => return Err(ShellError::string("Unrecognized type in params")),
+                    _ => return Err(ShellError::labeled_error("Unrecognized type in params", "expected an integer", arg.span)),
                 }
             }
         }

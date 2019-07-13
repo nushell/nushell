@@ -33,7 +33,11 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     send_response(plugin.config());
                 }
                 Ok(NuCommand::begin_filter { params }) => {
-                    let _ = plugin.begin_filter(params);
+                    send_response(
+                        plugin
+                            .begin_filter(params)
+                            .map(|_| Vec::<ReturnValue>::new()),
+                    );
                 }
                 Ok(NuCommand::filter { params }) => {
                     send_response(plugin.filter(params));
@@ -66,7 +70,11 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                             send_response(plugin.config());
                         }
                         Ok(NuCommand::begin_filter { params }) => {
-                            let _ = plugin.begin_filter(params);
+                            send_response(
+                                plugin
+                                    .begin_filter(params)
+                                    .map(|_| Vec::<ReturnValue>::new()),
+                            );
                         }
                         Ok(NuCommand::filter { params }) => {
                             send_response(plugin.filter(params));

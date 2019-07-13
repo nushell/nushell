@@ -14,8 +14,6 @@ impl Command for Enter {
             name: self.name().to_string(),
             positional: vec![PositionalType::mandatory_block("path")],
             rest_positional: false,
-            can_load: vec![],
-            can_save: vec![],
             is_filter: false,
             is_sink: false,
             named: indexmap::IndexMap::new(),

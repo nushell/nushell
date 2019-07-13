@@ -18,8 +18,6 @@ impl Plugin for Inc {
         Ok(CommandConfig {
             name: "inc".to_string(),
             positional: vec![PositionalType::mandatory("Increment")],
-            can_load: vec![],
-            can_save: vec![],
             is_filter: true,
             is_sink: false,
             named: IndexMap::new(),

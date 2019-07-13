@@ -16,8 +16,6 @@ impl Plugin for BinaryView {
         Ok(CommandConfig {
             name: "binaryview".to_string(),
             positional: vec![],
-            can_load: vec![],
-            can_save: vec![],
             is_filter: false,
             is_sink: true,
             named: IndexMap::new(),

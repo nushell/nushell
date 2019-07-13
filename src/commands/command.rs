@@ -99,8 +99,6 @@ pub trait Command {
             named: indexmap::IndexMap::new(),
             is_filter: true,
             is_sink: false,
-            can_load: vec![],
-            can_save: vec![],
         }
     }
 }
@@ -117,8 +115,6 @@ pub trait Sink {
             named: indexmap::IndexMap::new(),
             is_filter: false,
             is_sink: true,
-            can_load: vec![],
-            can_save: vec![],
         }
     }
 }

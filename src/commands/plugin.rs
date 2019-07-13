@@ -43,11 +43,32 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-        let _reader = BufReader::new(stdout);
+        let mut reader = BufReader::new(stdout);
 
         let request = JsonRpc::new("begin_filter", args.args);
         let request_raw = serde_json::to_string(&request).unwrap();
         stdin.write(format!("{}\n", request_raw).as_bytes())?;
+        let mut input = String::new();
+        match reader.read_line(&mut input) {
+            Ok(_) => {
+                let response = serde_json::from_str::<NuResult>(&input);
+                match response {
+                    Ok(NuResult::response { params }) => match params {
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    },
+                    Err(e) => {
+                        return Err(ShellError::string(format!(
+                            "Error while processing input: {:?} {}",
+                            e, input
+                        )));
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     let mut eos: VecDeque<Spanned<Value>> = VecDeque::new();

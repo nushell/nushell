@@ -5,7 +5,7 @@ use crate::parser::{Span, Spanned};
 use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Description {
@@ -203,7 +203,7 @@ impl ShellError {
         }
     }
 
-    crate fn labeled_error(
+    pub fn labeled_error(
         msg: impl Into<String>,
         label: impl Into<String>,
         span: Span,
@@ -214,7 +214,7 @@ impl ShellError {
         )
     }
 
-    crate fn maybe_labeled_error(
+    pub fn maybe_labeled_error(
         msg: impl Into<String>,
         label: impl Into<String>,
         span: Option<Span>,
@@ -272,7 +272,7 @@ impl ProximateShellError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellDiagnostic {
     crate diagnostic: Diagnostic<Span>,
 }
@@ -315,28 +315,6 @@ impl std::cmp::Ord for ShellDiagnostic {
     }
 }
 
-impl Serialize for ShellDiagnostic {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        "<diagnostic>".serialize(serializer)
-    }
-}
-
-impl Deserialize<'de> for ShellDiagnostic {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(ShellDiagnostic {
-            diagnostic: Diagnostic::new(
-                language_reporting::Severity::Error,
-                "deserialize not implemented for ShellDiagnostic",
-            ),
-        })
-    }
-}
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone, Serialize, Deserialize)]
 pub struct StringError {
     title: String,

@@ -65,7 +65,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         }
                     }
                     Ok(x) => result.push_back(ReturnSuccess::value(x.clone())),
-                    Err(_) => {}
+                    Err(x) => result.push_back(Err(x)),
                 }
             }
 
