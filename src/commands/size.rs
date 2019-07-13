@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::dict::Dictionary;
-use crate::object::Value;
+use crate::object::{SpannedDictBuilder, Value};
 use crate::prelude::*;
 use std::fs::File;
 use std::io::prelude::*;
@@ -24,20 +23,20 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let mut contents = String::new();
 
-    let mut list = VecDeque::new();
-    for name in args.positional_iter() {
-        let name = name.as_string()?;
+    let mut list: VecDeque<ReturnValue> = VecDeque::new();
+    for spanned_name in args.positional_iter() {
+        let name = spanned_name.as_string()?;
         let path = cwd.join(&name);
         let mut file = File::open(path)?;
         file.read_to_string(&mut contents)?;
-        list.push_back(count(&name, &contents));
+        list.push_back(count(&name, &contents, spanned_name).into());
         contents.clear();
     }
 
-    Ok(list.boxed())
+    Ok(list.to_output_stream())
 }
 
-fn count(name: &str, contents: &str) -> ReturnValue {
+fn count(name: &str, contents: &str, span: impl Into<Span>) -> Spanned<Value> {
     let mut lines: i64 = 0;
     let mut words: i64 = 0;
     let mut chars: i64 = 0;
@@ -62,12 +61,12 @@ fn count(name: &str, contents: &str) -> ReturnValue {
         }
     }
 
-    let mut dict = Dictionary::default();
-    dict.add("name", Value::string(name));
-    dict.add("lines", Value::int(lines));
-    dict.add("words", Value::int(words));
-    dict.add("chars", Value::int(chars));
-    dict.add("max length", Value::int(bytes));
+    let mut dict = SpannedDictBuilder::new(span);
+    dict.insert("name", Value::string(name));
+    dict.insert("lines", Value::int(lines));
+    dict.insert("words", Value::int(words));
+    dict.insert("chars", Value::int(chars));
+    dict.insert("max length", Value::int(bytes));
 
-    ReturnValue::Value(Value::Object(dict))
+    dict.into_spanned_value()
 }

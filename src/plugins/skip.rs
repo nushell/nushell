@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, Args, CommandConfig, Plugin, Primitive, ReturnValue, ShellError, Spanned, Value,
+    serve_plugin, Args, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    Spanned, Value,
 };
 
 struct NewSkip {
@@ -16,10 +17,7 @@ impl Plugin for NewSkip {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
             name: "skip".to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
-            can_load: vec![],
-            can_save: vec![],
+            positional: vec![],
             is_filter: true,
             is_sink: false,
             named: IndexMap::new(),
@@ -36,7 +34,7 @@ impl Plugin for NewSkip {
                     } => {
                         self.skip_amount = i;
                     }
-                    _ => return Err(ShellError::string("Unrecognized type in params")),
+                    _ => return Err(ShellError::labeled_error("Unrecognized type in params", "expected an integer", arg.span)),
                 }
             }
         }
@@ -44,9 +42,9 @@ impl Plugin for NewSkip {
         Ok(())
     }
 
-    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         if self.skip_amount == 0 {
-            Ok(vec![ReturnValue::Value(input)])
+            Ok(vec![ReturnSuccess::value(input)])
         } else {
             self.skip_amount -= 1;
             Ok(vec![])

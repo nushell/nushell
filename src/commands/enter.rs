@@ -2,8 +2,32 @@ use crate::commands::command::CommandAction;
 use crate::commands::open::{fetch, parse_as_value};
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
+use crate::parser::registry::{CommandConfig, PositionalType};
 use crate::prelude::*;
 use std::path::PathBuf;
+
+pub struct Enter;
+
+impl Command for Enter {
+    fn config(&self) -> CommandConfig {
+        CommandConfig {
+            name: self.name().to_string(),
+            positional: vec![PositionalType::mandatory_block("path")],
+            rest_positional: false,
+            is_filter: false,
+            is_sink: false,
+            named: indexmap::IndexMap::new(),
+        }
+    }
+
+    fn name(&self) -> &str {
+        "enter"
+    }
+
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        enter(args)
+    }
+}
 
 pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.len() == 0 {
@@ -27,7 +51,7 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let full_path = PathBuf::from(cwd);
 
-    let (file_extension, contents) = match &args.expect_nth(0)?.item {
+    let (file_extension, contents, contents_span) = match &args.expect_nth(0)?.item {
         Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
         _ => {
             return Err(ShellError::labeled_error(
@@ -68,15 +92,14 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
     };
 
     match contents {
-        Value::Primitive(Primitive::String(x)) => {
-            stream.push_back(ReturnValue::Action(CommandAction::Enter(parse_as_value(
-                file_extension,
-                x,
-                span,
-            )?)));
+        Value::Primitive(Primitive::String(string)) => {
+            stream.push_back(Ok(ReturnSuccess::Action(CommandAction::Enter(
+                parse_as_value(file_extension, string, contents_span, span)?,
+            ))));
         }
-        x => stream.push_back(ReturnValue::Action(CommandAction::Enter(x))),
-    }
 
-    Ok(stream.boxed())
+        other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
+    };
+
+    Ok(stream.into())
 }

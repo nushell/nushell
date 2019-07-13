@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::base::select_fields;
-use crate::object::Value;
 use crate::prelude::*;
 
 pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -14,12 +13,11 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let fields: Result<Vec<String>, _> = args.positional_iter().map(|a| a.as_string()).collect();
     let fields = fields?;
+    let input = args.input;
 
-    let objects = args
-        .input
-        .map(move |item| Value::Object(select_fields(&item, &fields)))
-        .map(|item| ReturnValue::Value(item));
+    let objects = input
+        .values
+        .map(move |value| select_fields(&value.item, &fields, value.span));
 
-    let stream = Pin::new(Box::new(objects));
-    Ok(stream)
+    Ok(objects.from_input_stream())
 }

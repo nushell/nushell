@@ -6,8 +6,9 @@ use std::path::PathBuf;
 pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let env = args.env.lock().unwrap();
     let latest = env.back().unwrap();
+    let obj = &latest.obj;
 
-    match latest.obj {
+    match obj.item() {
         Value::Filesystem => {
             let cwd = latest.path().to_path_buf();
 
@@ -52,14 +53,14 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                 }
             }
-            stream.push_back(ReturnValue::change_cwd(path));
-            Ok(stream.boxed())
+            stream.push_back(ReturnSuccess::change_cwd(path));
+            Ok(stream.into())
         }
         _ => {
             let mut stream = VecDeque::new();
             match args.nth(0) {
                 None => {
-                    stream.push_back(ReturnValue::change_cwd(PathBuf::from("/")));
+                    stream.push_back(ReturnSuccess::change_cwd(PathBuf::from("/")));
                 }
                 Some(v) => {
                     let mut cwd = latest.path().to_path_buf();
@@ -75,10 +76,10 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                             }
                         },
                     }
-                    stream.push_back(ReturnValue::change_cwd(cwd));
+                    stream.push_back(ReturnSuccess::change_cwd(cwd));
                 }
             };
-            Ok(stream.boxed())
+            Ok(stream.into())
         }
     }
 }

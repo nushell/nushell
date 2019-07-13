@@ -54,21 +54,21 @@ crate struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     crate fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: VecDeque::new().boxed(),
+            objects: VecDeque::new().into(),
             stdin: None,
         }
     }
 
-    crate fn from_input_stream(stream: InputStream) -> ClassifiedInputStream {
+    crate fn from_input_stream(stream: impl Into<InputStream>) -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: stream,
+            objects: stream.into(),
             stdin: None,
         }
     }
 
     crate fn from_stdout(stdout: std::fs::File) -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: VecDeque::new().boxed(),
+            objects: VecDeque::new().into(),
             stdin: Some(stdout),
         }
     }
@@ -86,6 +86,18 @@ crate enum ClassifiedCommand {
     External(ExternalCommand),
 }
 
+impl ClassifiedCommand {
+    #[allow(unused)]
+    pub fn span(&self) -> Span {
+        match self {
+            ClassifiedCommand::Expr(token) => token.span(),
+            ClassifiedCommand::Internal(internal) => internal.name_span.into(),
+            ClassifiedCommand::Sink(sink) => sink.name_span.into(),
+            ClassifiedCommand::External(external) => external.name_span.into(),
+        }
+    }
+}
+
 crate struct SinkCommand {
     crate command: Arc<dyn Sink>,
     crate name_span: Option<Span>,
@@ -93,7 +105,11 @@ crate struct SinkCommand {
 }
 
 impl SinkCommand {
-    crate fn run(self, context: &mut Context, input: Vec<Value>) -> Result<(), ShellError> {
+    crate fn run(
+        self,
+        context: &mut Context,
+        input: Vec<Spanned<Value>>,
+    ) -> Result<(), ShellError> {
         context.run_sink(self.command, self.name_span.clone(), self.args, input)
     }
 }
@@ -110,31 +126,24 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
     ) -> Result<InputStream, ShellError> {
-        let objects = if log_enabled!(log::Level::Trace) {
-            trace!("->");
-            trace!("{}", self.command.name());
-            trace!("{:?}", self.args.debug());
-            let objects: Vec<_> = input.objects.collect().await;
-            trace!(
-                "input = {:#?}",
-                objects.iter().map(|o| o.debug()).collect::<Vec<_>>(),
-            );
-            VecDeque::from(objects).boxed()
-        } else {
-            input.objects
-        };
+        if log_enabled!(log::Level::Trace) {
+            trace!(target: "nu::run::internal", "->");
+            trace!(target: "nu::run::internal", "{}", self.command.name());
+            trace!(target: "nu::run::internal", "{:?}", self.args.debug());
+        }
 
-        let mut result =
+        let objects: InputStream =
+            trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
+
+        let result =
             context.run_command(self.command, self.name_span.clone(), self.args, objects)?;
+
+        let mut result = result.values;
 
         let mut stream = VecDeque::new();
         while let Some(item) = result.next().await {
-            match item {
-                ReturnValue::Value(Value::Error(err)) => {
-                    return Err(*err);
-                }
-
-                ReturnValue::Action(action) => match action {
+            match item? {
+                ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
                         context.env.lock().unwrap().back_mut().map(|x| {
                             x.path = path;
@@ -150,7 +159,11 @@ impl InternalCommand {
                     }
                     CommandAction::Exit => match context.env.lock().unwrap().pop_back() {
                         Some(Environment {
-                            obj: Value::Filesystem,
+                            obj:
+                                Spanned {
+                                    item: Value::Filesystem,
+                                    ..
+                                },
                             ..
                         }) => std::process::exit(0),
                         None => std::process::exit(-1),
@@ -158,12 +171,13 @@ impl InternalCommand {
                     },
                 },
 
-                ReturnValue::Value(v) => {
+                ReturnSuccess::Value(v) => {
                     stream.push_back(v);
                 }
             }
         }
-        Ok(stream.boxed() as InputStream)
+
+        Ok(stream.into())
     }
 }
 
@@ -187,9 +201,12 @@ impl ExternalCommand {
         input: ClassifiedInputStream,
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
-        let inputs: Vec<Value> = input.objects.collect().await;
+        let stdin = input.stdin;
+        let inputs: Vec<Spanned<Value>> = input.objects.into_vec().await;
+        let name_span = self.name_span.clone();
 
-        trace!("{:?} -> {}", inputs, self.name);
+        trace!(target: "nu::run::external", "-> {}", self.name);
+        trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
         let mut arg_string = format!("{}", self.name);
         for arg in &self.args {
@@ -298,7 +315,7 @@ impl ExternalCommand {
             }
         };
 
-        if let Some(stdin) = input.stdin {
+        if let Some(stdin) = stdin {
             process = process.stdin(stdin);
         }
 
@@ -317,8 +334,11 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(|line| Value::string(line.unwrap()));
-                Ok(ClassifiedInputStream::from_input_stream(stream.boxed()))
+                let stream =
+                    stream.map(move |line| Value::string(line.unwrap()).spanned(name_span));
+                Ok(ClassifiedInputStream::from_input_stream(
+                    stream.boxed() as BoxStream<'static, Spanned<Value>>
+                ))
             }
         }
     }

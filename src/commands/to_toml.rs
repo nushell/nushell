@@ -16,7 +16,6 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
 
         Value::Filesystem => toml::Value::String("<Filesystem>".to_string()),
         Value::List(l) => toml::Value::Array(l.iter().map(|x| value_to_toml_value(x)).collect()),
-        Value::Error(e) => toml::Value::String(e.to_string()),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
         Value::Binary(b) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
@@ -33,15 +32,40 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
 
 pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
-    let span = args.name_span;
+    let name_span = args.name_span;
+
     Ok(out
-        .map(move |a| match toml::to_string(&value_to_toml_value(&a)) {
-            Ok(x) => ReturnValue::Value(Value::Primitive(Primitive::String(x))),
-            Err(_) => ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
-                "Can not convert to TOML string",
-                "can not convert piped data to TOML string",
-                span,
-            )))),
+        .values
+        .map(move |a| {
+            match toml::to_string(&value_to_toml_value(&a)) {
+                Ok(val) => {
+                    return ReturnSuccess::value(
+                        Value::Primitive(Primitive::String(val)).spanned(name_span),
+                    )
+                }
+
+                Err(err) => Err(ShellError::type_error(
+                    "serializable to toml",
+                    format!("{:?} - {:?}", a.type_name(), err).spanned(name_span),
+                )), // toml::Value::String(String) => {
+                    //     return ReturnSuccess::value(
+                    //         Value::Primitive(Primitive::String(x)).spanned(name_span),
+                    //     )
+                    // }
+                    // toml::Value::Integer(i64) => "Integer",
+                    // toml::Value::Float(f64) => "Decimal",
+                    // toml::Value::Boolean(bool) => "Boolean",
+                    // toml::Value::Datetime(Datetime) => "Date",
+                    // toml::Value::Array(Array) => "Array",
+                    // toml::Value::Table(Table) => "Table",
+            }
+            // return Err(ShellError::type_error("String", ty.spanned(name_span)));
+
+            // Err(_) => Err(ShellError::maybe_labeled_error(
+            //     "Can not convert to TOML string",
+            //     "can not convert piped data to TOML string",
+            //     name_span,
+            // )),
         })
-        .boxed())
+        .to_output_stream())
 }

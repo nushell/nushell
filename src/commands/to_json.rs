@@ -22,7 +22,6 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         Value::List(l) => {
             serde_json::Value::Array(l.iter().map(|x| value_to_json_value(x)).collect())
         }
-        Value::Error(e) => serde_json::Value::String(e.to_string()),
         Value::Block(_) => serde_json::Value::Null,
         Value::Binary(b) => serde_json::Value::Array(
             b.iter()
@@ -43,19 +42,20 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
 
 pub fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
-    let span = args.name_span;
+    let name_span = args.name_span;
     Ok(out
+        .values
         .map(
             move |a| match serde_json::to_string(&value_to_json_value(&a)) {
-                Ok(x) => ReturnValue::Value(Value::Primitive(Primitive::String(x))),
-                Err(_) => {
-                    ReturnValue::Value(Value::Error(Box::new(ShellError::maybe_labeled_error(
-                        "Can not convert to JSON string",
-                        "can not convert piped data to JSON string",
-                        span,
-                    ))))
+                Ok(x) => {
+                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
                 }
+                Err(_) => Err(ShellError::maybe_labeled_error(
+                    "Can not convert to JSON string",
+                    "can not convert piped data to JSON string",
+                    name_span,
+                )),
             },
         )
-        .boxed())
+        .to_output_stream())
 }

@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, Args, CommandConfig, Plugin, PositionalType, Primitive, ReturnValue, ShellError,
-    Spanned, Value,
+    serve_plugin, Args, CommandConfig, Plugin, PositionalType, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, Spanned, SpannedItem, Value,
 };
 
 struct Inc {
@@ -17,10 +17,7 @@ impl Plugin for Inc {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
             name: "inc".to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![PositionalType::Value("Increment".into())],
-            can_load: vec![],
-            can_save: vec![],
+            positional: vec![PositionalType::mandatory("Increment")],
             is_filter: true,
             is_sink: false,
             named: IndexMap::new(),
@@ -45,14 +42,16 @@ impl Plugin for Inc {
         Ok(())
     }
 
-    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
-        match input {
-            Value::Primitive(Primitive::Int(i)) => {
-                Ok(vec![ReturnValue::Value(Value::int(i + self.inc_by))])
-            }
-            Value::Primitive(Primitive::Bytes(b)) => Ok(vec![ReturnValue::Value(Value::bytes(
-                b + self.inc_by as u64,
-            ))]),
+    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+        let span = input.span;
+
+        match input.item {
+            Value::Primitive(Primitive::Int(i)) => Ok(vec![ReturnSuccess::value(
+                Value::int(i + self.inc_by).spanned(span),
+            )]),
+            Value::Primitive(Primitive::Bytes(b)) => Ok(vec![ReturnSuccess::value(
+                Value::bytes(b + self.inc_by as u64).spanned(span),
+            )]),
             x => Err(ShellError::string(format!(
                 "Unrecognized type in stream: {:?}",
                 x

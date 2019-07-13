@@ -27,8 +27,5 @@ pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let input = args.input;
 
-    Ok(input
-        .take(amount as u64)
-        .map(|v| ReturnValue::Value(v))
-        .boxed())
+    Ok(OutputStream::from_input(input.values.take(amount as u64)))
 }

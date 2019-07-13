@@ -1,9 +1,10 @@
 use crate::object::base::Value;
+use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
-    crate obj: Value,
+    crate obj: Spanned<Value>,
     crate path: PathBuf,
 }
 
@@ -12,7 +13,7 @@ impl Environment {
         let path = std::env::current_dir()?;
 
         Ok(Environment {
-            obj: Value::Filesystem,
+            obj: Value::Filesystem.spanned_unknown(),
             path,
         })
     }
@@ -21,7 +22,7 @@ impl Environment {
         self.path.as_path()
     }
 
-    pub fn obj(&self) -> &Value {
+    pub fn obj(&self) -> &Spanned<Value> {
         &self.obj
     }
 }

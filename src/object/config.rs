@@ -16,24 +16,28 @@ const APP_INFO: AppInfo = AppInfo {
 #[derive(Deserialize, Serialize)]
 struct Config {
     #[serde(flatten)]
-    extra: IndexMap<String, Value>,
+    extra: IndexMap<String, Spanned<Value>>,
 }
 
-crate fn write_config(map: &IndexMap<String, Value>) -> Result<(), ShellError> {
+crate fn write_config(config: &IndexMap<String, Spanned<Value>>) -> Result<(), ShellError> {
     let location = app_root(AppDataType::UserConfig, &APP_INFO)
         .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
 
     let filename = location.join("config.toml");
     touch(&filename)?;
 
-    let contents = toml::to_string(&Config { extra: map.clone() })?;
+    let contents = toml::to_string(&Config {
+        extra: config.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+    })?;
 
     fs::write(&filename, &contents)?;
 
     Ok(())
 }
 
-crate fn config() -> Result<IndexMap<String, Value>, ShellError> {
+crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Spanned<Value>>, ShellError> {
+    let span = span.into();
+
     let location = app_root(AppDataType::UserConfig, &APP_INFO)
         .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
 
@@ -43,6 +47,7 @@ crate fn config() -> Result<IndexMap<String, Value>, ShellError> {
     trace!("config file = {}", filename.display());
 
     let contents = fs::read_to_string(filename)
+        .map(|v| v.spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
 
     let parsed: Config = toml::from_str(&contents)

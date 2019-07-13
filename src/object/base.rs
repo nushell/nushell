@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
+use crate::object::SpannedDictBuilder;
 use crate::parser::{hir, Operator, Span, Spanned};
 use crate::prelude::*;
 use crate::Text;
@@ -149,17 +150,12 @@ impl Deserialize<'de> for Block {
         D: Deserializer<'de>,
     {
         unimplemented!("deserialize block")
-        // let s = "\"unimplemented deserialize block\"";
-        // Ok(Block::new(
-        //     TokenTreeBuilder::spanned_string((1, s.len() - 1), (0, s.len())),
-        //     Text::from(s),
-        // ))
     }
 }
 
 impl Block {
-    pub fn invoke(&self, value: &Value) -> Result<Spanned<Value>, ShellError> {
-        let scope = Scope::new(value.copy());
+    pub fn invoke(&self, value: &Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
+        let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
             return Ok(Spanned::from_item(Value::nothing(), self.span));
@@ -179,23 +175,19 @@ impl Block {
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
-    List(Vec<Value>),
     Binary(Vec<u8>),
-
+    List(Vec<Spanned<Value>>),
     #[allow(unused)]
     Block(Block),
     Filesystem,
-
-    #[allow(unused)]
-    Error(Box<ShellError>),
 }
 
-pub fn debug_list(values: &'a Vec<Value>) -> ValuesDebug<'a> {
+pub fn debug_list(values: &'a Vec<Spanned<Value>>) -> ValuesDebug<'a> {
     ValuesDebug { values }
 }
 
 pub struct ValuesDebug<'a> {
-    values: &'a Vec<Value>,
+    values: &'a Vec<Spanned<Value>>,
 }
 
 impl fmt::Debug for ValuesDebug<'a> {
@@ -207,17 +199,16 @@ impl fmt::Debug for ValuesDebug<'a> {
 }
 
 pub struct ValueDebug<'a> {
-    value: &'a Value,
+    value: &'a Spanned<Value>,
 }
 
 impl fmt::Debug for ValueDebug<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.value {
+        match self.value.item() {
             Value::Primitive(p) => p.debug(f),
             Value::Object(o) => o.debug(f),
             Value::List(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
-            Value::Error(err) => write!(f, "[[error :: {} ]]", err),
             Value::Filesystem => write!(f, "[[filesystem]]"),
             Value::Binary(_) => write!(f, "[[binary]]"),
         }
@@ -231,6 +222,71 @@ impl Spanned<Value> {
     }
 }
 
+impl std::convert::TryFrom<&'a Spanned<Value>> for Block {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Spanned<Value>) -> Result<Block, ShellError> {
+        match value.item() {
+            Value::Block(block) => Ok(block.clone()),
+            v => Err(ShellError::type_error(
+                "Block",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Spanned<Value>> for i64 {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Spanned<Value>) -> Result<i64, ShellError> {
+        match value.item() {
+            Value::Primitive(Primitive::Int(int)) => Ok(*int),
+            v => Err(ShellError::type_error(
+                "Integer",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+pub enum Switch {
+    Present,
+    Absent,
+}
+
+impl Switch {
+    pub fn is_present(&self) -> bool {
+        match self {
+            Switch::Present => true,
+            Switch::Absent => false,
+        }
+    }
+}
+
+impl std::convert::TryFrom<Option<&'a Spanned<Value>>> for Switch {
+    type Error = ShellError;
+
+    fn try_from(value: Option<&'a Spanned<Value>>) -> Result<Switch, ShellError> {
+        match value {
+            None => Ok(Switch::Absent),
+            Some(value) => match value.item() {
+                Value::Primitive(Primitive::Boolean(true)) => Ok(Switch::Present),
+                v => Err(ShellError::type_error(
+                    "Boolean",
+                    value.copy_span(v.type_name()),
+                )),
+            },
+        }
+    }
+}
+
+impl Spanned<Value> {
+    crate fn debug(&'a self) -> ValueDebug<'a> {
+        ValueDebug { value: self }
+    }
+}
+
 impl Value {
     crate fn type_name(&self) -> String {
         match self {
@@ -238,14 +294,9 @@ impl Value {
             Value::Object(_) => format!("object"),
             Value::List(_) => format!("list"),
             Value::Block(_) => format!("block"),
-            Value::Error(_) => format!("error"),
             Value::Filesystem => format!("filesystem"),
             Value::Binary(_) => format!("binary"),
         }
-    }
-
-    crate fn debug(&'a self) -> ValueDebug<'a> {
-        ValueDebug { value: self }
     }
 
     pub fn data_descriptors(&self) -> Vec<String> {
@@ -259,19 +310,21 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::List(_) => vec![],
-            Value::Error(_) => vec![],
             Value::Filesystem => vec![],
             Value::Binary(_) => vec![],
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Value> {
+    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Spanned<Value>> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(l) => {
                 for item in l {
                     match item {
-                        Value::Object(o) => match o.get_data_by_key(name) {
+                        Spanned {
+                            item: Value::Object(o),
+                            ..
+                        } => match o.get_data_by_key(name) {
                             Some(v) => return Some(v),
                             None => {}
                         },
@@ -284,7 +337,7 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Value> {
+    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Spanned<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
             _ => None,
@@ -298,23 +351,7 @@ impl Value {
             Value::Object(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Error(e) => MaybeOwned::Owned(Value::string(&format!("{:#?}", e))),
             Value::Binary(_) => MaybeOwned::Owned(Value::nothing()),
-        }
-    }
-
-    crate fn copy(&self) -> Value {
-        match self {
-            Value::Primitive(p) => Value::Primitive(p.clone()),
-            Value::Object(o) => Value::Object(o.copy_dict()),
-            Value::Block(b) => Value::Block(b.clone()),
-            Value::List(l) => {
-                let list = l.iter().map(|i| i.copy()).collect();
-                Value::List(list)
-            }
-            Value::Error(e) => Value::Error(Box::new(e.copy_error())),
-            Value::Filesystem => Value::Filesystem,
-            Value::Binary(b) => Value::Binary(b.clone()),
         }
     }
 
@@ -329,7 +366,6 @@ impl Value {
             ),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
-            Value::Error(e) => format!("{}", e),
             Value::Filesystem => format!("<filesystem>"),
             Value::Binary(_) => format!("<binary>"),
         }
@@ -370,7 +406,7 @@ impl Value {
         }
     }
 
-    crate fn as_pair(&self) -> Result<(Value, Value), ShellError> {
+    crate fn as_pair(&self) -> Result<(Spanned<Value>, Spanned<Value>), ShellError> {
         match self {
             Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
             other => Err(ShellError::string(format!(
@@ -459,52 +495,39 @@ impl Value {
         Ok(Value::Primitive(Primitive::Date(date)))
     }
 
-    #[allow(unused)]
-    pub fn system_date_result(s: Result<SystemTime, std::io::Error>) -> Value {
-        match s {
-            Ok(time) => Value::Primitive(Primitive::Date(time.into())),
-            Err(err) => Value::Error(Box::new(ShellError::string(format!("{}", err)))),
-        }
-    }
-
     pub fn nothing() -> Value {
         Value::Primitive(Primitive::Nothing)
     }
-
-    #[allow(unused)]
-    pub fn list(values: impl Into<Vec<Value>>) -> Value {
-        Value::List(values.into())
-    }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
-    let mut out = crate::object::Dictionary::default();
+crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Spanned<Value> {
+    let mut out = SpannedDictBuilder::new(span);
 
     let descs = obj.data_descriptors();
 
     for field in fields {
         match descs.iter().find(|d| *d == field) {
-            None => out.add(field, Value::nothing()),
-            Some(desc) => out.add(desc.clone(), obj.get_data(desc).borrow().copy()),
+            None => out.insert(field, Value::nothing()),
+            Some(desc) => out.insert(desc.clone(), obj.get_data(desc).borrow().clone()),
         }
     }
 
-    out
+    out.into_spanned_value()
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String]) -> crate::object::Dictionary {
-    let mut out = crate::object::Dictionary::default();
+crate fn reject_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Spanned<Value> {
+    let mut out = SpannedDictBuilder::new(span);
 
     let descs = obj.data_descriptors();
 
     for desc in descs {
         match desc {
             x if fields.iter().any(|field| *field == x) => continue,
-            _ => out.add(desc.clone(), obj.get_data(&desc).borrow().copy()),
+            _ => out.insert(desc.clone(), obj.get_data(&desc).borrow().clone()),
         }
     }
 
-    out
+    out.into_spanned_value()
 }
 
 #[allow(unused)]
@@ -513,7 +536,7 @@ crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     match descs.iter().find(|d| *d == field) {
         None => false,
         Some(desc) => {
-            let v = obj.get_data(desc).borrow().copy();
+            let v = obj.get_data(desc).borrow().clone();
 
             match v {
                 Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {

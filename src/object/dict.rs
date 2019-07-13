@@ -9,7 +9,7 @@ use std::fmt;
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, new)]
 pub struct Dictionary {
-    pub entries: IndexMap<String, Value>,
+    pub entries: IndexMap<String, Spanned<Value>>,
 }
 
 impl PartialOrd for Dictionary {
@@ -21,15 +21,15 @@ impl PartialOrd for Dictionary {
             return this.partial_cmp(&that);
         }
 
-        let this: Vec<&Value> = self.entries.values().collect();
-        let that: Vec<&Value> = self.entries.values().collect();
+        let this: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
+        let that: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
 
         this.partial_cmp(&that)
     }
 }
 
-impl From<IndexMap<String, Value>> for Dictionary {
-    fn from(input: IndexMap<String, Value>) -> Dictionary {
+impl From<IndexMap<String, Spanned<Value>>> for Dictionary {
+    fn from(input: IndexMap<String, Spanned<Value>>) -> Dictionary {
         let mut out = IndexMap::default();
 
         for (key, value) in input {
@@ -49,8 +49,8 @@ impl Ord for Dictionary {
             return this.cmp(&that);
         }
 
-        let this: Vec<&Value> = self.entries.values().collect();
-        let that: Vec<&Value> = self.entries.values().collect();
+        let this: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
+        let that: Vec<&Value> = self.entries.values().map(|v| v.item()).collect();
 
         this.cmp(&that)
     }
@@ -72,20 +72,6 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    crate fn add(&mut self, name: impl Into<String>, value: Value) {
-        self.entries.insert(name.into(), value);
-    }
-
-    crate fn copy_dict(&self) -> Dictionary {
-        let mut out = Dictionary::default();
-
-        for (key, value) in self.entries.iter() {
-            out.add(key.clone(), value.copy());
-        }
-
-        out
-    }
-
     pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
@@ -93,7 +79,7 @@ impl Dictionary {
         }
     }
 
-    crate fn get_data_by_key(&self, name: &str) -> Option<&Value> {
+    crate fn get_data_by_key(&self, name: &str) -> Option<&Spanned<Value>> {
         match self
             .entries
             .iter()
@@ -112,5 +98,75 @@ impl Dictionary {
         }
 
         debug.finish()
+    }
+}
+
+pub struct SpannedListBuilder {
+    span: Span,
+    list: Vec<Spanned<Value>>,
+}
+
+impl SpannedListBuilder {
+    pub fn new(span: impl Into<Span>) -> SpannedListBuilder {
+        SpannedListBuilder {
+            span: span.into(),
+            list: vec![],
+        }
+    }
+
+    pub fn push(&mut self, value: impl Into<Value>) {
+        self.list.push(value.into().spanned(self.span));
+    }
+
+    pub fn insert_spanned(&mut self, value: impl Into<Spanned<Value>>) {
+        self.list.push(value.into());
+    }
+
+    pub fn into_spanned_value(self) -> Spanned<Value> {
+        Value::List(self.list).spanned(self.span)
+    }
+}
+
+impl From<SpannedListBuilder> for Spanned<Value> {
+    fn from(input: SpannedListBuilder) -> Spanned<Value> {
+        input.into_spanned_value()
+    }
+}
+
+#[derive(Debug)]
+pub struct SpannedDictBuilder {
+    span: Span,
+    dict: IndexMap<String, Spanned<Value>>,
+}
+
+impl SpannedDictBuilder {
+    pub fn new(span: impl Into<Span>) -> SpannedDictBuilder {
+        SpannedDictBuilder {
+            span: span.into(),
+            dict: IndexMap::default(),
+        }
+    }
+
+    pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
+        self.dict
+            .insert(key.into(), value.into().spanned(self.span));
+    }
+
+    pub fn insert_spanned(&mut self, key: impl Into<String>, value: impl Into<Spanned<Value>>) {
+        self.dict.insert(key.into(), value.into());
+    }
+
+    pub fn into_spanned_value(self) -> Spanned<Value> {
+        self.into_spanned_dict().map(Value::Object)
+    }
+
+    pub fn into_spanned_dict(self) -> Spanned<Dictionary> {
+        Dictionary { entries: self.dict }.spanned(self.span)
+    }
+}
+
+impl From<SpannedDictBuilder> for Spanned<Value> {
+    fn from(input: SpannedDictBuilder) -> Spanned<Value> {
+        input.into_spanned_value()
     }
 }

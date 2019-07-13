@@ -159,6 +159,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("sysinfo", Box::new(sysinfo::sysinfo)),
             command("cd", Box::new(cd::cd)),
             command("view", Box::new(view::view)),
+            // command("skip", skip::Skip),
             command("first", Box::new(first::first)),
             command("size", Box::new(size::size)),
             command("from-ini", Box::new(from_ini::from_ini)),
@@ -167,7 +168,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-xml", Box::new(from_xml::from_xml)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
             command("get", Box::new(get::get)),
-            command("enter", Box::new(enter::enter)),
             command("exit", Box::new(exit::exit)),
             command("lines", Box::new(lines::lines)),
             command("pick", Box::new(pick::pick)),
@@ -180,11 +180,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-json", Box::new(to_json::to_json)),
             command("to-toml", Box::new(to_toml::to_toml)),
             command("sort-by", Box::new(sort_by::sort_by)),
+            command("sort-by", Box::new(sort_by::sort_by)),
             Arc::new(Open),
             Arc::new(Where),
             Arc::new(Config),
             Arc::new(SkipWhile),
-            command("sort-by", Box::new(sort_by::sort_by)),
+            Arc::new(Enter),
         ]);
 
         context.add_sinks(vec![
@@ -227,7 +228,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             let last = env.back().unwrap();
             (last.obj().clone(), last.path().display().to_string())
         };
-        let readline = match obj {
+        let readline = match obj.item {
             Value::Filesystem => rl.readline(&format!(
                 "{}{}> ",
                 cwd,
@@ -392,7 +393,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
-                        let input_vec: Vec<Value> = input.objects.collect().await;
+                        let input_vec: Vec<Spanned<Value>> = input.objects.into_vec().await;
                         if let Err(err) = left.run(ctx, input_vec) {
                             return LineResult::Error(line.clone(), err);
                         }
@@ -496,7 +497,7 @@ fn classify_command(
                     let config = command.config();
                     let scope = Scope::empty();
 
-                    trace!("classifying {:?}", config);
+                    trace!(target: "nu::build_pipeline", "classifying {:?}", config);
 
                     let args = config.evaluate_args(call, context, &scope, source)?;
 

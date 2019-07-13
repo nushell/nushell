@@ -1,10 +1,12 @@
+use crate::prelude::*;
+
 use crate::errors::ShellError;
 use crate::object::config;
 use crate::object::Value;
 use crate::parser::registry::{CommandConfig, NamedType, NamedValue};
-use crate::prelude::*;
 use indexmap::IndexMap;
 use log::trace;
+use std::iter::FromIterator;
 
 pub struct Config;
 
@@ -29,20 +31,17 @@ impl Command for Config {
 
         CommandConfig {
             name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             rest_positional: false,
             named,
             is_sink: true,
             is_filter: false,
-            can_load: vec![],
-            can_save: vec![],
         }
     }
 }
 
 pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut result = crate::object::config::config()?;
+    let mut result = crate::object::config::config(args.name_span)?;
 
     trace!("{:#?}", args.args.positional);
     trace!("{:#?}", args.args.named);
@@ -54,8 +53,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
 
         return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(value.clone())))
-                .boxed(),
+            stream![value.clone()].into(), // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
         );
     }
 
@@ -66,24 +64,19 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             config::write_config(&result)?;
 
             return Ok(
-                futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                    result.into(),
-                ))))
-                .boxed(),
+                stream![Spanned::from_item(Value::Object(result.into()), v.span())]
+                    .from_input_stream(),
             );
         }
     }
 
-    if let Some(_) = args.get("clear") {
+    if let Some(c) = args.get("clear") {
         result.clear();
 
         config::write_config(&result)?;
 
         return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                result.into(),
-            ))))
-            .boxed(),
+            stream![Spanned::from_item(Value::Object(result.into()), c.span())].from_input_stream(),
         );
     }
 
@@ -99,21 +92,12 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )));
         }
 
-        return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                result.into(),
-            ))))
-            .boxed(),
-        );
+        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).spanned(v)]);
+        return Ok(obj.from_input_stream());
     }
 
     if args.len() == 0 {
-        return Ok(
-            futures::stream::once(futures::future::ready(ReturnValue::Value(Value::Object(
-                result.into(),
-            ))))
-            .boxed(),
-        );
+        return Ok(vec![Value::Object(result.into()).spanned(args.name_span)].into());
     }
 
     Err(ShellError::string(format!("Unimplemented")))

@@ -36,22 +36,39 @@ impl NamedValue {
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
-    Value(String),
-    Block(String),
+    Mandatory(String, PositionalValue),
+    Optional(String, PositionalValue),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PositionalValue {
+    Value,
+    Block,
 }
 
 impl PositionalType {
+    pub fn mandatory(name: &str) -> PositionalType {
+        PositionalType::Mandatory(name.to_string(), PositionalValue::Value)
+    }
+
+    pub fn mandatory_block(name: &str) -> PositionalType {
+        PositionalType::Mandatory(name.to_string(), PositionalValue::Block)
+    }
+
     crate fn to_coerce_hint(&self) -> Option<ExpressionKindHint> {
         match self {
-            PositionalType::Value(_) => None,
-            PositionalType::Block(_) => Some(ExpressionKindHint::Block),
+            PositionalType::Mandatory(_, PositionalValue::Block)
+            | PositionalType::Optional(_, PositionalValue::Block) => {
+                Some(ExpressionKindHint::Block)
+            }
+            _ => None,
         }
     }
 
     crate fn name(&self) -> &str {
         match self {
-            PositionalType::Value(s) => s,
-            PositionalType::Block(s) => s,
+            PositionalType::Mandatory(s, _) => s,
+            PositionalType::Optional(s, _) => s,
         }
     }
 }
@@ -60,14 +77,11 @@ impl PositionalType {
 #[get = "crate"]
 pub struct CommandConfig {
     pub name: String,
-    pub mandatory_positional: Vec<PositionalType>,
-    pub optional_positional: Vec<PositionalType>,
+    pub positional: Vec<PositionalType>,
     pub rest_positional: bool,
     pub named: IndexMap<String, NamedType>,
     pub is_filter: bool,
     pub is_sink: bool,
-    pub can_load: Vec<String>,
-    pub can_save: Vec<String>,
 }
 
 #[derive(Debug, Default, new, Serialize, Deserialize)]
@@ -87,7 +101,7 @@ impl fmt::Debug for DebugPositional<'a> {
             None => write!(f, "None"),
             Some(positional) => f
                 .debug_list()
-                .entries(positional.iter().map(|p| p.item().debug()))
+                .entries(positional.iter().map(|p| p.debug()))
                 .finish(),
         }
     }
@@ -104,7 +118,7 @@ impl fmt::Debug for DebugNamed<'a> {
             None => write!(f, "None"),
             Some(named) => f
                 .debug_map()
-                .entries(named.iter().map(|(k, v)| (k, v.item().debug())))
+                .entries(named.iter().map(|(k, v)| (k, v.debug())))
                 .finish(),
         }
     }

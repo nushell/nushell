@@ -49,25 +49,41 @@ pub struct SinkCommandArgs {
     pub ctx: Context,
     pub name_span: Option<Span>,
     pub args: Args,
-    pub input: Vec<Value>,
+    pub input: Vec<Spanned<Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(PathBuf),
-    Enter(Value),
+    Enter(Spanned<Value>),
     Exit,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum ReturnValue {
-    Value(Value),
+pub enum ReturnSuccess {
+    Value(Spanned<Value>),
     Action(CommandAction),
 }
 
-impl ReturnValue {
-    crate fn change_cwd(path: PathBuf) -> ReturnValue {
-        ReturnValue::Action(CommandAction::ChangePath(path))
+pub type ReturnValue = Result<ReturnSuccess, ShellError>;
+
+impl From<Spanned<Value>> for ReturnValue {
+    fn from(input: Spanned<Value>) -> ReturnValue {
+        Ok(ReturnSuccess::Value(input))
+    }
+}
+
+impl ReturnSuccess {
+    pub fn change_cwd(path: PathBuf) -> ReturnValue {
+        Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
+    }
+
+    pub fn value(input: impl Into<Spanned<Value>>) -> ReturnValue {
+        Ok(ReturnSuccess::Value(input.into()))
+    }
+
+    pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
+        Ok(ReturnSuccess::Value(Spanned::from_item(input, span)))
     }
 }
 
@@ -78,14 +94,11 @@ pub trait Command {
     fn config(&self) -> registry::CommandConfig {
         registry::CommandConfig {
             name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
             is_filter: true,
             is_sink: false,
-            can_load: vec![],
-            can_save: vec![],
         }
     }
 }
@@ -97,14 +110,11 @@ pub trait Sink {
     fn config(&self) -> registry::CommandConfig {
         registry::CommandConfig {
             name: self.name().to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
             is_filter: false,
             is_sink: true,
-            can_load: vec![],
-            can_save: vec![],
         }
     }
 }

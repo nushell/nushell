@@ -53,15 +53,15 @@ fn trace_step<'a, T: Debug>(
     name: &str,
     block: impl FnOnce(NomSpan<'a>) -> IResult<NomSpan<'a>, T>,
 ) -> IResult<NomSpan<'a>, T> {
-    trace!("+ before {} @ {:?}", name, input);
+    trace!(target: "nu::lite_parse", "+ before {} @ {:?}", name, input);
     match block(input) {
         Ok((input, result)) => {
-            trace!("after {} @ {:?} -> {:?}", name, input, result);
+            trace!(target: "nu::lite_parse", "after {} @ {:?} -> {:?}", name, input, result);
             Ok((input, result))
         }
 
         Err(e) => {
-            trace!("- failed {} :: {:?}", name, e);
+            trace!(target: "nu::lite_parse", "- failed {} :: {:?}", name, e);
             Err(e)
         }
     }

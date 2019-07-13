@@ -2,7 +2,6 @@ crate mod entries;
 crate mod generic;
 crate mod list;
 crate mod table;
-crate mod tree;
 crate mod vtable;
 
 use crate::prelude::*;
@@ -10,7 +9,6 @@ use crate::prelude::*;
 crate use entries::EntriesView;
 crate use generic::GenericView;
 crate use table::TableView;
-crate use tree::TreeView;
 crate use vtable::VTableView;
 
 crate trait RenderView {

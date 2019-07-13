@@ -1,7 +1,8 @@
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
-use serde_derive::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_derive::Deserialize;
 
 #[derive(
     new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
@@ -12,9 +13,22 @@ pub struct Spanned<T> {
     pub item: T,
 }
 
+impl<T> Spanned<T> {
+    pub fn spanned(self, span: impl Into<Span>) -> Spanned<T> {
+        Spanned::from_item(self.item, span.into())
+    }
+}
+
 pub trait SpannedItem: Sized {
     fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned::from_item(self, span.into())
+    }
+
+    // For now, this is a temporary facility. In many cases, there are other useful spans that we
+    // could be using, such as the original source spans of JSON or Toml files, but we don't yet
+    // have the infrastructure to make that work.
+    fn spanned_unknown(self) -> Spanned<Self> {
+        Spanned::from_item(self, (0, 0))
     }
 }
 
@@ -62,6 +76,15 @@ pub struct Span {
     crate start: usize,
     crate end: usize,
     // source: &'source str,
+}
+
+impl From<Option<Span>> for Span {
+    fn from(input: Option<Span>) -> Span {
+        match input {
+            None => Span { start: 0, end: 0 },
+            Some(span) => span,
+        }
+    }
 }
 
 impl<T> From<&Spanned<T>> for Span {
@@ -113,6 +136,14 @@ impl From<&std::ops::Range<usize>> for Span {
 }
 
 impl Span {
+    pub fn unknown() -> Span {
+        Span { start: 0, end: 0 }
+    }
+
+    pub fn is_unknown(&self) -> bool {
+        self.start == 0 && self.end == 0
+    }
+
     pub fn slice(&self, source: &'a str) -> &'a str {
         &source[self.start..self.end]
     }

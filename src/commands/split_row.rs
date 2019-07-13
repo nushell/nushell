@@ -21,7 +21,8 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
 
     let stream = input
-        .map(move |v| match v {
+        .values
+        .map(move |v| match v.item {
             Value::Primitive(Primitive::String(s)) => {
                 let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
@@ -31,25 +32,23 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
                 let mut result = VecDeque::new();
                 for s in split_result {
-                    result.push_back(ReturnValue::Value(Value::Primitive(Primitive::String(
-                        s.into(),
-                    ))));
+                    result.push_back(ReturnSuccess::value(
+                        Value::Primitive(Primitive::String(s.into())).spanned(v.span),
+                    ));
                 }
                 result
             }
             _ => {
                 let mut result = VecDeque::new();
-                result.push_back(ReturnValue::Value(Value::Error(Box::new(
-                    ShellError::maybe_labeled_error(
-                        "Expected string values from pipeline",
-                        "expects strings from pipeline",
-                        span,
-                    ),
-                ))));
+                result.push_back(Err(ShellError::maybe_labeled_error(
+                    "Expected string values from pipeline",
+                    "expects strings from pipeline",
+                    span,
+                )));
                 result
             }
         })
         .flatten();
 
-    Ok(stream.boxed())
+    Ok(stream.to_output_stream())
 }
