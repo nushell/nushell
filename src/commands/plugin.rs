@@ -55,6 +55,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
 
     let stream = args
         .input
+        .values
         .chain(eos)
         .map(move |v| match v {
             Spanned {
@@ -90,7 +91,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
                                 Ok(params) => params,
                                 Err(e) => {
                                     let mut result = VecDeque::new();
-                                    result.push_back(ReturnValue::Value(Value::Error(Box::new(e))));
+                                    result.push_back(ReturnValue::Err(e));
                                     result
                                 }
                             },

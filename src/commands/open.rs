@@ -61,12 +61,18 @@ command! {
             }
         };
 
-        stream.push_back(ReturnSuccess::value(parse_as_value(
-            file_extension,
-            contents,
-            contents_span,
-            span,
-        )?));
+        match contents {
+            Value::Primitive(Primitive::String(string)) =>
+                stream.push_back(ReturnSuccess::value(parse_as_value(
+                    file_extension,
+                    string,
+                    contents_span,
+                    span,
+                )?)
+            ),
+
+            other => stream.push_back(ReturnSuccess::value(other.spanned(span))),
+        };
 
         stream
     }
@@ -76,7 +82,7 @@ pub fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
-) -> Result<(Option<String>, String, Span), ShellError> {
+) -> Result<(Option<String>, Value, Span), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
@@ -107,7 +113,7 @@ pub fn fetch(
                         None => path_extension,
                     };
 
-                    Ok((extension, s, span))
+                    Ok((extension, Value::string(s), span))
                 }
                 Err(_) => {
                     return Err(ShellError::labeled_error(
@@ -132,10 +138,10 @@ pub fn fetch(
                 Ok(s) => Ok((
                     cwd.extension()
                         .map(|name| name.to_string_lossy().to_string()),
-                    s,
+                    Value::string(s),
                     span,
                 )),
-                Err(_) => Ok((None, Value::Binary(bytes))),
+                Err(_) => Ok((None, Value::Binary(bytes), span)),
             },
             Err(_) => {
                 return Err(ShellError::labeled_error(

@@ -5,7 +5,11 @@ use crate::prelude::*;
 
 pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
     if args.input.len() > 0 {
-        if let Value::Binary(_) = args.input[0] {
+        if let Spanned {
+            item: Value::Binary(_),
+            ..
+        } = args.input[0]
+        {
             args.ctx.get_sink("binaryview").run(args)?;
         } else if equal_shapes(&args.input) {
             args.ctx.get_sink("table").run(args)?;

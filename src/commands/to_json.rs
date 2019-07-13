@@ -22,7 +22,6 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         Value::List(l) => {
             serde_json::Value::Array(l.iter().map(|x| value_to_json_value(x)).collect())
         }
-        Value::Error(e) => serde_json::Value::String(e.to_string()),
         Value::Block(_) => serde_json::Value::Null,
         Value::Binary(b) => serde_json::Value::Array(
             b.iter()

@@ -36,11 +36,6 @@ impl RenderView for GenericView<'value> {
                 Ok(())
             }
 
-            Value::Error(e) => {
-                host.stdout(&format!("{:?}", e));
-                Ok(())
-            }
-
             Value::Binary(_) => {
                 host.stdout("<Binary>");
                 Ok(())

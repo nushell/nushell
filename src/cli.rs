@@ -181,14 +181,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-toml", Box::new(to_toml::to_toml)),
             command("sort-by", Box::new(sort_by::sort_by)),
             command("sort-by", Box::new(sort_by::sort_by)),
-            command("inc", |x| plugin::plugin("inc".into(), x)),
-            command("sum", |x| plugin::plugin("sum".into(), x)),
             Arc::new(Open),
             Arc::new(Where),
             Arc::new(Config),
             Arc::new(SkipWhile),
             Arc::new(Enter),
-            Arc::new(Skip),
         ]);
 
         context.add_sinks(vec![

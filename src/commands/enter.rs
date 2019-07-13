@@ -12,8 +12,12 @@ impl Command for Enter {
     fn config(&self) -> CommandConfig {
         CommandConfig {
             name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory("path", "Block")],
+            positional: vec![PositionalType::mandatory_block("path")],
             rest_positional: false,
+            can_load: vec![],
+            can_save: vec![],
+            is_filter: false,
+            is_sink: false,
             named: indexmap::IndexMap::new(),
         }
     }
@@ -89,9 +93,15 @@ pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    stream.push_back(Ok(ReturnSuccess::Action(CommandAction::Enter(
-        parse_as_value(file_extension, contents, contents_span, span)?,
-    ))));
+    match contents {
+        Value::Primitive(Primitive::String(string)) => {
+            stream.push_back(Ok(ReturnSuccess::Action(CommandAction::Enter(
+                parse_as_value(file_extension, string, contents_span, span)?,
+            ))));
+        }
+
+        other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
+    };
 
     Ok(stream.into())
 }

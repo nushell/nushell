@@ -1,4 +1,4 @@
-use crate::{Args, CommandConfig, ReturnValue, ShellError, Value};
+use crate::{Args, CommandConfig, ReturnValue, ShellError, Spanned, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -11,11 +11,11 @@ pub trait Plugin {
         ))
     }
     #[allow(unused)]
-    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Err(ShellError::string("`filter` not implemented in plugin"))
     }
     #[allow(unused)]
-    fn sink(&mut self, args: Args, input: Vec<Value>) {}
+    fn sink(&mut self, args: Args, input: Vec<Spanned<Value>>) {}
 
     fn quit(&mut self) {
         return;
@@ -127,7 +127,7 @@ fn send_response<T: Serialize>(result: T) {
 pub enum NuCommand {
     config,
     begin_filter { params: Args },
-    filter { params: Value },
-    sink { params: (Args, Vec<Value>) },
+    filter { params: Spanned<Value> },
+    sink { params: (Args, Vec<Spanned<Value>>) },
     quit,
 }

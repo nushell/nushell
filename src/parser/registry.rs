@@ -40,18 +40,19 @@ pub enum PositionalType {
     Optional(String, PositionalValue),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalValue {
     Value,
     Block,
 }
 
 impl PositionalType {
-    crate fn mandatory(name: &str, kind: &str) -> PositionalType {
-        match kind {
-            "Block" => PositionalType::Mandatory(name.to_string(), PositionalValue::Block),
-            _ => PositionalType::Mandatory(name.to_string(), PositionalValue::Value),
-        }
+    pub fn mandatory(name: &str) -> PositionalType {
+        PositionalType::Mandatory(name.to_string(), PositionalValue::Value)
+    }
+
+    pub fn mandatory_block(name: &str) -> PositionalType {
+        PositionalType::Mandatory(name.to_string(), PositionalValue::Block)
     }
 
     crate fn to_coerce_hint(&self) -> Option<ExpressionKindHint> {
@@ -76,7 +77,7 @@ impl PositionalType {
 #[get = "crate"]
 pub struct CommandConfig {
     pub name: String,
-    crate positional: Vec<PositionalType>,
+    pub positional: Vec<PositionalType>,
     pub rest_positional: bool,
     pub named: IndexMap<String, NamedType>,
     pub is_filter: bool,

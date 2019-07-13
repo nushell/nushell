@@ -25,7 +25,7 @@ fn convert_toml_value_to_nu_value(v: &toml::Value, span: impl Into<Span>) -> Spa
             let mut collected = SpannedDictBuilder::new(span);
 
             for (k, v) in t.iter() {
-                collected.add(k.clone(), convert_toml_value_to_nu_value(v, span));
+                collected.insert_spanned(k.clone(), convert_toml_value_to_nu_value(v, span));
             }
 
             collected.into_spanned_value()

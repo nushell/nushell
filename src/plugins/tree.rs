@@ -1,6 +1,6 @@
 use derive_new::new;
 use indexmap::IndexMap;
-use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Value};
+use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Spanned, Value};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
 use ptree::print_config::PrintConfig;
@@ -31,7 +31,6 @@ impl TreeView {
                 }
             }
             Value::Block(_) => {}
-            Value::Error(_) => {}
             Value::Filesystem => {}
             Value::Binary(_) => {}
         }
@@ -85,8 +84,7 @@ impl Plugin for TreeViewer {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
             name: "tree".to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             can_load: vec![],
             can_save: vec![],
             is_filter: false,
@@ -96,12 +94,11 @@ impl Plugin for TreeViewer {
         })
     }
 
-    fn sink(&mut self, _args: Args, input: Vec<Value>) {
+    fn sink(&mut self, _args: Args, input: Vec<Spanned<Value>>) {
         if input.len() > 0 {
             for i in input.iter() {
                 let view = TreeView::from_value(&i);
                 let _ = view.render_view();
-                //handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
             }
         }
 

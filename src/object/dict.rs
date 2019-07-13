@@ -80,7 +80,7 @@ impl Dictionary {
         let mut out = Dictionary::default();
 
         for (key, value) in self.entries.iter() {
-            out.add(key.clone(), value.copy());
+            out.add(key.clone(), value.clone());
         }
 
         out
@@ -150,7 +150,7 @@ impl From<SpannedListBuilder> for Spanned<Value> {
 #[derive(Debug)]
 pub struct SpannedDictBuilder {
     span: Span,
-    dict: IndexMap<DataDescriptor, Spanned<Value>>,
+    dict: IndexMap<String, Spanned<Value>>,
 }
 
 impl SpannedDictBuilder {
@@ -161,16 +161,12 @@ impl SpannedDictBuilder {
         }
     }
 
-    pub fn insert(&mut self, key: impl Into<DataDescriptor>, value: impl Into<Value>) {
+    pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
         self.dict
             .insert(key.into(), value.into().spanned(self.span));
     }
 
-    pub fn insert_spanned(
-        &mut self,
-        key: impl Into<DataDescriptor>,
-        value: impl Into<Spanned<Value>>,
-    ) {
+    pub fn insert_spanned(&mut self, key: impl Into<String>, value: impl Into<Spanned<Value>>) {
         self.dict.insert(key.into(), value.into());
     }
 

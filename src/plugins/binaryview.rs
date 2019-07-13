@@ -1,6 +1,6 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
-use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Value};
+use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Spanned, Value};
 use pretty_hex::*;
 
 struct BinaryView;
@@ -15,8 +15,7 @@ impl Plugin for BinaryView {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
             name: "binaryview".to_string(),
-            mandatory_positional: vec![],
-            optional_positional: vec![],
+            positional: vec![],
             can_load: vec![],
             can_save: vec![],
             is_filter: false,
@@ -26,10 +25,13 @@ impl Plugin for BinaryView {
         })
     }
 
-    fn sink(&mut self, _args: Args, input: Vec<Value>) {
+    fn sink(&mut self, _args: Args, input: Vec<Spanned<Value>>) {
         for v in input {
             match v {
-                Value::Binary(b) => {
+                Spanned {
+                    item: Value::Binary(b),
+                    ..
+                } => {
                     let _ = view_binary(&b);
                 }
                 _ => {}

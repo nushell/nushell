@@ -26,7 +26,8 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, span: impl Into<Span>) 
             for (k, v) in t.iter() {
                 match k {
                     serde_yaml::Value::String(k) => {
-                        collected.add(k.clone(), convert_yaml_value_to_nu_value(v, span));
+                        collected
+                            .insert_spanned(k.clone(), convert_yaml_value_to_nu_value(v, span));
                     }
                     _ => unimplemented!("Unknown key type"),
                 }

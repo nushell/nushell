@@ -48,6 +48,11 @@ macro_rules! command {
                     name: self.name().to_string(),
                     positional: vec![$($mandatory_positional)*],
                     rest_positional: false,
+                    can_load: vec![],
+                    can_save: vec![],
+                    is_filter: false,
+                    is_sink: false,
+
                     named: {
                         use $crate::parser::registry::NamedType;
 

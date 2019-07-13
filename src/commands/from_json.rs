@@ -27,7 +27,7 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value, span: impl Into<Span>)
         serde_hjson::Value::Object(o) => {
             let mut collected = SpannedDictBuilder::new(span);
             for (k, v) in o.iter() {
-                collected.add(k.clone(), convert_json_value_to_nu_value(v, span));
+                collected.insert_spanned(k.clone(), convert_json_value_to_nu_value(v, span));
             }
 
             collected.into_spanned_value()

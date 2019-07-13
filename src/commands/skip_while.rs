@@ -16,7 +16,7 @@ impl Command for SkipWhile {
     fn config(&self) -> CommandConfig {
         CommandConfig {
             name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory("condition", "Block")],
+            positional: vec![PositionalType::mandatory_block("condition")],
             rest_positional: false,
             named: indexmap::IndexMap::new(),
             is_filter: true,

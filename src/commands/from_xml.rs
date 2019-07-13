@@ -32,8 +32,8 @@ fn from_node_to_value<'a, 'd>(
             })
             .collect();
 
-        let mut collected = Dictionary::default();
-        collected.add(name.clone(), Value::List(children_values).spanned(span));
+        let mut collected = SpannedDictBuilder::new(span);
+        collected.insert(name.clone(), Value::List(children_values));
 
         collected.into_spanned_value()
     } else if n.is_comment() {

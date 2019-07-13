@@ -299,10 +299,6 @@ impl Value {
         }
     }
 
-    crate fn debug(&'a self) -> ValueDebug<'a> {
-        ValueDebug { value: self }
-    }
-
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
@@ -314,7 +310,6 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::List(_) => vec![],
-            Value::Error(_) => vec![],
             Value::Filesystem => vec![],
             Value::Binary(_) => vec![],
         }
@@ -356,7 +351,6 @@ impl Value {
             Value::Object(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Error(e) => MaybeOwned::Owned(Value::string(&format!("{:#?}", e))),
             Value::Binary(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
@@ -512,7 +506,7 @@ crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) ->
     let descs = obj.data_descriptors();
 
     for field in fields {
-        match descs.iter().find(|d| d.name.is_string(field)) {
+        match descs.iter().find(|d| *d == field) {
             None => out.insert(field, Value::nothing()),
             Some(desc) => out.insert(desc.clone(), obj.get_data(desc).borrow().clone()),
         }

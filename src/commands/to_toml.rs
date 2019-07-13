@@ -16,7 +16,6 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
 
         Value::Filesystem => toml::Value::String("<Filesystem>".to_string()),
         Value::List(l) => toml::Value::Array(l.iter().map(|x| value_to_toml_value(x)).collect()),
-        Value::Error(e) => toml::Value::String(e.to_string()),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
         Value::Binary(b) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
@@ -38,7 +37,7 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(out
         .values
         .map(move |a| {
-            match toml::to_string(&a) {
+            match toml::to_string(&value_to_toml_value(&a)) {
                 Ok(val) => {
                     return ReturnSuccess::value(
                         Value::Primitive(Primitive::String(val)).spanned(name_span),
@@ -46,7 +45,7 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }
 
                 Err(err) => Err(ShellError::type_error(
-                    "String",
+                    "serializable to toml",
                     format!("{:?} - {:?}", a.type_name(), err).spanned(name_span),
                 )), // toml::Value::String(String) => {
                     //     return ReturnSuccess::value(
