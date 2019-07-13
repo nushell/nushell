@@ -45,15 +45,17 @@ pub fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.name_span;
     Ok(out
         .values
-        .map(move |a| match serde_json::to_string(&a) {
-            Ok(x) => {
-                ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
-            }
-            Err(_) => Err(ShellError::maybe_labeled_error(
-                "Can not convert to JSON string",
-                "can not convert piped data to JSON string",
-                name_span,
-            )),
-        })
+        .map(
+            move |a| match serde_json::to_string(&value_to_json_value(&a)) {
+                Ok(x) => {
+                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
+                }
+                Err(_) => Err(ShellError::maybe_labeled_error(
+                    "Can not convert to JSON string",
+                    "can not convert piped data to JSON string",
+                    name_span,
+                )),
+            },
+        )
         .to_output_stream())
 }

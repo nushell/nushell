@@ -72,20 +72,6 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    crate fn add(&mut self, name: impl Into<String>, value: impl Into<Spanned<Value>>) {
-        self.entries.insert(name.into(), value.into());
-    }
-
-    crate fn copy_dict(&self) -> Dictionary {
-        let mut out = Dictionary::default();
-
-        for (key, value) in self.entries.iter() {
-            out.add(key.clone(), value.clone());
-        }
-
-        out
-    }
-
     pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),

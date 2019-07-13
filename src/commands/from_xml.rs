@@ -1,4 +1,4 @@
-use crate::object::{Dictionary, Primitive, SpannedDictBuilder, Value};
+use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 
 fn from_node_to_value<'a, 'd>(

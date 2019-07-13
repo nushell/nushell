@@ -1,7 +1,7 @@
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use serde_derive::Deserialize;
 
 #[derive(

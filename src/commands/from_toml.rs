@@ -1,5 +1,5 @@
 use crate::object::base::OF64;
-use crate::object::{Dictionary, Primitive, SpannedDictBuilder, Value};
+use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 
 fn convert_toml_value_to_nu_value(v: &toml::Value, span: impl Into<Span>) -> Spanned<Value> {

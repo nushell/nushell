@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{Dictionary, SpannedDictBuilder, Value};
+use crate::object::{SpannedDictBuilder, Value};
 use crate::prelude::*;
 
 #[derive(Debug)]
