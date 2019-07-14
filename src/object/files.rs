@@ -15,7 +15,7 @@ crate fn dir_entry_dict(
 ) -> Result<Spanned<Value>, ShellError> {
     let mut dict = SpannedDictBuilder::new(span);
     let filename = entry.file_name();
-    dict.insert("file name", Value::string(filename.to_string_lossy()));
+    dict.insert("name", Value::string(filename.to_string_lossy()));
 
     let metadata = entry.metadata()?;
 
@@ -27,7 +27,7 @@ crate fn dir_entry_dict(
         FileType::Symlink
     };
 
-    dict.insert("file type", Value::string(format!("{:?}", kind)));
+    dict.insert("type", Value::string(format!("{:?}", kind)));
     dict.insert(
         "readonly",
         Value::boolean(metadata.permissions().readonly()),
