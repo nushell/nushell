@@ -75,40 +75,87 @@ impl Context {
         let cursor = cursor();
         cursor.goto(0, 0)?;
 
-        let mut prev_color: Option<(u8, u8, u8)> = None;
+        let mut prev_fg: Option<(u8, u8, u8)> = None;
+        let mut prev_bg: Option<(u8, u8, u8)> = None;
         let mut prev_count = 1;
 
-        for pixel in &self.frame_buffer {
-            match prev_color {
-                Some(c) if c == pixel.1 => {
+        let mut pos = 0;
+        let fb_len = self.frame_buffer.len();
+        while pos < (fb_len - self.width) {
+            let top_pixel = self.frame_buffer[pos].1;
+            let bottom_pixel = self.frame_buffer[pos + self.width].1;
+
+            match (prev_fg, prev_bg) {
+                (Some(c), Some(d)) if c == top_pixel && d == bottom_pixel => {
                     prev_count += 1;
                 }
-                Some(c) => {
+                (Some(c), Some(d)) => {
                     print!(
                         "{}",
                         ansi_term::Colour::RGB(c.0, c.1, c.2)
-                            .paint((0..prev_count).map(|_| pixel.0).collect::<String>())
+                            .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                            .paint((0..prev_count).map(|_| "▀").collect::<String>())
                     );
-                    prev_color = Some(pixel.1);
+                    prev_fg = Some(top_pixel);
+                    prev_bg = Some(bottom_pixel);
                     prev_count = 1;
                 }
                 _ => {
-                    prev_color = Some(pixel.1);
+                    prev_fg = Some(top_pixel);
+                    prev_bg = Some(bottom_pixel);
                     prev_count = 1;
                 }
             }
-        }
-
-        if prev_count > 0 {
-            if let Some(color) = prev_color {
-                print!(
-                    "{}",
-                    ansi_term::Colour::RGB(color.0, color.1, color.2)
-                        .paint((0..prev_count).map(|_| "@").collect::<String>())
-                );
+            pos += 1;
+            if pos % self.width == 0 {
+                pos += self.width;
             }
         }
+        if prev_count > 0 {
+            match (prev_fg, prev_bg) {
+                (Some(c), Some(d)) => {
+                    print!(
+                        "{}",
+                        ansi_term::Colour::RGB(c.0, c.1, c.2)
+                            .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                            .paint((0..prev_count).map(|_| "▀").collect::<String>())
+                    );
+                }
+                _ => {}
+            }
+        }
+        /*
+                for pixel in &self.frame_buffer {
+                    match prev_color {
+                        Some(c) if c == pixel.1 => {
+                            prev_count += 1;
+                        }
+                        Some(c) => {
+                            print!(
+                                "{}",
+                                ansi_term::Colour::RGB(c.0, c.1, c.2)
+                                    .paint((0..prev_count).map(|_| pixel.0).collect::<String>())
+                            );
+                            prev_color = Some(pixel.1);
+                            prev_count = 1;
+                        }
+                        _ => {
+                            prev_color = Some(pixel.1);
+                            prev_count = 1;
+                        }
+                    }
+                }
 
+                if prev_count > 0 {
+                    if let Some(color) = prev_color {
+                        print!(
+                            "{}",
+                            ansi_term::Colour::RGB(color.0, color.1, color.2)
+                                .paint((0..prev_count).map(|_| "▄").collect::<String>())
+                        );
+                    }
+                }
+        */
         println!("{}", Attribute::Reset);
 
         Ok(())
@@ -122,7 +169,7 @@ impl Context {
             cursor.hide()?;
 
             self.width = terminal_size.0 as usize + 1;
-            self.height = terminal_size.1 as usize;
+            self.height = terminal_size.1 as usize * 2;
         }
 
         Ok(())
