@@ -55,7 +55,8 @@ fn view_binary(b: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 pub struct Context {
     pub width: usize,
     pub height: usize,
-    pub frame_buffer: Vec<(char, (u8, u8, u8))>,
+    pub frame_buffer: Vec<(u8, u8, u8)>,
+    pub prev_frame_buffer: Option<Vec<(u8, u8, u8)>>,
     pub since_last_button: Vec<usize>,
 }
 
@@ -65,15 +66,23 @@ impl Context {
             width: 0,
             height: 0,
             frame_buffer: vec![],
+            prev_frame_buffer: None,
             since_last_button: vec![0; 8],
         }
     }
     pub fn clear(&mut self) {
-        self.frame_buffer = vec![(' ', (0, 0, 0)); self.width * self.height as usize];
+        self.frame_buffer = vec![(0, 0, 0); self.width * self.height as usize];
     }
-    pub fn flush(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let cursor = cursor();
         cursor.goto(0, 0)?;
+
+        // check if we should redraw
+        if let Some(ref prev) = self.prev_frame_buffer {
+            if self.frame_buffer == *prev {
+                return Ok(());
+            }
+        }
 
         let mut prev_fg: Option<(u8, u8, u8)> = None;
         let mut prev_bg: Option<(u8, u8, u8)> = None;
@@ -82,8 +91,8 @@ impl Context {
         let mut pos = 0;
         let fb_len = self.frame_buffer.len();
         while pos < (fb_len - self.width) {
-            let top_pixel = self.frame_buffer[pos].1;
-            let bottom_pixel = self.frame_buffer[pos + self.width].1;
+            let top_pixel = self.frame_buffer[pos];
+            let bottom_pixel = self.frame_buffer[pos + self.width];
 
             match (prev_fg, prev_bg) {
                 (Some(c), Some(d)) if c == top_pixel && d == bottom_pixel => {
@@ -124,6 +133,8 @@ impl Context {
                 _ => {}
             }
         }
+
+        self.prev_frame_buffer = Some(self.frame_buffer.clone());
         /*
                 for pixel in &self.frame_buffer {
                     match prev_color {
@@ -262,7 +273,7 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
                 //print!("{}", rgb[0]);
-                context.frame_buffer[count] = ('@', (rgb[0], rgb[1], rgb[2]));
+                context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
         }
@@ -286,7 +297,7 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
                 //print!("{}", rgb[0]);
-                context.frame_buffer[count] = ('@', (rgb[0], rgb[1], rgb[2]));
+                context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
         }
@@ -359,7 +370,7 @@ pub fn view_contents_interactive(buffer: &[u8]) -> Result<(), Box<dyn std::error
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
 
-                context.frame_buffer[count] = ('@', (rgb[0], rgb[1], rgb[2]));
+                context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
             context.flush()?;
