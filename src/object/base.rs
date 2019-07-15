@@ -175,6 +175,7 @@ impl Block {
 pub enum Value {
     Primitive(Primitive),
     Object(crate::object::Dictionary),
+    #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
     List(Vec<Spanned<Value>>),
     #[allow(unused)]
