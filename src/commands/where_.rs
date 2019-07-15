@@ -5,7 +5,7 @@ use futures::future::ready;
 use log::trace;
 
 command! {
-    Where as where(args, condition: Block) {
+    Where as where(args, condition: Block,) {
         let input: InputStream = trace_stream!(target: "nu::trace_stream::where", "where input" = args.input);
 
         input.values.filter_map(move |item| {

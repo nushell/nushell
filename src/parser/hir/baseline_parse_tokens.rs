@@ -1,11 +1,14 @@
 use crate::errors::ShellError;
 use crate::parser::registry::CommandRegistry;
 use crate::parser::{
-    hir, hir::baseline_parse_single_token, DelimitedNode, Delimiter, PathNode, RawToken, Span,
-    Spanned, TokenNode,
+    hir,
+    hir::{baseline_parse_single_token, baseline_parse_token_as_string},
+    DelimitedNode, Delimiter, PathNode, RawToken, Span, Spanned, TokenNode,
 };
 use crate::{SpannedItem, Text};
 use derive_new::new;
+use log::trace;
+use serde_derive::{Deserialize, Serialize};
 
 pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
@@ -19,7 +22,7 @@ pub fn baseline_parse_tokens(
             break;
         }
 
-        let expr = baseline_parse_next_expr(token_nodes, registry, source, None)?;
+        let expr = baseline_parse_next_expr(token_nodes, registry, source, SyntaxType::Any)?;
         exprs.push(expr);
     }
 
@@ -27,10 +30,12 @@ pub fn baseline_parse_tokens(
 }
 
 #[allow(unused)]
-#[derive(Debug)]
-pub enum ExpressionKindHint {
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum SyntaxType {
+    Any,
     Literal,
     Variable,
+    Path,
     Binary,
     Block,
     Boolean,
@@ -40,12 +45,30 @@ pub fn baseline_parse_next_expr(
     tokens: &mut TokensIterator,
     registry: &dyn CommandRegistry,
     source: &Text,
-    coerce_hint: Option<ExpressionKindHint>,
+    syntax_type: SyntaxType,
 ) -> Result<hir::Expression, ShellError> {
-    let first = match tokens.next() {
-        None => return Err(ShellError::string("Expected token, found none")),
-        Some(token) => baseline_parse_semantic_token(token, registry, source)?,
+    let next = tokens
+        .next()
+        .ok_or_else(|| ShellError::string("Expected token, found none"))?;
+
+    trace!(target: "nu::parser::parse_one_expr", "syntax_type={:?}, token={:?}", syntax_type, next);
+
+    match (syntax_type, next) {
+        (SyntaxType::Path, TokenNode::Token(token)) => {
+            return Ok(baseline_parse_token_as_string(token, source))
+        }
+
+        (SyntaxType::Path, token) => {
+            return Err(ShellError::type_error(
+                "Path",
+                token.type_name().spanned(token.span()),
+            ))
+        }
+
+        _ => {}
     };
+
+    let first = baseline_parse_semantic_token(next, registry, source)?;
 
     let possible_op = tokens.peek();
 
@@ -69,8 +92,8 @@ pub fn baseline_parse_next_expr(
 
     // We definitely have a binary expression here -- let's see if we should coerce it into a block
 
-    match coerce_hint {
-        None => {
+    match syntax_type {
+        SyntaxType::Any => {
             let span = (first.span.start, second.span.end);
             let binary = hir::Binary::new(first, op, second);
             let binary = hir::RawExpression::Binary(Box::new(binary));
@@ -79,74 +102,75 @@ pub fn baseline_parse_next_expr(
             Ok(binary)
         }
 
-        Some(hint) => match hint {
-            ExpressionKindHint::Block => {
-                let span = (first.span.start, second.span.end);
+        SyntaxType::Block => {
+            let span = (first.span.start, second.span.end);
 
-                let path: Spanned<hir::RawExpression> = match first {
+            let path: Spanned<hir::RawExpression> = match first {
+                Spanned {
+                    item: hir::RawExpression::Literal(hir::Literal::Bare),
+                    span,
+                } => {
+                    let string = Spanned::from_item(span.slice(source).to_string(), span);
+                    let path = hir::Path::new(
+                        Spanned::from_item(
+                            // TODO: Deal with synthetic nodes that have no representation at all in source
+                            hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
+                            (0, 0),
+                        ),
+                        vec![string],
+                    );
+                    let path = hir::RawExpression::Path(Box::new(path));
                     Spanned {
-                        item: hir::RawExpression::Literal(hir::Literal::Bare),
+                        item: path,
+                        span: first.span,
+                    }
+                }
+                Spanned {
+                    item: hir::RawExpression::Literal(hir::Literal::String(inner)),
+                    span,
+                } => {
+                    let string = Spanned::from_item(inner.slice(source).to_string(), span);
+                    let path = hir::Path::new(
+                        Spanned::from_item(
+                            // TODO: Deal with synthetic nodes that have no representation at all in source
+                            hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
+                            (0, 0),
+                        ),
+                        vec![string],
+                    );
+                    let path = hir::RawExpression::Path(Box::new(path));
+                    Spanned {
+                        item: path,
+                        span: first.span,
+                    }
+                }
+                Spanned {
+                    item: hir::RawExpression::Variable(..),
+                    ..
+                } => first,
+                Spanned { span, item } => {
+                    return Err(ShellError::labeled_error(
+                        "The first part of an un-braced block must be a column name",
+                        item.type_name(),
                         span,
-                    } => {
-                        let string = Spanned::from_item(span.slice(source).to_string(), span);
-                        let path = hir::Path::new(
-                            Spanned::from_item(
-                                // TODO: Deal with synthetic nodes that have no representation at all in source
-                                hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
-                                (0, 0),
-                            ),
-                            vec![string],
-                        );
-                        let path = hir::RawExpression::Path(Box::new(path));
-                        Spanned {
-                            item: path,
-                            span: first.span,
-                        }
-                    }
-                    Spanned {
-                        item: hir::RawExpression::Literal(hir::Literal::String(inner)),
-                        span,
-                    } => {
-                        let string = Spanned::from_item(inner.slice(source).to_string(), span);
-                        let path = hir::Path::new(
-                            Spanned::from_item(
-                                // TODO: Deal with synthetic nodes that have no representation at all in source
-                                hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
-                                (0, 0),
-                            ),
-                            vec![string],
-                        );
-                        let path = hir::RawExpression::Path(Box::new(path));
-                        Spanned {
-                            item: path,
-                            span: first.span,
-                        }
-                    }
-                    Spanned {
-                        item: hir::RawExpression::Variable(..),
-                        ..
-                    } => first,
-                    Spanned { span, item } => {
-                        return Err(ShellError::labeled_error(
-                            "The first part of an un-braced block must be a column name",
-                            item.type_name(),
-                            span,
-                        ))
-                    }
-                };
+                    ))
+                }
+            };
 
-                let binary = hir::Binary::new(path, op, second);
-                let binary = hir::RawExpression::Binary(Box::new(binary));
-                let binary = Spanned::from_item(binary, span);
+            let binary = hir::Binary::new(path, op, second);
+            let binary = hir::RawExpression::Binary(Box::new(binary));
+            let binary = Spanned::from_item(binary, span);
 
-                let block = hir::RawExpression::Block(vec![binary]);
-                let block = Spanned::from_item(block, span);
+            let block = hir::RawExpression::Block(vec![binary]);
+            let block = Spanned::from_item(block, span);
 
-                Ok(block)
-            }
+            Ok(block)
+        }
 
-            other => unimplemented!("coerce hint {:?}", other),
-        },
+        other => Err(ShellError::unimplemented(format!(
+            "coerce hint {:?}",
+            other
+        ))),
     }
 }
 
@@ -161,8 +185,10 @@ pub fn baseline_parse_semantic_token(
         TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, registry, source),
         TokenNode::Pipeline(_pipeline) => unimplemented!(),
         TokenNode::Operator(_op) => unreachable!(),
-        TokenNode::Flag(_flag) => Err(ShellError::unimplemented("passing flags is not supported yet.")),
-        TokenNode::Identifier(_span) => unreachable!(),
+        TokenNode::Flag(_flag) => Err(ShellError::unimplemented(
+            "passing flags is not supported yet.",
+        )),
+        TokenNode::Member(_span) => unreachable!(),
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
         TokenNode::Path(path) => baseline_parse_path(path, registry, source),
@@ -210,7 +236,7 @@ pub fn baseline_parse_path(
                 }
             },
 
-            TokenNode::Identifier(span) => span.slice(source),
+            TokenNode::Member(span) => span.slice(source),
 
             // TODO: Make this impossible
             other => unreachable!("{:?}", other),

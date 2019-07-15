@@ -151,7 +151,7 @@ pub fn var(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "var", move |input| {
         let start = input.offset;
         let (input, _) = tag("$")(input)?;
-        let (input, bare) = identifier(input)?;
+        let (input, bare) = member(input)?;
         let end = input.offset;
 
         Ok((
@@ -161,14 +161,7 @@ pub fn var(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     })
 }
 
-// let start = input.offset;
-// let (input, _) = take_while1(is_start_bare_char)(input)?;
-// let (input, _) = take_while(is_bare_char)(input)?;
-// let end = input.offset;
-
-// Ok((input, TokenTreeBuilder::spanned_bare((start, end))))
-
-pub fn identifier(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn member(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "identifier", move |input| {
         let start = input.offset;
         let (input, _) = take_while1(is_id_start)(input)?;
@@ -176,7 +169,7 @@ pub fn identifier(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
         let end = input.offset;
 
-        Ok((input, TokenTreeBuilder::spanned_ident((start, end))))
+        Ok((input, TokenTreeBuilder::spanned_member((start, end))))
     })
 }
 
@@ -412,7 +405,7 @@ pub fn path(input: NomSpan) -> IResult<NomSpan, TokenNode> {
         let left = input.offset;
         let (input, head) = node1(input)?;
         let (input, _) = tag(".")(input)?;
-        let (input, tail) = separated_list(tag("."), alt((identifier, string)))(input)?;
+        let (input, tail) = separated_list(tag("."), alt((member, string)))(input)?;
         let right = input.offset;
 
         Ok((
@@ -802,14 +795,14 @@ mod tests {
         let _ = pretty_env_logger::try_init();
         assert_eq!(
             apply(node, "node", "$it.print"),
-            build_token(b::path(b::var("it"), vec![b::ident("print")]))
+            build_token(b::path(b::var("it"), vec![b::member("print")]))
         );
 
         assert_eq!(
             apply(node, "node", "$head.part1.part2"),
             build_token(b::path(
                 b::var("head"),
-                vec![b::ident("part1"), b::ident("part2")]
+                vec![b::member("part1"), b::member("part2")]
             ))
         );
 
@@ -817,7 +810,7 @@ mod tests {
             apply(node, "node", "( hello ).world"),
             build_token(b::path(
                 b::parens(vec![b::sp(), b::bare("hello"), b::sp()]),
-                vec![b::ident("world")]
+                vec![b::member("world")]
             ))
         );
 
@@ -843,7 +836,7 @@ mod tests {
                     b::sp(),
                     b::path(
                         b::var("it"),
-                        vec![b::ident("is"), b::string("great news"), b::ident("right")]
+                        vec![b::member("is"), b::string("great news"), b::member("right")]
                     ),
                     b::sp(),
                     b::bare("yep"),
@@ -972,7 +965,7 @@ mod tests {
                         vec![
                             b::sp(),
                             b::braced(vec![
-                                b::path(b::var("it"), vec![b::ident("size")]),
+                                b::path(b::var("it"), vec![b::member("size")]),
                                 b::sp(),
                                 b::op(">"),
                                 b::sp(),

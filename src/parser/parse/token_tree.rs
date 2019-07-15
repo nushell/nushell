@@ -15,7 +15,7 @@ pub enum TokenNode {
     Pipeline(Spanned<Pipeline>),
     Operator(Spanned<Operator>),
     Flag(Spanned<Flag>),
-    Identifier(Span),
+    Member(Span),
     Whitespace(Span),
     #[allow(unused)]
     Error(Spanned<Box<ShellError>>),
@@ -92,11 +92,27 @@ impl TokenNode {
             TokenNode::Pipeline(s) => s.span,
             TokenNode::Operator(s) => s.span,
             TokenNode::Flag(s) => s.span,
-            TokenNode::Identifier(s) => *s,
+            TokenNode::Member(s) => *s,
             TokenNode::Whitespace(s) => *s,
             TokenNode::Error(s) => s.span,
             TokenNode::Path(s) => s.span,
         }
+    }
+
+    pub fn type_name(&self) -> String {
+        match self {
+            TokenNode::Token(t) => t.type_name(),
+            TokenNode::Call(s) => "command",
+            TokenNode::Delimited(d) => d.type_name(),
+            TokenNode::Pipeline(s) => "pipeline",
+            TokenNode::Operator(s) => "operator",
+            TokenNode::Flag(s) => "flag",
+            TokenNode::Member(s) => "member",
+            TokenNode::Whitespace(s) => "whitespace",
+            TokenNode::Error(s) => "error",
+            TokenNode::Path(s) => "path",
+        }
+        .to_string()
     }
 
     pub fn debug(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
@@ -145,6 +161,16 @@ impl TokenNode {
 pub struct DelimitedNode {
     delimiter: Delimiter,
     children: Vec<TokenNode>,
+}
+
+impl DelimitedNode {
+    pub fn type_name(&self) -> &'static str {
+        match self.delimiter {
+            Delimiter::Brace => "braced expression",
+            Delimiter::Paren => "parenthesized expression",
+            Delimiter::Square => "array literal or index operator",
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, FromStr)]

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 command! {
-    Open as open(args, --raw: Switch) {
+    Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
         let span = args.name_span;
 
         let cwd = args
@@ -21,16 +21,19 @@ command! {
 
         let full_path = PathBuf::from(cwd);
 
-        let (file_extension, contents, contents_span) = match &args.expect_nth(0)?.item {
-            Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
-            _ => {
-                return Err(ShellError::labeled_error(
-                    "Expected string value for filename",
-                    "expected filename",
-                    args.expect_nth(0)?.span,
-                ));
-            }
-        };
+        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".spanned(path.span)))?;
+
+        let (file_extension, contents, contents_span) = fetch(&full_path, path_str, path.span)?;
+        // let (file_extension, contents, contents_span) = match &args.expect_nth(0)?.item {
+        //     Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
+        //     _ => {
+        //         return Err(ShellError::labeled_error(
+        //             "Expected string value for filename",
+        //             "expected filename",
+        //             args.expect_nth(0)?.span,
+        //         ));
+        //     }
+        // };
 
         let mut stream = VecDeque::new();
 

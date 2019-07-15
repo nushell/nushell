@@ -1,5 +1,5 @@
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::parser::{hir, hir::ExpressionKindHint, parse_command, CallNode, Spanned};
+use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode, Spanned};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
@@ -12,55 +12,34 @@ use std::fmt;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NamedType {
     Switch,
-    Mandatory(NamedValue),
-    Optional(NamedValue),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum NamedValue {
-    Single,
-
-    #[allow(unused)]
-    Block,
-}
-
-impl NamedValue {
-    crate fn to_coerce_hint(&self) -> Option<ExpressionKindHint> {
-        match self {
-            NamedValue::Single => None,
-            NamedValue::Block => Some(ExpressionKindHint::Block),
-        }
-    }
+    Mandatory(SyntaxType),
+    Optional(SyntaxType),
 }
 
 #[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
-    Mandatory(String, PositionalValue),
-    Optional(String, PositionalValue),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PositionalValue {
-    Value,
-    Block,
+    Mandatory(String, SyntaxType),
+    Optional(String, SyntaxType),
 }
 
 impl PositionalType {
-    pub fn mandatory(name: &str) -> PositionalType {
-        PositionalType::Mandatory(name.to_string(), PositionalValue::Value)
+    pub fn mandatory(name: &str, ty: SyntaxType) -> PositionalType {
+        PositionalType::Mandatory(name.to_string(), ty)
+    }
+
+    pub fn mandatory_any(name: &str) -> PositionalType {
+        PositionalType::Mandatory(name.to_string(), SyntaxType::Any)
     }
 
     pub fn mandatory_block(name: &str) -> PositionalType {
-        PositionalType::Mandatory(name.to_string(), PositionalValue::Block)
+        PositionalType::Mandatory(name.to_string(), SyntaxType::Block)
     }
 
-    crate fn to_coerce_hint(&self) -> Option<ExpressionKindHint> {
+    crate fn to_coerce_hint(&self) -> Option<SyntaxType> {
         match self {
-            PositionalType::Mandatory(_, PositionalValue::Block)
-            | PositionalType::Optional(_, PositionalValue::Block) => {
-                Some(ExpressionKindHint::Block)
-            }
+            PositionalType::Mandatory(_, SyntaxType::Block)
+            | PositionalType::Optional(_, SyntaxType::Block) => Some(SyntaxType::Block),
             _ => None,
         }
     }
@@ -69,6 +48,13 @@ impl PositionalType {
         match self {
             PositionalType::Mandatory(s, _) => s,
             PositionalType::Optional(s, _) => s,
+        }
+    }
+
+    crate fn syntax_type(&self) -> SyntaxType {
+        match *self {
+            PositionalType::Mandatory(_, t) => t,
+            PositionalType::Optional(_, t) => t,
         }
     }
 }

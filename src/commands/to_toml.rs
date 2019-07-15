@@ -13,6 +13,7 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
         Value::Primitive(Primitive::Int(i)) => toml::Value::Integer(*i),
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),
         Value::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
+        Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
 
         Value::Filesystem => toml::Value::String("<Filesystem>".to_string()),
         Value::List(l) => toml::Value::Array(l.iter().map(|x| value_to_toml_value(x)).collect()),
