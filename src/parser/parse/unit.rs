@@ -46,8 +46,8 @@ impl FromStr for Unit {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
         match input {
-            "B" | "b" => Ok(Unit::B),
-            "KB" | "kb" | "Kb" => Ok(Unit::KB),
+             "B" |  "b" => Ok(Unit::B),
+            "KB" | "kb" | "Kb" | "K" | "k" => Ok(Unit::KB),
             "MB" | "mb" | "Mb" => Ok(Unit::MB),
             "GB" | "gb" | "Gb" => Ok(Unit::GB),
             "TB" | "tb" | "Tb" => Ok(Unit::TB),

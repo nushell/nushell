@@ -217,6 +217,8 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Spanned<Unit>> {
             tag("KB"),
             tag("kb"),
             tag("Kb"),
+            tag("K"),
+            tag("k"),
             tag("MB"),
             tag("mb"),
             tag("Mb"),
