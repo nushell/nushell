@@ -80,7 +80,7 @@ pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Spanned<i64>> {
         ))
     })
 }
-
+/*
 pub fn integer(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "integer", move |input| {
         let (input, int) = raw_integer(input)?;
@@ -88,6 +88,7 @@ pub fn integer(input: NomSpan) -> IResult<NomSpan, TokenNode> {
         Ok((input, TokenTreeBuilder::spanned_int(*int, int.span)))
     })
 }
+*/
 
 pub fn operator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "operator", |input| {
@@ -217,6 +218,8 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Spanned<Unit>> {
             tag("KB"),
             tag("kb"),
             tag("Kb"),
+            tag("K"),
+            tag("k"),
             tag("MB"),
             tag("mb"),
             tag("Mb"),
@@ -241,22 +244,37 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Spanned<Unit>> {
 
 pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "size", move |input| {
+        let mut is_size = false;
         let start = input.offset;
         let (input, int) = raw_integer(input)?;
-        let (input, unit) = raw_unit(input)?;
-        let end = input.offset;
+        if let Ok((input, Some(size))) = opt(raw_unit)(input) {
+            let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::spanned_size((*int, *unit), (start, end)),
-        ))
+            // Check to make sure there is no trailing parseable characters
+            if let Ok((input, Some(extra))) = opt(bare)(input) {
+                return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
+            }
+
+            Ok((
+                input,
+                TokenTreeBuilder::spanned_size((*int, *size), (start, end)),
+            ))
+        } else {
+            let end = input.offset;
+
+            // Check to make sure there is no trailing parseable characters
+            if let Ok((input, Some(extra))) = opt(bare)(input) {
+                return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
+            }
+
+            Ok((input, TokenTreeBuilder::spanned_int((*int), (start, end))))
+        }
     })
 }
 
 pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "leaf", move |input| {
-        let (input, node) =
-            alt((size, integer, string, operator, flag, shorthand, var, bare))(input)?;
+        let (input, node) = alt((size, string, operator, flag, shorthand, var, bare))(input)?;
 
         Ok((input, node))
     })
@@ -513,6 +531,7 @@ fn int<T>(frag: &str, neg: Option<T>) -> i64 {
 fn is_start_bare_char(c: char) -> bool {
     match c {
         _ if c.is_alphabetic() => true,
+        _ if c.is_numeric() => true,
         '.' => true,
         '\\' => true,
         '/' => true,
@@ -596,12 +615,12 @@ mod tests {
     #[test]
     fn test_integer() {
         assert_leaf! {
-            parsers [ integer ]
+            parsers [ size ]
             "123" -> 0..3 { Integer(123) }
         }
 
         assert_leaf! {
-            parsers [ integer ]
+            parsers [ size ]
             "-123" -> 0..4 { Integer(-123) }
         }
     }

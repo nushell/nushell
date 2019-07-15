@@ -161,7 +161,7 @@ pub fn baseline_parse_semantic_token(
         TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, registry, source),
         TokenNode::Pipeline(_pipeline) => unimplemented!(),
         TokenNode::Operator(_op) => unreachable!(),
-        TokenNode::Flag(_flag) => unimplemented!(),
+        TokenNode::Flag(_flag) => Err(ShellError::unimplemented("passing flags is not supported yet.")),
         TokenNode::Identifier(_span) => unreachable!(),
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
