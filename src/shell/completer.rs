@@ -23,6 +23,24 @@ impl Completer for NuCompleter {
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;
 
+        for completion in &mut completions {
+            if completion.replacement.contains("\\ ") {
+                completion.replacement = completion.replacement.replace("\\ ", " ");
+            }
+            if completion.replacement.contains("\\(") {
+                completion.replacement = completion.replacement.replace("\\(", "(");
+            }
+
+            if completion.replacement.contains(" ") || completion.replacement.contains("(") {
+                if !completion.replacement.starts_with("\"") {
+                    completion.replacement = format!("\"{}", completion.replacement);
+                }
+                if !completion.replacement.ends_with("\"") {
+                    completion.replacement = format!("{}\"", completion.replacement);
+                }
+            }
+        }
+
         let line_chars: Vec<_> = line.chars().collect();
         let mut replace_pos = pos;
         while replace_pos > 0 {
