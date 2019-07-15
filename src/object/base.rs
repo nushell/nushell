@@ -11,6 +11,7 @@ use derive_new::new;
 use ordered_float::OrderedFloat;
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new, Serialize, Deserialize)]
@@ -40,6 +41,7 @@ pub enum Primitive {
     String(String),
     Boolean(bool),
     Date(DateTime<Utc>),
+    Path(PathBuf),
 
     EndOfStream,
 }
@@ -51,6 +53,7 @@ impl Primitive {
         match self {
             Nothing => "nothing",
             EndOfStream => "end-of-stream",
+            Path(_) => "path",
             Int(_) => "int",
             Float(_) => "float",
             Bytes(_) => "bytes",
@@ -68,6 +71,7 @@ impl Primitive {
             Nothing => write!(f, "Nothing"),
             EndOfStream => write!(f, "EndOfStream"),
             Int(int) => write!(f, "{}", int),
+            Path(path) => write!(f, "{}", path.display()),
             Float(float) => write!(f, "{:?}", float),
             Bytes(bytes) => write!(f, "{}", bytes),
             String(string) => write!(f, "{:?}", string),
@@ -80,6 +84,7 @@ impl Primitive {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
             Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
+            Primitive::Path(p) => format!("{}", p.display()),
             Primitive::Bytes(b) => {
                 let byte = byte_unit::Byte::from_bytes(*b as u128);
 

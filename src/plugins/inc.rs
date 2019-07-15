@@ -17,7 +17,7 @@ impl Plugin for Inc {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
             name: "inc".to_string(),
-            positional: vec![PositionalType::mandatory("Increment")],
+            positional: vec![PositionalType::mandatory_any("Increment")],
             is_filter: true,
             is_sink: false,
             named: IndexMap::new(),

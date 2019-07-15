@@ -266,17 +266,17 @@ impl TokenTreeBuilder {
         ))
     }
 
-    pub fn ident(input: impl Into<String>) -> CurriedToken {
+    pub fn member(input: impl Into<String>) -> CurriedToken {
         let input = input.into();
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            TokenTreeBuilder::spanned_ident((start, end))
+            TokenTreeBuilder::spanned_member((start, end))
         })
     }
 
-    pub fn spanned_ident(span: impl Into<Span>) -> TokenNode {
-        TokenNode::Identifier(span.into())
+    pub fn spanned_member(span: impl Into<Span>) -> TokenNode {
+        TokenNode::Member(span.into())
     }
 
     pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedCall {
