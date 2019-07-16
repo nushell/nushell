@@ -3,24 +3,6 @@ mod helpers;
 use helpers::in_directory as cwd;
 
 #[test]
-fn enter() {
-    nu!(output,
-        cwd("tests/fixtures/formats"),
-            r#"
-                enter sgml_description.json
-                cd glossary
-                cd GlossDiv
-                cd GlossList
-                cd GlossEntry
-                cd GlossSee
-                ls | echo $it
-                exit
-            "#);
-
-    assert_eq!(output, "markup");
-}
-
-#[test]
 fn lines() {
     nu!(output,
         cwd("tests/fixtures/formats"),
@@ -64,17 +46,6 @@ fn open_ini() {
 
     assert_eq!(output, "1234")
 }
-
-//fn open_unknown_format_as_raw_single_value() {
-    //nu!(output,
-    //  cwd("tests/fixtures/formats"),
-    //  "open skinfolds.unsupported | echo $it");
-
-    // does not pass on Windows
-    // left: `"\"\\\"ABS:3.0-PEC:3.0\\\""`,
-    // right: `"ABS:3.0-PEC:3.0"`'
-    //assert_eq!(output, "ABS:3.0-PEC:3.0")
-//}
 
 #[test]
 fn open_error_if_file_not_found() {
