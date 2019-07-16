@@ -1,4 +1,5 @@
 use crate::commands::command::SinkCommandArgs;
+use crate::commands::to_json::value_to_json_value;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::Spanned;
@@ -64,7 +65,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     "saving to json requires a single object (or use --raw)",
                 ));
             }
-            serde_json::to_string(&args.input[0]).unwrap()
+            serde_json::to_string(&value_to_json_value(&args.input[0])).unwrap()
         }
         Some(x) if x == "yml" && !save_raw => {
             if args.input.len() != 1 {
