@@ -32,6 +32,14 @@ impl PositionalType {
         PositionalType::Mandatory(name.to_string(), SyntaxType::Any)
     }
 
+    pub fn optional(name: &str, ty: SyntaxType) -> PositionalType {
+        PositionalType::Optional(name.to_string(), ty)
+    }
+
+    pub fn optional_any(name: &str) -> PositionalType {
+        PositionalType::Optional(name.to_string(), SyntaxType::Any)
+    }
+
     pub fn mandatory_block(name: &str) -> PositionalType {
         PositionalType::Mandatory(name.to_string(), SyntaxType::Block)
     }
