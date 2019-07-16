@@ -19,7 +19,7 @@ Nu draws inspiration from projects like PowerShell, functional programming langu
 In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories
 
 * Commands that produce a stream (eg, `ls`)
-* Commands that filter a stream (eg, `where "file type" == "Directory"`)
+* Commands that filter a stream (eg, `where type == "Directory"`)
 * Commands that consumes the output of the pipeline (eg, `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
@@ -93,52 +93,13 @@ Finally, we can use commands outside of Nu once we have the data we want:
 Here we use the variable `$it` to refer to the value being piped to the external command.
 
 
-## Navigation
+## Plugins
 
-By default, Nu opens up into your filesystem and the current working directory. One way to think of this is a pair: the current object and the current path in the object. The filesystem is our first object, and the path is the cwd.
+Nu supports plugins that offer additional functionality to the shell and follow the same object model that built-in commands use. This allows you to extend nu for your needs.
 
-| object | path |
-| ------ | ---- |
-| Filesystem | /home/jonathan/Source/nushell |
+There are a few examples in the `plugins` directory.
 
-Using the `cd` command allows you to change the path from the current path to a new path, just as you might expect. Using `ls` allows you to view the contents of the filesystem at the current path (or at the path of your choosing).
-
-In addition to `cd` and `ls`, we can `enter` an object. Entering an object makes it the current object to navigate (similar to the concept of mounting a filesystem in Unix systems).
-
-```
-/home/jonathan/Source/nushell(master)> enter Cargo.toml
-object/>
-```
-
-As we enter, we create a stack of objects we're navigating:
-
-| object | path |
-| ------ | ---- |
-| Filesystem | /home/jonathan/Source/nushell |
-| object (from Cargo.toml) | / |
-
-Commands `cd` and `ls` now work on the object being navigated.
-
-```
-object/> ls
------------------+------------------+-----------------
- dependencies    | dev-dependencies | package
------------------+------------------+-----------------
- [object Object] | [object Object]  | [object Object]
------------------+------------------+-----------------
-```
-
-```
-object/> cd package/version
-object/package/version> ls
--------
- value
--------
- 0.1.2
--------
-```
-
-The `exit` command will pop the stack and get us back to a previous object we were navigating.
+Plugins are binaries that are available in your path and follow a "nu_plugin_*" naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
 # Goals
 
@@ -152,7 +113,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 * Nu views data as both structured and unstructured. It is an object shell like PowerShell.
 
-These goals are all critical, project-defining priorities. Priority #1 is "direct compatibility" because any new shell absolutely needs a way to use existing executables in a direct and natural way.
+* Finally, Nu views data functionally. Rather than using mutation, pipelines act as a mean to load, change, and save data without mutable state.
 
 # Commands
 ## Initial commands
@@ -163,8 +124,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | ps | View current processes |
 | sysinfo | View information about the current system |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
-| enter {filename or url} | Enter (mount) the given contents as the current object |
-| exit | Leave/pop from the current object (exits if in filesystem object) |
+| exit | Exit the shell |
 
 ## Filters on tables (structured data)
 | command | description |
@@ -179,7 +139,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | to-array | Collapse rows into a single list |
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |
-| to-ini | Convert table into .ini text |
+| to-yaml | Convert table into .yaml text |
 
 ## Filters on text (unstructured data)
 | command | description |
@@ -189,6 +149,8 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | from-toml | Parse text as .toml and create table |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
+| lines | Split single string into rows, one per line |
+| size | Gather word count statistics on the text |
 | split-column sep ...fields | Split row contents across multiple columns via the separator |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
@@ -198,6 +160,7 @@ These goals are all critical, project-defining priorities. Priority #1 is "direc
 | command | description |
 | ------------- | ------------- |
 | autoview | View the contents of the pipeline as a table or list |
+| binaryview | Autoview of binary data |
 | clip | Copy the contents of the pipeline to the copy/paste buffer |
 | save filename | Save the contents of the pipeline to a file |
 | table | View the contents of the pipeline as a table |

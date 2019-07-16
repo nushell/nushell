@@ -99,8 +99,8 @@ impl From<&Span> for Span {
     }
 }
 
-impl From<nom_locate::LocatedSpan<&str>> for Span {
-    fn from(input: nom_locate::LocatedSpan<&str>) -> Span {
+impl From<nom5_locate::LocatedSpan<&str>> for Span {
+    fn from(input: nom5_locate::LocatedSpan<&str>) -> Span {
         Span {
             start: input.offset,
             end: input.offset + input.fragment.len(),
@@ -108,8 +108,8 @@ impl From<nom_locate::LocatedSpan<&str>> for Span {
     }
 }
 
-impl<T> From<(nom_locate::LocatedSpan<T>, nom_locate::LocatedSpan<T>)> for Span {
-    fn from(input: (nom_locate::LocatedSpan<T>, nom_locate::LocatedSpan<T>)) -> Span {
+impl<T> From<(nom5_locate::LocatedSpan<T>, nom5_locate::LocatedSpan<T>)> for Span {
+    fn from(input: (nom5_locate::LocatedSpan<T>, nom5_locate::LocatedSpan<T>)) -> Span {
         Span {
             start: input.0.offset,
             end: input.1.offset,

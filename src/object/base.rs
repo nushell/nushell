@@ -185,7 +185,6 @@ pub enum Value {
     List(Vec<Spanned<Value>>),
     #[allow(unused)]
     Block(Block),
-    Filesystem,
 }
 
 pub fn debug_list(values: &'a Vec<Spanned<Value>>) -> ValuesDebug<'a> {
@@ -215,7 +214,6 @@ impl fmt::Debug for ValueDebug<'a> {
             Value::Object(o) => o.debug(f),
             Value::List(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
-            Value::Filesystem => write!(f, "[[filesystem]]"),
             Value::Binary(_) => write!(f, "[[binary]]"),
         }
     }
@@ -300,7 +298,6 @@ impl Value {
             Value::Object(_) => format!("object"),
             Value::List(_) => format!("list"),
             Value::Block(_) => format!("block"),
-            Value::Filesystem => format!("filesystem"),
             Value::Binary(_) => format!("binary"),
         }
     }
@@ -316,7 +313,6 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::List(_) => vec![],
-            Value::Filesystem => vec![],
             Value::Binary(_) => vec![],
         }
     }
@@ -343,6 +339,7 @@ impl Value {
         }
     }
 
+    #[allow(unused)]
     crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Spanned<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
@@ -353,7 +350,6 @@ impl Value {
     pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
-            p @ Value::Filesystem => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::List(_) => MaybeOwned::Owned(Value::nothing()),
@@ -372,7 +368,6 @@ impl Value {
             ),
             Value::Object(_) => format!("[object Object]"),
             Value::List(_) => format!("[list List]"),
-            Value::Filesystem => format!("<filesystem>"),
             Value::Binary(_) => format!("<binary>"),
         }
     }

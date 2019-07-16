@@ -6,7 +6,6 @@ use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use log::{log_enabled, trace};
 use std::io::{Error, ErrorKind};
-use std::path::PathBuf;
 use std::sync::Arc;
 use subprocess::Exec;
 
@@ -145,30 +144,9 @@ impl InternalCommand {
             match item? {
                 ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
-                        context.env.lock().unwrap().back_mut().map(|x| {
-                            x.path = path;
-                            x
-                        });
+                        context.env.lock().unwrap().path = path;
                     }
-                    CommandAction::Enter(obj) => {
-                        let new_env = Environment {
-                            obj: obj,
-                            path: PathBuf::from("/"),
-                        };
-                        context.env.lock().unwrap().push_back(new_env);
-                    }
-                    CommandAction::Exit => match context.env.lock().unwrap().pop_back() {
-                        Some(Environment {
-                            obj:
-                                Spanned {
-                                    item: Value::Filesystem,
-                                    ..
-                                },
-                            ..
-                        }) => std::process::exit(0),
-                        None => std::process::exit(-1),
-                        _ => {}
-                    },
+                    CommandAction::Exit => std::process::exit(0),
                 },
 
                 ReturnSuccess::Value(v) => {
@@ -306,7 +284,7 @@ impl ExternalCommand {
 
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().front().unwrap().path());
+        process = process.cwd(context.env.lock().unwrap().path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,

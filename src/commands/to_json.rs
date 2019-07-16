@@ -19,7 +19,6 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         Value::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_json::Value::String(s.display().to_string()),
 
-        Value::Filesystem => serde_json::Value::Null,
         Value::List(l) => {
             serde_json::Value::Array(l.iter().map(|x| value_to_json_value(x)).collect())
         }

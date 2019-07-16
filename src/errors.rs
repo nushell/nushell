@@ -98,7 +98,7 @@ impl ShellError {
     }
 
     crate fn parse_error(
-        error: nom::Err<(nom_locate::LocatedSpan<&str>, nom::error::ErrorKind)>,
+        error: nom::Err<(nom5_locate::LocatedSpan<&str>, nom::error::ErrorKind)>,
     ) -> ShellError {
         use language_reporting::*;
 

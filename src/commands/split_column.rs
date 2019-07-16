@@ -3,8 +3,6 @@ use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
-// TODO: "Amount remaining" wrapper
-
 pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let positional: Vec<_> = args.positional_iter().cloned().collect();
     let span = args.name_span;

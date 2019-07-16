@@ -19,7 +19,6 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
         Value::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_yaml::Value::String(s.display().to_string()),
 
-        Value::Filesystem => serde_yaml::Value::Null,
         Value::List(l) => {
             serde_yaml::Value::Sequence(l.iter().map(|x| value_to_yaml_value(x)).collect())
         }

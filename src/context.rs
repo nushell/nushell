@@ -14,18 +14,16 @@ pub struct Context {
     commands: IndexMap<String, Arc<dyn Command>>,
     sinks: IndexMap<String, Arc<dyn Sink>>,
     crate host: Arc<Mutex<dyn Host + Send>>,
-    crate env: Arc<Mutex<VecDeque<Environment>>>,
+    crate env: Arc<Mutex<Environment>>,
 }
 
 impl Context {
     crate fn basic() -> Result<Context, Box<dyn Error>> {
-        let mut env = VecDeque::new();
-        env.push_back(Environment::basic()?);
         Ok(Context {
             commands: indexmap::IndexMap::new(),
             sinks: indexmap::IndexMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
-            env: Arc::new(Mutex::new(env)),
+            env: Arc::new(Mutex::new(Environment::basic()?)),
         })
     }
 

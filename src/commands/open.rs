@@ -14,8 +14,6 @@ command! {
             .env
             .lock()
             .unwrap()
-            .front()
-            .unwrap()
             .path()
             .to_path_buf();
 
@@ -39,29 +37,8 @@ command! {
 
         let file_extension = if raw.is_present() {
             None
-        } else if args.has("json") {
-            Some("json".to_string())
-        } else if args.has("xml") {
-            Some("xml".to_string())
-        } else if args.has("ini") {
-            Some("ini".to_string())
-        } else if args.has("yaml") {
-            Some("yaml".to_string())
-        } else if args.has("toml") {
-            Some("toml".to_string())
         } else {
-            if let Some(ref named_args) = args.args.named {
-                for named in named_args.iter() {
-                    return Err(ShellError::labeled_error(
-                        "Unknown flag for open",
-                        "unknown flag",
-                        named.1.span.clone(),
-                    ));
-                }
-                file_extension
-            } else {
-                file_extension
-            }
+            file_extension
         };
 
         match contents {
