@@ -13,7 +13,7 @@ use std::path::PathBuf;
 #[get = "crate"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
-    pub env: Arc<Mutex<VecDeque<Environment>>>,
+    pub env: Arc<Mutex<Environment>>,
     pub name_span: Option<Span>,
     pub args: Args,
     pub input: InputStream,
@@ -40,6 +40,7 @@ impl CommandArgs {
         self.args.get(name)
     }
 
+    #[allow(unused)]
     pub fn has(&self, name: &str) -> bool {
         self.args.has(name)
     }
@@ -55,7 +56,6 @@ pub struct SinkCommandArgs {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(PathBuf),
-    Enter(Spanned<Value>),
     Exit,
 }
 

@@ -4,8 +4,6 @@ use crate::parser::Spanned;
 use crate::prelude::*;
 use log::trace;
 
-// TODO: "Amount remaining" wrapper
-
 pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let positional: Vec<Spanned<Value>> = args.positional_iter().cloned().collect();
     let span = args.name_span;

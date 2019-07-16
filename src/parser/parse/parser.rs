@@ -16,7 +16,7 @@ use log::trace;
 use nom::dbg;
 use nom::*;
 use nom::{AsBytes, FindSubstring, IResult, InputLength, InputTake, Slice};
-use nom_locate::{position, LocatedSpan};
+use nom5_locate::{position, LocatedSpan};
 use std::fmt::Debug;
 use std::str::FromStr;
 

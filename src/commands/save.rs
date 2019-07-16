@@ -21,15 +21,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
         Some(p) => p,
     };
 
-    let cwd = args
-        .ctx
-        .env
-        .lock()
-        .unwrap()
-        .front()
-        .unwrap()
-        .path()
-        .to_path_buf();
+    let cwd = args.ctx.env.lock().unwrap().path().to_path_buf();
     let mut full_path = PathBuf::from(cwd);
     match &(positional[0].item) {
         Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),

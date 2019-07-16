@@ -40,11 +40,6 @@ impl RenderView for GenericView<'value> {
                 host.stdout("<Binary>");
                 Ok(())
             }
-
-            Value::Filesystem => {
-                host.stdout("<filesystem>");
-                Ok(())
-            }
         }
     }
 }

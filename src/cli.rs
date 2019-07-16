@@ -154,8 +154,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("ls", Box::new(ls::ls)),
             command("sysinfo", Box::new(sysinfo::sysinfo)),
             command("cd", Box::new(cd::cd)),
-            command("view", Box::new(view::view)),
-            // command("skip", skip::Skip),
             command("first", Box::new(first::first)),
             command("size", Box::new(size::size)),
             command("from-ini", Box::new(from_ini::from_ini)),
@@ -182,7 +180,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Where),
             Arc::new(Config),
             Arc::new(SkipWhile),
-            Arc::new(Enter),
         ]);
 
         context.add_sinks(vec![
@@ -220,22 +217,18 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let (obj, cwd) = {
+        let cwd = {
             let env = context.env.lock().unwrap();
-            let last = env.back().unwrap();
-            (last.obj().clone(), last.path().display().to_string())
+            env.path().display().to_string()
         };
-        let readline = match obj.item {
-            Value::Filesystem => rl.readline(&format!(
-                "{}{}> ",
-                cwd,
-                match current_branch() {
-                    Some(s) => format!("({})", s),
-                    None => "".to_string(),
-                }
-            )),
-            _ => rl.readline(&format!("{}{}> ", obj.type_name(), cwd)),
-        };
+        let readline = rl.readline(&format!(
+            "{}{}> ",
+            cwd,
+            match current_branch() {
+                Some(s) => format!("({})", s),
+                None => "".to_string(),
+            }
+        ));
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {

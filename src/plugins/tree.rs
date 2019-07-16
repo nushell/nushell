@@ -31,7 +31,6 @@ impl TreeView {
                 }
             }
             Value::Block(_) => {}
-            Value::Filesystem => {}
             Value::Binary(_) => {}
         }
     }
