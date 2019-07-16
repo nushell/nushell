@@ -93,15 +93,9 @@ mod tests {
     }
 
     #[test]
-    fn enter() {
-        test_helper("enter");
-    }
-
-    #[test]
     fn lines() {
         test_helper("lines");
     }
-
 
     #[test]
     fn external_num() {

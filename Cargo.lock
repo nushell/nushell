@@ -1621,7 +1621,7 @@ dependencies = [
 
 [[package]]
 name = "nom5_locate"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bytecount 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1667,7 +1667,7 @@ dependencies = [
  "mime 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "neso 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "nom5_locate 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom5_locate 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty-hex 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty_assertions 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3553,7 +3553,7 @@ dependencies = [
 "checksum nodrop 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "2f9667ddcc6cc8a43afc9b7917599d7216aa09c463919ea32c59ed6cac8bc945"
 "checksum nom 4.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2ad2a91a8e869eeb30b9cb3119ae87773a8f4ae617f41b1eb9c154b2905f7bd6"
 "checksum nom 5.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e9761d859320e381010a4f7f8ed425f2c924de33ad121ace447367c713ad561b"
-"checksum nom5_locate 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5cff5bb6aea818b580fbbf2793cf19b95865220f82ac0ea59d3c8443bcb71b7d"
+"checksum nom5_locate 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3d4312467f8b28d909344b934207e502212fa5a3adf1bff7428b0b86a666223d"
 "checksum num-derive 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "eafd0b45c5537c3ba526f79d3e75120036502bebacbb3f3220914067ce39dbf2"
 "checksum num-integer 0.1.41 (registry+https://github.com/rust-lang/crates.io-index)" = "b85e541ef8255f6cf42bbfe4ef361305c6c135d10919ecc26126c4e5ae94bc09"
 "checksum num-iter 0.1.39 (registry+https://github.com/rust-lang/crates.io-index)" = "76bd5272412d173d6bf9afdf98db8612bbabc9a7a830b7bfc9c188911716132e"
