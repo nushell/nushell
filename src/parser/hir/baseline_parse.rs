@@ -21,7 +21,7 @@ pub fn baseline_parse_token_as_string(token: &Token, source: &Text) -> hir::Expr
         }
         RawToken::Variable(span) => hir::Expression::variable(span, token.span),
         RawToken::Integer(_) => hir::Expression::bare(token.span),
-        RawToken::Size(int, unit) => hir::Expression::bare(token.span),
+        RawToken::Size(_, _) => hir::Expression::bare(token.span),
         RawToken::Bare => hir::Expression::bare(token.span),
         RawToken::String(span) => hir::Expression::string(span, token.span),
     }

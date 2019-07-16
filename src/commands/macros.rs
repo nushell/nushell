@@ -1,4 +1,5 @@
 #[doc(hidden)]
+#[allow(unused)]
 macro_rules! named_type {
     ($name:ident) => {
         $crate::parser::registry::NamedType::$($name)*

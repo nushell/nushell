@@ -102,15 +102,15 @@ impl TokenNode {
     pub fn type_name(&self) -> String {
         match self {
             TokenNode::Token(t) => t.type_name(),
-            TokenNode::Call(s) => "command",
+            TokenNode::Call(_) => "command",
             TokenNode::Delimited(d) => d.type_name(),
-            TokenNode::Pipeline(s) => "pipeline",
-            TokenNode::Operator(s) => "operator",
-            TokenNode::Flag(s) => "flag",
-            TokenNode::Member(s) => "member",
-            TokenNode::Whitespace(s) => "whitespace",
-            TokenNode::Error(s) => "error",
-            TokenNode::Path(s) => "path",
+            TokenNode::Pipeline(_) => "pipeline",
+            TokenNode::Operator(_) => "operator",
+            TokenNode::Flag(_) => "flag",
+            TokenNode::Member(_) => "member",
+            TokenNode::Whitespace(_) => "whitespace",
+            TokenNode::Error(_) => "error",
+            TokenNode::Path(_) => "path",
         }
         .to_string()
     }

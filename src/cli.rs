@@ -6,6 +6,7 @@ use crate::commands::classified::{
 };
 use crate::commands::command::sink;
 use crate::commands::plugin::JsonRpc;
+use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
@@ -43,8 +44,6 @@ impl<T> MaybeOwned<'a, T> {
 }
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
-    use crate::commands::{command, plugin};
-
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -70,20 +69,17 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                 Ok(jrpc) => match jrpc.params {
                     Ok(params) => {
                         let fname = path.to_string_lossy();
-                        //println!("Loaded: {} from {}", params.name, fname);
                         if params.is_filter {
                             let fname = fname.to_string();
-                            context.add_commands(vec![command(
-                                &params.name,
-                                Box::new(move |x| plugin::filter_plugin(fname.clone(), x)),
-                            )]);
+                            let name = params.name.clone();
+                            context.add_commands(vec![Arc::new(PluginCommand::new(
+                                name, fname, params,
+                            ))]);
                             Ok(())
                         } else if params.is_sink {
                             let fname = fname.to_string();
-                            context.add_sinks(vec![sink(
-                                &params.name,
-                                Box::new(move |x| plugin::sink_plugin(fname.clone(), x)),
-                            )]);
+                            let name = params.name.clone();
+                            context.add_sinks(vec![Arc::new(PluginSink::new(name, fname, params))]);
                             Ok(())
                         } else {
                             Ok(())

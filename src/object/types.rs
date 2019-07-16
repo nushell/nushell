@@ -54,9 +54,6 @@ impl ExtractType for Spanned<Value> {
     }
 }
 
-#[derive(Debug)]
-pub struct FilePath;
-
 impl ExtractType for std::path::PathBuf {
     fn syntax_type() -> hir::SyntaxType {
         hir::SyntaxType::Path
@@ -66,7 +63,7 @@ impl ExtractType for std::path::PathBuf {
         match &value {
             Spanned {
                 item: Value::Primitive(Primitive::String(p)),
-                span,
+                ..
             } => Ok(PathBuf::from(p)),
             other => Err(ShellError::type_error("Path", other.spanned_type_name())),
         }

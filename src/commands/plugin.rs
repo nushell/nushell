@@ -1,6 +1,7 @@
-use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
+use crate::parser::registry;
 use crate::prelude::*;
+use derive_new::new;
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -30,6 +31,44 @@ pub enum NuResult {
     response {
         params: Result<VecDeque<ReturnValue>, ShellError>,
     },
+}
+
+#[derive(new)]
+pub struct PluginCommand {
+    name: String,
+    path: String,
+    config: registry::CommandConfig,
+}
+
+impl Command for PluginCommand {
+    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+        filter_plugin(self.path.clone(), args)
+    }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn config(&self) -> registry::CommandConfig {
+        self.config.clone()
+    }
+}
+
+#[derive(new)]
+pub struct PluginSink {
+    name: String,
+    path: String,
+    config: registry::CommandConfig,
+}
+
+impl Sink for PluginSink {
+    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError> {
+        sink_plugin(self.path.clone(), args)
+    }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn config(&self) -> registry::CommandConfig {
+        self.config.clone()
+    }
 }
 
 pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {

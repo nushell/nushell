@@ -14,14 +14,14 @@ impl BinaryView {
 impl Plugin for BinaryView {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         let mut named = IndexMap::new();
-        named.insert("--lores".to_string(), NamedType::Switch);
+        named.insert("lores".to_string(), NamedType::Switch);
         Ok(CommandConfig {
             name: "binaryview".to_string(),
             positional: vec![],
             is_filter: false,
             is_sink: true,
             named,
-            rest_positional: true,
+            rest_positional: false,
         })
     }
 

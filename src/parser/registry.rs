@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[allow(unused)]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NamedType {
     Switch,
     Mandatory(SyntaxType),
@@ -36,6 +36,7 @@ impl PositionalType {
         PositionalType::Mandatory(name.to_string(), SyntaxType::Block)
     }
 
+    #[allow(unused)]
     crate fn to_coerce_hint(&self) -> Option<SyntaxType> {
         match self {
             PositionalType::Mandatory(_, SyntaxType::Block)
@@ -59,7 +60,7 @@ impl PositionalType {
     }
 }
 
-#[derive(Debug, Getters, Serialize, Deserialize)]
+#[derive(Debug, Getters, Serialize, Deserialize, Clone)]
 #[get = "crate"]
 pub struct CommandConfig {
     pub name: String,
