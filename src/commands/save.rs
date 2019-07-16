@@ -1,4 +1,7 @@
 use crate::commands::command::SinkCommandArgs;
+use crate::commands::to_json::value_to_json_value;
+use crate::commands::to_toml::value_to_toml_value;
+use crate::commands::to_yaml::value_to_yaml_value;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::Spanned;
@@ -48,15 +51,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     "saving to toml requires a single object (or use --raw)",
                 ));
             }
-            toml::to_string(&args.input[0]).unwrap()
-        }
-        Some(x) if x == "ini" && !save_raw => {
-            if args.input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to ini requires a single object (or use --raw)",
-                ));
-            }
-            serde_ini::to_string(&args.input[0]).unwrap()
+            toml::to_string(&value_to_toml_value(&args.input[0])).unwrap()
         }
         Some(x) if x == "json" && !save_raw => {
             if args.input.len() != 1 {
@@ -64,7 +59,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     "saving to json requires a single object (or use --raw)",
                 ));
             }
-            serde_json::to_string(&args.input[0]).unwrap()
+            serde_json::to_string(&value_to_json_value(&args.input[0])).unwrap()
         }
         Some(x) if x == "yml" && !save_raw => {
             if args.input.len() != 1 {
@@ -72,7 +67,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     "saving to yml requires a single object (or use --raw)",
                 ));
             }
-            serde_yaml::to_string(&args.input[0]).unwrap()
+            serde_yaml::to_string(&value_to_yaml_value(&args.input[0])).unwrap()
         }
         Some(x) if x == "yaml" && !save_raw => {
             if args.input.len() != 1 {
@@ -80,7 +75,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     "saving to yaml requires a single object (or use --raw)",
                 ));
             }
-            serde_yaml::to_string(&args.input[0]).unwrap()
+            serde_yaml::to_string(&value_to_yaml_value(&args.input[0])).unwrap()
         }
         _ => {
             let mut save_data = String::new();
