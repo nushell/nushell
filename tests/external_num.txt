@@ -1,3 +1,0 @@
-cd tests
-open test.json | get glossary.GlossDiv.GlossList.GlossEntry.Height | echo $it
-exit
