@@ -179,6 +179,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-array", Box::new(to_array::to_array)),
             command("to-json", Box::new(to_json::to_json)),
             command("to-toml", Box::new(to_toml::to_toml)),
+            command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
             command("sort-by", Box::new(sort_by::sort_by)),
             Arc::new(Open),

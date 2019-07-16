@@ -1,3 +1,10 @@
+#[doc(hidden)]
+macro_rules! named_type {
+    ($name:ident) => {
+        $crate::parser::registry::NamedType::$($name)*
+    }
+}
+
 #[macro_export]
 macro_rules! command {
     (
@@ -11,7 +18,7 @@ macro_rules! command {
             rest_positional: $rest_positional:tt,
             named: {
                 $(
-                    ($named_param:tt : $named_type:tt)
+                    ($named_param:tt : $named_type:ty : $named_kind:tt)
                 )*
             }
         }
@@ -35,7 +42,7 @@ macro_rules! command {
                     Ok(output.boxed().to_output_stream())
                 }
 
-                let tuple = ( $($extract),*, );
+                let tuple = ( $($extract ,)* );
                 command( $args, tuple )
             }
 
@@ -58,7 +65,7 @@ macro_rules! command {
                         let mut named: indexmap::IndexMap<String, NamedType> = indexmap::IndexMap::new();
 
                         $(
-                            named.insert(stringify!($named_param).to_string(), NamedType::$named_type);
+                            named.insert(stringify!($named_param).to_string(), $crate::parser::registry::NamedType::$named_kind);
                         )*
 
                         named
@@ -72,7 +79,7 @@ macro_rules! command {
     (
         Named { $export:tt $args:ident $body:block }
         Positional { $($positional_count:tt)* }
-        Rest { , -- $param_name:ident : Switch $($rest:tt)* }
+        Rest { -- $param_name:ident : Switch , $($rest:tt)* }
         CommandConfig {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
@@ -100,7 +107,7 @@ macro_rules! command {
                 rest_positional: $rest_positional,
                 named: {
                     $($config_named)*
-                    ($param_name : Switch)
+                    ($param_name : Switch : Switch)
                 }
             }
 
@@ -109,11 +116,11 @@ macro_rules! command {
             }
 
             Extract {
-                ($($extract)* {
+                $($extract)* {
                     use std::convert::TryInto;
 
                     $args.get(stringify!($param_name)).clone().try_into()?
-                })
+                }
             }
         );
     };
@@ -122,7 +129,7 @@ macro_rules! command {
     (
         Named { $export:tt $args:ident $body:block }
         Positional { $($positional_count:tt)* }
-        Rest { , -- $param_name:ident : $param_kind:tt $($rest:tt)* }
+        Rest { -- $param_name:ident : $param_kind:ty , $($rest:tt)* }
         CommandConfig {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
@@ -159,11 +166,11 @@ macro_rules! command {
             }
 
             Extract {
-                ($($extract)* {
+                $($extract)* {
                     use std::convert::TryInto;
 
                     $args.get(stringify!($param_name)).clone().try_into()?
-                })
+                }
             }
         );
     };
@@ -172,7 +179,7 @@ macro_rules! command {
     (
         Named { $export:tt $args:ident $body:block }
         Positional { $($positional_count:tt)* }
-        Rest { , -- $param_name:ident ? : $param_kind:tt $($rest:tt)* }
+        Rest { -- $param_name:ident ? : $param_kind:ty , $($rest:tt)* }
         CommandConfig {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
@@ -209,11 +216,11 @@ macro_rules! command {
             }
 
             Extract {
-                ($($extract)* {
+                $($extract)* {
                     use std::convert::TryInto;
 
                     $args.get(stringify!($param_name)).clone().try_into()?
-                })
+                }
             }
         );
     };
@@ -222,7 +229,7 @@ macro_rules! command {
     (
         Named { $export:ident $args:ident $body:block }
         Positional { $($positional_count:tt)* }
-        Rest { , $param_name:ident : Block $($rest:tt)* }
+        Rest { $param_name:ident : Block , $($rest:tt)* }
         CommandConfig {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
@@ -277,7 +284,7 @@ macro_rules! command {
     (
         Named { $export:ident $args:ident $body:block }
         Positional { $($positional_count:tt)* }
-        Rest { , $param_name:ident : $param_kind:tt $($rest:tt)* }
+        Rest { $param_name:ident : $param_kind:ty , $($rest:tt)* }
         CommandConfig {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
@@ -304,7 +311,7 @@ macro_rules! command {
             CommandConfig {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory(
-                    stringify!($param_name)
+                    stringify!($param_name), <$param_kind>::syntax_type()
                 ), ],
                 optional_positional: vec![ $($optional_positional)* ],
                 rest_positional: $rest_positional,
@@ -321,14 +328,13 @@ macro_rules! command {
                 $($extract:tt)* {
                     use $crate::object::types::ExtractType;
                     let value = $args.expect_nth($($positional_count)*)?;
-                    // let value = $param_kind.check(value)?;
-                    $param_kind::extract(value)?
+                    <$param_kind>::extract(&value)?
                 }
             }
         );
     };
 
-    ($export:ident as $config_name:tt ( $args:ident $($command_rest:tt)* ) $body:block) => {
+    ($export:ident as $config_name:tt ( $args:ident , $($command_rest:tt)* ) $body:block) => {
         command!(
             Named { $export $args $body }
             Positional { 0 }

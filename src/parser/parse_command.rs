@@ -86,7 +86,7 @@ fn parse_command_tail(
 
                 named.insert_switch(name, flag);
             }
-            NamedType::Mandatory(kind) => {
+            NamedType::Mandatory(syntax_type) => {
                 match extract_mandatory(config, name, tail, source, command_span) {
                     Err(err) => return Err(err), // produce a correct diagnostic
                     Ok((pos, flag)) => {
@@ -100,19 +100,15 @@ fn parse_command_tail(
                             ));
                         }
 
-                        let expr = hir::baseline_parse_next_expr(
-                            tail,
-                            registry,
-                            source,
-                            kind.to_coerce_hint(),
-                        )?;
+                        let expr =
+                            hir::baseline_parse_next_expr(tail, registry, source, *syntax_type)?;
 
                         tail.restart();
                         named.insert_mandatory(name, expr);
                     }
                 }
             }
-            NamedType::Optional(kind) => match extract_optional(name, tail, source) {
+            NamedType::Optional(syntax_type) => match extract_optional(name, tail, source) {
                 Err(err) => return Err(err), // produce a correct diagnostic
                 Ok(Some((pos, flag))) => {
                     tail.move_to(pos);
@@ -125,12 +121,7 @@ fn parse_command_tail(
                         ));
                     }
 
-                    let expr = hir::baseline_parse_next_expr(
-                        tail,
-                        registry,
-                        source,
-                        kind.to_coerce_hint(),
-                    )?;
+                    let expr = hir::baseline_parse_next_expr(tail, registry, source, *syntax_type)?;
 
                     tail.restart();
                     named.insert_optional(name, Some(expr));
@@ -169,7 +160,7 @@ fn parse_command_tail(
             }
         }
 
-        let result = hir::baseline_parse_next_expr(tail, registry, source, arg.to_coerce_hint())?;
+        let result = hir::baseline_parse_next_expr(tail, registry, source, arg.syntax_type())?;
 
         positional.push(result);
     }

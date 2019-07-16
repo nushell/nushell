@@ -101,7 +101,7 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
         TokenNode::Call(..) => Color::Cyan.bold().paint(token_node.span().slice(line)),
         TokenNode::Whitespace(..) => Color::White.normal().paint(token_node.span().slice(line)),
         TokenNode::Flag(..) => Color::Black.bold().paint(token_node.span().slice(line)),
-        TokenNode::Identifier(..) => Color::Yellow.bold().paint(token_node.span().slice(line)),
+        TokenNode::Member(..) => Color::Yellow.bold().paint(token_node.span().slice(line)),
         TokenNode::Path(..) => Color::Green.bold().paint(token_node.span().slice(line)),
         TokenNode::Error(..) => Color::Red.bold().paint(token_node.span().slice(line)),
         TokenNode::Delimited(..) => Color::White.paint(token_node.span().slice(line)),
@@ -139,7 +139,12 @@ fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> Str
         styled.push_str(&Color::White.normal().paint(ws.slice(line)));
     }
 
-    styled.push_str(&Color::Cyan.bold().paint(pipeline_element.call().head().span().slice(line)).to_string());
+    styled.push_str(
+        &Color::Cyan
+            .bold()
+            .paint(pipeline_element.call().head().span().slice(line))
+            .to_string(),
+    );
 
     if let Some(children) = pipeline_element.call().children() {
         for child in children {

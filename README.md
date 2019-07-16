@@ -25,24 +25,24 @@ In Unix, it's common to pipe between commands to split up a sophisticated comman
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```
-/home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory" | autoview
------------+-----------+----------+--------+--------------+----------------
- file name | file type | readonly | size   | accessed     | modified
------------+-----------+----------+--------+--------------+----------------
- target    | Directory |          | 4.1 KB | 19 hours ago | 19 hours ago
- images    | Directory |          | 4.1 KB | 2 weeks ago  | a week ago
- tests     | Directory |          | 4.1 KB | 2 weeks ago  | 18 minutes ago
- docs      | Directory |          | 4.1 KB | a week ago   | a week ago
- .git      | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
- src       | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
- .cargo    | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago
+/home/jonathan/Source/nushell(master)> ls | where type == "Directory" | autoview
+--------+-----------+----------+--------+--------------+----------------
+ name   | type      | readonly | size   | accessed     | modified
+--------+-----------+----------+--------+--------------+----------------
+ target | Directory |          | 4.1 KB | 19 hours ago | 19 hours ago
+ images | Directory |          | 4.1 KB | 2 weeks ago  | a week ago
+ tests  | Directory |          | 4.1 KB | 2 weeks ago  | 18 minutes ago
+ docs   | Directory |          | 4.1 KB | a week ago   | a week ago
+ .git   | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
+ src    | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
+ .cargo | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago
 -----------+-----------+----------+--------+--------------+----------------
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
 
 ```
-/home/jonathan/Source/nushell(master)> ls | where "file type" == "Directory"
+/home/jonathan/Source/nushell(master)> ls | where type == Directory
 ```
 
 Being able to use the same commands and compose them differently is an important philosophy in Nu. For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.

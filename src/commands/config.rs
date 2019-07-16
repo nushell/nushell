@@ -3,7 +3,8 @@ use crate::prelude::*;
 use crate::errors::ShellError;
 use crate::object::config;
 use crate::object::Value;
-use crate::parser::registry::{CommandConfig, NamedType, NamedValue};
+use crate::parser::hir::SyntaxType;
+use crate::parser::registry::{CommandConfig, NamedType};
 use indexmap::IndexMap;
 use log::trace;
 use std::iter::FromIterator;
@@ -20,14 +21,11 @@ impl Command for Config {
 
     fn config(&self) -> CommandConfig {
         let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("set".to_string(), NamedType::Optional(NamedValue::Single));
-        named.insert("get".to_string(), NamedType::Optional(NamedValue::Single));
+        named.insert("set".to_string(), NamedType::Optional(SyntaxType::Any));
+        named.insert("get".to_string(), NamedType::Optional(SyntaxType::Any));
         named.insert("clear".to_string(), NamedType::Switch);
 
-        named.insert(
-            "remove".to_string(),
-            NamedType::Optional(NamedValue::Single),
-        );
+        named.insert("remove".to_string(), NamedType::Optional(SyntaxType::Any));
 
         CommandConfig {
             name: self.name().to_string(),
