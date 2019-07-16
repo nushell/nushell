@@ -1,3 +1,0 @@
-cd tests
-open test.xml | get rss.channel.item.link | echo $it
-exit

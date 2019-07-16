@@ -1,4 +1,0 @@
-cd tests
-cd dirtest
-ls | where size > 1kb | get name | trim | echo $it
-exit

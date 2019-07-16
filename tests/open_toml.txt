@@ -1,3 +1,0 @@
-cd tests
-open test.toml | get package.edition | echo $it
-exit
