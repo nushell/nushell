@@ -36,6 +36,7 @@ macro_rules! nu {
             }
         }
 
+        let _s = _s.replace("\r\n", "");
         let $out = _s.replace("\n", "");
     };
 }
