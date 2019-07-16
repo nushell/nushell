@@ -32,4 +32,4 @@ pub use cli::cli;
 pub use errors::ShellError;
 pub use object::base::{Primitive, Value};
 pub use parser::parse::text::Text;
-pub use parser::registry::{Args, CommandConfig, NamedType, PositionalType};
+pub use parser::registry::{Args, CommandConfig, NamedType, NamedValue, PositionalType};

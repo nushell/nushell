@@ -14,7 +14,7 @@ impl BinaryView {
 impl Plugin for BinaryView {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         let mut named = IndexMap::new();
-        named.insert("hires".to_string(), NamedType::Switch);
+        named.insert("--lores".to_string(), NamedType::Switch);
         Ok(CommandConfig {
             name: "binaryview".to_string(),
             positional: vec![],
@@ -32,7 +32,7 @@ impl Plugin for BinaryView {
                     item: Value::Binary(b),
                     ..
                 } => {
-                    let _ = view_binary(&b, args.has("hires"));
+                    let _ = view_binary(&b, args.has("lores"));
                 }
                 _ => {}
             }
@@ -40,17 +40,17 @@ impl Plugin for BinaryView {
     }
 }
 
-fn view_binary(b: &[u8], hires_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn view_binary(b: &[u8], lores_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
         match (b[0], b[1], b[2]) {
             (0x4e, 0x45, 0x53) => {
-                view_contents_interactive(b, hires_mode)?;
+                view_contents_interactive(b, lores_mode)?;
                 return Ok(());
             }
             _ => {}
         }
     }
-    view_contents(b, hires_mode)?;
+    view_contents(b, lores_mode)?;
     Ok(())
 }
 
@@ -59,17 +59,17 @@ pub struct RenderContext {
     pub height: usize,
     pub frame_buffer: Vec<(u8, u8, u8)>,
     pub since_last_button: Vec<usize>,
-    pub hires_mode: bool,
+    pub lores_mode: bool,
 }
 
 impl RenderContext {
-    pub fn blank(hires_mode: bool) -> RenderContext {
+    pub fn blank(lores_mode: bool) -> RenderContext {
         RenderContext {
             width: 0,
             height: 0,
             frame_buffer: vec![],
             since_last_button: vec![0; 8],
-            hires_mode,
+            lores_mode,
         }
     }
     pub fn clear(&mut self) {
@@ -174,10 +174,10 @@ impl RenderContext {
         Ok(())
     }
     pub fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        if self.hires_mode {
-            self.render_to_screen_hires()
-        } else {
+        if self.lores_mode {
             self.render_to_screen_lores()
+        } else {
+            self.render_to_screen_hires()
         }
     }
     pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -189,10 +189,10 @@ impl RenderContext {
             cursor.hide()?;
 
             self.width = terminal_size.0 as usize + 1;
-            self.height = if self.hires_mode {
-                terminal_size.1 as usize * 2
-            } else {
+            self.height = if self.lores_mode {
                 terminal_size.1 as usize
+            } else {
+                terminal_size.1 as usize * 2
             };
         }
 
@@ -247,7 +247,7 @@ fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
-pub fn view_contents(buffer: &[u8], hires_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn view_contents(buffer: &[u8], lores_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_image_buffer = load_from_png_buffer(buffer);
 
     if raw_image_buffer.is_none() {
@@ -261,7 +261,7 @@ pub fn view_contents(buffer: &[u8], hires_mode: bool) -> Result<(), Box<dyn std:
     }
     let raw_image_buffer = raw_image_buffer.unwrap();
 
-    let mut render_context: RenderContext = RenderContext::blank(hires_mode);
+    let mut render_context: RenderContext = RenderContext::blank(lores_mode);
     let _ = render_context.update();
     render_context.clear();
 
@@ -308,7 +308,6 @@ pub fn view_contents(buffer: &[u8], hires_mode: bool) -> Result<(), Box<dyn std:
             for pixel in resized_img.pixels() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
-                //print!("{}", rgb[0]);
                 render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
@@ -333,7 +332,7 @@ pub fn view_contents(buffer: &[u8], hires_mode: bool) -> Result<(), Box<dyn std:
 
 pub fn view_contents_interactive(
     buffer: &[u8],
-    hires_mode: bool,
+    lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use rawkey::{KeyCode, RawKey};
 
@@ -344,7 +343,7 @@ pub fn view_contents_interactive(
     nes.reset();
 
     if let Ok(_raw) = RawScreen::into_raw_mode() {
-        let mut render_context: RenderContext = RenderContext::blank(hires_mode);
+        let mut render_context: RenderContext = RenderContext::blank(lores_mode);
         let input = crossterm::input();
         let _ = input.read_async();
         let cursor = cursor();
