@@ -1,6 +1,6 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
-use nu::{serve_plugin, Args, CommandConfig, Plugin, ShellError, Spanned, Value};
+use nu::{serve_plugin, Args, CommandConfig, NamedType, Plugin, ShellError, Spanned, Value};
 use pretty_hex::*;
 
 struct BinaryView;
@@ -13,24 +13,26 @@ impl BinaryView {
 
 impl Plugin for BinaryView {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
+        let mut named = IndexMap::new();
+        named.insert("lores".to_string(), NamedType::Switch);
         Ok(CommandConfig {
             name: "binaryview".to_string(),
             positional: vec![],
             is_filter: false,
             is_sink: true,
-            named: IndexMap::new(),
-            rest_positional: true,
+            named,
+            rest_positional: false,
         })
     }
 
-    fn sink(&mut self, _args: Args, input: Vec<Spanned<Value>>) {
+    fn sink(&mut self, args: Args, input: Vec<Spanned<Value>>) {
         for v in input {
             match v {
                 Spanned {
                     item: Value::Binary(b),
                     ..
                 } => {
-                    let _ = view_binary(&b);
+                    let _ = view_binary(&b, args.has("lores"));
                 }
                 _ => {}
             }
@@ -38,62 +40,65 @@ impl Plugin for BinaryView {
     }
 }
 
-fn view_binary(b: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+fn view_binary(b: &[u8], lores_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
         match (b[0], b[1], b[2]) {
             (0x4e, 0x45, 0x53) => {
-                view_contents_interactive(b)?;
+                view_contents_interactive(b, lores_mode)?;
                 return Ok(());
             }
             _ => {}
         }
     }
-    view_contents(b)?;
+    view_contents(b, lores_mode)?;
     Ok(())
 }
 
-pub struct Context {
+pub struct RenderContext {
     pub width: usize,
     pub height: usize,
-    pub frame_buffer: Vec<(char, (u8, u8, u8))>,
+    pub frame_buffer: Vec<(u8, u8, u8)>,
     pub since_last_button: Vec<usize>,
+    pub lores_mode: bool,
 }
 
-impl Context {
-    pub fn blank() -> Context {
-        Context {
+impl RenderContext {
+    pub fn blank(lores_mode: bool) -> RenderContext {
+        RenderContext {
             width: 0,
             height: 0,
             frame_buffer: vec![],
             since_last_button: vec![0; 8],
+            lores_mode,
         }
     }
     pub fn clear(&mut self) {
-        self.frame_buffer = vec![(' ', (0, 0, 0)); self.width * self.height as usize];
+        self.frame_buffer = vec![(0, 0, 0); self.width * self.height as usize];
     }
-    pub fn flush(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let cursor = cursor();
-        cursor.goto(0, 0)?;
 
+    fn render_to_screen_lores(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let mut prev_color: Option<(u8, u8, u8)> = None;
         let mut prev_count = 1;
 
+        let cursor = cursor();
+        cursor.goto(0, 0)?;
+
         for pixel in &self.frame_buffer {
             match prev_color {
-                Some(c) if c == pixel.1 => {
+                Some(c) if c == *pixel => {
                     prev_count += 1;
                 }
                 Some(c) => {
                     print!(
                         "{}",
                         ansi_term::Colour::RGB(c.0, c.1, c.2)
-                            .paint((0..prev_count).map(|_| pixel.0).collect::<String>())
+                            .paint((0..prev_count).map(|_| "█").collect::<String>())
                     );
-                    prev_color = Some(pixel.1);
+                    prev_color = Some(*pixel);
                     prev_count = 1;
                 }
                 _ => {
-                    prev_color = Some(pixel.1);
+                    prev_color = Some(*pixel);
                     prev_count = 1;
                 }
             }
@@ -104,14 +109,76 @@ impl Context {
                 print!(
                     "{}",
                     ansi_term::Colour::RGB(color.0, color.1, color.2)
-                        .paint((0..prev_count).map(|_| "@").collect::<String>())
+                        .paint((0..prev_count).map(|_| "█").collect::<String>())
                 );
             }
         }
-
         println!("{}", Attribute::Reset);
-
         Ok(())
+    }
+    fn render_to_screen_hires(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut prev_fg: Option<(u8, u8, u8)> = None;
+        let mut prev_bg: Option<(u8, u8, u8)> = None;
+        let mut prev_count = 1;
+
+        let mut pos = 0;
+        let fb_len = self.frame_buffer.len();
+
+        let cursor = cursor();
+        cursor.goto(0, 0)?;
+
+        while pos < (fb_len - self.width) {
+            let top_pixel = self.frame_buffer[pos];
+            let bottom_pixel = self.frame_buffer[pos + self.width];
+
+            match (prev_fg, prev_bg) {
+                (Some(c), Some(d)) if c == top_pixel && d == bottom_pixel => {
+                    prev_count += 1;
+                }
+                (Some(c), Some(d)) => {
+                    print!(
+                        "{}",
+                        ansi_term::Colour::RGB(c.0, c.1, c.2)
+                            .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                            .paint((0..prev_count).map(|_| "▀").collect::<String>())
+                    );
+                    prev_fg = Some(top_pixel);
+                    prev_bg = Some(bottom_pixel);
+                    prev_count = 1;
+                }
+                _ => {
+                    prev_fg = Some(top_pixel);
+                    prev_bg = Some(bottom_pixel);
+                    prev_count = 1;
+                }
+            }
+            pos += 1;
+            if pos % self.width == 0 {
+                pos += self.width;
+            }
+        }
+        if prev_count > 0 {
+            match (prev_fg, prev_bg) {
+                (Some(c), Some(d)) => {
+                    print!(
+                        "{}",
+                        ansi_term::Colour::RGB(c.0, c.1, c.2)
+                            .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                            .paint((0..prev_count).map(|_| "▀").collect::<String>())
+                    );
+                }
+                _ => {}
+            }
+        }
+        println!("{}", Attribute::Reset);
+        Ok(())
+    }
+    pub fn flush(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.lores_mode {
+            self.render_to_screen_lores()
+        } else {
+            self.render_to_screen_hires()
+        }
     }
     pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let terminal = terminal();
@@ -122,7 +189,11 @@ impl Context {
             cursor.hide()?;
 
             self.width = terminal_size.0 as usize + 1;
-            self.height = terminal_size.1 as usize;
+            self.height = if self.lores_mode {
+                terminal_size.1 as usize
+            } else {
+                terminal_size.1 as usize * 2
+            };
         }
 
         Ok(())
@@ -176,7 +247,7 @@ fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
-pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn view_contents(buffer: &[u8], lores_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_image_buffer = load_from_png_buffer(buffer);
 
     if raw_image_buffer.is_none() {
@@ -190,9 +261,9 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
     }
     let raw_image_buffer = raw_image_buffer.unwrap();
 
-    let mut context: Context = Context::blank();
-    let _ = context.update();
-    context.clear();
+    let mut render_context: RenderContext = RenderContext::blank(lores_mode);
+    let _ = render_context.update();
+    render_context.clear();
 
     match raw_image_buffer.colortype {
         image::ColorType::RGBA(8) => {
@@ -205,8 +276,8 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 
             let resized_img = image::imageops::resize(
                 &img,
-                context.width as u32,
-                context.height as u32,
+                render_context.width as u32,
+                render_context.height as u32,
                 image::FilterType::Lanczos3,
             );
 
@@ -214,8 +285,7 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
             for pixel in resized_img.pixels() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
-                //print!("{}", rgb[0]);
-                context.frame_buffer[count] = ('@', (rgb[0], rgb[1], rgb[2]));
+                render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
         }
@@ -229,8 +299,8 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 
             let resized_img = image::imageops::resize(
                 &img,
-                context.width as u32,
-                context.height as u32,
+                render_context.width as u32,
+                render_context.height as u32,
                 image::FilterType::Lanczos3,
             );
 
@@ -238,8 +308,7 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
             for pixel in resized_img.pixels() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
-                //print!("{}", rgb[0]);
-                context.frame_buffer[count] = ('@', (rgb[0], rgb[1], rgb[2]));
+                render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
         }
@@ -250,7 +319,7 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    context.flush()?;
+    render_context.flush()?;
 
     let cursor = cursor();
     let _ = cursor.show();
@@ -261,7 +330,10 @@ pub fn view_contents(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn view_contents_interactive(buffer: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn view_contents_interactive(
+    buffer: &[u8],
+    lores_mode: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     use rawkey::{KeyCode, RawKey};
 
     let mut nes = neso::Nes::new(48000.0);
@@ -271,7 +343,7 @@ pub fn view_contents_interactive(buffer: &[u8]) -> Result<(), Box<dyn std::error
     nes.reset();
 
     if let Ok(_raw) = RawScreen::into_raw_mode() {
-        let mut context: Context = Context::blank();
+        let mut render_context: RenderContext = RenderContext::blank(lores_mode);
         let input = crossterm::input();
         let _ = input.read_async();
         let cursor = cursor();
@@ -290,7 +362,7 @@ pub fn view_contents_interactive(buffer: &[u8]) -> Result<(), Box<dyn std::error
         cursor.hide()?;
 
         'gameloop: loop {
-            let _ = context.update();
+            let _ = render_context.update();
             nes.step_frame();
 
             let image_buffer = nes.image_buffer();
@@ -300,22 +372,22 @@ pub fn view_contents_interactive(buffer: &[u8]) -> Result<(), Box<dyn std::error
                 image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(256, 240, slice).unwrap();
             let resized_img = image::imageops::resize(
                 &img,
-                context.width as u32,
-                context.height as u32,
+                render_context.width as u32,
+                render_context.height as u32,
                 image::FilterType::Lanczos3,
             );
 
-            context.clear();
+            render_context.clear();
 
             let mut count = 0;
             for pixel in resized_img.pixels() {
                 use image::Pixel;
                 let rgb = pixel.to_rgb();
 
-                context.frame_buffer[count] = ('@', (rgb[0], rgb[1], rgb[2]));
+                render_context.frame_buffer[count] = (rgb[0], rgb[1], rgb[2]);
                 count += 1;
             }
-            context.flush()?;
+            render_context.flush()?;
 
             if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                 break 'gameloop;
