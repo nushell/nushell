@@ -1,3 +1,0 @@
-cd tests
-open test.ini | get SectionOne.integer | echo $it
-exit

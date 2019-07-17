@@ -1,3 +1,0 @@
-cd tests
-open test.toml | to-toml | from-toml | get package.name | echo $it
-exit
