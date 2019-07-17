@@ -1,6 +1,7 @@
 mod helpers;
 
-use helpers::in_directory as cwd;
+use helpers as h;
+use h::in_directory as cwd;
 
 #[test]
 fn lines() {
@@ -56,3 +57,69 @@ fn open_error_if_file_not_found() {
     assert!(output.contains("File cound not be opened"));
 }
 
+
+#[test]
+fn rm() {
+    let directory = "tests/fixtures/nuplayground";
+    let file = format!("{}/rm_test.txt", directory);
+
+    h::create_file_at(&file);
+
+    nu!(_output,
+        cwd(directory),
+        "rm rm_test.txt");
+
+    assert!(!h::file_exists_at(&file));
+}
+
+#[test]
+fn can_remove_directory_contents_with_recursive_flag() {
+    let path = "tests/fixtures/nuplayground/rm_test";
+
+    if h::file_exists_at(&path) { h::delete_directory_at(path) }
+    h::create_directory_at(path);
+
+    for f in ["yehuda.txt", "jonathan.txt", "andres.txt"].iter() {
+        h::create_file_at(&format!("{}/{}", path, f));
+    };
+
+    nu!(_output,
+        cwd("tests/fixtures/nuplayground"),
+        "rm rm_test --recursive");
+
+    assert!(!h::file_exists_at(&path));
+}
+
+#[test]
+fn rm_error_if_attempting_to_delete_a_directory_without_recursive_flag() {
+    let path = "tests/fixtures/nuplayground/rm_test";
+
+    if h::file_exists_at(&path) { h::delete_directory_at(path) }
+    h::create_directory_at(path);
+
+    nu_error!(output,
+        cwd("tests/fixtures/nuplayground"),
+        "rm rm_test");
+
+    assert!(h::file_exists_at(&path));
+    assert!(output.contains("is a directory"));
+    h::delete_directory_at(path);
+}
+
+#[test]
+fn rm_error_if_attempting_to_delete_single_dot_as_argument() {
+    nu_error!(output,
+        cwd("tests/fixtures/nuplayground"),
+        "rm .");
+
+    assert!(output.contains("may not be removed"));
+}
+
+#[test]
+fn rm_error_if_attempting_to_delete_two_dot_as_argument() {
+    nu_error!(output,
+        cwd("tests/fixtures/nuplayground"),
+        "rm ..");
+
+    assert!(output.contains("may not be removed"));
+}

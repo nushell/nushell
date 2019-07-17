@@ -175,7 +175,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-toml", Box::new(to_toml::to_toml)),
             command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
-            command("sort-by", Box::new(sort_by::sort_by)),
+            Arc::new(Remove),
             Arc::new(Open),
             Arc::new(Where),
             Arc::new(Config),

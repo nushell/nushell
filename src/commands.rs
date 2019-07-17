@@ -4,6 +4,7 @@ crate mod macros;
 crate mod args;
 crate mod autoview;
 crate mod cd;
+crate mod rm;
 crate mod classified;
 crate mod clip;
 crate mod command;
@@ -41,6 +42,7 @@ crate mod where_;
 
 crate use command::command;
 crate use config::Config;
+crate use rm::Remove;
 crate use open::Open;
 crate use skip_while::SkipWhile;
 crate use where_::Where;
