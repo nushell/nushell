@@ -13,11 +13,24 @@ fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
 
 #[test]
 fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
-    nu!(output,
+    nu!(
+        output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | to-toml | from-toml | get package.name | echo $it");
+        "open cargo_sample.toml | to-toml | from-toml | get package.name | echo $it"
+    );
 
     assert_eq!(output, "nu");
+}
+
+#[test]
+fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open appveyor.yml | to-yaml | from-yaml | get environment.global.PROJECT_NAME | echo $it"
+    );
+
+    assert_eq!(output, "nushell");
 }
 
 #[test]
@@ -40,9 +53,11 @@ fn can_split_by_column() {
 
 #[test]
 fn can_filter_by_unit_size_comparison() {
-    nu!(output,
+    nu!(
+        output,
         cwd("tests/fixtures/formats"),
-        "ls | where size > 1kb | get name | trim | echo $it");
+        "ls | where size > 1kb | get name | trim | echo $it"
+    );
 
     assert_eq!(output, "cargo_sample.toml");
 }
