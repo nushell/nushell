@@ -67,41 +67,69 @@ pub fn fetch(
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
         match response {
-            Ok(mut r) => match r.text() {
-                Ok(s) => {
-                    let path_extension = r
-                        .url()
-                        .path_segments()
-                        .and_then(|segments| segments.last())
-                        .and_then(|name| if name.is_empty() { None } else { Some(name) })
-                        .and_then(|name| {
-                            PathBuf::from(name)
-                                .extension()
-                                .map(|name| name.to_string_lossy().to_string())
-                        });
-
-                    let extension = match r.headers().get("content-type") {
-                        Some(content_type) => {
-                            let content_type =
-                                Mime::from_str(content_type.to_str().unwrap()).unwrap();
-                            match (content_type.type_(), content_type.subtype()) {
-                                (mime::APPLICATION, mime::XML) => Some("xml".to_string()),
-                                (mime::APPLICATION, mime::JSON) => Some("json".to_string()),
-                                _ => path_extension,
-                            }
+            Ok(mut r) => match r.headers().get("content-type") {
+                Some(content_type) => {
+                    let content_type = Mime::from_str(content_type.to_str().unwrap()).unwrap();
+                    match (content_type.type_(), content_type.subtype()) {
+                        (mime::APPLICATION, mime::XML) => Ok((
+                            Some("xml".to_string()),
+                            Value::string(r.text().unwrap()),
+                            span,
+                        )),
+                        (mime::APPLICATION, mime::JSON) => Ok((
+                            Some("json".to_string()),
+                            Value::string(r.text().unwrap()),
+                            span,
+                        )),
+                        (mime::APPLICATION, mime::OCTET_STREAM) => {
+                            let mut buf: Vec<u8> = vec![];
+                            r.copy_to(&mut buf).map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load binary file",
+                                    "could not load",
+                                    span,
+                                )
+                            })?;
+                            Ok((None, Value::Binary(buf), span))
                         }
-                        None => path_extension,
-                    };
+                        (mime::IMAGE, image_ty) => {
+                            let mut buf: Vec<u8> = vec![];
+                            r.copy_to(&mut buf).map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load image file",
+                                    "could not load",
+                                    span,
+                                )
+                            })?;
+                            Ok((Some(image_ty.to_string()), Value::Binary(buf), span))
+                        }
+                        (mime::TEXT, mime::HTML) => Ok((
+                            Some("html".to_string()),
+                            Value::string(r.text().unwrap()),
+                            span,
+                        )),
+                        (mime::TEXT, mime::PLAIN) => {
+                            let path_extension = r
+                                .url()
+                                .path_segments()
+                                .and_then(|segments| segments.last())
+                                .and_then(|name| if name.is_empty() { None } else { Some(name) })
+                                .and_then(|name| {
+                                    PathBuf::from(name)
+                                        .extension()
+                                        .map(|name| name.to_string_lossy().to_string())
+                                });
 
-                    Ok((extension, Value::string(s), span))
+                            Ok((path_extension, Value::string(r.text().unwrap()), span))
+                        }
+                        (ty, sub_ty) => Ok((
+                            None,
+                            Value::string(format!("Not yet support MIME type: {} {}", ty, sub_ty)),
+                            span,
+                        )),
+                    }
                 }
-                Err(_) => {
-                    return Err(ShellError::labeled_error(
-                        "Web page contents corrupt",
-                        "received garbled data",
-                        span,
-                    ));
-                }
+                None => Ok((None, Value::string(format!("No content type found")), span)),
             },
             Err(_) => {
                 return Err(ShellError::labeled_error(
