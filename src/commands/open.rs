@@ -81,6 +81,17 @@ pub fn fetch(
                             Value::string(r.text().unwrap()),
                             span,
                         )),
+                        (mime::APPLICATION, mime::OCTET_STREAM) => {
+                            let mut buf: Vec<u8> = vec![];
+                            r.copy_to(&mut buf).map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load binary file",
+                                    "could not load",
+                                    span,
+                                )
+                            })?;
+                            Ok((None, Value::Binary(buf), span))
+                        }
                         (mime::IMAGE, image_ty) => {
                             let mut buf: Vec<u8> = vec![];
                             r.copy_to(&mut buf).map_err(|_| {
@@ -92,6 +103,11 @@ pub fn fetch(
                             })?;
                             Ok((Some(image_ty.to_string()), Value::Binary(buf), span))
                         }
+                        (mime::TEXT, mime::HTML) => Ok((
+                            Some("html".to_string()),
+                            Value::string(r.text().unwrap()),
+                            span,
+                        )),
                         (mime::TEXT, mime::PLAIN) => {
                             let path_extension = r
                                 .url()
