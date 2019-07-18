@@ -52,6 +52,28 @@ fn can_split_by_column() {
 }
 
 #[test]
+fn can_inc_version() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open cargo_sample.toml | inc package.version --minor | get package.version | echo $it"
+    );
+
+    assert_eq!(output, "0.2.0");
+}
+
+#[test]
+fn can_inc_field() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open cargo_sample.toml | inc package.edition | get package.edition | echo $it"
+    );
+
+    assert_eq!(output, "2019");
+}
+
+#[test]
 fn can_filter_by_unit_size_comparison() {
     nu!(
         output,
