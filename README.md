@@ -134,6 +134,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | get column-or-column-path | Open given cells as text |
 | sort-by ...columns | Sort by the given columns |
 | where condition | Filter table to match the condition |
+| inc (field) | Increment a value or version. Optional use the field of a table |
 | skip amount | Skip a number of rows |
 | first amount | Show only the first number of rows |
 | to-array | Collapse rows into a single list |
