@@ -347,6 +347,62 @@ impl Value {
         }
     }
 
+    pub fn get_data_by_path(&'a self, span: Span, path: &str) -> Option<Spanned<&Value>> {
+        let mut current = self;
+        for p in path.split(".") {
+            match current.get_data_by_key(p) {
+                Some(v) => current = v,
+                None => return None,
+            }
+        }
+
+        Some(Spanned {
+            item: current,
+            span,
+        })
+    }
+
+    pub fn replace_data_at_path(
+        &'a self,
+        span: Span,
+        path: &str,
+        replaced_value: Value,
+    ) -> Option<Spanned<Value>> {
+        let mut new_obj = self.clone();
+
+        let split_path: Vec<_> = path.split(".").collect();
+
+        if let Value::Object(ref mut o) = new_obj {
+            let mut current = o;
+            for idx in 0..split_path.len() {
+                match current.entries.get_mut(split_path[idx]) {
+                    Some(next) => {
+                        if idx == (split_path.len() - 1) {
+                            *next = Spanned {
+                                item: replaced_value,
+                                span,
+                            };
+                            return Some(Spanned {
+                                item: new_obj,
+                                span,
+                            });
+                        } else {
+                            match next.item {
+                                Value::Object(ref mut o) => {
+                                    current = o;
+                                }
+                                _ => return None,
+                            }
+                        }
+                    }
+                    _ => return None,
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
