@@ -1,40 +1,130 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, Args, CommandConfig, Plugin, PositionalType, Primitive, ReturnSuccess,
+    serve_plugin, Args, CommandConfig, NamedType, Plugin, PositionalType, Primitive, ReturnSuccess,
     ReturnValue, ShellError, Spanned, SpannedItem, Value,
 };
 
 struct Inc {
-    inc_by: i64,
+    field: Option<String>,
+    major: bool,
+    minor: bool,
+    patch: bool,
 }
 impl Inc {
     fn new() -> Inc {
-        Inc { inc_by: 1 }
+        Inc {
+            field: None,
+            major: false,
+            minor: false,
+            patch: false,
+        }
+    }
+
+    fn inc(
+        &self,
+        value: Spanned<Value>,
+        field: &Option<String>,
+    ) -> Result<Spanned<Value>, ShellError> {
+        match value.item {
+            Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).spanned(value.span)),
+            Value::Primitive(Primitive::Bytes(b)) => {
+                Ok(Value::bytes(b + 1 as u64).spanned(value.span))
+            }
+            Value::Primitive(Primitive::String(s)) => {
+                if let Ok(i) = s.parse::<u64>() {
+                    Ok(Spanned {
+                        item: Value::string(format!("{}", i + 1)),
+                        span: value.span,
+                    })
+                } else if let Ok(mut ver) = semver::Version::parse(&s) {
+                    if self.major {
+                        ver.increment_major();
+                    } else if self.minor {
+                        ver.increment_minor();
+                    } else {
+                        self.patch;
+                        ver.increment_patch();
+                    }
+                    Ok(Spanned {
+                        item: Value::string(ver.to_string()),
+                        span: value.span,
+                    })
+                } else {
+                    Err(ShellError::string("string could not be incremented"))
+                }
+            }
+            Value::Object(_) => match field {
+                Some(f) => {
+                    let replacement = match value.item.get_data_by_path(value.span, f) {
+                        Some(result) => self.inc(result.map(|x| x.clone()), &None)?,
+                        None => {
+                            return Err(ShellError::string("inc could not find field to replace"))
+                        }
+                    };
+                    match value
+                        .item
+                        .replace_data_at_path(value.span, f, replacement.item.clone())
+                    {
+                        Some(v) => return Ok(v),
+                        None => {
+                            return Err(ShellError::string("inc could not find field to replace"))
+                        }
+                    }
+                }
+                None => Err(ShellError::string(
+                    "inc needs a field when incrementing a value in an object",
+                )),
+            },
+            x => Err(ShellError::string(format!(
+                "Unrecognized type in stream: {:?}",
+                x
+            ))),
+        }
     }
 }
 
 impl Plugin for Inc {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
+        let mut named = IndexMap::new();
+        named.insert("major".to_string(), NamedType::Switch);
+        named.insert("minor".to_string(), NamedType::Switch);
+        named.insert("patch".to_string(), NamedType::Switch);
+
         Ok(CommandConfig {
             name: "inc".to_string(),
-            positional: vec![PositionalType::optional_any("Increment")],
+            positional: vec![PositionalType::optional_any("Field")],
             is_filter: true,
             is_sink: false,
-            named: IndexMap::new(),
+            named,
             rest_positional: true,
         })
     }
     fn begin_filter(&mut self, args: Args) -> Result<(), ShellError> {
+        if args.has("major") {
+            self.major = true;
+        }
+        if args.has("minor") {
+            self.minor = true;
+        }
+        if args.has("patch") {
+            self.patch = true;
+        }
+
         if let Some(args) = args.positional {
             for arg in args {
                 match arg {
                     Spanned {
-                        item: Value::Primitive(Primitive::Int(i)),
+                        item: Value::Primitive(Primitive::String(s)),
                         ..
                     } => {
-                        self.inc_by = i;
+                        self.field = Some(s);
                     }
-                    _ => return Err(ShellError::string("Unrecognized type in params")),
+                    _ => {
+                        return Err(ShellError::string(format!(
+                            "Unrecognized type in params: {:?}",
+                            arg
+                        )))
+                    }
                 }
             }
         }
@@ -43,20 +133,7 @@ impl Plugin for Inc {
     }
 
     fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        let span = input.span;
-
-        match input.item {
-            Value::Primitive(Primitive::Int(i)) => Ok(vec![ReturnSuccess::value(
-                Value::int(i + self.inc_by).spanned(span),
-            )]),
-            Value::Primitive(Primitive::Bytes(b)) => Ok(vec![ReturnSuccess::value(
-                Value::bytes(b + self.inc_by as u64).spanned(span),
-            )]),
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
-        }
+        Ok(vec![ReturnSuccess::value(self.inc(input, &self.field)?)])
     }
 }
 

@@ -50,7 +50,7 @@ impl<T> Spanned<T> {
         }
     }
 
-    crate fn map<U>(self, input: impl FnOnce(T) -> U) -> Spanned<U> {
+    pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Spanned<U> {
         let Spanned { span, item } = self;
 
         let mapped = input(item);
