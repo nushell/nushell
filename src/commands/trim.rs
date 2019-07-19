@@ -2,8 +2,6 @@ use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
 
-// TODO: "Amount remaining" wrapper
-
 pub fn trim(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
 

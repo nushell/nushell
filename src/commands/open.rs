@@ -1,3 +1,4 @@
+use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Switch, Value};
 use crate::parser::parse::span::Span;
@@ -5,6 +6,7 @@ use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use uuid::Uuid;
 
 command! {
     Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
@@ -21,25 +23,20 @@ command! {
 
         let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".spanned(path.span)))?;
 
-        let (file_extension, contents, contents_span) = fetch(&full_path, path_str, path.span)?;
-        // let (file_extension, contents, contents_span) = match &args.expect_nth(0)?.item {
-        //     Value::Primitive(Primitive::String(s)) => fetch(&full_path, s, args.expect_nth(0)?.span)?,
-        //     _ => {
-        //         return Err(ShellError::labeled_error(
-        //             "Expected string value for filename",
-        //             "expected filename",
-        //             args.expect_nth(0)?.span,
-        //         ));
-        //     }
-        // };
-
-        let mut stream = VecDeque::new();
+        let (file_extension, contents, contents_span, span_source) = fetch(&full_path, path_str, path.span)?;
 
         let file_extension = if raw.is_present() {
             None
         } else {
             file_extension
         };
+
+        let mut stream = VecDeque::new();
+
+        if let Some(uuid) = contents_span.source {
+            // If we have loaded something, track its source
+            stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(uuid, span_source)))
+        }
 
         match contents {
             Value::Primitive(Primitive::String(string)) =>
@@ -62,7 +59,7 @@ pub fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
-) -> Result<(Option<String>, Value, Span), ShellError> {
+) -> Result<(Option<String>, Value, Span, SpanSource), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let response = reqwest::get(location);
@@ -74,12 +71,14 @@ pub fn fetch(
                         (mime::APPLICATION, mime::XML) => Ok((
                             Some("xml".to_string()),
                             Value::string(r.text().unwrap()),
-                            span,
+                            Span::unknown_with_uuid(Uuid::new_v4()),
+                            SpanSource::Url(r.url().to_string()),
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
                             Some("json".to_string()),
                             Value::string(r.text().unwrap()),
-                            span,
+                            Span::unknown_with_uuid(Uuid::new_v4()),
+                            SpanSource::Url(r.url().to_string()),
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
                             let mut buf: Vec<u8> = vec![];
@@ -90,7 +89,12 @@ pub fn fetch(
                                     span,
                                 )
                             })?;
-                            Ok((None, Value::Binary(buf), span))
+                            Ok((
+                                None,
+                                Value::Binary(buf),
+                                Span::unknown_with_uuid(Uuid::new_v4()),
+                                SpanSource::Url(r.url().to_string()),
+                            ))
                         }
                         (mime::IMAGE, image_ty) => {
                             let mut buf: Vec<u8> = vec![];
@@ -101,12 +105,18 @@ pub fn fetch(
                                     span,
                                 )
                             })?;
-                            Ok((Some(image_ty.to_string()), Value::Binary(buf), span))
+                            Ok((
+                                Some(image_ty.to_string()),
+                                Value::Binary(buf),
+                                Span::unknown_with_uuid(Uuid::new_v4()),
+                                SpanSource::Url(r.url().to_string()),
+                            ))
                         }
                         (mime::TEXT, mime::HTML) => Ok((
                             Some("html".to_string()),
                             Value::string(r.text().unwrap()),
-                            span,
+                            Span::unknown_with_uuid(Uuid::new_v4()),
+                            SpanSource::Url(r.url().to_string()),
                         )),
                         (mime::TEXT, mime::PLAIN) => {
                             let path_extension = r
@@ -120,16 +130,27 @@ pub fn fetch(
                                         .map(|name| name.to_string_lossy().to_string())
                                 });
 
-                            Ok((path_extension, Value::string(r.text().unwrap()), span))
+                            Ok((
+                                path_extension,
+                                Value::string(r.text().unwrap()),
+                                Span::unknown_with_uuid(Uuid::new_v4()),
+                                SpanSource::Url(r.url().to_string()),
+                            ))
                         }
                         (ty, sub_ty) => Ok((
                             None,
                             Value::string(format!("Not yet support MIME type: {} {}", ty, sub_ty)),
-                            span,
+                            Span::unknown_with_uuid(Uuid::new_v4()),
+                            SpanSource::Url(r.url().to_string()),
                         )),
                     }
                 }
-                None => Ok((None, Value::string(format!("No content type found")), span)),
+                None => Ok((
+                    None,
+                    Value::string(format!("No content type found")),
+                    Span::unknown_with_uuid(Uuid::new_v4()),
+                    SpanSource::Url(r.url().to_string()),
+                )),
             },
             Err(_) => {
                 return Err(ShellError::labeled_error(
@@ -147,9 +168,15 @@ pub fn fetch(
                     cwd.extension()
                         .map(|name| name.to_string_lossy().to_string()),
                     Value::string(s),
-                    span,
+                    Span::unknown_with_uuid(Uuid::new_v4()),
+                    SpanSource::File(cwd.to_string_lossy().to_string()),
                 )),
-                Err(_) => Ok((None, Value::Binary(bytes), span)),
+                Err(_) => Ok((
+                    None,
+                    Value::Binary(bytes),
+                    Span::unknown_with_uuid(Uuid::new_v4()),
+                    SpanSource::File(cwd.to_string_lossy().to_string()),
+                )),
             },
             Err(_) => {
                 return Err(ShellError::labeled_error(

@@ -1,3 +1,4 @@
+use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::parser::{
@@ -7,7 +8,9 @@ use crate::parser::{
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
+use uuid::Uuid;
 
 #[derive(Getters)]
 #[get = "crate"]
@@ -15,6 +18,7 @@ pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<Environment>>,
     pub name_span: Option<Span>,
+    pub span_sources: HashMap<Uuid, SpanSource>,
     pub args: Args,
     pub input: InputStream,
 }
@@ -49,6 +53,7 @@ impl CommandArgs {
 pub struct SinkCommandArgs {
     pub ctx: Context,
     pub name_span: Option<Span>,
+    pub span_sources: HashMap<Uuid, SpanSource>,
     pub args: Args,
     pub input: Vec<Spanned<Value>>,
 }
@@ -56,6 +61,7 @@ pub struct SinkCommandArgs {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(PathBuf),
+    AddSpanSource(Uuid, SpanSource),
     Exit,
 }
 
@@ -80,6 +86,10 @@ impl ReturnSuccess {
 
     pub fn value(input: impl Into<Spanned<Value>>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input.into()))
+    }
+
+    pub fn action(input: CommandAction) -> ReturnValue {
+        Ok(ReturnSuccess::Action(input))
     }
 
     pub fn spanned_value(input: Value, span: Span) -> ReturnValue {

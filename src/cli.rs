@@ -494,6 +494,7 @@ fn classify_command(
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
                         name_span: Some(head.span().clone()),
+                        span_sources: context.span_sources.clone(),
                         args,
                     }))
                 }

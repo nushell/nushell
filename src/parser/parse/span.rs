@@ -3,6 +3,7 @@ use derive_new::new;
 use getset::Getters;
 use serde::Serialize;
 use serde_derive::Deserialize;
+use uuid::Uuid;
 
 #[derive(
     new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
@@ -75,13 +76,17 @@ impl<T> Spanned<T> {
 pub struct Span {
     crate start: usize,
     crate end: usize,
-    // source: &'source str,
+    pub source: Option<Uuid>,
 }
 
 impl From<Option<Span>> for Span {
     fn from(input: Option<Span>) -> Span {
         match input {
-            None => Span { start: 0, end: 0 },
+            None => Span {
+                start: 0,
+                end: 0,
+                source: None,
+            },
             Some(span) => span,
         }
     }
@@ -104,6 +109,7 @@ impl From<nom5_locate::LocatedSpan<&str>> for Span {
         Span {
             start: input.offset,
             end: input.offset + input.fragment.len(),
+            source: None,
         }
     }
 }
@@ -113,6 +119,7 @@ impl<T> From<(nom5_locate::LocatedSpan<T>, nom5_locate::LocatedSpan<T>)> for Spa
         Span {
             start: input.0.offset,
             end: input.1.offset,
+            source: None,
         }
     }
 }
@@ -122,6 +129,7 @@ impl From<(usize, usize)> for Span {
         Span {
             start: input.0,
             end: input.1,
+            source: None,
         }
     }
 }
@@ -131,13 +139,26 @@ impl From<&std::ops::Range<usize>> for Span {
         Span {
             start: input.start,
             end: input.end,
+            source: None,
         }
     }
 }
 
 impl Span {
     pub fn unknown() -> Span {
-        Span { start: 0, end: 0 }
+        Span {
+            start: 0,
+            end: 0,
+            source: None,
+        }
+    }
+
+    pub fn unknown_with_uuid(uuid: Uuid) -> Span {
+        Span {
+            start: 0,
+            end: 0,
+            source: Some(uuid),
+        }
     }
 
     pub fn is_unknown(&self) -> bool {
@@ -154,6 +175,7 @@ impl language_reporting::ReportingSpan for Span {
         Span {
             start,
             end: self.end,
+            source: None,
         }
     }
 
@@ -161,6 +183,7 @@ impl language_reporting::ReportingSpan for Span {
         Span {
             start: self.start,
             end,
+            source: None,
         }
     }
 

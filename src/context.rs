@@ -4,15 +4,24 @@ use crate::parser::{
     Span,
 };
 use crate::prelude::*;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use indexmap::IndexMap;
+use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SpanSource {
+    Url(String),
+    File(String),
+}
 #[derive(Clone)]
 pub struct Context {
     commands: IndexMap<String, Arc<dyn Command>>,
     sinks: IndexMap<String, Arc<dyn Sink>>,
+    crate span_sources: HashMap<Uuid, SpanSource>,
     crate host: Arc<Mutex<dyn Host + Send>>,
     crate env: Arc<Mutex<Environment>>,
 }
@@ -22,6 +31,7 @@ impl Context {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
             sinks: indexmap::IndexMap::new(),
+            span_sources: HashMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             env: Arc::new(Mutex::new(Environment::basic()?)),
         })
@@ -37,6 +47,10 @@ impl Context {
         for sink in sinks {
             self.sinks.insert(sink.name().to_string(), sink);
         }
+    }
+
+    pub fn add_span_source(&mut self, uuid: Uuid, span_source: SpanSource) {
+        self.span_sources.insert(uuid, span_source);
     }
 
     crate fn has_sink(&self, name: &str) -> bool {
@@ -57,6 +71,7 @@ impl Context {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),
             name_span,
+            span_sources: self.span_sources.clone(),
             args,
             input,
         };
@@ -80,6 +95,7 @@ impl Context {
         &mut self,
         command: Arc<dyn Command>,
         name_span: Option<Span>,
+        span_sources: HashMap<Uuid, SpanSource>,
         args: Args,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
@@ -87,6 +103,7 @@ impl Context {
             host: self.host.clone(),
             env: self.env.clone(),
             name_span,
+            span_sources,
             args,
             input,
         };
