@@ -156,6 +156,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("cd", Box::new(cd::cd)),
             command("first", Box::new(first::first)),
             command("size", Box::new(size::size)),
+            command("from-csv", Box::new(from_csv::from_csv)),
             command("from-ini", Box::new(from_ini::from_ini)),
             command("from-json", Box::new(from_json::from_json)),
             command("from-toml", Box::new(from_toml::from_toml)),
