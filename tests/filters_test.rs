@@ -78,7 +78,7 @@ fn can_filter_by_unit_size_comparison() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
-        "ls | where size > 1kb | get name | trim | echo $it"
+        "ls | where size > 1kb | get name | skip 1 | trim | echo $it"
     );
 
     assert_eq!(output, "cargo_sample.toml");

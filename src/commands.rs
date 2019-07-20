@@ -11,6 +11,7 @@ crate mod command;
 crate mod config;
 crate mod exit;
 crate mod first;
+crate mod from_csv;
 crate mod from_ini;
 crate mod from_json;
 crate mod from_toml;

@@ -13,6 +13,15 @@ fn lines() {
 }
 
 #[test]
+fn open_csv() {
+    nu!(output,
+        cwd("tests/fixtures/formats"),
+        "open caco3_plastics.csv | get root | first 1 | get origin | echo $it");
+
+    assert_eq!(output, "SPAIN");
+}
+
+#[test]
 fn open_toml() {
     nu!(output, 
         cwd("tests/fixtures/formats"), 
