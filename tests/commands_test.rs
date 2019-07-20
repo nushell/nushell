@@ -17,7 +17,7 @@ fn open_csv() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
-        "open caco3_plastics.csv | get root | first 1 | get origin | echo $it"
+        "open caco3_plastics.csv | first 1 | get origin | echo $it"
     );
 
     assert_eq!(output, "SPAIN");
