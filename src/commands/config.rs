@@ -39,10 +39,10 @@ impl Command for Config {
 }
 
 pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut result = crate::object::config::config(args.name_span)?;
+    let mut result = crate::object::config::config(args.call_info.name_span)?;
 
-    trace!("{:#?}", args.args.positional);
-    trace!("{:#?}", args.args.named);
+    trace!("{:#?}", args.call_info.args.positional);
+    trace!("{:#?}", args.call_info.args.named);
 
     if let Some(v) = args.get("get") {
         let key = v.as_string()?;
@@ -95,7 +95,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     if args.len() == 0 {
-        return Ok(vec![Value::Object(result.into()).spanned(args.name_span)].into());
+        return Ok(vec![Value::Object(result.into()).spanned(args.call_info.name_span)].into());
     }
 
     Err(ShellError::string(format!("Unimplemented")))

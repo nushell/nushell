@@ -6,13 +6,13 @@ use log::trace;
 
 pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let positional: Vec<Spanned<Value>> = args.positional_iter().cloned().collect();
-    let span = args.name_span;
+    let span = args.call_info.name_span;
 
     if positional.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Split-row needs more information",
             "needs parameter (eg split-row \"\\n\")",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

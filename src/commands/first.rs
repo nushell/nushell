@@ -8,7 +8,7 @@ pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
         return Err(ShellError::maybe_labeled_error(
             "First requires an amount",
             "needs parameter",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

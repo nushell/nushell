@@ -84,7 +84,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
 
         let mut reader = BufReader::new(stdout);
 
-        let request = JsonRpc::new("begin_filter", args.args);
+        let request = JsonRpc::new("begin_filter", args.call_info);
         let request_raw = serde_json::to_string(&request).unwrap();
         stdin.write(format!("{}\n", request_raw).as_bytes())?;
         let mut input = String::new();
@@ -183,7 +183,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
 
 pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError> {
     //use subprocess::Exec;
-    let request = JsonRpc::new("sink", (args.args, args.input));
+    let request = JsonRpc::new("sink", (args.call_info, args.input));
     let request_raw = serde_json::to_string(&request).unwrap();
     let mut tmpfile = tempfile::NamedTempFile::new()?;
     let _ = writeln!(tmpfile, "{}", request_raw);

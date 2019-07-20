@@ -26,7 +26,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
         return Err(ShellError::maybe_labeled_error(
             "Get requires a field or field path",
             "needs parameter",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

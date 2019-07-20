@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
-use crate::prelude::*;
-use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
 use crate::parser::hir::SyntaxType;
+use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
+use crate::prelude::*;
 use indexmap::IndexMap;
 
 pub struct Remove;
@@ -31,28 +31,25 @@ impl Command for Remove {
 }
 
 pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut full_path = args.env
-                            .lock()
-                            .unwrap()
-                            .path()
-                            .to_path_buf();
+    let mut full_path = args.env.lock().unwrap().path().to_path_buf();
 
-
-     match args.nth(0)
-               .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-               .as_string()?
-               .as_str() {
-                   "." | ".." => return Err(ShellError::string("\".\" and \"..\" may not be removed")),
-                   file       => full_path.push(file),
+    match args
+        .nth(0)
+        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
+        .as_string()?
+        .as_str()
+    {
+        "." | ".." => return Err(ShellError::string("\".\" and \"..\" may not be removed")),
+        file => full_path.push(file),
     }
-
 
     if full_path.is_dir() {
         if !args.has("recursive") {
             return Err(ShellError::labeled_error(
-                    "is a directory",
-                    "",
-                    args.name_span.unwrap()));
+                "is a directory",
+                "",
+                args.call_info.name_span.unwrap(),
+            ));
         }
         std::fs::remove_dir_all(&full_path).expect("can not remove directory");
     } else if full_path.is_file() {

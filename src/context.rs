@@ -1,18 +1,45 @@
-use crate::commands::command::{Sink, SinkCommandArgs};
+use crate::commands::command::{CallInfo, Sink, SinkCommandArgs};
 use crate::parser::{
     registry::{Args, CommandConfig, CommandRegistry},
     Span,
 };
 use crate::prelude::*;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use indexmap::IndexMap;
+use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SpanSource {
+    Url(String),
+    File(String),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SourceMap(HashMap<Uuid, SpanSource>);
+
+impl SourceMap {
+    pub fn insert(&mut self, uuid: Uuid, span_source: SpanSource) {
+        self.0.insert(uuid, span_source);
+    }
+
+    pub fn get(&self, uuid: &Uuid) -> Option<&SpanSource> {
+        self.0.get(uuid)
+    }
+
+    pub fn new() -> SourceMap {
+        SourceMap(HashMap::new())
+    }
+}
 
 #[derive(Clone)]
 pub struct Context {
     commands: IndexMap<String, Arc<dyn Command>>,
     sinks: IndexMap<String, Arc<dyn Sink>>,
+    crate source_map: SourceMap,
     crate host: Arc<Mutex<dyn Host + Send>>,
     crate env: Arc<Mutex<Environment>>,
 }
@@ -22,6 +49,7 @@ impl Context {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
             sinks: indexmap::IndexMap::new(),
+            source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             env: Arc::new(Mutex::new(Environment::basic()?)),
         })
@@ -37,6 +65,10 @@ impl Context {
         for sink in sinks {
             self.sinks.insert(sink.name().to_string(), sink);
         }
+    }
+
+    pub fn add_span_source(&mut self, uuid: Uuid, span_source: SpanSource) {
+        self.source_map.insert(uuid, span_source);
     }
 
     crate fn has_sink(&self, name: &str) -> bool {
@@ -56,8 +88,11 @@ impl Context {
     ) -> Result<(), ShellError> {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),
-            name_span,
-            args,
+            call_info: CallInfo {
+                name_span,
+                source_map: self.source_map.clone(),
+                args,
+            },
             input,
         };
 
@@ -80,14 +115,18 @@ impl Context {
         &mut self,
         command: Arc<dyn Command>,
         name_span: Option<Span>,
+        source_map: SourceMap,
         args: Args,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = CommandArgs {
             host: self.host.clone(),
             env: self.env.clone(),
-            name_span,
-            args,
+            call_info: CallInfo {
+                name_span,
+                source_map,
+                args,
+            },
             input,
         };
 

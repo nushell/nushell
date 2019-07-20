@@ -3,13 +3,13 @@ use crate::object::base::reject_fields;
 use crate::prelude::*;
 
 pub fn reject(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_span = args.name_span;
+    let name_span = args.call_info.name_span;
 
     if args.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Reject requires fields",
             "needs parameter",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

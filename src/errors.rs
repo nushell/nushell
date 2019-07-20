@@ -17,7 +17,12 @@ impl Description {
     pub fn from(item: Spanned<impl Into<String>>) -> Description {
         match item {
             Spanned {
-                span: Span { start: 0, end: 0 },
+                span:
+                    Span {
+                        start: 0,
+                        end: 0,
+                        source: None,
+                    },
                 item,
             } => Description::Synthetic(item.into()),
             Spanned { span, item } => Description::Source(Spanned::from_item(item.into(), span)),

@@ -16,7 +16,7 @@ pub fn clip(args: SinkCommandArgs) -> Result<(), ShellError> {
             }
 
             let string = i.as_string().map_err(labelled(
-                args.name_span,
+                args.call_info.name_span,
                 "Given non-string data",
                 "expected strings from pipeline",
             ))?;

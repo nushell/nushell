@@ -13,7 +13,7 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 return Err(ShellError::maybe_labeled_error(
                     "Can not change to home directory",
                     "can not go to home",
-                    args.name_span,
+                    args.call_info.name_span,
                 ))
             }
         },
