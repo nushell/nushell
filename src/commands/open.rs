@@ -39,14 +39,23 @@ command! {
         }
 
         match contents {
-            Value::Primitive(Primitive::String(string)) =>
-                stream.push_back(ReturnSuccess::value(parse_as_value(
+            Value::Primitive(Primitive::String(string)) => {
+                let value = parse_as_value(
                     file_extension,
                     string,
                     contents_span,
                     span,
-                )?)
-            ),
+                )?;
+
+                match value {
+                    Spanned { item: Value::List(list), .. } => {
+                        for elem in list {
+                            stream.push_back(ReturnSuccess::value(elem));
+                        }
+                    }
+                    x => stream.push_back(ReturnSuccess::value(x))
+                }
+            },
 
             other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
         };

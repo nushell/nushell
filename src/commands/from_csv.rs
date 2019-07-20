@@ -1,4 +1,4 @@
-use crate::object::{Primitive, SpannedDictBuilder, SpannedListBuilder, Value};
+use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 use csv::ReaderBuilder;
 
@@ -13,8 +13,7 @@ pub fn from_csv_string_to_value(
 
     let mut fields: VecDeque<String> = VecDeque::new();
     let mut iter = reader.records();
-    let mut root = SpannedDictBuilder::new(span);
-    let mut rows = SpannedListBuilder::new(span);
+    let mut rows = vec![];
 
     if let Some(result) = iter.next() {
         let line = result?;
@@ -37,14 +36,16 @@ pub fn from_csv_string_to_value(
                 );
             }
 
-            rows.insert_spanned(row.into_spanned_value());
+            rows.push(row.into_spanned_value());
         } else {
             break;
         }
     }
 
-    root.insert_spanned("root", rows.into_spanned_value());
-    Ok(root.into_spanned_value())
+    Ok(Spanned {
+        item: Value::List(rows),
+        span,
+    })
 }
 
 pub fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
