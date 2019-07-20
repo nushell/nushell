@@ -1689,6 +1689,7 @@ dependencies = [
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.8.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "subprocess 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntect 3.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sys-info 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "sysinfo 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

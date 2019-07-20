@@ -1,3 +1,4 @@
+use crate::context::SourceMap;
 use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::Value;
@@ -8,7 +9,6 @@ use crate::parser::{
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -18,7 +18,7 @@ pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<Environment>>,
     pub name_span: Option<Span>,
-    pub span_sources: HashMap<Uuid, SpanSource>,
+    pub source_map: SourceMap,
     pub args: Args,
     pub input: InputStream,
 }
@@ -53,7 +53,7 @@ impl CommandArgs {
 pub struct SinkCommandArgs {
     pub ctx: Context,
     pub name_span: Option<Span>,
-    pub span_sources: HashMap<Uuid, SpanSource>,
+    pub source_map: SourceMap,
     pub args: Args,
     pub input: Vec<Spanned<Value>>,
 }

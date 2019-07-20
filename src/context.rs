@@ -17,11 +17,29 @@ pub enum SpanSource {
     Url(String),
     File(String),
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SourceMap(HashMap<Uuid, SpanSource>);
+
+impl SourceMap {
+    pub fn insert(&mut self, uuid: Uuid, span_source: SpanSource) {
+        self.0.insert(uuid, span_source);
+    }
+
+    pub fn get(&self, uuid: &Uuid) -> Option<&SpanSource> {
+        self.0.get(uuid)
+    }
+
+    pub fn new() -> SourceMap {
+        SourceMap(HashMap::new())
+    }
+}
+
 #[derive(Clone)]
 pub struct Context {
     commands: IndexMap<String, Arc<dyn Command>>,
     sinks: IndexMap<String, Arc<dyn Sink>>,
-    crate span_sources: HashMap<Uuid, SpanSource>,
+    crate source_map: SourceMap,
     crate host: Arc<Mutex<dyn Host + Send>>,
     crate env: Arc<Mutex<Environment>>,
 }
@@ -31,7 +49,7 @@ impl Context {
         Ok(Context {
             commands: indexmap::IndexMap::new(),
             sinks: indexmap::IndexMap::new(),
-            span_sources: HashMap::new(),
+            source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             env: Arc::new(Mutex::new(Environment::basic()?)),
         })
@@ -50,7 +68,7 @@ impl Context {
     }
 
     pub fn add_span_source(&mut self, uuid: Uuid, span_source: SpanSource) {
-        self.span_sources.insert(uuid, span_source);
+        self.source_map.insert(uuid, span_source);
     }
 
     crate fn has_sink(&self, name: &str) -> bool {
@@ -71,7 +89,7 @@ impl Context {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),
             name_span,
-            span_sources: self.span_sources.clone(),
+            source_map: self.source_map.clone(),
             args,
             input,
         };
@@ -95,7 +113,7 @@ impl Context {
         &mut self,
         command: Arc<dyn Command>,
         name_span: Option<Span>,
-        span_sources: HashMap<Uuid, SpanSource>,
+        source_map: SourceMap,
         args: Args,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
@@ -103,7 +121,7 @@ impl Context {
             host: self.host.clone(),
             env: self.env.clone(),
             name_span,
-            span_sources,
+            source_map,
             args,
             input,
         };

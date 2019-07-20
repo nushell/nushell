@@ -1,16 +1,14 @@
 use crate::commands::command::Sink;
-use crate::context::SpanSource;
+use crate::context::SourceMap;
 use crate::parser::{registry::Args, Span, Spanned, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use log::{log_enabled, trace};
-use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use subprocess::Exec;
-use uuid::Uuid;
 
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}
@@ -119,7 +117,7 @@ impl SinkCommand {
 crate struct InternalCommand {
     crate command: Arc<dyn Command>,
     crate name_span: Option<Span>,
-    crate span_sources: HashMap<Uuid, SpanSource>,
+    crate source_map: SourceMap,
     crate args: Args,
 }
 
@@ -141,7 +139,7 @@ impl InternalCommand {
         let result = context.run_command(
             self.command,
             self.name_span.clone(),
-            self.span_sources,
+            self.source_map,
             self.args,
             objects,
         )?;

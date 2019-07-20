@@ -5,6 +5,7 @@
 #![feature(bind_by_move_pattern_guards)]
 #![feature(box_syntax)]
 #![feature(type_ascription)]
+#![feature(option_flattening)]
 
 #[macro_use]
 mod prelude;
