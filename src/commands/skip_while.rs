@@ -30,7 +30,7 @@ pub fn skip_while(args: CommandArgs) -> Result<OutputStream, ShellError> {
         return Err(ShellError::maybe_labeled_error(
             "Where requires a condition",
             "needs condition",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

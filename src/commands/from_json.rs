@@ -45,7 +45,7 @@ pub fn from_json_string_to_value(
 
 pub fn from_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
-    let span = args.name_span;
+    let span = args.call_info.name_span;
     Ok(out
         .values
         .map(move |a| match a.item {

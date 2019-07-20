@@ -7,7 +7,7 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
         return Err(ShellError::maybe_labeled_error(
             "Pick requires fields",
             "needs parameter",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

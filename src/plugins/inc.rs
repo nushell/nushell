@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, Args, CommandConfig, NamedType, Plugin, PositionalType, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Spanned, SpannedItem, Value,
+    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
+    ReturnSuccess, ReturnValue, ShellError, Spanned, SpannedItem, Value,
 };
 
 struct Inc {
@@ -99,18 +99,18 @@ impl Plugin for Inc {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, args: Args) -> Result<(), ShellError> {
-        if args.has("major") {
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
+        if call_info.args.has("major") {
             self.major = true;
         }
-        if args.has("minor") {
+        if call_info.args.has("minor") {
             self.minor = true;
         }
-        if args.has("patch") {
+        if call_info.args.has("patch") {
             self.patch = true;
         }
 
-        if let Some(args) = args.positional {
+        if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
                     Spanned {

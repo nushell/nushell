@@ -6,8 +6,9 @@ pub fn from_csv_string_to_value(
     s: String,
     span: impl Into<Span>,
 ) -> Result<Spanned<Value>, Box<dyn std::error::Error>> {
-
-    let mut reader = ReaderBuilder::new().has_headers(false).from_reader(s.as_bytes());
+    let mut reader = ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(s.as_bytes());
     let span = span.into();
 
     let mut fields: VecDeque<String> = VecDeque::new();
@@ -28,9 +29,12 @@ pub fn from_csv_string_to_value(
             let row_values = row_values?;
 
             let mut row = SpannedDictBuilder::new(span);
-        
+
             for (idx, entry) in row_values.iter().enumerate() {
-                row.insert_spanned(fields.get(idx).unwrap(), Value::Primitive(Primitive::String(String::from(entry))).spanned(span));
+                row.insert_spanned(
+                    fields.get(idx).unwrap(),
+                    Value::Primitive(Primitive::String(String::from(entry))).spanned(span),
+                );
             }
 
             rows.insert_spanned(row.into_spanned_value());
@@ -45,7 +49,7 @@ pub fn from_csv_string_to_value(
 
 pub fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
-    let span = args.name_span;
+    let span = args.call_info.name_span;
 
     Ok(out
         .values

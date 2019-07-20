@@ -30,7 +30,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 return Err(ShellError::maybe_labeled_error(
                     e.to_string(),
                     e.to_string(),
-                    args.name_span,
+                    args.call_info.name_span,
                 ));
             }
         }
@@ -40,7 +40,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut shell_entries = VecDeque::new();
 
     for entry in entries {
-        let value = dir_entry_dict(&entry?, args.name_span)?;
+        let value = dir_entry_dict(&entry?, args.call_info.name_span)?;
         shell_entries.push_back(ReturnSuccess::value(value))
     }
     Ok(shell_entries.to_output_stream())

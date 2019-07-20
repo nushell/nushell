@@ -14,7 +14,7 @@ pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
         {
             args.ctx.get_sink("binaryview").run(args)?;
         } else if is_single_text_value(&args.input) {
-            view_text_value(&args.input[0], &args.source_map);
+            view_text_value(&args.input[0], &args.call_info.source_map);
         } else if equal_shapes(&args.input) {
             args.ctx.get_sink("table").run(args)?;
         } else {

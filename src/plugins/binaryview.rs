@@ -1,6 +1,10 @@
+#![feature(option_flattening)]
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
-use nu::{serve_plugin, Args, CommandConfig, NamedType, Plugin, ShellError, Spanned, Value};
+use nu::{
+    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, ShellError, SpanSource, Spanned,
+    Value,
+};
 use pretty_hex::*;
 
 struct BinaryView;
@@ -25,14 +29,15 @@ impl Plugin for BinaryView {
         })
     }
 
-    fn sink(&mut self, args: Args, input: Vec<Spanned<Value>>) {
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {
         for v in input {
             match v {
                 Spanned {
                     item: Value::Binary(b),
-                    ..
+                    span,
                 } => {
-                    let _ = view_binary(&b, args.has("lores"));
+                    let source = span.source.map(|x| call_info.source_map.get(&x)).flatten();
+                    let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}
             }
@@ -40,17 +45,21 @@ impl Plugin for BinaryView {
     }
 }
 
-fn view_binary(b: &[u8], lores_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn view_binary(
+    b: &[u8],
+    source: Option<&SpanSource>,
+    lores_mode: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
         match (b[0], b[1], b[2]) {
             (0x4e, 0x45, 0x53) => {
-                view_contents_interactive(b, lores_mode)?;
+                view_contents_interactive(b, source, lores_mode)?;
                 return Ok(());
             }
             _ => {}
         }
     }
-    view_contents(b, lores_mode)?;
+    view_contents(b, source, lores_mode)?;
     Ok(())
 }
 
@@ -247,7 +256,11 @@ fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
-pub fn view_contents(buffer: &[u8], lores_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn view_contents(
+    buffer: &[u8],
+    _source: Option<&SpanSource>,
+    lores_mode: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_image_buffer = load_from_png_buffer(buffer);
 
     if raw_image_buffer.is_none() {
@@ -332,13 +345,28 @@ pub fn view_contents(buffer: &[u8], lores_mode: bool) -> Result<(), Box<dyn std:
 
 pub fn view_contents_interactive(
     buffer: &[u8],
+    source: Option<&SpanSource>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use rawkey::{KeyCode, RawKey};
 
+    let sav_path = if let Some(SpanSource::File(f)) = source {
+        let mut path = std::path::PathBuf::from(f);
+        path.set_extension("sav");
+        Some(path)
+    } else {
+        None
+    };
+
     let mut nes = neso::Nes::new(48000.0);
     let rawkey = RawKey::new();
     nes.load_rom(&buffer);
+
+    if let Some(ref sav_path) = sav_path {
+        if let Ok(contents) = std::fs::read(sav_path) {
+            let _ = nes.load_state(&contents);
+        }
+    }
 
     nes.reset();
 
@@ -400,6 +428,13 @@ pub fn view_contents_interactive(
                     }
                 }
             }
+        }
+    }
+
+    if let Some(ref sav_path) = sav_path {
+        let buffer = nes.save_state();
+        if let Ok(buffer) = buffer {
+            let _ = std::fs::write(sav_path, buffer);
         }
     }
 

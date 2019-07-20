@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 command! {
     Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
-        let span = args.name_span;
+        let span = args.call_info.name_span;
 
         let cwd = args
             .env
@@ -48,7 +48,7 @@ command! {
                 )?)
             ),
 
-            other => stream.push_back(ReturnSuccess::value(other.spanned(span))),
+            other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
         };
 
         stream

@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, Args, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Spanned, Value,
+    serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
+    ShellError, Spanned, Value,
 };
 
 struct NewSkip {
@@ -24,8 +24,8 @@ impl Plugin for NewSkip {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, args: Args) -> Result<(), ShellError> {
-        if let Some(args) = args.positional {
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
+        if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
                     Spanned {
@@ -34,7 +34,13 @@ impl Plugin for NewSkip {
                     } => {
                         self.skip_amount = i;
                     }
-                    _ => return Err(ShellError::labeled_error("Unrecognized type in params", "expected an integer", arg.span)),
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Unrecognized type in params",
+                            "expected an integer",
+                            arg.span,
+                        ))
+                    }
                 }
             }
         }

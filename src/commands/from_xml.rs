@@ -61,7 +61,7 @@ pub fn from_xml_string_to_value(
 
 pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
-    let span = args.name_span;
+    let span = args.call_info.name_span;
     Ok(out
         .values
         .map(move |a| match a.item {

@@ -7,7 +7,7 @@ use log::trace;
 
 pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let input = args.input;
-    let span = args.name_span;
+    let span = args.call_info.name_span;
 
     let stream = input
         .values

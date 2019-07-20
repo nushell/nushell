@@ -12,49 +12,52 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+#[derive(Deserialize, Serialize, Debug)]
+pub struct CallInfo {
+    pub args: Args,
+    pub source_map: SourceMap,
+    pub name_span: Option<Span>,
+}
+
 #[derive(Getters)]
 #[get = "crate"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
     pub env: Arc<Mutex<Environment>>,
-    pub name_span: Option<Span>,
-    pub source_map: SourceMap,
-    pub args: Args,
+    pub call_info: CallInfo,
     pub input: InputStream,
 }
 
 impl CommandArgs {
     pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
-        self.args.nth(pos)
+        self.call_info.args.nth(pos)
     }
 
     pub fn positional_iter(&self) -> impl Iterator<Item = &Spanned<Value>> {
-        self.args.positional_iter()
+        self.call_info.args.positional_iter()
     }
 
     pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
-        self.args.expect_nth(pos)
+        self.call_info.args.expect_nth(pos)
     }
 
     pub fn len(&self) -> usize {
-        self.args.len()
+        self.call_info.args.len()
     }
 
     pub fn get(&self, name: &str) -> Option<&Spanned<Value>> {
-        self.args.get(name)
+        self.call_info.args.get(name)
     }
 
     #[allow(unused)]
     pub fn has(&self, name: &str) -> bool {
-        self.args.has(name)
+        self.call_info.args.has(name)
     }
 }
 
 pub struct SinkCommandArgs {
     pub ctx: Context,
-    pub name_span: Option<Span>,
-    pub source_map: SourceMap,
-    pub args: Args,
+    pub call_info: CallInfo,
     pub input: Vec<Spanned<Value>>,
 }
 

@@ -42,7 +42,7 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
 
 pub fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let out = args.input;
-    let name_span = args.name_span;
+    let name_span = args.call_info.name_span;
     Ok(out
         .values
         .map(

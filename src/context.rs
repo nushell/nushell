@@ -1,4 +1,4 @@
-use crate::commands::command::{Sink, SinkCommandArgs};
+use crate::commands::command::{CallInfo, Sink, SinkCommandArgs};
 use crate::parser::{
     registry::{Args, CommandConfig, CommandRegistry},
     Span,
@@ -88,9 +88,11 @@ impl Context {
     ) -> Result<(), ShellError> {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),
-            name_span,
-            source_map: self.source_map.clone(),
-            args,
+            call_info: CallInfo {
+                name_span,
+                source_map: self.source_map.clone(),
+                args,
+            },
             input,
         };
 
@@ -120,9 +122,11 @@ impl Context {
         let command_args = CommandArgs {
             host: self.host.clone(),
             env: self.env.clone(),
-            name_span,
-            source_map,
-            args,
+            call_info: CallInfo {
+                name_span,
+                source_map,
+                args,
+            },
             input,
         };
 

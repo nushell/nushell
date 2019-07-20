@@ -8,15 +8,15 @@ use crate::parser::Spanned;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
-    if args.args.positional.is_none() {
+    if args.call_info.args.positional.is_none() {
         return Err(ShellError::maybe_labeled_error(
             "Save requires a filepath",
             "needs path",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 
-    let positional = match args.args.positional {
+    let positional = match args.call_info.args.positional {
         None => return Err(ShellError::string("save requires a filepath")),
         Some(p) => p,
     };

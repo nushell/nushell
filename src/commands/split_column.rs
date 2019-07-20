@@ -5,13 +5,13 @@ use log::trace;
 
 pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let positional: Vec<_> = args.positional_iter().cloned().collect();
-    let span = args.name_span;
+    let span = args.call_info.name_span;
 
     if positional.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Split-column needs more information",
             "needs parameter (eg split-column \",\")",
-            args.name_span,
+            args.call_info.name_span,
         ));
     }
 

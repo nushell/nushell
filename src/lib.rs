@@ -24,7 +24,8 @@ mod plugin;
 mod shell;
 mod stream;
 
-pub use crate::commands::command::{ReturnSuccess, ReturnValue};
+pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
+pub use crate::context::SpanSource;
 pub use crate::env::host::BasicHost;
 pub use crate::parser::parse::span::SpannedItem;
 pub use crate::parser::Spanned;
