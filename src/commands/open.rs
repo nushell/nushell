@@ -196,6 +196,17 @@ pub fn parse_as_value(
     name_span: Option<Span>,
 ) -> Result<Spanned<Value>, ShellError> {
     match extension {
+        Some(x) if x == "csv" => {
+            crate::commands::from_csv::from_csv_string_to_value(contents, contents_span)
+                .map(|c| c.spanned(contents_span))
+                .map_err(move |_| {
+                    ShellError::maybe_labeled_error(
+                        "Could not open as CSV",
+                        "could not open as CSV",
+                        name_span,
+                    )
+                })
+        }
         Some(x) if x == "toml" => {
             crate::commands::from_toml::from_toml_string_to_value(contents, contents_span)
                 .map(|c| c.spanned(contents_span))

@@ -146,6 +146,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 ## Filters on text (unstructured data)
 | command | description |
 | ------------- | ------------- |
+| from-csv | Parse text as .csv and create table |
 | from-ini | Parse text as .ini and create table |
 | from-json | Parse text as .json and create table |
 | from-toml | Parse text as .toml and create table |
