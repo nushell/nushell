@@ -13,7 +13,7 @@ fn lines() {
 }
 
 #[test]
-fn open_csv() {
+fn open_can_parse_csv() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
@@ -24,7 +24,7 @@ fn open_csv() {
 }
 
 #[test]
-fn open_toml() {
+fn open_can_parse_toml() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
@@ -35,7 +35,7 @@ fn open_toml() {
 }
 
 #[test]
-fn open_json() {
+fn open_can_parse_json() {
     nu!(output,
         cwd("tests/fixtures/formats"),
         "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it");
@@ -44,7 +44,7 @@ fn open_json() {
 }
 
 #[test]
-fn open_xml() {
+fn open_can_parse_xml() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
@@ -58,7 +58,7 @@ fn open_xml() {
 }
 
 #[test]
-fn open_ini() {
+fn open_can_parse_ini() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
@@ -76,11 +76,28 @@ fn open_error_if_file_not_found() {
         "open i_dont_exist.txt | echo $it"
     );
 
-    assert!(output.contains("File cound not be opened"));
+    assert!(output.contains("File could not be opened"));
 }
 
 #[test]
-fn rm() {
+fn save_can_write_out_csv() {
+    let (playground_path, tests_dir) = h::setup_playground_for("save_test");
+
+    let full_path     = format!("{}/{}", playground_path, tests_dir         );
+    let expected_file = format!("{}/{}", full_path      , "cargo_sample.csv");
+
+    nu!(
+        _output,
+        cwd(&playground_path),
+        "open ../formats/cargo_sample.toml | inc package.version --minor | get package | save save_test/cargo_sample.csv"
+    );
+
+    let actual = h::file_contents(&expected_file);
+    assert!(actual.contains("[list list],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
+}
+
+#[test]
+fn rm_can_remove_a_file() {
     let directory = "tests/fixtures/nuplayground";
     let file = format!("{}/rm_test.txt", directory);
 
@@ -92,16 +109,11 @@ fn rm() {
 }
 
 #[test]
-fn can_remove_directory_contents_with_recursive_flag() {
-    let path = "tests/fixtures/nuplayground/rm_test";
-
-    if h::file_exists_at(&path) {
-        h::delete_directory_at(path)
-    }
-    h::create_directory_at(path);
+fn rm_can_remove_directory_contents_with_recursive_flag() {
+    let (playground_path, tests_dir) = h::setup_playground_for("rm_test");
 
     for f in ["yehuda.txt", "jonathan.txt", "andres.txt"].iter() {
-        h::create_file_at(&format!("{}/{}", path, f));
+        h::create_file_at(&format!("{}/{}/{}", playground_path, tests_dir, f));
     }
 
     nu!(
@@ -110,23 +122,19 @@ fn can_remove_directory_contents_with_recursive_flag() {
         "rm rm_test --recursive"
     );
 
-    assert!(!h::file_exists_at(&path));
+    assert!(!h::file_exists_at(&format!("{}/{}", playground_path, tests_dir)));
 }
 
 #[test]
 fn rm_error_if_attempting_to_delete_a_directory_without_recursive_flag() {
-    let path = "tests/fixtures/nuplayground/rm_test_2";
-
-    if h::file_exists_at(&path) {
-        h::delete_directory_at(path)
-    }
-    h::create_directory_at(path);
+    let (playground_path, tests_dir) = h::setup_playground_for("rm_test_2");
+    let full_path = format!("{}/{}", playground_path, tests_dir);
 
     nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm rm_test_2");
 
-    assert!(h::file_exists_at(&path));
+    assert!(h::file_exists_at(&full_path));
     assert!(output.contains("is a directory"));
-    h::delete_directory_at(path);
+    h::delete_directory_at(&full_path);
 }
 
 #[test]

@@ -6,6 +6,7 @@ pub fn from_csv_string_to_value(
     s: String,
     span: impl Into<Span>,
 ) -> Result<Spanned<Value>, Box<dyn std::error::Error>> {
+
     let mut reader = ReaderBuilder::new()
         .has_headers(false)
         .from_reader(s.as_bytes());
