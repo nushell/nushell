@@ -84,7 +84,9 @@ fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
                                 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
                                 // Load these once at the start of your program
-                                let ps = SyntaxSet::load_defaults_newlines();
+                                let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
+                                    "../../assets/syntaxes.bin"
+                                ));
 
                                 if let Some(syntax) =
                                     ps.find_syntax_by_extension(extension.to_str().unwrap())
