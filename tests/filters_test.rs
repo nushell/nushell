@@ -2,6 +2,16 @@ mod helpers;
 
 use helpers::in_directory as cwd;
 
+
+#[test]
+fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
+    nu!(output,
+        cwd("tests/fixtures/formats"),
+        "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it");
+
+    assert_eq!(output, "SPAIN");
+}
+
 #[test]
 fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
     nu!(output,

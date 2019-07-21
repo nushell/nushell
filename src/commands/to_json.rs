@@ -1,5 +1,6 @@
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
+use log::trace;
 
 pub fn value_to_json_value(v: &Value) -> serde_json::Value {
     match v {

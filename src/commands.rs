@@ -34,6 +34,7 @@ crate mod split_row;
 crate mod sysinfo;
 crate mod table;
 crate mod to_array;
+crate mod to_csv;
 crate mod to_json;
 crate mod to_toml;
 crate mod to_yaml;

@@ -2,6 +2,8 @@
 
 pub use std::path::PathBuf;
 
+use std::io::Read;
+
 #[macro_export]
 macro_rules! nu {
     ($out:ident, $cwd:expr, $commands:expr) => {
@@ -75,6 +77,26 @@ macro_rules! nu_error {
             .expect("couldn't read from stderr");
         let $out = String::from_utf8_lossy(&output.stderr);
     };
+}
+
+pub fn setup_playground_for(topic: &str) -> (String, String) {
+    let home = "tests/fixtures/nuplayground";
+    let full_path = format!("{}/{}", home, topic);
+
+    if file_exists_at(&full_path) {
+        delete_directory_at(&full_path);
+    }
+
+    create_directory_at(&full_path);
+
+    (home.to_string(), topic.to_string())
+}
+
+pub fn file_contents(full_path: &str) -> String {
+  let mut file = std::fs::File::open(full_path).expect("can not open file");
+  let mut contents = String::new();
+  file.read_to_string(&mut contents).expect("can not read file");
+  contents
 }
 
 pub fn create_file_at(full_path: &str) {

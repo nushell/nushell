@@ -172,6 +172,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("reject", Box::new(reject::reject)),
             command("trim", Box::new(trim::trim)),
             command("to-array", Box::new(to_array::to_array)),
+            command("to-csv", Box::new(to_csv::to_csv)),
             command("to-json", Box::new(to_json::to_json)),
             command("to-toml", Box::new(to_toml::to_toml)),
             command("to-yaml", Box::new(to_yaml::to_yaml)),

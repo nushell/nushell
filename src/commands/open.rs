@@ -189,7 +189,7 @@ pub fn fetch(
             },
             Err(_) => {
                 return Err(ShellError::labeled_error(
-                    "File cound not be opened",
+                    "File could not be opened",
                     "file not found",
                     span,
                 ));
