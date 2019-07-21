@@ -1,6 +1,7 @@
 use crate::format::RenderView;
 use crate::object::Value;
 use crate::prelude::*;
+use ansi_term::Color;
 use derive_new::new;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 
@@ -38,16 +39,22 @@ impl TableView {
 
         let mut entries = vec![];
 
-        for value in values {
-            let row = headers
+        for (idx, value) in values.iter().enumerate() {
+            let mut row: Vec<String> = headers
                 .iter()
                 .enumerate()
                 .map(|(i, d)| value.get_data(d).borrow().format_leaf(Some(&headers[i])))
                 .collect();
 
+            if values.len() > 1 {
+                row.insert(0, format!("{}", Color::Black.bold().paint(idx.to_string())));
+            }
             entries.push(row);
         }
 
+        if values.len() > 1 {
+            headers.insert(0, format!("#"));
+        }
         Some(TableView { headers, entries })
     }
 }
