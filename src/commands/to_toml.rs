@@ -36,36 +36,17 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     Ok(out
         .values
-        .map(move |a| {
-            match toml::to_string(&value_to_toml_value(&a)) {
-                Ok(val) => {
-                    return ReturnSuccess::value(
-                        Value::Primitive(Primitive::String(val)).spanned(name_span),
-                    )
-                }
-
-                Err(err) => Err(ShellError::type_error(
-                    "serializable to toml",
-                    format!("{:?} - {:?}", a.type_name(), err).spanned(name_span),
-                )), // toml::Value::String(String) => {
-                    //     return ReturnSuccess::value(
-                    //         Value::Primitive(Primitive::String(x)).spanned(name_span),
-                    //     )
-                    // }
-                    // toml::Value::Integer(i64) => "Integer",
-                    // toml::Value::Float(f64) => "Decimal",
-                    // toml::Value::Boolean(bool) => "Boolean",
-                    // toml::Value::Datetime(Datetime) => "Date",
-                    // toml::Value::Array(Array) => "Array",
-                    // toml::Value::Table(Table) => "Table",
+        .map(move |a| match toml::to_string(&value_to_toml_value(&a)) {
+            Ok(val) => {
+                return ReturnSuccess::value(
+                    Value::Primitive(Primitive::String(val)).spanned(name_span),
+                )
             }
-            // return Err(ShellError::type_error("String", ty.spanned(name_span)));
 
-            // Err(_) => Err(ShellError::maybe_labeled_error(
-            //     "Can not convert to TOML string",
-            //     "can not convert piped data to TOML string",
-            //     name_span,
-            // )),
+            Err(err) => Err(ShellError::type_error(
+                "Can not convert to a TOML string",
+                format!("{:?} - {:?}", a.type_name(), err).spanned(name_span),
+            )),
         })
         .to_output_stream())
 }
