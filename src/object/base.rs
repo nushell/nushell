@@ -362,6 +362,56 @@ impl Value {
         })
     }
 
+    pub fn insert_data_at_path(
+        &'a self,
+        span: Span,
+        path: &str,
+        new_value: Value,
+    ) -> Option<Spanned<Value>> {
+        let mut new_obj = self.clone();
+
+        let split_path: Vec<_> = path.split(".").collect();
+
+        if let Value::Object(ref mut o) = new_obj {
+            let mut current = o;
+            for idx in 0..split_path.len() - 1 {
+                match current.entries.get_mut(split_path[idx]) {
+                    Some(next) => {
+                        if idx == (split_path.len() - 2) {
+                            match &mut next.item {
+                                Value::Object(o) => {
+                                    o.entries.insert(
+                                        split_path[idx + 1].to_string(),
+                                        Spanned {
+                                            item: new_value,
+                                            span,
+                                        },
+                                    );
+                                }
+                                _ => {}
+                            }
+
+                            return Some(Spanned {
+                                item: new_obj,
+                                span,
+                            });
+                        } else {
+                            match next.item {
+                                Value::Object(ref mut o) => {
+                                    current = o;
+                                }
+                                _ => return None,
+                            }
+                        }
+                    }
+                    _ => return None,
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn replace_data_at_path(
         &'a self,
         span: Span,
