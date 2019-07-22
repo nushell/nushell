@@ -1,12 +1,8 @@
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
-use log::debug;
 use csv::WriterBuilder;
 
 pub fn value_to_csv_value(v: &Value) -> Value {
-
-    debug!("value_to_csv_value(Value::Object(v)) where v = {:?}", v);
-
     match v {
         Value::Primitive(Primitive::String(s)) => Value::Primitive(Primitive::String(s.clone())),
         Value::Primitive(Primitive::Nothing) => Value::Primitive(Primitive::Nothing),
@@ -21,9 +17,6 @@ pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
     match v {
         Value::List(_l) => return Ok(String::from("[list list]")),
         Value::Object(o) => {
-
-            debug!("to_csv:to_string(Value::Object(v)) where v = {:?}", v);
-
             let mut wtr = WriterBuilder::new().from_writer(vec![]);
             let mut fields: VecDeque<String> = VecDeque::new();
             let mut values: VecDeque<String> = VecDeque::new();

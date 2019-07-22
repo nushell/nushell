@@ -7,7 +7,8 @@ use helpers::in_directory as cwd;
 fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it");
+        "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
+    );
 
     assert_eq!(output, "SPAIN");
 }
@@ -16,7 +17,8 @@ fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
 fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open sgml_description.json | to-json | from-json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it");
+        "open sgml_description.json | to-json | from-json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it"
+    );
 
     assert_eq!(output, "markup");
 }
@@ -47,7 +49,8 @@ fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
 fn can_sort_by_column() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml --raw | lines | skip 1 | first 4 | split-column \"=\" | sort-by Column1 | skip 1 | first 1 | get Column1 | trim | echo $it");
+        "open cargo_sample.toml --raw | lines | skip 1 | first 4 | split-column \"=\" | sort-by Column1 | skip 1 | first 1 | get Column1 | trim | echo $it"
+    );
 
     assert_eq!(output, "description");
 }
@@ -56,7 +59,8 @@ fn can_sort_by_column() {
 fn can_split_by_column() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml --raw | lines | skip 1 | first 1 | split-column \"=\" | get Column1 | trim | echo $it");
+        "open cargo_sample.toml --raw | lines | skip 1 | first 1 | split-column \"=\" | get Column1 | trim | echo $it"
+    );
 
     assert_eq!(output, "name");
 }
