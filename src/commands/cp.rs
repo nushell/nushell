@@ -32,20 +32,18 @@ impl Command for Copycp {
 }
 
 pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut source      = args.env.lock().unwrap().path().to_path_buf();
+    let mut source = args.env.lock().unwrap().path().to_path_buf();
     let mut destination = args.env.lock().unwrap().path().to_path_buf();
 
-    let mut src = String::new();
     let mut dst = String::new();
 
     match args
         .nth(0)
         .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
         .as_string()?
-        .as_str() {
-            
-          file => {
-            src.push_str(file);
+        .as_str()
+    {
+        file => {
             source.push(file);
         }
     }
@@ -54,12 +52,12 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .nth(1)
         .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
         .as_string()?
-        .as_str() {
-
-          file => {
+        .as_str()
+    {
+        file => {
             dst.push_str(file);
             destination.push(file);
-        }    
+        }
     }
 
     if destination.is_dir() {
@@ -68,13 +66,15 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let file_name = file_name.to_str().expect("");
             destination.push(Path::new(file_name));
         } else if source.is_dir() {
-            return Err(ShellError::string(
-                         &format!("{:?} is a directory (not copied)", src))
-                      );
+            return Err(ShellError::string(&format!(
+                "{:?} is a directory (not copied)",
+                source.to_string_lossy()
+            )));
         }
     }
 
-    std::fs::copy(source, destination).expect("can not copy file");
-
-    Ok(OutputStream::empty())
+    match std::fs::copy(source, destination) {
+        Err(_error) => Err(ShellError::string("can not copy file")),
+        Ok(_) => Ok(OutputStream::empty()),
+    }
 }
