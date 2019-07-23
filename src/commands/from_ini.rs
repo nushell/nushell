@@ -37,9 +37,11 @@ pub fn from_ini_string_to_value(
     Ok(convert_ini_top_to_nu_value(&v, span))
 }
 
-pub fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
     let out = args.input;
-    let span = args.call_info.name_span;
+
     Ok(out
         .values
         .map(move |a| match a.item {

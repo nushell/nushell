@@ -1,3 +1,4 @@
+use crate::commands::EvaluatedStaticCommandArgs;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
@@ -7,8 +8,13 @@ use indexmap::IndexMap;
 pub struct Remove;
 
 impl Command for Remove {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        rm(args)
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        let env = args.env.clone();
+        rm(args.evaluate_once(registry)?, env)
     }
 
     fn name(&self) -> &str {
@@ -30,8 +36,11 @@ impl Command for Remove {
     }
 }
 
-pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut full_path = args.env.lock().unwrap().path().to_path_buf();
+pub fn rm(
+    args: EvaluatedStaticCommandArgs,
+    env: Arc<Mutex<Environment>>,
+) -> Result<OutputStream, ShellError> {
+    let mut full_path = env.lock().unwrap().path().to_path_buf();
 
     match args
         .nth(0)
@@ -48,7 +57,7 @@ pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
             return Err(ShellError::labeled_error(
                 "is a directory",
                 "",
-                args.call_info.name_span.unwrap(),
+                args.name_span().unwrap(),
             ));
         }
         std::fs::remove_dir_all(&full_path).expect("can not remove directory");

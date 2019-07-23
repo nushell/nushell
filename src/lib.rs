@@ -23,6 +23,7 @@ mod parser;
 mod plugin;
 mod shell;
 mod stream;
+mod traits;
 
 pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
 pub use crate::context::SpanSource;
@@ -34,4 +35,4 @@ pub use cli::cli;
 pub use errors::ShellError;
 pub use object::base::{Primitive, Value};
 pub use parser::parse::text::Text;
-pub use parser::registry::{Args, CommandConfig, NamedType, PositionalType};
+pub use parser::registry::{CommandConfig, EvaluatedArgs, NamedType, PositionalType};

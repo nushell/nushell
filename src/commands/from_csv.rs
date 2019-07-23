@@ -6,7 +6,6 @@ pub fn from_csv_string_to_value(
     s: String,
     span: impl Into<Span>,
 ) -> Result<Spanned<Value>, Box<dyn std::error::Error>> {
-
     let mut reader = ReaderBuilder::new()
         .has_headers(false)
         .from_reader(s.as_bytes());
@@ -49,9 +48,10 @@ pub fn from_csv_string_to_value(
     })
 }
 
-pub fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
     let out = args.input;
-    let span = args.call_info.name_span;
 
     Ok(out
         .values

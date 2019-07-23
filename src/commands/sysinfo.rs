@@ -6,8 +6,8 @@ use crate::prelude::*;
 use sys_info::*;
 use sysinfo::{ComponentExt, DiskExt, NetworkExt, RefreshKind, SystemExt};
 
-pub fn sysinfo(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let name_span = args.call_info.name_span;
+pub fn sysinfo(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let name_span = args.name_span();
     let mut idx = SpannedDictBuilder::new(name_span);
 
     if let (Ok(name), Ok(version)) = (os_type(), os_release()) {

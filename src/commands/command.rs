@@ -1,20 +1,62 @@
-use crate::context::SourceMap;
-use crate::context::SpanSource;
+use crate::context::{SourceMap, SpanSource};
 use crate::errors::ShellError;
+use crate::evaluate::Scope;
 use crate::object::Value;
-use crate::parser::{
-    registry::{self, Args},
-    Span, Spanned,
-};
+use crate::parser::hir;
+use crate::parser::{registry, Span, Spanned};
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::ops::Deref;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct UnevaluatedCallInfo {
+    pub args: hir::Call,
+    pub source: Text,
+    pub source_map: SourceMap,
+    pub name_span: Option<Span>,
+}
+
+impl ToDebug for UnevaluatedCallInfo {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+        self.args.fmt_debug(f, source)
+    }
+}
+
+impl UnevaluatedCallInfo {
+    fn name(&self) -> Result<&str, ShellError> {
+        let head = &self.args.head();
+        match head.item() {
+            hir::RawExpression::Literal(hir::Literal::Bare) => Ok(head.span.slice(&self.source)),
+            hir::RawExpression::Literal(hir::Literal::String(span)) => Ok(span.slice(&self.source)),
+            other => Err(ShellError::type_error(
+                "Command name",
+                head.type_name().spanned(head.span),
+            )),
+        }
+    }
+
+    fn evaluate(
+        self,
+        registry: &registry::CommandRegistry,
+        scope: &Scope,
+    ) -> Result<CallInfo, ShellError> {
+        let args = self.args.evaluate(registry, scope, &self.source)?;
+
+        Ok(CallInfo {
+            args,
+            source_map: self.source_map,
+            name_span: self.name_span,
+        })
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CallInfo {
-    pub args: Args,
+    pub args: registry::EvaluatedArgs,
     pub source_map: SourceMap,
     pub name_span: Option<Span>,
 }
@@ -22,13 +64,137 @@ pub struct CallInfo {
 #[derive(Getters)]
 #[get = "crate"]
 pub struct CommandArgs {
-    pub host: Arc<Mutex<dyn Host + Send>>,
+    pub host: Arc<Mutex<dyn Host>>,
     pub env: Arc<Mutex<Environment>>,
-    pub call_info: CallInfo,
+    pub call_info: UnevaluatedCallInfo,
     pub input: InputStream,
 }
 
+impl ToDebug for CommandArgs {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+        self.call_info.fmt_debug(f, source)
+    }
+}
+
 impl CommandArgs {
+    pub fn evaluate_once(
+        self,
+        registry: &registry::CommandRegistry,
+    ) -> Result<EvaluatedStaticCommandArgs, ShellError> {
+        let host = self.host.clone();
+        let env = self.env.clone();
+        let input = self.input;
+        let call_info = self.call_info.evaluate(registry, &Scope::empty())?;
+
+        Ok(EvaluatedStaticCommandArgs::new(host, env, call_info, input))
+    }
+
+    pub fn name_span(&self) -> Option<Span> {
+        self.call_info.name_span
+    }
+}
+
+pub enum EvaluatedInput {
+    Static(InputStream),
+    Filter(Spanned<Value>),
+}
+
+impl EvaluatedInput {
+    pub fn stream(self) -> InputStream {
+        match self {
+            EvaluatedInput::Static(stream) => stream,
+            EvaluatedInput::Filter(value) => vec![value].into(),
+        }
+    }
+}
+
+pub struct EvaluatedStaticCommandArgs {
+    pub args: EvaluatedCommandArgs,
+    pub input: InputStream,
+}
+
+impl Deref for EvaluatedStaticCommandArgs {
+    type Target = EvaluatedCommandArgs;
+    fn deref(&self) -> &Self::Target {
+        &self.args
+    }
+}
+
+impl EvaluatedStaticCommandArgs {
+    pub fn new(
+        host: Arc<Mutex<dyn Host>>,
+        env: Arc<Mutex<Environment>>,
+        call_info: CallInfo,
+        input: impl Into<InputStream>,
+    ) -> EvaluatedStaticCommandArgs {
+        EvaluatedStaticCommandArgs {
+            args: EvaluatedCommandArgs {
+                host,
+                env,
+                call_info,
+            },
+            input: input.into(),
+        }
+    }
+
+    pub fn name_span(&self) -> Option<Span> {
+        self.args.call_info.name_span
+    }
+
+    pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
+        let EvaluatedStaticCommandArgs { args, input } = self;
+
+        (input, args.call_info.args)
+    }
+}
+
+#[derive(Getters)]
+#[get = "pub"]
+pub struct EvaluatedFilterCommandArgs {
+    args: EvaluatedCommandArgs,
+    input: Spanned<Value>,
+}
+
+impl Deref for EvaluatedFilterCommandArgs {
+    type Target = EvaluatedCommandArgs;
+    fn deref(&self) -> &Self::Target {
+        &self.args
+    }
+}
+
+impl EvaluatedFilterCommandArgs {
+    pub fn new(
+        host: Arc<Mutex<dyn Host>>,
+        env: Arc<Mutex<Environment>>,
+        call_info: CallInfo,
+        input: Spanned<Value>,
+    ) -> EvaluatedFilterCommandArgs {
+        EvaluatedFilterCommandArgs {
+            args: EvaluatedCommandArgs {
+                host,
+                env,
+                call_info,
+            },
+            input,
+        }
+    }
+}
+
+#[derive(Getters)]
+#[get = "crate"]
+pub struct EvaluatedCommandArgs {
+    pub host: Arc<Mutex<dyn Host>>,
+    pub env: Arc<Mutex<Environment>>,
+    pub call_info: CallInfo,
+}
+
+impl EvaluatedCommandArgs {
+    pub fn parts(self) -> () {}
+
+    pub fn call_args(&self) -> &registry::EvaluatedArgs {
+        &self.call_info.args
+    }
+
     pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
         self.call_info.args.nth(pos)
     }
@@ -59,6 +225,12 @@ pub struct SinkCommandArgs {
     pub ctx: Context,
     pub call_info: CallInfo,
     pub input: Vec<Spanned<Value>>,
+}
+
+impl SinkCommandArgs {
+    pub fn name_span(&self) -> Option<Span> {
+        self.call_info.name_span
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -100,8 +272,12 @@ impl ReturnSuccess {
     }
 }
 
-pub trait Command {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError>;
+pub trait Command: Send + Sync {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError>;
     fn name(&self) -> &str;
 
     fn config(&self) -> registry::CommandConfig {
@@ -132,14 +308,74 @@ pub trait Sink {
     }
 }
 
-pub struct FnCommand {
+pub struct FnFilterCommand {
     name: String,
-    func: Box<dyn Fn(CommandArgs) -> Result<OutputStream, ShellError>>,
+    func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
 }
 
-impl Command for FnCommand {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        (self.func)(args)
+impl Command for FnFilterCommand {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        let CommandArgs {
+            host,
+            env,
+            call_info,
+            input,
+        } = args;
+
+        let host: Arc<Mutex<dyn Host>> = host.clone();
+        let env: Arc<Mutex<Environment>> = env.clone();
+        let registry: registry::CommandRegistry = registry.clone();
+        let func = self.func;
+
+        let result = input.values.map(move |it| {
+            let registry = registry.clone();
+            let call_info = match call_info
+                .clone()
+                .evaluate(&registry, &Scope::it_value(it.clone()))
+            {
+                Err(err) => return OutputStream::from(vec![Err(err)]).values,
+                Ok(args) => args,
+            };
+
+            let args = EvaluatedFilterCommandArgs::new(host.clone(), env.clone(), call_info, it);
+
+            match func(args) {
+                Err(err) => return OutputStream::from(vec![Err(err)]).values,
+                Ok(stream) => stream.values,
+            }
+        });
+
+        let result = result.flatten();
+        let result: BoxStream<ReturnValue> = result.boxed();
+
+        Ok(result.into())
+    }
+}
+
+pub struct FnRawCommand {
+    name: String,
+    func: Box<
+        dyn Fn(CommandArgs, &registry::CommandRegistry) -> Result<OutputStream, ShellError>
+            + Send
+            + Sync,
+    >,
+}
+
+impl Command for FnRawCommand {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        (self.func)(args, registry)
     }
 
     fn name(&self) -> &str {
@@ -149,9 +385,23 @@ impl Command for FnCommand {
 
 pub fn command(
     name: &str,
-    func: Box<dyn Fn(CommandArgs) -> Result<OutputStream, ShellError>>,
+    func: Box<
+        dyn Fn(CommandArgs, &registry::CommandRegistry) -> Result<OutputStream, ShellError>
+            + Send
+            + Sync,
+    >,
 ) -> Arc<dyn Command> {
-    Arc::new(FnCommand {
+    Arc::new(FnRawCommand {
+        name: name.to_string(),
+        func,
+    })
+}
+
+pub fn filter(
+    name: &str,
+    func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
+) -> Arc<dyn Command> {
+    Arc::new(FnFilterCommand {
         name: name.to_string(),
         func,
     })

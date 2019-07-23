@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
@@ -12,6 +13,12 @@ use uuid::Uuid;
 pub struct Spanned<T> {
     pub span: Span,
     pub item: T,
+}
+
+impl<T> HasSpan for Spanned<T> {
+    fn span(&self) -> Span {
+        self.span
+    }
 }
 
 impl<T> Spanned<T> {

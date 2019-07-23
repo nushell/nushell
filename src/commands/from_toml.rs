@@ -41,9 +41,14 @@ pub fn from_toml_string_to_value(
     Ok(convert_toml_value_to_nu_value(&v, span))
 }
 
-pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn from_toml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
     let out = args.input;
-    let span = args.call_info.name_span;
+
     Ok(out
         .values
         .map(move |a| match a.item {

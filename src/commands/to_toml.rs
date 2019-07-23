@@ -30,9 +30,10 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
     }
 }
 
-pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let name_span = args.name_span();
     let out = args.input;
-    let name_span = args.call_info.name_span;
 
     Ok(out
         .values

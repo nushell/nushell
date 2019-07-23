@@ -1,6 +1,7 @@
 use crate::commands::command::Sink;
 use crate::context::SourceMap;
-use crate::parser::{registry::Args, Span, Spanned, TokenNode};
+use crate::evaluate::Scope;
+use crate::parser::{hir, Span, Spanned, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -101,7 +102,7 @@ impl ClassifiedCommand {
 crate struct SinkCommand {
     crate command: Arc<dyn Sink>,
     crate name_span: Option<Span>,
-    crate args: Args,
+    crate args: hir::Call,
 }
 
 impl SinkCommand {
@@ -109,8 +110,12 @@ impl SinkCommand {
         self,
         context: &mut Context,
         input: Vec<Spanned<Value>>,
+        source: &Text,
     ) -> Result<(), ShellError> {
-        context.run_sink(self.command, self.name_span.clone(), self.args, input)
+        let args = self
+            .args
+            .evaluate(context.registry(), &Scope::empty(), source)?;
+        context.run_sink(self.command, self.name_span.clone(), args, input)
     }
 }
 
@@ -118,7 +123,7 @@ crate struct InternalCommand {
     crate command: Arc<dyn Command>,
     crate name_span: Option<Span>,
     crate source_map: SourceMap,
-    crate args: Args,
+    crate args: hir::Call,
 }
 
 impl InternalCommand {
@@ -126,11 +131,12 @@ impl InternalCommand {
         self,
         context: &mut Context,
         input: ClassifiedInputStream,
+        source: Text,
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
             trace!(target: "nu::run::internal", "->");
             trace!(target: "nu::run::internal", "{}", self.command.name());
-            trace!(target: "nu::run::internal", "{:?}", self.args.debug());
+            trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
         let objects: InputStream =
@@ -141,6 +147,7 @@ impl InternalCommand {
             self.name_span.clone(),
             self.source_map,
             self.args,
+            source,
             objects,
         )?;
 

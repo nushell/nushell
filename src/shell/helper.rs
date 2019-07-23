@@ -18,7 +18,7 @@ crate struct Helper {
 }
 
 impl Helper {
-    crate fn new(commands: indexmap::IndexMap<String, Arc<dyn Command>>) -> Helper {
+    crate fn new(commands: CommandRegistry) -> Helper {
         Helper {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),

@@ -4,8 +4,10 @@ use crate::parser::Spanned;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
-pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let env = args.env.lock().unwrap();
+pub fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let env = args.env.clone();
+    let env = env.lock().unwrap();
+    let args = args.evaluate_once(registry)?;
     let path = env.path.to_path_buf();
     let mut full_path = PathBuf::from(path);
     match &args.nth(0) {
@@ -30,7 +32,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 return Err(ShellError::maybe_labeled_error(
                     e.to_string(),
                     e.to_string(),
-                    args.call_info.name_span,
+                    args.name_span(),
                 ));
             }
         }
@@ -40,7 +42,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut shell_entries = VecDeque::new();
 
     for entry in entries {
-        let value = dir_entry_dict(&entry?, args.call_info.name_span)?;
+        let value = dir_entry_dict(&entry?, args.name_span())?;
         shell_entries.push_back(ReturnSuccess::value(value))
     }
     Ok(shell_entries.to_output_stream())

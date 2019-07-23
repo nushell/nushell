@@ -38,9 +38,10 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
     }
 }
 
-pub fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let name_span = args.name_span();
     let out = args.input;
-    let name_span = args.call_info.name_span;
     Ok(out
         .values
         .map(

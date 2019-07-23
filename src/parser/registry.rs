@@ -1,3 +1,5 @@
+// TODO: Temporary redirect
+crate use crate::context::CommandRegistry;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode, Spanned};
 use crate::prelude::*;
@@ -80,17 +82,17 @@ pub struct CommandConfig {
 }
 
 #[derive(Debug, Default, new, Serialize, Deserialize)]
-pub struct Args {
+pub struct EvaluatedArgs {
     pub positional: Option<Vec<Spanned<Value>>>,
     pub named: Option<IndexMap<String, Spanned<Value>>>,
 }
 
 #[derive(new)]
-pub struct DebugPositional<'a> {
+pub struct DebugEvaluatedPositional<'a> {
     positional: &'a Option<Vec<Spanned<Value>>>,
 }
 
-impl fmt::Debug for DebugPositional<'a> {
+impl fmt::Debug for DebugEvaluatedPositional<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.positional {
             None => write!(f, "None"),
@@ -103,11 +105,11 @@ impl fmt::Debug for DebugPositional<'a> {
 }
 
 #[derive(new)]
-pub struct DebugNamed<'a> {
+pub struct DebugEvaluatedNamed<'a> {
     named: &'a Option<IndexMap<String, Spanned<Value>>>,
 }
 
-impl fmt::Debug for DebugNamed<'a> {
+impl fmt::Debug for DebugEvaluatedNamed<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.named {
             None => write!(f, "None"),
@@ -119,24 +121,27 @@ impl fmt::Debug for DebugNamed<'a> {
     }
 }
 
-pub struct DebugArgs<'a> {
-    args: &'a Args,
+pub struct DebugEvaluatedArgs<'a> {
+    args: &'a EvaluatedArgs,
 }
 
-impl fmt::Debug for DebugArgs<'a> {
+impl fmt::Debug for DebugEvaluatedArgs<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = f.debug_struct("Args");
 
-        s.field("positional", &DebugPositional::new(&self.args.positional));
-        s.field("named", &DebugNamed::new(&self.args.named));
+        s.field(
+            "positional",
+            &DebugEvaluatedPositional::new(&self.args.positional),
+        );
+        s.field("named", &DebugEvaluatedNamed::new(&self.args.named));
 
         s.finish()
     }
 }
 
-impl Args {
-    pub fn debug(&'a self) -> DebugArgs<'a> {
-        DebugArgs { args: self }
+impl EvaluatedArgs {
+    pub fn debug(&'a self) -> DebugEvaluatedArgs<'a> {
+        DebugEvaluatedArgs { args: self }
     }
 
     pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
@@ -205,92 +210,17 @@ impl Iterator for PositionalIter<'a> {
 }
 
 impl CommandConfig {
-    crate fn evaluate_args(
+    crate fn parse_args(
         &self,
         call: &Spanned<CallNode>,
-        registry: &dyn CommandRegistry,
-        scope: &Scope,
+        registry: &CommandRegistry,
         source: &Text,
-    ) -> Result<Args, ShellError> {
+    ) -> Result<hir::Call, ShellError> {
         let args = parse_command(self, registry, call, source)?;
 
         trace!("parsed args: {:?}", args);
 
-        evaluate_args(args, registry, scope, source)
-
-        // let mut positional: Vec<Spanned<Value>> = vec![];
-        // let mut named: IndexMap<String, Value> = IndexMap::default();
-
-        // let mut args: Vec<TokenNode> = args.cloned().collect();
-
-        // for (key, ty) in self.named.iter() {
-        //     let index = args.iter().position(|a| a.is_flag(&key, source));
-
-        //     match (index, ty) {
-        //         (Some(i), NamedType::Switch) => {
-        //             args.remove(i);
-        //             named.insert(key.clone(), Value::boolean(true));
-        //         }
-
-        //         (None, NamedType::Switch) => {}
-
-        //         (Some(i), NamedType::Optional(v)) => {
-        //             args.remove(i);
-        //             named.insert(key.clone(), extract_named(&mut args, i, v)?);
-        //         }
-
-        //         (None, NamedType::Optional(_)) => {}
-
-        //         (Some(i), NamedType::Mandatory(v)) => {
-        //             args.remove(i);
-        //             named.insert(key.clone(), extract_named(&mut args, i, v)?);
-        //         }
-
-        //         (None, NamedType::Mandatory(_)) => {
-        //             return Err(ShellError::string(&format!(
-        //                 "Expected mandatory argument {}, but it was missing",
-        //                 key
-        //             )))
-        //         }
-        //     }
-        // }
-
-        // let mut args = args.into_iter();
-
-        // for param in &self.mandatory_positional {
-        //     let arg = args.next();
-
-        //     let value = match arg {
-        //         None => {
-        //             return Err(ShellError::string(format!(
-        //                 "expected mandatory positional argument {}",
-        //                 param.name()
-        //             )))
-        //         }
-
-        //         Some(arg) => param.evaluate(arg.clone(), scope, source)?,
-        //     };
-
-        //     positional.push(value);
-        // }
-
-        // if self.rest_positional {
-        //     let rest: Result<Vec<Spanned<Value>>, _> = args
-        //         .map(|i| evaluate_baseline_expr(&i, &Scope::empty(), source))
-        //         .collect();
-        //     positional.extend(rest?);
-        // } else {
-        //     let rest: Vec<TokenNode> = args.collect();
-
-        //     if rest.len() > 0 {
-        //         return Err(ShellError::string(&format!(
-        //             "Too many arguments, extras: {:?}",
-        //             rest
-        //         )));
-        //     }
-        // }
-
-        // Ok(Args { positional, named })
+        Ok(args)
     }
 
     #[allow(unused)]
@@ -299,25 +229,25 @@ impl CommandConfig {
     }
 }
 
-fn evaluate_args(
-    args: hir::Call,
-    registry: &dyn CommandRegistry,
+crate fn evaluate_args(
+    call: &hir::Call,
+    registry: &CommandRegistry,
     scope: &Scope,
     source: &Text,
-) -> Result<Args, ShellError> {
-    let positional: Result<Option<Vec<_>>, _> = args
+) -> Result<EvaluatedArgs, ShellError> {
+    let positional: Result<Option<Vec<_>>, _> = call
         .positional()
         .as_ref()
         .map(|p| {
             p.iter()
-                .map(|e| evaluate_baseline_expr(e, &(), scope, source))
+                .map(|e| evaluate_baseline_expr(e, &CommandRegistry::empty(), scope, source))
                 .collect()
         })
         .transpose();
 
     let positional = positional?;
 
-    let named: Result<Option<IndexMap<String, Spanned<Value>>>, ShellError> = args
+    let named: Result<Option<IndexMap<String, Spanned<Value>>>, ShellError> = call
         .named()
         .as_ref()
         .map(|n| {
@@ -348,15 +278,5 @@ fn evaluate_args(
 
     let named = named?;
 
-    Ok(Args::new(positional, named))
-}
-
-pub trait CommandRegistry {
-    fn get(&self, name: &str) -> Option<CommandConfig>;
-}
-
-impl CommandRegistry for () {
-    fn get(&self, _name: &str) -> Option<CommandConfig> {
-        None
-    }
+    Ok(EvaluatedArgs::new(positional, named))
 }

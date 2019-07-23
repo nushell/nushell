@@ -6,8 +6,12 @@ use crate::prelude::*;
 pub struct SkipWhile;
 
 impl Command for SkipWhile {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        skip_while(args)
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        skip_while(args, registry)
     }
     fn name(&self) -> &str {
         "skip-while"
@@ -25,17 +29,23 @@ impl Command for SkipWhile {
     }
 }
 
-pub fn skip_while(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
+pub fn skip_while(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let block = args.expect_nth(0)?.as_block()?;
+    let span = args.name_span();
+    let len = args.len();
+    let input = args.input;
+
+    if len == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Where requires a condition",
             "needs condition",
-            args.call_info.name_span,
+            span,
         ));
     }
-
-    let block = args.nth(0).unwrap().as_block()?;
-    let input = args.input;
 
     let objects = input.values.skip_while(move |item| {
         let result = block.invoke(&item);

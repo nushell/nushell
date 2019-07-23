@@ -1,7 +1,7 @@
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn to_array(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn to_array(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let out = args.input.values.collect();
 
     Ok(out

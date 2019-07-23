@@ -3,19 +3,23 @@ use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
-pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let positional: Vec<_> = args.positional_iter().cloned().collect();
-    let span = args.call_info.name_span;
+pub fn split_column(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
+    let (input, args) = args.parts();
+
+    let positional: Vec<_> = args.positional.iter().flatten().cloned().collect();
 
     if positional.len() == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Split-column needs more information",
             "needs parameter (eg split-column \",\")",
-            args.call_info.name_span,
+            span,
         ));
     }
-
-    let input = args.input;
 
     Ok(input
         .values

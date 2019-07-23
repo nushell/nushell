@@ -1,3 +1,4 @@
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -200,5 +201,23 @@ where
 {
     fn partial_cmp(&self, other: &&T) -> Option<Ordering> {
         self.partial_cmp(*other)
+    }
+}
+
+impl Serialize for Text {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_ref().serialize(serializer)
+    }
+}
+
+impl Deserialize<'de> for Text {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Text::from(String::deserialize(deserializer)?))
     }
 }

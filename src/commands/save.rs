@@ -13,7 +13,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
         return Err(ShellError::maybe_labeled_error(
             "Save requires a filepath",
             "needs path",
-            args.call_info.name_span,
+            args.name_span(),
         ));
     }
 

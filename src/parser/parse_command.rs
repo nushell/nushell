@@ -10,7 +10,7 @@ use log::trace;
 
 pub fn parse_command(
     config: &CommandConfig,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     call: &Spanned<CallNode>,
     source: &Text,
 ) -> Result<hir::Call, ShellError> {
@@ -63,7 +63,7 @@ fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
 
 fn parse_command_tail(
     config: &CommandConfig,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     tail: Option<Vec<TokenNode>>,
     source: &Text,
     command_span: Span,

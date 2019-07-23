@@ -9,13 +9,11 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::context::Context;
 crate use crate::errors::ShellError;
-use crate::evaluate::Scope;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::parse::span::Spanned;
-use crate::parser::registry;
 use crate::parser::registry::CommandConfig;
-use crate::parser::{Pipeline, PipelineElement, TokenNode};
+use crate::parser::{hir, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
 
 use log::{debug, trace};
@@ -150,22 +148,22 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
+            command("first", Box::new(first::first)),
+            command("pick", Box::new(pick::pick)),
+            command("from-ini", Box::new(from_ini::from_ini)),
+            command("from-csv", Box::new(from_csv::from_csv)),
+            command("from-json", Box::new(from_json::from_json)),
+            command("from-toml", Box::new(from_toml::from_toml)),
+            command("from-xml", Box::new(from_xml::from_xml)),
             command("ps", Box::new(ps::ps)),
             command("ls", Box::new(ls::ls)),
             command("sysinfo", Box::new(sysinfo::sysinfo)),
             command("cd", Box::new(cd::cd)),
-            command("first", Box::new(first::first)),
             command("size", Box::new(size::size)),
-            command("from-csv", Box::new(from_csv::from_csv)),
-            command("from-ini", Box::new(from_ini::from_ini)),
-            command("from-json", Box::new(from_json::from_json)),
-            command("from-toml", Box::new(from_toml::from_toml)),
-            command("from-xml", Box::new(from_xml::from_xml)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
             command("get", Box::new(get::get)),
             command("exit", Box::new(exit::exit)),
             command("lines", Box::new(lines::lines)),
-            command("pick", Box::new(pick::pick)),
             command("split-column", Box::new(split_column::split_column)),
             command("split-row", Box::new(split_row::split_row)),
             command("lines", Box::new(lines::lines)),
@@ -348,10 +346,11 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
                     command: sink("autoview", Box::new(autoview::autoview)),
                     name_span: None,
-                    args: registry::Args {
-                        positional: None,
-                        named: None,
-                    },
+                    args: hir::Call::new(
+                        Box::new(hir::Expression::synthetic_string("autoview")),
+                        None,
+                        None,
+                    ),
                 })),
             }
 
@@ -386,7 +385,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
                         let input_vec: Vec<Spanned<Value>> = input.objects.into_vec().await;
-                        if let Err(err) = left.run(ctx, input_vec) {
+                        if let Err(err) = left.run(ctx, input_vec, &Text::from(line)) {
                             return LineResult::Error(line.clone(), err);
                         }
                         break;
@@ -395,20 +394,20 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input).await {
+                    ) => match left.run(ctx, input, Text::from(line)).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input).await {
+                        match left.run(ctx, input, Text::from(line)).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left.run(ctx, input).await {
+                        match left.run(ctx, input, Text::from(line)).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
@@ -487,11 +486,10 @@ fn classify_command(
                 true => {
                     let command = context.get_command(name);
                     let config = command.config();
-                    let scope = Scope::empty();
 
                     trace!(target: "nu::build_pipeline", "classifying {:?}", config);
 
-                    let args = config.evaluate_args(call, context, &scope, source)?;
+                    let args: hir::Call = config.parse_args(call, context.registry(), source)?;
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
@@ -504,9 +502,8 @@ fn classify_command(
                     true => {
                         let command = context.get_sink(name);
                         let config = command.config();
-                        let scope = Scope::empty();
 
-                        let args = config.evaluate_args(call, context, &scope, source)?;
+                        let args = config.parse_args(call, context.registry(), source)?;
 
                         Ok(ClassifiedCommand::Sink(SinkCommand {
                             command,

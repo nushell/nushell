@@ -21,36 +21,37 @@ fn get_member(path: &str, span: Span, obj: &Spanned<Value>) -> Result<Spanned<Va
     Ok(current.clone())
 }
 
-pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
+pub fn get(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
+    let len = args.len();
+
+    if len == 0 {
         return Err(ShellError::maybe_labeled_error(
             "Get requires a field or field path",
             "needs parameter",
-            args.call_info.name_span,
+            span,
         ));
     }
 
     let amount = args.expect_nth(0)?.as_i64();
+    let (input, args) = args.parts();
+    let positional = args.positional;
 
     // If it's a number, get the row instead of the column
     if let Ok(amount) = amount {
-        return Ok(args
-            .input
-            .values
-            .skip(amount as u64)
-            .take(1)
-            .from_input_stream());
+        return Ok(input.values.skip(amount as u64).take(1).from_input_stream());
     }
 
-    let fields: Result<Vec<(String, Span)>, _> = args
-        .positional_iter()
+    let fields: Result<Vec<(String, Span)>, _> = positional
+        .iter()
+        .flatten()
         .map(|a| (a.as_string().map(|x| (x, a.span))))
         .collect();
 
     let fields = fields?;
 
-    let stream = args
-        .input
+    let stream = input
         .values
         .map(move |item| {
             let mut result = VecDeque::new();

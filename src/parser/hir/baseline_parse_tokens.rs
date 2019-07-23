@@ -12,7 +12,7 @@ use serde_derive::{Deserialize, Serialize};
 
 pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<Vec<hir::Expression>, ShellError> {
     let mut exprs: Vec<hir::Expression> = vec![];
@@ -43,7 +43,7 @@ pub enum SyntaxType {
 
 pub fn baseline_parse_next_expr(
     tokens: &mut TokensIterator,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
     syntax_type: SyntaxType,
 ) -> Result<hir::Expression, ShellError> {
@@ -176,7 +176,7 @@ pub fn baseline_parse_next_expr(
 
 pub fn baseline_parse_semantic_token(
     token: &TokenNode,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token {
@@ -197,7 +197,7 @@ pub fn baseline_parse_semantic_token(
 
 pub fn baseline_parse_delimited(
     token: &Spanned<DelimitedNode>,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token.delimiter() {
@@ -216,7 +216,7 @@ pub fn baseline_parse_delimited(
 
 pub fn baseline_parse_path(
     token: &Spanned<PathNode>,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     let head = baseline_parse_semantic_token(token.head(), registry, source)?;

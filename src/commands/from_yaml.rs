@@ -48,9 +48,13 @@ pub fn from_yaml_string_to_value(
     Ok(convert_yaml_value_to_nu_value(&v, span))
 }
 
-pub fn from_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn from_yaml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let span = args.name_span();
     let out = args.input;
-    let span = args.call_info.name_span;
+
     Ok(out
         .values
         .map(move |a| match a.item {

@@ -1,11 +1,20 @@
 use crate::errors::ShellError;
 use crate::prelude::*;
 
-pub fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let fields: Result<Vec<_>, _> = args.positional_iter().map(|a| a.as_string()).collect();
+pub fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let (input, args) = args.parts();
+
+    let fields: Result<Vec<_>, _> = args
+        .positional
+        .iter()
+        .flatten()
+        .map(|a| a.as_string())
+        .collect();
+
     let fields = fields?;
 
-    let output = args.input.values.collect::<Vec<_>>();
+    let output = input.values.collect::<Vec<_>>();
 
     let output = output.map(move |mut vec| {
         vec.sort_by_key(|item| {

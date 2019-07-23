@@ -1,4 +1,6 @@
+use crate::context::CommandRegistry;
 use crate::prelude::*;
+
 use derive_new::new;
 use rustyline::completion::Completer;
 use rustyline::completion::{self, FilenameCompleter};
@@ -7,7 +9,7 @@ use rustyline::line_buffer::LineBuffer;
 #[derive(new)]
 crate struct NuCompleter {
     pub file_completer: FilenameCompleter,
-    pub commands: indexmap::IndexMap<String, Arc<dyn Command>>,
+    pub commands: CommandRegistry,
 }
 
 impl Completer for NuCompleter {
@@ -19,7 +21,7 @@ impl Completer for NuCompleter {
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
-        let commands: Vec<String> = self.commands.keys().cloned().collect();
+        let commands: Vec<String> = self.commands.names();
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;
 

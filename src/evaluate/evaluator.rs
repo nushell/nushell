@@ -9,7 +9,7 @@ use derive_new::new;
 use indexmap::IndexMap;
 
 #[derive(new)]
-crate struct Scope {
+pub struct Scope {
     it: Spanned<Value>,
     #[new(default)]
     vars: IndexMap<String, Spanned<Value>>,
@@ -22,16 +22,26 @@ impl Scope {
             vars: IndexMap::new(),
         }
     }
+
+    crate fn it_value(value: Spanned<Value>) -> Scope {
+        Scope {
+            it: value,
+            vars: IndexMap::new(),
+        }
+    }
 }
 
 crate fn evaluate_baseline_expr(
     expr: &Expression,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     scope: &Scope,
     source: &Text,
 ) -> Result<Spanned<Value>, ShellError> {
     match &expr.item {
         RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
+        RawExpression::Synthetic(hir::Synthetic::String(s)) => {
+            Ok(Value::string(s).spanned_unknown())
+        }
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
         RawExpression::Binary(binary) => {
             let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;

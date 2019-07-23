@@ -1,68 +1,151 @@
 use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Switch, Value};
+use crate::parser::hir::SyntaxType;
 use crate::parser::parse::span::Span;
+use crate::parser::registry::{self, CommandConfig, NamedType, PositionalType};
 use crate::prelude::*;
+use indexmap::IndexMap;
 use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use uuid::Uuid;
 
-command! {
-    Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
-        let span = args.call_info.name_span;
+pub struct Open;
 
-        let cwd = args
-            .env
-            .lock()
-            .unwrap()
-            .path()
-            .to_path_buf();
+impl Command for Open {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        let env = args.env.clone();
+        let args = args.evaluate_once(registry)?;
+        let path = <Spanned<PathBuf>>::extract(args.expect_nth(0)?)?;
+        let raw = args.has("raw");
 
+        let span = args.name_span();
+
+        let cwd = env.lock().unwrap().path().to_path_buf();
         let full_path = PathBuf::from(cwd);
 
-        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".spanned(path.span)))?;
+        let path_str = path.to_str().ok_or(ShellError::type_error(
+            "Path",
+            "invalid path".spanned(path.span),
+        ))?;
 
-        let (file_extension, contents, contents_span, span_source) = fetch(&full_path, path_str, path.span)?;
+        let (file_extension, contents, contents_span, span_source) =
+            fetch(&full_path, path_str, path.span)?;
 
-        let file_extension = if raw.is_present() {
-            None
-        } else {
-            file_extension
-        };
+        let file_extension = if raw { None } else { file_extension };
 
         let mut stream = VecDeque::new();
 
         if let Some(uuid) = contents_span.source {
             // If we have loaded something, track its source
-            stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(uuid, span_source)))
+            stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(
+                uuid,
+                span_source,
+            )))
         }
 
         match contents {
             Value::Primitive(Primitive::String(string)) => {
-                let value = parse_as_value(
-                    file_extension,
-                    string,
-                    contents_span,
-                    span,
-                )?;
+                let value = parse_as_value(file_extension, string, contents_span, span)?;
 
                 match value {
-                    Spanned { item: Value::List(list), .. } => {
+                    Spanned {
+                        item: Value::List(list),
+                        ..
+                    } => {
                         for elem in list {
                             stream.push_back(ReturnSuccess::value(elem));
                         }
                     }
-                    x => stream.push_back(ReturnSuccess::value(x))
+                    x => stream.push_back(ReturnSuccess::value(x)),
                 }
-            },
+            }
 
             other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
         };
 
-        stream
+        Ok(stream.boxed().to_output_stream())
+    }
+
+    fn name(&self) -> &str {
+        "open"
+    }
+
+    fn config(&self) -> CommandConfig {
+        let mut named = IndexMap::default();
+        named.insert("raw".to_string(), NamedType::Switch);
+
+        CommandConfig {
+            name: self.name().to_string(),
+            positional: vec![PositionalType::mandatory("path", SyntaxType::Block)],
+            rest_positional: false,
+            named,
+            is_sink: true,
+            is_filter: false,
+        }
     }
 }
+
+// command! {
+//     Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
+//         let span = args.name_span();
+//         let env = args.env.clone();
+
+//         let path = env
+//             .lock()
+//             .unwrap()
+//             .path()
+//             .to_path_buf();
+
+//         let full_path = PathBuf::from(cwd);
+
+//         let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".spanned(path.span)))?;
+
+//         let (file_extension, contents, contents_span, span_source) = fetch(&full_path, path_str, path.span)?;
+
+//         let file_extension = if raw.is_present() {
+//             None
+//         } else {
+//             file_extension
+//         };
+
+//         let mut stream = VecDeque::new();
+
+//         if let Some(uuid) = contents_span.source {
+//             // If we have loaded something, track its source
+//             stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(uuid, span_source)))
+//         }
+
+//         match contents {
+//             Value::Primitive(Primitive::String(string)) => {
+//                 let value = parse_as_value(
+//                     file_extension,
+//                     string,
+//                     contents_span,
+//                     span,
+//                 )?;
+
+//                 match value {
+//                     Spanned { item: Value::List(list), .. } => {
+//                         for elem in list {
+//                             stream.push_back(ReturnSuccess::value(elem));
+//                         }
+//                     }
+//                     x => stream.push_back(ReturnSuccess::value(x))
+//                 }
+//             },
+
+//             other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
+//         };
+
+//         stream
+//     }
+// }
 
 pub fn fetch(
     cwd: &PathBuf,

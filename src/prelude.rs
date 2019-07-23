@@ -34,9 +34,10 @@ macro_rules! trace_stream {
 
 crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
-    Command, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, Sink, SinkCommandArgs,
+    Command, CommandAction, CommandArgs, EvaluatedCommandArgs, ReturnSuccess, ReturnValue, Sink,
+    SinkCommandArgs,
 };
-crate use crate::context::Context;
+crate use crate::context::{CommandRegistry, Context};
 crate use crate::env::host::handle_unexpected;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
@@ -44,10 +45,10 @@ crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
 crate use crate::parser::{Span, Spanned, SpannedItem};
 crate use crate::stream::{InputStream, OutputStream};
+crate use crate::traits::{HasSpan, ToDebug};
 crate use crate::Text;
 crate use futures::stream::BoxStream;
-crate use futures::Stream;
-crate use futures::{FutureExt, StreamExt};
+crate use futures::{FutureExt, Stream, StreamExt};
 crate use std::collections::VecDeque;
 crate use std::future::Future;
 crate use std::sync::{Arc, Mutex};

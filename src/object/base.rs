@@ -1,3 +1,4 @@
+use crate::context::CommandRegistry;
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::object::SpannedDictBuilder;
@@ -169,7 +170,12 @@ impl Block {
         let mut last = None;
 
         for expr in self.expressions.iter() {
-            last = Some(evaluate_baseline_expr(&expr, &(), &scope, &self.source)?)
+            last = Some(evaluate_baseline_expr(
+                &expr,
+                &CommandRegistry::empty(),
+                &scope,
+                &self.source,
+            )?)
         }
 
         Ok(last.unwrap())

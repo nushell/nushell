@@ -2,8 +2,10 @@ use crate::errors::ShellError;
 use crate::prelude::*;
 use std::env;
 
-pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let env = args.env.lock().unwrap();
+pub fn cd(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let env = args.env.clone();
+    let env = env.lock().unwrap();
+    let args = args.evaluate_once(registry)?;
     let cwd = env.path().to_path_buf();
 
     let path = match args.nth(0) {
@@ -13,7 +15,7 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 return Err(ShellError::maybe_labeled_error(
                     "Can not change to home directory",
                     "can not go to home",
-                    args.call_info.name_span,
+                    args.name_span(),
                 ))
             }
         },

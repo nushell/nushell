@@ -3,14 +3,14 @@ use crate::object::process::process_dict;
 use crate::prelude::*;
 use sysinfo::{RefreshKind, SystemExt};
 
-pub fn ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn ps(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut system = sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
     system.refresh_processes();
     let list = system.get_process_list();
 
     let list = list
         .into_iter()
-        .map(|(_, process)| process_dict(process, args.call_info.name_span))
+        .map(|(_, process)| process_dict(process, args.name_span()))
         .collect::<VecDeque<_>>();
 
     Ok(list.from_input_stream())

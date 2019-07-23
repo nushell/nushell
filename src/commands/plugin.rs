@@ -41,8 +41,12 @@ pub struct PluginCommand {
 }
 
 impl Command for PluginCommand {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        filter_plugin(self.path.clone(), args)
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        filter_plugin(self.path.clone(), args, registry)
     }
     fn name(&self) -> &str {
         &self.name
@@ -71,7 +75,13 @@ impl Sink for PluginSink {
     }
 }
 
-pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn filter_plugin(
+    path: String,
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -84,7 +94,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
 
         let mut reader = BufReader::new(stdout);
 
-        let request = JsonRpc::new("begin_filter", args.call_info);
+        let request = JsonRpc::new("begin_filter", args.args.call_info);
         let request_raw = serde_json::to_string(&request).unwrap();
         stdin.write(format!("{}\n", request_raw).as_bytes())?;
         let mut input = String::new();

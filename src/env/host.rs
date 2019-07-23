@@ -2,7 +2,7 @@ use crate::prelude::*;
 use language_reporting::termcolor;
 use std::fmt::Debug;
 
-pub trait Host: Debug {
+pub trait Host: Debug + Send {
     fn out_terminal(&self) -> Box<term::StdoutTerminal>;
     fn err_terminal(&self) -> Box<term::StderrTerminal>;
 

@@ -1,4 +1,6 @@
+use crate::prelude::*;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -9,6 +11,12 @@ pub enum Operator {
     GreaterThan,
     LessThanOrEqual,
     GreaterThanOrEqual,
+}
+
+impl ToDebug for Operator {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 impl Operator {

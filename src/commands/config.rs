@@ -1,10 +1,10 @@
 use crate::prelude::*;
 
+use crate::commands::EvaluatedStaticCommandArgs;
 use crate::errors::ShellError;
-use crate::object::config;
-use crate::object::Value;
+use crate::object::{config, Value};
 use crate::parser::hir::SyntaxType;
-use crate::parser::registry::{CommandConfig, NamedType};
+use crate::parser::registry::{self, CommandConfig, NamedType};
 use indexmap::IndexMap;
 use log::trace;
 use std::iter::FromIterator;
@@ -12,9 +12,15 @@ use std::iter::FromIterator;
 pub struct Config;
 
 impl Command for Config {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        let args = args.evaluate_once(registry)?;
         config(args)
     }
+
     fn name(&self) -> &str {
         "config"
     }
@@ -38,11 +44,11 @@ impl Command for Config {
     }
 }
 
-pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut result = crate::object::config::config(args.call_info.name_span)?;
+pub fn config(args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    let mut result = crate::object::config::config(args.name_span())?;
 
-    trace!("{:#?}", args.call_info.args.positional);
-    trace!("{:#?}", args.call_info.args.named);
+    trace!("{:#?}", args.call_args().positional);
+    trace!("{:#?}", args.call_args().named);
 
     if let Some(v) = args.get("get") {
         let key = v.as_string()?;
@@ -95,7 +101,7 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
     }
 
     if args.len() == 0 {
-        return Ok(vec![Value::Object(result.into()).spanned(args.call_info.name_span)].into());
+        return Ok(vec![Value::Object(result.into()).spanned(args.name_span())].into());
     }
 
     Err(ShellError::string(format!("Unimplemented")))
