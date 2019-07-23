@@ -24,7 +24,7 @@ impl Command for Remove {
             positional: vec![PositionalType::mandatory("file", SyntaxType::Path)],
             rest_positional: false,
             named,
-            is_sink: true,
+            is_sink: false,
             is_filter: false,
         }
     }

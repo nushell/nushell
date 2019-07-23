@@ -7,7 +7,8 @@ use helpers as h;
 fn lines() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml --raw | lines | skip-while $it != \"[dependencies]\" | skip 1 | first 1 | split-column \"=\" | get Column1 | trim | echo $it");
+        "open cargo_sample.toml --raw | lines | skip-while $it != \"[dependencies]\" | skip 1 | first 1 | split-column \"=\" | get Column1 | trim | echo $it"
+    );
 
     assert_eq!(output, "rustyline");
 }
@@ -38,7 +39,8 @@ fn open_can_parse_toml() {
 fn open_can_parse_json() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it");
+        "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it"
+    );
 
     assert_eq!(output, "markup")
 }
@@ -94,6 +96,52 @@ fn save_can_write_out_csv() {
 
     let actual = h::file_contents(&expected_file);
     assert!(actual.contains("[list list],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
+}
+
+#[test]
+fn cp_can_copy_a_file() {
+    let (playground_path, tests_dir) =     h::setup_playground_for("cp_test");
+
+    let full_path     = format!("{}/{}", playground_path, tests_dir         );
+    let expected_file = format!("{}/{}", full_path      , "sample.ini"      );
+
+    nu!(
+        _output,
+        cwd(&playground_path),
+        "cp ../formats/sample.ini cp_test/sample.ini"
+    );
+
+    assert!(h::file_exists_at(&expected_file));
+}
+
+#[test]
+fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
+    let (playground_path, tests_dir) =   h::setup_playground_for("cp_test_2");
+
+    let full_path     = format!("{}/{}", playground_path, tests_dir         );
+    let expected_file = format!("{}/{}", full_path      , "sample.ini"      );
+
+    nu!(
+        _output,
+        cwd(&playground_path),
+        "cp ../formats/sample.ini cp_test_2"
+    );
+
+    assert!(h::file_exists_at(&expected_file));
+}
+
+#[test]
+fn cp_error_if_attempting_to_copy_a_directory_to_another_directory() {
+    let (playground_path, _) = h::setup_playground_for("cp_test_3");
+
+    nu_error!(
+        output,
+        cwd(&playground_path),
+        "cp ../formats cp_test_3"
+    );
+
+    assert!(output.contains("../formats"));
+    assert!(output.contains("is a directory (not copied)"));
 }
 
 #[test]

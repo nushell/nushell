@@ -120,6 +120,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | cd path | Change to a new path |
+| cp source path | Copy files |
 | ls (path) | View the contents of the current or given path |
 | ps | View current processes |
 | sysinfo | View information about the current system |
@@ -144,6 +145,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |
 | to-yaml | Convert table into .yaml text |
+| to-csv  | Convert table into .csv text  |
 
 ## Filters on text (unstructured data)
 | command | description |
