@@ -1,9 +1,5 @@
 use crate::commands::command::{CallInfo, Sink, SinkCommandArgs, UnevaluatedCallInfo};
-use crate::parser::{
-    hir,
-    registry::{self, CommandConfig},
-    Span,
-};
+use crate::parser::{hir, registry, Span};
 use crate::prelude::*;
 
 use derive_new::new;
@@ -51,12 +47,6 @@ impl CommandRegistry {
         }
     }
 
-    fn get_config(&self, name: &str) -> Option<CommandConfig> {
-        let registry = self.registry.lock().unwrap();
-
-        registry.get(name).map(|c| c.config())
-    }
-
     fn get_command(&self, name: &str) -> Option<Arc<dyn Command>> {
         let registry = self.registry.lock().unwrap();
 
@@ -75,7 +65,7 @@ impl CommandRegistry {
     }
 
     crate fn names(&self) -> Vec<String> {
-        let mut registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock().unwrap();
         registry.keys().cloned().collect()
     }
 }

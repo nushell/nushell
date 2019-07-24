@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::base as value;
-use crate::object::{types, Value};
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{self, CommandConfig, PositionalType};
 use crate::prelude::*;

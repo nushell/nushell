@@ -3,6 +3,8 @@ mod helpers;
 use h::in_directory as cwd;
 use helpers as h;
 
+use nu::AbsolutePath;
+
 #[test]
 fn lines() {
     nu!(output,
@@ -80,73 +82,102 @@ fn open_error_if_file_not_found() {
 }
 
 #[test]
-fn save_can_write_out_csv() {
-    let (playground_path, tests_dir) = h::setup_playground_for("save_test");
+fn save_can_write_out_csv() -> Result<(), std::io::Error> {
+    let (playground, tmp, dir) = h::setup_playground_for("save_test")?;
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir         );
-    let expected_file = format!("{}/{}", full_path      , "cargo_sample.csv");
+    let tmp = AbsolutePath::new(tmp);
 
-    nu!(
-        _output,
-        cwd(&playground_path),
-        "open ../formats/cargo_sample.toml | inc package.version --minor | get package | save save_test/cargo_sample.csv"
+    let expected_file = tmp / "cargo_sample.csv";
+
+    let root = AbsolutePath::new(std::env::current_dir()?);
+
+    let path = root / "tests" / "fixtures" / "formats" / "cargo_sample.toml";
+
+    let command = format!(
+        "open {} | inc package.version --minor | get package | save {}/cargo_sample.csv",
+        path.as_ref().display(),
+        dir
     );
+
+    nu!(_output, playground.path().display(), command);
 
     let actual = h::file_contents(&expected_file);
     assert!(actual.contains("[list list],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
+
+    Ok(())
 }
 
 #[test]
-fn rm_can_remove_a_file() {
-    let directory = "tests/fixtures/nuplayground";
-    let file = format!("{}/rm_test.txt", directory);
+fn rm_can_remove_a_file() -> Result<(), std::io::Error> {
+    let _ = pretty_env_logger::try_init();
 
-    h::create_file_at(&file);
+    let (_playground, tmp, _) = h::setup_playground_for("remove_file")?;
 
-    nu!(_output, cwd(directory), "rm rm_test.txt");
+    let file = AbsolutePath::new(&tmp) / "rm_test.txt";
+    // let file = tmp.path().join("rm_test.txt");
 
-    assert!(!h::file_exists_at(&file));
+    h::create_file_at(&file)?;
+
+    nu!(_output, tmp.path().display(), "rm rm_test.txt");
+
+    assert!(!file.as_ref().exists());
+
+    Ok(())
 }
 
 #[test]
-fn rm_can_remove_directory_contents_with_recursive_flag() {
-    let (playground_path, tests_dir) = h::setup_playground_for("rm_test");
+fn rm_can_remove_directory_contents_with_recursive_flag() -> Result<(), std::io::Error> {
+    let _ = pretty_env_logger::try_init();
+
+    let (playground, tmp, dir) = h::setup_playground_for("rm_test")?;
 
     for f in ["yehuda.txt", "jonathan.txt", "andres.txt"].iter() {
-        h::create_file_at(&format!("{}/{}/{}", playground_path, tests_dir, f));
+        h::create_file_at(&tmp.path().join(f))?;
     }
 
     nu!(
         _output,
-        cwd("tests/fixtures/nuplayground"),
-        "rm rm_test --recursive"
+        playground.path().display(),
+        format!("rm {} --recursive", dir)
     );
 
-    assert!(!h::file_exists_at(&format!("{}/{}", playground_path, tests_dir)));
+    assert!(!tmp.path().exists());
+
+    Ok(())
 }
 
 #[test]
-fn rm_error_if_attempting_to_delete_a_directory_without_recursive_flag() {
-    let (playground_path, tests_dir) = h::setup_playground_for("rm_test_2");
-    let full_path = format!("{}/{}", playground_path, tests_dir);
+fn rm_error_if_attempting_to_delete_a_directory_without_recursive_flag(
+) -> Result<(), std::io::Error> {
+    let (playground, tmp, dir) = h::setup_playground_for("rm_test_2")?;
 
-    nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm rm_test_2");
+    nu_error!(output, playground.path().display(), format!("rm {}", dir));
 
-    assert!(h::file_exists_at(&full_path));
+    assert!(tmp.path().exists());
     assert!(output.contains("is a directory"));
-    h::delete_directory_at(&full_path);
+    h::delete_directory_at(tmp.path());
+
+    Ok(())
 }
 
 #[test]
-fn rm_error_if_attempting_to_delete_single_dot_as_argument() {
-    nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm .");
+fn rm_error_if_attempting_to_delete_single_dot_as_argument() -> Result<(), std::io::Error> {
+    let (_playground, tmp, _) = h::setup_playground_for("rm_test_2")?;
+
+    nu_error!(output, tmp.path().display(), "rm .");
 
     assert!(output.contains("may not be removed"));
+
+    Ok(())
 }
 
 #[test]
-fn rm_error_if_attempting_to_delete_two_dot_as_argument() {
-    nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm ..");
+fn rm_error_if_attempting_to_delete_two_dot_as_argument() -> Result<(), std::io::Error> {
+    let (_playground, tmp, _) = h::setup_playground_for("rm_test_2")?;
+
+    nu_error!(output, tmp.path().display(), "rm ..");
 
     assert!(output.contains("may not be removed"));
+
+    Ok(())
 }

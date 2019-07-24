@@ -24,6 +24,7 @@ mod plugin;
 mod shell;
 mod stream;
 mod traits;
+mod utils;
 
 pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
 pub use crate::context::SpanSource;
@@ -31,6 +32,7 @@ pub use crate::env::host::BasicHost;
 pub use crate::parser::parse::span::SpannedItem;
 pub use crate::parser::Spanned;
 pub use crate::plugin::{serve_plugin, Plugin};
+pub use crate::utils::{AbsolutePath, RelativePath};
 pub use cli::cli;
 pub use errors::ShellError;
 pub use object::base::{Primitive, Value};

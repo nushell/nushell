@@ -81,6 +81,7 @@ syntect = "3.2.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
+tempdir = "0.3.7"
 
 [lib]
 name = "nu"

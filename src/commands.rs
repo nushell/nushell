@@ -42,7 +42,7 @@ crate mod trim;
 crate mod vtable;
 crate mod where_;
 
-crate use command::{command, filter, EvaluatedFilterCommandArgs, EvaluatedStaticCommandArgs};
+crate use command::{command, EvaluatedStaticCommandArgs};
 crate use config::Config;
 crate use open::Open;
 crate use rm::Remove;

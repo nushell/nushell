@@ -4,7 +4,6 @@ use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode, Spanned};
 use crate::prelude::*;
 use derive_new::new;
-use getset::Getters;
 use indexmap::IndexMap;
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -70,8 +69,7 @@ impl PositionalType {
     }
 }
 
-#[derive(Debug, Getters, Serialize, Deserialize, Clone)]
-#[get = "crate"]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CommandConfig {
     pub name: String,
     pub positional: Vec<PositionalType>,
@@ -79,6 +77,44 @@ pub struct CommandConfig {
     pub named: IndexMap<String, NamedType>,
     pub is_filter: bool,
     pub is_sink: bool,
+}
+
+impl CommandConfig {
+    pub fn new(name: impl Into<String>) -> CommandConfig {
+        CommandConfig {
+            name: name.into(),
+            positional: vec![],
+            rest_positional: false,
+            named: IndexMap::default(),
+            is_filter: false,
+            is_sink: false,
+        }
+    }
+
+    pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> CommandConfig {
+        self.positional
+            .push(PositionalType::Mandatory(name.into(), ty.into()));
+
+        self
+    }
+
+    pub fn optional(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> CommandConfig {
+        self.positional
+            .push(PositionalType::Optional(name.into(), ty.into()));
+
+        self
+    }
+
+    pub fn named(mut self, name: impl Into<String>, ty: impl Into<NamedType>) -> CommandConfig {
+        self.named.insert(name.into(), ty.into());
+
+        self
+    }
+
+    pub fn sink(mut self) -> CommandConfig {
+        self.is_sink = true;
+        self
+    }
 }
 
 #[derive(Debug, Default, new, Serialize, Deserialize)]

@@ -27,18 +27,6 @@ impl ToDebug for UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    fn name(&self) -> Result<&str, ShellError> {
-        let head = &self.args.head();
-        match head.item() {
-            hir::RawExpression::Literal(hir::Literal::Bare) => Ok(head.span.slice(&self.source)),
-            hir::RawExpression::Literal(hir::Literal::String(span)) => Ok(span.slice(&self.source)),
-            other => Err(ShellError::type_error(
-                "Command name",
-                head.type_name().spanned(head.span),
-            )),
-        }
-    }
-
     fn evaluate(
         self,
         registry: &registry::CommandRegistry,
@@ -94,20 +82,6 @@ impl CommandArgs {
     }
 }
 
-pub enum EvaluatedInput {
-    Static(InputStream),
-    Filter(Spanned<Value>),
-}
-
-impl EvaluatedInput {
-    pub fn stream(self) -> InputStream {
-        match self {
-            EvaluatedInput::Static(stream) => stream,
-            EvaluatedInput::Filter(value) => vec![value].into(),
-        }
-    }
-}
-
 pub struct EvaluatedStaticCommandArgs {
     pub args: EvaluatedCommandArgs,
     pub input: InputStream,
@@ -152,6 +126,7 @@ impl EvaluatedStaticCommandArgs {
 #[get = "pub"]
 pub struct EvaluatedFilterCommandArgs {
     args: EvaluatedCommandArgs,
+    #[allow(unused)]
     input: Spanned<Value>,
 }
 
@@ -189,18 +164,12 @@ pub struct EvaluatedCommandArgs {
 }
 
 impl EvaluatedCommandArgs {
-    pub fn parts(self) -> () {}
-
     pub fn call_args(&self) -> &registry::EvaluatedArgs {
         &self.call_info.args
     }
 
     pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
         self.call_info.args.nth(pos)
-    }
-
-    pub fn positional_iter(&self) -> impl Iterator<Item = &Spanned<Value>> {
-        self.call_info.args.positional_iter()
     }
 
     pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
@@ -308,6 +277,7 @@ pub trait Sink {
     }
 }
 
+#[allow(unused)]
 pub struct FnFilterCommand {
     name: String,
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
@@ -397,6 +367,7 @@ pub fn command(
     })
 }
 
+#[allow(unused)]
 pub fn filter(
     name: &str,
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,

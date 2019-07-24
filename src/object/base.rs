@@ -266,6 +266,7 @@ pub enum Switch {
 }
 
 impl Switch {
+    #[allow(unused)]
     pub fn is_present(&self) -> bool {
         match self {
             Switch::Present => true,

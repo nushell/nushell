@@ -77,7 +77,7 @@ fn parse_command_tail(
 
     trace_remaining("nodes", tail.clone(), source);
 
-    for (name, kind) in config.named() {
+    for (name, kind) in &config.named {
         trace!(target: "nu::parse", "looking for {} : {:?}", name, kind);
 
         match kind {
@@ -115,7 +115,7 @@ fn parse_command_tail(
 
                     if tail.at_end() {
                         return Err(ShellError::argument_error(
-                            config.name().clone(),
+                            config.name.clone(),
                             ArgumentError::MissingValueForName(name.to_string()),
                             flag.span,
                         ));
@@ -139,14 +139,14 @@ fn parse_command_tail(
 
     let mut positional = vec![];
 
-    for arg in config.positional() {
+    for arg in &config.positional {
         trace!("Processing positional {:?}", arg);
 
         match arg {
             PositionalType::Mandatory(..) => {
                 if tail.len() == 0 {
                     return Err(ShellError::argument_error(
-                        config.name().clone(),
+                        config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
                         command_span,
                     ));
@@ -207,7 +207,7 @@ fn extract_mandatory(
 
     match flag {
         None => Err(ShellError::argument_error(
-            config.name().clone(),
+            config.name.clone(),
             ArgumentError::MissingMandatoryFlag(name.to_string()),
             span,
         )),

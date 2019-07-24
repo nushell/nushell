@@ -50,7 +50,7 @@ pub fn from_yaml_string_to_value(
 
 pub fn from_yaml(
     args: CommandArgs,
-    registry: &CommandRegistry,
+    _registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let span = args.name_span();
     let out = args.input;

@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::object::{SpannedDictBuilder, Value};
 use crate::prelude::*;
 
-pub fn size(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
     Ok(input
         .values

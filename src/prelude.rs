@@ -34,8 +34,7 @@ macro_rules! trace_stream {
 
 crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
-    Command, CommandAction, CommandArgs, EvaluatedCommandArgs, ReturnSuccess, ReturnValue, Sink,
-    SinkCommandArgs,
+    Command, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, Sink, SinkCommandArgs,
 };
 crate use crate::context::{CommandRegistry, Context};
 crate use crate::env::host::handle_unexpected;

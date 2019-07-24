@@ -1,5 +1,4 @@
 use crate::context::CommandRegistry;
-use crate::prelude::*;
 
 use derive_new::new;
 use rustyline::completion::Completer;

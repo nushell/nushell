@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
-pub use std::path::PathBuf;
+pub use std::path::{Path, PathBuf};
 
+use log::trace;
 use std::io::Read;
+use tempdir::TempDir;
 
 #[macro_export]
 macro_rules! nu {
@@ -79,20 +81,30 @@ macro_rules! nu_error {
     };
 }
 
-pub fn setup_playground_for(topic: &str) -> (String, String) {
-    let home = "tests/fixtures/nuplayground";
-    let full_path = format!("{}/{}", home, topic);
+pub fn setup_playground_for(topic: &str) -> Result<(TempDir, TempDir, String), std::io::Error> {
+    let home = TempDir::new("nuplayground")?;
+    let child = TempDir::new_in(home.path(), topic)?;
+    let relative = child
+        .path()
+        .file_name()
+        .unwrap()
+        .to_str()
+        .expect(&format!(
+            "file name {} was not valid",
+            child.path().display()
+        ))
+        .to_string();
 
-    if file_exists_at(&full_path) {
-        delete_directory_at(&full_path);
-    }
+    trace!(
+        "created {:?} dir={}",
+        child.path().display(),
+        child.path().is_dir()
+    );
 
-    create_directory_at(&full_path);
-
-    (home.to_string(), topic.to_string())
+    Ok((home, child, relative))
 }
 
-pub fn file_contents(full_path: &str) -> String {
+pub fn file_contents(full_path: impl AsRef<Path>) -> String {
     let mut file = std::fs::File::open(full_path).expect("can not open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents)
@@ -100,19 +112,26 @@ pub fn file_contents(full_path: &str) -> String {
     contents
 }
 
-pub fn create_file_at(full_path: &str) {
-    std::fs::write(PathBuf::from(full_path), "fake data".as_bytes()).expect("can not create file");
+pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
+    let full_path = full_path.as_ref();
+
+    assert!(
+        full_path.parent().unwrap().is_dir(),
+        "{:?} exists",
+        full_path.parent().unwrap().display(),
+    );
+    std::fs::write(full_path, "fake data".as_bytes())
 }
 
 pub fn file_exists_at(full_path: &str) -> bool {
     PathBuf::from(full_path).exists()
 }
 
-pub fn delete_directory_at(full_path: &str) {
+pub fn delete_directory_at(full_path: &Path) {
     std::fs::remove_dir_all(PathBuf::from(full_path)).expect("can not remove directory");
 }
 
-pub fn create_directory_at(full_path: &str) {
+pub fn create_directory_at(full_path: &Path) {
     let path = PathBuf::from(full_path);
 
     println!("{:?} - is_dir: {:?}", path, path.is_dir());

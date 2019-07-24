@@ -1,11 +1,10 @@
 use crate::context::SpanSource;
 use crate::errors::ShellError;
-use crate::object::{Primitive, Switch, Value};
+use crate::object::{Primitive, Value};
 use crate::parser::hir::SyntaxType;
 use crate::parser::parse::span::Span;
-use crate::parser::registry::{self, CommandConfig, NamedType, PositionalType};
+use crate::parser::registry::{self, CommandConfig, NamedType};
 use crate::prelude::*;
-use indexmap::IndexMap;
 use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -77,17 +76,10 @@ impl Command for Open {
     }
 
     fn config(&self) -> CommandConfig {
-        let mut named = IndexMap::default();
-        named.insert("raw".to_string(), NamedType::Switch);
-
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory("path", SyntaxType::Block)],
-            rest_positional: false,
-            named,
-            is_sink: true,
-            is_filter: false,
-        }
+        CommandConfig::new(self.name())
+            .required("path", SyntaxType::Block)
+            .named("raw", NamedType::Switch)
+            .sink()
     }
 }
 
