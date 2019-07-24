@@ -351,16 +351,6 @@ impl std::convert::From<std::io::Error> for ShellError {
     }
 }
 
-impl std::convert::From<futures_sink::VecSinkError> for ShellError {
-    fn from(_input: futures_sink::VecSinkError) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("Unexpected Vec Sink Error"),
-            error: Value::nothing(),
-        })
-        .start()
-    }
-}
-
 impl std::convert::From<subprocess::PopenError> for ShellError {
     fn from(input: subprocess::PopenError) -> ShellError {
         ProximateShellError::String(StringError {

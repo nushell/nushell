@@ -4,16 +4,16 @@ use nu::{
     ShellError, Spanned, Value,
 };
 
-struct NewSkip {
+struct Skip {
     skip_amount: i64,
 }
-impl NewSkip {
-    fn new() -> NewSkip {
-        NewSkip { skip_amount: 0 }
+impl Skip {
+    fn new() -> Skip {
+        Skip { skip_amount: 0 }
     }
 }
 
-impl Plugin for NewSkip {
+impl Plugin for Skip {
     fn config(&mut self) -> Result<CommandConfig, ShellError> {
         Ok(CommandConfig {
             name: "skip".to_string(),
@@ -59,5 +59,5 @@ impl Plugin for NewSkip {
 }
 
 fn main() {
-    serve_plugin(&mut NewSkip::new());
+    serve_plugin(&mut Skip::new());
 }
