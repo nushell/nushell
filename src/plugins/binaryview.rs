@@ -378,10 +378,10 @@ pub fn view_contents_interactive(
         let cursor = cursor();
 
         let buttons = vec![
-            KeyCode::LShift,
-            KeyCode::LControl,
+            KeyCode::Alt,
+            KeyCode::LeftControl,
             KeyCode::Tab,
-            KeyCode::Back,
+            KeyCode::BackSpace,
             KeyCode::UpArrow,
             KeyCode::DownArrow,
             KeyCode::LeftArrow,
