@@ -1684,7 +1684,7 @@ dependencies = [
  "prettyprint 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ptree 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rawkey 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rawkey 0.1.1 (git+https://github.com/jonathandturner/rawkey)",
  "regex 1.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.9.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "roxmltree 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2280,7 +2280,7 @@ dependencies = [
 [[package]]
 name = "rawkey"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/jonathandturner/rawkey#9769728a036f58b6e37c970d0a1576171f0196e3"
 dependencies = [
  "readkey 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "user32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3654,7 +3654,7 @@ dependencies = [
 "checksum rand_os 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "7b75f676a1e053fc562eafbb47838d67c84801e38fc1ba459e8f180deabd5071"
 "checksum rand_pcg 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "abf9b09b01790cfe0364f52bf32995ea3c39f4d2dd011eac241d2914146d0b44"
 "checksum rand_xorshift 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cbf7e9e623549b0e21f6e97cf8ecf247c1a8fd2e8a992ae265314300b2455d5c"
-"checksum rawkey 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0cd49689ad95f53f9ba07322fa4fa75f08c338f5f7556eb2952705071eaf681b"
+"checksum rawkey 0.1.1 (git+https://github.com/jonathandturner/rawkey)" = "<none>"
 "checksum rayon 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a4b0186e22767d5b9738a05eab7c6ac90b15db17e5b5f9bd87976dd7d89a10a4"
 "checksum rayon-core 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ebbe0df8435ac0c397d467b6cad6d25543d06e8a019ef3f6af3c384597515bd2"
 "checksum rdrand 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
