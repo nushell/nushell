@@ -7,11 +7,20 @@ use nu::{
     Spanned, Value,
 };
 use rawkey::RawKey;
-use std::io::Write;
 
+use syntect::easy::HighlightLines;
+use syntect::highlighting::{Style, ThemeSet};
+use syntect::parsing::SyntaxSet;
+use syntect::util::as_24_bit_terminal_escaped;
+
+use std::io::Write;
 use std::path::Path;
 use std::{thread, time::Duration};
 
+enum DrawCommand {
+    DrawString(Style, String),
+    NextLine,
+}
 struct TextView;
 
 impl TextView {
@@ -37,34 +46,68 @@ impl Plugin for TextView {
     }
 }
 
-fn paint_textview(lines: &Vec<String>, starting_row: usize) -> (u16, u16) {
+fn paint_textview(
+    draw_commands: &Vec<DrawCommand>,
+    starting_row: usize,
+    use_color_buffer: bool,
+) -> usize {
     let terminal = terminal();
     let cursor = cursor();
 
-    let _ = terminal.clear(crossterm::ClearType::All);
-
     let size = terminal.terminal_size();
-    let _ = cursor.goto(0, 0);
 
-    let mut total_max_num_lines = 0;
-    for line in lines.iter().skip(starting_row).take(size.1 as usize) {
-        //let pos = cursor.pos();
-        let stripped_line = strip_ansi_escapes::strip(&line.as_bytes()).unwrap();
-        let line_length = stripped_line.len();
+    // render
+    let mut pos = 0;
+    let width = size.0 as usize + 1;
+    let height = size.1 as usize;
+    let mut frame_buffer = vec![]; //(' ', 0, 0, 0); max_pos];
 
-        let max_num_lines = line_length as u16 / size.0
-            + if (line_length as u16 % size.0) > 0 {
-                1
-            } else {
-                0
-            };
-        total_max_num_lines += max_num_lines;
-
-        if total_max_num_lines < size.1 {
-            print!("{}\r\n", line);
-        } else {
-            break;
+    for command in draw_commands {
+        match command {
+            DrawCommand::DrawString(style, string) => {
+                for chr in string.chars() {
+                    frame_buffer.push((
+                        chr,
+                        style.foreground.r,
+                        style.foreground.g,
+                        style.foreground.b,
+                    ));
+                    pos += 1;
+                }
+            }
+            DrawCommand::NextLine => {
+                for _ in 0..(width - pos % width) {
+                    frame_buffer.push((' ', 0, 0, 0));
+                }
+                pos += width - pos % width;
+            }
         }
+    }
+
+    // if it's a short buffer, be sure to fill it out
+    while pos < (width * height) {
+        frame_buffer.push((' ', 0, 0, 0));
+        pos += 1;
+    }
+
+    // display
+    let mut ansi_strings = vec![];
+    let mut normal_chars = vec![];
+
+    for c in &frame_buffer[starting_row * width..(starting_row + height) * width] {
+        if use_color_buffer {
+            ansi_strings.push(ansi_term::Colour::RGB(c.1, c.2, c.3).paint(format!("{}", c.0)));
+        } else {
+            normal_chars.push(c.0);
+        }
+    }
+
+    let _ = cursor.goto(0, 0);
+    if use_color_buffer {
+        print!("{}", ansi_term::ANSIStrings(&ansi_strings));
+    } else {
+        let s: String = normal_chars.into_iter().collect();
+        print!("{}", s);
     }
 
     let _ = cursor.goto(0, size.1);
@@ -76,10 +119,10 @@ fn paint_textview(lines: &Vec<String>, starting_row: usize) -> (u16, u16) {
 
     let _ = std::io::stdout().flush();
 
-    size
+    frame_buffer.len() / width
 }
 
-fn scroll_view_lines(lines: Vec<String>) {
+fn scroll_view_lines(draw_commands: Vec<DrawCommand>, use_color_buffer: bool) {
     let mut starting_row = 0;
     let rawkey = RawKey::new();
 
@@ -90,7 +133,11 @@ fn scroll_view_lines(lines: Vec<String>) {
         let input = crossterm::input();
         let _ = input.read_async();
 
-        let mut size = paint_textview(&lines, starting_row);
+        let terminal = terminal();
+        let mut size = terminal.terminal_size();
+        let mut max_bottom_line = size.1 as usize;
+
+        paint_textview(&draw_commands, starting_row, use_color_buffer);
         loop {
             if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                 break;
@@ -98,17 +145,25 @@ fn scroll_view_lines(lines: Vec<String>) {
             if rawkey.is_pressed(rawkey::KeyCode::UpArrow) {
                 if starting_row > 0 {
                     starting_row -= 1;
-                    size = paint_textview(&lines, starting_row);
+                    max_bottom_line =
+                        paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
             }
             if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
-                if starting_row < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize) {
+                if starting_row < (max_bottom_line - size.1 as usize) {
                     starting_row += 1;
-                    size = paint_textview(&lines, starting_row);
                 }
+                max_bottom_line = paint_textview(&draw_commands, starting_row, use_color_buffer);
             }
 
             thread::sleep(Duration::from_millis(50));
+
+            let new_size = terminal.terminal_size();
+            if size != new_size {
+                size = new_size;
+                let _ = terminal.clear(crossterm::ClearType::All);
+                max_bottom_line = paint_textview(&draw_commands, starting_row, use_color_buffer);
+            }
         }
 
         let _ = cursor.show();
@@ -125,9 +180,12 @@ fn scroll_view_lines(lines: Vec<String>) {
 }
 
 fn scroll_view(s: &str) {
-    let lines: Vec<_> = s.lines().map(|x| x.to_string()).collect();
-
-    scroll_view_lines(lines);
+    let mut v = vec![];
+    for line in s.lines() {
+        v.push(DrawCommand::DrawString(Style::default(), line.to_string()));
+        v.push(DrawCommand::NextLine);
+    }
+    scroll_view_lines(v, false);
 }
 
 fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
@@ -144,11 +202,6 @@ fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
                         let path = Path::new(file);
                         match path.extension() {
                             Some(extension) => {
-                                use syntect::easy::HighlightLines;
-                                use syntect::highlighting::{Style, ThemeSet};
-                                use syntect::parsing::SyntaxSet;
-                                use syntect::util::as_24_bit_terminal_escaped;
-
                                 // Load these once at the start of your program
                                 let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
                                     "../../assets/syntaxes.bin"
@@ -166,11 +219,20 @@ fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
                                     let mut v = vec![];
                                     for line in s.lines() {
                                         let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-                                        let escaped =
-                                            as_24_bit_terminal_escaped(&ranges[..], false);
-                                        v.push(format!("{}", escaped));
+
+                                        // let escaped =
+                                        //     as_24_bit_terminal_escaped(&ranges[..], false);
+                                        // v.push(format!("{}", escaped));
+                                        for range in ranges {
+                                            v.push(DrawCommand::DrawString(
+                                                range.0,
+                                                range.1.to_string(),
+                                            ));
+                                        }
+
+                                        v.push(DrawCommand::NextLine);
                                     }
-                                    scroll_view_lines(v);
+                                    scroll_view_lines(v, true);
                                 } else {
                                     scroll_view(s);
                                 }
