@@ -1,14 +1,16 @@
 #![feature(option_flattening)]
 
-use crossterm::{cursor, input, terminal, InputEvent, KeyEvent, RawScreen};
+use crossterm::{cursor, terminal, RawScreen};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ShellError, SourceMap, SpanSource,
     Spanned, Value,
 };
+use rawkey::RawKey;
 use std::io::Write;
 
 use std::path::Path;
+use std::{thread, time::Duration};
 
 struct TextView;
 
@@ -35,99 +37,91 @@ impl Plugin for TextView {
     }
 }
 
+fn paint_textview(lines: &Vec<String>, starting_row: usize) -> (u16, u16) {
+    let terminal = terminal();
+    let cursor = cursor();
+
+    let _ = terminal.clear(crossterm::ClearType::All);
+
+    let size = terminal.terminal_size();
+    let _ = cursor.goto(0, 0);
+
+    let mut total_max_num_lines = 0;
+    for line in lines.iter().skip(starting_row).take(size.1 as usize) {
+        //let pos = cursor.pos();
+        let stripped_line = strip_ansi_escapes::strip(&line.as_bytes()).unwrap();
+        let line_length = stripped_line.len();
+
+        let max_num_lines = line_length as u16 / size.0
+            + if (line_length as u16 % size.0) > 0 {
+                1
+            } else {
+                0
+            };
+        total_max_num_lines += max_num_lines;
+
+        if total_max_num_lines < size.1 {
+            print!("{}\r\n", line);
+        } else {
+            break;
+        }
+    }
+
+    let _ = cursor.goto(0, size.1);
+    print!(
+        "{}",
+        ansi_term::Colour::Blue.paint("[ESC to quit, arrow keys to move]")
+    );
+    print!("{}", crossterm::Attribute::Reset);
+
+    let _ = std::io::stdout().flush();
+
+    size
+}
+
 fn scroll_view_lines(lines: Vec<String>) {
     let mut starting_row = 0;
-
-    let terminal = terminal();
+    let rawkey = RawKey::new();
 
     if let Ok(_raw) = RawScreen::into_raw_mode() {
-        let input = input();
         let cursor = cursor();
-
         let _ = cursor.hide();
 
-        let mut sync_stdin = input.read_sync();
+        let input = crossterm::input();
+        let _ = input.read_async();
 
+        let mut size = paint_textview(&lines, starting_row);
         loop {
-            let size = terminal.terminal_size();
-            let _ = terminal.clear(crossterm::ClearType::All);
-            let _ = cursor.goto(0, 0);
-
-            let mut total_max_num_lines = 0;
-            for line in lines.iter().skip(starting_row).take(size.1 as usize) {
-                //let pos = cursor.pos();
-                let stripped_line = strip_ansi_escapes::strip(&line.as_bytes()).unwrap();
-                let line_length = stripped_line.len();
-
-                let max_num_lines = line_length as u16 / size.0
-                    + if (line_length as u16 % size.0) > 0 {
-                        1
-                    } else {
-                        0
-                    };
-                total_max_num_lines += max_num_lines;
-
-                if total_max_num_lines < size.1 {
-                    print!("{}\r\n", line);
-                } else {
-                    break;
+            if rawkey.is_pressed(rawkey::KeyCode::Escape) {
+                break;
+            }
+            if rawkey.is_pressed(rawkey::KeyCode::UpArrow) {
+                if starting_row > 0 {
+                    starting_row -= 1;
+                    size = paint_textview(&lines, starting_row);
+                }
+            }
+            if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
+                if starting_row < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize) {
+                    starting_row += 1;
+                    size = paint_textview(&lines, starting_row);
                 }
             }
 
-            let _ = cursor.goto(0, size.1);
-            print!(
-                "{}",
-                ansi_term::Colour::Blue.paint("[ESC to quit, arrow keys to move]")
-            );
-            let _ = std::io::stdout().flush();
-
-            let event = sync_stdin.next();
-
-            if let Some(key_event) = event {
-                match key_event {
-                    InputEvent::Keyboard(k) => match k {
-                        KeyEvent::Esc => {
-                            break;
-                        }
-                        KeyEvent::Up => {
-                            if starting_row > 0 {
-                                starting_row -= 1;
-                            }
-                        }
-                        KeyEvent::Down => {
-                            if starting_row
-                                < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize)
-                            {
-                                starting_row += 1;
-                            }
-                        }
-                        KeyEvent::PageUp => {
-                            starting_row -= std::cmp::min(starting_row, size.1 as usize);
-                        }
-                        KeyEvent::Char(c) if c == ' ' => {
-                            if starting_row
-                                < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize)
-                            {
-                                starting_row += size.1 as usize;
-                            }
-                        }
-                        KeyEvent::PageDown => {
-                            if starting_row
-                                < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize)
-                            {
-                                starting_row += size.1 as usize;
-                            }
-                        }
-                        _ => {}
-                    },
-
-                    _ => {}
-                }
-            }
+            thread::sleep(Duration::from_millis(50));
         }
 
         let _ = cursor.show();
     }
+
+    let cursor = cursor();
+    let _ = cursor.show();
+
+    #[allow(unused)]
+    let screen = RawScreen::disable_raw_mode();
+
+    println!("");
+    thread::sleep(Duration::from_millis(50));
 }
 
 fn scroll_view(s: &str) {
