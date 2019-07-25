@@ -1,11 +1,12 @@
 #![feature(option_flattening)]
 
-use crossterm::{cursor, terminal, InputEvent, KeyEvent, RawScreen};
+use crossterm::{cursor, terminal, RawScreen};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ShellError, SourceMap, SpanSource,
     Spanned, Value,
 };
+use rawkey::RawKey;
 use std::io::Write;
 
 use std::path::Path;
@@ -80,63 +81,27 @@ fn paint_textview(lines: &Vec<String>, starting_row: usize) -> (u16, u16) {
 
 fn scroll_view_lines(lines: Vec<String>) {
     let mut starting_row = 0;
+    let rawkey = RawKey::new();
 
     if let Ok(_raw) = RawScreen::into_raw_mode() {
-        let terminal = terminal();
-        let input = crossterm::input();
         let cursor = cursor();
-
         let _ = cursor.hide();
-
-        let mut async_stdin = input.read_async();
-        let _ = terminal.clear(crossterm::ClearType::All);
 
         let mut size = paint_textview(&lines, starting_row);
         loop {
-            if let Some(key_event) = async_stdin.next() {
-                match key_event {
-                    InputEvent::Keyboard(k) => match k {
-                        KeyEvent::Esc => {
-                            break;
-                        }
-                        KeyEvent::Up => {
-                            if starting_row > 0 {
-                                starting_row -= 1;
-                                size = paint_textview(&lines, starting_row);
-                            }
-                        }
-                        KeyEvent::Down => {
-                            if starting_row
-                                < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize)
-                            {
-                                starting_row += 1;
-                                size = paint_textview(&lines, starting_row);
-                            }
-                        }
-                        KeyEvent::PageUp => {
-                            starting_row -= std::cmp::min(starting_row, size.1 as usize);
-                            size = paint_textview(&lines, starting_row);
-                        }
-                        KeyEvent::Char(c) if c == ' ' => {
-                            if starting_row
-                                < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize)
-                            {
-                                starting_row += size.1 as usize;
-                                size = paint_textview(&lines, starting_row);
-                            }
-                        }
-                        KeyEvent::PageDown => {
-                            if starting_row
-                                < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize)
-                            {
-                                starting_row += size.1 as usize;
-                                size = paint_textview(&lines, starting_row);
-                            }
-                        }
-                        _ => {}
-                    },
-
-                    _ => {}
+            if rawkey.is_pressed(rawkey::KeyCode::Escape) {
+                break;
+            }
+            if rawkey.is_pressed(rawkey::KeyCode::UpArrow) {
+                if starting_row > 0 {
+                    starting_row -= 1;
+                    size = paint_textview(&lines, starting_row);
+                }
+            }
+            if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
+                if starting_row < (std::cmp::max(size.1 as usize, lines.len()) - size.1 as usize) {
+                    starting_row += 1;
+                    size = paint_textview(&lines, starting_row);
                 }
             }
 
@@ -145,6 +110,7 @@ fn scroll_view_lines(lines: Vec<String>) {
 
         let _ = cursor.show();
     }
+    thread::sleep(Duration::from_millis(250));
 }
 
 fn scroll_view(s: &str) {
