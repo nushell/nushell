@@ -87,6 +87,9 @@ fn scroll_view_lines(lines: Vec<String>) {
         let cursor = cursor();
         let _ = cursor.hide();
 
+        let input = crossterm::input();
+        let _ = input.read_async();
+
         let mut size = paint_textview(&lines, starting_row);
         loop {
             if rawkey.is_pressed(rawkey::KeyCode::Escape) {
@@ -110,7 +113,15 @@ fn scroll_view_lines(lines: Vec<String>) {
 
         let _ = cursor.show();
     }
-    thread::sleep(Duration::from_millis(250));
+
+    let cursor = cursor();
+    let _ = cursor.show();
+
+    #[allow(unused)]
+    let screen = RawScreen::disable_raw_mode();
+
+    println!("");
+    thread::sleep(Duration::from_millis(50));
 }
 
 fn scroll_view(s: &str) {

@@ -6,6 +6,7 @@ use nu::{
     Value,
 };
 use pretty_hex::*;
+use std::{thread, time::Duration};
 
 struct BinaryView;
 
@@ -443,6 +444,9 @@ pub fn view_contents_interactive(
 
     #[allow(unused)]
     let screen = RawScreen::disable_raw_mode();
+
+    println!("");
+    thread::sleep(Duration::from_millis(50));
 
     Ok(())
 }
