@@ -15,6 +15,10 @@ pub trait Plugin {
         Err(ShellError::string("`filter` not implemented in plugin"))
     }
     #[allow(unused)]
+    fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
+    }
+    #[allow(unused)]
     fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {}
 
     fn quit(&mut self) {
@@ -42,6 +46,10 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                 Ok(NuCommand::filter { params }) => {
                     send_response(plugin.filter(params));
                 }
+                Ok(NuCommand::end_filter) => {
+                    send_response(plugin.end_filter());
+                }
+
                 Ok(NuCommand::sink { params }) => {
                     plugin.sink(params.0, params.1);
                     return;
@@ -78,6 +86,9 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                         }
                         Ok(NuCommand::filter { params }) => {
                             send_response(plugin.filter(params));
+                        }
+                        Ok(NuCommand::end_filter) => {
+                            send_response(plugin.end_filter());
                         }
                         Ok(NuCommand::sink { params }) => {
                             plugin.sink(params.0, params.1);
@@ -140,6 +151,7 @@ pub enum NuCommand {
     filter {
         params: Spanned<Value>,
     },
+    end_filter,
     sink {
         params: (CallInfo, Vec<Spanned<Value>>),
     },

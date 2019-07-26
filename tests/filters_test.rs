@@ -2,10 +2,10 @@ mod helpers;
 
 use helpers::in_directory as cwd;
 
-
 #[test]
 fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
-    nu!(output,
+    nu!(
+        output,
         cwd("tests/fixtures/formats"),
         "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
     );
@@ -87,6 +87,16 @@ fn can_inc_field() {
     assert_eq!(output, "2019");
 }
 
+#[test]
+fn can_sum() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.Sections | sum | echo $it"
+    );
+
+    assert_eq!(output, "203")
+}
 #[test]
 fn can_filter_by_unit_size_comparison() {
     nu!(

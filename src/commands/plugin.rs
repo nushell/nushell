@@ -125,12 +125,51 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-                let _ = BufReader::new(stdout);
-                let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
+                let mut reader = BufReader::new(stdout);
+
+                let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
                 let request_raw = serde_json::to_string(&request).unwrap();
                 let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
 
-                VecDeque::new()
+                let mut input = String::new();
+                match reader.read_line(&mut input) {
+                    Ok(_) => {
+                        let response = serde_json::from_str::<NuResult>(&input);
+                        match response {
+                            Ok(NuResult::response { params }) => match params {
+                                Ok(params) => {
+                                    let request: JsonRpc<std::vec::Vec<Value>> =
+                                        JsonRpc::new("quit", vec![]);
+                                    let request_raw = serde_json::to_string(&request).unwrap();
+                                    let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+
+                                    params
+                                }
+                                Err(e) => {
+                                    let mut result = VecDeque::new();
+                                    result.push_back(ReturnValue::Err(e));
+                                    result
+                                }
+                            },
+                            Err(e) => {
+                                let mut result = VecDeque::new();
+                                result.push_back(Err(ShellError::string(format!(
+                                    "Error while processing input: {:?} {}",
+                                    e, input
+                                ))));
+                                result
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let mut result = VecDeque::new();
+                        result.push_back(Err(ShellError::string(format!(
+                            "Error while processing input: {:?}",
+                            e
+                        ))));
+                        result
+                    }
+                }
             }
             _ => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
