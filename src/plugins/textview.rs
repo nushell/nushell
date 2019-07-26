@@ -84,16 +84,21 @@ fn paint_textview(
     }
 
     // if it's a short buffer, be sure to fill it out
-    while pos < (width * height) {
-        frame_buffer.push((' ', 0, 0, 0));
-        pos += 1;
-    }
+    // while pos < (width * height) {
+    //     frame_buffer.push((' ', 0, 0, 0));
+    //     pos += 1;
+    // }
+
+    let num_frame_buffer_rows = frame_buffer.len() / width;
+    let buffer_needs_scrolling = num_frame_buffer_rows > height;
 
     // display
     let mut ansi_strings = vec![];
     let mut normal_chars = vec![];
 
-    for c in &frame_buffer[starting_row * width..(starting_row + height) * width] {
+    for c in
+        &frame_buffer[starting_row * width..std::cmp::min(pos, (starting_row + height) * width)]
+    {
         if use_color_buffer {
             ansi_strings.push(ansi_term::Colour::RGB(c.1, c.2, c.3).paint(format!("{}", c.0)));
         } else {
@@ -101,7 +106,10 @@ fn paint_textview(
         }
     }
 
-    let _ = cursor.goto(0, 0);
+    if buffer_needs_scrolling {
+        let _ = cursor.goto(0, 0);
+    }
+
     if use_color_buffer {
         print!("{}", ansi_term::ANSIStrings(&ansi_strings));
     } else {
@@ -109,7 +117,7 @@ fn paint_textview(
         print!("{}", s);
     }
 
-    if (frame_buffer.len() / width) > height {
+    if buffer_needs_scrolling {
         let _ = cursor.goto(0, size.1);
         print!(
             "{}",
@@ -119,7 +127,7 @@ fn paint_textview(
 
     let _ = std::io::stdout().flush();
 
-    frame_buffer.len() / width
+    num_frame_buffer_rows
 }
 
 fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer: bool) {
@@ -196,7 +204,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
     let screen = RawScreen::disable_raw_mode();
 
     println!("");
-    thread::sleep(Duration::from_millis(50));
+    //thread::sleep(Duration::from_millis(50));
 }
 
 fn scroll_view(s: &str) {
