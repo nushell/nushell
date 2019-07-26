@@ -122,6 +122,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | cd path | Change to a new path |
 | cp source path | Copy files |
 | ls (path) | View the contents of the current or given path |
+| date (--utc) | Get the current datetime |
 | ps | View current processes |
 | sysinfo | View information about the current system |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |

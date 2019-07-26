@@ -180,6 +180,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Remove),
             Arc::new(Copycp),
             Arc::new(Open),
+            Arc::new(Date),
             Arc::new(Where),
             Arc::new(Config),
             Arc::new(SkipWhile),
