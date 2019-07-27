@@ -53,7 +53,7 @@ impl Plugin for Edit {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
                 Spanned {
@@ -76,7 +76,7 @@ impl Plugin for Edit {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {

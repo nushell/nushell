@@ -9,6 +9,7 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
         }
         Value::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
+        Value::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::Float(f)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(f.into_inner()))
         }

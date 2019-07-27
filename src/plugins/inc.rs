@@ -99,7 +99,7 @@ impl Plugin for Inc {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if call_info.args.has("major") {
             self.major = true;
         }
@@ -129,7 +129,7 @@ impl Plugin for Inc {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {

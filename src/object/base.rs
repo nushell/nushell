@@ -43,6 +43,8 @@ pub enum Primitive {
     Date(DateTime<Utc>),
     Path(PathBuf),
 
+    // Stream markers (used as bookend markers rather than actual values)
+    BeginningOfStream,
     EndOfStream,
 }
 
@@ -52,6 +54,7 @@ impl Primitive {
 
         match self {
             Nothing => "nothing",
+            BeginningOfStream => "beginning-of-stream",
             EndOfStream => "end-of-stream",
             Path(_) => "path",
             Int(_) => "int",
@@ -69,6 +72,7 @@ impl Primitive {
 
         match self {
             Nothing => write!(f, "Nothing"),
+            BeginningOfStream => write!(f, "BeginningOfStream"),
             EndOfStream => write!(f, "EndOfStream"),
             Int(int) => write!(f, "{}", int),
             Path(path) => write!(f, "{}", path.display()),
@@ -83,6 +87,7 @@ impl Primitive {
     pub fn format(&self, field_name: Option<&String>) -> String {
         match self {
             Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
+            Primitive::BeginningOfStream => format!("{}", Color::Black.bold().paint("-")),
             Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
             Primitive::Path(p) => format!("{}", p.display()),
             Primitive::Bytes(b) => {

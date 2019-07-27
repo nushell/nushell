@@ -98,8 +98,6 @@ impl Plugin for TreeViewer {
                 let _ = view.render_view();
             }
         }
-
-        //Ok(())
     }
 }
 

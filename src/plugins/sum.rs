@@ -77,8 +77,8 @@ impl Plugin for Sum {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, _: CallInfo) -> Result<(), ShellError> {
-        Ok(())
+    fn begin_filter(&mut self, _: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
     }
 
     fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {

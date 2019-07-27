@@ -9,6 +9,7 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         }
         Value::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
+        Value::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,
         Value::Primitive(Primitive::Float(f)) => {
             serde_json::Value::Number(serde_json::Number::from_f64(f.into_inner()).unwrap())
         }

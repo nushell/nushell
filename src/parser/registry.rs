@@ -79,7 +79,7 @@ pub struct CommandConfig {
     pub is_sink: bool,
 }
 
-#[derive(Debug, Default, new, Serialize, Deserialize)]
+#[derive(Debug, Default, new, Serialize, Deserialize, Clone)]
 pub struct Args {
     pub positional: Option<Vec<Spanned<Value>>>,
     pub named: Option<IndexMap<String, Spanned<Value>>>,
