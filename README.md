@@ -139,6 +139,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | where condition | Filter table to match the condition |
 | inc (field) | Increment a value or version. Optional use the field of a table |
 | add field value | Add a new field to the table |
+| sum | Sum a column of values |
 | edit field value | Edit an existing field to have a new value |
 | skip amount | Skip a number of rows |
 | first amount | Show only the first number of rows |
