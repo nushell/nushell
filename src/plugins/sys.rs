@@ -5,8 +5,8 @@ use futures::stream::StreamExt;
 use heim::{disk, memory};
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, ReturnSuccess, ReturnValue, ShellError, Span,
-    Spanned, SpannedDictBuilder, Value,
+    serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
+    ShellError, Span, Spanned, SpannedDictBuilder, Value,
 };
 use std::ffi::OsStr;
 
@@ -19,25 +19,86 @@ impl Sys {
 
 //TODO: add more error checking
 
+async fn os(span: Span) -> Option<Spanned<Value>> {
+    if let (Ok(name), Ok(version)) = (sys_info::os_type(), sys_info::os_release()) {
+        let mut os_idx = SpannedDictBuilder::new(span);
+        os_idx.insert("name", Primitive::String(name));
+        os_idx.insert("version", Primitive::String(version));
+
+        Some(os_idx.into_spanned_value())
+    } else {
+        None
+    }
+}
+
+async fn cpu(span: Span) -> Option<Spanned<Value>> {
+    if let (Ok(num_cpu), Ok(cpu_speed)) = (sys_info::cpu_num(), sys_info::cpu_speed()) {
+        let mut cpu_idx = SpannedDictBuilder::new(span);
+        cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
+        cpu_idx.insert("speed", Primitive::Int(cpu_speed as i64));
+        Some(cpu_idx.into_spanned_value())
+    } else {
+        None
+    }
+}
+
 async fn mem(span: Span) -> Spanned<Value> {
     let memory = memory::memory().await.unwrap();
-    //let swap = memory::swap().await.unwrap();
+    let swap = memory::swap().await.unwrap();
 
     let mut dict = SpannedDictBuilder::new(span);
 
     dict.insert("total", Value::bytes(memory.total().get()));
     dict.insert("free", Value::bytes(memory.free().get()));
 
+    dict.insert("swap total", Value::bytes(swap.total().get()));
+    dict.insert("swap free", Value::bytes(swap.free().get()));
+
     dict.into_spanned_value()
 }
 
-async fn swap(span: Span) -> Spanned<Value> {
-    let swap = memory::swap().await.unwrap();
-
+async fn host(span: Span) -> Spanned<Value> {
     let mut dict = SpannedDictBuilder::new(span);
 
-    dict.insert("total", Value::bytes(swap.total().get()));
-    dict.insert("free", Value::bytes(swap.free().get()));
+    // OS
+    if let Ok(platform) = heim::host::platform().await {
+        dict.insert("name", Value::string(platform.system()));
+        dict.insert("release", Value::string(platform.release()));
+        dict.insert("hostname", Value::string(platform.hostname()));
+        dict.insert("arch", Value::string(platform.architecture().as_str()));
+    }
+
+    // Uptime
+    if let Ok(uptime) = heim::host::uptime().await {
+        let mut uptime_dict = SpannedDictBuilder::new(span);
+
+        let uptime = uptime.get().round() as i64;
+        let days = uptime / (60 * 60 * 24);
+        let hours = (uptime - days * 60 * 60 * 24) / (60 * 60);
+        let minutes = (uptime - days * 60 * 60 * 24 - hours * 60 * 60) / 60;
+        let seconds = uptime % 60;
+
+        uptime_dict.insert("days", Value::int(days));
+        uptime_dict.insert("hours", Value::int(hours));
+        uptime_dict.insert("mins", Value::int(minutes));
+        uptime_dict.insert("secs", Value::int(seconds));
+
+        dict.insert_spanned("uptime", uptime_dict.into_spanned_value());
+    }
+
+    // Users
+    let mut users = heim::host::users();
+    let mut user_vec = vec![];
+    while let Some(user) = users.next().await {
+        let user = user.unwrap();
+
+        user_vec.push(Spanned {
+            item: Value::string(user.username()),
+            span,
+        });
+    }
+    let user_list = Value::List(user_vec);
+    dict.insert("users", user_list);
 
     dict.into_spanned_value()
 }
@@ -75,10 +136,12 @@ async fn disks(span: Span) -> Value {
 async fn sysinfo(span: Span) -> Vec<Spanned<Value>> {
     let mut sysinfo = SpannedDictBuilder::new(span);
 
-    // Disks
+    sysinfo.insert_spanned("host", host(span).await);
+    if let Some(cpu) = cpu(span).await {
+        sysinfo.insert_spanned("cpu", cpu);
+    }
     sysinfo.insert("disks", disks(span).await);
     sysinfo.insert_spanned("mem", mem(span).await);
-    sysinfo.insert_spanned("swap", swap(span).await);
 
     vec![sysinfo.into_spanned_value()]
 }

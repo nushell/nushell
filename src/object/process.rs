@@ -5,7 +5,6 @@ use sysinfo::ProcessExt;
 
 crate fn process_dict(proc: &sysinfo::Process, span: impl Into<Span>) -> Spanned<Value> {
     let mut dict = SpannedDictBuilder::new(span);
-    dict.insert("name", Value::string(proc.name()));
 
     let cmd = proc.cmd();
 
@@ -15,10 +14,16 @@ crate fn process_dict(proc: &sysinfo::Process, span: impl Into<Span>) -> Spanned
         Value::string(join(cmd, ""))
     };
 
-    dict.insert("cmd", cmd_value);
-    dict.insert("cpu", Value::float(proc.cpu_usage() as f64));
     dict.insert("pid", Value::int(proc.pid() as i64));
     dict.insert("status", Value::string(proc.status().to_string()));
+    dict.insert("cpu", Value::float(proc.cpu_usage() as f64));
+    //dict.insert("name", Value::string(proc.name()));
+    match cmd_value {
+        Value::Primitive(Primitive::Nothing) => {
+            dict.insert("name", Value::string(proc.name()));
+        }
+        _ => dict.insert("name", cmd_value),
+    }
 
     dict.into_spanned_value()
 }
