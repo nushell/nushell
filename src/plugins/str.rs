@@ -1,11 +1,12 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, Spanned, SpannedItem, Value,
+    ReturnSuccess, ReturnValue, ShellError, Spanned, Value,
 };
 
 struct Str {
     field: Option<String>,
+    error: Option<String>,
     downcase: bool,
     upcase: bool,
 }
@@ -14,9 +15,30 @@ impl Str {
     fn new() -> Str {
         Str {
             field: None,
+            error: None,
             downcase: false,
             upcase: false,
         }
+    }
+
+    fn to_downcase(&mut self) {
+        self.downcase = true;
+
+        if !self.is_valid() {
+            self.log_error("can only apply one")
+        }
+    }
+
+    fn to_upcase(&mut self) {
+        self.upcase = true;
+
+        if !self.is_valid() {
+            self.log_error("can only apply one")
+        }
+    }
+
+    fn usage(&self) -> &'static str {
+        "Usage: str [--downcase, --upcase]"
     }
 
     fn strutils(
@@ -84,11 +106,22 @@ impl Plugin for Str {
             rest_positional: true,
         })
     }
+
+    fn is_valid(&self) -> bool {
+        (self.downcase && !self.upcase) || (!self.downcase && self.upcase)
+    }
+
+    fn log_error(&mut self, message: &str) {
+        self.error = Some(message.to_string());
+    }
+
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if call_info.args.has("downcase") {
-            self.downcase = true;
-        } else if call_info.args.has("upcase") {
-            self.upcase = true;
+            self.to_downcase();
+        }
+
+        if call_info.args.has("upcase") {
+            self.to_upcase();
         }
 
         if let Some(args) = call_info.args.positional {
@@ -108,6 +141,17 @@ impl Plugin for Str {
                     }
                 }
             }
+        }
+
+        match &self.error {
+            Some(reason) => {
+                return Err(ShellError::string(format!(
+                    "{}: {}",
+                    reason,
+                    self.usage()
+                )))
+            }
+            None => {}
         }
 
         Ok(vec![])

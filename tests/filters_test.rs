@@ -66,6 +66,17 @@ fn can_split_by_column() {
 }
 
 #[test]
+fn str_can_only_apply_one() {
+    nu_error!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
+    );
+
+    assert!(output.contains("Usage: str [--downcase, --upcase]"));
+}
+
+#[test]
 fn str_downcases() {
     nu!(
         output,
