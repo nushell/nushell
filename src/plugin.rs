@@ -5,14 +5,12 @@ use std::io;
 pub trait Plugin {
     fn config(&mut self) -> Result<CommandConfig, ShellError>;
     #[allow(unused)]
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
-        Err(ShellError::string(
-            "`begin_filter` not implemented in plugin",
-        ))
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
     }
     #[allow(unused)]
     fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        Err(ShellError::string("`filter` not implemented in plugin"))
+        Ok(vec![])
     }
     #[allow(unused)]
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
@@ -21,9 +19,7 @@ pub trait Plugin {
     #[allow(unused)]
     fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {}
 
-    fn quit(&mut self) {
-        return;
-    }
+    fn quit(&mut self) {}
 }
 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
@@ -37,11 +33,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     send_response(plugin.config());
                 }
                 Ok(NuCommand::begin_filter { params }) => {
-                    send_response(
-                        plugin
-                            .begin_filter(params)
-                            .map(|_| Vec::<ReturnValue>::new()),
-                    );
+                    send_response(plugin.begin_filter(params));
                 }
                 Ok(NuCommand::filter { params }) => {
                     send_response(plugin.filter(params));
@@ -78,11 +70,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                             send_response(plugin.config());
                         }
                         Ok(NuCommand::begin_filter { params }) => {
-                            send_response(
-                                plugin
-                                    .begin_filter(params)
-                                    .map(|_| Vec::<ReturnValue>::new()),
-                            );
+                            send_response(plugin.begin_filter(params));
                         }
                         Ok(NuCommand::filter { params }) => {
                             send_response(plugin.filter(params));

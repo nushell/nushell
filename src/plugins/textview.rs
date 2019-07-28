@@ -83,12 +83,6 @@ fn paint_textview(
         }
     }
 
-    // if it's a short buffer, be sure to fill it out
-    // while pos < (width * height) {
-    //     frame_buffer.push((' ', 0, 0, 0));
-    //     pos += 1;
-    // }
-
     let num_frame_buffer_rows = frame_buffer.len() / width;
     let buffer_needs_scrolling = num_frame_buffer_rows > height;
 

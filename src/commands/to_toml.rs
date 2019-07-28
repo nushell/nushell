@@ -9,6 +9,9 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
         Value::Primitive(Primitive::EndOfStream) => {
             toml::Value::String("<End of Stream>".to_string())
         }
+        Value::Primitive(Primitive::BeginningOfStream) => {
+            toml::Value::String("<Beginning of Stream>".to_string())
+        }
         Value::Primitive(Primitive::Float(f)) => toml::Value::Float(f.into_inner()),
         Value::Primitive(Primitive::Int(i)) => toml::Value::Integer(*i),
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),

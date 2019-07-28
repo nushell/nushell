@@ -24,7 +24,7 @@ impl Plugin for Skip {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
@@ -45,7 +45,7 @@ impl Plugin for Skip {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {

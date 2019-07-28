@@ -6,7 +6,6 @@ use nu::{
     Value,
 };
 use pretty_hex::*;
-use std::{thread, time::Duration};
 
 struct BinaryView;
 
@@ -359,7 +358,7 @@ pub fn view_contents_interactive(
         None
     };
 
-    let mut nes = neso::Nes::new(48000.0);
+    let mut nes = neso::Nes::new(0.0);
     let rawkey = RawKey::new();
     nes.load_rom(&buffer);
 
@@ -445,8 +444,9 @@ pub fn view_contents_interactive(
     #[allow(unused)]
     let screen = RawScreen::disable_raw_mode();
 
-    println!("");
-    thread::sleep(Duration::from_millis(50));
+    println!("Hit enter to return to terminal");
+    let mut buf = String::new();
+    let _ = std::io::stdin().read_line(&mut buf);
 
     Ok(())
 }

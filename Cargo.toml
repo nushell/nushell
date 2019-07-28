@@ -79,6 +79,7 @@ semver = "0.9.0"
 uuid = {version = "0.7.4", features = [ "v4", "serde" ]}
 syntect = "3.2.0"
 strip-ansi-escapes = "0.1.0"
+heim = "0.0.5"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
@@ -106,6 +107,10 @@ path = "src/plugins/edit.rs"
 [[bin]]
 name = "nu_plugin_skip"
 path = "src/plugins/skip.rs"
+
+[[bin]]
+name = "nu_plugin_sys"
+path = "src/plugins/sys.rs"
 
 [[bin]]
 name = "nu_plugin_tree"

@@ -124,7 +124,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | ls (path) | View the contents of the current or given path |
 | date (--utc) | Get the current datetime |
 | ps | View current processes |
-| sysinfo | View information about the current system |
+| sys | View information about the current system |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
 | exit | Exit the shell |
