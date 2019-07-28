@@ -6,7 +6,6 @@ use nu::{
     Value,
 };
 use pretty_hex::*;
-use std::{thread, time::Duration};
 
 struct BinaryView;
 

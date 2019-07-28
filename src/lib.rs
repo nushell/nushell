@@ -27,6 +27,7 @@ mod stream;
 pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
 pub use crate::context::{SourceMap, SpanSource};
 pub use crate::env::host::BasicHost;
+pub use crate::object::base::OF64;
 pub use crate::parser::parse::span::Span;
 pub use crate::parser::parse::span::SpannedItem;
 pub use crate::parser::Spanned;

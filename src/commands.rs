@@ -33,7 +33,6 @@ crate mod skip_while;
 crate mod sort_by;
 crate mod split_column;
 crate mod split_row;
-crate mod sysinfo;
 crate mod table;
 crate mod to_array;
 crate mod to_csv;

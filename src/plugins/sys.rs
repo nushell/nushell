@@ -6,7 +6,7 @@ use heim::{disk, memory};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Span, Spanned, SpannedDictBuilder, Value,
+    ShellError, Span, Spanned, SpannedDictBuilder, Value, OF64,
 };
 use std::ffi::OsStr;
 
@@ -18,18 +18,6 @@ impl Sys {
 }
 
 //TODO: add more error checking
-
-async fn os(span: Span) -> Option<Spanned<Value>> {
-    if let (Ok(name), Ok(version)) = (sys_info::os_type(), sys_info::os_release()) {
-        let mut os_idx = SpannedDictBuilder::new(span);
-        os_idx.insert("name", Primitive::String(name));
-        os_idx.insert("version", Primitive::String(version));
-
-        Some(os_idx.into_spanned_value())
-    } else {
-        None
-    }
-}
 
 async fn cpu(span: Span) -> Option<Spanned<Value>> {
     if let (Ok(num_cpu), Ok(cpu_speed)) = (sys_info::cpu_num(), sys_info::cpu_speed()) {
@@ -133,6 +121,48 @@ async fn disks(span: Span) -> Value {
     Value::List(output)
 }
 
+async fn temp(span: Span) -> Value {
+    use sysinfo::{ComponentExt, RefreshKind, SystemExt};
+    let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_system());
+    let components_list = system.get_components_list();
+    if components_list.len() > 0 {
+        let mut v: Vec<Spanned<Value>> = vec![];
+        for component in components_list {
+            let mut component_idx = SpannedDictBuilder::new(span);
+            component_idx.insert("name", Primitive::String(component.get_label().to_string()));
+            component_idx.insert(
+                "temp",
+                Primitive::Float(OF64::from(component.get_temperature() as f64)),
+            );
+            component_idx.insert(
+                "max",
+                Primitive::Float(OF64::from(component.get_max() as f64)),
+            );
+            if let Some(critical) = component.get_critical() {
+                component_idx.insert("critical", Primitive::Float(OF64::from(critical as f64)));
+            }
+            v.push(component_idx.into());
+        }
+        Value::List(v)
+    } else {
+        Value::List(vec![])
+    }
+}
+
+async fn net(span: Span) -> Spanned<Value> {
+    use sysinfo::{NetworkExt, RefreshKind, SystemExt};
+    let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_network());
+
+    let network = system.get_network();
+    let incoming = network.get_income();
+    let outgoing = network.get_outcome();
+
+    let mut network_idx = SpannedDictBuilder::new(span);
+    network_idx.insert("incoming", Value::bytes(incoming));
+    network_idx.insert("outgoing", Value::bytes(outgoing));
+    network_idx.into_spanned_value()
+}
+
 async fn sysinfo(span: Span) -> Vec<Spanned<Value>> {
     let mut sysinfo = SpannedDictBuilder::new(span);
 
@@ -142,6 +172,8 @@ async fn sysinfo(span: Span) -> Vec<Spanned<Value>> {
     }
     sysinfo.insert("disks", disks(span).await);
     sysinfo.insert_spanned("mem", mem(span).await);
+    sysinfo.insert("temp", temp(span).await);
+    sysinfo.insert_spanned("net", net(span).await);
 
     vec![sysinfo.into_spanned_value()]
 }
