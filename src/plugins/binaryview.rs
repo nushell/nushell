@@ -197,11 +197,11 @@ impl RenderContext {
             let cursor = cursor();
             cursor.hide()?;
 
-            self.width = terminal_size.0 as usize + 1;
+            self.width = terminal_size.0 as usize;
             self.height = if self.lores_mode {
-                terminal_size.1 as usize
+                terminal_size.1 as usize - 1
             } else {
-                terminal_size.1 as usize * 2
+                (terminal_size.1 as usize - 1) * 2
             };
         }
 
