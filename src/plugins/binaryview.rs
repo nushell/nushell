@@ -1,5 +1,5 @@
 #![feature(option_flattening)]
-use crossterm::{cursor, Attribute, RawScreen};
+use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, ShellError, SpanSource, Spanned,
@@ -82,7 +82,7 @@ impl RenderContext {
         }
     }
     pub fn clear(&mut self) {
-        self.frame_buffer = vec![(0, 0, 0); self.width * self.height];
+        self.frame_buffer = vec![(0, 0, 0); self.width * self.height as usize];
     }
 
     fn render_to_screen_lores(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -134,7 +134,6 @@ impl RenderContext {
         let fb_len = self.frame_buffer.len();
 
         let cursor = cursor();
-
         cursor.goto(0, 0)?;
 
         while pos < (fb_len - self.width) {
@@ -191,17 +190,18 @@ impl RenderContext {
         }
     }
     pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let (width, height) = term_size::dimensions().unwrap();
+        let terminal = terminal();
+        let terminal_size = terminal.terminal_size();
 
-        if (self.width != width) || (self.height != height) {
+        if (self.width != terminal_size.0 as usize) || (self.height != terminal_size.1 as usize) {
             let cursor = cursor();
             cursor.hide()?;
 
-            self.width = width + 1;
+            self.width = terminal_size.0 as usize + 1;
             self.height = if self.lores_mode {
-                height
+                terminal_size.1 as usize
             } else {
-                height * 2
+                terminal_size.1 as usize * 2
             };
         }
 
