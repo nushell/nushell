@@ -143,6 +143,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | edit field value | Edit an existing field to have a new value |
 | skip amount | Skip a number of rows |
 | first amount | Show only the first number of rows |
+| str (field) | Apply string function. Optional use the field of a table |
 | to-array | Collapse rows into a single list |
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |
