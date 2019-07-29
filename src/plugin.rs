@@ -6,14 +6,6 @@ pub trait Plugin {
     fn config(&mut self) -> Result<CommandConfig, ShellError>;
 
     #[allow(unused)]
-    fn is_valid(&self) -> bool { 
-        true
-    }
-
-    #[allow(unused)]
-    fn log_error(&mut self, message: &str) { }
-
-    #[allow(unused)]
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }

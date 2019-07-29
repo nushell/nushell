@@ -21,6 +21,14 @@ impl Str {
         }
     }
 
+    fn is_valid(&self) -> bool {
+        (self.downcase && !self.upcase) || (!self.downcase && self.upcase)
+    }
+
+    fn log_error(&mut self, message: &str) {
+        self.error = Some(message.to_string());
+    }
+
     fn to_downcase(&mut self) {
         self.downcase = true;
 
@@ -105,14 +113,6 @@ impl Plugin for Str {
             named,
             rest_positional: true,
         })
-    }
-
-    fn is_valid(&self) -> bool {
-        (self.downcase && !self.upcase) || (!self.downcase && self.upcase)
-    }
-
-    fn log_error(&mut self, message: &str) {
-        self.error = Some(message.to_string());
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
