@@ -50,17 +50,17 @@ fn paint_textview(
     starting_row: usize,
     use_color_buffer: bool,
 ) -> usize {
+    let terminal = terminal();
     let cursor = cursor();
 
-    let (width, height) = term_size::dimensions().unwrap();
+    let size = terminal.terminal_size();
 
     // render
     let mut pos = 0;
-    // account for the off-by-one
-    let width = width + 1;
+    let width = size.0 as usize + 1;
+    let height = size.1 as usize;
     let mut frame_buffer = vec![]; //(' ', 0, 0, 0); max_pos];
 
-    // TODO: Cache the full buffer and only recreate it if the terminal size changes
     for command in draw_commands {
         match command {
             DrawCommand::DrawString(style, string) => {
@@ -112,7 +112,7 @@ fn paint_textview(
     }
 
     if buffer_needs_scrolling {
-        let _ = cursor.goto(0, height as u16);
+        let _ = cursor.goto(0, size.1);
         print!(
             "{}",
             ansi_term::Colour::Blue.paint("[ESC to quit, arrow keys to move]")
@@ -136,11 +136,11 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
         let _ = input.read_async();
 
         let terminal = terminal();
-        let (mut width, mut height) = term_size::dimensions().unwrap();
+        let mut size = terminal.terminal_size();
         let mut max_bottom_line = paint_textview(&draw_commands, starting_row, use_color_buffer);
 
         // Only scroll if needed
-        if max_bottom_line > height {
+        if max_bottom_line > size.1 as usize {
             loop {
                 if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                     break;
@@ -153,23 +153,23 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                     }
                 }
                 if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
-                    if starting_row < (max_bottom_line - height) {
+                    if starting_row < (max_bottom_line - size.1 as usize) {
                         starting_row += 1;
                     }
                     max_bottom_line =
                         paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
                 if rawkey.is_pressed(rawkey::KeyCode::PageUp) {
-                    starting_row -= std::cmp::min(height, starting_row);
+                    starting_row -= std::cmp::min(size.1 as usize, starting_row);
                     max_bottom_line =
                         paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
                 if rawkey.is_pressed(rawkey::KeyCode::PageDown) {
-                    if starting_row < (max_bottom_line - height) {
-                        starting_row += height;
+                    if starting_row < (max_bottom_line - size.1 as usize) {
+                        starting_row += size.1 as usize;
 
-                        if starting_row > (max_bottom_line - height) {
-                            starting_row = max_bottom_line - height;
+                        if starting_row > (max_bottom_line - size.1 as usize) {
+                            starting_row = max_bottom_line - size.1 as usize;
                         }
                     }
                     max_bottom_line =
@@ -178,11 +178,9 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
 
                 thread::sleep(Duration::from_millis(50));
 
-                let new_size = term_size::dimensions().unwrap();
-                if width != new_size.0 || height != new_size.1 {
-                    width = new_size.0;
-                    height = new_size.1;
-
+                let new_size = terminal.terminal_size();
+                if size != new_size {
+                    size = new_size;
                     let _ = terminal.clear(crossterm::ClearType::All);
                     max_bottom_line =
                         paint_textview(&draw_commands, starting_row, use_color_buffer);

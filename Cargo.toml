@@ -80,7 +80,6 @@ uuid = {version = "0.7.4", features = [ "v4", "serde" ]}
 syntect = "3.2.0"
 strip-ansi-escapes = "0.1.0"
 heim = "0.0.5"
-term_size = "1.0.0-beta1"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
