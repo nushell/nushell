@@ -197,11 +197,11 @@ impl RenderContext {
             let cursor = cursor();
             cursor.hide()?;
 
-            self.width = terminal_size.0 as usize + 1;
+            self.width = terminal_size.0 as usize;
             self.height = if self.lores_mode {
-                terminal_size.1 as usize
+                terminal_size.1 as usize - 1
             } else {
-                terminal_size.1 as usize * 2
+                (terminal_size.1 as usize - 1) * 2
             };
         }
 
@@ -443,10 +443,6 @@ pub fn view_contents_interactive(
 
     #[allow(unused)]
     let screen = RawScreen::disable_raw_mode();
-
-    println!("Hit enter to return to terminal");
-    let mut buf = String::new();
-    let _ = std::io::stdin().read_line(&mut buf);
 
     Ok(())
 }

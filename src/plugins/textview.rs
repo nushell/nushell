@@ -57,8 +57,8 @@ fn paint_textview(
 
     // render
     let mut pos = 0;
-    let width = size.0 as usize + 1;
-    let height = size.1 as usize;
+    let width = size.0 as usize;
+    let height = size.1 as usize - 1;
     let mut frame_buffer = vec![]; //(' ', 0, 0, 0); max_pos];
 
     for command in draw_commands {
