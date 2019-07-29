@@ -29,7 +29,11 @@ impl Str {
         self.error = Some(message.to_string());
     }
 
-    fn to_downcase(&mut self) {
+    fn for_input(&mut self, field: String) {
+        self.field = Some(field);
+    }
+
+    fn for_downcase(&mut self) {
         self.downcase = true;
 
         if !self.is_valid() {
@@ -37,7 +41,7 @@ impl Str {
         }
     }
 
-    fn to_upcase(&mut self) {
+    fn for_upcase(&mut self) {
         self.upcase = true;
 
         if !self.is_valid() {
@@ -45,30 +49,34 @@ impl Str {
         }
     }
 
+    fn apply(&self, input: &str) -> String {
+        if self.downcase {
+            return input.to_ascii_lowercase();
+        }
+
+        if self.upcase {
+            return input.to_ascii_uppercase();
+        }
+
+        input.to_string()
+    }
+
     fn usage(&self) -> &'static str {
         "Usage: str [--downcase, --upcase]"
     }
+}
 
+impl Str {
     fn strutils(
         &self,
         value: Spanned<Value>,
         field: &Option<String>,
     ) -> Result<Spanned<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(s)) => {
-                let applied = if self.downcase {
-                    Value::string(s.to_ascii_lowercase())
-                } else if self.upcase {
-                    Value::string(s.to_ascii_uppercase())
-                } else {
-                    Value::string(s)
-                };
-
-                Ok(Spanned {
-                    item: applied,
-                    span: value.span,
-                })
-            }
+            Value::Primitive(Primitive::String(s)) => Ok(Spanned {
+                item: Value::string(self.apply(&s)),
+                span: value.span,
+            }),
             Value::Object(_) => match field {
                 Some(f) => {
                     let replacement = match value.item.get_data_by_path(value.span, f) {
@@ -117,11 +125,11 @@ impl Plugin for Str {
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if call_info.args.has("downcase") {
-            self.to_downcase();
+            self.for_downcase();
         }
 
         if call_info.args.has("upcase") {
-            self.to_upcase();
+            self.for_upcase();
         }
 
         if let Some(args) = call_info.args.positional {
@@ -131,7 +139,7 @@ impl Plugin for Str {
                         item: Value::Primitive(Primitive::String(s)),
                         ..
                     } => {
-                        self.field = Some(s);
+                        self.for_input(s);
                     }
                     _ => {
                         return Err(ShellError::string(format!(
@@ -145,11 +153,7 @@ impl Plugin for Str {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!(
-                    "{}: {}",
-                    reason,
-                    self.usage()
-                )))
+                return Err(ShellError::string(format!("{}: {}", reason, self.usage())))
             }
             None => {}
         }
