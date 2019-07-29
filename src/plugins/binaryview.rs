@@ -444,10 +444,6 @@ pub fn view_contents_interactive(
     #[allow(unused)]
     let screen = RawScreen::disable_raw_mode();
 
-    println!("Hit enter to return to terminal");
-    let mut buf = String::new();
-    let _ = std::io::stdin().read_line(&mut buf);
-
     Ok(())
 }
 
