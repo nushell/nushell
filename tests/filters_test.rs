@@ -66,6 +66,39 @@ fn can_split_by_column() {
 }
 
 #[test]
+fn str_can_only_apply_one() {
+    nu_error!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
+    );
+
+    assert!(output.contains("Usage: str [--downcase, --upcase]"));
+}
+
+#[test]
+fn str_downcases() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open caco3_plastics.csv | first 1 | str origin --downcase | get origin | echo $it"
+    );
+
+    assert_eq!(output, "spain");
+}
+
+#[test]
+fn str_upcases() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open appveyor.yml | str environment.global.PROJECT_NAME --upcase | get environment.global.PROJECT_NAME | echo $it"
+    );
+
+    assert_eq!(output, "NUSHELL");
+}
+
+#[test]
 fn can_inc_version() {
     nu!(
         output,
