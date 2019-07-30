@@ -298,6 +298,20 @@ mod tests {
     }
 
     #[test]
+    fn str_downcases() {
+        let mut strutils = Str::new();
+        strutils.for_downcase();
+        assert_eq!("andres", strutils.apply("ANDRES"));
+    }
+
+    #[test]
+    fn str_upcases() {
+        let mut strutils = Str::new();
+        strutils.for_upcase();
+        assert_eq!("ANDRES", strutils.apply("andres"));
+    }
+
+    #[test]
     fn str_applies_upcase() {
         let mut strutils = Str::new();
 
