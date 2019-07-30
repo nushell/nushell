@@ -23,7 +23,7 @@ impl Str {
         }
     }
 
-    fn fields(&self) -> u8 {
+    fn actions_desired(&self) -> u8 {
         [self.downcase, self.upcase, self.int].iter().fold(
             0,
             |acc, &field| {
@@ -41,11 +41,11 @@ impl Str {
     }
 
     fn at_most_one(&self) -> bool {
-        self.fields() == 1
+        self.actions_desired() == 1
     }
 
     fn none(&self) -> bool {
-        self.fields() == 0
+        self.actions_desired() == 0
     }
 
     fn log_error(&mut self, message: &str) {
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[test]
-    fn str_accepts_only_one_flag() {
+    fn str_accepts_only_one_action() {
         let mut strutils = Str::new();
 
         assert!(strutils
@@ -333,15 +333,6 @@ mod tests {
     }
 
     #[test]
-    fn str_reports_error_if_no_field_given_for_object() {
-        let mut strutils = Str::new();
-        let subject = sample_record("name", "jotandrehuda");
-
-        assert!(strutils.begin_filter(CallStub::new().create()).is_ok());
-        assert!(strutils.filter(subject).is_err());
-    }
-
-    #[test]
     fn str_downcases() {
         let mut strutils = Str::new();
         strutils.for_downcase();
@@ -363,7 +354,7 @@ mod tests {
     }
 
     #[test]
-    fn str_applies_upcase() {
+    fn str_plugin_applies_upcase() {
         let mut strutils = Str::new();
 
         assert!(strutils
@@ -391,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn str_applies_downcase() {
+    fn str_plugin_applies_downcase() {
         let mut strutils = Str::new();
 
         assert!(strutils
@@ -419,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn str_applies_to_int() {
+    fn str_plugin_applies_to_int() {
         let mut strutils = Str::new();
 
         assert!(strutils
