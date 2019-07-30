@@ -477,8 +477,12 @@ impl Value {
                     .map(|e| e.source(&b.source).to_string()),
                 "; ",
             ),
-            Value::Object(_) => format!("[object Object]"),
-            Value::List(_) => format!("[list List]"),
+            Value::Object(_) => format!("[{}]", self.type_name()),
+            Value::List(l) => format!(
+                "[{} {}]",
+                l.len(),
+                if l.len() == 1 { "item" } else { "items" }
+            ),
             Value::Binary(_) => format!("<binary>"),
         }
     }
