@@ -23,17 +23,14 @@ impl Str {
         }
     }
 
+    fn actions(&self) -> Vec<bool> {
+        vec![self.downcase, self.upcase, self.int]
+    }
+
     fn actions_desired(&self) -> u8 {
-        [self.downcase, self.upcase, self.int].iter().fold(
-            0,
-            |acc, &field| {
-                if field {
-                    acc + 1
-                } else {
-                    acc
-                }
-            },
-        )
+        self.actions()
+            .iter()
+            .fold(0, |acc, &field| if field { acc + 1 } else { acc })
     }
 
     fn is_valid(&self) -> bool {
@@ -265,6 +262,17 @@ mod tests {
         let mut record = SpannedDictBuilder::new(Span::unknown());
         record.insert(key.clone(), Value::string(value));
         record.into_spanned_value()
+    }
+
+    #[test]
+    fn str_plugin_configuration_flags_wired() {
+        let mut strutils = Str::new();
+
+        let config = strutils.config().unwrap();
+
+        for action_flag in &["downcase", "upcase", "to-int"] {
+            assert!(config.named.get(*action_flag).is_some());
+        }
     }
 
     #[test]
