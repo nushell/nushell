@@ -24,18 +24,16 @@ impl Str {
     }
 
     fn fields(&self) -> u8 {
-        [
-         self.downcase,
-         self.upcase,
-         self.int
-        ].iter()
-         .fold(0, |acc, &field| {
-             if field {
+        [self.downcase, self.upcase, self.int].iter().fold(
+            0,
+            |acc, &field| {
+                if field {
                     acc + 1
                 } else {
                     acc
                 }
-            })
+            },
+        )
     }
 
     fn is_valid(&self) -> bool {
@@ -57,7 +55,7 @@ impl Str {
     fn for_input(&mut self, field: String) {
         self.field = Some(field);
     }
-    
+
     fn for_to_int(&mut self) {
         self.int = true;
 
@@ -265,10 +263,7 @@ mod tests {
 
     fn sample_record(key: &str, value: &str) -> Spanned<Value> {
         let mut record = SpannedDictBuilder::new(Span::unknown());
-        record.insert(
-            key.clone(),
-            Value::string(value),
-        );
+        record.insert(key.clone(), Value::string(value));
         record.into_spanned_value()
     }
 
