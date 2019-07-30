@@ -1,5 +1,4 @@
 use indexmap::IndexMap;
-use std::str;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
     ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
