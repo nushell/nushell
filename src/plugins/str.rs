@@ -9,7 +9,7 @@ struct Str {
     error: Option<String>,
     downcase: bool,
     upcase: bool,
-    int: bool,
+    toint: bool,
 }
 
 impl Str {
@@ -19,12 +19,12 @@ impl Str {
             error: None,
             downcase: false,
             upcase: false,
-            int: false,
+            toint: false,
         }
     }
 
     fn actions(&self) -> Vec<bool> {
-        vec![self.downcase, self.upcase, self.int]
+        vec![self.downcase, self.upcase, self.toint]
     }
 
     fn actions_desired(&self) -> u8 {
@@ -54,7 +54,7 @@ impl Str {
     }
 
     fn for_to_int(&mut self) {
-        self.int = true;
+        self.toint = true;
 
         if !self.is_valid() {
             self.log_error("can only apply one")
@@ -86,7 +86,7 @@ impl Str {
             return Value::string(input.to_ascii_uppercase());
         }
 
-        if self.int {
+        if self.toint {
             match input.trim().parse::<i64>() {
                 Ok(v) => return Value::int(v),
                 Err(_) => return Value::string(input),
@@ -305,7 +305,7 @@ mod tests {
             .begin_filter(CallStub::new().with_long_flag("to-int").create())
             .is_ok());
         assert!(plugin.is_valid());
-        assert!(plugin.int);
+        assert!(plugin.toint);
     }
 
     #[test]
@@ -322,7 +322,7 @@ mod tests {
             )
             .is_err());
         assert!(!plugin.is_valid());
-        assert_eq!(Some("can only apply one".to_string()), plugin.error);
+        assert_eq!(plugin.error, Some("can only apply one".to_string()));
     }
 
     #[test]
@@ -337,28 +337,28 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(Some("package.description".to_string()), plugin.field);
+        assert_eq!(plugin.field, Some("package.description".to_string()));
     }
 
     #[test]
     fn str_downcases() {
         let mut strutils = Str::new();
         strutils.for_downcase();
-        assert_eq!(Value::string("andres"), strutils.apply("ANDRES"));
+        assert_eq!(strutils.apply("ANDRES"), Value::string("andres"));
     }
 
     #[test]
     fn str_upcases() {
         let mut strutils = Str::new();
         strutils.for_upcase();
-        assert_eq!(Value::string("ANDRES"), strutils.apply("andres"));
+        assert_eq!(strutils.apply("andres"), Value::string("ANDRES"));
     }
 
     #[test]
     fn str_to_int() {
         let mut strutils = Str::new();
         strutils.for_to_int();
-        assert_eq!(Value::int(9999 as i64), strutils.apply("9999"));
+        assert_eq!(strutils.apply("9999"), Value::int(9999 as i64));
     }
 
     #[test]
