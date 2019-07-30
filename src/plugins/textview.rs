@@ -59,7 +59,7 @@ fn paint_textview(
     let mut pos = 0;
     let width = size.0 as usize;
     let height = size.1 as usize - 1;
-    let mut frame_buffer = vec![]; //(' ', 0, 0, 0); max_pos];
+    let mut frame_buffer = vec![];
 
     for command in draw_commands {
         match command {
@@ -137,10 +137,12 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
 
         let terminal = terminal();
         let mut size = terminal.terminal_size();
+        let height = size.1 as usize - 1;
+
         let mut max_bottom_line = paint_textview(&draw_commands, starting_row, use_color_buffer);
 
         // Only scroll if needed
-        if max_bottom_line > size.1 as usize {
+        if max_bottom_line > height as usize {
             loop {
                 if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                     break;
@@ -153,23 +155,23 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                     }
                 }
                 if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
-                    if starting_row < (max_bottom_line - size.1 as usize) {
+                    if starting_row < (max_bottom_line - height) {
                         starting_row += 1;
                     }
                     max_bottom_line =
                         paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
                 if rawkey.is_pressed(rawkey::KeyCode::PageUp) {
-                    starting_row -= std::cmp::min(size.1 as usize, starting_row);
+                    starting_row -= std::cmp::min(height, starting_row);
                     max_bottom_line =
                         paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
                 if rawkey.is_pressed(rawkey::KeyCode::PageDown) {
-                    if starting_row < (max_bottom_line - size.1 as usize) {
-                        starting_row += size.1 as usize;
+                    if starting_row < (max_bottom_line - height) {
+                        starting_row += height;
 
-                        if starting_row > (max_bottom_line - size.1 as usize) {
-                            starting_row = max_bottom_line - size.1 as usize;
+                        if starting_row > (max_bottom_line - height) {
+                            starting_row = max_bottom_line - height;
                         }
                     }
                     max_bottom_line =
@@ -198,7 +200,6 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
     let screen = RawScreen::disable_raw_mode();
 
     println!("");
-    //thread::sleep(Duration::from_millis(50));
 }
 
 fn scroll_view(s: &str) {
@@ -219,46 +220,57 @@ fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
             let source = span.source.map(|x| source_map.get(&x)).flatten();
 
             if let Some(source) = source {
-                match source {
+                let extension: Option<String> = match source {
                     SpanSource::File(file) => {
                         let path = Path::new(file);
-                        match path.extension() {
-                            Some(extension) => {
-                                // Load these once at the start of your program
-                                let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
-                                    "../../assets/syntaxes.bin"
-                                ));
-
-                                if let Some(syntax) =
-                                    ps.find_syntax_by_extension(extension.to_str().unwrap())
-                                {
-                                    let ts: ThemeSet = syntect::dumps::from_binary(include_bytes!(
-                                        "../../assets/themes.bin"
-                                    ));
-                                    let mut h =
-                                        HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
-
-                                    let mut v = vec![];
-                                    for line in s.lines() {
-                                        let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-
-                                        for range in ranges {
-                                            v.push(DrawCommand::DrawString(
-                                                range.0,
-                                                range.1.to_string(),
-                                            ));
-                                        }
-
-                                        v.push(DrawCommand::NextLine);
-                                    }
-                                    scroll_view_lines_if_needed(v, true);
+                        path.extension().map(|x| x.to_string_lossy().to_string())
+                    }
+                    SpanSource::Url(url) => {
+                        let url = reqwest::Url::parse(url);
+                        if let Ok(url) = url {
+                            let url = url.clone();
+                            if let Some(mut segments) = url.path_segments() {
+                                if let Some(file) = segments.next_back() {
+                                    let path = Path::new(file);
+                                    path.extension().map(|x| x.to_string_lossy().to_string())
                                 } else {
-                                    scroll_view(s);
+                                    None
                                 }
+                            } else {
+                                None
                             }
-                            _ => {
-                                scroll_view(s);
+                        } else {
+                            None
+                        }
+                    }
+                };
+
+                match extension {
+                    Some(extension) => {
+                        // Load these once at the start of your program
+                        let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
+                            "../../assets/syntaxes.bin"
+                        ));
+
+                        if let Some(syntax) = ps.find_syntax_by_extension(&extension) {
+                            let ts: ThemeSet = syntect::dumps::from_binary(include_bytes!(
+                                "../../assets/themes.bin"
+                            ));
+                            let mut h = HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
+
+                            let mut v = vec![];
+                            for line in s.lines() {
+                                let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+
+                                for range in ranges {
+                                    v.push(DrawCommand::DrawString(range.0, range.1.to_string()));
+                                }
+
+                                v.push(DrawCommand::NextLine);
                             }
+                            scroll_view_lines_if_needed(v, true);
+                        } else {
+                            scroll_view(s);
                         }
                     }
                     _ => {

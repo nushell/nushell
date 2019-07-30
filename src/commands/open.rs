@@ -148,7 +148,10 @@ pub fn fetch(
                         }
                         (ty, sub_ty) => Ok((
                             None,
-                            Value::string(format!("Not yet support MIME type: {} {}", ty, sub_ty)),
+                            Value::string(format!(
+                                "Not yet supported MIME type: {} {}",
+                                ty, sub_ty
+                            )),
                             Span::unknown_with_uuid(Uuid::new_v4()),
                             SpanSource::Url(r.url().to_string()),
                         )),

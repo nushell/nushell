@@ -45,9 +45,9 @@ pub fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(move |a| match a.item {
             Value::Primitive(Primitive::String(s)) => match from_ini_string_to_value(s, span) {
                 Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
-                Err(e) => Err(ShellError::maybe_labeled_error(
+                Err(_) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as INI",
-                    format!("{:#?}", e),
+                    "piped data failed INI parse",
                     span,
                 )),
             },
