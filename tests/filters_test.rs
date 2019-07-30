@@ -73,7 +73,7 @@ fn str_can_only_apply_one() {
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(output.contains("Usage: str field [--downcase|--upcase]"));
+    assert!(output.contains("Usage: str field [--downcase|--upcase|--to-int]"));
 }
 
 #[test]
@@ -96,6 +96,17 @@ fn str_upcases() {
     );
 
     assert_eq!(output, "NUSHELL");
+}
+
+#[test]
+fn str_converts_to_int() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open caco3_plastics.csv | get 0 | str tariff_item --to-int | where tariff_item == 2509000000 | get tariff_item | echo $it"
+    );
+
+    assert_eq!(output, "2509000000");
 }
 
 #[test]

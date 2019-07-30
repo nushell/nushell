@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use std::str;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
     ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
@@ -9,6 +10,7 @@ struct Str {
     error: Option<String>,
     downcase: bool,
     upcase: bool,
+    int: bool,
 }
 
 impl Str {
@@ -18,19 +20,35 @@ impl Str {
             error: None,
             downcase: false,
             upcase: false,
+            int: false,
         }
     }
 
-    fn is_valid(&self) -> bool {
-        self.at_least_one() || self.none()
+    fn fields(&self) -> u8 {
+        [
+         self.downcase,
+         self.upcase,
+         self.int
+        ].iter()
+         .fold(0, |acc, &field| {
+             if field {
+                    acc + 1
+                } else {
+                    acc
+                }
+            })
     }
 
-    fn at_least_one(&self) -> bool {
-        (self.downcase && !self.upcase) || (!self.downcase && self.upcase)
+    fn is_valid(&self) -> bool {
+        self.at_most_one() || self.none()
+    }
+
+    fn at_most_one(&self) -> bool {
+        self.fields() == 1
     }
 
     fn none(&self) -> bool {
-        (!self.downcase && !self.upcase)
+        self.fields() == 0
     }
 
     fn log_error(&mut self, message: &str) {
@@ -39,6 +57,14 @@ impl Str {
 
     fn for_input(&mut self, field: String) {
         self.field = Some(field);
+    }
+    
+    fn for_to_int(&mut self) {
+        self.int = true;
+
+        if !self.is_valid() {
+            self.log_error("can only apply one")
+        }
     }
 
     fn for_downcase(&mut self) {
@@ -57,20 +83,27 @@ impl Str {
         }
     }
 
-    fn apply(&self, input: &str) -> String {
+    fn apply(&self, input: &str) -> Value {
         if self.downcase {
-            return input.to_ascii_lowercase();
+            return Value::string(input.to_ascii_lowercase());
         }
 
         if self.upcase {
-            return input.to_ascii_uppercase();
+            return Value::string(input.to_ascii_uppercase());
         }
 
-        input.to_string()
+        if self.int {
+            match input.trim().parse::<i64>() {
+                Ok(v) => return Value::int(v),
+                Err(_) => return Value::string(input),
+            }
+        }
+
+        Value::string(input.to_string())
     }
 
     fn usage(&self) -> &'static str {
-        "Usage: str field [--downcase|--upcase]"
+        "Usage: str field [--downcase|--upcase|--to-int]"
     }
 }
 
@@ -81,10 +114,10 @@ impl Str {
         field: &Option<String>,
     ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(ref s)) => Ok(Tagged::from_item(
-                Value::string(self.apply(&s)),
-                value.span(),
-            )),
+            Value::Primitive(Primitive::String(s)) => Ok(Spanned {
+                item: self.apply(&s),
+                span: value.span,
+            }),
             Value::Object(_) => match field {
                 Some(f) => {
                     let replacement = match value.item.get_data_by_path(value.span(), f) {
@@ -122,6 +155,7 @@ impl Plugin for Str {
         let mut named = IndexMap::new();
         named.insert("downcase".to_string(), NamedType::Switch);
         named.insert("upcase".to_string(), NamedType::Switch);
+        named.insert("to-int".to_string(), NamedType::Switch);
 
         Ok(CommandConfig {
             name: "str".to_string(),
@@ -140,6 +174,10 @@ impl Plugin for Str {
 
         if call_info.args.has("upcase") {
             self.for_upcase();
+        }
+
+        if call_info.args.has("to-int") {
+            self.for_to_int();
         }
 
         if let Some(args) = call_info.args.positional {
@@ -226,11 +264,11 @@ mod tests {
         }
     }
 
-    fn sample_record(value: &str) -> Spanned<Value> {
+    fn sample_record(key: &str, value: &str) -> Spanned<Value> {
         let mut record = SpannedDictBuilder::new(Span::unknown());
-        record.insert_spanned(
-            "name",
-            Value::string(value.to_string()).spanned(Span::unknown()),
+        record.insert(
+            key.clone(),
+            Value::string(value),
         );
         record.into_spanned_value()
     }
@@ -258,6 +296,17 @@ mod tests {
     }
 
     #[test]
+    fn str_accepts_to_int() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(CallStub::new().with_long_flag("to-int").create())
+            .is_ok());
+        assert!(strutils.is_valid());
+        assert!(strutils.int);
+    }
+
+    #[test]
     fn str_accepts_only_one_flag() {
         let mut strutils = Str::new();
 
@@ -266,6 +315,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("upcase")
                     .with_long_flag("downcase")
+                    .with_long_flag("to-int")
                     .create(),
             )
             .is_err());
@@ -291,7 +341,7 @@ mod tests {
     #[test]
     fn str_reports_error_if_no_field_given_for_object() {
         let mut strutils = Str::new();
-        let subject = sample_record("jotandrehuda");
+        let subject = sample_record("name", "jotandrehuda");
 
         assert!(strutils.begin_filter(CallStub::new().create()).is_ok());
         assert!(strutils.filter(subject).is_err());
@@ -301,14 +351,21 @@ mod tests {
     fn str_downcases() {
         let mut strutils = Str::new();
         strutils.for_downcase();
-        assert_eq!("andres", strutils.apply("ANDRES"));
+        assert_eq!(Value::string("andres"), strutils.apply("ANDRES"));
     }
 
     #[test]
     fn str_upcases() {
         let mut strutils = Str::new();
         strutils.for_upcase();
-        assert_eq!("ANDRES", strutils.apply("andres"));
+        assert_eq!(Value::string("ANDRES"), strutils.apply("andres"));
+    }
+
+    #[test]
+    fn str_to_int() {
+        let mut strutils = Str::new();
+        strutils.for_to_int();
+        assert_eq!(Value::int(9999 as i64), strutils.apply("9999"));
     }
 
     #[test]
@@ -324,7 +381,7 @@ mod tests {
             )
             .is_ok());
 
-        let subject = sample_record("jotandrehuda");
+        let subject = sample_record("name", "jotandrehuda");
         let output = strutils.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
@@ -352,7 +409,7 @@ mod tests {
             )
             .is_ok());
 
-        let subject = sample_record("JOTANDREHUDA");
+        let subject = sample_record("name", "JOTANDREHUDA");
         let output = strutils.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
@@ -362,6 +419,34 @@ mod tests {
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
                 Value::string(String::from("jotandrehuda"))
+            ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_applies_to_int() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("to-int")
+                    .with_parameter("Nu_birthday")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = sample_record("Nu_birthday", "10");
+        let output = strutils.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Spanned {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("Nu_birthday")).borrow(),
+                Value::int(10)
             ),
             _ => {}
         }
