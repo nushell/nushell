@@ -266,53 +266,53 @@ mod tests {
 
     #[test]
     fn str_plugin_configuration_flags_wired() {
-        let mut strutils = Str::new();
+        let mut plugin = Str::new();
 
-        let config = strutils.config().unwrap();
+        let configured = plugin.config().unwrap();
 
         for action_flag in &["downcase", "upcase", "to-int"] {
-            assert!(config.named.get(*action_flag).is_some());
+            assert!(configured.named.get(*action_flag).is_some());
         }
     }
 
     #[test]
-    fn str_accepts_downcase() {
-        let mut strutils = Str::new();
+    fn str_plugin_accepts_downcase() {
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("downcase").create())
             .is_ok());
-        assert!(strutils.is_valid());
-        assert!(strutils.downcase);
+        assert!(plugin.is_valid());
+        assert!(plugin.downcase);
     }
 
     #[test]
-    fn str_accepts_upcase() {
-        let mut strutils = Str::new();
+    fn str_plugin_accepts_upcase() {
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("upcase").create())
             .is_ok());
-        assert!(strutils.is_valid());
-        assert!(strutils.upcase);
+        assert!(plugin.is_valid());
+        assert!(plugin.upcase);
     }
 
     #[test]
-    fn str_accepts_to_int() {
-        let mut strutils = Str::new();
+    fn str_plugin_accepts_to_int() {
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("to-int").create())
             .is_ok());
-        assert!(strutils.is_valid());
-        assert!(strutils.int);
+        assert!(plugin.is_valid());
+        assert!(plugin.int);
     }
 
     #[test]
-    fn str_accepts_only_one_action() {
-        let mut strutils = Str::new();
+    fn str_plugin_accepts_only_one_action() {
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("upcase")
@@ -321,15 +321,15 @@ mod tests {
                     .create(),
             )
             .is_err());
-        assert!(!strutils.is_valid());
-        assert_eq!(Some("can only apply one".to_string()), strutils.error);
+        assert!(!plugin.is_valid());
+        assert_eq!(Some("can only apply one".to_string()), plugin.error);
     }
 
     #[test]
-    fn str_accepts_field() {
-        let mut strutils = Str::new();
+    fn str_plugin_accepts_field() {
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(
                 CallStub::new()
                     .with_parameter("package.description")
@@ -337,7 +337,7 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(Some("package.description".to_string()), strutils.field);
+        assert_eq!(Some("package.description".to_string()), plugin.field);
     }
 
     #[test]
@@ -363,9 +363,9 @@ mod tests {
 
     #[test]
     fn str_plugin_applies_upcase() {
-        let mut strutils = Str::new();
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("upcase")
@@ -375,7 +375,7 @@ mod tests {
             .is_ok());
 
         let subject = sample_record("name", "jotandrehuda");
-        let output = strutils.filter(subject).unwrap();
+        let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Spanned {
@@ -391,9 +391,9 @@ mod tests {
 
     #[test]
     fn str_plugin_applies_downcase() {
-        let mut strutils = Str::new();
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("downcase")
@@ -403,7 +403,7 @@ mod tests {
             .is_ok());
 
         let subject = sample_record("name", "JOTANDREHUDA");
-        let output = strutils.filter(subject).unwrap();
+        let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Spanned {
@@ -419,9 +419,9 @@ mod tests {
 
     #[test]
     fn str_plugin_applies_to_int() {
-        let mut strutils = Str::new();
+        let mut plugin = Str::new();
 
-        assert!(strutils
+        assert!(plugin
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("to-int")
@@ -431,7 +431,7 @@ mod tests {
             .is_ok());
 
         let subject = sample_record("Nu_birthday", "10");
-        let output = strutils.filter(subject).unwrap();
+        let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Spanned {
