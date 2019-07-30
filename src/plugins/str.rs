@@ -4,8 +4,6 @@ use nu::{
     ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
 };
 
-use log::trace;
-
 struct Str {
     field: Option<String>,
     error: Option<String>,
@@ -136,8 +134,6 @@ impl Plugin for Str {
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        trace!("{:?}", call_info);
-
         if call_info.args.has("downcase") {
             self.for_downcase();
         }
