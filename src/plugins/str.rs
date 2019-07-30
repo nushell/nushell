@@ -4,6 +4,8 @@ use nu::{
     ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
 };
 
+use log::trace;
+
 struct Str {
     field: Option<String>,
     error: Option<String>,
@@ -22,7 +24,15 @@ impl Str {
     }
 
     fn is_valid(&self) -> bool {
+        self.at_least_one() || self.none()
+    }
+
+    fn at_least_one(&self) -> bool {
         (self.downcase && !self.upcase) || (!self.downcase && self.upcase)
+    }
+
+    fn none(&self) -> bool {
+        (!self.downcase && !self.upcase)
     }
 
     fn log_error(&mut self, message: &str) {
@@ -62,7 +72,7 @@ impl Str {
     }
 
     fn usage(&self) -> &'static str {
-        "Usage: str [--downcase, --upcase]"
+        "Usage: str field [--downcase|--upcase]"
     }
 }
 
@@ -95,9 +105,11 @@ impl Str {
                         }
                     }
                 }
-                None => Err(ShellError::string(
+                None => Err(ShellError::string(format!(
+                    "{}: {}",
                     "str needs a field when applying it to a value in an object",
-                )),
+                    self.usage()
+                ))),
             },
             x => Err(ShellError::string(format!(
                 "Unrecognized type in stream: {:?}",
@@ -124,6 +136,8 @@ impl Plugin for Str {
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        trace!("{:?}", call_info);
+
         if call_info.args.has("downcase") {
             self.for_downcase();
         }
@@ -155,10 +169,8 @@ impl Plugin for Str {
             Some(reason) => {
                 return Err(ShellError::string(format!("{}: {}", reason, self.usage())))
             }
-            None => {}
+            None => Ok(vec![]),
         }
-
-        Ok(vec![])
     }
 
     fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
@@ -170,4 +182,178 @@ impl Plugin for Str {
 
 fn main() {
     serve_plugin(&mut Str::new());
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::Str;
+    use indexmap::IndexMap;
+    use nu::{
+        Args, CallInfo, Plugin, ReturnSuccess, SourceMap, Span, Spanned, SpannedDictBuilder,
+        SpannedItem, Value,
+    };
+
+    struct CallStub {
+        positionals: Vec<Spanned<Value>>,
+        flags: IndexMap<String, Spanned<Value>>,
+    }
+
+    impl CallStub {
+        fn new() -> CallStub {
+            CallStub {
+                positionals: vec![],
+                flags: indexmap::IndexMap::new(),
+            }
+        }
+
+        fn with_long_flag(&mut self, name: &str) -> &mut Self {
+            self.flags.insert(
+                name.to_string(),
+                Value::boolean(true).spanned(Span::unknown()),
+            );
+            self
+        }
+
+        fn with_parameter(&mut self, name: &str) -> &mut Self {
+            self.positionals
+                .push(Value::string(name.to_string()).spanned(Span::unknown()));
+            self
+        }
+
+        fn create(&self) -> CallInfo {
+            CallInfo {
+                args: Args::new(Some(self.positionals.clone()), Some(self.flags.clone())),
+                source_map: SourceMap::new(),
+                name_span: None,
+            }
+        }
+    }
+
+    fn sample_record(value: &str) -> Spanned<Value> {
+        let mut record = SpannedDictBuilder::new(Span::unknown());
+        record.insert_spanned(
+            "name",
+            Value::string(value.to_string()).spanned(Span::unknown()),
+        );
+        record.into_spanned_value()
+    }
+
+    #[test]
+    fn str_accepts_downcase() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(CallStub::new().with_long_flag("downcase").create())
+            .is_ok());
+        assert!(strutils.is_valid());
+        assert!(strutils.downcase);
+    }
+
+    #[test]
+    fn str_accepts_upcase() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(CallStub::new().with_long_flag("upcase").create())
+            .is_ok());
+        assert!(strutils.is_valid());
+        assert!(strutils.upcase);
+    }
+
+    #[test]
+    fn str_accepts_only_one_flag() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("upcase")
+                    .with_long_flag("downcase")
+                    .create(),
+            )
+            .is_err());
+        assert!(!strutils.is_valid());
+        assert_eq!(Some("can only apply one".to_string()), strutils.error);
+    }
+
+    #[test]
+    fn str_accepts_field() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(
+                CallStub::new()
+                    .with_parameter("package.description")
+                    .create()
+            )
+            .is_ok());
+
+        assert_eq!(Some("package.description".to_string()), strutils.field);
+    }
+
+    #[test]
+    fn str_reports_error_if_no_field_given_for_object() {
+        let mut strutils = Str::new();
+        let subject = sample_record("jotandrehuda");
+
+        assert!(strutils.begin_filter(CallStub::new().create()).is_ok());
+        assert!(strutils.filter(subject).is_err());
+    }
+
+    #[test]
+    fn str_applies_upcase() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("upcase")
+                    .with_parameter("name")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = sample_record("jotandrehuda");
+        let output = strutils.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Spanned {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("name")).borrow(),
+                Value::string(String::from("JOTANDREHUDA"))
+            ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_applies_downcase() {
+        let mut strutils = Str::new();
+
+        assert!(strutils
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("downcase")
+                    .with_parameter("name")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = sample_record("JOTANDREHUDA");
+        let output = strutils.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Spanned {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("name")).borrow(),
+                Value::string(String::from("jotandrehuda"))
+            ),
+            _ => {}
+        }
+    }
 }

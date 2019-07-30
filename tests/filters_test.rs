@@ -73,7 +73,7 @@ fn str_can_only_apply_one() {
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(output.contains("Usage: str [--downcase, --upcase]"));
+    assert!(output.contains("Usage: str field [--downcase|--upcase]"));
 }
 
 #[test]
