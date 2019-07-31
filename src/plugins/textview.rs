@@ -189,8 +189,6 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                 }
             }
         }
-
-        let _ = cursor.show();
     }
 
     let cursor = cursor();
