@@ -32,7 +32,7 @@ impl Str {
             Some(Action::ToInteger) => match input.trim().parse::<i64>() {
                 Ok(v) => Value::int(v),
                 Err(_) => Value::string(input),
-            }
+            },
             None => Value::string(input.to_string()),
         }
     }
@@ -288,6 +288,22 @@ mod tests {
             .is_ok());
 
         assert_eq!(plugin.field, Some("package.description".to_string()));
+    }
+
+    #[test]
+    fn str_plugin_accepts_only_one_action() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("upcase")
+                    .with_long_flag("downcase")
+                    .with_long_flag("to-int")
+                    .create(),
+            )
+            .is_err());
+        assert_eq!(plugin.error, Some("can only apply one".to_string()));
     }
 
     #[test]
