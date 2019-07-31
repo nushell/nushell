@@ -4,12 +4,16 @@ use nu::{
     ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
 };
 
+enum Action {
+    Downcase,
+    Upcase,
+    ToInteger,
+}
+
 struct Str {
     field: Option<String>,
     error: Option<String>,
-    downcase: bool,
-    upcase: bool,
-    toint: bool,
+    action: Option<Action>,
 }
 
 impl Str {
@@ -17,83 +21,49 @@ impl Str {
         Str {
             field: None,
             error: None,
-            downcase: false,
-            upcase: false,
-            toint: false,
+            action: None,
         }
     }
 
-    fn actions(&self) -> Vec<bool> {
-        vec![self.downcase, self.upcase, self.toint]
-    }
-
-    fn actions_desired(&self) -> u8 {
-        self.actions()
-            .iter()
-            .fold(0, |acc, &field| if field { acc + 1 } else { acc })
-    }
-
-    fn is_valid(&self) -> bool {
-        self.at_most_one() || self.none()
-    }
-
-    fn at_most_one(&self) -> bool {
-        self.actions_desired() == 1
-    }
-
-    fn none(&self) -> bool {
-        self.actions_desired() == 0
-    }
-
-    fn log_error(&mut self, message: &str) {
-        self.error = Some(message.to_string());
+    fn apply(&self, input: &str) -> Value {
+        match self.action {
+            Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
+            Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
+            Some(Action::ToInteger) => match input.trim().parse::<i64>() {
+                Ok(v) => Value::int(v),
+                Err(_) => Value::string(input),
+            }
+            None => Value::string(input.to_string()),
+        }
     }
 
     fn for_input(&mut self, field: String) {
         self.field = Some(field);
     }
 
-    fn for_to_int(&mut self) {
-        self.toint = true;
-
-        if !self.is_valid() {
-            self.log_error("can only apply one")
+    fn update(&mut self) {
+        if self.action.is_some() {
+            self.log_error("can only apply one");
         }
+    }
+
+    fn log_error(&mut self, message: &str) {
+        self.error = Some(message.to_string());
+    }
+
+    fn for_to_int(&mut self) {
+        self.update();
+        self.action = Some(Action::ToInteger);
     }
 
     fn for_downcase(&mut self) {
-        self.downcase = true;
-
-        if !self.is_valid() {
-            self.log_error("can only apply one")
-        }
+        self.update();
+        self.action = Some(Action::Downcase);
     }
 
     fn for_upcase(&mut self) {
-        self.upcase = true;
-
-        if !self.is_valid() {
-            self.log_error("can only apply one")
-        }
-    }
-
-    fn apply(&self, input: &str) -> Value {
-        if self.downcase {
-            return Value::string(input.to_ascii_lowercase());
-        }
-
-        if self.upcase {
-            return Value::string(input.to_ascii_uppercase());
-        }
-
-        if self.toint {
-            match input.trim().parse::<i64>() {
-                Ok(v) => return Value::int(v),
-                Err(_) => return Value::string(input),
-            }
-        }
-
-        Value::string(input.to_string())
+        self.update();
+        self.action = Some(Action::Upcase);
     }
 
     fn usage(&self) -> &'static str {
@@ -282,8 +252,7 @@ mod tests {
         assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("downcase").create())
             .is_ok());
-        assert!(plugin.is_valid());
-        assert!(plugin.downcase);
+        assert!(plugin.action.is_some());
     }
 
     #[test]
@@ -293,8 +262,7 @@ mod tests {
         assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("upcase").create())
             .is_ok());
-        assert!(plugin.is_valid());
-        assert!(plugin.upcase);
+        assert!(plugin.action.is_some());
     }
 
     #[test]
@@ -304,25 +272,7 @@ mod tests {
         assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("to-int").create())
             .is_ok());
-        assert!(plugin.is_valid());
-        assert!(plugin.toint);
-    }
-
-    #[test]
-    fn str_plugin_accepts_only_one_action() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_long_flag("upcase")
-                    .with_long_flag("downcase")
-                    .with_long_flag("to-int")
-                    .create(),
-            )
-            .is_err());
-        assert!(!plugin.is_valid());
-        assert_eq!(plugin.error, Some("can only apply one".to_string()));
+        assert!(plugin.action.is_some());
     }
 
     #[test]
