@@ -78,10 +78,9 @@ impl Str {
         field: &Option<String>,
     ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(s)) => Ok(Spanned {
-                item: self.apply(&s),
-                span: value.span,
-            }),
+            Value::Primitive(Primitive::String(ref s)) => {
+                Ok(Tagged::from_item(self.apply(&s), value.span()))
+            }
             Value::Object(_) => match field {
                 Some(f) => {
                     let replacement = match value.item.get_data_by_path(value.span(), f) {
@@ -188,13 +187,13 @@ mod tests {
     use super::Str;
     use indexmap::IndexMap;
     use nu::{
-        Args, CallInfo, Plugin, ReturnSuccess, SourceMap, Span, Spanned, SpannedDictBuilder,
-        SpannedItem, Value,
+        Args, CallInfo, Plugin, ReturnSuccess, SourceMap, Span, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
     };
 
     struct CallStub {
-        positionals: Vec<Spanned<Value>>,
-        flags: IndexMap<String, Spanned<Value>>,
+        positionals: Vec<Tagged<Value>>,
+        flags: IndexMap<String, Tagged<Value>>,
     }
 
     impl CallStub {
@@ -208,14 +207,14 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::boolean(true).spanned(Span::unknown()),
+                Value::boolean(true).tagged(Span::unknown()),
             );
             self
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             self.positionals
-                .push(Value::string(name.to_string()).spanned(Span::unknown()));
+                .push(Value::string(name.to_string()).tagged(Span::unknown()));
             self
         }
 
@@ -228,10 +227,10 @@ mod tests {
         }
     }
 
-    fn sample_record(key: &str, value: &str) -> Spanned<Value> {
-        let mut record = SpannedDictBuilder::new(Span::unknown());
+    fn sample_record(key: &str, value: &str) -> Tagged<Value> {
+        let mut record = TaggedDictBuilder::new(Span::unknown());
         record.insert(key.clone(), Value::string(value));
-        record.into_spanned_value()
+        record.into_tagged_value()
     }
 
     #[test]
@@ -344,7 +343,7 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Spanned {
+            ReturnSuccess::Value(Tagged {
                 item: Value::Object(o),
                 ..
             }) => assert_eq!(
@@ -372,7 +371,7 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Spanned {
+            ReturnSuccess::Value(Tagged {
                 item: Value::Object(o),
                 ..
             }) => assert_eq!(
@@ -400,7 +399,7 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Spanned {
+            ReturnSuccess::Value(Tagged {
                 item: Value::Object(o),
                 ..
             }) => assert_eq!(
