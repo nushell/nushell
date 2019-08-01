@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::object::SpannedDictBuilder;
-use crate::parser::{hir, Operator, Span, Spanned};
+use crate::object::TaggedDictBuilder;
+use crate::parser::{hir, Operator};
 use crate::prelude::*;
 use crate::Text;
 use ansi_term::Color;
@@ -164,11 +164,11 @@ impl Deserialize<'de> for Block {
 }
 
 impl Block {
-    pub fn invoke(&self, value: &Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
+    pub fn invoke(&self, value: &Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
-            return Ok(Spanned::from_item(Value::nothing(), self.span));
+            return Ok(Tagged::from_item(Value::nothing(), self.span));
         }
 
         let mut last = None;
@@ -187,17 +187,17 @@ pub enum Value {
     Object(crate::object::Dictionary),
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
-    List(Vec<Spanned<Value>>),
+    List(Vec<Tagged<Value>>),
     #[allow(unused)]
     Block(Block),
 }
 
-pub fn debug_list(values: &'a Vec<Spanned<Value>>) -> ValuesDebug<'a> {
+pub fn debug_list(values: &'a Vec<Tagged<Value>>) -> ValuesDebug<'a> {
     ValuesDebug { values }
 }
 
 pub struct ValuesDebug<'a> {
-    values: &'a Vec<Spanned<Value>>,
+    values: &'a Vec<Tagged<Value>>,
 }
 
 impl fmt::Debug for ValuesDebug<'a> {
@@ -209,7 +209,7 @@ impl fmt::Debug for ValuesDebug<'a> {
 }
 
 pub struct ValueDebug<'a> {
-    value: &'a Spanned<Value>,
+    value: &'a Tagged<Value>,
 }
 
 impl fmt::Debug for ValueDebug<'a> {
@@ -224,17 +224,17 @@ impl fmt::Debug for ValueDebug<'a> {
     }
 }
 
-impl Spanned<Value> {
-    crate fn spanned_type_name(&self) -> Spanned<String> {
+impl Tagged<Value> {
+    crate fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
-        Spanned::from_item(name, self.span)
+        Tagged::from_item(name, self.span())
     }
 }
 
-impl std::convert::TryFrom<&'a Spanned<Value>> for Block {
+impl std::convert::TryFrom<&'a Tagged<Value>> for Block {
     type Error = ShellError;
 
-    fn try_from(value: &'a Spanned<Value>) -> Result<Block, ShellError> {
+    fn try_from(value: &'a Tagged<Value>) -> Result<Block, ShellError> {
         match value.item() {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
@@ -245,10 +245,10 @@ impl std::convert::TryFrom<&'a Spanned<Value>> for Block {
     }
 }
 
-impl std::convert::TryFrom<&'a Spanned<Value>> for i64 {
+impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
     type Error = ShellError;
 
-    fn try_from(value: &'a Spanned<Value>) -> Result<i64, ShellError> {
+    fn try_from(value: &'a Tagged<Value>) -> Result<i64, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Int(int)) => Ok(*int),
             v => Err(ShellError::type_error(
@@ -273,10 +273,10 @@ impl Switch {
     }
 }
 
-impl std::convert::TryFrom<Option<&'a Spanned<Value>>> for Switch {
+impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
     type Error = ShellError;
 
-    fn try_from(value: Option<&'a Spanned<Value>>) -> Result<Switch, ShellError> {
+    fn try_from(value: Option<&'a Tagged<Value>>) -> Result<Switch, ShellError> {
         match value {
             None => Ok(Switch::Absent),
             Some(value) => match value.item() {
@@ -290,7 +290,7 @@ impl std::convert::TryFrom<Option<&'a Spanned<Value>>> for Switch {
     }
 }
 
-impl Spanned<Value> {
+impl Tagged<Value> {
     crate fn debug(&'a self) -> ValueDebug<'a> {
         ValueDebug { value: self }
     }
@@ -322,13 +322,13 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Spanned<Value>> {
+    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Tagged<Value>> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(l) => {
                 for item in l {
                     match item {
-                        Spanned {
+                        Tagged {
                             item: Value::Object(o),
                             ..
                         } => match o.get_data_by_key(name) {
@@ -345,14 +345,14 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Spanned<Value>> {
+    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Tagged<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
             _ => None,
         }
     }
 
-    pub fn get_data_by_path(&'a self, span: Span, path: &str) -> Option<Spanned<&Value>> {
+    pub fn get_data_by_path(&'a self, span: Span, path: &str) -> Option<Tagged<&Value>> {
         let mut current = self;
         for p in path.split(".") {
             match current.get_data_by_key(p) {
@@ -361,10 +361,7 @@ impl Value {
             }
         }
 
-        Some(Spanned {
-            item: current,
-            span,
-        })
+        Some(Tagged::from_item(current, span))
     }
 
     pub fn insert_data_at_path(
@@ -372,7 +369,7 @@ impl Value {
         span: Span,
         path: &str,
         new_value: Value,
-    ) -> Option<Spanned<Value>> {
+    ) -> Option<Tagged<Value>> {
         let mut new_obj = self.clone();
 
         let split_path: Vec<_> = path.split(".").collect();
@@ -387,19 +384,13 @@ impl Value {
                                 Value::Object(o) => {
                                     o.entries.insert(
                                         split_path[idx + 1].to_string(),
-                                        Spanned {
-                                            item: new_value,
-                                            span,
-                                        },
+                                        Tagged::from_item(new_value, span),
                                     );
                                 }
                                 _ => {}
                             }
 
-                            return Some(Spanned {
-                                item: new_obj,
-                                span,
-                            });
+                            return Some(Tagged::from_item(new_obj, span));
                         } else {
                             match next.item {
                                 Value::Object(ref mut o) => {
@@ -422,7 +413,7 @@ impl Value {
         span: Span,
         path: &str,
         replaced_value: Value,
-    ) -> Option<Spanned<Value>> {
+    ) -> Option<Tagged<Value>> {
         let mut new_obj = self.clone();
 
         let split_path: Vec<_> = path.split(".").collect();
@@ -433,14 +424,8 @@ impl Value {
                 match current.entries.get_mut(split_path[idx]) {
                     Some(next) => {
                         if idx == (split_path.len() - 1) {
-                            *next = Spanned {
-                                item: replaced_value,
-                                span,
-                            };
-                            return Some(Spanned {
-                                item: new_obj,
-                                span,
-                            });
+                            *next = Tagged::from_item(replaced_value, span);
+                            return Some(Tagged::from_item(new_obj, span));
                         } else {
                             match next.item {
                                 Value::Object(ref mut o) => {
@@ -522,7 +507,7 @@ impl Value {
         }
     }
 
-    crate fn as_pair(&self) -> Result<(Spanned<Value>, Spanned<Value>), ShellError> {
+    crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
         match self {
             Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
             other => Err(ShellError::string(format!(
@@ -616,8 +601,8 @@ impl Value {
     }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Spanned<Value> {
-    let mut out = SpannedDictBuilder::new(span);
+crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Tagged<Value> {
+    let mut out = TaggedDictBuilder::new(span);
 
     let descs = obj.data_descriptors();
 
@@ -628,11 +613,11 @@ crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) ->
         }
     }
 
-    out.into_spanned_value()
+    out.into_tagged_value()
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Spanned<Value> {
-    let mut out = SpannedDictBuilder::new(span);
+crate fn reject_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Tagged<Value> {
+    let mut out = TaggedDictBuilder::new(span);
 
     let descs = obj.data_descriptors();
 
@@ -643,7 +628,7 @@ crate fn reject_fields(obj: &Value, fields: &[String], span: impl Into<Span>) ->
         }
     }
 
-    out.into_spanned_value()
+    out.into_tagged_value()
 }
 
 #[allow(unused)]

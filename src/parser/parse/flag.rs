@@ -1,4 +1,4 @@
-use crate::parser::Span;
+use crate::Span;
 use derive_new::new;
 use getset::Getters;
 use serde_derive::{Deserialize, Serialize};

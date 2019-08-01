@@ -2,10 +2,7 @@ use crate::context::SourceMap;
 use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::Value;
-use crate::parser::{
-    registry::{self, Args},
-    Span, Spanned,
-};
+use crate::parser::registry::{self, Args};
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -29,15 +26,15 @@ pub struct CommandArgs {
 }
 
 impl CommandArgs {
-    pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
+    pub fn nth(&self, pos: usize) -> Option<&Tagged<Value>> {
         self.call_info.args.nth(pos)
     }
 
-    pub fn positional_iter(&self) -> impl Iterator<Item = &Spanned<Value>> {
+    pub fn positional_iter(&self) -> impl Iterator<Item = &Tagged<Value>> {
         self.call_info.args.positional_iter()
     }
 
-    pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
+    pub fn expect_nth(&self, pos: usize) -> Result<&Tagged<Value>, ShellError> {
         self.call_info.args.expect_nth(pos)
     }
 
@@ -45,7 +42,7 @@ impl CommandArgs {
         self.call_info.args.len()
     }
 
-    pub fn get(&self, name: &str) -> Option<&Spanned<Value>> {
+    pub fn get(&self, name: &str) -> Option<&Tagged<Value>> {
         self.call_info.args.get(name)
     }
 
@@ -58,7 +55,7 @@ impl CommandArgs {
 pub struct SinkCommandArgs {
     pub ctx: Context,
     pub call_info: CallInfo,
-    pub input: Vec<Spanned<Value>>,
+    pub input: Vec<Tagged<Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -70,14 +67,14 @@ pub enum CommandAction {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ReturnSuccess {
-    Value(Spanned<Value>),
+    Value(Tagged<Value>),
     Action(CommandAction),
 }
 
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
 
-impl From<Spanned<Value>> for ReturnValue {
-    fn from(input: Spanned<Value>) -> ReturnValue {
+impl From<Tagged<Value>> for ReturnValue {
+    fn from(input: Tagged<Value>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input))
     }
 }
@@ -87,7 +84,7 @@ impl ReturnSuccess {
         Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
     }
 
-    pub fn value(input: impl Into<Spanned<Value>>) -> ReturnValue {
+    pub fn value(input: impl Into<Tagged<Value>>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input.into()))
     }
 
@@ -96,7 +93,7 @@ impl ReturnSuccess {
     }
 
     pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
-        Ok(ReturnSuccess::Value(Spanned::from_item(input, span)))
+        Ok(ReturnSuccess::Value(Tagged::from_item(input, span)))
     }
 }
 

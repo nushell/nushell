@@ -4,7 +4,7 @@ use crossterm::{cursor, terminal, RawScreen};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ShellError, SourceMap, SpanSource,
-    Spanned, Value,
+    Tagged, Value,
 };
 use rawkey::RawKey;
 
@@ -40,7 +40,7 @@ impl Plugin for TextView {
         })
     }
 
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
         view_text_value(&input[0], &call_info.source_map);
     }
 }
@@ -209,13 +209,11 @@ fn scroll_view(s: &str) {
     scroll_view_lines_if_needed(v, false);
 }
 
-fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
-    match value {
-        Spanned {
-            item: Value::Primitive(Primitive::String(s)),
-            span,
-        } => {
-            let source = span.source.map(|x| source_map.get(&x)).flatten();
+fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
+    let value_span = value.span();
+    match value.item {
+        Value::Primitive(Primitive::String(ref s)) => {
+            let source = value_span.source.map(|x| source_map.get(&x)).flatten();
 
             if let Some(source) = source {
                 let extension: Option<String> = match source {

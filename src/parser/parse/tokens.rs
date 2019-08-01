@@ -1,6 +1,5 @@
-use crate::parser::parse::span::*;
 use crate::parser::parse::unit::*;
-use crate::Text;
+use crate::{Span, Tagged, Text};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -24,7 +23,7 @@ impl RawToken {
     }
 }
 
-pub type Token = Spanned<RawToken>;
+pub type Token = Tagged<RawToken>;
 
 impl Token {
     pub fn debug(&self, source: &'a Text) -> DebugToken<'a> {

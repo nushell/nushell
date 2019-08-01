@@ -1,4 +1,4 @@
-use crate::parser::parse::span::Span;
+use crate::Span;
 use derive_new::new;
 use language_reporting::{FileName, Location};
 

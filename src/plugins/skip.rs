@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Spanned, Value,
+    ShellError, Tagged, Value,
 };
 
 struct Skip {
@@ -28,7 +28,7 @@ impl Plugin for Skip {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    Spanned {
+                    Tagged {
                         item: Value::Primitive(Primitive::Int(i)),
                         ..
                     } => {
@@ -38,7 +38,7 @@ impl Plugin for Skip {
                         return Err(ShellError::labeled_error(
                             "Unrecognized type in params",
                             "expected an integer",
-                            arg.span,
+                            arg.span(),
                         ))
                     }
                 }
@@ -48,7 +48,7 @@ impl Plugin for Skip {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         if self.skip_amount == 0 {
             Ok(vec![ReturnSuccess::value(input)])
         } else {

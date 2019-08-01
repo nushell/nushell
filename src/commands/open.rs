@@ -1,7 +1,6 @@
 use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Switch, Value};
-use crate::parser::parse::span::Span;
 use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};
@@ -9,7 +8,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 command! {
-    Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
+    Open as open(args, path: Tagged<PathBuf>, --raw: Switch,) {
         let span = args.call_info.name_span;
 
         let cwd = args
@@ -21,9 +20,9 @@ command! {
 
         let full_path = PathBuf::from(cwd);
 
-        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".spanned(path.span)))?;
+        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".tagged(path.span())))?;
 
-        let (file_extension, contents, contents_span, span_source) = fetch(&full_path, path_str, path.span)?;
+        let (file_extension, contents, contents_span, span_source) = fetch(&full_path, path_str, path.span())?;
 
         let file_extension = if raw.is_present() {
             None
@@ -48,7 +47,7 @@ command! {
                 )?;
 
                 match value {
-                    Spanned { item: Value::List(list), .. } => {
+                    Tagged { item: Value::List(list), .. } => {
                         for elem in list {
                             stream.push_back(ReturnSuccess::value(elem));
                         }
@@ -57,7 +56,7 @@ command! {
                 }
             },
 
-            other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
+            other => stream.push_back(ReturnSuccess::value(other.tagged(contents_span))),
         };
 
         stream
@@ -206,11 +205,11 @@ pub fn parse_as_value(
     contents: String,
     contents_span: Span,
     name_span: Option<Span>,
-) -> Result<Spanned<Value>, ShellError> {
+) -> Result<Tagged<Value>, ShellError> {
     match extension {
         Some(x) if x == "csv" => {
             crate::commands::from_csv::from_csv_string_to_value(contents, contents_span)
-                .map(|c| c.spanned(contents_span))
+                .map(|c| c.tagged(contents_span))
                 .map_err(move |_| {
                     ShellError::maybe_labeled_error(
                         "Could not open as CSV",
@@ -221,7 +220,7 @@ pub fn parse_as_value(
         }
         Some(x) if x == "toml" => {
             crate::commands::from_toml::from_toml_string_to_value(contents, contents_span)
-                .map(|c| c.spanned(contents_span))
+                .map(|c| c.tagged(contents_span))
                 .map_err(move |_| {
                     ShellError::maybe_labeled_error(
                         "Could not open as TOML",
@@ -232,7 +231,7 @@ pub fn parse_as_value(
         }
         Some(x) if x == "json" => {
             crate::commands::from_json::from_json_string_to_value(contents, contents_span)
-                .map(|c| c.spanned(contents_span))
+                .map(|c| c.tagged(contents_span))
                 .map_err(move |_| {
                     ShellError::maybe_labeled_error(
                         "Could not open as JSON",
@@ -243,7 +242,7 @@ pub fn parse_as_value(
         }
         Some(x) if x == "ini" => {
             crate::commands::from_ini::from_ini_string_to_value(contents, contents_span)
-                .map(|c| c.spanned(contents_span))
+                .map(|c| c.tagged(contents_span))
                 .map_err(move |_| {
                     ShellError::maybe_labeled_error(
                         "Could not open as INI",
@@ -285,6 +284,6 @@ pub fn parse_as_value(
                 },
             )
         }
-        _ => Ok(Value::string(contents).spanned(contents_span)),
+        _ => Ok(Value::string(contents).tagged(contents_span)),
     }
 }

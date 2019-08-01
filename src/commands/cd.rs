@@ -25,7 +25,7 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     return Err(ShellError::labeled_error(
                         "Can not change to directory",
                         "directory not found",
-                        v.span.clone(),
+                        v.span().clone(),
                     ));
                 }
             }
@@ -40,7 +40,7 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 return Err(ShellError::labeled_error(
                     "Can not change to directory",
                     "directory not found",
-                    args.nth(0).unwrap().span.clone(),
+                    args.nth(0).unwrap().span().clone(),
                 ));
             } else {
                 return Err(ShellError::string("Can not change to directory"));

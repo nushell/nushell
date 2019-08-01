@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{SpannedDictBuilder, Value};
+use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 #[derive(Debug)]
@@ -12,8 +12,8 @@ pub enum FileType {
 crate fn dir_entry_dict(
     entry: &std::fs::DirEntry,
     span: impl Into<Span>,
-) -> Result<Spanned<Value>, ShellError> {
-    let mut dict = SpannedDictBuilder::new(span);
+) -> Result<Tagged<Value>, ShellError> {
+    let mut dict = TaggedDictBuilder::new(span);
     let filename = entry.file_name();
     dict.insert("name", Value::string(filename.to_string_lossy()));
 
@@ -50,5 +50,5 @@ crate fn dir_entry_dict(
         Err(_) => {}
     }
 
-    Ok(dict.into_spanned_value())
+    Ok(dict.into_tagged_value())
 }

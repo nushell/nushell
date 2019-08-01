@@ -1,5 +1,5 @@
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode, Spanned};
+use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
@@ -81,13 +81,13 @@ pub struct CommandConfig {
 
 #[derive(Debug, Default, new, Serialize, Deserialize, Clone)]
 pub struct Args {
-    pub positional: Option<Vec<Spanned<Value>>>,
-    pub named: Option<IndexMap<String, Spanned<Value>>>,
+    pub positional: Option<Vec<Tagged<Value>>>,
+    pub named: Option<IndexMap<String, Tagged<Value>>>,
 }
 
 #[derive(new)]
 pub struct DebugPositional<'a> {
-    positional: &'a Option<Vec<Spanned<Value>>>,
+    positional: &'a Option<Vec<Tagged<Value>>>,
 }
 
 impl fmt::Debug for DebugPositional<'a> {
@@ -104,7 +104,7 @@ impl fmt::Debug for DebugPositional<'a> {
 
 #[derive(new)]
 pub struct DebugNamed<'a> {
-    named: &'a Option<IndexMap<String, Spanned<Value>>>,
+    named: &'a Option<IndexMap<String, Tagged<Value>>>,
 }
 
 impl fmt::Debug for DebugNamed<'a> {
@@ -139,14 +139,14 @@ impl Args {
         DebugArgs { args: self }
     }
 
-    pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
+    pub fn nth(&self, pos: usize) -> Option<&Tagged<Value>> {
         match &self.positional {
             None => None,
             Some(array) => array.iter().nth(pos),
         }
     }
 
-    pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
+    pub fn expect_nth(&self, pos: usize) -> Result<&Tagged<Value>, ShellError> {
         match &self.positional {
             None => Err(ShellError::unimplemented("Better error: expect_nth")),
             Some(array) => match array.iter().nth(pos) {
@@ -170,7 +170,7 @@ impl Args {
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Spanned<Value>> {
+    pub fn get(&self, name: &str) -> Option<&Tagged<Value>> {
         match &self.named {
             None => None,
             Some(named) => named.get(name),
@@ -190,11 +190,11 @@ impl Args {
 
 pub enum PositionalIter<'a> {
     Empty,
-    Array(std::slice::Iter<'a, Spanned<Value>>),
+    Array(std::slice::Iter<'a, Tagged<Value>>),
 }
 
 impl Iterator for PositionalIter<'a> {
-    type Item = &'a Spanned<Value>;
+    type Item = &'a Tagged<Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -207,7 +207,7 @@ impl Iterator for PositionalIter<'a> {
 impl CommandConfig {
     crate fn evaluate_args(
         &self,
-        call: &Spanned<CallNode>,
+        call: &Tagged<CallNode>,
         registry: &dyn CommandRegistry,
         scope: &Scope,
         source: &Text,
@@ -217,80 +217,6 @@ impl CommandConfig {
         trace!("parsed args: {:?}", args);
 
         evaluate_args(args, registry, scope, source)
-
-        // let mut positional: Vec<Spanned<Value>> = vec![];
-        // let mut named: IndexMap<String, Value> = IndexMap::default();
-
-        // let mut args: Vec<TokenNode> = args.cloned().collect();
-
-        // for (key, ty) in self.named.iter() {
-        //     let index = args.iter().position(|a| a.is_flag(&key, source));
-
-        //     match (index, ty) {
-        //         (Some(i), NamedType::Switch) => {
-        //             args.remove(i);
-        //             named.insert(key.clone(), Value::boolean(true));
-        //         }
-
-        //         (None, NamedType::Switch) => {}
-
-        //         (Some(i), NamedType::Optional(v)) => {
-        //             args.remove(i);
-        //             named.insert(key.clone(), extract_named(&mut args, i, v)?);
-        //         }
-
-        //         (None, NamedType::Optional(_)) => {}
-
-        //         (Some(i), NamedType::Mandatory(v)) => {
-        //             args.remove(i);
-        //             named.insert(key.clone(), extract_named(&mut args, i, v)?);
-        //         }
-
-        //         (None, NamedType::Mandatory(_)) => {
-        //             return Err(ShellError::string(&format!(
-        //                 "Expected mandatory argument {}, but it was missing",
-        //                 key
-        //             )))
-        //         }
-        //     }
-        // }
-
-        // let mut args = args.into_iter();
-
-        // for param in &self.mandatory_positional {
-        //     let arg = args.next();
-
-        //     let value = match arg {
-        //         None => {
-        //             return Err(ShellError::string(format!(
-        //                 "expected mandatory positional argument {}",
-        //                 param.name()
-        //             )))
-        //         }
-
-        //         Some(arg) => param.evaluate(arg.clone(), scope, source)?,
-        //     };
-
-        //     positional.push(value);
-        // }
-
-        // if self.rest_positional {
-        //     let rest: Result<Vec<Spanned<Value>>, _> = args
-        //         .map(|i| evaluate_baseline_expr(&i, &Scope::empty(), source))
-        //         .collect();
-        //     positional.extend(rest?);
-        // } else {
-        //     let rest: Vec<TokenNode> = args.collect();
-
-        //     if rest.len() > 0 {
-        //         return Err(ShellError::string(&format!(
-        //             "Too many arguments, extras: {:?}",
-        //             rest
-        //         )));
-        //     }
-        // }
-
-        // Ok(Args { positional, named })
     }
 
     #[allow(unused)]
@@ -317,7 +243,7 @@ fn evaluate_args(
 
     let positional = positional?;
 
-    let named: Result<Option<IndexMap<String, Spanned<Value>>>, ShellError> = args
+    let named: Result<Option<IndexMap<String, Tagged<Value>>>, ShellError> = args
         .named()
         .as_ref()
         .map(|n| {
@@ -326,10 +252,8 @@ fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::named::NamedValue::PresentSwitch(span) => {
-                        results.insert(
-                            name.clone(),
-                            Spanned::from_item(Value::boolean(true), *span),
-                        );
+                        results
+                            .insert(name.clone(), Tagged::from_item(Value::boolean(true), *span));
                     }
                     hir::named::NamedValue::Value(expr) => {
                         results.insert(

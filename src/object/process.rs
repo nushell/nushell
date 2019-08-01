@@ -1,10 +1,10 @@
-use crate::object::{SpannedDictBuilder, Value};
+use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 use itertools::join;
 use sysinfo::ProcessExt;
 
-crate fn process_dict(proc: &sysinfo::Process, span: impl Into<Span>) -> Spanned<Value> {
-    let mut dict = SpannedDictBuilder::new(span);
+crate fn process_dict(proc: &sysinfo::Process, span: impl Into<Span>) -> Tagged<Value> {
+    let mut dict = TaggedDictBuilder::new(span);
 
     let cmd = proc.cmd();
 
@@ -25,5 +25,5 @@ crate fn process_dict(proc: &sysinfo::Process, span: impl Into<Span>) -> Spanned
         _ => dict.insert("name", cmd_value),
     }
 
-    dict.into_spanned_value()
+    dict.into_tagged_value()
 }

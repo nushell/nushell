@@ -42,13 +42,13 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(move |a| match toml::to_string(&value_to_toml_value(&a)) {
             Ok(val) => {
                 return ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(val)).spanned(name_span),
+                    Value::Primitive(Primitive::String(val)).tagged(name_span),
                 )
             }
 
             Err(err) => Err(ShellError::type_error(
                 "Can not convert to a TOML string",
-                format!("{:?} - {:?}", a.type_name(), err).spanned(name_span),
+                format!("{:?} - {:?}", a.type_name(), err).tagged(name_span),
             )),
         })
         .to_output_stream())

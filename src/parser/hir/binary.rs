@@ -1,4 +1,5 @@
-use crate::parser::{hir::Expression, Operator, Spanned};
+use crate::parser::{hir::Expression, Operator};
+use crate::Tagged;
 use derive_new::new;
 use getset::Getters;
 
@@ -6,6 +7,6 @@ use getset::Getters;
 #[get = "crate"]
 pub struct Binary {
     left: Expression,
-    op: Spanned<Operator>,
+    op: Tagged<Operator>,
     right: Expression,
 }

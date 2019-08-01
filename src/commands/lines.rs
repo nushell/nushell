@@ -20,7 +20,7 @@ pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnSuccess::value(
-                        Value::Primitive(Primitive::String(s.into())).spanned_unknown(),
+                        Value::Primitive(Primitive::String(s.into())).tagged_unknown(),
                     ));
                 }
                 result

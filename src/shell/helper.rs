@@ -1,10 +1,10 @@
 use crate::parser::nom_input;
-use crate::parser::parse::span::Spanned;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::parser::parse::tokens::RawToken;
 use crate::parser::{Pipeline, PipelineElement};
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
+use crate::Tagged;
 use ansi_term::Color;
 use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
@@ -107,23 +107,23 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
         TokenNode::Delimited(..) => Color::White.paint(token_node.span().slice(line)),
         TokenNode::Operator(..) => Color::White.normal().paint(token_node.span().slice(line)),
         TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Integer(..),
             ..
         }) => Color::Purple.bold().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Size(..),
             ..
         }) => Color::Purple.bold().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::String(..),
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Variable(..),
             ..
         }) => Color::Yellow.bold().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Bare,
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),

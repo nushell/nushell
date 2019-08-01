@@ -2,8 +2,7 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, ShellError, SpanSource, Spanned,
-    Value,
+    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, ShellError, SpanSource, Tagged, Value,
 };
 use pretty_hex::*;
 
@@ -29,14 +28,15 @@ impl Plugin for BinaryView {
         })
     }
 
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
         for v in input {
-            match v {
-                Spanned {
-                    item: Value::Binary(b),
-                    span,
-                } => {
-                    let source = span.source.map(|x| call_info.source_map.get(&x)).flatten();
+            let value_span = v.span();
+            match v.item {
+                Value::Binary(b) => {
+                    let source = value_span
+                        .source
+                        .map(|x| call_info.source_map.get(&x))
+                        .flatten();
                     let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}

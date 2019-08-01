@@ -1,20 +1,20 @@
 use crate::errors::{ArgumentError, ShellError};
 use crate::parser::registry::{CommandConfig, CommandRegistry, NamedType, PositionalType};
-use crate::parser::{baseline_parse_tokens, CallNode, Span, Spanned};
+use crate::parser::{baseline_parse_tokens, CallNode};
 use crate::parser::{
     hir::{self, NamedArguments},
     Flag, RawToken, TokenNode,
 };
-use crate::Text;
+use crate::{Span, Tag, Tagged, Text};
 use log::trace;
 
 pub fn parse_command(
     config: &CommandConfig,
     registry: &dyn CommandRegistry,
-    call: &Spanned<CallNode>,
+    call: &Tagged<CallNode>,
     source: &Text,
 ) -> Result<hir::Call, ShellError> {
-    let Spanned { item: raw_call, .. } = call;
+    let Tagged { item: raw_call, .. } = call;
 
     trace!("Processing {:?}", config);
 
@@ -31,7 +31,7 @@ pub fn parse_command(
             .collect()
     });
 
-    match parse_command_tail(&config, registry, children, source, call.span)? {
+    match parse_command_tail(&config, registry, children, source, call.span())? {
         None => Ok(hir::Call::new(Box::new(head), None, None)),
         Some((positional, named)) => Ok(hir::Call::new(Box::new(head), positional, named)),
     }
@@ -40,16 +40,16 @@ pub fn parse_command(
 fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
     match head {
         TokenNode::Token(
-            spanned @ Spanned {
+            spanned @ Tagged {
                 item: RawToken::Bare,
                 ..
             },
         ) => Ok(spanned.map(|_| hir::RawExpression::Literal(hir::Literal::Bare))),
 
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::String(inner_span),
-            span,
-        }) => Ok(Spanned::from_item(
+            tag: Tag { span },
+        }) => Ok(Tagged::from_item(
             hir::RawExpression::Literal(hir::Literal::String(*inner_span)),
             *span,
         )),
@@ -96,7 +96,7 @@ fn parse_command_tail(
                             return Err(ShellError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.span,
+                                flag.span(),
                             ));
                         }
 
@@ -117,7 +117,7 @@ fn parse_command_tail(
                         return Err(ShellError::argument_error(
                             config.name().clone(),
                             ArgumentError::MissingValueForName(name.to_string()),
-                            flag.span,
+                            flag.span(),
                         ));
                     }
 
@@ -202,7 +202,7 @@ fn extract_mandatory(
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
     span: Span,
-) -> Result<(usize, Spanned<Flag>), ShellError> {
+) -> Result<(usize, Tagged<Flag>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
@@ -223,7 +223,7 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
-) -> Result<(Option<(usize, Spanned<Flag>)>), ShellError> {
+) -> Result<(Option<(usize, Tagged<Flag>)>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {

@@ -1,4 +1,5 @@
-use crate::parser::{hir::Expression, Spanned};
+use crate::parser::hir::Expression;
+use crate::Tagged;
 use derive_new::new;
 use getset::Getters;
 
@@ -6,5 +7,5 @@ use getset::Getters;
 #[get = "crate"]
 pub struct Path {
     head: Expression,
-    tail: Vec<Spanned<String>>,
+    tail: Vec<Tagged<String>>,
 }

@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, Spanned, Value,
+    ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
 };
 
 struct Str {
@@ -69,17 +69,17 @@ impl Str {
 impl Str {
     fn strutils(
         &self,
-        value: Spanned<Value>,
+        value: Tagged<Value>,
         field: &Option<String>,
-    ) -> Result<Spanned<Value>, ShellError> {
+    ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(s)) => Ok(Spanned {
-                item: Value::string(self.apply(&s)),
-                span: value.span,
-            }),
+            Value::Primitive(Primitive::String(ref s)) => Ok(Tagged::from_item(
+                Value::string(self.apply(&s)),
+                value.span(),
+            )),
             Value::Object(_) => match field {
                 Some(f) => {
-                    let replacement = match value.item.get_data_by_path(value.span, f) {
+                    let replacement = match value.item.get_data_by_path(value.span(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()), &None)?,
                         None => {
                             return Err(ShellError::string("str could not find field to replace"))
@@ -87,7 +87,7 @@ impl Str {
                     };
                     match value
                         .item
-                        .replace_data_at_path(value.span, f, replacement.item.clone())
+                        .replace_data_at_path(value.span(), f, replacement.item.clone())
                     {
                         Some(v) => return Ok(v),
                         None => {
@@ -135,7 +135,7 @@ impl Plugin for Str {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    Spanned {
+                    Tagged {
                         item: Value::Primitive(Primitive::String(s)),
                         ..
                     } => {
@@ -161,7 +161,7 @@ impl Plugin for Str {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(
             self.strutils(input, &self.field)?,
         )])

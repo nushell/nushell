@@ -49,7 +49,7 @@ pub fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(
             move |a| match serde_json::to_string(&value_to_json_value(&a)) {
                 Ok(x) => {
-                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
+                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).tagged(name_span))
                 }
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Can not convert to JSON string",

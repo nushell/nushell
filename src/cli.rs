@@ -12,7 +12,6 @@ crate use crate::errors::ShellError;
 use crate::evaluate::Scope;
 use crate::git::current_branch;
 use crate::object::Value;
-use crate::parser::parse::span::Spanned;
 use crate::parser::registry;
 use crate::parser::registry::CommandConfig;
 use crate::parser::{Pipeline, PipelineElement, TokenNode};
@@ -386,7 +385,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
-                        let input_vec: Vec<Spanned<Value>> = input.objects.into_vec().await;
+                        let input_vec: Vec<Tagged<Value>> = input.objects.into_vec().await;
                         if let Err(err) = left.run(ctx, input_vec) {
                             return LineResult::Error(line.clone(), err);
                         }
@@ -516,13 +515,13 @@ fn classify_command(
                         }))
                     }
                     false => {
-                        let arg_list_strings: Vec<Spanned<String>> = match call.children() {
+                        let arg_list_strings: Vec<Tagged<String>> = match call.children() {
                             //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
                             Some(args) => args
                                 .iter()
                                 .filter_map(|i| match i {
                                     TokenNode::Whitespace(_) => None,
-                                    other => Some(Spanned::from_item(
+                                    other => Some(Tagged::from_item(
                                         other.as_external_arg(source),
                                         other.span(),
                                     )),

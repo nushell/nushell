@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, PositionalType, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Spanned, Value,
+    ReturnValue, ShellError, Tagged, Value,
 };
 
 struct Add {
@@ -16,10 +16,11 @@ impl Add {
         }
     }
 
-    fn add(&self, value: Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
+    fn add(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
+        let value_span = value.span();
         match (value.item, self.value.clone()) {
             (obj @ Value::Object(_), Some(v)) => match &self.field {
-                Some(f) => match obj.insert_data_at_path(value.span, &f, v) {
+                Some(f) => match obj.insert_data_at_path(value_span, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
                         return Err(ShellError::string(
@@ -56,7 +57,7 @@ impl Plugin for Add {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
-                Spanned {
+                Tagged {
                     item: Value::Primitive(Primitive::String(s)),
                     ..
                 } => {
@@ -70,7 +71,7 @@ impl Plugin for Add {
                 }
             }
             match &args[1] {
-                Spanned { item: v, .. } => {
+                Tagged { item: v, .. } => {
                     self.value = Some(v.clone());
                 }
             }
@@ -79,7 +80,7 @@ impl Plugin for Add {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(self.add(input)?)])
     }
 }

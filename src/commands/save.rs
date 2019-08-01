@@ -5,7 +5,7 @@ use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::parser::Spanned;
+use crate::Tagged;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
@@ -30,7 +30,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
     }
 
     let save_raw = match positional.get(1) {
-        Some(Spanned {
+        Some(Tagged {
             item: Value::Primitive(Primitive::String(s)),
             ..
         }) if s == "--raw" => true,

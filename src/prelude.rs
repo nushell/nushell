@@ -40,10 +40,11 @@ crate use crate::context::Context;
 crate use crate::env::host::handle_unexpected;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;
+crate use crate::object::meta::{Tag, Tagged, TaggedItem};
 crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
-crate use crate::parser::{Span, Spanned, SpannedItem};
 crate use crate::stream::{InputStream, OutputStream};
+crate use crate::Span;
 crate use crate::Text;
 crate use futures::stream::BoxStream;
 crate use futures::Stream;
@@ -58,7 +59,7 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Stream<Item = Spanned<Value>> + Send + 'static,
+    T: Stream<Item = Tagged<Value>> + Send + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {

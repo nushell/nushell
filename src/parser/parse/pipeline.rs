@@ -1,4 +1,5 @@
-use crate::parser::{CallNode, Span, Spanned};
+use crate::parser::CallNode;
+use crate::{Span, Tagged};
 use derive_new::new;
 use getset::Getters;
 
@@ -12,7 +13,7 @@ pub struct Pipeline {
 pub struct PipelineElement {
     pub pre_ws: Option<Span>,
     #[get = "crate"]
-    call: Spanned<CallNode>,
+    call: Tagged<CallNode>,
     pub post_ws: Option<Span>,
     pub post_pipe: Option<Span>,
 }

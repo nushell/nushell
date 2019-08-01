@@ -1,4 +1,5 @@
-use crate::{CallInfo, CommandConfig, ReturnValue, ShellError, Spanned, Value};
+use crate::Tagged;
+use crate::{CallInfo, CommandConfig, ReturnValue, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -10,7 +11,7 @@ pub trait Plugin {
         Ok(vec![])
     }
     #[allow(unused)]
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
     #[allow(unused)]
@@ -18,7 +19,7 @@ pub trait Plugin {
         Ok(vec![])
     }
     #[allow(unused)]
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {}
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {}
 
     fn quit(&mut self) {}
 }
@@ -138,11 +139,11 @@ pub enum NuCommand {
         params: CallInfo,
     },
     filter {
-        params: Spanned<Value>,
+        params: Tagged<Value>,
     },
     end_filter,
     sink {
-        params: (CallInfo, Vec<Spanned<Value>>),
+        params: (CallInfo, Vec<Tagged<Value>>),
     },
     quit,
 }

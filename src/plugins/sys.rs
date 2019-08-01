@@ -6,7 +6,7 @@ use heim::{disk, memory};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Span, Spanned, SpannedDictBuilder, Value, OF64,
+    ShellError, Span, Tagged, TaggedDictBuilder, Value, OF64,
 };
 use std::ffi::OsStr;
 
@@ -19,19 +19,19 @@ impl Sys {
 
 //TODO: add more error checking
 
-async fn cpu(span: Span) -> Option<Spanned<Value>> {
+async fn cpu(span: Span) -> Option<Tagged<Value>> {
     if let (Ok(num_cpu), Ok(cpu_speed)) = (sys_info::cpu_num(), sys_info::cpu_speed()) {
-        let mut cpu_idx = SpannedDictBuilder::new(span);
+        let mut cpu_idx = TaggedDictBuilder::new(span);
         cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
         cpu_idx.insert("speed", Primitive::Int(cpu_speed as i64));
-        Some(cpu_idx.into_spanned_value())
+        Some(cpu_idx.into_tagged_value())
     } else {
         None
     }
 }
 
-async fn mem(span: Span) -> Spanned<Value> {
-    let mut dict = SpannedDictBuilder::new(span);
+async fn mem(span: Span) -> Tagged<Value> {
+    let mut dict = TaggedDictBuilder::new(span);
 
     if let Ok(memory) = memory::memory().await {
         dict.insert("total", Value::bytes(memory.total().get()));
@@ -42,11 +42,11 @@ async fn mem(span: Span) -> Spanned<Value> {
         dict.insert("swap free", Value::bytes(swap.free().get()));
     }
 
-    dict.into_spanned_value()
+    dict.into_tagged_value()
 }
 
-async fn host(span: Span) -> Spanned<Value> {
-    let mut dict = SpannedDictBuilder::new(span);
+async fn host(span: Span) -> Tagged<Value> {
+    let mut dict = TaggedDictBuilder::new(span);
 
     // OS
     if let Ok(platform) = heim::host::platform().await {
@@ -58,7 +58,7 @@ async fn host(span: Span) -> Spanned<Value> {
 
     // Uptime
     if let Ok(uptime) = heim::host::uptime().await {
-        let mut uptime_dict = SpannedDictBuilder::new(span);
+        let mut uptime_dict = TaggedDictBuilder::new(span);
 
         let uptime = uptime.get().round() as i64;
         let days = uptime / (60 * 60 * 24);
@@ -71,7 +71,7 @@ async fn host(span: Span) -> Spanned<Value> {
         uptime_dict.insert("mins", Value::int(minutes));
         uptime_dict.insert("secs", Value::int(seconds));
 
-        dict.insert_spanned("uptime", uptime_dict.into_spanned_value());
+        dict.insert_tagged("uptime", uptime_dict.into_tagged_value());
     }
 
     // Users
@@ -79,16 +79,13 @@ async fn host(span: Span) -> Spanned<Value> {
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
-            user_vec.push(Spanned {
-                item: Value::string(user.username()),
-                span,
-            });
+            user_vec.push(Tagged::from_item(Value::string(user.username()), span));
         }
     }
     let user_list = Value::List(user_vec);
     dict.insert("users", user_list);
 
-    dict.into_spanned_value()
+    dict.into_tagged_value()
 }
 
 async fn disks(span: Span) -> Value {
@@ -96,7 +93,7 @@ async fn disks(span: Span) -> Value {
     let mut partitions = disk::partitions_physical();
     while let Some(part) = partitions.next().await {
         if let Ok(part) = part {
-            let mut dict = SpannedDictBuilder::new(span);
+            let mut dict = TaggedDictBuilder::new(span);
             dict.insert(
                 "device",
                 Value::string(
@@ -113,7 +110,7 @@ async fn disks(span: Span) -> Value {
                 dict.insert("used", Value::bytes(usage.used().get()));
                 dict.insert("free", Value::bytes(usage.free().get()));
             }
-            output.push(dict.into_spanned_value());
+            output.push(dict.into_tagged_value());
         }
     }
 
@@ -125,9 +122,9 @@ async fn temp(span: Span) -> Value {
     let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_system());
     let components_list = system.get_components_list();
     if components_list.len() > 0 {
-        let mut v: Vec<Spanned<Value>> = vec![];
+        let mut v: Vec<Tagged<Value>> = vec![];
         for component in components_list {
-            let mut component_idx = SpannedDictBuilder::new(span);
+            let mut component_idx = TaggedDictBuilder::new(span);
             component_idx.insert("name", Primitive::String(component.get_label().to_string()));
             component_idx.insert(
                 "temp",
@@ -148,7 +145,7 @@ async fn temp(span: Span) -> Value {
     }
 }
 
-async fn net(span: Span) -> Spanned<Value> {
+async fn net(span: Span) -> Tagged<Value> {
     use sysinfo::{NetworkExt, RefreshKind, SystemExt};
     let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_network());
 
@@ -156,25 +153,25 @@ async fn net(span: Span) -> Spanned<Value> {
     let incoming = network.get_income();
     let outgoing = network.get_outcome();
 
-    let mut network_idx = SpannedDictBuilder::new(span);
+    let mut network_idx = TaggedDictBuilder::new(span);
     network_idx.insert("incoming", Value::bytes(incoming));
     network_idx.insert("outgoing", Value::bytes(outgoing));
-    network_idx.into_spanned_value()
+    network_idx.into_tagged_value()
 }
 
-async fn sysinfo(span: Span) -> Vec<Spanned<Value>> {
-    let mut sysinfo = SpannedDictBuilder::new(span);
+async fn sysinfo(span: Span) -> Vec<Tagged<Value>> {
+    let mut sysinfo = TaggedDictBuilder::new(span);
 
-    sysinfo.insert_spanned("host", host(span).await);
+    sysinfo.insert_tagged("host", host(span).await);
     if let Some(cpu) = cpu(span).await {
-        sysinfo.insert_spanned("cpu", cpu);
+        sysinfo.insert_tagged("cpu", cpu);
     }
     sysinfo.insert("disks", disks(span).await);
-    sysinfo.insert_spanned("mem", mem(span).await);
+    sysinfo.insert_tagged("mem", mem(span).await);
     sysinfo.insert("temp", temp(span).await);
-    sysinfo.insert_spanned("net", net(span).await);
+    sysinfo.insert_tagged("net", net(span).await);
 
-    vec![sysinfo.into_spanned_value()]
+    vec![sysinfo.into_tagged_value()]
 }
 
 impl Plugin for Sys {
@@ -197,7 +194,7 @@ impl Plugin for Sys {
         .collect())
     }
 
-    fn filter(&mut self, _: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, _: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 }
