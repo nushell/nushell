@@ -1,7 +1,8 @@
 mod helpers;
 
-use h::in_directory as cwd;
+use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use std::path::PathBuf;
 
 #[test]
 fn lines() {
@@ -83,17 +84,28 @@ fn open_error_if_file_not_found() {
 
 #[test]
 fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
-    let (playground_path, tests_dir) = h::setup_playground_for("save_smart_test");
+    let sandbox = Playground::setup_for("save_smart_test")
+        .with_files(vec![FileWithContent(
+            "cargo_sample.toml",
+            r#"
+                [package]
+                name = "nu"
+                version = "0.1.1"
+                authors = ["Yehuda Katz <wycats@gmail.com>"]
+                description = "A shell for the GitHub era"
+                license = "ISC"
+                edition = "2018"
+            "#,
+        )])
+        .test_dir_name();
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir);
-    let subject_file  = format!("{}/{}", full_path      , "cargo_sample.toml");
-
-    h::copy_file_to("tests/fixtures/formats/cargo_sample.toml", &subject_file);
+    let full_path = format!("{}/{}", Playground::root(), sandbox);
+    let subject_file = format!("{}/{}", full_path, "cargo_sample.toml");
 
     nu!(
         _output,
-        cwd("tests/fixtures"),
-        "open nuplayground/save_smart_test/cargo_sample.toml | inc package.version --minor | save"
+        cwd(&Playground::root()),
+        "open save_smart_test/cargo_sample.toml | inc package.version --minor | save"
     );
 
     let actual = h::file_contents(&subject_file);
@@ -102,14 +114,14 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
 
 #[test]
 fn save_can_write_out_csv() {
-    let (playground_path, tests_dir) = h::setup_playground_for("save_test");
+    let sandbox = Playground::setup_for("save_test").test_dir_name();
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir);
-    let expected_file = format!("{}/{}", full_path      , "cargo_sample.csv");
+    let full_path = format!("{}/{}", Playground::root(), sandbox);
+    let expected_file = format!("{}/{}", full_path, "cargo_sample.csv");
 
     nu!(
         _output,
-        cwd(&playground_path),
+        cwd(&Playground::root()),
         "open ../formats/cargo_sample.toml | inc package.version --minor | get package | save save_test/cargo_sample.csv"
     );
 
@@ -119,14 +131,14 @@ fn save_can_write_out_csv() {
 
 #[test]
 fn cp_can_copy_a_file() {
-    let (playground_path, tests_dir) = h::setup_playground_for("cp_test");
+    let sandbox = Playground::setup_for("cp_test").test_dir_name();
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir);
-    let expected_file = format!("{}/{}", full_path      , "sample.ini");
+    let full_path = format!("{}/{}", Playground::root(), sandbox);
+    let expected_file = format!("{}/{}", full_path, "sample.ini");
 
     nu!(
         _output,
-        cwd(&playground_path),
+        cwd(&Playground::root()),
         "cp ../formats/sample.ini cp_test/sample.ini"
     );
 
@@ -135,14 +147,14 @@ fn cp_can_copy_a_file() {
 
 #[test]
 fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
-    let (playground_path, tests_dir) = h::setup_playground_for("cp_test_2");
+    let sandbox = Playground::setup_for("cp_test_2").test_dir_name();
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir);
-    let expected_file = format!("{}/{}", full_path      , "sample.ini");
+    let full_path = format!("{}/{}", Playground::root(), sandbox);
+    let expected_file = format!("{}/{}", full_path, "sample.ini");
 
     nu!(
         _output,
-        cwd(&playground_path),
+        cwd(&Playground::root()),
         "cp ../formats/sample.ini cp_test_2"
     );
 
@@ -151,86 +163,149 @@ fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 
 #[test]
 fn cp_error_if_attempting_to_copy_a_directory_to_another_directory() {
-    let (playground_path, _) = h::setup_playground_for("cp_test_3");
+    Playground::setup_for("cp_test_3");
 
-    nu_error!(
-        output,
-        cwd(&playground_path),
-        "cp ../formats cp_test_3"
-    );
+    nu_error!(output, cwd(&Playground::root()), "cp ../formats cp_test_3");
 
     assert!(output.contains("../formats"));
     assert!(output.contains("is a directory (not copied)"));
 }
 
 #[test]
-fn rm_can_remove_a_file() {
-    let directory   = "tests/fixtures/nuplayground";
-    let file = format!("{}/rm_test.txt", directory);
-
-    h::create_file_at(&file);
+fn rm_removes_a_file() {
+    let sandbox = Playground::setup_for("rm_test")
+        .with_files(vec![EmptyFile("i_will_be_deleted.txt")])
+        .test_dir_name();
 
     nu!(
         _output,
-        cwd(directory),
-        "rm rm_test.txt"
+        cwd(&Playground::root()),
+        "rm rm_test/i_will_be_deleted.txt"
     );
 
-    assert!(!h::file_exists_at(&file));
+    assert!(!h::file_exists_at(&format!(
+        "{}/{}/{}",
+        Playground::root(),
+        sandbox,
+        "i_will_be_deleted.txt"
+    )));
 }
 
 #[test]
-fn rm_can_remove_directory_contents_with_recursive_flag() {
-    let (playground_path, tests_dir) = h::setup_playground_for("rm_test");
+fn rm_removes_files_with_wildcard() {
+    r#" 
+    Given these files and directories
+        src
+        src/cli.rs
+        src/lib.rs
+        src/prelude.rs
+        src/parser
+        src/parser/parse.rs
+        src/parser/parser.rs
+        src/parser/parse
+        src/parser/hir
+        src/parser/parse/token_tree.rs
+        src/parser/hir/baseline_parse.rs
+        src/parser/hir/baseline_parse_tokens.rs
+    "#;
 
-    for f in ["yehuda.txt", "jonathan.txt", "andres.txt"].iter() {
-        h::create_file_at(&format!("{}/{}/{}", playground_path, tests_dir, f));
-    }
+    let sandbox = Playground::setup_for("rm_test_wildcard")
+        .within("src")
+        .with_files(vec![
+            EmptyFile("cli.rs"),
+            EmptyFile("lib.rs"),
+            EmptyFile("prelude.rs"),
+        ])
+        .within("src/parser")
+        .with_files(vec![EmptyFile("parse.rs"), EmptyFile("parser.rs")])
+        .within("src/parser/parse")
+        .with_files(vec![EmptyFile("token_tree.rs")])
+        .within("src/parser/hir")
+        .with_files(vec![
+            EmptyFile("baseline_parse.rs"),
+            EmptyFile("baseline_parse_tokens.rs"),
+        ])
+        .test_dir_name();
+
+    let full_path = format!("{}/{}", Playground::root(), sandbox);
+
+    r#" The pattern 
+            src/*/*/*.rs
+        matches
+            src/parser/parse/token_tree.rs
+            src/parser/hir/baseline_parse.rs
+            src/parser/hir/baseline_parse_tokens.rs
+    "#;
+
+    nu!(
+        _output,
+        cwd("tests/fixtures/nuplayground/rm_test_wildcard"),
+        "rm \"src/*/*/*.rs\""
+    );
+
+    assert!(!h::file_exists_at(&format!(
+        "{}/src/parser/parse/token_tree.rs",
+        full_path
+    )));
+    assert!(!h::file_exists_at(&format!(
+        "{}/src/parser/hir/baseline_parse.rs",
+        full_path
+    )));
+    assert!(!h::file_exists_at(&format!(
+        "{}/src/parser/hir/baseline_parse_tokens.rs",
+        full_path
+    )));
+
+    assert_eq!(
+        Playground::glob_vec(&format!("{}/src/*/*/*.rs", full_path)),
+        Vec::<PathBuf>::new()
+    );
+}
+
+#[test]
+fn rm_removes_directory_contents_with_recursive_flag() {
+    let sandbox = Playground::setup_for("rm_test_recursive")
+        .with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
+        ])
+        .test_dir_name();
 
     nu!(
         _output,
         cwd("tests/fixtures/nuplayground"),
-        "rm rm_test --recursive"
+        "rm rm_test_recursive --recursive"
     );
 
-    assert!(!h::file_exists_at(&format!("{}/{}", playground_path, tests_dir)));
+    assert!(!h::file_exists_at(&format!(
+        "{}/{}",
+        Playground::root(),
+        sandbox
+    )));
 }
 
 #[test]
-fn rm_error_if_attempting_to_delete_a_directory_without_recursive_flag() {
-    let (playground_path, tests_dir) = h::setup_playground_for("rm_test_2");
-    let full_path = format!("{}/{}", playground_path, tests_dir);
+fn rm_errors_if_attempting_to_delete_a_directory_without_recursive_flag() {
+    let sandbox = Playground::setup_for("rm_test_2").test_dir_name();
+    let full_path = format!("{}/{}", Playground::root(), sandbox);
 
-    nu_error!(
-        output,
-        cwd("tests/fixtures/nuplayground"),
-        "rm rm_test_2"
-    );
+    nu_error!(output, cwd(&Playground::root()), "rm rm_test_2");
 
     assert!(h::file_exists_at(&full_path));
     assert!(output.contains("is a directory"));
 }
 
 #[test]
-fn rm_error_if_attempting_to_delete_single_dot_as_argument() {
-
-    nu_error!(
-        output,
-        cwd("tests/fixtures/nuplayground"),
-        "rm ."
-    );
+fn rm_errors_if_attempting_to_delete_single_dot_as_argument() {
+    nu_error!(output, cwd(&Playground::root()), "rm .");
 
     assert!(output.contains("may not be removed"));
 }
 
 #[test]
-fn rm_error_if_attempting_to_delete_two_dot_as_argument() {
-
-    nu_error!(
-        output,
-        cwd("tests/fixtures/nuplayground"), 
-        "rm .."
-    );
+fn rm_errors_if_attempting_to_delete_two_dot_as_argument() {
+    nu_error!(output, cwd(&Playground::root()), "rm ..");
 
     assert!(output.contains("may not be removed"));
 }
