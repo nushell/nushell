@@ -36,7 +36,7 @@ crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
     Command, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, Sink, SinkCommandArgs,
 };
-crate use crate::context::Context;
+crate use crate::context::{Context, SpanSource};
 crate use crate::env::host::handle_unexpected;
 crate use crate::env::{Environment, Host};
 crate use crate::errors::ShellError;

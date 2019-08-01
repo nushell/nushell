@@ -1,5 +1,4 @@
 use crate::commands::command::Sink;
-use crate::context::SourceMap;
 use crate::parser::{registry::Args, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
@@ -113,7 +112,6 @@ impl SinkCommand {
 crate struct InternalCommand {
     crate command: Arc<dyn Command>,
     crate name_span: Option<Span>,
-    crate source_map: SourceMap,
     crate args: Args,
 }
 
@@ -135,7 +133,7 @@ impl InternalCommand {
         let result = context.run_command(
             self.command,
             self.name_span.clone(),
-            self.source_map,
+            context.source_map.clone(),
             self.args,
             objects,
         )?;

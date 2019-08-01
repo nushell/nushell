@@ -34,6 +34,7 @@ crate mod sort_by;
 crate mod split_column;
 crate mod split_row;
 crate mod table;
+crate mod tags;
 crate mod to_array;
 crate mod to_csv;
 crate mod to_json;

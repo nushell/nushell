@@ -175,6 +175,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-toml", Box::new(to_toml::to_toml)),
             command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
+            command("tags", Box::new(tags::tags)),
             Arc::new(Remove),
             Arc::new(Copycp),
             Arc::new(Open),
@@ -496,7 +497,6 @@ fn classify_command(
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
                         name_span: Some(head.span().clone()),
-                        source_map: context.source_map.clone(),
                         args,
                     }))
                 }
