@@ -5,37 +5,69 @@ use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::Tagged;
+use crate::SpanSource;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
-    if args.call_info.args.positional.is_none() {
-        return Err(ShellError::maybe_labeled_error(
-            "Save requires a filepath",
-            "needs path",
-            args.call_info.name_span,
-        ));
-    }
-
-    let positional = match args.call_info.args.positional {
-        None => return Err(ShellError::string("save requires a filepath")),
-        Some(p) => p,
-    };
-
     let cwd = args.ctx.env.lock().unwrap().path().to_path_buf();
     let mut full_path = PathBuf::from(cwd);
-    match &(positional[0].item) {
-        Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),
-        _ => {}
-    }
 
-    let save_raw = match positional.get(1) {
-        Some(Tagged {
-            item: Value::Primitive(Primitive::String(s)),
-            ..
-        }) if s == "--raw" => true,
-        _ => false,
+    let save_raw = if args.call_info.args.has("raw") {
+        true
+    } else {
+        false
     };
+
+    if args.call_info.args.positional.is_none() {
+        // If there is no filename, check the metadata for the origin filename
+        if args.input.len() > 0 {
+            let span = args.input[0].span();
+            match span
+                .source
+                .map(|x| args.call_info.source_map.get(&x))
+                .flatten()
+            {
+                Some(path) => match path {
+                    SpanSource::File(file) => {
+                        full_path.push(Path::new(file));
+                    }
+                    _ => {
+                        return Err(ShellError::maybe_labeled_error(
+                            "Save requires a filepath",
+                            "needs path",
+                            args.call_info.name_span,
+                        ));
+                    }
+                },
+                None => {
+                    return Err(ShellError::maybe_labeled_error(
+                        "Save requires a filepath",
+                        "needs path",
+                        args.call_info.name_span,
+                    ));
+                }
+            }
+        } else {
+            return Err(ShellError::maybe_labeled_error(
+                "Save requires a filepath",
+                "needs path",
+                args.call_info.name_span,
+            ));
+        }
+    } else {
+        let arg = &args.call_info.args.positional.unwrap()[0];
+        let arg_span = arg.span();
+        match arg.item {
+            Value::Primitive(Primitive::String(ref s)) => full_path.push(Path::new(s)),
+            _ => {
+                return Err(ShellError::labeled_error(
+                    "Save requires a string as a filepath",
+                    "needs path",
+                    arg_span.clone(),
+                ));
+            }
+        }
+    }
 
     let contents = match full_path.extension() {
         Some(x) if x == "csv" && !save_raw => {
