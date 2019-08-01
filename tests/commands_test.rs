@@ -88,14 +88,14 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
         .with_files(vec![FileWithContent(
             "cargo_sample.toml",
             r#"
-                            [package]
-                            name = "nu"
-                            version = "0.1.1"
-                            authors = ["Yehuda Katz <wycats@gmail.com>"]
-                            description = "A shell for the GitHub era"
-                            license = "ISC"
-                            edition = "2018"
-                        "#,
+                [package]
+                name = "nu"
+                version = "0.1.1"
+                authors = ["Yehuda Katz <wycats@gmail.com>"]
+                description = "A shell for the GitHub era"
+                license = "ISC"
+                edition = "2018"
+            "#,
         )])
         .test_dir_name();
 

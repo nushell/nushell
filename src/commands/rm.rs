@@ -45,7 +45,15 @@ pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
         file => full_path.push(file),
     }
 
-    for entry in glob(&full_path.to_string_lossy()).expect("Failed to read glob pattern") {
+    let entries = glob(&full_path.to_string_lossy());
+
+    if entries.is_err() {
+        return Err(ShellError::string("Invalid pattern."));
+    }
+
+    let entries = entries.unwrap();
+
+    for entry in entries {
         match entry {
             Ok(path) => {
                 if path.is_dir() {
