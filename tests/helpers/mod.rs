@@ -7,9 +7,9 @@ use std::io::Read;
 #[macro_export]
 macro_rules! nu {
     ($out:ident, $cwd:expr, $commands:expr) => {
+        pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
-        pub use std::error::Error;
 
         let commands = &*format!(
             "
@@ -93,14 +93,19 @@ pub fn setup_playground_for(topic: &str) -> (String, String) {
 }
 
 pub fn file_contents(full_path: &str) -> String {
-  let mut file = std::fs::File::open(full_path).expect("can not open file");
-  let mut contents = String::new();
-  file.read_to_string(&mut contents).expect("can not read file");
-  contents
+    let mut file = std::fs::File::open(full_path).expect("can not open file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("can not read file");
+    contents
 }
 
 pub fn create_file_at(full_path: &str) {
     std::fs::write(PathBuf::from(full_path), "fake data".as_bytes()).expect("can not create file");
+}
+
+pub fn copy_file_to(source: &str, destination: &str) {
+    std::fs::copy(source, destination).expect("can not copy file");
 }
 
 pub fn file_exists_at(full_path: &str) -> bool {
