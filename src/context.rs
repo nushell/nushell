@@ -1,8 +1,5 @@
 use crate::commands::command::{CallInfo, Sink, SinkCommandArgs};
-use crate::parser::{
-    registry::{Args, CommandConfig, CommandRegistry},
-    Span,
-};
+use crate::parser::registry::{Args, CommandConfig, CommandRegistry};
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -84,7 +81,7 @@ impl Context {
         command: Arc<dyn Sink>,
         name_span: Option<Span>,
         args: Args,
-        input: Vec<Spanned<Value>>,
+        input: Vec<Tagged<Value>>,
     ) -> Result<(), ShellError> {
         let command_args = SinkCommandArgs {
             ctx: self.clone(),

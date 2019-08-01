@@ -20,7 +20,7 @@ pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
             return Err(ShellError::labeled_error(
                 "Value is not a number",
                 "expected integer",
-                args.expect_nth(0)?.span,
+                args.expect_nth(0)?.span(),
             ))
         }
     };

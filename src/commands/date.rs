@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::{Dictionary, Value};
-use crate::parser::Spanned;
 use crate::prelude::*;
 use chrono::{DateTime, Local, Utc};
 
@@ -35,7 +34,7 @@ impl Command for Date {
     }
 }
 
-pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, span: Span) -> Spanned<Value>
+pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, span: Span) -> Tagged<Value>
 where
     T::Offset: Display,
 {
@@ -43,60 +42,36 @@ where
 
     indexmap.insert(
         "year".to_string(),
-        Spanned {
-            item: Value::int(dt.year()),
-            span,
-        },
+        Tagged::from_item(Value::int(dt.year()), span),
     );
     indexmap.insert(
         "month".to_string(),
-        Spanned {
-            item: Value::int(dt.month()),
-            span,
-        },
+        Tagged::from_item(Value::int(dt.month()), span),
     );
     indexmap.insert(
         "day".to_string(),
-        Spanned {
-            item: Value::int(dt.day()),
-            span,
-        },
+        Tagged::from_item(Value::int(dt.day()), span),
     );
     indexmap.insert(
         "hour".to_string(),
-        Spanned {
-            item: Value::int(dt.hour()),
-            span,
-        },
+        Tagged::from_item(Value::int(dt.hour()), span),
     );
     indexmap.insert(
         "minute".to_string(),
-        Spanned {
-            item: Value::int(dt.minute()),
-            span,
-        },
+        Tagged::from_item(Value::int(dt.minute()), span),
     );
     indexmap.insert(
         "second".to_string(),
-        Spanned {
-            item: Value::int(dt.second()),
-            span,
-        },
+        Tagged::from_item(Value::int(dt.second()), span),
     );
 
     let tz = dt.offset();
     indexmap.insert(
         "timezone".to_string(),
-        Spanned {
-            item: Value::string(format!("{}", tz)),
-            span,
-        },
+        Tagged::from_item(Value::string(format!("{}", tz)), span),
     );
 
-    Spanned {
-        item: Value::Object(Dictionary::from(indexmap)),
-        span,
-    }
+    Tagged::from_item(Value::Object(Dictionary::from(indexmap)), span)
 }
 
 pub fn date(args: CommandArgs) -> Result<OutputStream, ShellError> {

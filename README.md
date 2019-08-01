@@ -144,6 +144,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | skip amount | Skip a number of rows |
 | first amount | Show only the first number of rows |
 | str (field) | Apply string function. Optional use the field of a table |
+| tags | Read the tags (metadata) for values |
 | to-array | Collapse rows into a single list |
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |

@@ -78,11 +78,11 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
         .spawn()
         .expect("Failed to spawn child process");
 
-    let mut bos: VecDeque<Spanned<Value>> = VecDeque::new();
-    bos.push_back(Value::Primitive(Primitive::BeginningOfStream).spanned_unknown());
+    let mut bos: VecDeque<Tagged<Value>> = VecDeque::new();
+    bos.push_back(Value::Primitive(Primitive::BeginningOfStream).tagged_unknown());
 
-    let mut eos: VecDeque<Spanned<Value>> = VecDeque::new();
-    eos.push_back(Value::Primitive(Primitive::EndOfStream).spanned_unknown());
+    let mut eos: VecDeque<Tagged<Value>> = VecDeque::new();
+    eos.push_back(Value::Primitive(Primitive::EndOfStream).tagged_unknown());
 
     let call_info = args.call_info;
 
@@ -90,7 +90,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
         .chain(args.input.values)
         .chain(eos)
         .map(move |v| match v {
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::BeginningOfStream),
                 ..
             } => {
@@ -136,7 +136,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
                     }
                 }
             }
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::EndOfStream),
                 ..
             } => {

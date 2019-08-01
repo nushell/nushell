@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, Spanned, SpannedItem, Value,
+    ReturnSuccess, ReturnValue, ShellError, Tagged, TaggedItem, Value,
 };
 
 struct Inc {
@@ -22,20 +22,20 @@ impl Inc {
 
     fn inc(
         &self,
-        value: Spanned<Value>,
+        value: Tagged<Value>,
         field: &Option<String>,
-    ) -> Result<Spanned<Value>, ShellError> {
+    ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).spanned(value.span)),
+            Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).tagged(value.span())),
             Value::Primitive(Primitive::Bytes(b)) => {
-                Ok(Value::bytes(b + 1 as u64).spanned(value.span))
+                Ok(Value::bytes(b + 1 as u64).tagged(value.span()))
             }
-            Value::Primitive(Primitive::String(s)) => {
+            Value::Primitive(Primitive::String(ref s)) => {
                 if let Ok(i) = s.parse::<u64>() {
-                    Ok(Spanned {
-                        item: Value::string(format!("{}", i + 1)),
-                        span: value.span,
-                    })
+                    Ok(Tagged::from_item(
+                        Value::string(format!("{}", i + 1)),
+                        value.span(),
+                    ))
                 } else if let Ok(mut ver) = semver::Version::parse(&s) {
                     if self.major {
                         ver.increment_major();
@@ -45,17 +45,17 @@ impl Inc {
                         self.patch;
                         ver.increment_patch();
                     }
-                    Ok(Spanned {
-                        item: Value::string(ver.to_string()),
-                        span: value.span,
-                    })
+                    Ok(Tagged::from_item(
+                        Value::string(ver.to_string()),
+                        value.span(),
+                    ))
                 } else {
                     Err(ShellError::string("string could not be incremented"))
                 }
             }
             Value::Object(_) => match field {
                 Some(f) => {
-                    let replacement = match value.item.get_data_by_path(value.span, f) {
+                    let replacement = match value.item.get_data_by_path(value.span(), f) {
                         Some(result) => self.inc(result.map(|x| x.clone()), &None)?,
                         None => {
                             return Err(ShellError::string("inc could not find field to replace"))
@@ -63,7 +63,7 @@ impl Inc {
                     };
                     match value
                         .item
-                        .replace_data_at_path(value.span, f, replacement.item.clone())
+                        .replace_data_at_path(value.span(), f, replacement.item.clone())
                     {
                         Some(v) => return Ok(v),
                         None => {
@@ -113,7 +113,7 @@ impl Plugin for Inc {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    Spanned {
+                    Tagged {
                         item: Value::Primitive(Primitive::String(s)),
                         ..
                     } => {
@@ -132,7 +132,7 @@ impl Plugin for Inc {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(self.inc(input, &self.field)?)])
     }
 }

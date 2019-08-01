@@ -9,33 +9,27 @@ use uuid::Uuid;
     new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
 )]
 #[get = "crate"]
-pub struct Spanned<T> {
-    pub span: Span,
+pub struct Tagged<T> {
+    pub tag: Tag,
     pub item: T,
 }
 
-impl<T> Spanned<T> {
-    pub fn spanned(self, span: impl Into<Span>) -> Spanned<T> {
-        Spanned::from_item(self.item, span.into())
-    }
-}
-
-pub trait SpannedItem: Sized {
-    fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
-        Spanned::from_item(self, span.into())
+pub trait TaggedItem: Sized {
+    fn tagged(self, span: impl Into<Span>) -> Tagged<Self> {
+        Tagged::from_item(self, span.into())
     }
 
     // For now, this is a temporary facility. In many cases, there are other useful spans that we
     // could be using, such as the original source spans of JSON or Toml files, but we don't yet
     // have the infrastructure to make that work.
-    fn spanned_unknown(self) -> Spanned<Self> {
-        Spanned::from_item(self, (0, 0))
+    fn tagged_unknown(self) -> Tagged<Self> {
+        Tagged::from_item(self, (0, 0))
     }
 }
 
-impl<T> SpannedItem for T {}
+impl<T> TaggedItem for T {}
 
-impl<T> std::ops::Deref for Spanned<T> {
+impl<T> std::ops::Deref for Tagged<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -43,58 +37,43 @@ impl<T> std::ops::Deref for Spanned<T> {
     }
 }
 
-impl<T> Spanned<T> {
-    crate fn from_item(item: T, span: impl Into<Span>) -> Spanned<T> {
-        Spanned {
-            span: span.into(),
+impl<T> Tagged<T> {
+    pub fn tagged(self, span: impl Into<Span>) -> Tagged<T> {
+        Tagged::from_item(self.item, span.into())
+    }
+
+    pub fn from_item(item: T, span: impl Into<Span>) -> Tagged<T> {
+        Tagged {
             item,
+            tag: Tag { span: span.into() },
         }
     }
 
-    pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Spanned<U> {
-        let Spanned { span, item } = self;
+    pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Tagged<U> {
+        let span = self.span();
 
-        let mapped = input(item);
-        Spanned { span, item: mapped }
+        let mapped = input(self.item);
+        Tagged::from_item(mapped, span)
     }
 
-    crate fn copy_span<U>(&self, output: U) -> Spanned<U> {
-        let Spanned { span, .. } = self;
+    crate fn copy_span<U>(&self, output: U) -> Tagged<U> {
+        let span = self.span();
 
-        Spanned {
-            span: *span,
-            item: output,
-        }
+        Tagged::from_item(output, span)
     }
 
     pub fn source(&self, source: &Text) -> Text {
         Text::from(self.span().slice(source))
     }
-}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
-pub struct Span {
-    crate start: usize,
-    crate end: usize,
-    pub source: Option<Uuid>,
-}
-
-impl From<Option<Span>> for Span {
-    fn from(input: Option<Span>) -> Span {
-        match input {
-            None => Span {
-                start: 0,
-                end: 0,
-                source: None,
-            },
-            Some(span) => span,
-        }
+    pub fn span(&self) -> Span {
+        self.tag.span
     }
 }
 
-impl<T> From<&Spanned<T>> for Span {
-    fn from(input: &Spanned<T>) -> Span {
-        input.span
+impl<T> From<&Tagged<T>> for Span {
+    fn from(input: &Tagged<T>) -> Span {
+        input.span()
     }
 }
 
@@ -140,6 +119,33 @@ impl From<&std::ops::Range<usize>> for Span {
             start: input.start,
             end: input.end,
             source: None,
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
+)]
+pub struct Tag {
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
+pub struct Span {
+    crate start: usize,
+    crate end: usize,
+    pub source: Option<Uuid>,
+}
+
+impl From<Option<Span>> for Span {
+    fn from(input: Option<Span>) -> Span {
+        match input {
+            None => Span {
+                start: 0,
+                end: 0,
+                source: None,
+            },
+            Some(span) => span,
         }
     }
 }

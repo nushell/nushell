@@ -1,6 +1,5 @@
 use crate::commands::command::Sink;
-use crate::context::SourceMap;
-use crate::parser::{registry::Args, Span, Spanned, TokenNode};
+use crate::parser::{registry::Args, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -105,11 +104,7 @@ crate struct SinkCommand {
 }
 
 impl SinkCommand {
-    crate fn run(
-        self,
-        context: &mut Context,
-        input: Vec<Spanned<Value>>,
-    ) -> Result<(), ShellError> {
+    crate fn run(self, context: &mut Context, input: Vec<Tagged<Value>>) -> Result<(), ShellError> {
         context.run_sink(self.command, self.name_span.clone(), self.args, input)
     }
 }
@@ -117,7 +112,6 @@ impl SinkCommand {
 crate struct InternalCommand {
     crate command: Arc<dyn Command>,
     crate name_span: Option<Span>,
-    crate source_map: SourceMap,
     crate args: Args,
 }
 
@@ -139,7 +133,7 @@ impl InternalCommand {
         let result = context.run_command(
             self.command,
             self.name_span.clone(),
-            self.source_map,
+            context.source_map.clone(),
             self.args,
             objects,
         )?;
@@ -173,7 +167,7 @@ crate struct ExternalCommand {
     crate name: String,
     #[allow(unused)]
     crate name_span: Option<Span>,
-    crate args: Vec<Spanned<String>>,
+    crate args: Vec<Tagged<String>>,
 }
 
 crate enum StreamNext {
@@ -190,7 +184,7 @@ impl ExternalCommand {
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
-        let inputs: Vec<Spanned<Value>> = input.objects.into_vec().await;
+        let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
         let name_span = self.name_span.clone();
 
         trace!(target: "nu::run::external", "-> {}", self.name);
@@ -215,7 +209,7 @@ impl ExternalCommand {
                         let mut span = None;
                         for arg in &self.args {
                             if arg.item.contains("$it") {
-                                span = Some(arg.span);
+                                span = Some(arg.span());
                             }
                         }
                         if let Some(span) = span {
@@ -260,7 +254,7 @@ impl ExternalCommand {
                         let mut span = None;
                         for arg in &self.args {
                             if arg.item.contains("$it") {
-                                span = Some(arg.span);
+                                span = Some(arg.span());
                             }
                         }
                         return Err(ShellError::maybe_labeled_error(
@@ -322,10 +316,9 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream =
-                    stream.map(move |line| Value::string(line.unwrap()).spanned(name_span));
+                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(name_span));
                 Ok(ClassifiedInputStream::from_input_stream(
-                    stream.boxed() as BoxStream<'static, Spanned<Value>>
+                    stream.boxed() as BoxStream<'static, Tagged<Value>>
                 ))
             }
         }

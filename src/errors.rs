@@ -1,7 +1,6 @@
 #[allow(unused)]
 use crate::prelude::*;
 
-use crate::parser::{Span, Spanned};
 use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
@@ -9,23 +8,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Description {
-    Source(Spanned<String>),
+    Source(Tagged<String>),
     Synthetic(String),
 }
 
 impl Description {
-    pub fn from(item: Spanned<impl Into<String>>) -> Description {
-        match item {
-            Spanned {
-                span:
-                    Span {
-                        start: 0,
-                        end: 0,
-                        source: None,
-                    },
-                item,
-            } => Description::Synthetic(item.into()),
-            Spanned { span, item } => Description::Source(Spanned::from_item(item.into(), span)),
+    pub fn from(value: Tagged<impl Into<String>>) -> Description {
+        let value_span = value.span();
+
+        match value_span {
+            Span {
+                start: 0,
+                end: 0,
+                source: None,
+            } => Description::Synthetic(value.item.into()),
+            _ => Description::Source(Tagged::from_item(value.item.into(), value_span)),
         }
     }
 }
@@ -33,7 +30,7 @@ impl Description {
 impl Description {
     fn into_label(self) -> Result<Label<Span>, String> {
         match self {
-            Description::Source(s) => Ok(Label::new_primary(s.span).with_message(s.item)),
+            Description::Source(s) => Ok(Label::new_primary(s.span()).with_message(s.item)),
             Description::Synthetic(s) => Err(s),
         }
     }
@@ -65,7 +62,7 @@ pub struct ShellError {
 impl ShellError {
     crate fn type_error(
         expected: impl Into<String>,
-        actual: Spanned<impl Into<String>>,
+        actual: Tagged<impl Into<String>>,
     ) -> ShellError {
         ProximateShellError::TypeError {
             expected: expected.into(),
@@ -75,8 +72,8 @@ impl ShellError {
     }
 
     crate fn coerce_error(
-        left: Spanned<impl Into<String>>,
-        right: Spanned<impl Into<String>>,
+        left: Tagged<impl Into<String>>,
+        right: Tagged<impl Into<String>>,
     ) -> ShellError {
         ProximateShellError::CoerceError {
             left: left.map(|l| l.into()),
@@ -166,9 +163,9 @@ impl ShellError {
             ProximateShellError::TypeError {
                 expected,
                 actual:
-                    Spanned {
+                    Tagged {
                         item: Some(actual),
-                        span,
+                        tag: Tag { span },
                     },
             } => Diagnostic::new(Severity::Error, "Type Error").with_label(
                 Label::new_primary(span)
@@ -177,7 +174,11 @@ impl ShellError {
 
             ProximateShellError::TypeError {
                 expected,
-                actual: Spanned { item: None, span },
+                actual:
+                    Tagged {
+                        item: None,
+                        tag: Tag { span },
+                    },
             } => Diagnostic::new(Severity::Error, "Type Error")
                 .with_label(Label::new_primary(span).with_message(expected)),
 
@@ -202,8 +203,8 @@ impl ShellError {
             ProximateShellError::Diagnostic(diag) => diag.diagnostic,
             ProximateShellError::CoerceError { left, right } => {
                 Diagnostic::new(Severity::Error, "Coercion error")
-                    .with_label(Label::new_primary(left.span).with_message(left.item))
-                    .with_label(Label::new_secondary(right.span).with_message(right.item))
+                    .with_label(Label::new_primary(left.span()).with_message(left.item))
+                    .with_label(Label::new_secondary(right.span()).with_message(right.item))
             }
         }
     }
@@ -251,7 +252,7 @@ pub enum ProximateShellError {
     String(StringError),
     TypeError {
         expected: String,
-        actual: Spanned<Option<String>>,
+        actual: Tagged<Option<String>>,
     },
     MissingProperty {
         subpath: Description,
@@ -264,8 +265,8 @@ pub enum ProximateShellError {
     },
     Diagnostic(ShellDiagnostic),
     CoerceError {
-        left: Spanned<String>,
-        right: Spanned<String>,
+        left: Tagged<String>,
+        right: Tagged<String>,
     },
 }
 impl ProximateShellError {

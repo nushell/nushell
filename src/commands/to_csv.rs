@@ -9,7 +9,7 @@ pub fn value_to_csv_value(v: &Value) -> Value {
         Value::Object(o) => Value::Object(o.clone()),
         Value::List(l) => Value::List(l.clone()),
         Value::Block(_) => Value::Primitive(Primitive::Nothing),
-        _ => Value::Primitive(Primitive::Nothing)
+        _ => Value::Primitive(Primitive::Nothing),
     }
 }
 
@@ -25,14 +25,14 @@ pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
                 fields.push_back(k.clone());
                 values.push_back(to_string(&v)?);
             }
-            
+
             wtr.write_record(fields).expect("can not write.");
             wtr.write_record(values).expect("can not write.");
 
-            return Ok(String::from_utf8(wtr.into_inner()?)?)
-        },
+            return Ok(String::from_utf8(wtr.into_inner()?)?);
+        }
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => return Err("Bad input".into())
+        _ => return Err("Bad input".into()),
     }
 }
 
@@ -41,18 +41,13 @@ pub fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let name_span = args.call_info.name_span;
     Ok(out
         .values
-        .map(
-            move |a| match to_string(&value_to_csv_value(&a.item)) {
-
-                Ok(x) => { 
-                     ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
-                }
-                Err(_) => Err(ShellError::maybe_labeled_error(
-                    "Can not convert to CSV string",
-                    "can not convert piped data to CSV string",
-                    name_span,
-                )),
-            },
-        )
+        .map(move |a| match to_string(&value_to_csv_value(&a.item)) {
+            Ok(x) => ReturnSuccess::value(Value::Primitive(Primitive::String(x)).tagged(name_span)),
+            Err(_) => Err(ShellError::maybe_labeled_error(
+                "Can not convert to CSV string",
+                "can not convert piped data to CSV string",
+                name_span,
+            )),
+        })
         .to_output_stream())
 }

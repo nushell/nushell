@@ -1,30 +1,27 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Spanned, Value,
+    ShellError, Tag, Tagged, Value,
 };
 
 struct Sum {
-    total: Option<Spanned<Value>>,
+    total: Option<Tagged<Value>>,
 }
 impl Sum {
     fn new() -> Sum {
         Sum { total: None }
     }
 
-    fn sum(&mut self, value: Spanned<Value>) -> Result<(), ShellError> {
+    fn sum(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
         match value.item {
             Value::Primitive(Primitive::Int(i)) => {
                 match self.total {
-                    Some(Spanned {
+                    Some(Tagged {
                         item: Value::Primitive(Primitive::Int(j)),
-                        span,
+                        tag: Tag { span },
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Spanned {
-                            item: Value::int(i + j),
-                            span,
-                        });
+                        self.total = Some(Tagged::from_item(Value::int(i + j), span));
                         Ok(())
                     }
                     None => {
@@ -38,15 +35,12 @@ impl Sum {
             }
             Value::Primitive(Primitive::Bytes(b)) => {
                 match self.total {
-                    Some(Spanned {
+                    Some(Tagged {
                         item: Value::Primitive(Primitive::Bytes(j)),
-                        span,
+                        tag: Tag { span },
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Spanned {
-                            item: Value::bytes(b + j),
-                            span,
-                        });
+                        self.total = Some(Tagged::from_item(Value::bytes(b + j), span));
                         Ok(())
                     }
                     None => {
@@ -81,7 +75,7 @@ impl Plugin for Sum {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         self.sum(input)?;
         Ok(vec![])
     }

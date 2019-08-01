@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{SpannedDictBuilder, Value};
+use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -7,17 +7,17 @@ pub fn size(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(input
         .values
         .map(move |v| match v.item {
-            Value::Primitive(Primitive::String(s)) => ReturnSuccess::value(count(&s, v.span)),
+            Value::Primitive(Primitive::String(ref s)) => ReturnSuccess::value(count(s, v.span())),
             _ => Err(ShellError::maybe_labeled_error(
                 "Expected string values from pipeline",
                 "expects strings from pipeline",
-                Some(v.span),
+                Some(v.span()),
             )),
         })
         .to_output_stream())
 }
 
-fn count(contents: &str, span: impl Into<Span>) -> Spanned<Value> {
+fn count(contents: &str, span: impl Into<Span>) -> Tagged<Value> {
     let mut lines: i64 = 0;
     let mut words: i64 = 0;
     let mut chars: i64 = 0;
@@ -42,7 +42,7 @@ fn count(contents: &str, span: impl Into<Span>) -> Spanned<Value> {
         }
     }
 
-    let mut dict = SpannedDictBuilder::new(span);
+    let mut dict = TaggedDictBuilder::new(span);
     //TODO: add back in name when we have it in the span
     //dict.insert("name", Value::string(name));
     dict.insert("lines", Value::int(lines));
@@ -50,5 +50,5 @@ fn count(contents: &str, span: impl Into<Span>) -> Spanned<Value> {
     dict.insert("chars", Value::int(chars));
     dict.insert("max length", Value::int(bytes));
 
-    dict.into_spanned_value()
+    dict.into_tagged_value()
 }

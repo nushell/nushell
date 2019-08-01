@@ -9,7 +9,7 @@ pub fn trim(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .values
         .map(move |v| {
             let string = String::extract(&v)?;
-            ReturnSuccess::value(Value::string(string.trim()).spanned(v.span))
+            ReturnSuccess::value(Value::string(string.trim()).tagged(v.span()))
         })
         .to_output_stream())
 }

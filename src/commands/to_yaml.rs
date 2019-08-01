@@ -47,7 +47,7 @@ pub fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .map(
             move |a| match serde_yaml::to_string(&value_to_yaml_value(&a)) {
                 Ok(x) => {
-                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
+                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).tagged(name_span))
                 }
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Can not convert to YAML string",

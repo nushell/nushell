@@ -4,7 +4,6 @@ crate mod flag;
 crate mod operator;
 crate mod parser;
 crate mod pipeline;
-crate mod span;
 crate mod text;
 crate mod token_tree;
 crate mod token_tree_builder;

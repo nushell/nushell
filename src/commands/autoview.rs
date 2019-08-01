@@ -5,7 +5,7 @@ use crate::prelude::*;
 
 pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
     if args.input.len() > 0 {
-        if let Spanned {
+        if let Tagged {
             item: Value::Binary(_),
             ..
         } = args.input[0]
@@ -28,7 +28,7 @@ pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
     Ok(())
 }
 
-fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {
+fn equal_shapes(input: &Vec<Tagged<Value>>) -> bool {
     let mut items = input.iter();
 
     let item = match items.next() {
@@ -47,11 +47,11 @@ fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {
     true
 }
 
-fn is_single_text_value(input: &Vec<Spanned<Value>>) -> bool {
+fn is_single_text_value(input: &Vec<Tagged<Value>>) -> bool {
     if input.len() != 1 {
         return false;
     }
-    if let Spanned {
+    if let Tagged {
         item: Value::Primitive(Primitive::String(_)),
         ..
     } = input[0]

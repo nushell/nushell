@@ -4,7 +4,9 @@ crate mod binary;
 crate mod named;
 crate mod path;
 
-use crate::parser::{Span, Spanned, Unit};
+use crate::parser::Unit;
+use crate::Span;
+use crate::Tagged;
 use derive_new::new;
 use getset::Getters;
 
@@ -14,7 +16,7 @@ crate use binary::Binary;
 crate use named::NamedArguments;
 crate use path::Path;
 
-pub fn path(head: impl Into<Expression>, tail: Vec<Spanned<impl Into<String>>>) -> Path {
+pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -> Path {
     Path::new(
         head.into(),
         tail.into_iter()
@@ -58,48 +60,48 @@ impl RawExpression {
     }
 }
 
-pub type Expression = Spanned<RawExpression>;
+pub type Expression = Tagged<RawExpression>;
 
 impl Expression {
     fn int(i: impl Into<i64>, span: impl Into<Span>) -> Expression {
-        Spanned::from_item(RawExpression::Literal(Literal::Integer(i.into())), span)
+        Tagged::from_item(RawExpression::Literal(Literal::Integer(i.into())), span)
     }
 
     fn size(i: impl Into<i64>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_item(
             RawExpression::Literal(Literal::Size(i.into(), unit.into())),
             span,
         )
     }
 
     fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_item(
             RawExpression::Literal(Literal::String(inner.into())),
             outer.into(),
         )
     }
 
     fn bare(span: impl Into<Span>) -> Expression {
-        Spanned::from_item(RawExpression::Literal(Literal::Bare), span.into())
+        Tagged::from_item(RawExpression::Literal(Literal::Bare), span.into())
     }
 
     fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_item(
             RawExpression::Variable(Variable::Other(inner.into())),
             outer.into(),
         )
     }
 
     fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_item(
             RawExpression::Variable(Variable::It(inner.into())),
             outer.into(),
         )
     }
 }
 
-impl From<Spanned<Path>> for Expression {
-    fn from(path: Spanned<Path>) -> Expression {
+impl From<Tagged<Path>> for Expression {
+    fn from(path: Tagged<Path>) -> Expression {
         path.map(|p| RawExpression::Path(Box::new(p)))
     }
 }

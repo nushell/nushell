@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::{dir_entry_dict, Primitive, Value};
-use crate::parser::Spanned;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +8,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let path = env.path.to_path_buf();
     let mut full_path = PathBuf::from(path);
     match &args.nth(0) {
-        Some(Spanned {
+        Some(Tagged {
             item: Value::Primitive(Primitive::String(s)),
             ..
         }) => full_path.push(Path::new(&s)),
@@ -24,7 +23,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 return Err(ShellError::labeled_error(
                     e.to_string(),
                     e.to_string(),
-                    s.span,
+                    s.span(),
                 ));
             } else {
                 return Err(ShellError::maybe_labeled_error(

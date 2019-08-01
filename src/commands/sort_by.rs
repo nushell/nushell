@@ -12,7 +12,7 @@ pub fn sort_by(args: CommandArgs) -> Result<OutputStream, ShellError> {
             fields
                 .iter()
                 .map(|f| item.get_data_by_key(f).map(|i| i.clone()))
-                .collect::<Vec<Option<Spanned<Value>>>>()
+                .collect::<Vec<Option<Tagged<Value>>>>()
         });
 
         vec.into_iter().collect::<VecDeque<_>>()

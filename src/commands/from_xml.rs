@@ -1,10 +1,7 @@
-use crate::object::{Primitive, SpannedDictBuilder, Value};
+use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
-fn from_node_to_value<'a, 'd>(
-    n: &roxmltree::Node<'a, 'd>,
-    span: impl Into<Span>,
-) -> Spanned<Value> {
+fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, span: impl Into<Span>) -> Tagged<Value> {
     let span = span.into();
 
     if n.is_element() {
@@ -15,10 +12,10 @@ fn from_node_to_value<'a, 'd>(
             children_values.push(from_node_to_value(&c, span));
         }
 
-        let children_values: Vec<Spanned<Value>> = children_values
+        let children_values: Vec<Tagged<Value>> = children_values
             .into_iter()
             .filter(|x| match x {
-                Spanned {
+                Tagged {
                     item: Value::Primitive(Primitive::String(f)),
                     ..
                 } => {
@@ -32,29 +29,29 @@ fn from_node_to_value<'a, 'd>(
             })
             .collect();
 
-        let mut collected = SpannedDictBuilder::new(span);
+        let mut collected = TaggedDictBuilder::new(span);
         collected.insert(name.clone(), Value::List(children_values));
 
-        collected.into_spanned_value()
+        collected.into_tagged_value()
     } else if n.is_comment() {
-        Value::string("<comment>").spanned(span)
+        Value::string("<comment>").tagged(span)
     } else if n.is_pi() {
-        Value::string("<processing_instruction>").spanned(span)
+        Value::string("<processing_instruction>").tagged(span)
     } else if n.is_text() {
-        Value::string(n.text().unwrap()).spanned(span)
+        Value::string(n.text().unwrap()).tagged(span)
     } else {
-        Value::string("<unknown>").spanned(span)
+        Value::string("<unknown>").tagged(span)
     }
 }
 
-fn from_document_to_value(d: &roxmltree::Document, span: impl Into<Span>) -> Spanned<Value> {
+fn from_document_to_value(d: &roxmltree::Document, span: impl Into<Span>) -> Tagged<Value> {
     from_node_to_value(&d.root_element(), span)
 }
 
 pub fn from_xml_string_to_value(
     s: String,
     span: impl Into<Span>,
-) -> Result<Spanned<Value>, Box<dyn std::error::Error>> {
+) -> Result<Tagged<Value>, Box<dyn std::error::Error>> {
     let parsed = roxmltree::Document::parse(&s)?;
     Ok(from_document_to_value(&parsed, span))
 }
@@ -66,7 +63,7 @@ pub fn from_xml(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .values
         .map(move |a| match a.item {
             Value::Primitive(Primitive::String(s)) => match from_xml_string_to_value(s, span) {
-                Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
+                Ok(x) => ReturnSuccess::value(x),
                 Err(_) => Err(ShellError::maybe_labeled_error(
                     "Could not parse as XML",
                     "piped data failed XML parse",

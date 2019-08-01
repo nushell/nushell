@@ -1,9 +1,8 @@
 use crate::errors::ShellError;
 use crate::object::Value;
-use crate::parser::Span;
 use crate::prelude::*;
 
-fn get_member(path: &str, span: Span, obj: &Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
+fn get_member(path: &str, span: Span, obj: &Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
     let mut current = obj;
     for p in path.split(".") {
         match current.get_data_by_key(p) {
@@ -44,7 +43,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let fields: Result<Vec<(String, Span)>, _> = args
         .positional_iter()
-        .map(|a| (a.as_string().map(|x| (x, a.span))))
+        .map(|a| (a.as_string().map(|x| (x, a.span()))))
         .collect();
 
     let fields = fields?;
@@ -56,7 +55,7 @@ pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
             let mut result = VecDeque::new();
             for field in &fields {
                 match get_member(&field.0, field.1, &item) {
-                    Ok(Spanned {
+                    Ok(Tagged {
                         item: Value::List(l),
                         ..
                     }) => {
