@@ -2,6 +2,8 @@ use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
 use crate::prelude::*;
+
+use glob::glob;
 use indexmap::IndexMap;
 
 pub struct Remove;
@@ -43,17 +45,24 @@ pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
         file => full_path.push(file),
     }
 
-    if full_path.is_dir() {
-        if !args.has("recursive") {
-            return Err(ShellError::labeled_error(
-                "is a directory",
-                "",
-                args.call_info.name_span.unwrap(),
-            ));
+    for entry in glob(&full_path.to_string_lossy()).expect("Failed to read glob pattern") {
+        match entry {
+            Ok(path) => {
+                if path.is_dir() {
+                    if !args.has("recursive") {
+                        return Err(ShellError::labeled_error(
+                            "is a directory",
+                            "",
+                            args.call_info.name_span.unwrap(),
+                        ));
+                    }
+                    std::fs::remove_dir_all(&path).expect("can not remove directory");
+                } else if path.is_file() {
+                    std::fs::remove_file(&path).expect("can not remove file");
+                }
+            }
+            Err(e) => return Err(ShellError::string(&format!("{:?}", e))),
         }
-        std::fs::remove_dir_all(&full_path).expect("can not remove directory");
-    } else if full_path.is_file() {
-        std::fs::remove_file(&full_path).expect("can not remove file");
     }
 
     Ok(OutputStream::empty())
