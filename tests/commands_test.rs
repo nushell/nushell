@@ -85,8 +85,8 @@ fn open_error_if_file_not_found() {
 fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
     let (playground_path, tests_dir) = h::setup_playground_for("save_smart_test");
 
-    let full_path = format!("{}/{}", playground_path, tests_dir);
-    let subject_file = format!("{}/{}", full_path, "cargo_sample.toml");
+    let full_path     = format!("{}/{}", playground_path, tests_dir);
+    let subject_file  = format!("{}/{}", full_path      , "cargo_sample.toml");
 
     h::copy_file_to("tests/fixtures/formats/cargo_sample.toml", &subject_file);
 
@@ -104,8 +104,8 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
 fn save_can_write_out_csv() {
     let (playground_path, tests_dir) = h::setup_playground_for("save_test");
 
-    let full_path = format!("{}/{}", playground_path, tests_dir);
-    let expected_file = format!("{}/{}", full_path, "cargo_sample.csv");
+    let full_path     = format!("{}/{}", playground_path, tests_dir);
+    let expected_file = format!("{}/{}", full_path      , "cargo_sample.csv");
 
     nu!(
         _output,
@@ -121,8 +121,8 @@ fn save_can_write_out_csv() {
 fn cp_can_copy_a_file() {
     let (playground_path, tests_dir) = h::setup_playground_for("cp_test");
 
-    let full_path = format!("{}/{}", playground_path, tests_dir);
-    let expected_file = format!("{}/{}", full_path, "sample.ini");
+    let full_path     = format!("{}/{}", playground_path, tests_dir);
+    let expected_file = format!("{}/{}", full_path      , "sample.ini");
 
     nu!(
         _output,
@@ -137,8 +137,8 @@ fn cp_can_copy_a_file() {
 fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
     let (playground_path, tests_dir) = h::setup_playground_for("cp_test_2");
 
-    let full_path = format!("{}/{}", playground_path, tests_dir);
-    let expected_file = format!("{}/{}", full_path, "sample.ini");
+    let full_path     = format!("{}/{}", playground_path, tests_dir);
+    let expected_file = format!("{}/{}", full_path      , "sample.ini");
 
     nu!(
         _output,
@@ -153,7 +153,11 @@ fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 fn cp_error_if_attempting_to_copy_a_directory_to_another_directory() {
     let (playground_path, _) = h::setup_playground_for("cp_test_3");
 
-    nu_error!(output, cwd(&playground_path), "cp ../formats cp_test_3");
+    nu_error!(
+        output,
+        cwd(&playground_path),
+        "cp ../formats cp_test_3"
+    );
 
     assert!(output.contains("../formats"));
     assert!(output.contains("is a directory (not copied)"));
@@ -161,12 +165,16 @@ fn cp_error_if_attempting_to_copy_a_directory_to_another_directory() {
 
 #[test]
 fn rm_can_remove_a_file() {
-    let directory = "tests/fixtures/nuplayground";
+    let directory   = "tests/fixtures/nuplayground";
     let file = format!("{}/rm_test.txt", directory);
 
     h::create_file_at(&file);
 
-    nu!(_output, cwd(directory), "rm rm_test.txt");
+    nu!(
+        _output,
+        cwd(directory),
+        "rm rm_test.txt"
+    );
 
     assert!(!h::file_exists_at(&file));
 }
@@ -185,10 +193,7 @@ fn rm_can_remove_directory_contents_with_recursive_flag() {
         "rm rm_test --recursive"
     );
 
-    assert!(!h::file_exists_at(&format!(
-        "{}/{}",
-        playground_path, tests_dir
-    )));
+    assert!(!h::file_exists_at(&format!("{}/{}", playground_path, tests_dir)));
 }
 
 #[test]
@@ -196,23 +201,36 @@ fn rm_error_if_attempting_to_delete_a_directory_without_recursive_flag() {
     let (playground_path, tests_dir) = h::setup_playground_for("rm_test_2");
     let full_path = format!("{}/{}", playground_path, tests_dir);
 
-    nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm rm_test_2");
+    nu_error!(
+        output,
+        cwd("tests/fixtures/nuplayground"),
+        "rm rm_test_2"
+    );
 
     assert!(h::file_exists_at(&full_path));
     assert!(output.contains("is a directory"));
-    h::delete_directory_at(&full_path);
 }
 
 #[test]
 fn rm_error_if_attempting_to_delete_single_dot_as_argument() {
-    nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm .");
+
+    nu_error!(
+        output,
+        cwd("tests/fixtures/nuplayground"),
+        "rm ."
+    );
 
     assert!(output.contains("may not be removed"));
 }
 
 #[test]
 fn rm_error_if_attempting_to_delete_two_dot_as_argument() {
-    nu_error!(output, cwd("tests/fixtures/nuplayground"), "rm ..");
+
+    nu_error!(
+        output,
+        cwd("tests/fixtures/nuplayground"), 
+        "rm .."
+    );
 
     assert!(output.contains("may not be removed"));
 }
