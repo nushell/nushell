@@ -82,11 +82,30 @@ fn open_error_if_file_not_found() {
 }
 
 #[test]
+fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
+    let (playground_path, tests_dir) = h::setup_playground_for("save_smart_test");
+
+    let full_path = format!("{}/{}", playground_path, tests_dir);
+    let subject_file = format!("{}/{}", full_path, "cargo_sample.toml");
+
+    h::copy_file_to("tests/fixtures/formats/cargo_sample.toml", &subject_file);
+
+    nu!(
+        _output,
+        cwd("tests/fixtures"),
+        "open nuplayground/save_smart_test/cargo_sample.toml | inc package.version --minor | save"
+    );
+
+    let actual = h::file_contents(&subject_file);
+    assert!(actual.contains("0.2.0"));
+}
+
+#[test]
 fn save_can_write_out_csv() {
     let (playground_path, tests_dir) = h::setup_playground_for("save_test");
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir         );
-    let expected_file = format!("{}/{}", full_path      , "cargo_sample.csv");
+    let full_path = format!("{}/{}", playground_path, tests_dir);
+    let expected_file = format!("{}/{}", full_path, "cargo_sample.csv");
 
     nu!(
         _output,
@@ -100,10 +119,10 @@ fn save_can_write_out_csv() {
 
 #[test]
 fn cp_can_copy_a_file() {
-    let (playground_path, tests_dir) =     h::setup_playground_for("cp_test");
+    let (playground_path, tests_dir) = h::setup_playground_for("cp_test");
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir         );
-    let expected_file = format!("{}/{}", full_path      , "sample.ini"      );
+    let full_path = format!("{}/{}", playground_path, tests_dir);
+    let expected_file = format!("{}/{}", full_path, "sample.ini");
 
     nu!(
         _output,
@@ -116,10 +135,10 @@ fn cp_can_copy_a_file() {
 
 #[test]
 fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
-    let (playground_path, tests_dir) =   h::setup_playground_for("cp_test_2");
+    let (playground_path, tests_dir) = h::setup_playground_for("cp_test_2");
 
-    let full_path     = format!("{}/{}", playground_path, tests_dir         );
-    let expected_file = format!("{}/{}", full_path      , "sample.ini"      );
+    let full_path = format!("{}/{}", playground_path, tests_dir);
+    let expected_file = format!("{}/{}", full_path, "sample.ini");
 
     nu!(
         _output,
@@ -134,11 +153,7 @@ fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 fn cp_error_if_attempting_to_copy_a_directory_to_another_directory() {
     let (playground_path, _) = h::setup_playground_for("cp_test_3");
 
-    nu_error!(
-        output,
-        cwd(&playground_path),
-        "cp ../formats cp_test_3"
-    );
+    nu_error!(output, cwd(&playground_path), "cp ../formats cp_test_3");
 
     assert!(output.contains("../formats"));
     assert!(output.contains("is a directory (not copied)"));
@@ -170,7 +185,10 @@ fn rm_can_remove_directory_contents_with_recursive_flag() {
         "rm rm_test --recursive"
     );
 
-    assert!(!h::file_exists_at(&format!("{}/{}", playground_path, tests_dir)));
+    assert!(!h::file_exists_at(&format!(
+        "{}/{}",
+        playground_path, tests_dir
+    )));
 }
 
 #[test]
