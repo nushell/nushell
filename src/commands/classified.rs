@@ -239,7 +239,14 @@ impl ExternalCommand {
                 }
             } else {
                 for arg in &self.args {
-                    process = process.arg(arg.item.clone());
+                    let arg_chars: Vec<_> = arg.chars().collect();
+                    if arg_chars.len() > 1 && arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"' {
+                        // quoted string
+                        let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
+                        process = process.arg(new_arg);
+                    } else {
+                        process = process.arg(arg.item.clone());
+                    }
                 }
             }
         }
