@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use ordered_float::OrderedFloat;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -123,40 +123,11 @@ pub struct Operation {
     crate right: Value,
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Serialize, Deserialize, new)]
 pub struct Block {
     crate expressions: Vec<hir::Expression>,
     crate source: Text,
     crate span: Span,
-}
-
-impl Serialize for Block {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
-
-        let list = self
-            .expressions
-            .iter()
-            .map(|e| e.source(&self.source.clone()));
-
-        for item in list {
-            seq.serialize_element(item.as_ref())?;
-        }
-
-        seq.end()
-    }
-}
-
-impl Deserialize<'de> for Block {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        unimplemented!("deserialize block")
-    }
 }
 
 impl Block {
@@ -260,6 +231,7 @@ impl std::convert::TryFrom<&'a Spanned<Value>> for i64 {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum Switch {
     Present,
     Absent,

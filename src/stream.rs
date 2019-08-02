@@ -46,9 +46,14 @@ pub struct OutputStream {
 }
 
 impl OutputStream {
-    #[allow(unused)]
     pub fn empty() -> OutputStream {
         let v: VecDeque<ReturnValue> = VecDeque::new();
+        v.into()
+    }
+
+    pub fn one(item: impl Into<ReturnValue>) -> OutputStream {
+        let v: VecDeque<ReturnValue> = VecDeque::new();
+        v.push_back(item.into());
         v.into()
     }
 

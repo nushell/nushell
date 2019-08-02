@@ -2,7 +2,7 @@ use crate::object::base::OF64;
 use crate::object::{Primitive, SpannedDictBuilder, Value};
 use crate::prelude::*;
 
-fn convert_toml_value_to_nu_value(v: &toml::Value, span: impl Into<Span>) -> Spanned<Value> {
+pub fn convert_toml_value_to_nu_value(v: &toml::Value, span: impl Into<Span>) -> Spanned<Value> {
     let span = span.into();
 
     match v {

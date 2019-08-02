@@ -1,9 +1,10 @@
+use crate::commands::StaticCommand;
 use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::hir::SyntaxType;
 use crate::parser::parse::span::Span;
-use crate::parser::registry::{self, CommandConfig, NamedType};
+use crate::parser::registry::{self, Signature};
 use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};
@@ -12,75 +13,81 @@ use uuid::Uuid;
 
 pub struct Open;
 
-impl Command for Open {
+#[derive(Deserialize)]
+pub struct OpenArgs {
+    path: Spanned<PathBuf>,
+    raw: bool,
+}
+
+impl StaticCommand for Open {
+    fn name(&self) -> &str {
+        "open"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .required("path", SyntaxType::Block)
+            .switch("raw")
+            .sink()
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &registry::CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let env = args.env.clone();
-        let args = args.evaluate_once(registry)?;
-        let path = <Spanned<PathBuf>>::extract(args.expect_nth(0)?)?;
-        let raw = args.has("raw");
+        args.process(registry, run)?.run()
+    }
+}
 
-        let span = args.name_span();
+fn run(
+    OpenArgs { raw, path }: OpenArgs,
+    RunnableContext { env, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let cwd = env.lock().unwrap().path().to_path_buf();
+    let full_path = PathBuf::from(cwd);
 
-        let cwd = env.lock().unwrap().path().to_path_buf();
-        let full_path = PathBuf::from(cwd);
+    let path_str = path.to_str().ok_or(ShellError::type_error(
+        "Path",
+        "invalid path".spanned(path.span),
+    ))?;
 
-        let path_str = path.to_str().ok_or(ShellError::type_error(
-            "Path",
-            "invalid path".spanned(path.span),
-        ))?;
+    let (file_extension, contents, contents_span, span_source) =
+        fetch(&full_path, path_str, path.span)?;
 
-        let (file_extension, contents, contents_span, span_source) =
-            fetch(&full_path, path_str, path.span)?;
+    let file_extension = if raw { None } else { file_extension };
 
-        let file_extension = if raw { None } else { file_extension };
+    let mut stream = VecDeque::new();
 
-        let mut stream = VecDeque::new();
+    if let Some(uuid) = contents_span.source {
+        // If we have loaded something, track its source
+        stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(
+            uuid,
+            span_source,
+        )))
+    }
 
-        if let Some(uuid) = contents_span.source {
-            // If we have loaded something, track its source
-            stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(
-                uuid,
-                span_source,
-            )))
+    match contents {
+        Value::Primitive(Primitive::String(string)) => {
+            let value = parse_as_value(file_extension, string, contents_span, name)?;
+
+            match value {
+                Spanned {
+                    item: Value::List(list),
+                    ..
+                } => {
+                    for elem in list {
+                        stream.push_back(ReturnSuccess::value(elem));
+                    }
+                }
+                x => stream.push_back(ReturnSuccess::value(x)),
+            }
         }
 
-        match contents {
-            Value::Primitive(Primitive::String(string)) => {
-                let value = parse_as_value(file_extension, string, contents_span, span)?;
+        other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
+    };
 
-                match value {
-                    Spanned {
-                        item: Value::List(list),
-                        ..
-                    } => {
-                        for elem in list {
-                            stream.push_back(ReturnSuccess::value(elem));
-                        }
-                    }
-                    x => stream.push_back(ReturnSuccess::value(x)),
-                }
-            }
-
-            other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
-        };
-
-        Ok(stream.boxed().to_output_stream())
-    }
-
-    fn name(&self) -> &str {
-        "open"
-    }
-
-    fn config(&self) -> CommandConfig {
-        CommandConfig::new(self.name())
-            .required("path", SyntaxType::Block)
-            .named("raw", NamedType::Switch)
-            .sink()
-    }
+    Ok(stream.boxed().to_output_stream())
 }
 
 // command! {

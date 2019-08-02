@@ -9,7 +9,7 @@ use crate::parser::{registry, Span, Spanned, Unit};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 crate use baseline_parse::{baseline_parse_single_token, baseline_parse_token_as_string};
@@ -76,6 +76,7 @@ pub enum RawExpression {
     Variable(Variable),
     Binary(Box<Binary>),
     Block(Vec<Expression>),
+    List(Vec<Expression>),
     Path(Box<Path>),
 
     #[allow(unused)]
@@ -101,6 +102,7 @@ impl RawExpression {
             RawExpression::Literal(literal) => literal.type_name(),
             RawExpression::Synthetic(synthetic) => synthetic.type_name(),
             RawExpression::Variable(..) => "variable",
+            RawExpression::List(..) => "list",
             RawExpression::Binary(..) => "binary",
             RawExpression::Block(..) => "block",
             RawExpression::Path(..) => "path",
@@ -169,6 +171,15 @@ impl ToDebug for Expression {
                 }
 
                 write!(f, "}}")
+            }
+            RawExpression::List(exprs) => {
+                write!(f, "[ ")?;
+
+                for expr in exprs {
+                    write!(f, "{} ", expr.debug(source))?;
+                }
+
+                write!(f, "]")
             }
             RawExpression::Path(p) => write!(f, "{}", p.debug(source)),
             RawExpression::Boolean(true) => write!(f, "$yes"),

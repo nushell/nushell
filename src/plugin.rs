@@ -1,9 +1,9 @@
-use crate::{CallInfo, CommandConfig, ReturnValue, ShellError, Spanned, Value};
+use crate::{CallInfo, Signature, ReturnValue, ShellError, Spanned, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
 pub trait Plugin {
-    fn config(&mut self) -> Result<CommandConfig, ShellError>;
+    fn config(&mut self) -> Result<Signature, ShellError>;
     #[allow(unused)]
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
         Err(ShellError::string(

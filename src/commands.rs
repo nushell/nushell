@@ -42,8 +42,15 @@ crate mod trim;
 crate mod vtable;
 crate mod where_;
 
-crate use command::{command, EvaluatedStaticCommandArgs};
+crate use autoview::Autoview;
+crate use cd::Cd;
+crate use clip::Clip;
+crate use command::{
+    command, static_command, CallInfo, Command, CommandArgs, EvaluatedStaticCommandArgs,
+    StaticCommand, UnevaluatedCallInfo,
+};
 crate use config::Config;
+crate use get::Get;
 crate use open::Open;
 crate use rm::Remove;
 crate use skip_while::SkipWhile;

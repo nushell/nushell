@@ -1,3 +1,4 @@
+crate mod deserializer;
 crate mod hir;
 crate mod parse;
 crate mod parse_command;
@@ -5,6 +6,7 @@ crate mod registry;
 
 use crate::errors::ShellError;
 
+crate use deserializer::ConfigDeserializer;
 crate use hir::baseline_parse_tokens::baseline_parse_tokens;
 crate use parse::call_node::CallNode;
 crate use parse::files::Files;

@@ -1,9 +1,8 @@
-use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
 use crate::format::TableView;
 use crate::prelude::*;
 
-pub fn table(args: SinkCommandArgs) -> Result<(), ShellError> {
+pub fn table(args: CommandArgs, context: RunnableContext) -> Result<(), ShellError> {
     if args.input.len() > 0 {
         let mut host = args.ctx.host.lock().unwrap();
         let view = TableView::from_list(&args.input);

@@ -1,100 +1,119 @@
-use crate::commands::command::SinkCommandArgs;
 use crate::commands::to_csv::{to_string as to_csv_to_string, value_to_csv_value};
 use crate::commands::to_json::value_to_json_value;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::Spanned;
+use crate::prelude::*;
+use futures_async_stream::async_stream_block;
 use std::path::{Path, PathBuf};
 
-pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
-    if args.call_info.args.positional.is_none() {
-        return Err(ShellError::maybe_labeled_error(
-            "Save requires a filepath",
-            "needs path",
-            args.name_span(),
-        ));
+pub struct Save;
+
+#[derive(Deserialize)]
+struct SaveArgs {
+    path: Spanned<PathBuf>,
+    raw: bool,
+}
+
+impl StaticCommand for Save {
+    fn name(&self) -> &str {
+        "save"
     }
 
-    let positional = match args.call_info.args.positional {
-        None => return Err(ShellError::string("save requires a filepath")),
-        Some(p) => p,
-    };
-
-    let cwd = args.ctx.env.lock().unwrap().path().to_path_buf();
-    let mut full_path = PathBuf::from(cwd);
-    match &(positional[0].item) {
-        Value::Primitive(Primitive::String(s)) => full_path.push(Path::new(s)),
-        _ => {}
+    fn signature(&self) -> Signature {
+        Signature::build("save")
+            .required("path", SyntaxType::Path)
+            .switch("raw")
+            .sink()
     }
 
-    let save_raw = match positional.get(1) {
-        Some(Spanned {
-            item: Value::Primitive(Primitive::String(s)),
-            ..
-        }) if s == "--raw" => true,
-        _ => false,
-    };
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, save)?.run()
+    }
+}
 
-    let contents = match full_path.extension() {
-        Some(x) if x == "csv" && !save_raw => {
-            if args.input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to csv requires a single object (or use --raw)",
-                ));
-            }
-            to_csv_to_string(&value_to_csv_value(&args.input[0])).unwrap()
-        }
-        Some(x) if x == "toml" && !save_raw => {
-            if args.input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to toml requires a single object (or use --raw)",
-                ));
-            }
-            toml::to_string(&value_to_toml_value(&args.input[0])).unwrap()
-        }
-        Some(x) if x == "json" && !save_raw => {
-            if args.input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to json requires a single object (or use --raw)",
-                ));
-            }
-            serde_json::to_string(&value_to_json_value(&args.input[0])).unwrap()
-        }
-        Some(x) if x == "yml" && !save_raw => {
-            if args.input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to yml requires a single object (or use --raw)",
-                ));
-            }
-            serde_yaml::to_string(&value_to_yaml_value(&args.input[0])).unwrap()
-        }
-        Some(x) if x == "yaml" && !save_raw => {
-            if args.input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to yaml requires a single object (or use --raw)",
-                ));
-            }
-            serde_yaml::to_string(&value_to_yaml_value(&args.input[0])).unwrap()
-        }
-        _ => {
-            let mut save_data = String::new();
-            if args.input.len() > 0 {
-                let mut first = true;
-                for i in args.input.iter() {
-                    if !first {
-                        save_data.push_str("\n");
-                    } else {
-                        first = false;
-                    }
-                    save_data.push_str(&i.as_string().unwrap());
+pub fn save(
+    SaveArgs {
+        path,
+        raw: save_raw,
+    }: SaveArgs,
+    context: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let mut full_path = context.cwd();
+    full_path.push(path.item());
+
+    let stream = async_stream_block! {
+        let input: Vec<Spanned<Value>> = context.input.values.collect().await;
+
+        let contents = match full_path.extension() {
+            Some(x) if x == "csv" && !save_raw => {
+                if input.len() != 1 {
+                    return Err(ShellError::string(
+                        "saving to csv requires a single object (or use --raw)",
+                    ));
                 }
+                to_csv_to_string(&value_to_csv_value(&input[0])).unwrap()
             }
-            save_data
-        }
+            Some(x) if x == "toml" && !save_raw => {
+                if input.len() != 1 {
+                    return Err(ShellError::string(
+                        "saving to toml requires a single object (or use --raw)",
+                    ));
+                }
+                toml::to_string(&value_to_toml_value(&input[0])).unwrap()
+            }
+            Some(x) if x == "json" && !save_raw => {
+                if input.len() != 1 {
+                    return Err(ShellError::string(
+                        "saving to json requires a single object (or use --raw)",
+                    ));
+                }
+                serde_json::to_string(&value_to_json_value(&input[0])).unwrap()
+            }
+            Some(x) if x == "yml" && !save_raw => {
+                if input.len() != 1 {
+                    return Err(ShellError::string(
+                        "saving to yml requires a single object (or use --raw)",
+                    ));
+                }
+                serde_yaml::to_string(&value_to_yaml_value(&input[0])).unwrap()
+            }
+            Some(x) if x == "yaml" && !save_raw => {
+                if input.len() != 1 {
+                    return Err(ShellError::string(
+                        "saving to yaml requires a single object (or use --raw)",
+                    ));
+                }
+                serde_yaml::to_string(&value_to_yaml_value(&input[0])).unwrap()
+            }
+            _ => {
+                let mut save_data = String::new();
+                if input.len() > 0 {
+                    let mut first = true;
+                    for i in input.iter() {
+                        if !first {
+                            save_data.push_str("\n");
+                        } else {
+                            first = false;
+                        }
+                        save_data.push_str(&i.as_string().unwrap());
+                    }
+                }
+                save_data
+            }
+        };
+
+        let _ = std::fs::write(full_path, contents);
     };
 
-    let _ = std::fs::write(full_path, contents);
-    Ok(())
+    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
+
+    Ok(OutputStream::from(stream))
 }

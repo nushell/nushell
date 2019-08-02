@@ -55,6 +55,16 @@ crate fn evaluate_baseline_expr(
                 )),
             }
         }
+        RawExpression::List(list) => {
+            let mut exprs = vec![];
+
+            for expr in list {
+                let expr = evaluate_baseline_expr(expr, registry, scope, source)?;
+                exprs.push(expr);
+            }
+
+            Ok(Value::List(exprs).spanned(expr.span()))
+        }
         RawExpression::Block(block) => Ok(Spanned::from_item(
             Value::Block(Block::new(block.clone(), source.clone(), *expr.span())),
             expr.span(),

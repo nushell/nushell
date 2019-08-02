@@ -83,26 +83,31 @@ fn open_error_if_file_not_found() {
 
 #[test]
 fn save_can_write_out_csv() -> Result<(), std::io::Error> {
-    let (playground, tmp, dir) = h::setup_playground_for("save_test")?;
+    let (playground, tmp, _dir) = h::setup_playground_for("save_test")?;
 
-    let tmp = AbsolutePath::new(tmp);
+    let expected_file = tmp.as_ref().join("cargo_sample.csv");
 
-    let expected_file = tmp / "cargo_sample.csv";
+    let root = &AbsolutePath::new(std::env::current_dir()?);
 
-    let root = AbsolutePath::new(std::env::current_dir()?);
-
-    let path = root / "tests" / "fixtures" / "formats" / "cargo_sample.toml";
+    let path = root / "tests/fixtures/formats/cargo_sample.toml";
 
     let command = format!(
-        "open {} | inc package.version --minor | get package | save {}/cargo_sample.csv",
+        "open {} | inc package.version --minor | get package | save {}",
         path.as_ref().display(),
-        dir
+        "cargo_sample.csv"
     );
 
-    nu!(_output, playground.path().display(), command);
+    for item in std::fs::read_dir(tmp.as_ref()) {
+        println!("item :: {:?}", item);
+    }
+
+    nu!(_output, tmp.as_ref().display(), command);
 
     let actual = h::file_contents(&expected_file);
     assert!(actual.contains("[list list],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
+
+    drop(playground);
+    drop(tmp);
 
     Ok(())
 }
@@ -113,8 +118,7 @@ fn rm_can_remove_a_file() -> Result<(), std::io::Error> {
 
     let (_playground, tmp, _) = h::setup_playground_for("remove_file")?;
 
-    let file = AbsolutePath::new(&tmp) / "rm_test.txt";
-    // let file = tmp.path().join("rm_test.txt");
+    let file = &AbsolutePath::new(&tmp) / "rm_test.txt";
 
     h::create_file_at(&file)?;
 

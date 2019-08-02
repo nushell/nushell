@@ -2,7 +2,7 @@ use crate::parser::{hir::Expression, Spanned};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(

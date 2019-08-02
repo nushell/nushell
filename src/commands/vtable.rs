@@ -1,9 +1,8 @@
-use crate::commands::command::SinkCommandArgs;
 use crate::errors::ShellError;
 use crate::format::VTableView;
 use crate::prelude::*;
 
-pub fn vtable(args: SinkCommandArgs) -> Result<(), ShellError> {
+pub fn vtable(args: CommandArgs, context: RunnableContext) -> Result<(), ShellError> {
     if args.input.len() > 0 {
         let mut host = args.ctx.host.lock().unwrap();
         let view = VTableView::from_list(&args.input);

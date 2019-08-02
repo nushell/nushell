@@ -3,8 +3,9 @@ use crate::errors::ShellError;
 use crate::evaluate::Scope;
 use crate::object::Value;
 use crate::parser::hir;
-use crate::parser::{registry, Span, Spanned};
+use crate::parser::{registry, ConfigDeserializer, Span, Spanned};
 use crate::prelude::*;
+use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -80,6 +81,67 @@ impl CommandArgs {
     pub fn name_span(&self) -> Option<Span> {
         self.call_info.name_span
     }
+
+    pub fn process<'de, T: Deserialize<'de>>(
+        self,
+        registry: &CommandRegistry,
+        callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
+    ) -> Result<RunnableArgs<T>, ShellError> {
+        let env = self.env.clone();
+        let args = self.evaluate_once(registry)?;
+        let (input, args) = args.split();
+        let name_span = args.call_info.name_span;
+        let mut deserializer = ConfigDeserializer::from_call_node(args);
+
+        Ok(RunnableArgs {
+            args: T::deserialize(&mut deserializer)?,
+            context: RunnableContext {
+                input: input,
+                env,
+                name: name_span,
+            },
+            callback,
+        })
+    }
+}
+
+pub struct SinkContext {
+    pub input: Vec<Spanned<Value>>,
+    pub env: Arc<Mutex<Environment>>,
+    pub name: Option<Span>,
+}
+
+pub struct SinkArgs<T> {
+    args: T,
+    context: SinkContext,
+    callback: fn(T, SinkContext) -> Result<(), ShellError>,
+}
+
+pub struct RunnableContext {
+    pub input: InputStream,
+    pub env: Arc<Mutex<Environment>>,
+    pub name: Option<Span>,
+}
+
+impl RunnableContext {
+    pub fn cwd(&self) -> PathBuf {
+        let env = self.env.clone();
+        let env = env.lock().unwrap();
+
+        env.path.clone()
+    }
+}
+
+pub struct RunnableArgs<T> {
+    args: T,
+    context: RunnableContext,
+    callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
+}
+
+impl<T> RunnableArgs<T> {
+    pub fn run(self) -> Result<OutputStream, ShellError> {
+        (self.callback)(self.args, self.context)
+    }
 }
 
 pub struct EvaluatedStaticCommandArgs {
@@ -120,6 +182,12 @@ impl EvaluatedStaticCommandArgs {
 
         (input, args.call_info.args)
     }
+
+    pub fn split(self) -> (InputStream, EvaluatedCommandArgs) {
+        let EvaluatedStaticCommandArgs { args, input } = self;
+
+        (input, args)
+    }
 }
 
 #[derive(Getters)]
@@ -155,7 +223,7 @@ impl EvaluatedFilterCommandArgs {
     }
 }
 
-#[derive(Getters)]
+#[derive(Getters, new)]
 #[get = "crate"]
 pub struct EvaluatedCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
@@ -184,21 +252,18 @@ impl EvaluatedCommandArgs {
         self.call_info.args.get(name)
     }
 
+    pub fn slice_from(&self, from: usize) -> Vec<Spanned<Value>> {
+        let positional = &self.call_info.args.positional;
+
+        match positional {
+            None => vec![],
+            Some(list) => list[from..].to_vec(),
+        }
+    }
+
     #[allow(unused)]
     pub fn has(&self, name: &str) -> bool {
         self.call_info.args.has(name)
-    }
-}
-
-pub struct SinkCommandArgs {
-    pub ctx: Context,
-    pub call_info: CallInfo,
-    pub input: Vec<Spanned<Value>>,
-}
-
-impl SinkCommandArgs {
-    pub fn name_span(&self) -> Option<Span> {
-        self.call_info.name_span
     }
 }
 
@@ -241,38 +306,56 @@ impl ReturnSuccess {
     }
 }
 
-pub trait Command: Send + Sync {
+pub trait StaticCommand: Send + Sync {
+    fn name(&self) -> &str;
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &registry::CommandRegistry,
     ) -> Result<OutputStream, ShellError>;
-    fn name(&self) -> &str;
 
-    fn config(&self) -> registry::CommandConfig {
-        registry::CommandConfig {
+    fn signature(&self) -> Signature {
+        Signature {
             name: self.name().to_string(),
             positional: vec![],
             rest_positional: true,
             named: indexmap::IndexMap::new(),
             is_filter: true,
-            is_sink: false,
         }
     }
 }
 
-pub trait Sink {
-    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError>;
-    fn name(&self) -> &str;
+pub enum Command {
+    Static(Arc<dyn StaticCommand>),
+}
 
-    fn config(&self) -> registry::CommandConfig {
-        registry::CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![],
-            rest_positional: true,
-            named: indexmap::IndexMap::new(),
-            is_filter: false,
-            is_sink: true,
+impl Command {
+    pub fn name(&self) -> &str {
+        match self {
+            Command::Static(command) => command.name(),
+        }
+    }
+
+    pub fn is_sink(&self) -> bool {
+        match self {
+            Command::Static(..) => false,
+        }
+    }
+
+    pub fn signature(&self) -> Signature {
+        match self {
+            Command::Static(command) => command.signature(),
+        }
+    }
+
+    pub async fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        match self {
+            Command::Static(command) => command.run(args, registry),
         }
     }
 }
@@ -283,7 +366,7 @@ pub struct FnFilterCommand {
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
 }
 
-impl Command for FnFilterCommand {
+impl StaticCommand for FnFilterCommand {
     fn name(&self) -> &str {
         &self.name
     }
@@ -339,17 +422,17 @@ pub struct FnRawCommand {
     >,
 }
 
-impl Command for FnRawCommand {
+impl StaticCommand for FnRawCommand {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &registry::CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         (self.func)(args, registry)
-    }
-
-    fn name(&self) -> &str {
-        &self.name
     }
 }
 
@@ -360,45 +443,24 @@ pub fn command(
             + Send
             + Sync,
     >,
-) -> Arc<dyn Command> {
-    Arc::new(FnRawCommand {
+) -> Arc<Command> {
+    Arc::new(Command::Static(Arc::new(FnRawCommand {
         name: name.to_string(),
         func,
-    })
+    })))
+}
+
+pub fn static_command(command: impl StaticCommand + 'static) -> Arc<Command> {
+    Arc::new(Command::Static(Arc::new(command)))
 }
 
 #[allow(unused)]
 pub fn filter(
     name: &str,
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
-) -> Arc<dyn Command> {
-    Arc::new(FnFilterCommand {
+) -> Arc<Command> {
+    Arc::new(Command::Static(Arc::new(FnFilterCommand {
         name: name.to_string(),
         func,
-    })
-}
-
-pub struct FnSink {
-    name: String,
-    func: Box<dyn Fn(SinkCommandArgs) -> Result<(), ShellError>>,
-}
-
-impl Sink for FnSink {
-    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError> {
-        (self.func)(args)
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-}
-
-pub fn sink(
-    name: &str,
-    func: Box<dyn Fn(SinkCommandArgs) -> Result<(), ShellError>>,
-) -> Arc<dyn Sink> {
-    Arc::new(FnSink {
-        name: name.to_string(),
-        func,
-    })
+    })))
 }

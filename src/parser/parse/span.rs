@@ -2,8 +2,8 @@ use crate::prelude::*;
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
+use serde::Deserialize;
 use serde::Serialize;
-use serde_derive::Deserialize;
 use uuid::Uuid;
 
 #[derive(

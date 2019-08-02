@@ -1,11 +1,31 @@
-use crate::commands::command::SinkCommandArgs;
+use crate::commands::StaticCommand;
 use crate::context::{SourceMap, SpanSource};
 use crate::errors::ShellError;
 use crate::format::GenericView;
 use crate::prelude::*;
 use std::path::Path;
 
-pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
+pub struct Autoview;
+
+impl StaticCommand for Autoview {
+    fn name(&self) -> &str {
+        "autoview"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, autoview)?.run()
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("autoview").sink()
+    }
+}
+
+pub fn autoview(args: (), context: RunnableContext) -> Result<OutputStream, ShellError> {
     if args.input.len() > 0 {
         if let Spanned {
             item: Value::Binary(_),
@@ -27,7 +47,7 @@ pub fn autoview(args: SinkCommandArgs) -> Result<(), ShellError> {
         }
     }
 
-    Ok(())
+    Ok(OutputStream::empty())
 }
 
 fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {

@@ -1,12 +1,15 @@
+use crate::commands::from_toml::convert_toml_value_to_nu_value;
+use crate::commands::to_toml::value_to_toml_value;
 use crate::errors::ShellError;
+use crate::object::{Dictionary, Value};
 use crate::prelude::*;
 use app_dirs::*;
 use indexmap::IndexMap;
 use log::trace;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const APP_INFO: AppInfo = AppInfo {
     name: "nu",
@@ -16,7 +19,14 @@ const APP_INFO: AppInfo = AppInfo {
 #[derive(Deserialize, Serialize)]
 struct Config {
     #[serde(flatten)]
-    extra: IndexMap<String, Spanned<Value>>,
+    extra: IndexMap<String, Value>,
+}
+
+crate fn config_path() -> Result<PathBuf, ShellError> {
+    let location = app_root(AppDataType::UserConfig, &APP_INFO)
+        .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
+
+    Ok(location.join("config.toml"))
 }
 
 crate fn write_config(config: &IndexMap<String, Spanned<Value>>) -> Result<(), ShellError> {
@@ -26,9 +36,9 @@ crate fn write_config(config: &IndexMap<String, Spanned<Value>>) -> Result<(), S
     let filename = location.join("config.toml");
     touch(&filename)?;
 
-    let contents = toml::to_string(&Config {
-        extra: config.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
-    })?;
+    let contents = value_to_toml_value(&Value::Object(Dictionary::new(config.clone())));
+
+    let contents = toml::to_string(&contents)?;
 
     fs::write(&filename, &contents)?;
 
@@ -50,10 +60,18 @@ crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Spanned<Value>
         .map(|v| v.spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
 
-    let parsed: Config = toml::from_str(&contents)
+    let parsed: toml::Value = toml::from_str(&contents)
         .map_err(|err| ShellError::string(&format!("Couldn't parse config file:\n{}", err)))?;
 
-    Ok(parsed.extra)
+    let value = convert_toml_value_to_nu_value(&parsed, span);
+
+    match value.item {
+        Value::Object(Dictionary { entries }) => Ok(entries),
+        other => Err(ShellError::type_error(
+            "Dictionary",
+            other.type_name().spanned(value.span),
+        )),
+    }
 }
 
 // A simple implementation of `% touch path` (ignores existing files)

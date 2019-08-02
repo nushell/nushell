@@ -1,15 +1,8 @@
 use crate::object::base as value;
 use crate::parser::hir;
 use crate::prelude::*;
-use derive_new::new;
-use serde_derive::Deserialize;
+use log::trace;
 use std::path::PathBuf;
-
-pub trait Type: std::fmt::Debug + Send {
-    type Extractor: ExtractType;
-
-    fn name(&self) -> &'static str;
-}
 
 pub trait ExtractType: Sized {
     fn extract(value: &Spanned<Value>) -> Result<Self, ShellError>;
@@ -19,8 +12,120 @@ pub trait ExtractType: Sized {
     }
 }
 
+impl<T> ExtractType for T {
+    default fn extract(_value: &Spanned<Value>) -> Result<T, ShellError> {
+        let name = unsafe { std::intrinsics::type_name::<T>() };
+        Err(ShellError::unimplemented(format!(
+            "<T> ExtractType for {}",
+            name
+        )))
+    }
+
+    default fn check(_value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+        Err(ShellError::unimplemented("ExtractType for T"))
+    }
+
+    default fn syntax_type() -> hir::SyntaxType {
+        hir::SyntaxType::Any
+    }
+}
+
+impl<T: ExtractType> ExtractType for Vec<Spanned<T>> {
+    fn extract(value: &Spanned<Value>) -> Result<Self, ShellError> {
+        let name = unsafe { std::intrinsics::type_name::<T>() };
+        trace!("<Vec> Extracting {:?} for Vec<{}>", value, name);
+
+        match value.item() {
+            Value::List(items) => {
+                let mut out = vec![];
+
+                for item in items {
+                    out.push(T::extract(item)?.spanned(item.span));
+                }
+
+                Ok(out)
+            }
+            other => Err(ShellError::type_error(
+                "Vec",
+                other.type_name().spanned(value.span),
+            )),
+        }
+    }
+
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+        match value.item() {
+            Value::List(_) => Ok(value),
+            other => Err(ShellError::type_error(
+                "Vec",
+                other.type_name().spanned(value.span),
+            )),
+        }
+    }
+
+    fn syntax_type() -> hir::SyntaxType {
+        hir::SyntaxType::List
+    }
+}
+
+impl<T: ExtractType, U: ExtractType> ExtractType for (T, U) {
+    fn extract(value: &Spanned<Value>) -> Result<(T, U), ShellError> {
+        let t_name = unsafe { std::intrinsics::type_name::<T>() };
+        let u_name = unsafe { std::intrinsics::type_name::<U>() };
+
+        trace!("Extracting {:?} for ({}, {})", value, t_name, u_name);
+
+        match value.item() {
+            Value::List(items) => {
+                if items.len() == 2 {
+                    let first = &items[0];
+                    let second = &items[1];
+
+                    Ok((T::extract(first)?, U::extract(second)?))
+                } else {
+                    Err(ShellError::type_error(
+                        "two-element-tuple",
+                        "not-two".spanned(value.span),
+                    ))
+                }
+            }
+            other => Err(ShellError::type_error(
+                "two-element-tuple",
+                other.type_name().spanned(value.span),
+            )),
+        }
+    }
+}
+
+impl<T: ExtractType> ExtractType for Option<T> {
+    fn extract(value: &Spanned<Value>) -> Result<Option<T>, ShellError> {
+        let name = unsafe { std::intrinsics::type_name::<T>() };
+        trace!("<Option> Extracting {:?} for Option<{}>", value, name);
+
+        let result = match value.item() {
+            Value::Primitive(Primitive::Nothing) => None,
+            _ => Some(T::extract(value)?),
+        };
+
+        Ok(result)
+    }
+
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+        match value.item() {
+            Value::Primitive(Primitive::Nothing) => Ok(value),
+            _ => T::check(value),
+        }
+    }
+
+    fn syntax_type() -> hir::SyntaxType {
+        T::syntax_type()
+    }
+}
+
 impl<T: ExtractType> ExtractType for Spanned<T> {
     fn extract(value: &Spanned<Value>) -> Result<Spanned<T>, ShellError> {
+        let name = unsafe { std::intrinsics::type_name::<T>() };
+        trace!("<Spanned> Extracting {:?} for Spanned<{}>", value, name);
+
         Ok(T::extract(value)?.spanned(value.span))
     }
 
@@ -33,24 +138,51 @@ impl<T: ExtractType> ExtractType for Spanned<T> {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, new)]
-pub struct Any;
+impl ExtractType for Value {
+    fn extract(value: &Spanned<Value>) -> Result<Value, ShellError> {
+        trace!("<Spanned> Extracting {:?} for Value", value);
 
-impl Type for Any {
-    type Extractor = Spanned<Value>;
-
-    fn name(&self) -> &'static str {
-        "Any"
-    }
-}
-
-impl ExtractType for Spanned<Value> {
-    fn extract(value: &Spanned<Value>) -> Result<Self, ShellError> {
-        Ok(value.clone())
+        Ok(value.item().clone())
     }
 
     fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
         Ok(value)
+    }
+
+    fn syntax_type() -> hir::SyntaxType {
+        SyntaxType::Any
+    }
+}
+
+impl ExtractType for bool {
+    fn syntax_type() -> hir::SyntaxType {
+        hir::SyntaxType::Boolean
+    }
+
+    fn extract(value: &'a Spanned<Value>) -> Result<bool, ShellError> {
+        trace!("Extracting {:?} for bool", value);
+
+        match &value {
+            Spanned {
+                item: Value::Primitive(Primitive::Boolean(b)),
+                ..
+            } => Ok(*b),
+            Spanned {
+                item: Value::Primitive(Primitive::Nothing),
+                ..
+            } => Ok(false),
+            other => Err(ShellError::type_error("Boolean", other.spanned_type_name())),
+        }
+    }
+
+    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+        match &value {
+            value @ Spanned {
+                item: Value::Primitive(Primitive::Boolean(_)),
+                ..
+            } => Ok(value),
+            other => Err(ShellError::type_error("Boolean", other.spanned_type_name())),
+        }
     }
 }
 
@@ -60,6 +192,8 @@ impl ExtractType for std::path::PathBuf {
     }
 
     fn extract(value: &'a Spanned<Value>) -> Result<std::path::PathBuf, ShellError> {
+        trace!("Extracting {:?} for PathBuf", value);
+
         match &value {
             Spanned {
                 item: Value::Primitive(Primitive::String(p)),
@@ -80,19 +214,10 @@ impl ExtractType for std::path::PathBuf {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, new)]
-pub struct Integer;
-
-impl Type for Integer {
-    type Extractor = i64;
-
-    fn name(&self) -> &'static str {
-        "Integer"
-    }
-}
-
 impl ExtractType for i64 {
     fn extract(value: &Spanned<Value>) -> Result<i64, ShellError> {
+        trace!("Extracting {:?} for i64", value);
+
         match value {
             &Spanned {
                 item: Value::Primitive(Primitive::Int(int)),
@@ -113,19 +238,10 @@ impl ExtractType for i64 {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, new)]
-pub struct NuString;
-
-impl Type for NuString {
-    type Extractor = String;
-
-    fn name(&self) -> &'static str {
-        "Integer"
-    }
-}
-
 impl ExtractType for String {
     fn extract(value: &Spanned<Value>) -> Result<String, ShellError> {
+        trace!("Extracting {:?} for String", value);
+
         match value {
             Spanned {
                 item: Value::Primitive(Primitive::String(string)),
@@ -146,19 +262,10 @@ impl ExtractType for String {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, new)]
-pub struct Block;
-
-impl Type for Block {
-    type Extractor = value::Block;
-
-    fn name(&self) -> &'static str {
-        "Block"
-    }
-}
-
 impl ExtractType for value::Block {
     fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+        trace!("Extracting {:?} for Block", value);
+
         match value {
             v @ Spanned {
                 item: Value::Block(_),

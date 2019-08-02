@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
+    serve_plugin, CallInfo, Signature, Plugin, Primitive, ReturnSuccess, ReturnValue,
     ShellError, Spanned, Value,
 };
 
@@ -14,8 +14,8 @@ impl NewSkip {
 }
 
 impl Plugin for NewSkip {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "skip".to_string(),
             positional: vec![],
             is_filter: true,

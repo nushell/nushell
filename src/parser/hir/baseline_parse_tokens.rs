@@ -8,7 +8,7 @@ use crate::parser::{
 use crate::{SpannedItem, Text};
 use derive_new::new;
 use log::trace;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
@@ -33,6 +33,7 @@ pub fn baseline_parse_tokens(
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SyntaxType {
     Any,
+    List,
     Literal,
     Variable,
     Path,
@@ -210,7 +211,14 @@ pub fn baseline_parse_delimited(
             Ok(Spanned::from_item(expr, token.span()))
         }
         Delimiter::Paren => unimplemented!(),
-        Delimiter::Square => unimplemented!(),
+        Delimiter::Square => {
+            let children = token.children();
+            let exprs =
+                baseline_parse_tokens(&mut TokensIterator::new(children), registry, source)?;
+
+            let expr = hir::RawExpression::List(exprs);
+            Ok(expr.spanned(token.span()))
+        }
     }
 }
 

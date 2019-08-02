@@ -69,50 +69,74 @@ impl PositionalType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CommandConfig {
+#[derive(Debug, Serialize, Deserialize, Clone, new)]
+pub struct Signature {
     pub name: String,
+    #[new(default)]
     pub positional: Vec<PositionalType>,
+    #[new(value = "false")]
     pub rest_positional: bool,
+    #[new(default)]
     pub named: IndexMap<String, NamedType>,
+    #[new(value = "false")]
     pub is_filter: bool,
-    pub is_sink: bool,
 }
 
-impl CommandConfig {
-    pub fn new(name: impl Into<String>) -> CommandConfig {
-        CommandConfig {
-            name: name.into(),
-            positional: vec![],
-            rest_positional: false,
-            named: IndexMap::default(),
-            is_filter: false,
-            is_sink: false,
-        }
+impl Signature {
+    pub fn build(name: impl Into<String>) -> Signature {
+        Signature::new(name.into())
     }
 
-    pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> CommandConfig {
+    pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {
         self.positional
             .push(PositionalType::Mandatory(name.into(), ty.into()));
 
         self
     }
 
-    pub fn optional(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> CommandConfig {
+    pub fn optional(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {
         self.positional
             .push(PositionalType::Optional(name.into(), ty.into()));
 
         self
     }
 
-    pub fn named(mut self, name: impl Into<String>, ty: impl Into<NamedType>) -> CommandConfig {
-        self.named.insert(name.into(), ty.into());
+    pub fn named(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {
+        self.named
+            .insert(name.into(), NamedType::Optional(ty.into()));
 
         self
     }
 
-    pub fn sink(mut self) -> CommandConfig {
+    pub fn required_named(
+        mut self,
+        name: impl Into<String>,
+        ty: impl Into<SyntaxType>,
+    ) -> Signature {
+        self.named
+            .insert(name.into(), NamedType::Mandatory(ty.into()));
+
+        self
+    }
+
+    pub fn switch(mut self, name: impl Into<String>) -> Signature {
+        self.named.insert(name.into(), NamedType::Switch);
+
+        self
+    }
+
+    pub fn sink(mut self) -> Signature {
         self.is_sink = true;
+        self
+    }
+
+    pub fn filter(mut self) -> Signature {
+        self.is_filter = true;
+        self
+    }
+
+    pub fn rest(mut self) -> Signature {
+        self.rest_positional = true;
         self
     }
 }
@@ -245,7 +269,7 @@ impl Iterator for PositionalIter<'a> {
     }
 }
 
-impl CommandConfig {
+impl Signature {
     crate fn parse_args(
         &self,
         call: &Spanned<CallNode>,

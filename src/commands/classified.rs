@@ -1,6 +1,5 @@
-use crate::commands::command::Sink;
+use crate::commands::Command;
 use crate::context::SourceMap;
-use crate::evaluate::Scope;
 use crate::parser::{hir, Span, Spanned, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
@@ -83,7 +82,6 @@ crate enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
     Internal(InternalCommand),
-    Sink(SinkCommand),
     External(ExternalCommand),
 }
 
@@ -93,34 +91,13 @@ impl ClassifiedCommand {
         match self {
             ClassifiedCommand::Expr(token) => token.span(),
             ClassifiedCommand::Internal(internal) => internal.name_span.into(),
-            ClassifiedCommand::Sink(sink) => sink.name_span.into(),
             ClassifiedCommand::External(external) => external.name_span.into(),
         }
     }
 }
 
-crate struct SinkCommand {
-    crate command: Arc<dyn Sink>,
-    crate name_span: Option<Span>,
-    crate args: hir::Call,
-}
-
-impl SinkCommand {
-    crate fn run(
-        self,
-        context: &mut Context,
-        input: Vec<Spanned<Value>>,
-        source: &Text,
-    ) -> Result<(), ShellError> {
-        let args = self
-            .args
-            .evaluate(context.registry(), &Scope::empty(), source)?;
-        context.run_sink(self.command, self.name_span.clone(), args, input)
-    }
-}
-
 crate struct InternalCommand {
-    crate command: Arc<dyn Command>,
+    crate command: Arc<Command>,
     crate name_span: Option<Span>,
     crate source_map: SourceMap,
     crate args: hir::Call,
@@ -142,14 +119,16 @@ impl InternalCommand {
         let objects: InputStream =
             trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
-        let result = context.run_command(
-            self.command,
-            self.name_span.clone(),
-            self.source_map,
-            self.args,
-            source,
-            objects,
-        )?;
+        let result = context
+            .run_command(
+                self.command,
+                self.name_span.clone(),
+                self.source_map,
+                self.args,
+                source,
+                objects,
+            )
+            .await?;
 
         let mut result = result.values;
 

@@ -1,5 +1,5 @@
 use crate::errors::{ArgumentError, ShellError};
-use crate::parser::registry::{CommandConfig, CommandRegistry, NamedType, PositionalType};
+use crate::parser::registry::{Signature, CommandRegistry, NamedType, PositionalType};
 use crate::parser::{baseline_parse_tokens, CallNode, Span, Spanned};
 use crate::parser::{
     hir::{self, NamedArguments},
@@ -9,7 +9,7 @@ use crate::Text;
 use log::trace;
 
 pub fn parse_command(
-    config: &CommandConfig,
+    config: &Signature,
     registry: &CommandRegistry,
     call: &Spanned<CallNode>,
     source: &Text,
@@ -62,7 +62,7 @@ fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
 }
 
 fn parse_command_tail(
-    config: &CommandConfig,
+    config: &Signature,
     registry: &CommandRegistry,
     tail: Option<Vec<TokenNode>>,
     source: &Text,
@@ -197,7 +197,7 @@ fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Tex
 }
 
 fn extract_mandatory(
-    config: &CommandConfig,
+    config: &Signature,
     name: &str,
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,

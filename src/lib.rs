@@ -1,11 +1,15 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
 #![feature(async_await)]
+#![feature(generators)]
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(box_syntax)]
 #![feature(type_ascription)]
+#![feature(core_intrinsics)]
 #![feature(option_flattening)]
+#![feature(specialization)]
+#![feature(proc_macro_hygiene)]
 
 #[macro_use]
 mod prelude;
@@ -37,4 +41,4 @@ pub use cli::cli;
 pub use errors::ShellError;
 pub use object::base::{Primitive, Value};
 pub use parser::parse::text::Text;
-pub use parser::registry::{CommandConfig, EvaluatedArgs, NamedType, PositionalType};
+pub use parser::registry::{EvaluatedArgs, NamedType, PositionalType, Signature};

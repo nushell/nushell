@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
+    serve_plugin, CallInfo, Signature, NamedType, Plugin, PositionalType, Primitive,
     ReturnSuccess, ReturnValue, ShellError, Spanned, SpannedItem, Value,
 };
 
@@ -84,13 +84,13 @@ impl Inc {
 }
 
 impl Plugin for Inc {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
+    fn config(&mut self) -> Result<Signature, ShellError> {
         let mut named = IndexMap::new();
         named.insert("major".to_string(), NamedType::Switch);
         named.insert("minor".to_string(), NamedType::Switch);
         named.insert("patch".to_string(), NamedType::Switch);
 
-        Ok(CommandConfig {
+        Ok(Signature {
             name: "inc".to_string(),
             positional: vec![PositionalType::optional_any("Field")],
             is_filter: true,

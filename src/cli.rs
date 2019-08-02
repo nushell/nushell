@@ -1,18 +1,17 @@
 use crate::commands::autoview;
-use crate::commands::classified::SinkCommand;
 use crate::commands::classified::{
     ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
     StreamNext,
 };
-use crate::commands::command::sink;
 use crate::commands::plugin::JsonRpc;
-use crate::commands::plugin::{PluginCommand, PluginSink};
+use crate::commands::plugin::PluginCommand;
+use crate::commands::{static_command, Command};
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::parse::span::Spanned;
-use crate::parser::registry::CommandConfig;
+use crate::parser::registry::Signature;
 use crate::parser::{hir, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
 
@@ -61,8 +60,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let mut input = String::new();
     match reader.read_line(&mut input) {
         Ok(_) => {
-            let response =
-                serde_json::from_str::<JsonRpc<Result<CommandConfig, ShellError>>>(&input);
+            let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
                 Ok(jrpc) => match jrpc.params {
                     Ok(params) => {
@@ -70,14 +68,9 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         if params.is_filter {
                             let fname = fname.to_string();
                             let name = params.name.clone();
-                            context.add_commands(vec![Arc::new(PluginCommand::new(
+                            context.add_commands(vec![static_command(PluginCommand::new(
                                 name, fname, params,
                             ))]);
-                            Ok(())
-                        } else if params.is_sink {
-                            let fname = fname.to_string();
-                            let name = params.name.clone();
-                            context.add_sinks(vec![Arc::new(PluginSink::new(name, fname, params))]);
                             Ok(())
                         } else {
                             Ok(())
@@ -158,10 +151,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("ps", Box::new(ps::ps)),
             command("ls", Box::new(ls::ls)),
             command("sysinfo", Box::new(sysinfo::sysinfo)),
-            command("cd", Box::new(cd::cd)),
             command("size", Box::new(size::size)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
-            command("get", Box::new(get::get)),
             command("exit", Box::new(exit::exit)),
             command("lines", Box::new(lines::lines)),
             command("split-column", Box::new(split_column::split_column)),
@@ -175,19 +166,18 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-toml", Box::new(to_toml::to_toml)),
             command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
-            Arc::new(Remove),
-            Arc::new(Open),
-            Arc::new(Where),
-            Arc::new(Config),
-            Arc::new(SkipWhile),
-        ]);
-
-        context.add_sinks(vec![
-            sink("autoview", Box::new(autoview::autoview)),
-            sink("clip", Box::new(clip::clip)),
-            sink("save", Box::new(save::save)),
-            sink("table", Box::new(table::table)),
-            sink("vtable", Box::new(vtable::vtable)),
+            static_command(Get),
+            static_command(Cd),
+            static_command(Remove),
+            static_command(Open),
+            static_command(Where),
+            static_command(Config),
+            static_command(SkipWhile),
+            static_command(Clip),
+            static_command(Autoview),
+            // command("save", Box::new(save::save)),
+            // command("table", Box::new(table::table)),
+            // command("vtable", Box::new(vtable::vtable)),
         ]);
     }
     let _ = load_plugins(&mut context);
@@ -341,17 +331,19 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 .map_err(|err| (line.clone(), err))?;
 
             match pipeline.commands.last() {
-                Some(ClassifiedCommand::Sink(_)) => {}
                 Some(ClassifiedCommand::External(_)) => {}
-                _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
-                    command: sink("autoview", Box::new(autoview::autoview)),
-                    name_span: None,
-                    args: hir::Call::new(
-                        Box::new(hir::Expression::synthetic_string("autoview")),
-                        None,
-                        None,
-                    ),
-                })),
+                _ => pipeline
+                    .commands
+                    .push(ClassifiedCommand::Internal(InternalCommand {
+                        command: static_command(autoview::Autoview),
+                        name_span: None,
+                        source_map: ctx.source_map,
+                        args: hir::Call::new(
+                            Box::new(hir::Expression::synthetic_string("autoview")),
+                            None,
+                            None,
+                        ),
+                    })),
             }
 
             let mut input = ClassifiedInputStream::new();
@@ -377,18 +369,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             line.clone(),
                             ShellError::unimplemented("Expression-only commands"),
                         )
-                    }
-
-                    (Some(ClassifiedCommand::Sink(SinkCommand { name_span, .. })), Some(_)) => {
-                        return LineResult::Error(line.clone(), ShellError::maybe_labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
-                    }
-
-                    (Some(ClassifiedCommand::Sink(left)), None) => {
-                        let input_vec: Vec<Spanned<Value>> = input.objects.into_vec().await;
-                        if let Err(err) = left.run(ctx, input_vec, &Text::from(line)) {
-                            return LineResult::Error(line.clone(), err);
-                        }
-                        break;
                     }
 
                     (
@@ -485,7 +465,7 @@ fn classify_command(
             match context.has_command(name) {
                 true => {
                     let command = context.get_command(name);
-                    let config = command.config();
+                    let config = command.signature();
 
                     trace!(target: "nu::build_pipeline", "classifying {:?}", config);
 
@@ -498,20 +478,8 @@ fn classify_command(
                         args,
                     }))
                 }
-                false => match context.has_sink(name) {
-                    true => {
-                        let command = context.get_sink(name);
-                        let config = command.config();
-
-                        let args = config.parse_args(call, context.registry(), source)?;
-
-                        Ok(ClassifiedCommand::Sink(SinkCommand {
-                            command,
-                            name_span: Some(head.span().clone()),
-                            args,
-                        }))
-                    }
-                    false => {
+                false => match context.get_command(name).as_ref() {
+                    Command::Static(command) => {
                         let arg_list_strings: Vec<Spanned<String>> = match call.children() {
                             //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
                             Some(args) => args

@@ -4,7 +4,7 @@ use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
 use log::trace;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]

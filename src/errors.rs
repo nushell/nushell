@@ -62,6 +62,15 @@ pub struct ShellError {
     cause: Option<Box<ProximateShellError>>,
 }
 
+impl serde::de::Error for ShellError {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        ShellError::string(msg.to_string())
+    }
+}
+
 impl ShellError {
     crate fn type_error(
         expected: impl Into<String>,
@@ -345,16 +354,6 @@ impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{}", input),
-            error: Value::nothing(),
-        })
-        .start()
-    }
-}
-
-impl std::convert::From<futures_sink::VecSinkError> for ShellError {
-    fn from(_input: futures_sink::VecSinkError) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("Unexpected Vec Sink Error"),
             error: Value::nothing(),
         })
         .start()

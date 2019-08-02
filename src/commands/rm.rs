@@ -1,63 +1,57 @@
-use crate::commands::EvaluatedStaticCommandArgs;
+use crate::commands::{EvaluatedStaticCommandArgs, StaticCommand};
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
-use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
+use crate::parser::registry::{NamedType, PositionalType};
 use crate::prelude::*;
 use indexmap::IndexMap;
+use std::path::PathBuf;
 
 pub struct Remove;
 
-impl Command for Remove {
+#[derive(Deserialize)]
+pub struct RemoveArgs {
+    path: Spanned<PathBuf>,
+    recursive: bool,
+}
+
+impl StaticCommand for Remove {
+    fn name(&self) -> &str {
+        "rm"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("rm")
+            .required("path", SyntaxType::Path)
+            .switch("recursive")
+            .sink()
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let env = args.env.clone();
-        rm(args.evaluate_once(registry)?, env)
-    }
-
-    fn name(&self) -> &str {
-        "rm"
-    }
-
-    fn config(&self) -> CommandConfig {
-        let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("recursive".to_string(), NamedType::Switch);
-
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory("file", SyntaxType::Path)],
-            rest_positional: false,
-            named,
-            is_sink: true,
-            is_filter: false,
-        }
+        args.process(registry, rm)?.run()
     }
 }
 
 pub fn rm(
-    args: EvaluatedStaticCommandArgs,
-    env: Arc<Mutex<Environment>>,
+    RemoveArgs { path, recursive }: RemoveArgs,
+    context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let mut full_path = env.lock().unwrap().path().to_path_buf();
+    let mut full_path = context.cwd();
 
-    match args
-        .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-        .as_string()?
-        .as_str()
-    {
+    match path.item.to_str().unwrap() {
         "." | ".." => return Err(ShellError::string("\".\" and \"..\" may not be removed")),
         file => full_path.push(file),
     }
 
     if full_path.is_dir() {
-        if !args.has("recursive") {
-            return Err(ShellError::labeled_error(
+        if !recursive {
+            return Err(ShellError::maybe_labeled_error(
                 "is a directory",
                 "",
-                args.name_span().unwrap(),
+                context.name,
             ));
         }
         std::fs::remove_dir_all(&full_path).expect("can not remove directory");

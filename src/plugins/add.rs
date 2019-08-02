@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, PositionalType, Primitive, ReturnSuccess,
+    serve_plugin, CallInfo, Signature, Plugin, PositionalType, Primitive, ReturnSuccess,
     ReturnValue, ShellError, Spanned, Value,
 };
 
@@ -40,8 +40,8 @@ impl Add {
 }
 
 impl Plugin for Add {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "add".to_string(),
             positional: vec![
                 PositionalType::mandatory_any("Field"),

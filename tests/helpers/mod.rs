@@ -82,6 +82,8 @@ macro_rules! nu_error {
 }
 
 pub fn setup_playground_for(topic: &str) -> Result<(TempDir, TempDir, String), std::io::Error> {
+    let _ = pretty_env_logger::try_init();
+
     let home = TempDir::new("nuplayground")?;
     let child = TempDir::new_in(home.path(), topic)?;
     let relative = child
@@ -105,7 +107,10 @@ pub fn setup_playground_for(topic: &str) -> Result<(TempDir, TempDir, String), s
 }
 
 pub fn file_contents(full_path: impl AsRef<Path>) -> String {
-    let mut file = std::fs::File::open(full_path).expect("can not open file");
+    let full_path = full_path.as_ref();
+
+    let mut file = std::fs::File::open(full_path)
+        .expect(&format!("can not open file {}", &full_path.display()));
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .expect("can not read file");

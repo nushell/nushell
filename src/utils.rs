@@ -19,13 +19,18 @@ impl AbsolutePath {
     }
 }
 
-impl Div<&str> for AbsolutePath {
+impl Div<&str> for &AbsolutePath {
     type Output = AbsolutePath;
 
     fn div(self, rhs: &str) -> Self::Output {
-        AbsolutePath {
-            inner: self.inner.join(rhs),
+        let parts = rhs.split("/");
+        let mut result = self.inner.clone();
+
+        for part in parts {
+            result = result.join(part);
         }
+
+        AbsolutePath::new(result)
     }
 }
 
@@ -51,12 +56,17 @@ impl RelativePath {
     }
 }
 
-impl<T: AsRef<str>> Div<T> for RelativePath {
+impl<T: AsRef<str>> Div<T> for &RelativePath {
     type Output = RelativePath;
 
     fn div(self, rhs: T) -> Self::Output {
-        RelativePath {
-            inner: self.inner.join(rhs.as_ref()),
+        let parts = rhs.as_ref().split("/");
+        let mut result = self.inner.clone();
+
+        for part in parts {
+            result = result.join(part);
         }
+
+        RelativePath::new(result)
     }
 }

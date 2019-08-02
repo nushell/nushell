@@ -1,7 +1,9 @@
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
 use derive_new::new;
+use futures_async_stream::async_stream_block;
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -37,10 +39,18 @@ pub enum NuResult {
 pub struct PluginCommand {
     name: String,
     path: String,
-    config: registry::CommandConfig,
+    config: registry::Signature,
 }
 
-impl Command for PluginCommand {
+impl StaticCommand for PluginCommand {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn signature(&self) -> registry::Signature {
+        self.config.clone()
+    }
+
     fn run(
         &self,
         args: CommandArgs,
@@ -48,29 +58,36 @@ impl Command for PluginCommand {
     ) -> Result<OutputStream, ShellError> {
         filter_plugin(self.path.clone(), args, registry)
     }
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn config(&self) -> registry::CommandConfig {
-        self.config.clone()
-    }
 }
 
 #[derive(new)]
 pub struct PluginSink {
-    name: String,
     path: String,
-    config: registry::CommandConfig,
+    config: registry::Signature,
 }
 
-impl Sink for PluginSink {
-    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError> {
-        sink_plugin(self.path.clone(), args)
+impl StaticCommand for PluginSink {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        let path = self.path.clone();
+
+        let stream = async_stream_block! {
+            sink_plugin(path, args).await;
+        };
+
+        let stream: BoxStream<'static, ReturnValue> = stream.boxed();
+
+        Ok(OutputStream::from(stream))
     }
+
     fn name(&self) -> &str {
-        &self.name
+        &self.config.name
     }
-    fn config(&self) -> registry::CommandConfig {
+
+    fn signature(&self) -> registry::Signature {
         self.config.clone()
     }
 }
@@ -191,9 +208,10 @@ pub fn filter_plugin(
     Ok(stream.to_output_stream())
 }
 
-pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError> {
+pub async fn sink_plugin(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     //use subprocess::Exec;
-    let request = JsonRpc::new("sink", (args.call_info, args.input));
+    let input: Vec<Spanned<Value>> = args.input.values.collect().await;
+    let request = JsonRpc::new("sink", (args.call_info, input));
     let request_raw = serde_json::to_string(&request).unwrap();
     let mut tmpfile = tempfile::NamedTempFile::new()?;
     let _ = writeln!(tmpfile, "{}", request_raw);
@@ -206,5 +224,5 @@ pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError
 
     let _ = child.wait();
 
-    Ok(())
+    Ok(OutputStream::empty())
 }

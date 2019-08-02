@@ -1,54 +1,40 @@
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
-use crate::parser::registry::CommandConfig;
-use crate::parser::registry::PositionalType;
 use crate::prelude::*;
 
 pub struct SkipWhile;
 
-impl Command for SkipWhile {
+#[derive(Deserialize)]
+pub struct SkipWhileArgs {
+    condition: value::Block,
+}
+
+impl StaticCommand for SkipWhile {
+    fn name(&self) -> &str {
+        "skip-while"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("skip-while")
+            .required("condition", SyntaxType::Block)
+            .filter()
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        skip_while(args, registry)
-    }
-    fn name(&self) -> &str {
-        "skip-while"
-    }
-
-    fn config(&self) -> CommandConfig {
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory_block("condition")],
-            rest_positional: false,
-            named: indexmap::IndexMap::new(),
-            is_filter: true,
-            is_sink: false,
-        }
+        args.process(registry, skip_while)?.run()
     }
 }
 
 pub fn skip_while(
-    args: CommandArgs,
-    registry: &CommandRegistry,
+    SkipWhileArgs { condition }: SkipWhileArgs,
+    RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let block = args.expect_nth(0)?.as_block()?;
-    let span = args.name_span();
-    let len = args.len();
-    let input = args.input;
-
-    if len == 0 {
-        return Err(ShellError::maybe_labeled_error(
-            "Where requires a condition",
-            "needs condition",
-            span,
-        ));
-    }
-
     let objects = input.values.skip_while(move |item| {
-        let result = block.invoke(&item);
+        let result = condition.invoke(&item);
 
         let return_value = match result {
             Ok(v) if v.is_true() => true,
