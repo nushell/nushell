@@ -165,6 +165,18 @@ pub fn file_contents(full_path: &str) -> String {
     contents
 }
 
+pub fn normalize_string(input: &str) -> String {
+    #[cfg(windows)]
+    {
+        input.to_string()
+    }
+
+    #[cfg(not(windows))]
+    {
+        format!("\"{}\"", input)
+    }
+}
+
 pub fn create_file_at(full_path: &str) {
     std::fs::write(PathBuf::from(full_path), "fake data".as_bytes()).expect("can not create file");
 }

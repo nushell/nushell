@@ -1,6 +1,7 @@
 mod helpers;
 
 use helpers::in_directory as cwd;
+use helpers::normalize_string;
 
 #[test]
 fn external_num() {
@@ -11,6 +12,15 @@ fn external_num() {
     );
 
     assert_eq!(output, "10");
+}
+
+#[test]
+fn external_has_correct_quotes() {
+    nu!(output, cwd("."), r#"echo "hello world""#);
+
+    let output = normalize_string(&output);
+
+    assert_eq!(output, r#""hello world""#);
 }
 
 #[test]
