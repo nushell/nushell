@@ -41,10 +41,8 @@ impl Str {
         self.field = Some(field);
     }
 
-    fn update(&mut self) {
-        if self.action.is_some() {
-            self.log_error("can only apply one");
-        }
+    fn permit(&mut self) -> bool {
+        self.action.is_none()
     }
 
     fn log_error(&mut self, message: &str) {
@@ -52,18 +50,27 @@ impl Str {
     }
 
     fn for_to_int(&mut self) {
-        self.update();
-        self.action = Some(Action::ToInteger);
+        if self.permit() {
+            self.action = Some(Action::ToInteger);
+        } else {
+            self.log_error("can only apply one");
+        }
     }
 
     fn for_downcase(&mut self) {
-        self.update();
-        self.action = Some(Action::Downcase);
+        if self.permit() {
+            self.action = Some(Action::Downcase);
+        } else {
+            self.log_error("can only apply one");
+        }
     }
 
     fn for_upcase(&mut self) {
-        self.update();
-        self.action = Some(Action::Upcase);
+        if self.permit() {
+            self.action = Some(Action::Upcase);
+        } else {
+            self.log_error("can only apply one");
+        }
     }
 
     fn usage(&self) -> &'static str {
