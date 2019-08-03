@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, Signature, Plugin, PositionalType, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Spanned, Value,
+    serve_plugin, CallInfo, Plugin, PositionalType, Primitive, ReturnSuccess, ReturnValue,
+    ShellError, Signature, Spanned, Value,
 };
 
 struct Edit {
@@ -48,7 +48,6 @@ impl Plugin for Edit {
                 PositionalType::mandatory_any("Value"),
             ],
             is_filter: true,
-            is_sink: false,
             named: IndexMap::new(),
             rest_positional: true,
         })

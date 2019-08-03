@@ -28,7 +28,6 @@ impl StaticCommand for Open {
         Signature::build(self.name())
             .required("path", SyntaxType::Block)
             .switch("raw")
-            .sink()
     }
 
     fn run(

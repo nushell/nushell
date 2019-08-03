@@ -175,9 +175,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             static_command(SkipWhile),
             static_command(Clip),
             static_command(Autoview),
-            // command("save", Box::new(save::save)),
-            // command("table", Box::new(table::table)),
-            // command("vtable", Box::new(vtable::vtable)),
+            static_command(Save),
+            static_command(Table),
+            static_command(VTable),
         ]);
     }
     let _ = load_plugins(&mut context);
@@ -337,7 +337,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         command: static_command(autoview::Autoview),
                         name_span: None,
-                        source_map: ctx.source_map,
+                        source_map: ctx.source_map.clone(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,

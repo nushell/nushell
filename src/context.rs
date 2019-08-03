@@ -47,7 +47,7 @@ impl CommandRegistry {
         }
     }
 
-    fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+    crate fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         let registry = self.registry.lock().unwrap();
 
         registry.get(name).map(|c| c.clone())

@@ -24,7 +24,7 @@ impl StaticCommand for Clip {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("clip").sink()
+        Signature::build("clip")
     }
 }
 

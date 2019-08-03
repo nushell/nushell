@@ -2,8 +2,7 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, Signature, NamedType, Plugin, ShellError, SpanSource, Spanned,
-    Value,
+    serve_plugin, CallInfo, NamedType, Plugin, ShellError, Signature, SpanSource, Spanned, Value,
 };
 use pretty_hex::*;
 
@@ -23,7 +22,6 @@ impl Plugin for BinaryView {
             name: "binaryview".to_string(),
             positional: vec![],
             is_filter: false,
-            is_sink: true,
             named,
             rest_positional: false,
         })

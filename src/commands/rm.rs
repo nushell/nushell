@@ -23,7 +23,6 @@ impl StaticCommand for Remove {
         Signature::build("rm")
             .required("path", SyntaxType::Path)
             .switch("recursive")
-            .sink()
     }
 
     fn run(

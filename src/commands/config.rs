@@ -30,7 +30,6 @@ impl StaticCommand for Config {
             .named("remove", SyntaxType::Any)
             .switch("clear")
             .switch("path")
-            .sink()
     }
 
     fn run(

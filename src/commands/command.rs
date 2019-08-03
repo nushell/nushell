@@ -59,6 +59,25 @@ pub struct CommandArgs {
     pub input: InputStream,
 }
 
+#[derive(Getters)]
+#[get = "crate"]
+pub struct RawCommandArgs {
+    pub host: Arc<Mutex<dyn Host>>,
+    pub env: Arc<Mutex<Environment>>,
+    pub call_info: UnevaluatedCallInfo,
+}
+
+impl RawCommandArgs {
+    pub fn with_input(self, input: Vec<Spanned<Value>>) -> CommandArgs {
+        CommandArgs {
+            host: self.host,
+            env: self.env,
+            call_info: self.call_info,
+            input: input.into(),
+        }
+    }
+}
+
 impl ToDebug for CommandArgs {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         self.call_info.fmt_debug(f, source)
@@ -88,6 +107,7 @@ impl CommandArgs {
         callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnableArgs<T>, ShellError> {
         let env = self.env.clone();
+        let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
         let name_span = args.call_info.name_span;
@@ -97,9 +117,43 @@ impl CommandArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
                 input: input,
+                commands: registry.clone(),
                 env,
                 name: name_span,
+                host,
             },
+            callback,
+        })
+    }
+
+    pub fn process_raw<'de, T: Deserialize<'de>>(
+        self,
+        registry: &CommandRegistry,
+        callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
+    ) -> Result<RunnableRawArgs<T>, ShellError> {
+        let raw_args = RawCommandArgs {
+            host: self.host.clone(),
+            env: self.env.clone(),
+            call_info: self.call_info.clone(),
+        };
+
+        let env = self.env.clone();
+        let host = self.host.clone();
+        let args = self.evaluate_once(registry)?;
+        let (input, args) = args.split();
+        let name_span = args.call_info.name_span;
+        let mut deserializer = ConfigDeserializer::from_call_node(args);
+
+        Ok(RunnableRawArgs {
+            args: T::deserialize(&mut deserializer)?,
+            context: RunnableContext {
+                input: input,
+                commands: registry.clone(),
+                env,
+                name: name_span,
+                host,
+            },
+            raw_args,
             callback,
         })
     }
@@ -120,6 +174,8 @@ pub struct SinkArgs<T> {
 pub struct RunnableContext {
     pub input: InputStream,
     pub env: Arc<Mutex<Environment>>,
+    pub host: Arc<Mutex<dyn Host>>,
+    pub commands: CommandRegistry,
     pub name: Option<Span>,
 }
 
@@ -129,6 +185,12 @@ impl RunnableContext {
         let env = env.lock().unwrap();
 
         env.path.clone()
+    }
+
+    pub fn expect_command(&self, name: &str) -> Arc<Command> {
+        self.commands
+            .get_command(name)
+            .expect(&format!("Expected command {}", name))
     }
 }
 
@@ -141,6 +203,19 @@ pub struct RunnableArgs<T> {
 impl<T> RunnableArgs<T> {
     pub fn run(self) -> Result<OutputStream, ShellError> {
         (self.callback)(self.args, self.context)
+    }
+}
+
+pub struct RunnableRawArgs<T> {
+    args: T,
+    raw_args: RawCommandArgs,
+    context: RunnableContext,
+    callback: fn(T, RunnableContext, RawCommandArgs) -> Result<OutputStream, ShellError>,
+}
+
+impl<T> RunnableRawArgs<T> {
+    pub fn run(self) -> Result<OutputStream, ShellError> {
+        (self.callback)(self.args, self.context, self.raw_args)
     }
 }
 

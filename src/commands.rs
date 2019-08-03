@@ -47,11 +47,14 @@ crate use cd::Cd;
 crate use clip::Clip;
 crate use command::{
     command, static_command, CallInfo, Command, CommandArgs, EvaluatedStaticCommandArgs,
-    StaticCommand, UnevaluatedCallInfo,
+    RawCommandArgs, StaticCommand, UnevaluatedCallInfo,
 };
 crate use config::Config;
 crate use get::Get;
 crate use open::Open;
 crate use rm::Remove;
+crate use save::Save;
 crate use skip_while::SkipWhile;
+crate use table::Table;
+crate use vtable::VTable;
 crate use where_::Where;

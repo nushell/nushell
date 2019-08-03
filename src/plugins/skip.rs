@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, Signature, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Spanned, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    Spanned, Value,
 };
 
 struct NewSkip {
@@ -19,7 +19,6 @@ impl Plugin for NewSkip {
             name: "skip".to_string(),
             positional: vec![],
             is_filter: true,
-            is_sink: false,
             named: IndexMap::new(),
             rest_positional: true,
         })

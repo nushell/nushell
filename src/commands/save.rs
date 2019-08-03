@@ -7,13 +7,12 @@ use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::Spanned;
 use crate::prelude::*;
-use futures_async_stream::async_stream_block;
 use std::path::{Path, PathBuf};
 
 pub struct Save;
 
 #[derive(Deserialize)]
-struct SaveArgs {
+pub struct SaveArgs {
     path: Spanned<PathBuf>,
     raw: bool,
 }
@@ -27,7 +26,6 @@ impl StaticCommand for Save {
         Signature::build("save")
             .required("path", SyntaxType::Path)
             .switch("raw")
-            .sink()
     }
 
     fn run(
@@ -55,7 +53,7 @@ pub fn save(
         let contents = match full_path.extension() {
             Some(x) if x == "csv" && !save_raw => {
                 if input.len() != 1 {
-                    return Err(ShellError::string(
+                    yield Err(ShellError::string(
                         "saving to csv requires a single object (or use --raw)",
                     ));
                 }
@@ -63,7 +61,7 @@ pub fn save(
             }
             Some(x) if x == "toml" && !save_raw => {
                 if input.len() != 1 {
-                    return Err(ShellError::string(
+                    yield Err(ShellError::string(
                         "saving to toml requires a single object (or use --raw)",
                     ));
                 }
@@ -71,7 +69,7 @@ pub fn save(
             }
             Some(x) if x == "json" && !save_raw => {
                 if input.len() != 1 {
-                    return Err(ShellError::string(
+                    yield Err(ShellError::string(
                         "saving to json requires a single object (or use --raw)",
                     ));
                 }
@@ -79,7 +77,7 @@ pub fn save(
             }
             Some(x) if x == "yml" && !save_raw => {
                 if input.len() != 1 {
-                    return Err(ShellError::string(
+                    yield Err(ShellError::string(
                         "saving to yml requires a single object (or use --raw)",
                     ));
                 }
@@ -87,7 +85,7 @@ pub fn save(
             }
             Some(x) if x == "yaml" && !save_raw => {
                 if input.len() != 1 {
-                    return Err(ShellError::string(
+                    yield Err(ShellError::string(
                         "saving to yaml requires a single object (or use --raw)",
                     ));
                 }
@@ -113,7 +111,5 @@ pub fn save(
         let _ = std::fs::write(full_path, contents);
     };
 
-    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-    Ok(OutputStream::from(stream))
+    Ok(OutputStream::new(stream))
 }

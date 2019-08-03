@@ -125,11 +125,6 @@ impl Signature {
         self
     }
 
-    pub fn sink(mut self) -> Signature {
-        self.is_sink = true;
-        self
-    }
-
     pub fn filter(mut self) -> Signature {
         self.is_filter = true;
         self

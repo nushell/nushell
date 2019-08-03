@@ -9,6 +9,13 @@ impl InputStream {
         self.values.collect()
     }
 
+    pub fn drain_vec(&mut self) -> impl Future<Output = Vec<Spanned<Value>>> {
+        let mut values: BoxStream<'static, Spanned<Value>> = VecDeque::new().boxed();
+        std::mem::swap(&mut values, &mut self.values);
+
+        values.collect()
+    }
+
     pub fn from_stream(input: impl Stream<Item = Spanned<Value>> + Send + 'static) -> InputStream {
         InputStream {
             values: input.boxed(),
@@ -46,13 +53,19 @@ pub struct OutputStream {
 }
 
 impl OutputStream {
+    pub fn new(values: impl Stream<Item = ReturnValue> + Send + 'static) -> OutputStream {
+        OutputStream {
+            values: values.boxed(),
+        }
+    }
+
     pub fn empty() -> OutputStream {
         let v: VecDeque<ReturnValue> = VecDeque::new();
         v.into()
     }
 
     pub fn one(item: impl Into<ReturnValue>) -> OutputStream {
-        let v: VecDeque<ReturnValue> = VecDeque::new();
+        let mut v: VecDeque<ReturnValue> = VecDeque::new();
         v.push_back(item.into());
         v.into()
     }
@@ -61,6 +74,17 @@ impl OutputStream {
         OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
         }
+    }
+}
+
+impl Stream for OutputStream {
+    type Item = ReturnValue;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
+        Stream::poll_next(std::pin::Pin::new(&mut self.values), cx)
     }
 }
 

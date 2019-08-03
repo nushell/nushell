@@ -21,9 +21,7 @@ impl StaticCommand for Where {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("where")
-            .required("condition", SyntaxType::Block)
-            .sink()
+        Signature::build("where").required("condition", SyntaxType::Block)
     }
 
     fn run(

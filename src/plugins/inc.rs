@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, Signature, NamedType, Plugin, PositionalType, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, Spanned, SpannedItem, Value,
+    serve_plugin, CallInfo, NamedType, Plugin, PositionalType, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, Signature, Spanned, SpannedItem, Value,
 };
 
 struct Inc {
@@ -94,7 +94,6 @@ impl Plugin for Inc {
             name: "inc".to_string(),
             positional: vec![PositionalType::optional_any("Field")],
             is_filter: true,
-            is_sink: false,
             named,
             rest_positional: true,
         })
