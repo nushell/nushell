@@ -10,7 +10,7 @@ pub fn ps(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let list = list
         .into_iter()
-        .map(|(_, process)| process_dict(process, args.call_info.name_span))
+        .map(|(_, process)| process_dict(process, Tag::unknown_origin(args.call_info.name_span)))
         .collect::<VecDeque<_>>();
 
     Ok(list.from_input_stream())

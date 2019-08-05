@@ -37,7 +37,7 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                                 s.span(),
                             ));
                         } else {
-                            return Err(ShellError::maybe_labeled_error(
+                            return Err(ShellError::labeled_error(
                                 e.to_string(),
                                 e.to_string(),
                                 args.call_info.name_span,
@@ -50,8 +50,11 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     let entry = entry?;
                     let filepath = entry.path();
                     let filename = filepath.strip_prefix(&cwd).unwrap();
-                    let value =
-                        dir_entry_dict(filename, &entry.metadata()?, args.call_info.name_span)?;
+                    let value = dir_entry_dict(
+                        filename,
+                        &entry.metadata()?,
+                        Tag::unknown_origin(args.call_info.name_span),
+                    )?;
                     shell_entries.push_back(ReturnSuccess::value(value))
                 }
                 return Ok(shell_entries.to_output_stream());
@@ -64,7 +67,11 @@ pub fn ls(args: CommandArgs) -> Result<OutputStream, ShellError> {
         if let Ok(entry) = entry {
             let filename = entry.strip_prefix(&cwd).unwrap();
             let metadata = std::fs::metadata(&entry)?;
-            let value = dir_entry_dict(filename, &metadata, args.call_info.name_span)?;
+            let value = dir_entry_dict(
+                filename,
+                &metadata,
+                Tag::unknown_origin(args.call_info.name_span),
+            )?;
             shell_entries.push_back(ReturnSuccess::value(value))
         }
     }

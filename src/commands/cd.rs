@@ -10,7 +10,7 @@ pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
         None => match dirs::home_dir() {
             Some(o) => o,
             _ => {
-                return Err(ShellError::maybe_labeled_error(
+                return Err(ShellError::labeled_error(
                     "Can not change to home directory",
                     "can not go to home",
                     args.call_info.name_span,

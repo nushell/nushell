@@ -4,12 +4,12 @@ use csv::ReaderBuilder;
 
 pub fn from_csv_string_to_value(
     s: String,
-    span: impl Into<Span>,
+    tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, Box<dyn std::error::Error>> {
     let mut reader = ReaderBuilder::new()
         .has_headers(false)
         .from_reader(s.as_bytes());
-    let span = span.into();
+    let tag = tag.into();
 
     let mut fields: VecDeque<String> = VecDeque::new();
     let mut iter = reader.records();
@@ -27,12 +27,12 @@ pub fn from_csv_string_to_value(
         if let Some(row_values) = iter.next() {
             let row_values = row_values?;
 
-            let mut row = TaggedDictBuilder::new(span);
+            let mut row = TaggedDictBuilder::new(tag);
 
             for (idx, entry) in row_values.iter().enumerate() {
                 row.insert_tagged(
                     fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(span),
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
                 );
             }
 
@@ -42,7 +42,7 @@ pub fn from_csv_string_to_value(
         }
     }
 
-    Ok(Tagged::from_item(Value::List(rows), span))
+    Ok(Tagged::from_item(Value::List(rows), tag))
 }
 
 pub fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -52,22 +52,26 @@ pub fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(out
         .values
         .map(move |a| {
-            let value_span = a.span();
+            let value_tag = a.tag();
             match a.item {
                 Value::Primitive(Primitive::String(s)) => {
-                    match from_csv_string_to_value(s, value_span) {
+                    match from_csv_string_to_value(s, value_tag) {
                         Ok(x) => ReturnSuccess::value(x),
-                        Err(_) => Err(ShellError::maybe_labeled_error(
+                        Err(_) => Err(ShellError::labeled_error_with_secondary(
                             "Could not parse as CSV",
-                            "piped data failed CSV parse",
+                            "input cannot be parsed as CSV",
                             span,
+                            "value originates from here",
+                            value_tag.span,
                         )),
                     }
                 }
-                _ => Err(ShellError::maybe_labeled_error(
-                    "Expected string values from pipeline",
-                    "expects strings from pipeline",
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
                     span,
+                    "value originates from here",
+                    a.span(),
                 )),
             }
         })

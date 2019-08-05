@@ -79,7 +79,7 @@ impl Context {
     crate fn run_sink(
         &mut self,
         command: Arc<dyn Sink>,
-        name_span: Option<Span>,
+        name_span: Span,
         args: Args,
         input: Vec<Tagged<Value>>,
     ) -> Result<(), ShellError> {
@@ -111,7 +111,7 @@ impl Context {
     crate fn run_command(
         &mut self,
         command: Arc<dyn Command>,
-        name_span: Option<Span>,
+        name_span: Span,
         source_map: SourceMap,
         args: Args,
         input: InputStream,

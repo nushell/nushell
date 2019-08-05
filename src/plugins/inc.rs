@@ -26,15 +26,15 @@ impl Inc {
         field: &Option<String>,
     ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).tagged(value.span())),
+            Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).tagged(value.tag())),
             Value::Primitive(Primitive::Bytes(b)) => {
-                Ok(Value::bytes(b + 1 as u64).tagged(value.span()))
+                Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
             }
             Value::Primitive(Primitive::String(ref s)) => {
                 if let Ok(i) = s.parse::<u64>() {
                     Ok(Tagged::from_item(
                         Value::string(format!("{}", i + 1)),
-                        value.span(),
+                        value.tag(),
                     ))
                 } else if let Ok(mut ver) = semver::Version::parse(&s) {
                     if self.major {
@@ -47,7 +47,7 @@ impl Inc {
                     }
                     Ok(Tagged::from_item(
                         Value::string(ver.to_string()),
-                        value.span(),
+                        value.tag(),
                     ))
                 } else {
                     Err(ShellError::string("string could not be incremented"))
@@ -55,7 +55,7 @@ impl Inc {
             }
             Value::Object(_) => match field {
                 Some(f) => {
-                    let replacement = match value.item.get_data_by_path(value.span(), f) {
+                    let replacement = match value.item.get_data_by_path(value.tag(), f) {
                         Some(result) => self.inc(result.map(|x| x.clone()), &None)?,
                         None => {
                             return Err(ShellError::string("inc could not find field to replace"))
@@ -63,7 +63,7 @@ impl Inc {
                     };
                     match value
                         .item
-                        .replace_data_at_path(value.span(), f, replacement.item.clone())
+                        .replace_data_at_path(value.tag(), f, replacement.item.clone())
                     {
                         Some(v) => return Ok(v),
                         None => {

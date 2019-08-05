@@ -61,7 +61,7 @@ pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         return Err(ShellError::labeled_error(
                             "is a directory",
                             "",
-                            args.call_info.name_span.unwrap(),
+                            args.call_info.name_span,
                         ));
                     }
                     std::fs::remove_dir_all(&path).expect("can not remove directory");

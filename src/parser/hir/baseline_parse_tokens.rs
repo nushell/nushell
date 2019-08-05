@@ -61,7 +61,7 @@ pub fn baseline_parse_next_expr(
         (SyntaxType::Path, token) => {
             return Err(ShellError::type_error(
                 "Path",
-                token.type_name().tagged(token.span()),
+                token.type_name().simple_spanned(token.span()),
             ))
         }
 
@@ -81,10 +81,10 @@ pub fn baseline_parse_next_expr(
 
     let second = match tokens.next() {
         None => {
-            return Err(ShellError::maybe_labeled_error(
+            return Err(ShellError::labeled_error(
                 "Expected something after an operator",
                 "operator",
-                Some(op.span()),
+                op.span(),
             ))
         }
         Some(token) => baseline_parse_semantic_token(token, registry, source)?,
@@ -97,7 +97,7 @@ pub fn baseline_parse_next_expr(
             let span = (first.span().start, second.span().end);
             let binary = hir::Binary::new(first, op, second);
             let binary = hir::RawExpression::Binary(Box::new(binary));
-            let binary = Tagged::from_item(binary, span);
+            let binary = Tagged::from_simple_spanned_item(binary, span);
 
             Ok(binary)
         }
@@ -108,11 +108,12 @@ pub fn baseline_parse_next_expr(
             let path: Tagged<hir::RawExpression> = match first {
                 Tagged {
                     item: hir::RawExpression::Literal(hir::Literal::Bare),
-                    tag: Tag { span },
+                    tag: Tag { span, .. },
                 } => {
-                    let string = Tagged::from_item(span.slice(source).to_string(), span);
+                    let string =
+                        Tagged::from_simple_spanned_item(span.slice(source).to_string(), span);
                     let path = hir::Path::new(
-                        Tagged::from_item(
+                        Tagged::from_simple_spanned_item(
                             // TODO: Deal with synthetic nodes that have no representation at all in source
                             hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
                             (0, 0),
@@ -120,15 +121,16 @@ pub fn baseline_parse_next_expr(
                         vec![string],
                     );
                     let path = hir::RawExpression::Path(Box::new(path));
-                    Tagged::from_item(path, first.span())
+                    Tagged::from_simple_spanned_item(path, first.span())
                 }
                 Tagged {
                     item: hir::RawExpression::Literal(hir::Literal::String(inner)),
-                    tag: Tag { span },
+                    tag: Tag { span, .. },
                 } => {
-                    let string = Tagged::from_item(inner.slice(source).to_string(), span);
+                    let string =
+                        Tagged::from_simple_spanned_item(inner.slice(source).to_string(), span);
                     let path = hir::Path::new(
-                        Tagged::from_item(
+                        Tagged::from_simple_spanned_item(
                             // TODO: Deal with synthetic nodes that have no representation at all in source
                             hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
                             (0, 0),
@@ -136,14 +138,14 @@ pub fn baseline_parse_next_expr(
                         vec![string],
                     );
                     let path = hir::RawExpression::Path(Box::new(path));
-                    Tagged::from_item(path, first.span())
+                    Tagged::from_simple_spanned_item(path, first.span())
                 }
                 Tagged {
                     item: hir::RawExpression::Variable(..),
                     ..
                 } => first,
                 Tagged {
-                    tag: Tag { span },
+                    tag: Tag { span, .. },
                     item,
                 } => {
                     return Err(ShellError::labeled_error(
@@ -156,10 +158,10 @@ pub fn baseline_parse_next_expr(
 
             let binary = hir::Binary::new(path, op, second);
             let binary = hir::RawExpression::Binary(Box::new(binary));
-            let binary = Tagged::from_item(binary, span);
+            let binary = Tagged::from_simple_spanned_item(binary, span);
 
             let block = hir::RawExpression::Block(vec![binary]);
-            let block = Tagged::from_item(block, span);
+            let block = Tagged::from_simple_spanned_item(block, span);
 
             Ok(block)
         }
@@ -204,7 +206,7 @@ pub fn baseline_parse_delimited(
                 baseline_parse_tokens(&mut TokensIterator::new(children), registry, source)?;
 
             let expr = hir::RawExpression::Block(exprs);
-            Ok(Tagged::from_item(expr, token.span()))
+            Ok(Tagged::from_simple_spanned_item(expr, token.span()))
         }
         Delimiter::Paren => unimplemented!(),
         Delimiter::Square => unimplemented!(),
@@ -228,7 +230,7 @@ pub fn baseline_parse_path(
                 RawToken::Integer(_) | RawToken::Size(..) | RawToken::Variable(_) => {
                     return Err(ShellError::type_error(
                         "String",
-                        token.type_name().tagged(part),
+                        token.type_name().simple_spanned(part),
                     ))
                 }
             },
@@ -240,10 +242,10 @@ pub fn baseline_parse_path(
         }
         .to_string();
 
-        tail.push(string.tagged(part));
+        tail.push(string.simple_spanned(part));
     }
 
-    Ok(hir::path(head, tail).tagged(token).into())
+    Ok(hir::path(head, tail).simple_spanned(token).into())
 }
 
 #[derive(Debug, new)]

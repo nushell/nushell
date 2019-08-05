@@ -15,14 +15,11 @@ pub enum Description {
 impl Description {
     pub fn from(value: Tagged<impl Into<String>>) -> Description {
         let value_span = value.span();
+        let value_tag = value.tag();
 
         match value_span {
-            Span {
-                start: 0,
-                end: 0,
-                source: None,
-            } => Description::Synthetic(value.item.into()),
-            _ => Description::Source(Tagged::from_item(value.item.into(), value_span)),
+            Span { start: 0, end: 0 } => Description::Synthetic(value.item.into()),
+            _ => Description::Source(Tagged::from_item(value.item.into(), value_tag)),
         }
     }
 }
@@ -44,13 +41,13 @@ pub enum ArgumentError {
 }
 
 pub fn labelled(
-    span: impl Into<Option<Span>>,
+    span: impl Into<Span>,
     heading: &'a str,
     span_message: &'a str,
 ) -> impl FnOnce(ShellError) -> ShellError + 'a {
     let span = span.into();
 
-    move |_| ShellError::maybe_labeled_error(heading, span_message, span)
+    move |_| ShellError::labeled_error(heading, span_message, span)
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
@@ -165,7 +162,7 @@ impl ShellError {
                 actual:
                     Tagged {
                         item: Some(actual),
-                        tag: Tag { span },
+                        tag: Tag { span, .. },
                     },
             } => Diagnostic::new(Severity::Error, "Type Error").with_label(
                 Label::new_primary(span)
@@ -177,7 +174,7 @@ impl ShellError {
                 actual:
                     Tagged {
                         item: None,
-                        tag: Tag { span },
+                        tag: Tag { span, .. },
                     },
             } => Diagnostic::new(Severity::Error, "Type Error")
                 .with_label(Label::new_primary(span).with_message(expected)),
@@ -220,18 +217,20 @@ impl ShellError {
         )
     }
 
-    pub fn maybe_labeled_error(
+    pub fn labeled_error_with_secondary(
         msg: impl Into<String>,
-        label: impl Into<String>,
-        span: Option<Span>,
+        primary_label: impl Into<String>,
+        primary_span: Span,
+        secondary_label: impl Into<String>,
+        secondary_span: Span,
     ) -> ShellError {
-        match span {
-            Some(span) => ShellError::diagnostic(
-                Diagnostic::new(Severity::Error, msg.into())
-                    .with_label(Label::new_primary(span).with_message(label.into())),
-            ),
-            None => ShellError::string(msg),
-        }
+        ShellError::diagnostic(
+            Diagnostic::new_error(msg.into())
+                .with_label(Label::new_primary(primary_span).with_message(primary_label.into()))
+                .with_label(
+                    Label::new_secondary(secondary_span).with_message(secondary_label.into()),
+                ),
+        )
     }
 
     pub fn string(title: impl Into<String>) -> ShellError {
