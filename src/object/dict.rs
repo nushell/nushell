@@ -102,20 +102,20 @@ impl Dictionary {
 }
 
 pub struct TaggedListBuilder {
-    span: Span,
+    tag: Tag,
     list: Vec<Tagged<Value>>,
 }
 
 impl TaggedListBuilder {
-    pub fn new(span: impl Into<Span>) -> TaggedListBuilder {
+    pub fn new(tag: impl Into<Tag>) -> TaggedListBuilder {
         TaggedListBuilder {
-            span: span.into(),
+            tag: tag.into(),
             list: vec![],
         }
     }
 
     pub fn push(&mut self, value: impl Into<Value>) {
-        self.list.push(value.into().tagged(self.span));
+        self.list.push(value.into().tagged(self.tag));
     }
 
     pub fn insert_tagged(&mut self, value: impl Into<Tagged<Value>>) {
@@ -123,7 +123,7 @@ impl TaggedListBuilder {
     }
 
     pub fn into_tagged_value(self) -> Tagged<Value> {
-        Value::List(self.list).tagged(self.span)
+        Value::List(self.list).tagged(self.tag)
     }
 }
 
@@ -135,20 +135,20 @@ impl From<TaggedListBuilder> for Tagged<Value> {
 
 #[derive(Debug)]
 pub struct TaggedDictBuilder {
-    span: Span,
+    tag: Tag,
     dict: IndexMap<String, Tagged<Value>>,
 }
 
 impl TaggedDictBuilder {
-    pub fn new(span: impl Into<Span>) -> TaggedDictBuilder {
+    pub fn new(tag: impl Into<Tag>) -> TaggedDictBuilder {
         TaggedDictBuilder {
-            span: span.into(),
+            tag: tag.into(),
             dict: IndexMap::default(),
         }
     }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
-        self.dict.insert(key.into(), value.into().tagged(self.span));
+        self.dict.insert(key.into(), value.into().tagged(self.tag));
     }
 
     pub fn insert_tagged(&mut self, key: impl Into<String>, value: impl Into<Tagged<Value>>) {
@@ -160,7 +160,7 @@ impl TaggedDictBuilder {
     }
 
     pub fn into_tagged_dict(self) -> Tagged<Dictionary> {
-        Dictionary { entries: self.dict }.tagged(self.span)
+        Dictionary { entries: self.dict }.tagged(self.tag)
     }
 }
 

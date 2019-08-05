@@ -4,9 +4,9 @@ use std::collections::HashMap;
 
 fn convert_ini_second_to_nu_value(
     v: &HashMap<String, String>,
-    span: impl Into<Span>,
+    tag: impl Into<Tag>,
 ) -> Tagged<Value> {
-    let mut second = TaggedDictBuilder::new(span);
+    let mut second = TaggedDictBuilder::new(tag);
 
     for (key, value) in v.into_iter() {
         second.insert(key.clone(), Primitive::String(value.clone()));
@@ -17,13 +17,13 @@ fn convert_ini_second_to_nu_value(
 
 fn convert_ini_top_to_nu_value(
     v: &HashMap<String, HashMap<String, String>>,
-    span: impl Into<Span>,
+    tag: impl Into<Tag>,
 ) -> Tagged<Value> {
-    let span = span.into();
-    let mut top_level = TaggedDictBuilder::new(span);
+    let tag = tag.into();
+    let mut top_level = TaggedDictBuilder::new(tag);
 
     for (key, value) in v.iter() {
-        top_level.insert_tagged(key.clone(), convert_ini_second_to_nu_value(value, span));
+        top_level.insert_tagged(key.clone(), convert_ini_second_to_nu_value(value, tag));
     }
 
     top_level.into_tagged_value()
@@ -31,10 +31,10 @@ fn convert_ini_top_to_nu_value(
 
 pub fn from_ini_string_to_value(
     s: String,
-    span: impl Into<Span>,
+    tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, Box<dyn std::error::Error>> {
     let v: HashMap<String, HashMap<String, String>> = serde_ini::from_str(&s)?;
-    Ok(convert_ini_top_to_nu_value(&v, span))
+    Ok(convert_ini_top_to_nu_value(&v, tag))
 }
 
 pub fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
@@ -43,22 +43,26 @@ pub fn from_ini(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(out
         .values
         .map(move |a| {
-            let value_span = a.span();
+            let value_tag = a.tag();
             match a.item {
                 Value::Primitive(Primitive::String(s)) => {
-                    match from_ini_string_to_value(s, value_span) {
+                    match from_ini_string_to_value(s, value_tag) {
                         Ok(x) => ReturnSuccess::value(x),
-                        Err(_) => Err(ShellError::maybe_labeled_error(
+                        Err(_) => Err(ShellError::labeled_error_with_secondary(
                             "Could not parse as INI",
-                            "piped data failed INI parse",
+                            "input cannot be parsed as INI",
                             span,
+                            "value originates from here",
+                            value_tag.span,
                         )),
                     }
                 }
-                _ => Err(ShellError::maybe_labeled_error(
-                    "Expected string values from pipeline",
-                    "expects strings from pipeline",
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
                     span,
+                    "value originates from here",
+                    a.span(),
                 )),
             }
         })

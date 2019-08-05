@@ -17,6 +17,6 @@ impl<T: Into<Value>> Tagged<T> {
     pub fn into_tagged_value(self) -> Tagged<Value> {
         let value_span = self.span();
         let value = self.item.into();
-        value.tagged(value_span)
+        value.simple_spanned(value_span)
     }
 }

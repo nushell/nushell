@@ -77,7 +77,7 @@ pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Tagged<i64>> {
 
         Ok((
             input,
-            Tagged::from_item(int(num.fragment, neg), (start, end)),
+            Tagged::from_simple_spanned_item(int(num.fragment, neg), (start, end)),
         ))
     })
 }
@@ -231,7 +231,7 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Tagged<Unit>> {
 
         Ok((
             input,
-            Tagged::from_item(Unit::from(unit.fragment), (start, end)),
+            Tagged::from_simple_spanned_item(Unit::from(unit.fragment), (start, end)),
         ))
     })
 }
@@ -1029,7 +1029,7 @@ mod tests {
         right: usize,
     ) -> TokenNode {
         let node = DelimitedNode::new(delimiter, children);
-        let spanned = Tagged::from_item(node, (left, right));
+        let spanned = Tagged::from_simple_spanned_item(node, (left, right));
         TokenNode::Delimited(spanned)
     }
 
@@ -1038,16 +1038,16 @@ mod tests {
             Box::new(head),
             tail.into_iter().map(TokenNode::Token).collect(),
         );
-        let spanned = Tagged::from_item(node, (left, right));
+        let spanned = Tagged::from_simple_spanned_item(node, (left, right));
         TokenNode::Path(spanned)
     }
 
     fn leaf_token(token: RawToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(Tagged::from_item(token, (left, right)))
+        TokenNode::Token(Tagged::from_simple_spanned_item(token, (left, right)))
     }
 
     fn token(token: RawToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(Tagged::from_item(token, (left, right)))
+        TokenNode::Token(Tagged::from_simple_spanned_item(token, (left, right)))
     }
 
     fn build<T>(block: CurriedNode<T>) -> T {

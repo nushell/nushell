@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub struct CallInfo {
     pub args: Args,
     pub source_map: SourceMap,
-    pub name_span: Option<Span>,
+    pub name_span: Span,
 }
 
 #[derive(Getters)]
@@ -93,7 +93,9 @@ impl ReturnSuccess {
     }
 
     pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
-        Ok(ReturnSuccess::Value(Tagged::from_item(input, span)))
+        Ok(ReturnSuccess::Value(Tagged::from_simple_spanned_item(
+            input, span,
+        )))
     }
 }
 

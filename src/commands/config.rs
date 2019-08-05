@@ -61,10 +61,11 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             config::write_config(&result)?;
 
-            return Ok(
-                stream![Tagged::from_item(Value::Object(result.into()), v.span())]
-                    .from_input_stream(),
-            );
+            return Ok(stream![Tagged::from_simple_spanned_item(
+                Value::Object(result.into()),
+                v.span()
+            )]
+            .from_input_stream());
         }
     }
 
@@ -73,9 +74,11 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
         config::write_config(&result)?;
 
-        return Ok(
-            stream![Tagged::from_item(Value::Object(result.into()), c.span())].from_input_stream(),
-        );
+        return Ok(stream![Tagged::from_simple_spanned_item(
+            Value::Object(result.into()),
+            c.span()
+        )]
+        .from_input_stream());
     }
 
     if let Some(v) = args.get("remove") {
@@ -90,12 +93,14 @@ pub fn config(args: CommandArgs) -> Result<OutputStream, ShellError> {
             )));
         }
 
-        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).tagged(v)]);
+        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).simple_spanned(v)]);
         return Ok(obj.from_input_stream());
     }
 
     if args.len() == 0 {
-        return Ok(vec![Value::Object(result.into()).tagged(args.call_info.name_span)].into());
+        return Ok(
+            vec![Value::Object(result.into()).simple_spanned(args.call_info.name_span)].into(),
+        );
     }
 
     Err(ShellError::string(format!("Unimplemented")))

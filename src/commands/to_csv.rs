@@ -42,8 +42,10 @@ pub fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
     Ok(out
         .values
         .map(move |a| match to_string(&value_to_csv_value(&a.item)) {
-            Ok(x) => ReturnSuccess::value(Value::Primitive(Primitive::String(x)).tagged(name_span)),
-            Err(_) => Err(ShellError::maybe_labeled_error(
+            Ok(x) => ReturnSuccess::value(
+                Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+            ),
+            Err(_) => Err(ShellError::labeled_error(
                 "Can not convert to CSV string",
                 "can not convert piped data to CSV string",
                 name_span,

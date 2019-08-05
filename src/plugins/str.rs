@@ -86,11 +86,11 @@ impl Str {
     ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s), value.span()))
+                Ok(Tagged::from_item(self.apply(&s), value.tag()))
             }
             Value::Object(_) => match field {
                 Some(f) => {
-                    let replacement = match value.item.get_data_by_path(value.span(), f) {
+                    let replacement = match value.item.get_data_by_path(value.tag(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()), &None)?,
                         None => {
                             return Err(ShellError::string("str could not find field to replace"))
@@ -98,7 +98,7 @@ impl Str {
                     };
                     match value
                         .item
-                        .replace_data_at_path(value.span(), f, replacement.item.clone())
+                        .replace_data_at_path(value.tag(), f, replacement.item.clone())
                     {
                         Some(v) => return Ok(v),
                         None => {
@@ -194,7 +194,7 @@ mod tests {
     use super::Str;
     use indexmap::IndexMap;
     use nu::{
-        Args, CallInfo, Plugin, ReturnSuccess, SourceMap, Span, Tagged, TaggedDictBuilder,
+        Args, CallInfo, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged, TaggedDictBuilder,
         TaggedItem, Value,
     };
 
@@ -214,28 +214,28 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::boolean(true).tagged(Span::unknown()),
+                Value::boolean(true).simple_spanned(Span::unknown()),
             );
             self
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             self.positionals
-                .push(Value::string(name.to_string()).tagged(Span::unknown()));
+                .push(Value::string(name.to_string()).simple_spanned(Span::unknown()));
             self
         }
 
-        fn create(&self) -> CallInfo {
+        fn create(&self, name_span: Span) -> CallInfo {
             CallInfo {
                 args: Args::new(Some(self.positionals.clone()), Some(self.flags.clone())),
                 source_map: SourceMap::new(),
-                name_span: None,
+                name_span,
             }
         }
     }
 
     fn sample_record(key: &str, value: &str) -> Tagged<Value> {
-        let mut record = TaggedDictBuilder::new(Span::unknown());
+        let mut record = TaggedDictBuilder::new(Tag::unknown());
         record.insert(key.clone(), Value::string(value));
         record.into_tagged_value()
     }
@@ -256,7 +256,11 @@ mod tests {
         let mut plugin = Str::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("downcase").create())
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("downcase")
+                    .create(Span::unknown())
+            )
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -266,7 +270,11 @@ mod tests {
         let mut plugin = Str::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("upcase").create())
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("upcase")
+                    .create(Span::unknown())
+            )
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -276,7 +284,11 @@ mod tests {
         let mut plugin = Str::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("to-int").create())
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("to-int")
+                    .create(Span::unknown())
+            )
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -289,7 +301,7 @@ mod tests {
             .begin_filter(
                 CallStub::new()
                     .with_parameter("package.description")
-                    .create()
+                    .create(Span::unknown())
             )
             .is_ok());
 
@@ -306,7 +318,7 @@ mod tests {
                     .with_long_flag("upcase")
                     .with_long_flag("downcase")
                     .with_long_flag("to-int")
-                    .create(),
+                    .create(Span::unknown()),
             )
             .is_err());
         assert_eq!(plugin.error, Some("can only apply one".to_string()));
@@ -342,7 +354,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("upcase")
                     .with_parameter("name")
-                    .create()
+                    .create(Span::unknown())
             )
             .is_ok());
 
@@ -370,7 +382,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("downcase")
                     .with_parameter("name")
-                    .create()
+                    .create(Span::unknown())
             )
             .is_ok());
 
@@ -398,7 +410,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("to-int")
                     .with_parameter("Nu_birthday")
-                    .create()
+                    .create(Span::unknown())
             )
             .is_ok());
 

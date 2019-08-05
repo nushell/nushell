@@ -348,7 +348,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
                     command: sink("autoview", Box::new(autoview::autoview)),
-                    name_span: None,
+                    name_span: Span::unknown(),
                     args: registry::Args {
                         positional: None,
                         named: None,
@@ -382,7 +382,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     }
 
                     (Some(ClassifiedCommand::Sink(SinkCommand { name_span, .. })), Some(_)) => {
-                        return LineResult::Error(line.clone(), ShellError::maybe_labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
+                        return LineResult::Error(line.clone(), ShellError::labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
@@ -496,7 +496,7 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
-                        name_span: Some(head.span().clone()),
+                        name_span: head.span().clone(),
                         args,
                     }))
                 }
@@ -510,7 +510,7 @@ fn classify_command(
 
                         Ok(ClassifiedCommand::Sink(SinkCommand {
                             command,
-                            name_span: Some(head.span().clone()),
+                            name_span: head.span().clone(),
                             args,
                         }))
                     }
@@ -521,7 +521,7 @@ fn classify_command(
                                 .iter()
                                 .filter_map(|i| match i {
                                     TokenNode::Whitespace(_) => None,
-                                    other => Some(Tagged::from_item(
+                                    other => Some(Tagged::from_simple_spanned_item(
                                         other.as_external_arg(source),
                                         other.span(),
                                     )),
@@ -532,7 +532,7 @@ fn classify_command(
 
                         Ok(ClassifiedCommand::External(ExternalCommand {
                             name: name.to_string(),
-                            name_span: Some(head.span().clone()),
+                            name_span: head.span().clone(),
                             args: arg_list_strings,
                         }))
                     }

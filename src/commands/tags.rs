@@ -8,18 +8,19 @@ pub fn tags(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .input
         .values
         .map(move |v| {
-            let mut tags = TaggedDictBuilder::new(v.span());
+            let mut tags = TaggedDictBuilder::new(v.tag());
             {
+                let origin = v.origin();
                 let span = v.span();
-                let mut dict = TaggedDictBuilder::new(v.span());
+                let mut dict = TaggedDictBuilder::new(v.tag());
                 dict.insert("start", Value::int(span.start as i64));
                 dict.insert("end", Value::int(span.end as i64));
-                match span.source.map(|x| source_map.get(&x)).flatten() {
+                match origin.map(|x| source_map.get(&x)).flatten() {
                     Some(SpanSource::File(source)) => {
-                        dict.insert("source", Value::string(source));
+                        dict.insert("origin", Value::string(source));
                     }
                     Some(SpanSource::Url(source)) => {
-                        dict.insert("source", Value::string(source));
+                        dict.insert("origin", Value::string(source));
                     }
                     _ => {}
                 }

@@ -210,10 +210,10 @@ fn scroll_view(s: &str) {
 }
 
 fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
-    let value_span = value.span();
+    let value_origin = value.origin();
     match value.item {
         Value::Primitive(Primitive::String(ref s)) => {
-            let source = value_span.source.map(|x| source_map.get(&x)).flatten();
+            let source = value_origin.map(|x| source_map.get(&x)).flatten();
 
             if let Some(source) = source {
                 let extension: Option<String> = match source {

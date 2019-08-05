@@ -48,8 +48,8 @@ fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
 
         TokenNode::Token(Tagged {
             item: RawToken::String(inner_span),
-            tag: Tag { span },
-        }) => Ok(Tagged::from_item(
+            tag: Tag { span, origin: None },
+        }) => Ok(Tagged::from_simple_spanned_item(
             hir::RawExpression::Literal(hir::Literal::String(*inner_span)),
             *span,
         )),

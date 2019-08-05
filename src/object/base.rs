@@ -168,7 +168,7 @@ impl Block {
         let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
-            return Ok(Tagged::from_item(Value::nothing(), self.span));
+            return Ok(Value::nothing().simple_spanned(self.span));
         }
 
         let mut last = None;
@@ -227,7 +227,7 @@ impl fmt::Debug for ValueDebug<'a> {
 impl Tagged<Value> {
     crate fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
-        Tagged::from_item(name, self.span())
+        Tagged::from_simple_spanned_item(name, self.span())
     }
 }
 
@@ -352,7 +352,7 @@ impl Value {
         }
     }
 
-    pub fn get_data_by_path(&'a self, span: Span, path: &str) -> Option<Tagged<&Value>> {
+    pub fn get_data_by_path(&'a self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
         let mut current = self;
         for p in path.split(".") {
             match current.get_data_by_key(p) {
@@ -361,12 +361,12 @@ impl Value {
             }
         }
 
-        Some(Tagged::from_item(current, span))
+        Some(Tagged::from_item(current, tag))
     }
 
     pub fn insert_data_at_path(
         &'a self,
-        span: Span,
+        tag: Tag,
         path: &str,
         new_value: Value,
     ) -> Option<Tagged<Value>> {
@@ -384,13 +384,13 @@ impl Value {
                                 Value::Object(o) => {
                                     o.entries.insert(
                                         split_path[idx + 1].to_string(),
-                                        Tagged::from_item(new_value, span),
+                                        Tagged::from_item(new_value, tag),
                                     );
                                 }
                                 _ => {}
                             }
 
-                            return Some(Tagged::from_item(new_obj, span));
+                            return Some(Tagged::from_item(new_obj, tag));
                         } else {
                             match next.item {
                                 Value::Object(ref mut o) => {
@@ -410,7 +410,7 @@ impl Value {
 
     pub fn replace_data_at_path(
         &'a self,
-        span: Span,
+        tag: Tag,
         path: &str,
         replaced_value: Value,
     ) -> Option<Tagged<Value>> {
@@ -424,8 +424,8 @@ impl Value {
                 match current.entries.get_mut(split_path[idx]) {
                     Some(next) => {
                         if idx == (split_path.len() - 1) {
-                            *next = Tagged::from_item(replaced_value, span);
-                            return Some(Tagged::from_item(new_obj, span));
+                            *next = Tagged::from_item(replaced_value, tag);
+                            return Some(Tagged::from_item(new_obj, tag));
                         } else {
                             match next.item {
                                 Value::Object(ref mut o) => {
@@ -601,8 +601,8 @@ impl Value {
     }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Tagged<Value> {
-    let mut out = TaggedDictBuilder::new(span);
+crate fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
+    let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
 
@@ -616,8 +616,8 @@ crate fn select_fields(obj: &Value, fields: &[String], span: impl Into<Span>) ->
     out.into_tagged_value()
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String], span: impl Into<Span>) -> Tagged<Value> {
-    let mut out = TaggedDictBuilder::new(span);
+crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
+    let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
 

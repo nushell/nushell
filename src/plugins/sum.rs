@@ -18,10 +18,11 @@ impl Sum {
                 match self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Int(j)),
-                        tag: Tag { span },
+                        tag: Tag { span, .. },
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Tagged::from_item(Value::int(i + j), span));
+                        self.total =
+                            Some(Tagged::from_simple_spanned_item(Value::int(i + j), span));
                         Ok(())
                     }
                     None => {
@@ -37,10 +38,11 @@ impl Sum {
                 match self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Bytes(j)),
-                        tag: Tag { span },
+                        tag: Tag { span, .. },
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Tagged::from_item(Value::bytes(b + j), span));
+                        self.total =
+                            Some(Tagged::from_simple_spanned_item(Value::bytes(b + j), span));
                         Ok(())
                     }
                     None => {

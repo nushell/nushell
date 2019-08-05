@@ -17,10 +17,10 @@ impl Add {
     }
 
     fn add(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
-        let value_span = value.span();
+        let value_tag = value.tag();
         match (value.item, self.value.clone()) {
             (obj @ Value::Object(_), Some(v)) => match &self.field {
-                Some(f) => match obj.insert_data_at_path(value_span, &f, v) {
+                Some(f) => match obj.insert_data_at_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
                         return Err(ShellError::string(

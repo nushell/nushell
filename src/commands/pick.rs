@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "Pick requires fields",
             "needs parameter",
             args.call_info.name_span,
@@ -17,7 +17,7 @@ pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
     let objects = input
         .values
-        .map(move |value| select_fields(&value.item, &fields, value.span()));
+        .map(move |value| select_fields(&value.item, &fields, value.tag()));
 
     Ok(objects.from_input_stream())
 }
