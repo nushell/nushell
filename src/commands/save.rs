@@ -36,7 +36,6 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     }
                 },
                 None => {
-                    println!("Could not find origin");
                     return Err(ShellError::labeled_error(
                         "Save requires a filepath",
                         "needs path",
