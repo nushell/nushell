@@ -46,8 +46,8 @@ crate use autoview::Autoview;
 crate use cd::Cd;
 crate use clip::Clip;
 crate use command::{
-    command, static_command, CallInfo, Command, CommandArgs, EvaluatedStaticCommandArgs,
-    RawCommandArgs, StaticCommand, UnevaluatedCallInfo,
+    command, static_command, Command, CommandArgs, RawCommandArgs, StaticCommand,
+    UnevaluatedCallInfo,
 };
 crate use config::Config;
 crate use get::Get;

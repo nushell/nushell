@@ -479,7 +479,7 @@ fn classify_command(
                     }))
                 }
                 false => match context.get_command(name).as_ref() {
-                    Command::Static(command) => {
+                    Command::Static(_command) => {
                         let arg_list_strings: Vec<Spanned<String>> = match call.children() {
                             //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
                             Some(args) => args

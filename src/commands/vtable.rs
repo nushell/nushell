@@ -24,7 +24,7 @@ impl StaticCommand for VTable {
     }
 }
 
-pub fn vtable(args: VTableArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+pub fn vtable(_args: VTableArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream_block! {
         let input = context.input.into_vec().await;
 

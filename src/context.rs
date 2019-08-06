@@ -1,5 +1,5 @@
-use crate::commands::{CallInfo, Command, StaticCommand, UnevaluatedCallInfo};
-use crate::parser::{hir, registry, Span};
+use crate::commands::{Command, UnevaluatedCallInfo};
+use crate::parser::{hir, Span};
 use crate::prelude::*;
 
 use derive_new::new;

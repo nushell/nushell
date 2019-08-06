@@ -4,10 +4,10 @@ use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
 use crate::commands::StaticCommand;
 use crate::errors::ShellError;
-use crate::object::{Primitive, Value};
+use crate::object::Value;
 use crate::parser::Spanned;
 use crate::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub struct Save;
 

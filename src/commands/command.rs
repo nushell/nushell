@@ -159,18 +159,6 @@ impl CommandArgs {
     }
 }
 
-pub struct SinkContext {
-    pub input: Vec<Spanned<Value>>,
-    pub env: Arc<Mutex<Environment>>,
-    pub name: Option<Span>,
-}
-
-pub struct SinkArgs<T> {
-    args: T,
-    context: SinkContext,
-    callback: fn(T, SinkContext) -> Result<(), ShellError>,
-}
-
 pub struct RunnableContext {
     pub input: InputStream,
     pub env: Arc<Mutex<Environment>>,
@@ -409,12 +397,6 @@ impl Command {
     pub fn name(&self) -> &str {
         match self {
             Command::Static(command) => command.name(),
-        }
-    }
-
-    pub fn is_sink(&self) -> bool {
-        match self {
-            Command::Static(..) => false,
         }
     }
 

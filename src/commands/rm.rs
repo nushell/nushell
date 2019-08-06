@@ -1,9 +1,7 @@
-use crate::commands::{EvaluatedStaticCommandArgs, StaticCommand};
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
-use crate::parser::registry::{NamedType, PositionalType};
 use crate::prelude::*;
-use indexmap::IndexMap;
 use std::path::PathBuf;
 
 pub struct Remove;

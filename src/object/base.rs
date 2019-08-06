@@ -492,16 +492,6 @@ impl Value {
         }
     }
 
-    crate fn as_pair(&self) -> Result<(Spanned<Value>, Spanned<Value>), ShellError> {
-        match self {
-            Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
-            other => Err(ShellError::string(format!(
-                "Expected pair, got {:?}",
-                other
-            ))),
-        }
-    }
-
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
@@ -524,17 +514,6 @@ impl Value {
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected integer, got {:?}",
-                other
-            ))),
-        }
-    }
-
-    crate fn as_block(&self) -> Result<Block, ShellError> {
-        match self {
-            Value::Block(block) => Ok(block.clone()),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected block, got {:?}",
                 other
             ))),
         }

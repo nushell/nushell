@@ -1,7 +1,6 @@
 use crate::commands::{RawCommandArgs, StaticCommand};
 use crate::context::{SourceMap, SpanSource};
 use crate::errors::ShellError;
-use crate::format::GenericView;
 use crate::prelude::*;
 use std::path::Path;
 
@@ -33,7 +32,7 @@ pub fn autoview(
     mut context: RunnableContext,
     raw: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let stream = async_stream_block! {
+    Ok(OutputStream::new(async_stream_block! {
         let input = context.input.drain_vec().await;
 
         if input.len() > 0 {
@@ -60,9 +59,7 @@ pub fn autoview(
                 // }
             }
         }
-    };
-
-    Ok(OutputStream::new(stream))
+    }))
 }
 
 fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {

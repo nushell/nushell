@@ -3,7 +3,6 @@ use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
 use derive_new::new;
-use futures_async_stream::async_stream_block;
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -57,38 +56,6 @@ impl StaticCommand for PluginCommand {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         filter_plugin(self.path.clone(), args, registry)
-    }
-}
-
-#[derive(new)]
-pub struct PluginSink {
-    path: String,
-    config: registry::Signature,
-}
-
-impl StaticCommand for PluginSink {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let path = self.path.clone();
-
-        let stream = async_stream_block! {
-            sink_plugin(path, args).await;
-        };
-
-        let stream: BoxStream<'static, ReturnValue> = stream.boxed();
-
-        Ok(OutputStream::from(stream))
-    }
-
-    fn name(&self) -> &str {
-        &self.config.name
-    }
-
-    fn signature(&self) -> registry::Signature {
-        self.config.clone()
     }
 }
 
@@ -206,23 +173,4 @@ pub fn filter_plugin(
         .flatten();
 
     Ok(stream.to_output_stream())
-}
-
-pub async fn sink_plugin(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
-    //use subprocess::Exec;
-    let input: Vec<Spanned<Value>> = args.input.values.collect().await;
-    let request = JsonRpc::new("sink", (args.call_info, input));
-    let request_raw = serde_json::to_string(&request).unwrap();
-    let mut tmpfile = tempfile::NamedTempFile::new()?;
-    let _ = writeln!(tmpfile, "{}", request_raw);
-    let _ = tmpfile.flush();
-
-    let mut child = std::process::Command::new(path)
-        .arg(tmpfile.path())
-        .spawn()
-        .expect("Failed to spawn child process");
-
-    let _ = child.wait();
-
-    Ok(OutputStream::empty())
 }

@@ -35,7 +35,7 @@ pub fn clip(
     let stream = async_stream_block! {
         let values: Vec<Spanned<Value>> = input.values.collect().await;
 
-        inner_clip(values, name);
+        inner_clip(values, name).await;
     };
 
     let stream: BoxStream<'static, ReturnValue> = stream.boxed();
