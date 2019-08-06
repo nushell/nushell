@@ -20,7 +20,7 @@ command! {
 
         let full_path = PathBuf::from(cwd);
 
-        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".simple_spanned(path.span())))?;
+        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".tagged(path.tag())))?;
 
         let (file_extension, contents, contents_tag, span_source) = fetch(&full_path, path_str, path.span())?;
 

@@ -45,10 +45,12 @@ pub fn to_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
             Ok(x) => ReturnSuccess::value(
                 Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
             ),
-            Err(_) => Err(ShellError::labeled_error(
-                "Can not convert to CSV string",
-                "can not convert piped data to CSV string",
+            _ => Err(ShellError::labeled_error_with_secondary(
+                "Expected an object with CSV-compatible structure from pipeline",
+                "requires CSV-compatible input",
                 name_span,
+                format!("{} originates from here", a.item.type_name()),
+                a.span(),
             )),
         })
         .to_output_stream())

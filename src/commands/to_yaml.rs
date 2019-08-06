@@ -49,10 +49,12 @@ pub fn to_yaml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 Ok(x) => ReturnSuccess::value(
                     Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                 ),
-                Err(_) => Err(ShellError::labeled_error(
-                    "Can not convert to YAML string",
-                    "can not convert piped data to YAML string",
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected an object with YAML-compatible structure from pipeline",
+                    "requires YAML-compatible input",
                     name_span,
+                    format!("{} originates from here", a.item.type_name()),
+                    a.span(),
                 )),
             },
         )
