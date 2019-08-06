@@ -30,7 +30,7 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnSuccess::value(
-                        Value::Primitive(Primitive::String(s.into())).simple_spanned(v.span()),
+                        Value::Primitive(Primitive::String(s.into())).tagged(v.tag()),
                     ));
                 }
                 result

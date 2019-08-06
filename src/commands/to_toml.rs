@@ -45,10 +45,12 @@ pub fn to_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     Value::Primitive(Primitive::String(val)).simple_spanned(name_span),
                 )
             }
-
-            Err(err) => Err(ShellError::type_error(
-                "Can not convert to a TOML string",
-                format!("{:?} - {:?}", a.type_name(), err).simple_spanned(name_span),
+            _ => Err(ShellError::labeled_error_with_secondary(
+                "Expected an object with TOML-compatible structure from pipeline",
+                "requires TOML-compatible input",
+                name_span,
+                format!("{} originates from here", a.item.type_name()),
+                a.span(),
             )),
         })
         .to_output_stream())

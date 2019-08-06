@@ -59,12 +59,12 @@ pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         )),
                     }
                 }
-                _ => Err(ShellError::labeled_error_with_secondary(
+                x => Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     span,
-                    "value originates from here",
-                    a.span(),
+                    format!("{} originates from here", x.type_name()),
+                    value_tag.span,
                 )),
             }
         })
