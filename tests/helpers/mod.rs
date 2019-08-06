@@ -181,12 +181,21 @@ pub fn copy_file_to(source: &str, destination: &str) {
     std::fs::copy(source, destination).expect("can not copy file");
 }
 
-pub fn file_exists_at(full_path: &str) -> bool {
-    PathBuf::from(full_path).exists()
+pub fn files_exist_at(files: Vec<&Path>, path: PathBuf) -> bool {
+    files.iter()
+         .all(|f| {
+            let mut loc = path.clone();
+            loc.push(f);
+            loc.exists()
+        })
 }
 
-pub fn dir_exists_at(full_path: &str) -> bool {
-    PathBuf::from(full_path).exists()
+pub fn file_exists_at(path: PathBuf) -> bool {
+    path.exists()
+}
+
+pub fn dir_exists_at(path: PathBuf) -> bool {
+    path.exists()
 }
 
 pub fn delete_directory_at(full_path: &str) {

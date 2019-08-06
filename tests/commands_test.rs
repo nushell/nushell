@@ -2,7 +2,7 @@ mod helpers;
 
 use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[test]
 fn lines() {
@@ -130,48 +130,6 @@ fn save_can_write_out_csv() {
 }
 
 #[test]
-fn cp_can_copy_a_file() {
-    let sandbox = Playground::setup_for("cp_test").test_dir_name();
-
-    let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let expected_file = format!("{}/{}", full_path, "sample.ini");
-
-    nu!(
-        _output,
-        cwd(&Playground::root()),
-        "cp ../formats/sample.ini cp_test/sample.ini"
-    );
-
-    assert!(h::file_exists_at(&expected_file));
-}
-
-#[test]
-fn cp_copies_the_file_inside_directory_if_path_to_copy_is_directory() {
-    let sandbox = Playground::setup_for("cp_test_2").test_dir_name();
-
-    let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let expected_file = format!("{}/{}", full_path, "sample.ini");
-
-    nu!(
-        _output,
-        cwd(&Playground::root()),
-        "cp ../formats/sample.ini cp_test_2"
-    );
-
-    assert!(h::file_exists_at(&expected_file));
-}
-
-#[test]
-fn cp_error_if_attempting_to_copy_a_directory_to_another_directory() {
-    Playground::setup_for("cp_test_3");
-
-    nu_error!(output, cwd(&Playground::root()), "cp ../formats cp_test_3");
-
-    assert!(output.contains("../formats"));
-    assert!(output.contains("is a directory (not copied)"));
-}
-
-#[test]
 fn rm_removes_a_file() {
     let sandbox = Playground::setup_for("rm_test")
         .with_files(vec![EmptyFile("i_will_be_deleted.txt")])
@@ -183,12 +141,14 @@ fn rm_removes_a_file() {
         "rm rm_test/i_will_be_deleted.txt"
     );
 
-    assert!(!h::file_exists_at(&format!(
+    let path = &format!(
         "{}/{}/{}",
         Playground::root(),
         sandbox,
         "i_will_be_deleted.txt"
-    )));
+    );
+
+    assert!(!h::file_exists_at(PathBuf::from(path)));
 }
 
 #[test]
@@ -243,21 +203,13 @@ fn rm_removes_files_with_wildcard() {
         "rm \"src/*/*/*.rs\""
     );
 
-    assert!(!h::file_exists_at(&format!(
-        "{}/src/parser/parse/token_tree.rs",
-        full_path
-    )));
-    assert!(!h::file_exists_at(&format!(
-        "{}/src/parser/hir/baseline_parse.rs",
-        full_path
-    )));
-    assert!(!h::file_exists_at(&format!(
-        "{}/src/parser/hir/baseline_parse_tokens.rs",
-        full_path
-    )));
+    assert!(!h::files_exist_at(vec![
+        Path::new("src/parser/parse/token_tree.rs"), 
+        Path::new("src/parser/hir/baseline_parse.rs"), 
+        Path::new("src/parser/hir/baseline_parse_tokens.rs")], PathBuf::from(&full_path)));
 
     assert_eq!(
-        Playground::glob_vec(&format!("{}/src/*/*/*.rs", full_path)),
+        Playground::glob_vec(&format!("{}/src/*/*/*.rs", &full_path)),
         Vec::<PathBuf>::new()
     );
 }
@@ -278,11 +230,13 @@ fn rm_removes_directory_contents_with_recursive_flag() {
         "rm rm_test_recursive --recursive"
     );
 
-    assert!(!h::file_exists_at(&format!(
+    let expected = format!(
         "{}/{}",
         Playground::root(),
         sandbox
-    )));
+    );
+
+    assert!(!h::file_exists_at(PathBuf::from(expected)));
 }
 
 #[test]
@@ -292,7 +246,7 @@ fn rm_errors_if_attempting_to_delete_a_directory_without_recursive_flag() {
 
     nu_error!(output, cwd(&Playground::root()), "rm rm_test_2");
 
-    assert!(h::file_exists_at(&full_path));
+    assert!(h::file_exists_at(PathBuf::from(full_path)));
     assert!(output.contains("is a directory"));
 }
 
