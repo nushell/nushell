@@ -43,7 +43,7 @@ fn creates_intermediary_directories_with_p_flag() {
     nu!(
         _output,
         cwd(&full_path),
-        "mkdir some_folder/another/deeper_one --p"
+        "mkdir some_folder/another/deeper_one --create-all"
     );
 
     let mut expected = PathBuf::from(full_path);

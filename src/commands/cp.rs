@@ -56,7 +56,7 @@ impl FileStructure {
         self.root = path.to_path_buf();
     }
 
-    pub fn translate<F>(&mut self, to: F) -> Vec<(PathBuf, PathBuf)>
+    pub fn paths_applying_with<F>(&mut self, to: F) -> Vec<(PathBuf, PathBuf)>
     where
         F: Fn((PathBuf, usize)) -> (PathBuf, PathBuf),
     {
@@ -140,8 +140,8 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let sources: Vec<_> = sources.unwrap().collect();
 
     if sources.len() == 1 {
-        if let Ok(val) = &sources[0] {
-            if val.is_dir() && !args.has("recursive") {
+        if let Ok(entry) = &sources[0] {
+            if entry.is_dir() && !args.has("recursive") {
                 return Err(ShellError::labeled_error(
                     "is a directory (not copied). Try using \"--recursive\".",
                     "is a directory (not copied). Try using \"--recursive\".",
@@ -151,18 +151,21 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
 
             let mut sources: FileStructure = FileStructure::new();
 
-            sources.walk_decorate(&val);
+            sources.walk_decorate(&entry);
 
-            if val.is_file() {
-                for (ref src, ref dst) in sources.translate(|(src, _)| {
+            if entry.is_file() {
+
+                let strategy = |(source_file, _depth_level)| {
                     if destination.exists() {
-                        let mut dst = dunce::canonicalize(destination.clone()).unwrap();
-                        dst.push(val.file_name().unwrap());
-                        (src, dst)
+                        let mut new_dst = dunce::canonicalize(destination.clone()).unwrap();
+                        new_dst.push(entry.file_name().unwrap());
+                        (source_file, new_dst)
                     } else {
-                        (src, destination.clone())
+                        (source_file, destination.clone())
                     }
-                }) {
+                };
+
+                for (ref src, ref dst) in sources.paths_applying_with(strategy) {
                     if src.is_file() {
                         match std::fs::copy(src, dst) {
                             Err(e) => {
@@ -178,7 +181,7 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 }
             }
 
-            if val.is_dir() {
+            if entry.is_dir() {
                 if !destination.exists() {
                     match std::fs::create_dir_all(&destination) {
                         Err(e) => {
@@ -191,25 +194,27 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         Ok(o) => o,
                     };
 
-                    for (ref src, ref dst) in sources.translate(|(src, loc)| {
-                        let mut final_path = destination.clone();
-                        let path = dunce::canonicalize(&src).unwrap();
+                    let strategy = |(source_file, depth_level)| {
+                        let mut new_dst = destination.clone();
+                        let path = dunce::canonicalize(&source_file).unwrap();
 
                         let mut comps: Vec<_> = path
                             .components()
                             .map(|fragment| fragment.as_os_str())
                             .rev()
-                            .take(1 + loc)
+                            .take(1 + depth_level)
                             .collect();
 
                         comps.reverse();
 
                         for fragment in comps.iter() {
-                            final_path.push(fragment);
+                            new_dst.push(fragment);
                         }
 
-                        (PathBuf::from(&src), PathBuf::from(final_path))
-                    }) {
+                        (PathBuf::from(&source_file), PathBuf::from(new_dst))
+                    };
+
+                    for (ref src, ref dst) in sources.paths_applying_with(strategy) {
                         if src.is_dir() {
                             if !dst.exists() {
                                 match std::fs::create_dir_all(dst) {
@@ -239,7 +244,7 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         }
                     }
                 } else {
-                    destination.push(val.file_name().unwrap());
+                    destination.push(entry.file_name().unwrap());
 
                     match std::fs::create_dir_all(&destination) {
                         Err(e) => {
@@ -252,25 +257,27 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         Ok(o) => o,
                     };
 
-                    for (ref src, ref dst) in sources.translate(|(src, loc)| {
-                        let mut final_path = dunce::canonicalize(&destination).unwrap();
-                        let path = dunce::canonicalize(&src).unwrap();
+                    let strategy = |(source_file, depth_level)| {
+                        let mut new_dst = dunce::canonicalize(&destination).unwrap();
+                        let path = dunce::canonicalize(&source_file).unwrap();
 
                         let mut comps: Vec<_> = path
                             .components()
                             .map(|fragment| fragment.as_os_str())
                             .rev()
-                            .take(1 + loc)
+                            .take(1 + depth_level)
                             .collect();
 
                         comps.reverse();
 
                         for fragment in comps.iter() {
-                            final_path.push(fragment);
+                            new_dst.push(fragment);
                         }
 
-                        (PathBuf::from(&src), PathBuf::from(final_path))
-                    }) {
+                        (PathBuf::from(&source_file), PathBuf::from(new_dst))
+                    };
+
+                    for (ref src, ref dst) in sources.paths_applying_with(strategy) {
                         if src.is_dir() {
                             if !dst.exists() {
                                 match std::fs::create_dir_all(dst) {
