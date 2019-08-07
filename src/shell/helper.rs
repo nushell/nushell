@@ -2,30 +2,22 @@ use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::parser::parse::tokens::RawToken;
 use crate::parser::{Pipeline, PipelineElement};
-use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
+use crate::shell::shell_manager::ShellManager;
 use crate::Tagged;
 use ansi_term::Color;
-use rustyline::completion::{self, Completer, FilenameCompleter};
+use rustyline::completion::{self, Completer};
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
-use rustyline::hint::{Hinter, HistoryHinter};
+use rustyline::hint::Hinter;
 use std::borrow::Cow::{self, Owned};
 
 crate struct Helper {
-    completer: NuCompleter,
-    hinter: HistoryHinter,
+    helper: ShellManager,
 }
 
 impl Helper {
-    crate fn new(commands: indexmap::IndexMap<String, Arc<dyn Command>>) -> Helper {
-        Helper {
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands,
-            },
-            hinter: HistoryHinter {},
-        }
+    crate fn new(helper: ShellManager) -> Helper {
+        Helper { helper }
     }
 }
 
@@ -38,13 +30,13 @@ impl Completer for Helper {
         pos: usize,
         ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
-        self.completer.complete(line, pos, ctx)
+        self.helper.complete(line, pos, ctx)
     }
 }
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, ctx)
+        self.helper.hint(line, pos, ctx)
     }
 }
 

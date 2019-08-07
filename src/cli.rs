@@ -161,9 +161,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-xml", Box::new(from_xml::from_xml)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
             command("get", Box::new(get::get)),
-            command("exit", Box::new(exit::exit)),
+            command("enter", Box::new(enter::enter)),
+            command("n", Box::new(next::next)),
+            command("p", Box::new(prev::prev)),
             command("lines", Box::new(lines::lines)),
             command("pick", Box::new(pick::pick)),
+            command("shells", Box::new(shells::shells)),
             command("split-column", Box::new(split_column::split_column)),
             command("split-row", Box::new(split_row::split_row)),
             command("lines", Box::new(lines::lines)),
@@ -182,29 +185,30 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Date),
             Arc::new(Where),
             Arc::new(Config),
+            Arc::new(Exit),
             Arc::new(SkipWhile),
         ]);
 
         context.add_sinks(vec![
             sink("autoview", Box::new(autoview::autoview)),
             sink("clip", Box::new(clip::clip)),
-            sink("save", Box::new(save::save)),
             sink("table", Box::new(table::table)),
             sink("vtable", Box::new(vtable::vtable)),
+            Arc::new(Save),
         ]);
     }
     let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let h = crate::shell::Helper::new(context.clone_commands());
-    let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
+    //let h = crate::shell::Helper::new(context.clone_commands());
+    let mut rl: Editor<_> = Editor::with_config(config);
 
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
     }
 
-    rl.set_helper(Some(h));
+    //rl.set_helper(Some(h));
     let _ = rl.load_history("history.txt");
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
@@ -220,10 +224,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let cwd = {
-            let env = context.env.lock().unwrap();
-            env.path().display().to_string()
-        };
+        let cwd = context.shell_manager.path();
+
+        rl.set_helper(Some(crate::shell::Helper::new(
+            context.shell_manager.clone(),
+        )));
+
         let readline = rl.readline(&format!(
             "{}{}> ",
             cwd,

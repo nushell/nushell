@@ -12,11 +12,7 @@ command! {
         let span = args.call_info.name_span;
 
         let cwd = args
-            .env
-            .lock()
-            .unwrap()
-            .path()
-            .to_path_buf();
+            .shell_manager.path();
 
         let full_path = PathBuf::from(cwd);
 

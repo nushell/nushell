@@ -3,7 +3,7 @@ use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
 use crate::prelude::*;
 use indexmap::IndexMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct Copycp;
 
@@ -32,8 +32,8 @@ impl Command for Copycp {
 }
 
 pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut source = args.env.lock().unwrap().path().to_path_buf();
-    let mut destination = args.env.lock().unwrap().path().to_path_buf();
+    let mut source = PathBuf::from(args.shell_manager.path());
+    let mut destination = PathBuf::from(args.shell_manager.path());
 
     let mut dst = String::new();
 
