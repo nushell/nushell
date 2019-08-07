@@ -79,7 +79,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 -------------+----------------------------+---------+---------+------+---------
  authors     | description                | edition | license | name | version
 -------------+----------------------------+---------+---------+------+---------
- [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.1.2
+ [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.1.3
 -------------+----------------------------+---------+---------+------+---------
 ```
 
@@ -87,11 +87,18 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.1.2
+0.1.3
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
 
+## Shells
+
+By default, Nu will work inside of a single directory and allow you to navigate around your filesystem. Sometimes, you're working in multiple directories at the same time. For this, Nu offers a way of adding additional working directories that you can jump between. 
+
+To do so, use the `enter` command, which will allow you create a new shell and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
+
+Finally, to get a list of all the current shells, you can use the `shells` command.
 
 ## Plugins
 
@@ -127,7 +134,11 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | sys | View information about the current system |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
-| exit | Exit the shell |
+| exit (--now) | Exit the current shell (or all shells) |
+| enter (path) | Create a new shell and begin at this path |
+| p | Go to previous shell |
+| n | Go to next shell |
+| shells | Display the list of current shells |
 
 ## Filters on tables (structured data)
 | command | description |
