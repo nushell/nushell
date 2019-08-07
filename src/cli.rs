@@ -161,7 +161,10 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-xml", Box::new(from_xml::from_xml)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
             command("get", Box::new(get::get)),
+            command("enter", Box::new(enter::enter)),
             command("exit", Box::new(exit::exit)),
+            command("next", Box::new(next::next)),
+            command("prev", Box::new(prev::prev)),
             command("lines", Box::new(lines::lines)),
             command("pick", Box::new(pick::pick)),
             command("split-column", Box::new(split_column::split_column)),
@@ -196,15 +199,15 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let h = crate::shell::Helper::new(context.clone_commands());
-    let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
+    //let h = crate::shell::Helper::new(context.clone_commands());
+    let mut rl: Editor<_> = Editor::with_config(config);
 
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
     }
 
-    rl.set_helper(Some(h));
+    //rl.set_helper(Some(h));
     let _ = rl.load_history("history.txt");
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
@@ -221,9 +224,19 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         }
 
         let cwd = {
-            let env = context.env.lock().unwrap();
-            env.path().display().to_string()
+            context
+                .env
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .path()
+                .display()
+                .to_string()
         };
+
+        rl.set_helper(Some(crate::shell::Helper::new(context.env.clone())));
+
         let readline = rl.readline(&format!(
             "{}{}> ",
             cwd,
@@ -348,7 +361,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
                     command: sink("autoview", Box::new(autoview::autoview)),
-                    name_span: None,
+                    name_span: Span::unknown(),
                     args: registry::Args {
                         positional: None,
                         named: None,
@@ -382,7 +395,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     }
 
                     (Some(ClassifiedCommand::Sink(SinkCommand { name_span, .. })), Some(_)) => {
-                        return LineResult::Error(line.clone(), ShellError::maybe_labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
+                        return LineResult::Error(line.clone(), ShellError::labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
                     }
 
                     (Some(ClassifiedCommand::Sink(left)), None) => {
@@ -496,7 +509,7 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
-                        name_span: Some(head.span().clone()),
+                        name_span: head.span().clone(),
                         args,
                     }))
                 }
@@ -510,7 +523,7 @@ fn classify_command(
 
                         Ok(ClassifiedCommand::Sink(SinkCommand {
                             command,
-                            name_span: Some(head.span().clone()),
+                            name_span: head.span().clone(),
                             args,
                         }))
                     }
@@ -521,7 +534,7 @@ fn classify_command(
                                 .iter()
                                 .filter_map(|i| match i {
                                     TokenNode::Whitespace(_) => None,
-                                    other => Some(Tagged::from_item(
+                                    other => Some(Tagged::from_simple_spanned_item(
                                         other.as_external_arg(source),
                                         other.span(),
                                     )),
@@ -532,7 +545,7 @@ fn classify_command(
 
                         Ok(ClassifiedCommand::External(ExternalCommand {
                             name: name.to_string(),
-                            name_span: Some(head.span().clone()),
+                            name_span: head.span().clone(),
                             args: arg_list_strings,
                         }))
                     }

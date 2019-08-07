@@ -99,7 +99,7 @@ impl ClassifiedCommand {
 
 crate struct SinkCommand {
     crate command: Arc<dyn Sink>,
-    crate name_span: Option<Span>,
+    crate name_span: Span,
     crate args: Args,
 }
 
@@ -111,7 +111,7 @@ impl SinkCommand {
 
 crate struct InternalCommand {
     crate command: Arc<dyn Command>,
-    crate name_span: Option<Span>,
+    crate name_span: Span,
     crate args: Args,
 }
 
@@ -145,12 +145,35 @@ impl InternalCommand {
             match item? {
                 ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
-                        context.env.lock().unwrap().path = path;
+                        let result = context
+                            .env
+                            .lock()
+                            .unwrap()
+                            .last_mut()
+                            .unwrap()
+                            .set_path(path);
                     }
                     CommandAction::AddSpanSource(uuid, span_source) => {
                         context.add_span_source(uuid, span_source);
                     }
                     CommandAction::Exit => std::process::exit(0),
+                    CommandAction::Enter(location) => {
+                        context
+                            .env
+                            .lock()
+                            .unwrap()
+                            .push(Box::new(Environment::with_location(location)?));
+                    }
+                    CommandAction::PreviousShell => {
+                        let mut x = context.env.lock().unwrap();
+                        let shell = x.pop().unwrap();
+                        x.insert(0, shell);
+                    }
+                    CommandAction::NextShell => {
+                        let mut x = context.env.lock().unwrap();
+                        let shell = x.remove(0);
+                        x.push(shell);
+                    }
                 },
 
                 ReturnSuccess::Value(v) => {
@@ -166,7 +189,7 @@ impl InternalCommand {
 crate struct ExternalCommand {
     crate name: String,
     #[allow(unused)]
-    crate name_span: Option<Span>,
+    crate name_span: Span,
     crate args: Vec<Tagged<String>>,
 }
 
@@ -240,7 +263,10 @@ impl ExternalCommand {
             } else {
                 for arg in &self.args {
                     let arg_chars: Vec<_> = arg.chars().collect();
-                    if arg_chars.len() > 1 && arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"' {
+                    if arg_chars.len() > 1
+                        && arg_chars[0] == '"'
+                        && arg_chars[arg_chars.len() - 1] == '"'
+                    {
                         // quoted string
                         let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                         process = process.arg(new_arg);
@@ -258,13 +284,13 @@ impl ExternalCommand {
                 let mut first = true;
                 for i in &inputs {
                     if i.as_string().is_err() {
-                        let mut span = None;
+                        let mut span = name_span;
                         for arg in &self.args {
                             if arg.item.contains("$it") {
-                                span = Some(arg.span());
+                                span = arg.span();
                             }
                         }
-                        return Err(ShellError::maybe_labeled_error(
+                        return Err(ShellError::labeled_error(
                             "External $it needs string data",
                             "given object instead of string data",
                             span,
@@ -295,7 +321,7 @@ impl ExternalCommand {
 
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().path());
+        process = process.cwd(context.env.lock().unwrap().last().unwrap().path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,
@@ -323,7 +349,9 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(name_span));
+                let stream = stream.map(move |line| {
+                    Tagged::from_simple_spanned_item(Value::string(line.unwrap()), name_span)
+                });
                 Ok(ClassifiedInputStream::from_input_stream(
                     stream.boxed() as BoxStream<'static, Tagged<Value>>
                 ))

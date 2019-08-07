@@ -5,25 +5,32 @@ use serde::Serialize;
 use serde_derive::Deserialize;
 use uuid::Uuid;
 
-#[derive(
-    new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
-)]
-#[get = "crate"]
+#[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Tagged<T> {
     pub tag: Tag,
     pub item: T,
 }
 
 pub trait TaggedItem: Sized {
-    fn tagged(self, span: impl Into<Span>) -> Tagged<Self> {
-        Tagged::from_item(self, span.into())
+    fn tagged(self, tag: impl Into<Tag>) -> Tagged<Self> {
+        Tagged::from_item(self, tag.into())
+    }
+
+    fn simple_spanned(self, span: impl Into<Span>) -> Tagged<Self> {
+        Tagged::from_simple_spanned_item(self, span.into())
     }
 
     // For now, this is a temporary facility. In many cases, there are other useful spans that we
     // could be using, such as the original source spans of JSON or Toml files, but we don't yet
     // have the infrastructure to make that work.
     fn tagged_unknown(self) -> Tagged<Self> {
-        Tagged::from_item(self, (0, 0))
+        Tagged::from_item(
+            self,
+            Tag {
+                span: Span::unknown(),
+                origin: None,
+            },
+        )
     }
 }
 
@@ -38,28 +45,44 @@ impl<T> std::ops::Deref for Tagged<T> {
 }
 
 impl<T> Tagged<T> {
-    pub fn tagged(self, span: impl Into<Span>) -> Tagged<T> {
-        Tagged::from_item(self.item, span.into())
+    pub fn spanned(self, span: impl Into<Span>) -> Tagged<T> {
+        Tagged::from_item(
+            self.item,
+            Tag {
+                span: span.into(),
+                origin: None,
+            },
+        )
     }
 
-    pub fn from_item(item: T, span: impl Into<Span>) -> Tagged<T> {
+    pub fn from_item(item: T, tag: impl Into<Tag>) -> Tagged<T> {
         Tagged {
             item,
-            tag: Tag { span: span.into() },
+            tag: tag.into(),
         }
     }
 
+    pub fn from_simple_spanned_item(item: T, span: impl Into<Span>) -> Tagged<T> {
+        Tagged::from_item(
+            item,
+            Tag {
+                span: span.into(),
+                origin: None,
+            },
+        )
+    }
+
     pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Tagged<U> {
-        let span = self.span();
+        let tag = self.tag();
 
         let mapped = input(self.item);
-        Tagged::from_item(mapped, span)
+        Tagged::from_item(mapped, tag.clone())
     }
 
     crate fn copy_span<U>(&self, output: U) -> Tagged<U> {
         let span = self.span();
 
-        Tagged::from_item(output, span)
+        Tagged::from_simple_spanned_item(output, span)
     }
 
     pub fn source(&self, source: &Text) -> Text {
@@ -68,6 +91,18 @@ impl<T> Tagged<T> {
 
     pub fn span(&self) -> Span {
         self.tag.span
+    }
+
+    pub fn tag(&self) -> Tag {
+        self.tag
+    }
+
+    pub fn origin(&self) -> Option<uuid::Uuid> {
+        self.tag.origin
+    }
+
+    pub fn item(&self) -> &T {
+        &self.item
     }
 }
 
@@ -88,7 +123,6 @@ impl From<nom5_locate::LocatedSpan<&str>> for Span {
         Span {
             start: input.offset,
             end: input.offset + input.fragment.len(),
-            source: None,
         }
     }
 }
@@ -98,7 +132,6 @@ impl<T> From<(nom5_locate::LocatedSpan<T>, nom5_locate::LocatedSpan<T>)> for Spa
         Span {
             start: input.0.offset,
             end: input.1.offset,
-            source: None,
         }
     }
 }
@@ -108,7 +141,6 @@ impl From<(usize, usize)> for Span {
         Span {
             start: input.0,
             end: input.1,
-            source: None,
         }
     }
 }
@@ -118,7 +150,6 @@ impl From<&std::ops::Range<usize>> for Span {
         Span {
             start: input.start,
             end: input.end,
-            source: None,
         }
     }
 }
@@ -127,24 +158,33 @@ impl From<&std::ops::Range<usize>> for Span {
     Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
 )]
 pub struct Tag {
+    pub origin: Option<Uuid>,
     pub span: Span,
+}
+
+impl Tag {
+    pub fn unknown_origin(span: Span) -> Tag {
+        Tag { origin: None, span }
+    }
+
+    pub fn unknown() -> Tag {
+        Tag {
+            origin: None,
+            span: Span::unknown(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Span {
     crate start: usize,
     crate end: usize,
-    pub source: Option<Uuid>,
 }
 
 impl From<Option<Span>> for Span {
     fn from(input: Option<Span>) -> Span {
         match input {
-            None => Span {
-                start: 0,
-                end: 0,
-                source: None,
-            },
+            None => Span { start: 0, end: 0 },
             Some(span) => span,
         }
     }
@@ -152,13 +192,10 @@ impl From<Option<Span>> for Span {
 
 impl Span {
     pub fn unknown() -> Span {
-        Span {
-            start: 0,
-            end: 0,
-            source: None,
-        }
+        Span { start: 0, end: 0 }
     }
 
+    /*
     pub fn unknown_with_uuid(uuid: Uuid) -> Span {
         Span {
             start: 0,
@@ -166,6 +203,7 @@ impl Span {
             source: Some(uuid),
         }
     }
+    */
 
     pub fn is_unknown(&self) -> bool {
         self.start == 0 && self.end == 0
@@ -181,7 +219,6 @@ impl language_reporting::ReportingSpan for Span {
         Span {
             start,
             end: self.end,
-            source: None,
         }
     }
 
@@ -189,7 +226,6 @@ impl language_reporting::ReportingSpan for Span {
         Span {
             start: self.start,
             end,
-            source: None,
         }
     }
 

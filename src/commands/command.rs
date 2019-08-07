@@ -4,6 +4,7 @@ use crate::errors::ShellError;
 use crate::object::Value;
 use crate::parser::registry::{self, Args};
 use crate::prelude::*;
+use crate::shell::shell::Shell;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -13,14 +14,14 @@ use uuid::Uuid;
 pub struct CallInfo {
     pub args: Args,
     pub source_map: SourceMap,
-    pub name_span: Option<Span>,
+    pub name_span: Span,
 }
 
 #[derive(Getters)]
 #[get = "crate"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
-    pub env: Arc<Mutex<Environment>>,
+    pub env: Arc<Mutex<Vec<Box<dyn Shell>>>>,
     pub call_info: CallInfo,
     pub input: InputStream,
 }
@@ -63,6 +64,9 @@ pub enum CommandAction {
     ChangePath(PathBuf),
     AddSpanSource(Uuid, SpanSource),
     Exit,
+    Enter(String),
+    PreviousShell,
+    NextShell,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -93,7 +97,9 @@ impl ReturnSuccess {
     }
 
     pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
-        Ok(ReturnSuccess::Value(Tagged::from_item(input, span)))
+        Ok(ReturnSuccess::Value(Tagged::from_simple_spanned_item(
+            input, span,
+        )))
     }
 }
 

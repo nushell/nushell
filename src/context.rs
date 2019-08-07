@@ -38,7 +38,7 @@ pub struct Context {
     sinks: IndexMap<String, Arc<dyn Sink>>,
     crate source_map: SourceMap,
     crate host: Arc<Mutex<dyn Host + Send>>,
-    crate env: Arc<Mutex<Environment>>,
+    crate env: Arc<Mutex<Vec<Box<dyn Shell>>>>,
 }
 
 impl Context {
@@ -48,7 +48,7 @@ impl Context {
             sinks: indexmap::IndexMap::new(),
             source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
-            env: Arc::new(Mutex::new(Environment::basic()?)),
+            env: Arc::new(Mutex::new(vec![Box::new(Environment::basic()?)])),
         })
     }
 
@@ -79,7 +79,7 @@ impl Context {
     crate fn run_sink(
         &mut self,
         command: Arc<dyn Sink>,
-        name_span: Option<Span>,
+        name_span: Span,
         args: Args,
         input: Vec<Tagged<Value>>,
     ) -> Result<(), ShellError> {
@@ -111,7 +111,7 @@ impl Context {
     crate fn run_command(
         &mut self,
         command: Arc<dyn Command>,
-        name_span: Option<Span>,
+        name_span: Span,
         source_map: SourceMap,
         args: Args,
         input: InputStream,

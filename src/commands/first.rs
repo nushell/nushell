@@ -5,7 +5,7 @@ use crate::prelude::*;
 
 pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
     if args.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "First requires an amount",
             "needs parameter",
             args.call_info.name_span,

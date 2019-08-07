@@ -43,6 +43,7 @@ crate use crate::errors::ShellError;
 crate use crate::object::meta::{Tag, Tagged, TaggedItem};
 crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
+crate use crate::shell::shell::Shell;
 crate use crate::stream::{InputStream, OutputStream};
 crate use crate::Span;
 crate use crate::Text;

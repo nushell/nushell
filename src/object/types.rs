@@ -21,7 +21,7 @@ pub trait ExtractType: Sized {
 
 impl<T: ExtractType> ExtractType for Tagged<T> {
     fn extract(value: &Tagged<Value>) -> Result<Tagged<T>, ShellError> {
-        Ok(T::extract(value)?.tagged(value.span()))
+        Ok(T::extract(value)?.tagged(value.tag()))
     }
 
     fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {

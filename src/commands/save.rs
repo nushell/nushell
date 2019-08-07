@@ -9,7 +9,15 @@ use crate::SpanSource;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
-    let cwd = args.ctx.env.lock().unwrap().path().to_path_buf();
+    let cwd = args
+        .ctx
+        .env
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .path()
+        .to_path_buf();
     let mut full_path = PathBuf::from(cwd);
 
     let save_raw = if args.call_info.args.has("raw") {
@@ -21,18 +29,14 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
     if args.call_info.args.positional.is_none() {
         // If there is no filename, check the metadata for the origin filename
         if args.input.len() > 0 {
-            let span = args.input[0].span();
-            match span
-                .source
-                .map(|x| args.call_info.source_map.get(&x))
-                .flatten()
-            {
+            let origin = args.input[0].origin();
+            match origin.map(|x| args.call_info.source_map.get(&x)).flatten() {
                 Some(path) => match path {
                     SpanSource::File(file) => {
                         full_path.push(Path::new(file));
                     }
                     _ => {
-                        return Err(ShellError::maybe_labeled_error(
+                        return Err(ShellError::labeled_error(
                             "Save requires a filepath",
                             "needs path",
                             args.call_info.name_span,
@@ -40,7 +44,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                     }
                 },
                 None => {
-                    return Err(ShellError::maybe_labeled_error(
+                    return Err(ShellError::labeled_error(
                         "Save requires a filepath",
                         "needs path",
                         args.call_info.name_span,
@@ -48,7 +52,7 @@ pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
                 }
             }
         } else {
-            return Err(ShellError::maybe_labeled_error(
+            return Err(ShellError::labeled_error(
                 "Save requires a filepath",
                 "needs path",
                 args.call_info.name_span,

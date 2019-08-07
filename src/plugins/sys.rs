@@ -6,7 +6,7 @@ use heim::{disk, memory};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Span, Tagged, TaggedDictBuilder, Value, OF64,
+    ShellError, Tag, Tagged, TaggedDictBuilder, Value, OF64,
 };
 use std::ffi::OsStr;
 
@@ -19,9 +19,9 @@ impl Sys {
 
 //TODO: add more error checking
 
-async fn cpu(span: Span) -> Option<Tagged<Value>> {
+async fn cpu(tag: Tag) -> Option<Tagged<Value>> {
     if let (Ok(num_cpu), Ok(cpu_speed)) = (sys_info::cpu_num(), sys_info::cpu_speed()) {
-        let mut cpu_idx = TaggedDictBuilder::new(span);
+        let mut cpu_idx = TaggedDictBuilder::new(tag);
         cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
         cpu_idx.insert("speed", Primitive::Int(cpu_speed as i64));
         Some(cpu_idx.into_tagged_value())
@@ -30,8 +30,8 @@ async fn cpu(span: Span) -> Option<Tagged<Value>> {
     }
 }
 
-async fn mem(span: Span) -> Tagged<Value> {
-    let mut dict = TaggedDictBuilder::new(span);
+async fn mem(tag: Tag) -> Tagged<Value> {
+    let mut dict = TaggedDictBuilder::new(tag);
 
     if let Ok(memory) = memory::memory().await {
         dict.insert("total", Value::bytes(memory.total().get()));
@@ -45,8 +45,8 @@ async fn mem(span: Span) -> Tagged<Value> {
     dict.into_tagged_value()
 }
 
-async fn host(span: Span) -> Tagged<Value> {
-    let mut dict = TaggedDictBuilder::new(span);
+async fn host(tag: Tag) -> Tagged<Value> {
+    let mut dict = TaggedDictBuilder::new(tag);
 
     // OS
     if let Ok(platform) = heim::host::platform().await {
@@ -58,7 +58,7 @@ async fn host(span: Span) -> Tagged<Value> {
 
     // Uptime
     if let Ok(uptime) = heim::host::uptime().await {
-        let mut uptime_dict = TaggedDictBuilder::new(span);
+        let mut uptime_dict = TaggedDictBuilder::new(tag);
 
         let uptime = uptime.get().round() as i64;
         let days = uptime / (60 * 60 * 24);
@@ -79,7 +79,7 @@ async fn host(span: Span) -> Tagged<Value> {
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
-            user_vec.push(Tagged::from_item(Value::string(user.username()), span));
+            user_vec.push(Tagged::from_item(Value::string(user.username()), tag));
         }
     }
     let user_list = Value::List(user_vec);
@@ -88,12 +88,12 @@ async fn host(span: Span) -> Tagged<Value> {
     dict.into_tagged_value()
 }
 
-async fn disks(span: Span) -> Value {
+async fn disks(tag: Tag) -> Value {
     let mut output = vec![];
     let mut partitions = disk::partitions_physical();
     while let Some(part) = partitions.next().await {
         if let Ok(part) = part {
-            let mut dict = TaggedDictBuilder::new(span);
+            let mut dict = TaggedDictBuilder::new(tag);
             dict.insert(
                 "device",
                 Value::string(
@@ -117,14 +117,14 @@ async fn disks(span: Span) -> Value {
     Value::List(output)
 }
 
-async fn temp(span: Span) -> Value {
+async fn temp(tag: Tag) -> Value {
     use sysinfo::{ComponentExt, RefreshKind, SystemExt};
     let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_system());
     let components_list = system.get_components_list();
     if components_list.len() > 0 {
         let mut v: Vec<Tagged<Value>> = vec![];
         for component in components_list {
-            let mut component_idx = TaggedDictBuilder::new(span);
+            let mut component_idx = TaggedDictBuilder::new(tag);
             component_idx.insert("name", Primitive::String(component.get_label().to_string()));
             component_idx.insert(
                 "temp",
@@ -145,7 +145,7 @@ async fn temp(span: Span) -> Value {
     }
 }
 
-async fn net(span: Span) -> Tagged<Value> {
+async fn net(tag: Tag) -> Tagged<Value> {
     use sysinfo::{NetworkExt, RefreshKind, SystemExt};
     let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_network());
 
@@ -153,23 +153,23 @@ async fn net(span: Span) -> Tagged<Value> {
     let incoming = network.get_income();
     let outgoing = network.get_outcome();
 
-    let mut network_idx = TaggedDictBuilder::new(span);
+    let mut network_idx = TaggedDictBuilder::new(tag);
     network_idx.insert("incoming", Value::bytes(incoming));
     network_idx.insert("outgoing", Value::bytes(outgoing));
     network_idx.into_tagged_value()
 }
 
-async fn sysinfo(span: Span) -> Vec<Tagged<Value>> {
-    let mut sysinfo = TaggedDictBuilder::new(span);
+async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
+    let mut sysinfo = TaggedDictBuilder::new(tag);
 
-    sysinfo.insert_tagged("host", host(span).await);
-    if let Some(cpu) = cpu(span).await {
+    sysinfo.insert_tagged("host", host(tag).await);
+    if let Some(cpu) = cpu(tag).await {
         sysinfo.insert_tagged("cpu", cpu);
     }
-    sysinfo.insert("disks", disks(span).await);
-    sysinfo.insert_tagged("mem", mem(span).await);
-    sysinfo.insert("temp", temp(span).await);
-    sysinfo.insert_tagged("net", net(span).await);
+    sysinfo.insert("disks", disks(tag).await);
+    sysinfo.insert_tagged("mem", mem(tag).await);
+    sysinfo.insert("temp", temp(tag).await);
+    sysinfo.insert_tagged("net", net(tag).await);
 
     vec![sysinfo.into_tagged_value()]
 }
@@ -186,12 +186,10 @@ impl Plugin for Sys {
         })
     }
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(block_on(sysinfo(
-            callinfo.name_span.unwrap_or_else(|| Span::unknown()),
-        ))
-        .into_iter()
-        .map(|x| ReturnSuccess::value(x))
-        .collect())
+        Ok(block_on(sysinfo(Tag::unknown_origin(callinfo.name_span)))
+            .into_iter()
+            .map(|x| ReturnSuccess::value(x))
+            .collect())
     }
 
     fn filter(&mut self, _: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {

@@ -8,7 +8,7 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.call_info.name_span;
 
     if positional.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "Split-row needs more information",
             "needs parameter (eg split-row \"\\n\")",
             args.call_info.name_span,
@@ -30,17 +30,19 @@ pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnSuccess::value(
-                        Value::Primitive(Primitive::String(s.into())).tagged(v.span()),
+                        Value::Primitive(Primitive::String(s.into())).tagged(v.tag()),
                     ));
                 }
                 result
             }
             _ => {
                 let mut result = VecDeque::new();
-                result.push_back(Err(ShellError::maybe_labeled_error(
-                    "Expected string values from pipeline",
-                    "expects strings from pipeline",
+                result.push_back(Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
                     span,
+                    "value originates from here",
+                    v.span(),
                 )));
                 result
             }

@@ -48,13 +48,15 @@ pub fn to_json(args: CommandArgs) -> Result<OutputStream, ShellError> {
         .values
         .map(
             move |a| match serde_json::to_string(&value_to_json_value(&a)) {
-                Ok(x) => {
-                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).tagged(name_span))
-                }
-                Err(_) => Err(ShellError::maybe_labeled_error(
-                    "Can not convert to JSON string",
-                    "can not convert piped data to JSON string",
+                Ok(x) => ReturnSuccess::value(
+                    Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+                ),
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected an object with JSON-compatible structure from pipeline",
+                    "requires JSON-compatible input",
                     name_span,
+                    format!("{} originates from here", a.item.type_name()),
+                    a.span(),
                 )),
             },
         )

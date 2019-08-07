@@ -12,9 +12,9 @@ pub enum FileType {
 crate fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: &std::fs::Metadata,
-    span: impl Into<Span>,
+    tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, ShellError> {
-    let mut dict = TaggedDictBuilder::new(span);
+    let mut dict = TaggedDictBuilder::new(tag);
     dict.insert("name", Value::string(filename.to_string_lossy()));
 
     let kind = if metadata.is_dir() {

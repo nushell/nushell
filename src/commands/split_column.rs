@@ -8,7 +8,7 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let span = args.call_info.name_span;
 
     if positional.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "Split-column needs more information",
             "needs parameter (eg split-column \",\")",
             args.call_info.name_span,
@@ -34,14 +34,14 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         gen_columns.push(format!("Column{}", i + 1));
                     }
 
-                    let mut dict = TaggedDictBuilder::new(v.span());
+                    let mut dict = TaggedDictBuilder::new(v.tag());
                     for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
                         dict.insert(v.clone(), Primitive::String(k.into()));
                     }
 
                     ReturnSuccess::value(dict.into_tagged_value())
                 } else if split_result.len() == (positional.len() - 1) {
-                    let mut dict = TaggedDictBuilder::new(v.span());
+                    let mut dict = TaggedDictBuilder::new(v.tag());
                     for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
                         dict.insert(
                             v.as_string().unwrap(),
@@ -50,17 +50,19 @@ pub fn split_column(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 } else {
-                    let mut dict = TaggedDictBuilder::new(v.span());
+                    let mut dict = TaggedDictBuilder::new(v.tag());
                     for k in positional.iter().skip(1) {
                         dict.insert(k.as_string().unwrap().trim(), Primitive::String("".into()));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 }
             }
-            _ => Err(ShellError::maybe_labeled_error(
-                "Expected string values from pipeline",
-                "expects strings from pipeline",
+            _ => Err(ShellError::labeled_error_with_secondary(
+                "Expected a string from pipeline",
+                "requires string input",
                 span,
+                "value originates from here",
+                v.span(),
             )),
         })
         .to_output_stream())

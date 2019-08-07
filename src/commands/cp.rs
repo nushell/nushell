@@ -32,8 +32,22 @@ impl Command for Copycp {
 }
 
 pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut source = args.env.lock().unwrap().path().to_path_buf();
-    let mut destination = args.env.lock().unwrap().path().to_path_buf();
+    let mut source = args
+        .env
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .path()
+        .to_path_buf();
+    let mut destination = args
+        .env
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .path()
+        .to_path_buf();
 
     let mut dst = String::new();
 

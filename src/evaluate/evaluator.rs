@@ -38,14 +38,17 @@ crate fn evaluate_baseline_expr(
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
 
             match left.compare(binary.op(), &*right) {
-                Ok(result) => Ok(Tagged::from_item(Value::boolean(result), expr.span())),
+                Ok(result) => Ok(Tagged::from_simple_spanned_item(
+                    Value::boolean(result),
+                    expr.span(),
+                )),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     binary.left().copy_span(left_type),
                     binary.right().copy_span(right_type),
                 )),
             }
         }
-        RawExpression::Block(block) => Ok(Tagged::from_item(
+        RawExpression::Block(block) => Ok(Tagged::from_simple_spanned_item(
             Value::Block(Block::new(block.clone(), source.clone(), expr.span())),
             expr.span(),
         )),
@@ -64,7 +67,7 @@ crate fn evaluate_baseline_expr(
                         ))
                     }
                     Some(next) => {
-                        item = Tagged::from_item(
+                        item = Tagged::from_simple_spanned_item(
                             next.clone().item,
                             (expr.span().start, name.span().end),
                         )
@@ -72,7 +75,10 @@ crate fn evaluate_baseline_expr(
                 };
             }
 
-            Ok(Tagged::from_item(item.item().clone(), expr.span()))
+            Ok(Tagged::from_simple_spanned_item(
+                item.item().clone(),
+                expr.span(),
+            ))
         }
         RawExpression::Boolean(_boolean) => unimplemented!(),
     }
@@ -95,11 +101,11 @@ fn evaluate_reference(
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     match name {
-        hir::Variable::It(span) => Ok(Tagged::from_item(scope.it.item.clone(), span)),
+        hir::Variable::It(span) => Ok(scope.it.item.clone().simple_spanned(span)),
         hir::Variable::Other(span) => Ok(scope
             .vars
             .get(span.slice(source))
             .map(|v| v.clone())
-            .unwrap_or_else(|| Value::nothing().tagged(span))),
+            .unwrap_or_else(|| Value::nothing().simple_spanned(span))),
     }
 }

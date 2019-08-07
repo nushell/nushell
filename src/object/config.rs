@@ -47,7 +47,7 @@ crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>
     trace!("config file = {}", filename.display());
 
     let contents = fs::read_to_string(filename)
-        .map(|v| v.tagged(span))
+        .map(|v| v.simple_spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
 
     let parsed: Config = toml::from_str(&contents)

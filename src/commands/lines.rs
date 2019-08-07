@@ -27,10 +27,12 @@ pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
             }
             _ => {
                 let mut result = VecDeque::new();
-                result.push_back(Err(ShellError::maybe_labeled_error(
-                    "Expected string values from pipeline",
-                    "expects strings from pipeline",
+                result.push_back(Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
                     span,
+                    "value originates from here",
+                    v.span(),
                 )));
                 result
             }

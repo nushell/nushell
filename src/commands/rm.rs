@@ -33,7 +33,14 @@ impl Command for Remove {
 }
 
 pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut full_path = args.env.lock().unwrap().path().to_path_buf();
+    let mut full_path = args
+        .env
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .path()
+        .to_path_buf();
 
     match args
         .nth(0)
@@ -61,7 +68,7 @@ pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
                         return Err(ShellError::labeled_error(
                             "is a directory",
                             "",
-                            args.call_info.name_span.unwrap(),
+                            args.call_info.name_span,
                         ));
                     }
                     std::fs::remove_dir_all(&path).expect("can not remove directory");

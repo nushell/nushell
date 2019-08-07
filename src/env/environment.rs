@@ -1,19 +1,53 @@
 use crate::commands::command::CallInfo;
 use crate::object::dir_entry_dict;
 use crate::prelude::*;
+use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
+use rustyline::completion::{self, Completer, FilenameCompleter};
+use rustyline::error::ReadlineError;
+use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
-
-#[derive(Debug, Clone)]
 pub struct Environment {
     crate path: PathBuf,
+    completer: NuCompleter,
+    hinter: HistoryHinter,
+}
+
+impl Clone for Environment {
+    fn clone(&self) -> Self {
+        Environment {
+            path: self.path.clone(),
+            completer: NuCompleter {
+                file_completer: FilenameCompleter::new(),
+            },
+            hinter: HistoryHinter {},
+        }
+    }
 }
 
 impl Environment {
     pub fn basic() -> Result<Environment, std::io::Error> {
         let path = std::env::current_dir()?;
 
-        Ok(Environment { path })
+        Ok(Environment {
+            path,
+            completer: NuCompleter {
+                file_completer: FilenameCompleter::new(),
+            },
+            hinter: HistoryHinter {},
+        })
+    }
+
+    pub fn with_location(location: String) -> Result<Environment, std::io::Error> {
+        let path = std::path::PathBuf::from(location);
+
+        Ok(Environment {
+            path,
+            completer: NuCompleter {
+                file_completer: FilenameCompleter::new(),
+            },
+            hinter: HistoryHinter {},
+        })
     }
 
     pub fn path(&self) -> &Path {
@@ -24,12 +58,11 @@ impl Environment {
 impl Shell for Environment {
     fn ls(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
         let cwd = self.path.clone();
-        let mut full_path = PathBuf::from(&cwd);
+        let mut full_path = PathBuf::from(&self.path);
         match &call_info.args.nth(0) {
             Some(Tagged { item: value, .. }) => full_path.push(Path::new(&value.as_string()?)),
             _ => {}
         }
-
         let entries = glob::glob(&full_path.to_string_lossy());
 
         if entries.is_err() {
@@ -54,7 +87,7 @@ impl Shell for Environment {
                                     s.span(),
                                 ));
                             } else {
-                                return Err(ShellError::maybe_labeled_error(
+                                return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
                                     call_info.name_span,
@@ -67,8 +100,11 @@ impl Shell for Environment {
                         let entry = entry?;
                         let filepath = entry.path();
                         let filename = filepath.strip_prefix(&cwd).unwrap();
-                        let value =
-                            dir_entry_dict(filename, &entry.metadata()?, call_info.name_span)?;
+                        let value = dir_entry_dict(
+                            filename,
+                            &entry.metadata()?,
+                            Tag::unknown_origin(call_info.name_span),
+                        )?;
                         shell_entries.push_back(ReturnSuccess::value(value))
                     }
                     return Ok(shell_entries.to_output_stream());
@@ -81,7 +117,11 @@ impl Shell for Environment {
             if let Ok(entry) = entry {
                 let filename = entry.strip_prefix(&cwd).unwrap();
                 let metadata = std::fs::metadata(&entry)?;
-                let value = dir_entry_dict(filename, &metadata, call_info.name_span)?;
+                let value = dir_entry_dict(
+                    filename,
+                    &metadata,
+                    Tag::unknown_origin(call_info.name_span),
+                )?;
                 shell_entries.push_back(ReturnSuccess::value(value))
             }
         }
@@ -94,7 +134,7 @@ impl Shell for Environment {
             None => match dirs::home_dir() {
                 Some(o) => o,
                 _ => {
-                    return Err(ShellError::maybe_labeled_error(
+                    return Err(ShellError::labeled_error(
                         "Can not change to home directory",
                         "can not go to home",
                         call_info.name_span,
@@ -133,5 +173,32 @@ impl Shell for Environment {
         }
         stream.push_back(ReturnSuccess::change_cwd(path));
         Ok(stream.into())
+    }
+
+    fn path(&self) -> std::path::PathBuf {
+        self.path.clone()
+    }
+
+    fn set_path(&mut self, path: std::path::PathBuf) {
+        self.path = path;
+    }
+}
+
+impl Completer for Environment {
+    type Candidate = completion::Pair;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
+        self.completer.complete(line, pos, ctx)
+    }
+}
+
+impl Hinter for Environment {
+    fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
+        self.hinter.hint(line, pos, ctx)
     }
 }

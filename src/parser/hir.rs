@@ -64,36 +64,36 @@ pub type Expression = Tagged<RawExpression>;
 
 impl Expression {
     fn int(i: impl Into<i64>, span: impl Into<Span>) -> Expression {
-        Tagged::from_item(RawExpression::Literal(Literal::Integer(i.into())), span)
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Integer(i.into())), span)
     }
 
     fn size(i: impl Into<i64>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
-        Tagged::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::Size(i.into(), unit.into())),
             span,
         )
     }
 
     fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Tagged::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::String(inner.into())),
             outer.into(),
         )
     }
 
     fn bare(span: impl Into<Span>) -> Expression {
-        Tagged::from_item(RawExpression::Literal(Literal::Bare), span.into())
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
     }
 
     fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Tagged::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::Other(inner.into())),
             outer.into(),
         )
     }
 
     fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Tagged::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::It(inner.into())),
             outer.into(),
         )

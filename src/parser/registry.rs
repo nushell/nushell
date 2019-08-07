@@ -252,8 +252,10 @@ fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::named::NamedValue::PresentSwitch(span) => {
-                        results
-                            .insert(name.clone(), Tagged::from_item(Value::boolean(true), *span));
+                        results.insert(
+                            name.clone(),
+                            Tagged::from_simple_spanned_item(Value::boolean(true), *span),
+                        );
                     }
                     hir::named::NamedValue::Value(expr) => {
                         results.insert(
