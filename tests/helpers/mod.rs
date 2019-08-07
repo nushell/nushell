@@ -182,12 +182,11 @@ pub fn copy_file_to(source: &str, destination: &str) {
 }
 
 pub fn files_exist_at(files: Vec<&Path>, path: PathBuf) -> bool {
-    files.iter()
-         .all(|f| {
-            let mut loc = path.clone();
-            loc.push(f);
-            loc.exists()
-        })
+    files.iter().all(|f| {
+        let mut loc = path.clone();
+        loc.push(f);
+        loc.exists()
+    })
 }
 
 pub fn file_exists_at(path: PathBuf) -> bool {
