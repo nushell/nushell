@@ -17,8 +17,7 @@ impl Command for Mkdir {
     }
 
     fn config(&self) -> CommandConfig {
-        let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("create-all".to_string(), NamedType::Switch);
+        let named: IndexMap<String, NamedType> = IndexMap::new();
 
         CommandConfig {
             name: self.name().to_string(),
@@ -39,23 +38,12 @@ pub fn mkdir(args: CommandArgs) -> Result<OutputStream, ShellError> {
         _ => {}
     }
 
-    if !args.has("create-all") {
-        match std::fs::create_dir(full_path) {
-            Err(_) => Err(ShellError::labeled_error(
-                "No such file or directory",
-                "No such file or directory",
-                args.nth(0).unwrap().span(),
-            )),
-            Ok(_) => Ok(OutputStream::empty()),
-        }
-    } else {
-        match std::fs::create_dir_all(full_path) {
-            Err(reason) => Err(ShellError::labeled_error(
-                reason.to_string(),
-                reason.to_string(),
-                args.nth(0).unwrap().span(),
-            )),
-            Ok(_) => Ok(OutputStream::empty()),
-        }
+    match std::fs::create_dir_all(full_path) {
+        Err(reason) => Err(ShellError::labeled_error(
+            reason.to_string(),
+            reason.to_string(),
+            args.nth(0).unwrap().span(),
+        )),
+        Ok(_) => Ok(OutputStream::empty()),
     }
 }

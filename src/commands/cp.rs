@@ -154,7 +154,6 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
             sources.walk_decorate(&entry);
 
             if entry.is_file() {
-
                 let strategy = |(source_file, _depth_level)| {
                     if destination.exists() {
                         let mut new_dst = dunce::canonicalize(destination.clone()).unwrap();

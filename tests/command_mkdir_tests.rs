@@ -19,31 +19,15 @@ fn creates_directory() {
 }
 
 #[test]
-fn error_if_intermediary_directory_doesnt_exist() {
+fn creates_intermediary_directories() {
     let sandbox = Playground::setup_for("mkdir_test_2").test_dir_name();
-
-    let full_path = format!("{}/{}", Playground::root(), sandbox);
-
-    nu_error!(
-        output,
-        cwd(&full_path),
-        "mkdir some_folder/another/deeper_one"
-    );
-
-    assert!(output.contains("some_folder/another/deeper_one"));
-    assert!(output.contains("No such file or directory"));
-}
-
-#[test]
-fn creates_intermediary_directories_with_p_flag() {
-    let sandbox = Playground::setup_for("mkdir_test_3").test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
 
     nu!(
         _output,
         cwd(&full_path),
-        "mkdir some_folder/another/deeper_one --create-all"
+        "mkdir some_folder/another/deeper_one"
     );
 
     let mut expected = PathBuf::from(full_path);
