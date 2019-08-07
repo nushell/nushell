@@ -31,10 +31,79 @@ impl Command for Copycp {
     }
 }
 
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Res {
+    pub loc: PathBuf,
+    pub at: usize,
+}
+
+impl Res {}
+
+pub struct FileStructure {
+    root: PathBuf,
+    resources: Vec<Res>,
+}
+
+impl FileStructure {
+    pub fn new() -> FileStructure {
+        FileStructure {
+            root: PathBuf::new(),
+            resources: Vec::<Res>::new(),
+        }
+    }
+
+    pub fn set_root(&mut self, path: &Path) {
+        self.root = path.to_path_buf();
+    }
+
+    pub fn translate<F>(&mut self, to: F) -> Vec<(PathBuf, PathBuf)>
+    where
+        F: Fn((PathBuf, usize)) -> (PathBuf, PathBuf),
+    {
+        self.resources
+            .iter()
+            .map(|f| (PathBuf::from(&f.loc), f.at))
+            .map(|f| to(f))
+            .collect()
+    }
+
+    pub fn walk_decorate(&mut self, start_path: &Path) {
+        self.set_root(&dunce::canonicalize(start_path).unwrap());
+        self.resources = Vec::<Res>::new();
+        self.build(start_path, 0);
+        self.resources.sort();
+    }
+
+    fn build(&mut self, src: &'a Path, lvl: usize) {
+        let source = dunce::canonicalize(src).unwrap();
+
+        if source.is_dir() {
+            for entry in std::fs::read_dir(&source).unwrap() {
+                let entry = entry.unwrap();
+                let path = entry.path();
+
+                if path.is_dir() {
+                    self.build(&path, lvl + 1);
+                }
+
+                self.resources.push(Res {
+                    loc: path.to_path_buf(),
+                    at: lvl,
+                });
+            }
+        } else {
+            self.resources.push(Res {
+                loc: source,
+                at: lvl,
+            });
+        }
+    }
+}
+
 pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut source = PathBuf::from(args.shell_manager.path());
     let mut destination = PathBuf::from(args.shell_manager.path());
-
+    let name_span = args.call_info.name_span;
 
     match args
         .nth(0)
@@ -58,124 +127,273 @@ pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     }
 
-    let (sources, destinations) = (
-        glob::glob(&source.to_string_lossy()),
-        glob::glob(&destination.to_string_lossy()),
-    );
+    let sources = glob::glob(&source.to_string_lossy());
 
-    if sources.is_err() || destinations.is_err() {
-        return Err(ShellError::string("Invalid pattern."));
+    if sources.is_err() {
+        return Err(ShellError::labeled_error(
+            "Invalid pattern.",
+            "Invalid pattern.",
+            args.nth(0).unwrap().span(),
+        ));
     }
 
-    let (sources, destinations): (Vec<_>, Vec<_>) =
-        (sources.unwrap().collect(), destinations.unwrap().collect());
+    let sources: Vec<_> = sources.unwrap().collect();
 
     if sources.len() == 1 {
-        if let Ok(entry) = &sources[0] {
-            if entry.is_file() {
-                if destinations.len() == 1 {
-                    if let Ok(dst) = &destinations[0] {
-                        if dst.is_file() {
-                            std::fs::copy(entry, dst);
-                        }
+        if let Ok(val) = &sources[0] {
+            if val.is_dir() && !args.has("recursive") {
+                return Err(ShellError::labeled_error(
+                    "is a directory (not copied). Try using \"--recursive\".",
+                    "is a directory (not copied). Try using \"--recursive\".",
+                    args.nth(0).unwrap().span(),
+                ));
+            }
 
-                        if dst.is_dir() {
-                            destination.push(entry.file_name().unwrap());
-                            std::fs::copy(entry, destination);
-                        }
-                    }
-                } else if destinations.is_empty() {
-                    if destination.is_dir() {
-                        destination.push(entry.file_name().unwrap());
-                        std::fs::copy(entry, destination);
+            let mut sources: FileStructure = FileStructure::new();
+
+            sources.walk_decorate(&val);
+
+            if val.is_file() {
+                for (ref src, ref dst) in sources.translate(|(src, _)| {
+                    if destination.exists() {
+                        let mut dst = dunce::canonicalize(destination.clone()).unwrap();
+                        dst.push(val.file_name().unwrap());
+                        (src, dst)
                     } else {
-                        std::fs::copy(entry, destination);
+                        (src, destination.clone())
+                    }
+                }) {
+                    if src.is_file() {
+                        match std::fs::copy(src, dst) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    e.to_string(),
+                                    e.to_string(),
+                                    name_span,
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
                     }
                 }
             }
 
-            if entry.is_dir() {
-                if destinations.len() == 1 {
-                    if let Ok(dst) = &destinations[0] {
-                        if dst.is_dir() && !args.has("recursive") {
-                            return Err(ShellError::string(&format!(
-                                "{:?} is a directory (not copied)",
-                                entry.to_string_lossy()
-                            )));
+            if val.is_dir() {
+                if !destination.exists() {
+                    match std::fs::create_dir_all(&destination) {
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                name_span,
+                            ));
+                        }
+                        Ok(o) => o,
+                    };
+
+                    for (ref src, ref dst) in sources.translate(|(src, loc)| {
+                        let mut final_path = destination.clone();
+                        let path = dunce::canonicalize(&src).unwrap();
+
+                        let mut comps: Vec<_> = path
+                            .components()
+                            .map(|fragment| fragment.as_os_str())
+                            .rev()
+                            .take(1 + loc)
+                            .collect();
+
+                        comps.reverse();
+
+                        for fragment in comps.iter() {
+                            final_path.push(fragment);
                         }
 
-
-                        if dst.is_dir() && args.has("recursive") {
-                            let entries = std::fs::read_dir(&entry);
-
-                            let entries = match entries {
-                                Err(e) => {
-                                    if let Some(s) = args.nth(0) {
+                        (PathBuf::from(&src), PathBuf::from(final_path))
+                    }) {
+                        if src.is_dir() {
+                            if !dst.exists() {
+                                match std::fs::create_dir_all(dst) {
+                                    Err(e) => {
                                         return Err(ShellError::labeled_error(
                                             e.to_string(),
                                             e.to_string(),
-                                            s.span(),
-                                        ));
-                                    } else {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            args.call_info.name_span,
+                                            name_span,
                                         ));
                                     }
+                                    Ok(o) => o,
+                                };
+                            }
+                        }
+
+                        if src.is_file() {
+                            match std::fs::copy(src, dst) {
+                                Err(e) => {
+                                    return Err(ShellError::labeled_error(
+                                        e.to_string(),
+                                        e.to_string(),
+                                        name_span,
+                                    ));
                                 }
                                 Ok(o) => o,
                             };
+                        }
+                    }
+                } else {
+                    destination.push(val.file_name().unwrap());
 
-                            let mut x = dst.clone();
+                    match std::fs::create_dir_all(&destination) {
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                name_span,
+                            ));
+                        }
+                        Ok(o) => o,
+                    };
 
-                            //x.pop();
-                            x.push(entry.file_name().unwrap());
+                    for (ref src, ref dst) in sources.translate(|(src, loc)| {
+                        let mut final_path = dunce::canonicalize(&destination).unwrap();
+                        let path = dunce::canonicalize(&src).unwrap();
 
+                        let mut comps: Vec<_> = path
+                            .components()
+                            .map(|fragment| fragment.as_os_str())
+                            .rev()
+                            .take(1 + loc)
+                            .collect();
 
-                            std::fs::create_dir(&x).expect("can not create directory");
+                        comps.reverse();
 
-                            for entry in entries {
-                                let entry = entry?;
-                                let file_path = entry.path();
-                                let file_name = file_path.file_name().unwrap();
+                        for fragment in comps.iter() {
+                            final_path.push(fragment);
+                        }
 
-                                let mut d = PathBuf::new();
-                                d.push(&x);
-                                d.push(file_name);
-
-                                std::fs::copy(entry.path(), d);
+                        (PathBuf::from(&src), PathBuf::from(final_path))
+                    }) {
+                        if src.is_dir() {
+                            if !dst.exists() {
+                                match std::fs::create_dir_all(dst) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            e.to_string(),
+                                            e.to_string(),
+                                            name_span,
+                                        ));
+                                    }
+                                    Ok(o) => o,
+                                };
                             }
+                        }
+
+                        if src.is_file() {
+                            match std::fs::copy(src, dst) {
+                                Err(e) => {
+                                    return Err(ShellError::labeled_error(
+                                        e.to_string(),
+                                        e.to_string(),
+                                        name_span,
+                                    ));
+                                }
+                                Ok(o) => o,
+                            };
                         }
                     }
                 }
             }
         }
-    }
-    /*
-    if destination.is_dir() {
-        if source.is_file() {
-            let file_name = source.file_name().expect("");
-            let file_name = file_name.to_str().expect("");
-            destination.push(Path::new(file_name));
-
-            match std::fs::copy(source, destination) {
-                Err(_error) => return Err(ShellError::string("can not copy file")),
-                Ok(_) => return Ok(OutputStream::empty()),
+    } else {
+        if destination.exists() {
+            if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) && !args.has("recursive") {
+                return Err(ShellError::labeled_error(
+                    "Copy aborted (directories found). Try using \"--recursive\".",
+                    "Copy aborted (directories found). Try using \"--recursive\".",
+                    args.nth(0).unwrap().span(),
+                ));
             }
-        } else if source.is_dir() {
 
-                return Err(ShellError::string(&format!(
-                    "{:?} is a directory (not copied)",
-                    source.to_string_lossy()
-                )));
+            for entry in sources {
+                if let Ok(entry) = entry {
+                    let mut to = PathBuf::from(&destination);
+                    to.push(&entry.file_name().unwrap());
 
+                    match std::fs::copy(&entry, &to) {
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                name_span,
+                            ));
+                        }
+                        Ok(o) => o,
+                    };
+                }
+            }
+        } else {
+            return Err(ShellError::labeled_error(
+                format!(
+                    "Copy aborted. (Does {:?} exist?)",
+                    &destination.file_name().unwrap()
+                ),
+                format!(
+                    "Copy aborted. (Does {:?} exist?)",
+                    &destination.file_name().unwrap()
+                ),
+                args.nth(1).unwrap().span(),
+            ));
         }
     }
 
-    match std::fs::copy(source, destination) {
-        Err(_error) => Err(ShellError::string("can not copy file")),
-        Ok(_) => Ok(OutputStream::empty()),
-    }*/
     Ok(OutputStream::empty())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::{FileStructure, Res};
+    use std::path::PathBuf;
+
+    fn fixtures() -> PathBuf {
+        let mut sdx = PathBuf::new();
+        sdx.push("tests");
+        sdx.push("fixtures");
+        sdx.push("formats");
+        dunce::canonicalize(sdx).unwrap()
+    }
+
+    #[test]
+    fn prepares_and_decorates_source_files_for_copying() {
+        let mut res = FileStructure::new();
+        res.walk_decorate(fixtures().as_path());
+
+        assert_eq!(
+            res.resources,
+            vec![
+                Res {
+                    loc: fixtures().join("appveyor.yml"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("caco3_plastics.csv"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("cargo_sample.toml"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("jonathan.xml"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("sample.ini"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("sgml_description.json"),
+                    at: 0
+                }
+            ]
+        );
+    }
 }

@@ -34,7 +34,6 @@ impl Command for Mkdir {
 pub fn mkdir(args: CommandArgs) -> Result<OutputStream, ShellError> {
     let env = args.env.lock().unwrap();
     let path = env.path.to_path_buf();
-    let cwd = path.clone();
     let mut full_path = PathBuf::from(path);
 
     match &args.nth(0) {
