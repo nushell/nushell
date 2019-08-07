@@ -21,21 +21,15 @@ impl ShellManager {
     }
 
     pub fn push(&mut self, shell: Box<dyn Shell>) {
-        self.shells.lock().unwrap().push(shell)
+        self.shells.lock().unwrap().push(shell);
+        self.set_path(self.path());
     }
 
     pub fn path(&self) -> String {
-        self.shells
-            .lock()
-            .unwrap()
-            .last()
-            .unwrap()
-            .path()
-            .display()
-            .to_string()
+        self.shells.lock().unwrap().last().unwrap().path()
     }
 
-    pub fn set_path(&mut self, path: &std::path::PathBuf) {
+    pub fn set_path(&mut self, path: String) {
         self.shells
             .lock()
             .unwrap()
@@ -68,15 +62,21 @@ impl ShellManager {
     }
 
     pub fn next(&mut self) {
-        let mut x = self.shells.lock().unwrap();
-        let shell = x.pop().unwrap();
-        x.insert(0, shell);
+        {
+            let mut x = self.shells.lock().unwrap();
+            let shell = x.pop().unwrap();
+            x.insert(0, shell);
+        }
+        self.set_path(self.path());
     }
 
     pub fn prev(&mut self) {
-        let mut x = self.shells.lock().unwrap();
-        let shell = x.remove(0);
-        x.push(shell);
+        {
+            let mut x = self.shells.lock().unwrap();
+            let shell = x.remove(0);
+            x.push(shell);
+        }
+        self.set_path(self.path());
     }
 
     pub fn ls(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError> {

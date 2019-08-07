@@ -145,7 +145,9 @@ impl InternalCommand {
             match item? {
                 ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
-                        context.shell_manager.set_path(&path);
+                        context
+                            .shell_manager
+                            .set_path(path.to_string_lossy().to_string());
                     }
                     CommandAction::AddSpanSource(uuid, span_source) => {
                         context.add_span_source(uuid, span_source);

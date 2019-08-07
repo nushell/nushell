@@ -8,7 +8,7 @@ use rustyline::error::ReadlineError;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
 pub struct FilesystemShell {
-    crate path: PathBuf,
+    crate path: String,
     completer: NuCompleter,
     hinter: HistoryHinter,
 }
@@ -30,7 +30,7 @@ impl FilesystemShell {
         let path = std::env::current_dir()?;
 
         Ok(FilesystemShell {
-            path,
+            path: path.to_string_lossy().to_string(),
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
             },
@@ -38,9 +38,7 @@ impl FilesystemShell {
         })
     }
 
-    pub fn with_location(location: String) -> Result<FilesystemShell, std::io::Error> {
-        let path = std::path::PathBuf::from(location);
-
+    pub fn with_location(path: String) -> Result<FilesystemShell, std::io::Error> {
         Ok(FilesystemShell {
             path,
             completer: NuCompleter {
@@ -139,7 +137,8 @@ impl Shell for FilesystemShell {
             },
             Some(v) => {
                 let target = v.as_string()?;
-                match dunce::canonicalize(self.path.join(target).as_path()) {
+                let path = PathBuf::from(self.path());
+                match dunce::canonicalize(path.join(target).as_path()) {
                     Ok(p) => p,
                     Err(_) => {
                         return Err(ShellError::labeled_error(
@@ -171,11 +170,12 @@ impl Shell for FilesystemShell {
         Ok(stream.into())
     }
 
-    fn path(&self) -> std::path::PathBuf {
+    fn path(&self) -> String {
         self.path.clone()
     }
 
-    fn set_path(&mut self, path: &std::path::PathBuf) {
+    fn set_path(&mut self, path: String) {
+        let _ = std::env::set_current_dir(&path);
         self.path = path.clone();
     }
 }
