@@ -145,18 +145,49 @@ impl InternalCommand {
             match item? {
                 ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
-                        context
-                            .shell_manager
-                            .set_path(path.to_string_lossy().to_string());
+                        context.shell_manager.set_path(path);
                     }
                     CommandAction::AddSpanSource(uuid, span_source) => {
                         context.add_span_source(uuid, span_source);
                     }
                     CommandAction::Exit => std::process::exit(0),
                     CommandAction::Enter(location) => {
-                        context
-                            .shell_manager
-                            .push(Box::new(FilesystemShell::with_location(location)?));
+                        let path = std::path::Path::new(&location);
+
+                        if path.is_dir() {
+                            // If it's a directory, add a new filesystem shell
+                            context
+                                .shell_manager
+                                .push(Box::new(FilesystemShell::with_location(location)?));
+                        } else {
+                            // If it's a file, attempt to open the file as a value and enter it
+                            let cwd = context.shell_manager.path();
+
+                            let full_path = std::path::PathBuf::from(cwd);
+
+                            let (file_extension, contents, contents_tag, _) =
+                                crate::commands::open::fetch(
+                                    &full_path,
+                                    &location,
+                                    Span::unknown(),
+                                )?;
+
+                            match contents {
+                                Value::Primitive(Primitive::String(string)) => {
+                                    let value = crate::commands::open::parse_as_value(
+                                        file_extension,
+                                        string,
+                                        contents_tag,
+                                        Span::unknown(),
+                                    )?;
+
+                                    context.shell_manager.push(Box::new(ValueShell::new(value)));
+                                }
+                                value => context
+                                    .shell_manager
+                                    .push(Box::new(ValueShell::new(value.tagged(Tag::unknown())))),
+                            }
+                        }
                     }
                     CommandAction::PreviousShell => {
                         context.shell_manager.prev();

@@ -6,7 +6,6 @@ use crate::parser::registry::{self, Args};
 use crate::prelude::*;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -60,7 +59,7 @@ pub struct SinkCommandArgs {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
-    ChangePath(PathBuf),
+    ChangePath(String),
     AddSpanSource(Uuid, SpanSource),
     Exit,
     Enter(String),
@@ -83,7 +82,7 @@ impl From<Tagged<Value>> for ReturnValue {
 }
 
 impl ReturnSuccess {
-    pub fn change_cwd(path: PathBuf) -> ReturnValue {
+    pub fn change_cwd(path: String) -> ReturnValue {
         Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
     }
 

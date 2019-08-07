@@ -45,6 +45,7 @@ crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
 crate use crate::shell::filesystem_shell::FilesystemShell;
 crate use crate::shell::shell_manager::ShellManager;
+crate use crate::shell::value_shell::ValueShell;
 crate use crate::stream::{InputStream, OutputStream};
 crate use crate::Span;
 crate use crate::Text;

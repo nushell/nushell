@@ -166,7 +166,9 @@ impl Shell for FilesystemShell {
                 }
             }
         }
-        stream.push_back(ReturnSuccess::change_cwd(path));
+        stream.push_back(ReturnSuccess::change_cwd(
+            path.to_string_lossy().to_string(),
+        ));
         Ok(stream.into())
     }
 
