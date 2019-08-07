@@ -4,7 +4,6 @@ use crate::errors::ShellError;
 use crate::object::Value;
 use crate::parser::registry::{self, Args};
 use crate::prelude::*;
-use crate::shell::shell::Shell;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,7 +20,7 @@ pub struct CallInfo {
 #[get = "crate"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host + Send>>,
-    pub env: Arc<Mutex<Vec<Box<dyn Shell>>>>,
+    pub shell_manager: ShellManager,
     pub call_info: CallInfo,
     pub input: InputStream,
 }

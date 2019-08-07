@@ -145,13 +145,7 @@ impl InternalCommand {
             match item? {
                 ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
-                        let result = context
-                            .env
-                            .lock()
-                            .unwrap()
-                            .last_mut()
-                            .unwrap()
-                            .set_path(path);
+                        context.shell_manager.set_path(&path);
                     }
                     CommandAction::AddSpanSource(uuid, span_source) => {
                         context.add_span_source(uuid, span_source);
@@ -159,20 +153,14 @@ impl InternalCommand {
                     CommandAction::Exit => std::process::exit(0),
                     CommandAction::Enter(location) => {
                         context
-                            .env
-                            .lock()
-                            .unwrap()
-                            .push(Box::new(Environment::with_location(location)?));
+                            .shell_manager
+                            .push(Box::new(FilesystemShell::with_location(location)?));
                     }
                     CommandAction::PreviousShell => {
-                        let mut x = context.env.lock().unwrap();
-                        let shell = x.pop().unwrap();
-                        x.insert(0, shell);
+                        context.shell_manager.prev();
                     }
                     CommandAction::NextShell => {
-                        let mut x = context.env.lock().unwrap();
-                        let shell = x.remove(0);
-                        x.push(shell);
+                        context.shell_manager.next();
                     }
                 },
 
@@ -321,7 +309,7 @@ impl ExternalCommand {
 
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().last().unwrap().path());
+        process = process.cwd(context.shell_manager.path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,

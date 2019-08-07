@@ -9,15 +9,7 @@ use crate::SpanSource;
 use std::path::{Path, PathBuf};
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
-    let cwd = args
-        .ctx
-        .env
-        .lock()
-        .unwrap()
-        .last()
-        .unwrap()
-        .path()
-        .to_path_buf();
+    let cwd = args.ctx.shell_manager.path();
     let mut full_path = PathBuf::from(cwd);
 
     let save_raw = if args.call_info.args.has("raw") {

@@ -2,7 +2,7 @@ use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::parser::parse::tokens::RawToken;
 use crate::parser::{Pipeline, PipelineElement};
-use crate::shell::shell::Shell;
+use crate::shell::shell_manager::ShellManager;
 use crate::Tagged;
 use ansi_term::Color;
 use rustyline::completion::{self, Completer};
@@ -10,14 +10,13 @@ use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use std::borrow::Cow::{self, Owned};
-use std::sync::{Arc, Mutex};
 
 crate struct Helper {
-    helper: Arc<Mutex<Vec<Box<dyn Shell>>>>,
+    helper: ShellManager,
 }
 
 impl Helper {
-    crate fn new(helper: Arc<Mutex<Vec<Box<dyn Shell>>>>) -> Helper {
+    crate fn new(helper: ShellManager) -> Helper {
         Helper { helper }
     }
 }
@@ -31,23 +30,13 @@ impl Completer for Helper {
         pos: usize,
         ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
-        self.helper
-            .lock()
-            .unwrap()
-            .last()
-            .unwrap()
-            .complete(line, pos, ctx)
+        self.helper.complete(line, pos, ctx)
     }
 }
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.helper
-            .lock()
-            .unwrap()
-            .last()
-            .unwrap()
-            .hint(line, pos, ctx)
+        self.helper.hint(line, pos, ctx)
     }
 }
 

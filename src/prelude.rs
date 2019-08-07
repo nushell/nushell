@@ -38,12 +38,13 @@ crate use crate::commands::command::{
 };
 crate use crate::context::{Context, SpanSource};
 crate use crate::env::host::handle_unexpected;
-crate use crate::env::{Environment, Host};
+crate use crate::env::Host;
 crate use crate::errors::ShellError;
 crate use crate::object::meta::{Tag, Tagged, TaggedItem};
 crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
-crate use crate::shell::shell::Shell;
+crate use crate::shell::filesystem_shell::FilesystemShell;
+crate use crate::shell::shell_manager::ShellManager;
 crate use crate::stream::{InputStream, OutputStream};
 crate use crate::Span;
 crate use crate::Text;

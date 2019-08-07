@@ -7,15 +7,15 @@ use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::error::ReadlineError;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
-pub struct Environment {
+pub struct FilesystemShell {
     crate path: PathBuf,
     completer: NuCompleter,
     hinter: HistoryHinter,
 }
 
-impl Clone for Environment {
+impl Clone for FilesystemShell {
     fn clone(&self) -> Self {
-        Environment {
+        FilesystemShell {
             path: self.path.clone(),
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
@@ -25,11 +25,11 @@ impl Clone for Environment {
     }
 }
 
-impl Environment {
-    pub fn basic() -> Result<Environment, std::io::Error> {
+impl FilesystemShell {
+    pub fn basic() -> Result<FilesystemShell, std::io::Error> {
         let path = std::env::current_dir()?;
 
-        Ok(Environment {
+        Ok(FilesystemShell {
             path,
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
@@ -38,24 +38,20 @@ impl Environment {
         })
     }
 
-    pub fn with_location(location: String) -> Result<Environment, std::io::Error> {
+    pub fn with_location(location: String) -> Result<FilesystemShell, std::io::Error> {
         let path = std::path::PathBuf::from(location);
 
-        Ok(Environment {
+        Ok(FilesystemShell {
             path,
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
             },
             hinter: HistoryHinter {},
         })
-    }
-
-    pub fn path(&self) -> &Path {
-        self.path.as_path()
     }
 }
 
-impl Shell for Environment {
+impl Shell for FilesystemShell {
     fn ls(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
         let cwd = self.path.clone();
         let mut full_path = PathBuf::from(&self.path);
@@ -179,12 +175,12 @@ impl Shell for Environment {
         self.path.clone()
     }
 
-    fn set_path(&mut self, path: std::path::PathBuf) {
-        self.path = path;
+    fn set_path(&mut self, path: &std::path::PathBuf) {
+        self.path = path.clone();
     }
 }
 
-impl Completer for Environment {
+impl Completer for FilesystemShell {
     type Candidate = completion::Pair;
 
     fn complete(
@@ -197,7 +193,7 @@ impl Completer for Environment {
     }
 }
 
-impl Hinter for Environment {
+impl Hinter for FilesystemShell {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
     }

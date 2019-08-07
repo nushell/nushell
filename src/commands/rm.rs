@@ -5,6 +5,7 @@ use crate::prelude::*;
 
 use glob::glob;
 use indexmap::IndexMap;
+use std::path::PathBuf;
 
 pub struct Remove;
 
@@ -33,14 +34,7 @@ impl Command for Remove {
 }
 
 pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let mut full_path = args
-        .env
-        .lock()
-        .unwrap()
-        .last()
-        .unwrap()
-        .path()
-        .to_path_buf();
+    let mut full_path = PathBuf::from(args.shell_manager.path());
 
     match args
         .nth(0)

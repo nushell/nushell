@@ -223,19 +223,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let cwd = {
-            context
-                .env
-                .lock()
-                .unwrap()
-                .last()
-                .unwrap()
-                .path()
-                .display()
-                .to_string()
-        };
+        let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(context.env.clone())));
+        rl.set_helper(Some(crate::shell::Helper::new(
+            context.shell_manager.clone(),
+        )));
 
         let readline = rl.readline(&format!(
             "{}{}> ",
