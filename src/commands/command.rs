@@ -62,9 +62,10 @@ pub enum CommandAction {
     ChangePath(String),
     AddSpanSource(Uuid, SpanSource),
     Exit,
-    Enter(String),
+    EnterShell(String),
     PreviousShell,
     NextShell,
+    LeaveShell,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

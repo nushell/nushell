@@ -50,6 +50,10 @@ impl FilesystemShell {
 }
 
 impl Shell for FilesystemShell {
+    fn name(&self) -> String {
+        "filesystem".to_string()
+    }
+
     fn ls(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
         let cwd = self.path.clone();
         let mut full_path = PathBuf::from(&self.path);

@@ -8,6 +8,7 @@ where
     Self: Completer<Candidate = rustyline::completion::Pair>,
     Self: Hinter,
 {
+    fn name(&self) -> String;
     fn ls(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError>;
     fn cd(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError>;
     fn path(&self) -> String;

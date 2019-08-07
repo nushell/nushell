@@ -151,7 +151,7 @@ impl InternalCommand {
                         context.add_span_source(uuid, span_source);
                     }
                     CommandAction::Exit => std::process::exit(0),
-                    CommandAction::Enter(location) => {
+                    CommandAction::EnterShell(location) => {
                         let path = std::path::Path::new(&location);
 
                         if path.is_dir() {
@@ -194,6 +194,12 @@ impl InternalCommand {
                     }
                     CommandAction::NextShell => {
                         context.shell_manager.next();
+                    }
+                    CommandAction::LeaveShell => {
+                        context.shell_manager.pop();
+                        if context.shell_manager.is_empty() {
+                            std::process::exit(0);
+                        }
                     }
                 },
 

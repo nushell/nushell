@@ -25,6 +25,14 @@ impl ShellManager {
         self.set_path(self.path());
     }
 
+    pub fn pop(&mut self) {
+        self.shells.lock().unwrap().pop();
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.shells.lock().unwrap().is_empty()
+    }
+
     pub fn path(&self) -> String {
         self.shells.lock().unwrap().last().unwrap().path()
     }

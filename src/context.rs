@@ -96,10 +96,6 @@ impl Context {
         command.run(command_args)
     }
 
-    pub fn clone_commands(&self) -> indexmap::IndexMap<String, Arc<dyn Command>> {
-        self.commands.clone()
-    }
-
     crate fn has_command(&self, name: &str) -> bool {
         self.commands.contains_key(name)
     }

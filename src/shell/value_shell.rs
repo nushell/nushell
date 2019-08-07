@@ -56,6 +56,10 @@ impl ValueShell {
 }
 
 impl Shell for ValueShell {
+    fn name(&self) -> String {
+        "value".to_string()
+    }
+
     fn ls(&self, _call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
         Ok(self
             .members()
@@ -110,7 +114,6 @@ impl Completer for ValueShell {
         _ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
         let mut completions = vec![];
-        //let commands = vec!["testme", "whatever"];
 
         let mut possible_completion = vec![];
         let members = self.members();

@@ -5,8 +5,37 @@ use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
+use crate::parser::registry::{CommandConfig, NamedType};
+use crate::prelude::*;
 use crate::SpanSource;
+use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
+
+pub struct Save;
+
+impl Sink for Save {
+    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError> {
+        save(args)
+    }
+
+    fn name(&self) -> &str {
+        "save"
+    }
+
+    fn config(&self) -> CommandConfig {
+        let mut named: IndexMap<String, NamedType> = IndexMap::new();
+        named.insert("raw".to_string(), NamedType::Switch);
+
+        CommandConfig {
+            name: self.name().to_string(),
+            positional: vec![],
+            rest_positional: false,
+            named,
+            is_sink: false,
+            is_filter: false,
+        }
+    }
+}
 
 pub fn save(args: SinkCommandArgs) -> Result<(), ShellError> {
     let cwd = args.ctx.shell_manager.path();

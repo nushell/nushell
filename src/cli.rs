@@ -162,11 +162,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-yaml", Box::new(from_yaml::from_yaml)),
             command("get", Box::new(get::get)),
             command("enter", Box::new(enter::enter)),
-            command("exit", Box::new(exit::exit)),
             command("n", Box::new(next::next)),
             command("p", Box::new(prev::prev)),
             command("lines", Box::new(lines::lines)),
             command("pick", Box::new(pick::pick)),
+            command("shells", Box::new(shells::shells)),
             command("split-column", Box::new(split_column::split_column)),
             command("split-row", Box::new(split_row::split_row)),
             command("lines", Box::new(lines::lines)),
@@ -185,15 +185,16 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             Arc::new(Date),
             Arc::new(Where),
             Arc::new(Config),
+            Arc::new(Exit),
             Arc::new(SkipWhile),
         ]);
 
         context.add_sinks(vec![
             sink("autoview", Box::new(autoview::autoview)),
             sink("clip", Box::new(clip::clip)),
-            sink("save", Box::new(save::save)),
             sink("table", Box::new(table::table)),
             sink("vtable", Box::new(vtable::vtable)),
+            Arc::new(Save),
         ]);
     }
     let _ = load_plugins(&mut context);
