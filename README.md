@@ -129,6 +129,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | cd path | Change to a new path |
 | cp source path | Copy files |
 | ls (path) | View the contents of the current or given path |
+| mkdir path | Make directories, creates intermediary directories as required. |
 | date (--utc) | Get the current datetime |
 | ps | View current processes |
 | sys | View information about the current system |

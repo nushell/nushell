@@ -61,7 +61,7 @@ pub fn rm(args: CommandArgs) -> Result<OutputStream, ShellError> {
                     if !args.has("recursive") {
                         return Err(ShellError::labeled_error(
                             "is a directory",
-                            "",
+                            "is a directory",
                             args.call_info.name_span,
                         ));
                     }
