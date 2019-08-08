@@ -478,30 +478,28 @@ fn classify_command(
                         args,
                     }))
                 }
-                false => match context.get_command(name).as_ref() {
-                    Command::Static(_command) => {
-                        let arg_list_strings: Vec<Spanned<String>> = match call.children() {
-                            //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
-                            Some(args) => args
-                                .iter()
-                                .filter_map(|i| match i {
-                                    TokenNode::Whitespace(_) => None,
-                                    other => Some(Spanned::from_item(
-                                        other.as_external_arg(source),
-                                        other.span(),
-                                    )),
-                                })
-                                .collect(),
-                            None => vec![],
-                        };
+                false => {
+                    let arg_list_strings: Vec<Spanned<String>> = match call.children() {
+                        //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
+                        Some(args) => args
+                            .iter()
+                            .filter_map(|i| match i {
+                                TokenNode::Whitespace(_) => None,
+                                other => Some(Spanned::from_item(
+                                    other.as_external_arg(source),
+                                    other.span(),
+                                )),
+                            })
+                            .collect(),
+                        None => vec![],
+                    };
 
-                        Ok(ClassifiedCommand::External(ExternalCommand {
-                            name: name.to_string(),
-                            name_span: Some(head.span().clone()),
-                            args: arg_list_strings,
-                        }))
-                    }
-                },
+                    Ok(ClassifiedCommand::External(ExternalCommand {
+                        name: name.to_string(),
+                        name_span: Some(head.span().clone()),
+                        args: arg_list_strings,
+                    }))
+                }
             }
         }
 
