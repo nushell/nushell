@@ -47,7 +47,8 @@ pub fn autoview(
                 view_text_value(&input[0], &raw.call_info.source_map);
             } else if equal_shapes(&input) {
                 let table = context.expect_command("table");
-                table.run(raw.with_input(input), &context.commands).await;
+                let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
+                result.collect::<Vec<_>>().await;
             } else {
                 println!("TODO!")
                 // TODO
