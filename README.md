@@ -94,9 +94,9 @@ Here we use the variable `$it` to refer to the value being piped to the external
 
 ## Shells
 
-By default, Nu will work inside of a single directory and allow you to navigate around your filesystem. Sometimes, you're working in multiple directories at the same time. For this, Nu offers a way of adding additional working directories that you can jump between. 
+By default, Nu will work inside of a single directory and allow you to navigate around your filesystem. Sometimes, you'll want to work in multiple directories at the same time. For this, Nu offers a way of adding additional working directories that you can jump between. 
 
-To do so, use the `enter` command, which will allow you create a new shell and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
+To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
 
 Finally, to get a list of all the current shells, you can use the `shells` command.
 
