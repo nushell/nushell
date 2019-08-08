@@ -80,6 +80,7 @@ semver = "0.9.0"
 uuid = {version = "0.7.4", features = [ "v4", "serde" ]}
 syntect = "3.2.0"
 strip-ansi-escapes = "0.1.0"
+onig_sys = "=69.1"
 heim = "0.0.6"
 
 [dev-dependencies]
