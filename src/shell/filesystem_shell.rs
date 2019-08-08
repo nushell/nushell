@@ -181,8 +181,18 @@ impl Shell for FilesystemShell {
     }
 
     fn set_path(&mut self, path: String) {
-        let _ = std::env::set_current_dir(&path);
-        self.path = path.clone();
+        let pathbuf = PathBuf::from(&path);
+        let path = match dunce::canonicalize(pathbuf.as_path()) {
+            Ok(path) => {
+                let _ = std::env::set_current_dir(&path);
+                path
+            }
+            _ => {
+                // TODO: handle the case where the path cannot be canonicalized
+                pathbuf
+            }
+        };
+        self.path = path.to_string_lossy().to_string();
     }
 }
 
