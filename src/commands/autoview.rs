@@ -40,9 +40,12 @@ pub fn autoview(
             } = input[0usize]
             {
                 let binary = context.expect_command("binaryview");
-                binary.run(raw.with_input(input), &context.commands).await;
+                let result = binary.run(raw.with_input(input), &context.commands).await.unwrap();
+                result.collect::<Vec<_>>().await;
             } else if is_single_text_value(&input) {
-                //view_text_value(&input[0], &raw.call_info.source_map);
+                let text = context.expect_command("textview");
+                let result = text.run(raw.with_input(input), &context.commands).await.unwrap();
+                result.collect::<Vec<_>>().await;
             } else if equal_shapes(&input) {
                 let table = context.expect_command("table");
                 let result = table.run(raw.with_input(input), &context.commands).await.unwrap();

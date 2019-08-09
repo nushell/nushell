@@ -84,8 +84,11 @@ impl Shell for FilesystemShell {
                                     s.span(),
                                 ));
                             } else {
-                                //FIXME
-                                return Err(ShellError::string(e.to_string()));
+                                return Err(ShellError::labeled_error(
+                                    e.to_string(),
+                                    e.to_string(),
+                                    args.name_span(),
+                                ));
                             }
                         }
                         Ok(o) => o,

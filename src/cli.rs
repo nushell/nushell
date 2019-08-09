@@ -4,7 +4,7 @@ use crate::commands::classified::{
     StreamNext,
 };
 use crate::commands::plugin::JsonRpc;
-use crate::commands::plugin::PluginCommand;
+use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::static_command;
 use crate::context::Context;
 crate use crate::errors::ShellError;
@@ -72,6 +72,11 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                             ))]);
                             Ok(())
                         } else {
+                            let fname = fname.to_string();
+                            let name = params.name.clone();
+                            context.add_commands(vec![static_command(PluginSink::new(
+                                name, fname, params,
+                            ))]);
                             Ok(())
                         }
                     }

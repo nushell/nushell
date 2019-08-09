@@ -251,3 +251,56 @@ pub fn filter_plugin(
 
     Ok(stream.to_output_stream())
 }
+
+#[derive(new)]
+pub struct PluginSink {
+    name: String,
+    path: String,
+    config: registry::Signature,
+}
+
+impl StaticCommand for PluginSink {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn signature(&self) -> registry::Signature {
+        self.config.clone()
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        sink_plugin(self.path.clone(), args, registry)
+    }
+}
+
+pub fn sink_plugin(
+    path: String,
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    //use subprocess::Exec;
+    let args = args.evaluate_once(registry)?;
+    let call_info = args.call_info.clone();
+
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+
+        let request = JsonRpc::new("sink", (call_info.clone(), input));
+        let request_raw = serde_json::to_string(&request).unwrap();
+        let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
+        let _ = writeln!(tmpfile, "{}", request_raw);
+        let _ = tmpfile.flush();
+
+        let mut child = std::process::Command::new(path)
+            .arg(tmpfile.path())
+            .spawn()
+            .expect("Failed to spawn child process");
+
+        let _ = child.wait();
+    };
+    Ok(OutputStream::new(stream))
+}
