@@ -146,7 +146,7 @@ fn deep_copies_with_recursive_flag() {
 }
 
 #[test]
-fn copies_using_globs() {
+fn copies_using_path_with_wildcard() {
     let sandbox = Playground::setup_for("cp_test_6").test_dir_name();
     let expected_copies_path = format!("{}/{}", Playground::root(), sandbox);
 
@@ -154,6 +154,29 @@ fn copies_using_globs() {
         _output,
         cwd(&Playground::root()),
         "cp ../formats/* cp_test_6"
+    );
+
+    assert!(h::files_exist_at(
+        vec![
+            Path::new("caco3_plastics.csv"),
+            Path::new("cargo_sample.toml"),
+            Path::new("jonathan.xml"),
+            Path::new("sample.ini"),
+            Path::new("sgml_description.json")
+        ],
+        PathBuf::from(&expected_copies_path)
+    ));
+}
+
+#[test]
+fn copies_using_a_glob() {
+    let sandbox = Playground::setup_for("cp_test_7").test_dir_name();
+    let expected_copies_path = format!("{}/{}", Playground::root(), sandbox);
+
+    nu!(
+        _output,
+        cwd("tests/fixtures/formats"),
+        "cp * ../nuplayground/cp_test_7"
     );
 
     assert!(h::files_exist_at(
