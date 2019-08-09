@@ -9,7 +9,7 @@ use derive_new::new;
 use indexmap::IndexMap;
 
 #[derive(new)]
-crate struct Scope {
+pub struct Scope {
     it: Tagged<Value>,
     #[new(default)]
     vars: IndexMap<String, Tagged<Value>>,
@@ -22,16 +22,24 @@ impl Scope {
             vars: IndexMap::new(),
         }
     }
+
+    crate fn it_value(value: Tagged<Value>) -> Scope {
+        Scope {
+            it: value,
+            vars: IndexMap::new(),
+        }
+    }
 }
 
 crate fn evaluate_baseline_expr(
     expr: &Expression,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     scope: &Scope,
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     match &expr.item {
         RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
+        RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
         RawExpression::Binary(binary) => {
             let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;
@@ -47,6 +55,16 @@ crate fn evaluate_baseline_expr(
                     binary.right().copy_span(right_type),
                 )),
             }
+        }
+        RawExpression::List(list) => {
+            let mut exprs = vec![];
+
+            for expr in list {
+                let expr = evaluate_baseline_expr(expr, registry, scope, source)?;
+                exprs.push(expr);
+            }
+
+            Ok(Value::List(exprs).tagged(Tag::unknown_origin(expr.span())))
         }
         RawExpression::Block(block) => Ok(Tagged::from_simple_spanned_item(
             Value::Block(Block::new(block.clone(), source.clone(), expr.span())),

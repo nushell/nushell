@@ -12,7 +12,7 @@ macro_rules! command {
         Named { $export:tt $args:ident $body:block }
         Positional { $($number:tt)* }
         Rest {}
-        CommandConfig {
+        Signature {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
             optional_positional: vec![ $($optional_positional:tt)* ],
@@ -36,13 +36,14 @@ macro_rules! command {
         pub struct $export;
 
         impl Command for $export {
-            fn run(&self, $args: CommandArgs) -> Result<OutputStream, ShellError> {
-                fn command($args: CommandArgs, ( $($param_name),*, ): ( $($param_type),*, )) -> Result<OutputStream, ShellError> {
+            fn run(&self, $args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+                fn command($args: EvaluatedCommandArgs, ( $($param_name),*, ): ( $($param_type),*, )) -> Result<OutputStream, ShellError> {
                     let output = $body;
 
                     Ok(output.boxed().to_output_stream())
                 }
 
+                let $args = $args.evaluate_once(registry)?;
                 let tuple = ( $($extract ,)* );
                 command( $args, tuple )
             }
@@ -51,8 +52,8 @@ macro_rules! command {
                 stringify!($config_name)
             }
 
-            fn config(&self) -> $crate::parser::registry::CommandConfig {
-                $crate::parser::registry::CommandConfig {
+            fn config(&self) -> $crate::parser::registry::Signature {
+                $crate::parser::registry::Signature {
                     name: self.name().to_string(),
                     positional: vec![$($mandatory_positional)*],
                     rest_positional: false,
@@ -81,7 +82,7 @@ macro_rules! command {
         Named { $export:tt $args:ident $body:block }
         Positional { $($positional_count:tt)* }
         Rest { -- $param_name:ident : Switch , $($rest:tt)* }
-        CommandConfig {
+        Signature {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
             optional_positional: vec![ $($optional_positional:tt)* ],
@@ -101,7 +102,7 @@ macro_rules! command {
             Named { $export $args $body }
             Positional { $($positional_count)* + 1 }
             Rest { $($rest)* }
-            CommandConfig {
+            Signature {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* ],
                 optional_positional: vec![ $($optional_positional)* ],
@@ -131,7 +132,7 @@ macro_rules! command {
         Named { $export:tt $args:ident $body:block }
         Positional { $($positional_count:tt)* }
         Rest { -- $param_name:ident : $param_kind:ty , $($rest:tt)* }
-        CommandConfig {
+        Signature {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
             optional_positional: vec![ $($optional_positional:tt)* ],
@@ -151,7 +152,7 @@ macro_rules! command {
             Named { $export $args $body }
             Positional { $($positional_count)* + 1 }
             Rest { $($rest)* }
-            CommandConfig {
+            Signature {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* ],
                 optional_positional: vec![ $($optional_positional)* ],
@@ -181,7 +182,7 @@ macro_rules! command {
         Named { $export:tt $args:ident $body:block }
         Positional { $($positional_count:tt)* }
         Rest { -- $param_name:ident ? : $param_kind:ty , $($rest:tt)* }
-        CommandConfig {
+        Signature {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
             optional_positional: vec![ $($optional_positional:tt)* ],
@@ -201,7 +202,7 @@ macro_rules! command {
             Named { $export $args $body }
             Positional { $($positional_count)* + 1 }
             Rest { $($rest)* }
-            CommandConfig {
+            Signature {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* ],
                 optional_positional: vec![ $($optional_positional)* ],
@@ -231,7 +232,7 @@ macro_rules! command {
         Named { $export:ident $args:ident $body:block }
         Positional { $($positional_count:tt)* }
         Rest { $param_name:ident : Block , $($rest:tt)* }
-        CommandConfig {
+        Signature {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
             optional_positional: vec![ $($optional_positional:tt)* ],
@@ -254,7 +255,7 @@ macro_rules! command {
             Named { $export $args $body }
             Positional { $($positional_count)* + 1 }
             Rest { $($rest)* }
-            CommandConfig {
+            Signature {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory_block(
                     stringify!($param_name)
@@ -286,7 +287,7 @@ macro_rules! command {
         Named { $export:ident $args:ident $body:block }
         Positional { $($positional_count:tt)* }
         Rest { $param_name:ident : $param_kind:ty , $($rest:tt)* }
-        CommandConfig {
+        Signature {
             name: $config_name:tt,
             mandatory_positional: vec![ $($mandatory_positional:tt)* ],
             optional_positional: vec![ $($optional_positional:tt)* ],
@@ -309,7 +310,7 @@ macro_rules! command {
             Named { $export $args $body }
             Positional { $($positional_count)* + 1 }
             Rest { $($rest)* }
-            CommandConfig {
+            Signature {
                 name: $config_name,
                 mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory(
                     stringify!($param_name), <$param_kind>::syntax_type()
@@ -340,7 +341,7 @@ macro_rules! command {
             Named { $export $args $body }
             Positional { 0 }
             Rest { $($command_rest)* }
-            CommandConfig {
+            Signature {
                 name: $config_name,
                 mandatory_positional: vec![],
                 optional_positional: vec![],
@@ -376,11 +377,11 @@ macro_rules! command {
     //             stringify!($name)
     //         }
 
-    //         fn config(&self) -> CommandConfig {
+    //         fn config(&self) -> Signature {
     //             let mut named: IndexMap<String, NamedType> = IndexMap::new();
     //             named.insert(stringify!($param).to_string(), NamedType::$kind);
 
-    //             CommandConfig {
+    //             Signature {
     //                 name: self.name().to_string(),
     //                 mandatory_positional: vec![],
     //                 optional_positional: vec![],

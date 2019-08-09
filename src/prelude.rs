@@ -34,24 +34,32 @@ macro_rules! trace_stream {
 
 crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
-    Command, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, Sink, SinkCommandArgs,
+    CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
 };
+crate use crate::commands::StaticCommand;
+crate use crate::context::CommandRegistry;
 crate use crate::context::{Context, SpanSource};
 crate use crate::env::host::handle_unexpected;
 crate use crate::env::Host;
 crate use crate::errors::ShellError;
+crate use crate::object::base as value;
 crate use crate::object::meta::{Tag, Tagged, TaggedItem};
 crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
+crate use crate::parser::hir::SyntaxType;
+crate use crate::parser::registry::Signature;
 crate use crate::shell::filesystem_shell::FilesystemShell;
 crate use crate::shell::shell_manager::ShellManager;
 crate use crate::shell::value_shell::ValueShell;
 crate use crate::stream::{InputStream, OutputStream};
+crate use crate::traits::{HasSpan, ToDebug};
 crate use crate::Span;
 crate use crate::Text;
 crate use futures::stream::BoxStream;
-crate use futures::Stream;
-crate use futures::{FutureExt, StreamExt};
+crate use futures::{FutureExt, Stream, StreamExt};
+crate use futures_async_stream::async_stream_block;
+#[allow(unused)]
+crate use serde::{Deserialize, Serialize};
 crate use std::collections::VecDeque;
 crate use std::future::Future;
 crate use std::sync::{Arc, Mutex};

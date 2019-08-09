@@ -2,7 +2,7 @@ use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
-fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
+pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
 
     match v {
@@ -39,9 +39,14 @@ pub fn from_toml_string_to_value(
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
 
-pub fn from_toml(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn from_toml(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
     let out = args.input;
-    let span = args.call_info.name_span;
+
     Ok(out
         .values
         .map(move |a| {

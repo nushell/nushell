@@ -1,8 +1,33 @@
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
 
-fn get_member(path: &str, span: Span, obj: &Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
+pub struct Get;
+
+#[derive(Deserialize)]
+pub struct GetArgs {
+    rest: Vec<Tagged<String>>,
+}
+
+impl StaticCommand for Get {
+    fn name(&self) -> &str {
+        "get"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, get)?.run()
+    }
+    fn signature(&self) -> Signature {
+        Signature::build("get").rest()
+    }
+}
+
+fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
     let mut current = obj;
     for p in path.split(".") {
         match current.get_data_by_key(p) {
@@ -11,7 +36,7 @@ fn get_member(path: &str, span: Span, obj: &Tagged<Value>) -> Result<Tagged<Valu
                 return Err(ShellError::labeled_error(
                     "Unknown field",
                     "object missing field",
-                    span,
+                    path.span(),
                 ));
             }
         }
@@ -20,41 +45,21 @@ fn get_member(path: &str, span: Span, obj: &Tagged<Value>) -> Result<Tagged<Valu
     Ok(current.clone())
 }
 
-pub fn get(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "Get requires a field or field path",
-            "needs parameter",
-            args.call_info.name_span,
-        ));
-    }
-
-    let amount = args.expect_nth(0)?.as_i64();
-
+pub fn get(
+    GetArgs { rest: fields }: GetArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     // If it's a number, get the row instead of the column
-    if let Ok(amount) = amount {
-        return Ok(args
-            .input
-            .values
-            .skip(amount as u64)
-            .take(1)
-            .from_input_stream());
-    }
+    // if let Some(amount) = amount {
+    //     return Ok(input.values.skip(amount as u64).take(1).from_input_stream());
+    // }
 
-    let fields: Result<Vec<(String, Span)>, _> = args
-        .positional_iter()
-        .map(|a| (a.as_string().map(|x| (x, a.span()))))
-        .collect();
-
-    let fields = fields?;
-
-    let stream = args
-        .input
+    let stream = input
         .values
         .map(move |item| {
             let mut result = VecDeque::new();
             for field in &fields {
-                match get_member(&field.0, field.1, &item) {
+                match get_member(field, &item) {
                     Ok(Tagged {
                         item: Value::List(l),
                         ..

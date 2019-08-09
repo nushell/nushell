@@ -1,36 +1,32 @@
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
-use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
+use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
-use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
 
 pub struct Mkdir;
 
-impl Command for Mkdir {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        mkdir(args)
+impl StaticCommand for Mkdir {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        mkdir(args, registry)
     }
 
     fn name(&self) -> &str {
         "mkdir"
     }
 
-    fn config(&self) -> CommandConfig {
-        let named: IndexMap<String, NamedType> = IndexMap::new();
-
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory("file", SyntaxType::Path)],
-            rest_positional: false,
-            named,
-            is_sink: false,
-            is_filter: false,
-        }
+    fn signature(&self) -> Signature {
+        Signature::build("mkdir").named("file", SyntaxType::Any)
     }
 }
 
-pub fn mkdir(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     let mut full_path = PathBuf::from(args.shell_manager.path());
 
     match &args.nth(0) {

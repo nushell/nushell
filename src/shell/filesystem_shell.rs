@@ -1,10 +1,9 @@
-use crate::commands::command::CallInfo;
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::object::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
-use rustyline::completion::{self, Completer, FilenameCompleter};
-use rustyline::error::ReadlineError;
+use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
 pub struct FilesystemShell {
@@ -54,10 +53,10 @@ impl Shell for FilesystemShell {
         "filesystem".to_string()
     }
 
-    fn ls(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
+    fn ls(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         let cwd = self.path.clone();
         let mut full_path = PathBuf::from(&self.path);
-        match &call_info.args.nth(0) {
+        match &args.nth(0) {
             Some(Tagged { item: value, .. }) => full_path.push(Path::new(&value.as_string()?)),
             _ => {}
         }
@@ -78,7 +77,7 @@ impl Shell for FilesystemShell {
 
                     let entries = match entries {
                         Err(e) => {
-                            if let Some(s) = call_info.args.nth(0) {
+                            if let Some(s) = args.nth(0) {
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
@@ -88,7 +87,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    call_info.name_span,
+                                    args.name_span(),
                                 ));
                             }
                         }
@@ -101,7 +100,7 @@ impl Shell for FilesystemShell {
                         let value = dir_entry_dict(
                             filename,
                             &entry.metadata()?,
-                            Tag::unknown_origin(call_info.name_span),
+                            Tag::unknown_origin(args.call_info.name_span),
                         )?;
                         shell_entries.push_back(ReturnSuccess::value(value))
                     }
@@ -118,7 +117,7 @@ impl Shell for FilesystemShell {
                 let value = dir_entry_dict(
                     filename,
                     &metadata,
-                    Tag::unknown_origin(call_info.name_span),
+                    Tag::unknown_origin(args.call_info.name_span),
                 )?;
                 shell_entries.push_back(ReturnSuccess::value(value))
             }
@@ -127,15 +126,15 @@ impl Shell for FilesystemShell {
         Ok(shell_entries.to_output_stream())
     }
 
-    fn cd(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
-        let path = match call_info.args.nth(0) {
+    fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+        let path = match args.nth(0) {
             None => match dirs::home_dir() {
                 Some(o) => o,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Can not change to home directory",
                         "can not go to home",
-                        call_info.name_span,
+                        args.call_info.name_span,
                     ))
                 }
             },
@@ -159,11 +158,11 @@ impl Shell for FilesystemShell {
         match std::env::set_current_dir(&path) {
             Ok(_) => {}
             Err(_) => {
-                if call_info.args.len() > 0 {
+                if args.len() > 0 {
                     return Err(ShellError::labeled_error(
                         "Can not change to directory",
                         "directory not found",
-                        call_info.args.nth(0).unwrap().span().clone(),
+                        args.nth(0).unwrap().span().clone(),
                     ));
                 } else {
                     return Err(ShellError::string("Can not change to directory"));
@@ -194,22 +193,16 @@ impl Shell for FilesystemShell {
         };
         self.path = path.to_string_lossy().to_string();
     }
-}
-
-impl Completer for FilesystemShell {
-    type Candidate = completion::Pair;
 
     fn complete(
         &self,
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
         self.completer.complete(line, pos, ctx)
     }
-}
 
-impl Hinter for FilesystemShell {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
     }

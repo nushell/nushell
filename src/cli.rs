@@ -1,20 +1,17 @@
 use crate::commands::autoview;
-use crate::commands::classified::SinkCommand;
 use crate::commands::classified::{
     ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
     StreamNext,
 };
-use crate::commands::command::sink;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
+use crate::commands::static_command;
 use crate::context::Context;
 crate use crate::errors::ShellError;
-use crate::evaluate::Scope;
 use crate::git::current_branch;
 use crate::object::Value;
-use crate::parser::registry;
-use crate::parser::registry::CommandConfig;
-use crate::parser::{Pipeline, PipelineElement, TokenNode};
+use crate::parser::registry::Signature;
+use crate::parser::{hir, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
 
 use log::{debug, trace};
@@ -62,8 +59,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let mut input = String::new();
     match reader.read_line(&mut input) {
         Ok(_) => {
-            let response =
-                serde_json::from_str::<JsonRpc<Result<CommandConfig, ShellError>>>(&input);
+            let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
                 Ok(jrpc) => match jrpc.params {
                     Ok(params) => {
@@ -71,16 +67,16 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         if params.is_filter {
                             let fname = fname.to_string();
                             let name = params.name.clone();
-                            context.add_commands(vec![Arc::new(PluginCommand::new(
+                            context.add_commands(vec![static_command(PluginCommand::new(
                                 name, fname, params,
                             ))]);
                             Ok(())
-                        } else if params.is_sink {
+                        } else {
                             let fname = fname.to_string();
                             let name = params.name.clone();
-                            context.add_sinks(vec![Arc::new(PluginSink::new(name, fname, params))]);
-                            Ok(())
-                        } else {
+                            context.add_commands(vec![static_command(PluginSink::new(
+                                name, fname, params,
+                            ))]);
                             Ok(())
                         }
                     }
@@ -149,18 +145,18 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            command("ps", Box::new(ps::ps)),
-            command("ls", Box::new(ls::ls)),
-            command("cd", Box::new(cd::cd)),
             command("first", Box::new(first::first)),
-            command("size", Box::new(size::size)),
-            command("from-csv", Box::new(from_csv::from_csv)),
+            command("pick", Box::new(pick::pick)),
             command("from-ini", Box::new(from_ini::from_ini)),
+            command("from-csv", Box::new(from_csv::from_csv)),
             command("from-json", Box::new(from_json::from_json)),
             command("from-toml", Box::new(from_toml::from_toml)),
             command("from-xml", Box::new(from_xml::from_xml)),
+            command("ps", Box::new(ps::ps)),
+            command("ls", Box::new(ls::ls)),
+            command("cd", Box::new(cd::cd)),
+            command("size", Box::new(size::size)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
-            command("get", Box::new(get::get)),
             command("enter", Box::new(enter::enter)),
             command("n", Box::new(next::next)),
             command("p", Box::new(prev::prev)),
@@ -179,23 +175,22 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
             command("tags", Box::new(tags::tags)),
-            Arc::new(Remove),
-            Arc::new(Copycp),
-            Arc::new(Open),
-            Arc::new(Mkdir),
-            Arc::new(Date),
-            Arc::new(Where),
-            Arc::new(Config),
-            Arc::new(Exit),
-            Arc::new(SkipWhile),
-        ]);
-
-        context.add_sinks(vec![
-            sink("autoview", Box::new(autoview::autoview)),
-            sink("clip", Box::new(clip::clip)),
-            sink("table", Box::new(table::table)),
-            sink("vtable", Box::new(vtable::vtable)),
-            Arc::new(Save),
+            static_command(Get),
+            //static_command(Cd),
+            static_command(Remove),
+            static_command(Open),
+            static_command(Where),
+            static_command(Config),
+            static_command(SkipWhile),
+            static_command(Exit),
+            static_command(Clip),
+            static_command(Autoview),
+            static_command(Copycp),
+            static_command(Date),
+            static_command(Mkdir),
+            static_command(Save),
+            static_command(Table),
+            static_command(VTable),
         ]);
     }
     let _ = load_plugins(&mut context);
@@ -351,16 +346,18 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 .map_err(|err| (line.clone(), err))?;
 
             match pipeline.commands.last() {
-                Some(ClassifiedCommand::Sink(_)) => {}
                 Some(ClassifiedCommand::External(_)) => {}
-                _ => pipeline.commands.push(ClassifiedCommand::Sink(SinkCommand {
-                    command: sink("autoview", Box::new(autoview::autoview)),
-                    name_span: Span::unknown(),
-                    args: registry::Args {
-                        positional: None,
-                        named: None,
-                    },
-                })),
+                _ => pipeline
+                    .commands
+                    .push(ClassifiedCommand::Internal(InternalCommand {
+                        command: static_command(autoview::Autoview),
+                        name_span: Span::unknown(),
+                        args: hir::Call::new(
+                            Box::new(hir::Expression::synthetic_string("autoview")),
+                            None,
+                            None,
+                        ),
+                    })),
             }
 
             let mut input = ClassifiedInputStream::new();
@@ -388,35 +385,23 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         )
                     }
 
-                    (Some(ClassifiedCommand::Sink(SinkCommand { name_span, .. })), Some(_)) => {
-                        return LineResult::Error(line.clone(), ShellError::labeled_error("Commands like table, save, and autoview must come last in the pipeline", "must come last", name_span));
-                    }
-
-                    (Some(ClassifiedCommand::Sink(left)), None) => {
-                        let input_vec: Vec<Tagged<Value>> = input.objects.into_vec().await;
-                        if let Err(err) = left.run(ctx, input_vec) {
-                            return LineResult::Error(line.clone(), err);
-                        }
-                        break;
-                    }
-
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input).await {
+                    ) => match left.run(ctx, input, Text::from(line)).await {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input).await {
+                        match left.run(ctx, input, Text::from(line)).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left.run(ctx, input).await {
+                        match left.run(ctx, input, Text::from(line)).await {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
@@ -494,12 +479,11 @@ fn classify_command(
             match context.has_command(name) {
                 true => {
                     let command = context.get_command(name);
-                    let config = command.config();
-                    let scope = Scope::empty();
+                    let config = command.signature();
 
                     trace!(target: "nu::build_pipeline", "classifying {:?}", config);
 
-                    let args = config.evaluate_args(call, context, &scope, source)?;
+                    let args: hir::Call = config.parse_args(call, context.registry(), source)?;
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
@@ -507,43 +491,28 @@ fn classify_command(
                         args,
                     }))
                 }
-                false => match context.has_sink(name) {
-                    true => {
-                        let command = context.get_sink(name);
-                        let config = command.config();
-                        let scope = Scope::empty();
+                false => {
+                    let arg_list_strings: Vec<Tagged<String>> = match call.children() {
+                        //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
+                        Some(args) => args
+                            .iter()
+                            .filter_map(|i| match i {
+                                TokenNode::Whitespace(_) => None,
+                                other => Some(Tagged::from_simple_spanned_item(
+                                    other.as_external_arg(source),
+                                    other.span(),
+                                )),
+                            })
+                            .collect(),
+                        None => vec![],
+                    };
 
-                        let args = config.evaluate_args(call, context, &scope, source)?;
-
-                        Ok(ClassifiedCommand::Sink(SinkCommand {
-                            command,
-                            name_span: head.span().clone(),
-                            args,
-                        }))
-                    }
-                    false => {
-                        let arg_list_strings: Vec<Tagged<String>> = match call.children() {
-                            //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
-                            Some(args) => args
-                                .iter()
-                                .filter_map(|i| match i {
-                                    TokenNode::Whitespace(_) => None,
-                                    other => Some(Tagged::from_simple_spanned_item(
-                                        other.as_external_arg(source),
-                                        other.span(),
-                                    )),
-                                })
-                                .collect(),
-                            None => vec![],
-                        };
-
-                        Ok(ClassifiedCommand::External(ExternalCommand {
-                            name: name.to_string(),
-                            name_span: head.span().clone(),
-                            args: arg_list_strings,
-                        }))
-                    }
-                },
+                    Ok(ClassifiedCommand::External(ExternalCommand {
+                        name: name.to_string(),
+                        name_span: head.span().clone(),
+                        args: arg_list_strings,
+                    }))
+                }
             }
         }
 

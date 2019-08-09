@@ -3,19 +3,24 @@ use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use log::trace;
 
-pub fn split_row(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    let positional: Vec<Tagged<Value>> = args.positional_iter().cloned().collect();
-    let span = args.call_info.name_span;
+pub fn split_row(
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
+    let len = args.len();
+    let (input, args) = args.parts();
 
-    if positional.len() == 0 {
+    let positional: Vec<Tagged<Value>> = args.positional.iter().flatten().cloned().collect();
+
+    if len == 0 {
         return Err(ShellError::labeled_error(
             "Split-row needs more information",
             "needs parameter (eg split-row \"\\n\")",
-            args.call_info.name_span,
+            span,
         ));
     }
-
-    let input = args.input;
 
     let stream = input
         .values

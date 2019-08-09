@@ -1,9 +1,6 @@
-use crate::commands::command::CallInfo;
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
-use rustyline::completion::{self, Completer};
-use rustyline::error::ReadlineError;
-use rustyline::hint::Hinter;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -60,15 +57,15 @@ impl Shell for ValueShell {
         "value".to_string()
     }
 
-    fn ls(&self, _call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
+    fn ls(&self, _args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         Ok(self
             .members()
             .map(|x| ReturnSuccess::value(x))
             .to_output_stream())
     }
 
-    fn cd(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
-        let path = match call_info.args.nth(0) {
+    fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+        let path = match args.nth(0) {
             None => "/".to_string(),
             Some(v) => {
                 let target = v.as_string()?;
@@ -102,17 +99,13 @@ impl Shell for ValueShell {
         let _ = std::env::set_current_dir(&path);
         self.path = path.clone();
     }
-}
-
-impl Completer for ValueShell {
-    type Candidate = completion::Pair;
 
     fn complete(
         &self,
         line: &str,
         pos: usize,
         _ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
         let mut completions = vec![];
 
         let mut possible_completion = vec![];
@@ -153,7 +146,7 @@ impl Completer for ValueShell {
             }
 
             if matched {
-                completions.push(completion::Pair {
+                completions.push(rustyline::completion::Pair {
                     display: command.to_string(),
                     replacement: command.to_string(),
                 });
@@ -161,9 +154,7 @@ impl Completer for ValueShell {
         }
         Ok((replace_pos, completions))
     }
-}
 
-impl Hinter for ValueShell {
     fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String> {
         None
     }

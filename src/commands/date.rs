@@ -3,34 +3,28 @@ use crate::object::{Dictionary, Value};
 use crate::prelude::*;
 use chrono::{DateTime, Local, Utc};
 
-use crate::parser::registry::{CommandConfig, NamedType};
+use crate::commands::StaticCommand;
+use crate::parser::registry::Signature;
 use chrono::{Datelike, TimeZone, Timelike};
 use core::fmt::Display;
 use indexmap::IndexMap;
 
 pub struct Date;
 
-impl Command for Date {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        date(args)
+impl StaticCommand for Date {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        date(args, registry)
     }
     fn name(&self) -> &str {
         "date"
     }
 
-    fn config(&self) -> CommandConfig {
-        let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("utc".to_string(), NamedType::Switch);
-        named.insert("local".to_string(), NamedType::Switch);
-
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![],
-            rest_positional: false,
-            named,
-            is_sink: true,
-            is_filter: false,
-        }
+    fn signature(&self) -> Signature {
+        Signature::build("mkdir").switch("utc").switch("local")
     }
 }
 
@@ -74,7 +68,9 @@ where
     Tagged::from_simple_spanned_item(Value::Object(Dictionary::from(indexmap)), span)
 }
 
-pub fn date(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     let mut date_out = VecDeque::new();
     let span = args.call_info.name_span;
 

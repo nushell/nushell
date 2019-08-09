@@ -1,3 +1,4 @@
+use crate::context::CommandRegistry;
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::object::TaggedDictBuilder;
@@ -9,7 +10,7 @@ use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use ordered_float::OrderedFloat;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -127,40 +128,11 @@ pub struct Operation {
     crate right: Value,
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Serialize, Deserialize, new)]
 pub struct Block {
     crate expressions: Vec<hir::Expression>,
     crate source: Text,
     crate span: Span,
-}
-
-impl Serialize for Block {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
-
-        let list = self
-            .expressions
-            .iter()
-            .map(|e| e.source(&self.source.clone()));
-
-        for item in list {
-            seq.serialize_element(item.as_ref())?;
-        }
-
-        seq.end()
-    }
-}
-
-impl Deserialize<'de> for Block {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        unimplemented!("deserialize block")
-    }
 }
 
 impl Block {
@@ -174,7 +146,12 @@ impl Block {
         let mut last = None;
 
         for expr in self.expressions.iter() {
-            last = Some(evaluate_baseline_expr(&expr, &(), &scope, &self.source)?)
+            last = Some(evaluate_baseline_expr(
+                &expr,
+                &CommandRegistry::empty(),
+                &scope,
+                &self.source,
+            )?)
         }
 
         Ok(last.unwrap())
@@ -259,12 +236,14 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum Switch {
     Present,
     Absent,
 }
 
 impl Switch {
+    #[allow(unused)]
     pub fn is_present(&self) -> bool {
         match self {
             Switch::Present => true,
@@ -507,15 +486,15 @@ impl Value {
         }
     }
 
-    crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
-        match self {
-            Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
-            other => Err(ShellError::string(format!(
-                "Expected pair, got {:?}",
-                other
-            ))),
-        }
-    }
+    // crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
+    //     match self {
+    //         Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
+    //         other => Err(ShellError::string(format!(
+    //             "Expected pair, got {:?}",
+    //             other
+    //         ))),
+    //     }
+    // }
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
@@ -539,17 +518,6 @@ impl Value {
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected integer, got {:?}",
-                other
-            ))),
-        }
-    }
-
-    crate fn as_block(&self) -> Result<Block, ShellError> {
-        match self {
-            Value::Block(block) => Ok(block.clone()),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected block, got {:?}",
                 other
             ))),
         }

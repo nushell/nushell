@@ -1,14 +1,21 @@
+use crate::prelude::*;
 use crate::Text;
 use derive_new::new;
 use getset::Getters;
+use serde::Deserialize;
 use serde::Serialize;
-use serde_derive::Deserialize;
 use uuid::Uuid;
 
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Tagged<T> {
     pub tag: Tag,
     pub item: T,
+}
+
+impl<T> HasSpan for Tagged<T> {
+    fn span(&self) -> Span {
+        self.tag.span
+    }
 }
 
 pub trait TaggedItem: Sized {

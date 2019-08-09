@@ -5,7 +5,7 @@ use crate::parser::{Pipeline, PipelineElement};
 use crate::shell::shell_manager::ShellManager;
 use crate::Tagged;
 use ansi_term::Color;
-use rustyline::completion::{self, Completer};
+use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
@@ -22,17 +22,33 @@ impl Helper {
 }
 
 impl Completer for Helper {
-    type Candidate = completion::Pair;
+    type Candidate = rustyline::completion::Pair;
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
+        self.helper.complete(line, pos, ctx)
+    }
+}
+
+/*
+impl Completer for Helper {
+    type Candidate = rustyline::completion::Pair;
 
     fn complete(
         &self,
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
-        self.helper.complete(line, pos, ctx)
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
+        let result = self.helper.complete(line, pos, ctx);
+
+        result.map(|(x, y)| (x, y.iter().map(|z| z.into()).collect()))
     }
 }
+*/
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {

@@ -1,14 +1,17 @@
 use crate::errors::ShellError;
+use crate::parser::CommandRegistry;
 use crate::prelude::*;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     if args.len() == 0 {
         return Err(ShellError::labeled_error(
             "First requires an amount",
             "needs parameter",
-            args.call_info.name_span,
+            args.name_span(),
         ));
     }
 
@@ -25,7 +28,7 @@ pub fn first(args: CommandArgs) -> Result<OutputStream, ShellError> {
         }
     };
 
-    let input = args.input;
-
-    Ok(OutputStream::from_input(input.values.take(amount as u64)))
+    Ok(OutputStream::from_input(
+        args.input.values.take(amount as u64),
+    ))
 }

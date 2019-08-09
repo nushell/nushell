@@ -1,14 +1,46 @@
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
-use crate::object::Block;
+use crate::object::base as value;
+use crate::parser::hir::SyntaxType;
+use crate::parser::registry;
 use crate::prelude::*;
+
 use futures::future::ready;
-use log::trace;
+use serde::Deserialize;
 
-command! {
-    Where as where(args, condition: Block,) {
-        let input: InputStream = trace_stream!(target: "nu::trace_stream::where", "where input" = args.input);
+pub struct Where;
 
-        input.values.filter_map(move |item| {
+#[derive(Deserialize)]
+struct WhereArgs {
+    condition: value::Block,
+}
+
+impl StaticCommand for Where {
+    fn name(&self) -> &str {
+        "where"
+    }
+
+    fn signature(&self) -> registry::Signature {
+        Signature::build("where").required("condition", SyntaxType::Block)
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, run)?.run()
+    }
+}
+
+fn run(
+    WhereArgs { condition }: WhereArgs,
+    context: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    Ok(context
+        .input
+        .values
+        .filter_map(move |item| {
             let result = condition.invoke(&item);
 
             let return_value = match result {
@@ -17,7 +49,8 @@ command! {
                 _ => None,
             };
 
-           ready(return_value)
+            ready(return_value)
         })
-    }
+        .boxed()
+        .to_output_stream())
 }

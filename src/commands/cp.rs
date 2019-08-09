@@ -1,33 +1,28 @@
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
-use crate::parser::registry::{CommandConfig, NamedType, PositionalType};
+use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
-use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
 
 pub struct Copycp;
 
-impl Command for Copycp {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        cp(args)
+impl StaticCommand for Copycp {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        cp(args, registry)
     }
 
     fn name(&self) -> &str {
         "cp"
     }
 
-    fn config(&self) -> CommandConfig {
-        let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("recursive".to_string(), NamedType::Switch);
-
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory("file", SyntaxType::Path)],
-            rest_positional: false,
-            named,
-            is_sink: false,
-            is_filter: false,
-        }
+    fn signature(&self) -> Signature {
+        Signature::build("cp")
+            .named("file", SyntaxType::Any)
+            .switch("recursive")
     }
 }
 
@@ -100,10 +95,11 @@ impl FileStructure {
     }
 }
 
-pub fn cp(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut source = PathBuf::from(args.shell_manager.path());
     let mut destination = PathBuf::from(args.shell_manager.path());
     let name_span = args.call_info.name_span;
+    let args = args.evaluate_once(registry)?;
 
     match args
         .nth(0)

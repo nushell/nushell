@@ -1,6 +1,6 @@
 use derive_new::new;
 use indexmap::IndexMap;
-use nu::{serve_plugin, CallInfo, CommandConfig, Plugin, ShellError, Tagged, Value};
+use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, Tagged, Value};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
 use ptree::print_config::PrintConfig;
@@ -80,12 +80,11 @@ impl TreeView {
 struct TreeViewer;
 
 impl Plugin for TreeViewer {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "tree".to_string(),
             positional: vec![],
             is_filter: false,
-            is_sink: true,
             named: IndexMap::new(),
             rest_positional: true,
         })

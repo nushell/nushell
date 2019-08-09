@@ -2,7 +2,9 @@ use crate::commands::command::CommandAction;
 use crate::errors::ShellError;
 use crate::prelude::*;
 
-pub fn enter(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn enter(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     //TODO: We could also enter a value in the stream
     if args.len() == 0 {
         return Err(ShellError::labeled_error(

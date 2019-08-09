@@ -1,62 +1,95 @@
+use crate::commands::StaticCommand;
 use crate::context::SpanSource;
 use crate::errors::ShellError;
-use crate::object::{Primitive, Switch, Value};
+use crate::object::{Primitive, Value};
+use crate::parser::hir::SyntaxType;
+use crate::parser::registry::{self, Signature};
 use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use uuid::Uuid;
 
-command! {
-    Open as open(args, path: Tagged<PathBuf>, --raw: Switch,) {
-        let span = args.call_info.name_span;
+pub struct Open;
 
-        let cwd = args
-            .shell_manager.path();
+#[derive(Deserialize)]
+pub struct OpenArgs {
+    path: Tagged<PathBuf>,
+    raw: bool,
+}
 
-        let full_path = PathBuf::from(cwd);
+impl StaticCommand for Open {
+    fn name(&self) -> &str {
+        "open"
+    }
 
-        let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".tagged(path.tag())))?;
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .required("path", SyntaxType::Path)
+            .switch("raw")
+    }
 
-        let (file_extension, contents, contents_tag, span_source) = fetch(&full_path, path_str, path.span())?;
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, run)?.run()
+    }
+}
 
-        let file_extension = if raw.is_present() {
-            None
-        } else {
-            file_extension
-        };
+fn run(
+    OpenArgs { raw, path }: OpenArgs,
+    RunnableContext {
+        shell_manager,
+        name,
+        ..
+    }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let cwd = PathBuf::from(shell_manager.path());
+    let full_path = PathBuf::from(cwd);
 
-        let mut stream = VecDeque::new();
+    let path_str = path.to_str().ok_or(ShellError::type_error(
+        "Path",
+        "invalid path".tagged(path.tag()),
+    ))?;
 
-        if let Some(uuid) = contents_tag.origin {
-            // If we have loaded something, track its source
-            stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(uuid, span_source)))
+    let (file_extension, contents, contents_tag, span_source) =
+        fetch(&full_path, path_str, path.span())?;
+
+    let file_extension = if raw { None } else { file_extension };
+
+    let mut stream = VecDeque::new();
+
+    if let Some(uuid) = contents_tag.origin {
+        // If we have loaded something, track its source
+        stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(
+            uuid,
+            span_source,
+        )))
+    }
+
+    match contents {
+        Value::Primitive(Primitive::String(string)) => {
+            let value = parse_as_value(file_extension, string, contents_tag, name)?;
+
+            match value {
+                Tagged {
+                    item: Value::List(list),
+                    ..
+                } => {
+                    for elem in list {
+                        stream.push_back(ReturnSuccess::value(elem));
+                    }
+                }
+                x => stream.push_back(ReturnSuccess::value(x)),
+            }
         }
 
-        match contents {
-            Value::Primitive(Primitive::String(string)) => {
-                let value = parse_as_value(
-                    file_extension,
-                    string,
-                    contents_tag,
-                    span,
-                )?;
+        other => stream.push_back(ReturnSuccess::value(other.tagged(contents_tag))),
+    };
 
-                match value {
-                    Tagged { item: Value::List(list), .. } => {
-                        for elem in list {
-                            stream.push_back(ReturnSuccess::value(elem));
-                        }
-                    }
-                    x => stream.push_back(ReturnSuccess::value(x))
-                }
-            },
-
-            other => stream.push_back(ReturnSuccess::value(other.tagged(contents_tag))),
-        };
-
-        stream
-    }
+    Ok(stream.boxed().to_output_stream())
 }
 
 pub fn fetch(

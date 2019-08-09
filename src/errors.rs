@@ -56,6 +56,15 @@ pub struct ShellError {
     cause: Option<Box<ProximateShellError>>,
 }
 
+impl serde::de::Error for ShellError {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        ShellError::string(msg.to_string())
+    }
+}
+
 impl ShellError {
     crate fn type_error(
         expected: impl Into<String>,

@@ -1,44 +1,40 @@
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
-use crate::parser::registry::CommandConfig;
-use crate::parser::registry::PositionalType;
 use crate::prelude::*;
 
 pub struct SkipWhile;
 
-impl Command for SkipWhile {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        skip_while(args)
-    }
+#[derive(Deserialize)]
+pub struct SkipWhileArgs {
+    condition: value::Block,
+}
+
+impl StaticCommand for SkipWhile {
     fn name(&self) -> &str {
         "skip-while"
     }
 
-    fn config(&self) -> CommandConfig {
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![PositionalType::mandatory_block("condition")],
-            rest_positional: false,
-            named: indexmap::IndexMap::new(),
-            is_filter: true,
-            is_sink: false,
-        }
+    fn signature(&self) -> Signature {
+        Signature::build("skip-while")
+            .required("condition", SyntaxType::Block)
+            .filter()
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, skip_while)?.run()
     }
 }
 
-pub fn skip_while(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "Where requires a condition",
-            "needs condition",
-            args.call_info.name_span,
-        ));
-    }
-
-    let block = args.nth(0).unwrap().as_block()?;
-    let input = args.input;
-
+pub fn skip_while(
+    SkipWhileArgs { condition }: SkipWhileArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     let objects = input.values.skip_while(move |item| {
-        let result = block.invoke(&item);
+        let result = condition.invoke(&item);
 
         let return_value = match result {
             Ok(v) if v.is_true() => true,

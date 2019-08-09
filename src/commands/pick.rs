@@ -1,19 +1,30 @@
+use crate::context::CommandRegistry;
 use crate::errors::ShellError;
 use crate::object::base::select_fields;
 use crate::prelude::*;
 
-pub fn pick(args: CommandArgs) -> Result<OutputStream, ShellError> {
-    if args.len() == 0 {
+pub fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let len = args.len();
+    let span = args.name_span();
+    let (input, args) = args.parts();
+
+    if len == 0 {
         return Err(ShellError::labeled_error(
             "Pick requires fields",
             "needs parameter",
-            args.call_info.name_span,
+            span,
         ));
     }
 
-    let fields: Result<Vec<String>, _> = args.positional_iter().map(|a| a.as_string()).collect();
+    let fields: Result<Vec<String>, _> = args
+        .positional
+        .iter()
+        .flatten()
+        .map(|a| a.as_string())
+        .collect();
+
     let fields = fields?;
-    let input = args.input;
 
     let objects = input
         .values

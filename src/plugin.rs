@@ -1,10 +1,11 @@
+use crate::Signature;
 use crate::Tagged;
-use crate::{CallInfo, CommandConfig, ReturnValue, ShellError, Value};
+use crate::{CallInfo, ReturnValue, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
 pub trait Plugin {
-    fn config(&mut self) -> Result<CommandConfig, ShellError>;
+    fn config(&mut self) -> Result<Signature, ShellError>;
 
     #[allow(unused)]
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

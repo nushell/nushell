@@ -1,5 +1,5 @@
-use crate::commands::command::Sink;
-use crate::parser::{registry::Args, TokenNode};
+use crate::commands::Command;
+use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -81,7 +81,6 @@ crate enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
     Internal(InternalCommand),
-    Sink(SinkCommand),
     External(ExternalCommand),
 }
 
@@ -91,28 +90,15 @@ impl ClassifiedCommand {
         match self {
             ClassifiedCommand::Expr(token) => token.span(),
             ClassifiedCommand::Internal(internal) => internal.name_span.into(),
-            ClassifiedCommand::Sink(sink) => sink.name_span.into(),
             ClassifiedCommand::External(external) => external.name_span.into(),
         }
     }
 }
 
-crate struct SinkCommand {
-    crate command: Arc<dyn Sink>,
-    crate name_span: Span,
-    crate args: Args,
-}
-
-impl SinkCommand {
-    crate fn run(self, context: &mut Context, input: Vec<Tagged<Value>>) -> Result<(), ShellError> {
-        context.run_sink(self.command, self.name_span.clone(), self.args, input)
-    }
-}
-
 crate struct InternalCommand {
-    crate command: Arc<dyn Command>,
+    crate command: Arc<Command>,
     crate name_span: Span,
-    crate args: Args,
+    crate args: hir::Call,
 }
 
 impl InternalCommand {
@@ -120,23 +106,27 @@ impl InternalCommand {
         self,
         context: &mut Context,
         input: ClassifiedInputStream,
+        source: Text,
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
             trace!(target: "nu::run::internal", "->");
             trace!(target: "nu::run::internal", "{}", self.command.name());
-            trace!(target: "nu::run::internal", "{:?}", self.args.debug());
+            trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
         let objects: InputStream =
             trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
-        let result = context.run_command(
-            self.command,
-            self.name_span.clone(),
-            context.source_map.clone(),
-            self.args,
-            objects,
-        )?;
+        let result = context
+            .run_command(
+                self.command,
+                self.name_span.clone(),
+                context.source_map.clone(),
+                self.args,
+                source,
+                objects,
+            )
+            .await?;
 
         let mut result = result.values;
 

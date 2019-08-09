@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, PositionalType, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, Tagged, Value,
+    serve_plugin, CallInfo, NamedType, Plugin, PositionalType, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, Signature, Tagged, Value,
 };
 
 enum Action {
@@ -121,17 +121,16 @@ impl Str {
 }
 
 impl Plugin for Str {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
+    fn config(&mut self) -> Result<Signature, ShellError> {
         let mut named = IndexMap::new();
         named.insert("downcase".to_string(), NamedType::Switch);
         named.insert("upcase".to_string(), NamedType::Switch);
         named.insert("to-int".to_string(), NamedType::Switch);
 
-        Ok(CommandConfig {
+        Ok(Signature {
             name: "str".to_string(),
             positional: vec![PositionalType::optional_any("Field")],
             is_filter: true,
-            is_sink: false,
             named,
             rest_positional: true,
         })
@@ -194,8 +193,8 @@ mod tests {
     use super::Str;
     use indexmap::IndexMap;
     use nu::{
-        Args, CallInfo, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged, TaggedDictBuilder,
-        TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged,
+        TaggedDictBuilder, TaggedItem, Value,
     };
 
     struct CallStub {
@@ -227,7 +226,7 @@ mod tests {
 
         fn create(&self, name_span: Span) -> CallInfo {
             CallInfo {
-                args: Args::new(Some(self.positionals.clone()), Some(self.flags.clone())),
+                args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
                 source_map: SourceMap::new(),
                 name_span,
             }

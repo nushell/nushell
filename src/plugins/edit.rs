@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, PositionalType, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, PositionalType, Primitive, ReturnSuccess, ReturnValue,
+    ShellError, Signature, Tagged, Value,
 };
 
 struct Edit {
@@ -41,15 +41,14 @@ impl Edit {
 }
 
 impl Plugin for Edit {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "edit".to_string(),
             positional: vec![
                 PositionalType::mandatory_any("Field"),
                 PositionalType::mandatory_any("Value"),
             ],
             is_filter: true,
-            is_sink: false,
             named: IndexMap::new(),
             rest_positional: true,
         })

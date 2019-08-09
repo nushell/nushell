@@ -7,7 +7,7 @@ use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 
 use prettytable::{color, Attr, Cell, Row, Table};
 
-#[derive(new)]
+#[derive(Debug, new)]
 pub struct TableView {
     headers: Vec<String>,
     entries: Vec<Vec<String>>,

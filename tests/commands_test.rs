@@ -203,10 +203,14 @@ fn rm_removes_files_with_wildcard() {
         "rm \"src/*/*/*.rs\""
     );
 
-    assert!(!h::files_exist_at(vec![
-        Path::new("src/parser/parse/token_tree.rs"), 
-        Path::new("src/parser/hir/baseline_parse.rs"), 
-        Path::new("src/parser/hir/baseline_parse_tokens.rs")], PathBuf::from(&full_path)));
+    assert!(!h::files_exist_at(
+        vec![
+            Path::new("src/parser/parse/token_tree.rs"),
+            Path::new("src/parser/hir/baseline_parse.rs"),
+            Path::new("src/parser/hir/baseline_parse_tokens.rs")
+        ],
+        PathBuf::from(&full_path)
+    ));
 
     assert_eq!(
         Playground::glob_vec(&format!("{}/src/*/*/*.rs", &full_path)),
@@ -230,11 +234,7 @@ fn rm_removes_directory_contents_with_recursive_flag() {
         "rm rm_test_recursive --recursive"
     );
 
-    let expected = format!(
-        "{}/{}",
-        Playground::root(),
-        sandbox
-    );
+    let expected = format!("{}/{}", Playground::root(), sandbox);
 
     assert!(!h::file_exists_at(PathBuf::from(expected)));
 }

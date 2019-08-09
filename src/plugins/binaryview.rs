@@ -2,7 +2,7 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, NamedType, Plugin, ShellError, SpanSource, Tagged, Value,
+    serve_plugin, CallInfo, NamedType, Plugin, ShellError, Signature, SpanSource, Tagged, Value,
 };
 use pretty_hex::*;
 
@@ -15,14 +15,13 @@ impl BinaryView {
 }
 
 impl Plugin for BinaryView {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
+    fn config(&mut self) -> Result<Signature, ShellError> {
         let mut named = IndexMap::new();
         named.insert("lores".to_string(), NamedType::Switch);
-        Ok(CommandConfig {
+        Ok(Signature {
             name: "binaryview".to_string(),
             positional: vec![],
             is_filter: false,
-            is_sink: true,
             named,
             rest_positional: false,
         })

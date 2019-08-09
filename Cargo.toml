@@ -30,16 +30,17 @@ ordered-float = {version = "1.0.2", features = ["serde"]}
 prettyprint = "0.7.0"
 futures-preview = { version = "=0.3.0-alpha.17", features = ["compat", "io-compat"] }
 futures-sink-preview = "=0.3.0-alpha.17"
+futures-async-stream = "0.1.0-alpha.1"
+async-trait = "0.1.7"
 futures_codec = "0.2.5"
 term = "0.5.2"
 bytes = "0.4.12"
 log = "0.4.8"
 pretty_env_logger = "0.3.0"
-serde = "1.0.98"
+serde = { version = "1.0.98", features = ["derive"] }
 serde_json = "1.0.40"
 serde-hjson = "0.9.0"
 serde_yaml = "0.8"
-serde_derive = "1.0.98"
 serde_bytes = "0.11.1"
 getset = "0.0.7"
 logos = "0.10.0-rc2"
@@ -69,7 +70,7 @@ serde_ini = "0.2.0"
 subprocess = "0.1.18"
 sys-info = "0.5.7"
 mime = "0.3.13"
-regex = "1.2.0"
+regex = "1.2.1"
 pretty-hex = "0.1.0"
 neso = "0.5.0"
 rawkey = "0.1.2"
@@ -85,6 +86,7 @@ heim = "0.0.6"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
+tempdir = "0.3.7"
 
 [lib]
 name = "nu"

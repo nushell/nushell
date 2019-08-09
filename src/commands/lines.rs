@@ -5,9 +5,12 @@ use log::trace;
 
 // TODO: "Amount remaining" wrapper
 
-pub fn lines(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
     let input = args.input;
-    let span = args.call_info.name_span;
+
+    let input: InputStream = trace_stream!(target: "nu::trace_stream::lines", "input" = input);
 
     let stream = input
         .values

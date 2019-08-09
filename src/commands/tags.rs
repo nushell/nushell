@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
-pub fn tags(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let source_map = args.call_info.source_map.clone();
     Ok(args
         .input

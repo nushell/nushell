@@ -3,7 +3,7 @@
 use crossterm::{cursor, terminal, RawScreen};
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ShellError, SourceMap, SpanSource,
+    serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap, SpanSource,
     Tagged, Value,
 };
 use rawkey::RawKey;
@@ -29,12 +29,11 @@ impl TextView {
 }
 
 impl Plugin for TextView {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "textview".to_string(),
             positional: vec![],
             is_filter: false,
-            is_sink: true,
             named: IndexMap::new(),
             rest_positional: false,
         })
@@ -239,6 +238,8 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
                             None
                         }
                     }
+                    //FIXME: this probably isn't correct
+                    SpanSource::Source(_source) => None,
                 };
 
                 match extension {

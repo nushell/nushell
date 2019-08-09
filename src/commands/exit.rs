@@ -1,36 +1,31 @@
-use crate::commands::command::CommandAction;
+use crate::commands::command::{CommandAction, StaticCommand};
 use crate::errors::ShellError;
-use crate::parser::registry::{CommandConfig, NamedType};
+use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
-use indexmap::IndexMap;
 
 pub struct Exit;
 
-impl Command for Exit {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        exit(args)
+impl StaticCommand for Exit {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        exit(args, registry)
     }
 
     fn name(&self) -> &str {
         "exit"
     }
 
-    fn config(&self) -> CommandConfig {
-        let mut named: IndexMap<String, NamedType> = IndexMap::new();
-        named.insert("now".to_string(), NamedType::Switch);
-
-        CommandConfig {
-            name: self.name().to_string(),
-            positional: vec![],
-            rest_positional: false,
-            named,
-            is_sink: false,
-            is_filter: false,
-        }
+    fn signature(&self) -> Signature {
+        Signature::build("exit").switch("now")
     }
 }
 
-pub fn exit(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn exit(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     if args.call_info.args.has("now") {
         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::Exit))].into())
     } else {

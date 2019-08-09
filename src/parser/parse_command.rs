@@ -1,5 +1,5 @@
 use crate::errors::{ArgumentError, ShellError};
-use crate::parser::registry::{CommandConfig, CommandRegistry, NamedType, PositionalType};
+use crate::parser::registry::{CommandRegistry, NamedType, PositionalType, Signature};
 use crate::parser::{baseline_parse_tokens, CallNode};
 use crate::parser::{
     hir::{self, NamedArguments},
@@ -9,8 +9,8 @@ use crate::{Span, Tag, Tagged, Text};
 use log::trace;
 
 pub fn parse_command(
-    config: &CommandConfig,
-    registry: &dyn CommandRegistry,
+    config: &Signature,
+    registry: &CommandRegistry,
     call: &Tagged<CallNode>,
     source: &Text,
 ) -> Result<hir::Call, ShellError> {
@@ -62,8 +62,8 @@ fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
 }
 
 fn parse_command_tail(
-    config: &CommandConfig,
-    registry: &dyn CommandRegistry,
+    config: &Signature,
+    registry: &CommandRegistry,
     tail: Option<Vec<TokenNode>>,
     source: &Text,
     command_span: Span,
@@ -77,7 +77,7 @@ fn parse_command_tail(
 
     trace_remaining("nodes", tail.clone(), source);
 
-    for (name, kind) in config.named() {
+    for (name, kind) in &config.named {
         trace!(target: "nu::parse", "looking for {} : {:?}", name, kind);
 
         match kind {
@@ -115,7 +115,7 @@ fn parse_command_tail(
 
                     if tail.at_end() {
                         return Err(ShellError::argument_error(
-                            config.name().clone(),
+                            config.name.clone(),
                             ArgumentError::MissingValueForName(name.to_string()),
                             flag.span(),
                         ));
@@ -139,14 +139,14 @@ fn parse_command_tail(
 
     let mut positional = vec![];
 
-    for arg in config.positional() {
+    for arg in &config.positional {
         trace!("Processing positional {:?}", arg);
 
         match arg {
             PositionalType::Mandatory(..) => {
                 if tail.len() == 0 {
                     return Err(ShellError::argument_error(
-                        config.name().clone(),
+                        config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
                         command_span,
                     ));
@@ -197,7 +197,7 @@ fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Tex
 }
 
 fn extract_mandatory(
-    config: &CommandConfig,
+    config: &Signature,
     name: &str,
     tokens: &mut hir::TokensIterator<'a>,
     source: &Text,
@@ -207,7 +207,7 @@ fn extract_mandatory(
 
     match flag {
         None => Err(ShellError::argument_error(
-            config.name().clone(),
+            config.name.clone(),
             ArgumentError::MissingMandatoryFlag(name.to_string()),
             span,
         )),

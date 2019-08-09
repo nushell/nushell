@@ -45,9 +45,10 @@ pub fn from_csv_string_to_value(
     Ok(Tagged::from_item(Value::List(rows), tag))
 }
 
-pub fn from_csv(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
     let out = args.input;
-    let span = args.call_info.name_span;
 
     Ok(out
         .values

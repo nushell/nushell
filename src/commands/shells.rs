@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::object::TaggedDictBuilder;
 use crate::prelude::*;
 
-pub fn shells(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut shells_out = VecDeque::new();
     let span = args.call_info.name_span;
 

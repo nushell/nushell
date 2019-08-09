@@ -22,8 +22,8 @@ crate mod from_yaml;
 crate mod get;
 crate mod lines;
 crate mod ls;
-crate mod next;
 crate mod mkdir;
+crate mod next;
 crate mod open;
 crate mod pick;
 crate mod plugin;
@@ -49,14 +49,23 @@ crate mod trim;
 crate mod vtable;
 crate mod where_;
 
-crate use command::command;
+crate use autoview::Autoview;
+//crate use cd::Cd;
+crate use clip::Clip;
+crate use command::{
+    command, static_command, Command, CommandArgs, RawCommandArgs, StaticCommand,
+    UnevaluatedCallInfo,
+};
 crate use config::Config;
 crate use cp::Copycp;
 crate use date::Date;
 crate use exit::Exit;
-crate use open::Open;
+crate use get::Get;
 crate use mkdir::Mkdir;
+crate use open::Open;
 crate use rm::Remove;
 crate use save::Save;
 crate use skip_while::SkipWhile;
+crate use table::Table;
+crate use vtable::VTable;
 crate use where_::Where;

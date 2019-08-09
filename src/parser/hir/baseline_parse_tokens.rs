@@ -8,11 +8,11 @@ use crate::parser::{
 use crate::{Span, Tag, Tagged, TaggedItem, Text};
 use derive_new::new;
 use log::trace;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<Vec<hir::Expression>, ShellError> {
     let mut exprs: Vec<hir::Expression> = vec![];
@@ -33,6 +33,7 @@ pub fn baseline_parse_tokens(
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SyntaxType {
     Any,
+    List,
     Literal,
     Variable,
     Path,
@@ -43,7 +44,7 @@ pub enum SyntaxType {
 
 pub fn baseline_parse_next_expr(
     tokens: &mut TokensIterator,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
     syntax_type: SyntaxType,
 ) -> Result<hir::Expression, ShellError> {
@@ -175,7 +176,7 @@ pub fn baseline_parse_next_expr(
 
 pub fn baseline_parse_semantic_token(
     token: &TokenNode,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token {
@@ -196,7 +197,7 @@ pub fn baseline_parse_semantic_token(
 
 pub fn baseline_parse_delimited(
     token: &Tagged<DelimitedNode>,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token.delimiter() {
@@ -209,13 +210,20 @@ pub fn baseline_parse_delimited(
             Ok(Tagged::from_simple_spanned_item(expr, token.span()))
         }
         Delimiter::Paren => unimplemented!(),
-        Delimiter::Square => unimplemented!(),
+        Delimiter::Square => {
+            let children = token.children();
+            let exprs =
+                baseline_parse_tokens(&mut TokensIterator::new(children), registry, source)?;
+
+            let expr = hir::RawExpression::List(exprs);
+            Ok(expr.tagged(Tag::unknown_origin(token.span())))
+        }
     }
 }
 
 pub fn baseline_parse_path(
     token: &Tagged<PathNode>,
-    registry: &dyn CommandRegistry,
+    registry: &CommandRegistry,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     let head = baseline_parse_semantic_token(token.head(), registry, source)?;

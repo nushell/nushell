@@ -1,16 +1,14 @@
-use crate::commands::command::CallInfo;
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::errors::ShellError;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
-use crate::stream::{InputStream, OutputStream};
-use rustyline::completion::{self, Completer};
-use rustyline::error::ReadlineError;
+use crate::stream::OutputStream;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct ShellManager {
-    crate shells: Arc<Mutex<Vec<Box<dyn Shell>>>>,
+    crate shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
 }
 
 impl ShellManager {
@@ -20,7 +18,7 @@ impl ShellManager {
         })
     }
 
-    pub fn push(&mut self, shell: Box<dyn Shell>) {
+    pub fn push(&mut self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().unwrap().push(shell);
         self.set_path(self.path());
     }
@@ -51,7 +49,7 @@ impl ShellManager {
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
         self.shells
             .lock()
             .unwrap()
@@ -87,14 +85,14 @@ impl ShellManager {
         self.set_path(self.path());
     }
 
-    pub fn ls(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError> {
+    pub fn ls(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
-        env.last().unwrap().ls(call_info, input)
+        env.last().unwrap().ls(args)
     }
-    pub fn cd(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError> {
+    pub fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
-        env.last().unwrap().cd(call_info, input)
+        env.last().unwrap().cd(args)
     }
 }

@@ -1,6 +1,6 @@
-use serde_derive::{Deserialize, Serialize};
-use std::str::FromStr;
 use crate::object::base::Value;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Unit {
@@ -46,7 +46,7 @@ impl FromStr for Unit {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
         match input {
-             "B" |  "b" => Ok(Unit::B),
+            "B" | "b" => Ok(Unit::B),
             "KB" | "kb" | "Kb" | "K" | "k" => Ok(Unit::KB),
             "MB" | "mb" | "Mb" => Ok(Unit::MB),
             "GB" | "gb" | "Gb" => Ok(Unit::GB),

@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn trim(args: CommandArgs) -> Result<OutputStream, ShellError> {
+pub fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
 
     Ok(input

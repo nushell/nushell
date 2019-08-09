@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Tag, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    Tag, Tagged, Value,
 };
 
 struct Sum {
@@ -63,12 +63,11 @@ impl Sum {
 }
 
 impl Plugin for Sum {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "sum".to_string(),
             positional: vec![],
             is_filter: true,
-            is_sink: false,
             named: IndexMap::new(),
             rest_positional: true,
         })

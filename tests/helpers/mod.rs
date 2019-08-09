@@ -173,8 +173,15 @@ pub fn normalize_string(input: &str) -> String {
     }
 }
 
-pub fn create_file_at(full_path: &str) {
-    std::fs::write(PathBuf::from(full_path), "fake data".as_bytes()).expect("can not create file");
+pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
+    let full_path = full_path.as_ref();
+
+    assert!(
+        full_path.parent().unwrap().is_dir(),
+        "{:?} exists",
+        full_path.parent().unwrap().display(),
+    );
+    std::fs::write(full_path, "fake data".as_bytes())
 }
 
 pub fn copy_file_to(source: &str, destination: &str) {

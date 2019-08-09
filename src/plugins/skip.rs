@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, CommandConfig, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    Tagged, Value,
 };
 
 struct Skip {
@@ -14,12 +14,11 @@ impl Skip {
 }
 
 impl Plugin for Skip {
-    fn config(&mut self) -> Result<CommandConfig, ShellError> {
-        Ok(CommandConfig {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature {
             name: "skip".to_string(),
             positional: vec![],
             is_filter: true,
-            is_sink: false,
             named: IndexMap::new(),
             rest_positional: true,
         })

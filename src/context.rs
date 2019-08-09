@@ -1,18 +1,20 @@
-use crate::commands::command::{CallInfo, Sink, SinkCommandArgs};
-use crate::parser::registry::{Args, CommandConfig, CommandRegistry};
+use crate::commands::{Command, UnevaluatedCallInfo};
+use crate::parser::hir;
 use crate::prelude::*;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
+use derive_new::new;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SpanSource {
     Url(String),
     File(String),
+    Source(Text),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -32,35 +34,67 @@ impl SourceMap {
     }
 }
 
+#[derive(Clone, new)]
+pub struct CommandRegistry {
+    #[new(value = "Arc::new(Mutex::new(IndexMap::default()))")]
+    registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
+}
+
+impl CommandRegistry {
+    crate fn empty() -> CommandRegistry {
+        CommandRegistry {
+            registry: Arc::new(Mutex::new(IndexMap::default())),
+        }
+    }
+
+    crate fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+        let registry = self.registry.lock().unwrap();
+
+        registry.get(name).map(|c| c.clone())
+    }
+
+    fn has(&self, name: &str) -> bool {
+        let registry = self.registry.lock().unwrap();
+
+        registry.contains_key(name)
+    }
+
+    fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
+        let mut registry = self.registry.lock().unwrap();
+        registry.insert(name.into(), command);
+    }
+
+    // crate fn names(&self) -> Vec<String> {
+    //     let registry = self.registry.lock().unwrap();
+    //     registry.keys().cloned().collect()
+    // }
+}
+
 #[derive(Clone)]
 pub struct Context {
-    commands: IndexMap<String, Arc<dyn Command>>,
-    sinks: IndexMap<String, Arc<dyn Sink>>,
+    registry: CommandRegistry,
     crate source_map: SourceMap,
     crate host: Arc<Mutex<dyn Host + Send>>,
     crate shell_manager: ShellManager,
 }
 
 impl Context {
+    crate fn registry(&self) -> &CommandRegistry {
+        &self.registry
+    }
+
     crate fn basic() -> Result<Context, Box<dyn Error>> {
         Ok(Context {
-            commands: indexmap::IndexMap::new(),
-            sinks: indexmap::IndexMap::new(),
+            registry: CommandRegistry::new(),
             source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             shell_manager: ShellManager::basic()?,
         })
     }
 
-    pub fn add_commands(&mut self, commands: Vec<Arc<dyn Command>>) {
+    pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) {
         for command in commands {
-            self.commands.insert(command.name().to_string(), command);
-        }
-    }
-
-    pub fn add_sinks(&mut self, sinks: Vec<Arc<dyn Sink>>) {
-        for sink in sinks {
-            self.sinks.insert(sink.name().to_string(), sink);
+            self.registry.insert(command.name().to_string(), command);
         }
     }
 
@@ -68,67 +102,59 @@ impl Context {
         self.source_map.insert(uuid, span_source);
     }
 
-    crate fn has_sink(&self, name: &str) -> bool {
-        self.sinks.contains_key(name)
-    }
-
-    crate fn get_sink(&self, name: &str) -> Arc<dyn Sink> {
-        self.sinks.get(name).unwrap().clone()
-    }
-
-    crate fn run_sink(
-        &mut self,
-        command: Arc<dyn Sink>,
-        name_span: Span,
-        args: Args,
-        input: Vec<Tagged<Value>>,
-    ) -> Result<(), ShellError> {
-        let command_args = SinkCommandArgs {
-            ctx: self.clone(),
-            call_info: CallInfo {
-                name_span,
-                source_map: self.source_map.clone(),
-                args,
-            },
-            input,
-        };
-
-        command.run(command_args)
-    }
+    // pub fn clone_commands(&self) -> CommandRegistry {
+    //     self.registry.clone()
+    // }
 
     crate fn has_command(&self, name: &str) -> bool {
-        self.commands.contains_key(name)
+        self.registry.has(name)
     }
 
-    crate fn get_command(&self, name: &str) -> Arc<dyn Command> {
-        self.commands.get(name).unwrap().clone()
+    crate fn get_command(&self, name: &str) -> Arc<Command> {
+        self.registry.get_command(name).unwrap()
     }
 
-    crate fn run_command(
+    crate async fn run_command(
         &mut self,
-        command: Arc<dyn Command>,
+        command: Arc<Command>,
         name_span: Span,
         source_map: SourceMap,
-        args: Args,
+        args: hir::Call,
+        source: Text,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
-        let command_args = CommandArgs {
+        let command_args = self.command_args(args, input, source, source_map, name_span);
+        command.run(command_args, self.registry()).await
+    }
+
+    fn call_info(
+        &self,
+        args: hir::Call,
+        source: Text,
+        source_map: SourceMap,
+        name_span: Span,
+    ) -> UnevaluatedCallInfo {
+        UnevaluatedCallInfo {
+            args,
+            source,
+            source_map,
+            name_span,
+        }
+    }
+
+    fn command_args(
+        &self,
+        args: hir::Call,
+        input: InputStream,
+        source: Text,
+        source_map: SourceMap,
+        name_span: Span,
+    ) -> CommandArgs {
+        CommandArgs {
             host: self.host.clone(),
             shell_manager: self.shell_manager.clone(),
-            call_info: CallInfo {
-                name_span,
-                source_map,
-                args,
-            },
+            call_info: self.call_info(args, source, source_map, name_span),
             input,
-        };
-
-        command.run(command_args)
-    }
-}
-
-impl CommandRegistry for Context {
-    fn get(&self, name: &str) -> Option<CommandConfig> {
-        self.commands.get(name).map(|c| c.config())
+        }
     }
 }

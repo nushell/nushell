@@ -1,25 +1,71 @@
-use crate::commands::command::SinkCommandArgs;
+use crate::commands::{CommandArgs, StaticCommand};
+use crate::context::CommandRegistry;
 use crate::errors::{labelled, ShellError};
+use crate::prelude::*;
 use clipboard::{ClipboardContext, ClipboardProvider};
+use futures::stream::StreamExt;
+use futures_async_stream::async_stream_block;
 
-pub fn clip(args: SinkCommandArgs) -> Result<(), ShellError> {
+pub struct Clip;
+
+#[derive(Deserialize)]
+pub struct ClipArgs {}
+
+impl StaticCommand for Clip {
+    fn name(&self) -> &str {
+        "clip"
+    }
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, clip)?.run()
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("clip")
+    }
+}
+
+pub fn clip(
+    ClipArgs {}: ClipArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let stream = async_stream_block! {
+        let values: Vec<Tagged<Value>> = input.values.collect().await;
+
+        inner_clip(values, name).await;
+    };
+
+    let stream: BoxStream<'static, ReturnValue> = stream.boxed();
+
+    Ok(OutputStream::from(stream))
+}
+
+async fn inner_clip(input: Vec<Tagged<Value>>, name: Span) -> OutputStream {
     let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
     let mut new_copy_data = String::new();
 
-    if args.input.len() > 0 {
+    if input.len() > 0 {
         let mut first = true;
-        for i in args.input.iter() {
+        for i in input.iter() {
             if !first {
                 new_copy_data.push_str("\n");
             } else {
                 first = false;
             }
 
-            let string = i.as_string().map_err(labelled(
-                args.call_info.name_span,
+            let s = i.as_string().map_err(labelled(
+                name,
                 "Given non-string data",
                 "expected strings from pipeline",
-            ))?;
+            ));
+
+            let string: String = match s {
+                Ok(string) => string,
+                Err(err) => return OutputStream::one(Err(err)),
+            };
 
             new_copy_data.push_str(&string);
         }
@@ -27,5 +73,5 @@ pub fn clip(args: SinkCommandArgs) -> Result<(), ShellError> {
 
     clip_context.set_contents(new_copy_data).unwrap();
 
-    Ok(())
+    OutputStream::empty()
 }

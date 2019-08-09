@@ -1,3 +1,4 @@
+use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
@@ -37,41 +38,34 @@ pub enum NuResult {
 pub struct PluginCommand {
     name: String,
     path: String,
-    config: registry::CommandConfig,
+    config: registry::Signature,
 }
 
-impl Command for PluginCommand {
-    fn run(&self, args: CommandArgs) -> Result<OutputStream, ShellError> {
-        filter_plugin(self.path.clone(), args)
-    }
+impl StaticCommand for PluginCommand {
     fn name(&self) -> &str {
         &self.name
     }
-    fn config(&self) -> registry::CommandConfig {
+
+    fn signature(&self) -> registry::Signature {
         self.config.clone()
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        filter_plugin(self.path.clone(), args, registry)
     }
 }
 
-#[derive(new)]
-pub struct PluginSink {
-    name: String,
+pub fn filter_plugin(
     path: String,
-    config: registry::CommandConfig,
-}
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
 
-impl Sink for PluginSink {
-    fn run(&self, args: SinkCommandArgs) -> Result<(), ShellError> {
-        sink_plugin(self.path.clone(), args)
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn config(&self) -> registry::CommandConfig {
-        self.config.clone()
-    }
-}
-
-pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, ShellError> {
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -84,7 +78,7 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
     let mut eos: VecDeque<Tagged<Value>> = VecDeque::new();
     eos.push_back(Value::Primitive(Primitive::EndOfStream).tagged_unknown());
 
-    let call_info = args.call_info;
+    let call_info = args.call_info.clone();
 
     let stream = bos
         .chain(args.input.values)
@@ -238,20 +232,55 @@ pub fn filter_plugin(path: String, args: CommandArgs) -> Result<OutputStream, Sh
     Ok(stream.to_output_stream())
 }
 
-pub fn sink_plugin(path: String, args: SinkCommandArgs) -> Result<(), ShellError> {
+#[derive(new)]
+pub struct PluginSink {
+    name: String,
+    path: String,
+    config: registry::Signature,
+}
+
+impl StaticCommand for PluginSink {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn signature(&self) -> registry::Signature {
+        self.config.clone()
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        sink_plugin(self.path.clone(), args, registry)
+    }
+}
+
+pub fn sink_plugin(
+    path: String,
+    args: CommandArgs,
+    registry: &CommandRegistry,
+) -> Result<OutputStream, ShellError> {
     //use subprocess::Exec;
-    let request = JsonRpc::new("sink", (args.call_info, args.input));
-    let request_raw = serde_json::to_string(&request).unwrap();
-    let mut tmpfile = tempfile::NamedTempFile::new()?;
-    let _ = writeln!(tmpfile, "{}", request_raw);
-    let _ = tmpfile.flush();
+    let args = args.evaluate_once(registry)?;
+    let call_info = args.call_info.clone();
 
-    let mut child = std::process::Command::new(path)
-        .arg(tmpfile.path())
-        .spawn()
-        .expect("Failed to spawn child process");
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
-    let _ = child.wait();
+        let request = JsonRpc::new("sink", (call_info.clone(), input));
+        let request_raw = serde_json::to_string(&request).unwrap();
+        let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
+        let _ = writeln!(tmpfile, "{}", request_raw);
+        let _ = tmpfile.flush();
 
-    Ok(())
+        let mut child = std::process::Command::new(path)
+            .arg(tmpfile.path())
+            .spawn()
+            .expect("Failed to spawn child process");
+
+        let _ = child.wait();
+    };
+    Ok(OutputStream::new(stream))
 }
