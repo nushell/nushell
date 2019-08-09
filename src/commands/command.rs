@@ -115,6 +115,7 @@ impl CommandArgs {
         callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnableArgs<T>, ShellError> {
         let shell_manager = self.shell_manager.clone();
+        let source_map = self.call_info.source_map.clone();
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
@@ -128,6 +129,7 @@ impl CommandArgs {
                 commands: registry.clone(),
                 shell_manager,
                 name: name_span,
+                source_map,
                 host,
             },
             callback,
@@ -146,6 +148,7 @@ impl CommandArgs {
         };
 
         let shell_manager = self.shell_manager.clone();
+        let source_map = self.call_info.source_map.clone();
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
@@ -159,6 +162,7 @@ impl CommandArgs {
                 commands: registry.clone(),
                 shell_manager,
                 name: name_span,
+                source_map,
                 host,
             },
             raw_args,
@@ -172,6 +176,7 @@ pub struct RunnableContext {
     pub shell_manager: ShellManager,
     pub host: Arc<Mutex<dyn Host>>,
     pub commands: CommandRegistry,
+    pub source_map: SourceMap,
     pub name: Span,
 }
 

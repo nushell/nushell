@@ -1,8 +1,6 @@
-use crate::commands::command::CallInfo;
+use crate::commands::command::{CallInfo, EvaluatedStaticCommandArgs};
 use crate::prelude::*;
-use crate::shell::completer::CompletionPair;
 use crate::shell::shell::Shell;
-use rustyline::error::ReadlineError;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -59,7 +57,7 @@ impl Shell for ValueShell {
         "value".to_string()
     }
 
-    fn ls(&self, _call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
+    fn ls(&self, _args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         Ok(self
             .members()
             .map(|x| ReturnSuccess::value(x))

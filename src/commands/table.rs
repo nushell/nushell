@@ -31,7 +31,6 @@ pub fn table(_args: TableArgs, context: RunnableContext) -> Result<OutputStream,
         if input.len() > 0 {
             let mut host = context.host.lock().unwrap();
             let view = TableView::from_list(&input);
-            println!("{:#?}", view);
             if let Some(view) = view {
                 handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
             }

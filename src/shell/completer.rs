@@ -1,5 +1,4 @@
 use derive_new::new;
-use rustyline::completion::Completer;
 use rustyline::completion::{self, FilenameCompleter};
 use rustyline::line_buffer::LineBuffer;
 

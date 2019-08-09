@@ -2,7 +2,6 @@ use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::parser::parse::tokens::RawToken;
 use crate::parser::{Pipeline, PipelineElement};
-use crate::shell::completer::CompletionPair;
 use crate::shell::shell_manager::ShellManager;
 use crate::Tagged;
 use ansi_term::Color;

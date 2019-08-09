@@ -1,11 +1,8 @@
-use crate::commands::command::CallInfo;
+use crate::commands::command::{CallInfo, EvaluatedStaticCommandArgs};
 use crate::errors::ShellError;
-use crate::shell::completer::CompletionPair;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::{InputStream, OutputStream};
-use rustyline::completion::Completer;
-use rustyline::error::ReadlineError;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
@@ -88,10 +85,10 @@ impl ShellManager {
         self.set_path(self.path());
     }
 
-    pub fn ls(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError> {
+    pub fn ls(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
-        env.last().unwrap().ls(call_info, input)
+        env.last().unwrap().ls(args)
     }
     pub fn cd(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
