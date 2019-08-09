@@ -27,7 +27,7 @@ impl StaticCommand for Table {
 
 pub fn table(_args: TableArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream_block! {
-        let input: Vec<Spanned<Value>> = context.input.into_vec().await;
+        let input: Vec<Tagged<Value>> = context.input.into_vec().await;
         if input.len() > 0 {
             let mut host = context.host.lock().unwrap();
             let view = TableView::from_list(&input);

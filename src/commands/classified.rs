@@ -1,6 +1,6 @@
 use crate::commands::Command;
 use crate::context::SourceMap;
-use crate::parser::{hir, Span, Spanned, TokenNode};
+use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -98,7 +98,7 @@ impl ClassifiedCommand {
 
 crate struct InternalCommand {
     crate command: Arc<Command>,
-    crate name_span: Option<Span>,
+    crate name_span: Span,
     crate source_map: SourceMap,
     crate args: hir::Call,
 }
@@ -123,7 +123,7 @@ impl InternalCommand {
             .run_command(
                 self.command,
                 self.name_span.clone(),
-                self.source_map,
+                context.source_map.clone(),
                 self.args,
                 source,
                 objects,
@@ -137,12 +137,62 @@ impl InternalCommand {
             match item? {
                 ReturnSuccess::Action(action) => match action {
                     CommandAction::ChangePath(path) => {
-                        context.env.lock().unwrap().path = path;
+                        context.shell_manager.set_path(path);
                     }
                     CommandAction::AddSpanSource(uuid, span_source) => {
                         context.add_span_source(uuid, span_source);
                     }
                     CommandAction::Exit => std::process::exit(0),
+                    CommandAction::EnterShell(location) => {
+                        let path = std::path::Path::new(&location);
+
+                        if path.is_dir() {
+                            // If it's a directory, add a new filesystem shell
+                            context
+                                .shell_manager
+                                .push(Box::new(FilesystemShell::with_location(location)?));
+                        } else {
+                            // If it's a file, attempt to open the file as a value and enter it
+                            let cwd = context.shell_manager.path();
+
+                            let full_path = std::path::PathBuf::from(cwd);
+
+                            let (file_extension, contents, contents_tag, _) =
+                                crate::commands::open::fetch(
+                                    &full_path,
+                                    &location,
+                                    Span::unknown(),
+                                )?;
+
+                            match contents {
+                                Value::Primitive(Primitive::String(string)) => {
+                                    let value = crate::commands::open::parse_as_value(
+                                        file_extension,
+                                        string,
+                                        contents_tag,
+                                        Span::unknown(),
+                                    )?;
+
+                                    context.shell_manager.push(Box::new(ValueShell::new(value)));
+                                }
+                                value => context
+                                    .shell_manager
+                                    .push(Box::new(ValueShell::new(value.tagged(Tag::unknown())))),
+                            }
+                        }
+                    }
+                    CommandAction::PreviousShell => {
+                        context.shell_manager.prev();
+                    }
+                    CommandAction::NextShell => {
+                        context.shell_manager.next();
+                    }
+                    CommandAction::LeaveShell => {
+                        context.shell_manager.pop();
+                        if context.shell_manager.is_empty() {
+                            std::process::exit(0);
+                        }
+                    }
                 },
 
                 ReturnSuccess::Value(v) => {
@@ -158,8 +208,8 @@ impl InternalCommand {
 crate struct ExternalCommand {
     crate name: String,
     #[allow(unused)]
-    crate name_span: Option<Span>,
-    crate args: Vec<Spanned<String>>,
+    crate name_span: Span,
+    crate args: Vec<Tagged<String>>,
 }
 
 crate enum StreamNext {
@@ -176,7 +226,7 @@ impl ExternalCommand {
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
-        let inputs: Vec<Spanned<Value>> = input.objects.into_vec().await;
+        let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
         let name_span = self.name_span.clone();
 
         trace!(target: "nu::run::external", "-> {}", self.name);
@@ -201,7 +251,7 @@ impl ExternalCommand {
                         let mut span = None;
                         for arg in &self.args {
                             if arg.item.contains("$it") {
-                                span = Some(arg.span);
+                                span = Some(arg.span());
                             }
                         }
                         if let Some(span) = span {
@@ -231,7 +281,17 @@ impl ExternalCommand {
                 }
             } else {
                 for arg in &self.args {
-                    process = process.arg(arg.item.clone());
+                    let arg_chars: Vec<_> = arg.chars().collect();
+                    if arg_chars.len() > 1
+                        && arg_chars[0] == '"'
+                        && arg_chars[arg_chars.len() - 1] == '"'
+                    {
+                        // quoted string
+                        let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
+                        process = process.arg(new_arg);
+                    } else {
+                        process = process.arg(arg.item.clone());
+                    }
                 }
             }
         }
@@ -243,13 +303,13 @@ impl ExternalCommand {
                 let mut first = true;
                 for i in &inputs {
                     if i.as_string().is_err() {
-                        let mut span = None;
+                        let mut span = name_span;
                         for arg in &self.args {
                             if arg.item.contains("$it") {
-                                span = Some(arg.span);
+                                span = arg.span();
                             }
                         }
-                        return Err(ShellError::maybe_labeled_error(
+                        return Err(ShellError::labeled_error(
                             "External $it needs string data",
                             "given object instead of string data",
                             span,
@@ -280,7 +340,7 @@ impl ExternalCommand {
 
             process = Exec::shell(new_arg_string);
         }
-        process = process.cwd(context.env.lock().unwrap().path());
+        process = process.cwd(context.shell_manager.path());
 
         let mut process = match stream_next {
             StreamNext::Last => process,
@@ -308,10 +368,11 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream =
-                    stream.map(move |line| Value::string(line.unwrap()).spanned(name_span));
+                let stream = stream.map(move |line| {
+                    Tagged::from_simple_spanned_item(Value::string(line.unwrap()), name_span)
+                });
                 Ok(ClassifiedInputStream::from_input_stream(
-                    stream.boxed() as BoxStream<'static, Spanned<Value>>
+                    stream.boxed() as BoxStream<'static, Tagged<Value>>
                 ))
             }
         }

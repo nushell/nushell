@@ -8,7 +8,7 @@ pub fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
 
     if args.len() == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "First requires an amount",
             "needs parameter",
             args.name_span(),
@@ -23,7 +23,7 @@ pub fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             return Err(ShellError::labeled_error(
                 "Value is not a number",
                 "expected integer",
-                args.expect_nth(0)?.span,
+                args.expect_nth(0)?.span(),
             ))
         }
     };

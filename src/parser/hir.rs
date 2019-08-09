@@ -5,7 +5,7 @@ crate mod named;
 crate mod path;
 
 use crate::evaluate::Scope;
-use crate::parser::{registry, Span, Spanned, Unit};
+use crate::parser::{registry, Unit};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
@@ -18,7 +18,7 @@ crate use binary::Binary;
 crate use named::NamedArguments;
 crate use path::Path;
 
-pub fn path(head: impl Into<Expression>, tail: Vec<Spanned<impl Into<String>>>) -> Path {
+pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -> Path {
     Path::new(
         head.into(),
         tail.into_iter()
@@ -111,44 +111,44 @@ impl RawExpression {
     }
 }
 
-pub type Expression = Spanned<RawExpression>;
+pub type Expression = Tagged<RawExpression>;
 
 impl Expression {
     crate fn int(i: impl Into<i64>, span: impl Into<Span>) -> Expression {
-        Spanned::from_item(RawExpression::Literal(Literal::Integer(i.into())), span)
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Integer(i.into())), span)
     }
 
     crate fn size(i: impl Into<i64>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::Size(i.into(), unit.into())),
             span,
         )
     }
 
     crate fn synthetic_string(s: impl Into<String>) -> Expression {
-        RawExpression::Synthetic(Synthetic::String(s.into())).spanned_unknown()
+        RawExpression::Synthetic(Synthetic::String(s.into())).tagged_unknown()
     }
 
     crate fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::String(inner.into())),
             outer.into(),
         )
     }
 
     crate fn bare(span: impl Into<Span>) -> Expression {
-        Spanned::from_item(RawExpression::Literal(Literal::Bare), span.into())
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
     }
 
     crate fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::Other(inner.into())),
             outer.into(),
         )
     }
 
     crate fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        Spanned::from_item(
+        Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::It(inner.into())),
             outer.into(),
         )
@@ -158,7 +158,7 @@ impl Expression {
 impl ToDebug for Expression {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         match self.item() {
-            RawExpression::Literal(l) => write!(f, "{}", l.spanned(self.span()).debug(source)),
+            RawExpression::Literal(l) => write!(f, "{:?}", l),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
@@ -188,8 +188,8 @@ impl ToDebug for Expression {
     }
 }
 
-impl From<Spanned<Path>> for Expression {
-    fn from(path: Spanned<Path>) -> Expression {
+impl From<Tagged<Path>> for Expression {
+    fn from(path: Tagged<Path>) -> Expression {
         path.map(|p| RawExpression::Path(Box::new(p)))
     }
 }
@@ -202,7 +202,7 @@ pub enum Literal {
     Bare,
 }
 
-impl ToDebug for Spanned<&Literal> {
+impl ToDebug for Tagged<&Literal> {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         match self.item() {
             Literal::Integer(int) => write!(f, "{}", *int),

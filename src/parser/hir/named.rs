@@ -1,6 +1,7 @@
 use crate::parser::hir::Expression;
-use crate::parser::{Flag, Span};
+use crate::parser::Flag;
 use crate::prelude::*;
+use crate::Span;
 use derive_new::new;
 use indexmap::IndexMap;
 use log::trace;

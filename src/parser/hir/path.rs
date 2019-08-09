@@ -1,5 +1,6 @@
-use crate::parser::{hir::Expression, Spanned};
+use crate::parser::hir::Expression;
 use crate::prelude::*;
+use crate::Tagged;
 use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,7 @@ use std::fmt;
 #[get = "crate"]
 pub struct Path {
     head: Expression,
-    tail: Vec<Spanned<String>>,
+    tail: Vec<Tagged<String>>,
 }
 
 impl ToDebug for Path {

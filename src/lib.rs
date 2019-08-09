@@ -31,14 +31,15 @@ mod traits;
 mod utils;
 
 pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
-pub use crate::context::SpanSource;
+pub use crate::context::{SourceMap, SpanSource};
 pub use crate::env::host::BasicHost;
-pub use crate::parser::parse::span::SpannedItem;
-pub use crate::parser::Spanned;
+pub use crate::object::base::OF64;
 pub use crate::plugin::{serve_plugin, Plugin};
 pub use crate::utils::{AbsolutePath, RelativePath};
 pub use cli::cli;
 pub use errors::ShellError;
 pub use object::base::{Primitive, Value};
+pub use object::dict::{Dictionary, TaggedDictBuilder};
+pub use object::meta::{Span, Tag, Tagged, TaggedItem};
 pub use parser::parse::text::Text;
 pub use parser::registry::{EvaluatedArgs, NamedType, PositionalType, Signature};

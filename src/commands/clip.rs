@@ -33,7 +33,7 @@ pub fn clip(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream_block! {
-        let values: Vec<Spanned<Value>> = input.values.collect().await;
+        let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         inner_clip(values, name).await;
     };
@@ -43,7 +43,7 @@ pub fn clip(
     Ok(OutputStream::from(stream))
 }
 
-async fn inner_clip(input: Vec<Spanned<Value>>, name: Option<Span>) -> OutputStream {
+async fn inner_clip(input: Vec<Tagged<Value>>, name: Span) -> OutputStream {
     let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
     let mut new_copy_data = String::new();
 

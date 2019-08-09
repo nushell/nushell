@@ -5,7 +5,6 @@ use crate::commands::to_yaml::value_to_yaml_value;
 use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::object::Value;
-use crate::parser::Spanned;
 use crate::prelude::*;
 use std::path::PathBuf;
 
@@ -13,7 +12,7 @@ pub struct Save;
 
 #[derive(Deserialize)]
 pub struct SaveArgs {
-    path: Spanned<PathBuf>,
+    path: Tagged<PathBuf>,
     raw: bool,
 }
 
@@ -48,7 +47,7 @@ pub fn save(
     full_path.push(path.item());
 
     let stream = async_stream_block! {
-        let input: Vec<Spanned<Value>> = context.input.values.collect().await;
+        let input: Vec<Tagged<Value>> = context.input.values.collect().await;
 
         let contents = match full_path.extension() {
             Some(x) if x == "csv" && !save_raw => {

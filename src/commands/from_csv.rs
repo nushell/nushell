@@ -1,15 +1,15 @@
-use crate::object::{Primitive, SpannedDictBuilder, Value};
+use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use csv::ReaderBuilder;
 
 pub fn from_csv_string_to_value(
     s: String,
-    span: impl Into<Span>,
-) -> Result<Spanned<Value>, Box<dyn std::error::Error>> {
+    tag: impl Into<Tag>,
+) -> Result<Tagged<Value>, Box<dyn std::error::Error>> {
     let mut reader = ReaderBuilder::new()
         .has_headers(false)
         .from_reader(s.as_bytes());
-    let span = span.into();
+    let tag = tag.into();
 
     let mut fields: VecDeque<String> = VecDeque::new();
     let mut iter = reader.records();
@@ -27,25 +27,22 @@ pub fn from_csv_string_to_value(
         if let Some(row_values) = iter.next() {
             let row_values = row_values?;
 
-            let mut row = SpannedDictBuilder::new(span);
+            let mut row = TaggedDictBuilder::new(tag);
 
             for (idx, entry) in row_values.iter().enumerate() {
-                row.insert_spanned(
+                row.insert_tagged(
                     fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).spanned(span),
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
                 );
             }
 
-            rows.push(row.into_spanned_value());
+            rows.push(row.into_tagged_value());
         } else {
             break;
         }
     }
 
-    Ok(Spanned {
-        item: Value::List(rows),
-        span,
-    })
+    Ok(Tagged::from_item(Value::List(rows), tag))
 }
 
 pub fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -55,20 +52,29 @@ pub fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
 
     Ok(out
         .values
-        .map(move |a| match a.item {
-            Value::Primitive(Primitive::String(s)) => match from_csv_string_to_value(s, span) {
-                Ok(x) => ReturnSuccess::value(x.spanned(a.span)),
-                Err(_) => Err(ShellError::maybe_labeled_error(
-                    "Could not parse as CSV",
-                    "piped data failed CSV parse",
+        .map(move |a| {
+            let value_tag = a.tag();
+            match a.item {
+                Value::Primitive(Primitive::String(s)) => {
+                    match from_csv_string_to_value(s, value_tag) {
+                        Ok(x) => ReturnSuccess::value(x),
+                        Err(_) => Err(ShellError::labeled_error_with_secondary(
+                            "Could not parse as CSV",
+                            "input cannot be parsed as CSV",
+                            span,
+                            "value originates from here",
+                            value_tag.span,
+                        )),
+                    }
+                }
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
                     span,
+                    "value originates from here",
+                    a.span(),
                 )),
-            },
-            _ => Err(ShellError::maybe_labeled_error(
-                "Expected string values from pipeline",
-                "expects strings from pipeline",
-                span,
-            )),
+            }
         })
         .to_output_stream())
 }

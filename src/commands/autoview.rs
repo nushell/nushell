@@ -1,8 +1,6 @@
 use crate::commands::{RawCommandArgs, StaticCommand};
-use crate::context::{SourceMap, SpanSource};
 use crate::errors::ShellError;
 use crate::prelude::*;
-use std::path::Path;
 
 pub struct Autoview;
 
@@ -36,15 +34,15 @@ pub fn autoview(
         let input = context.input.drain_vec().await;
 
         if input.len() > 0 {
-            if let Spanned {
+            if let Tagged {
                 item: Value::Binary(_),
                 ..
-            } = input[0]
+            } = input[0usize]
             {
                 let binary = context.expect_command("binaryview");
                 binary.run(raw.with_input(input), &context.commands).await;
             } else if is_single_text_value(&input) {
-                view_text_value(&input[0], &raw.call_info.source_map);
+                //view_text_value(&input[0], &raw.call_info.source_map);
             } else if equal_shapes(&input) {
                 let table = context.expect_command("table");
                 let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
@@ -63,7 +61,7 @@ pub fn autoview(
     }))
 }
 
-fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {
+fn equal_shapes(input: &Vec<Tagged<Value>>) -> bool {
     let mut items = input.iter();
 
     let item = match items.next() {
@@ -82,11 +80,11 @@ fn equal_shapes(input: &Vec<Spanned<Value>>) -> bool {
     true
 }
 
-fn is_single_text_value(input: &Vec<Spanned<Value>>) -> bool {
+fn is_single_text_value(input: &Vec<Tagged<Value>>) -> bool {
     if input.len() != 1 {
         return false;
     }
-    if let Spanned {
+    if let Tagged {
         item: Value::Primitive(Primitive::String(_)),
         ..
     } = input[0]
@@ -94,65 +92,5 @@ fn is_single_text_value(input: &Vec<Spanned<Value>>) -> bool {
         true
     } else {
         false
-    }
-}
-
-fn view_text_value(value: &Spanned<Value>, source_map: &SourceMap) {
-    match value {
-        Spanned {
-            item: Value::Primitive(Primitive::String(s)),
-            span,
-        } => {
-            let source = span.source.map(|x| source_map.get(&x)).flatten();
-
-            if let Some(source) = source {
-                match source {
-                    SpanSource::File(file) => {
-                        let path = Path::new(file);
-                        match path.extension() {
-                            Some(extension) => {
-                                use syntect::easy::HighlightLines;
-                                use syntect::highlighting::{Style, ThemeSet};
-                                use syntect::parsing::SyntaxSet;
-                                use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
-
-                                // Load these once at the start of your program
-                                let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
-                                    "../../assets/syntaxes.bin"
-                                ));
-
-                                if let Some(syntax) =
-                                    ps.find_syntax_by_extension(extension.to_str().unwrap())
-                                {
-                                    let ts: ThemeSet = syntect::dumps::from_binary(include_bytes!(
-                                        "../../assets/themes.bin"
-                                    ));
-                                    let mut h =
-                                        HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
-
-                                    for line in LinesWithEndings::from(s) {
-                                        let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
-                                        let escaped =
-                                            as_24_bit_terminal_escaped(&ranges[..], false);
-                                        print!("{}", escaped);
-                                    }
-                                } else {
-                                    println!("{}", s);
-                                }
-                            }
-                            _ => {
-                                println!("{}", s);
-                            }
-                        }
-                    }
-                    _ => {
-                        println!("{}", s);
-                    }
-                }
-            } else {
-                println!("{}", s);
-            }
-        }
-        _ => {}
     }
 }

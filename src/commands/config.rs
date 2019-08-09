@@ -11,11 +11,11 @@ pub struct Config;
 
 #[derive(Deserialize)]
 pub struct ConfigArgs {
-    set: Option<(Spanned<String>, Spanned<Value>)>,
-    get: Option<Spanned<String>>,
-    clear: Spanned<bool>,
-    remove: Option<Spanned<String>>,
-    path: Spanned<bool>,
+    set: Option<(Tagged<String>, Tagged<Value>)>,
+    get: Option<Tagged<String>>,
+    clear: Tagged<bool>,
+    remove: Option<Tagged<String>>,
+    path: Tagged<bool>,
 }
 
 impl StaticCommand for Config {
@@ -69,29 +69,41 @@ pub fn config(
 
         config::write_config(&result)?;
 
-        return Ok(stream![Spanned::from_item(
+        return Ok(stream![Tagged::from_simple_spanned_item(
             Value::Object(result.into()),
             value.span()
         )]
         .from_input_stream());
     }
 
-    if let Spanned { item: true, span } = clear {
+    if let Tagged {
+        item: true,
+        tag: Tag { span, .. },
+    } = clear
+    {
         result.clear();
 
         config::write_config(&result)?;
 
-        return Ok(
-            stream![Spanned::from_item(Value::Object(result.into()), span)].from_input_stream(),
-        );
+        return Ok(stream![Tagged::from_simple_spanned_item(
+            Value::Object(result.into()),
+            span
+        )]
+        .from_input_stream());
     }
 
-    if let Spanned { item: true, span } = path {
+    if let Tagged {
+        item: true,
+        tag: Tag { span, .. },
+    } = path
+    {
         let path = config::config_path()?;
 
-        return Ok(
-            stream![Value::Primitive(Primitive::Path(path)).spanned(span)].from_input_stream(),
-        );
+        return Ok(stream![Tagged::from_simple_spanned_item(
+            Value::Primitive(Primitive::Path(path)),
+            span
+        )]
+        .from_input_stream());
     }
 
     if let Some(v) = remove {
@@ -106,9 +118,9 @@ pub fn config(
             )));
         }
 
-        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).spanned(v.span())]);
+        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).simple_spanned(v.span())]);
         return Ok(obj.from_input_stream());
     }
 
-    return Ok(vec![Value::Object(result.into()).spanned(name)].into());
+    return Ok(vec![Value::Object(result.into()).simple_spanned(name)].into());
 }

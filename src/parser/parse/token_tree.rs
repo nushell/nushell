@@ -1,6 +1,6 @@
 use crate::errors::ShellError;
-use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, span::*, tokens::*};
-use crate::Text;
+use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
+use crate::{Span, Tagged, Text};
 use derive_new::new;
 use enum_utils::FromStr;
 use getset::Getters;
@@ -10,16 +10,16 @@ use std::fmt;
 pub enum TokenNode {
     Token(Token),
     #[allow(unused)]
-    Call(Spanned<CallNode>),
-    Delimited(Spanned<DelimitedNode>),
-    Pipeline(Spanned<Pipeline>),
-    Operator(Spanned<Operator>),
-    Flag(Spanned<Flag>),
+    Call(Tagged<CallNode>),
+    Delimited(Tagged<DelimitedNode>),
+    Pipeline(Tagged<Pipeline>),
+    Operator(Tagged<Operator>),
+    Flag(Tagged<Flag>),
     Member(Span),
     Whitespace(Span),
     #[allow(unused)]
-    Error(Spanned<Box<ShellError>>),
-    Path(Spanned<PathNode>),
+    Error(Tagged<Box<ShellError>>),
+    Path(Tagged<PathNode>),
 }
 
 pub struct DebugTokenNode<'a> {
@@ -86,16 +86,16 @@ impl From<&TokenNode> for Span {
 impl TokenNode {
     pub fn span(&self) -> Span {
         match self {
-            TokenNode::Token(t) => t.span,
-            TokenNode::Call(s) => s.span,
-            TokenNode::Delimited(s) => s.span,
-            TokenNode::Pipeline(s) => s.span,
-            TokenNode::Operator(s) => s.span,
-            TokenNode::Flag(s) => s.span,
+            TokenNode::Token(t) => t.span(),
+            TokenNode::Call(s) => s.span(),
+            TokenNode::Delimited(s) => s.span(),
+            TokenNode::Pipeline(s) => s.span(),
+            TokenNode::Operator(s) => s.span(),
+            TokenNode::Flag(s) => s.span(),
             TokenNode::Member(s) => *s,
             TokenNode::Whitespace(s) => *s,
-            TokenNode::Error(s) => s.span,
-            TokenNode::Path(s) => s.span,
+            TokenNode::Error(s) => s.span(),
+            TokenNode::Path(s) => s.span(),
         }
     }
 
@@ -129,7 +129,7 @@ impl TokenNode {
 
     pub fn is_bare(&self) -> bool {
         match self {
-            TokenNode::Token(Spanned {
+            TokenNode::Token(Tagged {
                 item: RawToken::Bare,
                 ..
             }) => true,
@@ -137,10 +137,10 @@ impl TokenNode {
         }
     }
 
-    crate fn as_flag(&self, value: &str, source: &Text) -> Option<Spanned<Flag>> {
+    crate fn as_flag(&self, value: &str, source: &Text) -> Option<Tagged<Flag>> {
         match self {
             TokenNode::Flag(
-                flag @ Spanned {
+                flag @ Tagged {
                     item: Flag { .. }, ..
                 },
             ) if value == flag.name().slice(source) => Some(*flag),
@@ -150,7 +150,7 @@ impl TokenNode {
 
     pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
-            TokenNode::Pipeline(Spanned { item, .. }) => Ok(item.clone()),
+            TokenNode::Pipeline(Tagged { item, .. }) => Ok(item.clone()),
             _ => Err(ShellError::string("unimplemented")),
         }
     }

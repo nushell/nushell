@@ -1,50 +1,60 @@
 use crate::parser::nom_input;
-use crate::parser::parse::span::Spanned;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::parser::parse::tokens::RawToken;
 use crate::parser::{Pipeline, PipelineElement};
-use crate::prelude::*;
-use crate::shell::completer::NuCompleter;
+use crate::shell::completer::CompletionPair;
+use crate::shell::shell_manager::ShellManager;
+use crate::Tagged;
 use ansi_term::Color;
-use rustyline::completion::{self, Completer, FilenameCompleter};
+use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
-use rustyline::hint::{Hinter, HistoryHinter};
+use rustyline::hint::Hinter;
 use std::borrow::Cow::{self, Owned};
 
 crate struct Helper {
-    completer: NuCompleter,
-    hinter: HistoryHinter,
+    helper: ShellManager,
 }
 
 impl Helper {
-    crate fn new(commands: CommandRegistry) -> Helper {
-        Helper {
-            completer: NuCompleter {
-                file_completer: FilenameCompleter::new(),
-                commands,
-            },
-            hinter: HistoryHinter {},
-        }
+    crate fn new(helper: ShellManager) -> Helper {
+        Helper { helper }
     }
 }
 
 impl Completer for Helper {
-    type Candidate = completion::Pair;
+    type Candidate = rustyline::completion::Pair;
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
+        //FIXME: Add back completions
+        Ok((0, vec![]))
+    }
+}
+
+/*
+impl Completer for Helper {
+    type Candidate = rustyline::completion::Pair;
 
     fn complete(
         &self,
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<completion::Pair>), ReadlineError> {
-        self.completer.complete(line, pos, ctx)
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
+        let result = self.helper.complete(line, pos, ctx);
+
+        result.map(|(x, y)| (x, y.iter().map(|z| z.into()).collect()))
     }
 }
+*/
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, ctx)
+        self.helper.hint(line, pos, ctx)
     }
 }
 
@@ -107,23 +117,23 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
         TokenNode::Delimited(..) => Color::White.paint(token_node.span().slice(line)),
         TokenNode::Operator(..) => Color::White.normal().paint(token_node.span().slice(line)),
         TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Integer(..),
             ..
         }) => Color::Purple.bold().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Size(..),
             ..
         }) => Color::Purple.bold().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::String(..),
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Variable(..),
             ..
         }) => Color::Yellow.bold().paint(token_node.span().slice(line)),
-        TokenNode::Token(Spanned {
+        TokenNode::Token(Tagged {
             item: RawToken::Bare,
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),

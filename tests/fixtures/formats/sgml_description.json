@@ -18,6 +18,10 @@
                             "XML"
                         ]
                     },
+                    "Sections": [
+                        101,
+                        102
+                    ],
                     "GlossSee": "markup"
                 }
             }

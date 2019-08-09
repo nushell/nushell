@@ -10,7 +10,7 @@ pub fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let (input, args) = args.parts();
 
     if len == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "Pick requires fields",
             "needs parameter",
             span,
@@ -28,7 +28,7 @@ pub fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
     let objects = input
         .values
-        .map(move |value| select_fields(&value.item, &fields, value.span));
+        .map(move |value| select_fields(&value.item, &fields, value.tag()));
 
     Ok(objects.from_input_stream())
 }

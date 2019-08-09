@@ -1,6 +1,5 @@
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
-use crate::parser::Spanned;
 use crate::prelude::*;
 use log::trace;
 
@@ -13,10 +12,10 @@ pub fn split_row(
     let len = args.len();
     let (input, args) = args.parts();
 
-    let positional: Vec<Spanned<Value>> = args.positional.iter().flatten().cloned().collect();
+    let positional: Vec<Tagged<Value>> = args.positional.iter().flatten().cloned().collect();
 
     if len == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "Split-row needs more information",
             "needs parameter (eg split-row \"\\n\")",
             span,
@@ -26,7 +25,7 @@ pub fn split_row(
     let stream = input
         .values
         .map(move |v| match v.item {
-            Value::Primitive(Primitive::String(s)) => {
+            Value::Primitive(Primitive::String(ref s)) => {
                 let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
@@ -36,17 +35,19 @@ pub fn split_row(
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnSuccess::value(
-                        Value::Primitive(Primitive::String(s.into())).spanned(v.span),
+                        Value::Primitive(Primitive::String(s.into())).tagged(v.tag()),
                     ));
                 }
                 result
             }
             _ => {
                 let mut result = VecDeque::new();
-                result.push_back(Err(ShellError::maybe_labeled_error(
-                    "Expected string values from pipeline",
-                    "expects strings from pipeline",
+                result.push_back(Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
                     span,
+                    "value originates from here",
+                    v.span(),
                 )));
                 result
             }

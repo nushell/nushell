@@ -1,17 +1,14 @@
 use crate::errors::ShellError;
-use crate::object::{dir_entry_dict, Primitive, Value};
-use crate::parser::Spanned;
+use crate::object::dir_entry_dict;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
 pub fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let env = args.env.clone();
-    let env = env.lock().unwrap();
     let args = args.evaluate_once(registry)?;
-    let path = env.path.to_path_buf();
+    let path = PathBuf::from(args.shell_manager.path());
     let mut full_path = PathBuf::from(path);
     match &args.nth(0) {
-        Some(Spanned {
+        Some(Tagged {
             item: Value::Primitive(Primitive::String(s)),
             ..
         }) => full_path.push(Path::new(&s)),
@@ -26,10 +23,10 @@ pub fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                 return Err(ShellError::labeled_error(
                     e.to_string(),
                     e.to_string(),
-                    s.span,
+                    s.span(),
                 ));
             } else {
-                return Err(ShellError::maybe_labeled_error(
+                return Err(ShellError::labeled_error(
                     e.to_string(),
                     e.to_string(),
                     args.name_span(),
@@ -42,8 +39,19 @@ pub fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     let mut shell_entries = VecDeque::new();
 
     for entry in entries {
-        let value = dir_entry_dict(&entry?, args.name_span())?;
+        let entry = entry?;
+        let filepath = entry.path();
+        let filename = filepath.strip_prefix(&full_path).unwrap();
+        let value = dir_entry_dict(
+            filename,
+            &entry.metadata()?,
+            Tag::unknown_origin(args.call_info.name_span),
+        )?;
         shell_entries.push_back(ReturnSuccess::value(value))
     }
     Ok(shell_entries.to_output_stream())
+
+    // pub fn ls(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    //     let args = args.evaluate_once(registry)?;
+    //     args.shell_manager.ls(args, args.input)
 }

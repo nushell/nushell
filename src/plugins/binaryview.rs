@@ -2,7 +2,7 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, ShellError, Signature, SpanSource, Spanned, Value,
+    serve_plugin, CallInfo, NamedType, Plugin, ShellError, Signature, SpanSource, Tagged, Value,
 };
 use pretty_hex::*;
 
@@ -27,14 +27,12 @@ impl Plugin for BinaryView {
         })
     }
 
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
         for v in input {
-            match v {
-                Spanned {
-                    item: Value::Binary(b),
-                    span,
-                } => {
-                    let source = span.source.map(|x| call_info.source_map.get(&x)).flatten();
+            let value_origin = v.origin();
+            match v.item {
+                Value::Binary(b) => {
+                    let source = value_origin.map(|x| call_info.source_map.get(&x)).flatten();
                     let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}
@@ -195,11 +193,11 @@ impl RenderContext {
             let cursor = cursor();
             cursor.hide()?;
 
-            self.width = terminal_size.0 as usize + 1;
+            self.width = terminal_size.0 as usize;
             self.height = if self.lores_mode {
-                terminal_size.1 as usize
+                terminal_size.1 as usize - 1
             } else {
-                terminal_size.1 as usize * 2
+                (terminal_size.1 as usize - 1) * 2
             };
         }
 
@@ -356,7 +354,7 @@ pub fn view_contents_interactive(
         None
     };
 
-    let mut nes = neso::Nes::new(48000.0);
+    let mut nes = neso::Nes::new(0.0);
     let rawkey = RawKey::new();
     nes.load_rom(&buffer);
 
@@ -375,10 +373,10 @@ pub fn view_contents_interactive(
         let cursor = cursor();
 
         let buttons = vec![
-            KeyCode::LShift,
-            KeyCode::LControl,
+            KeyCode::Alt,
+            KeyCode::LeftControl,
             KeyCode::Tab,
-            KeyCode::Back,
+            KeyCode::BackSpace,
             KeyCode::UpArrow,
             KeyCode::DownArrow,
             KeyCode::LeftArrow,

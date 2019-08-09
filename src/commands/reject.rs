@@ -10,7 +10,7 @@ pub fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
     let (input, args) = args.parts();
 
     if len == 0 {
-        return Err(ShellError::maybe_labeled_error(
+        return Err(ShellError::labeled_error(
             "Reject requires fields",
             "needs parameter",
             span,
@@ -26,11 +26,9 @@ pub fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStr
 
     let fields = fields?;
 
-    let stream = input.values.map(move |item| {
-        reject_fields(&item, &fields, item.span)
-            .into_spanned_value()
-            .spanned(name_span)
-    });
+    let stream = input
+        .values
+        .map(move |item| reject_fields(&item, &fields, item.tag()).into_tagged_value());
 
     Ok(stream.from_input_stream())
 }

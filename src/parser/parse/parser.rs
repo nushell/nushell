@@ -1,9 +1,10 @@
 #![allow(unused)]
 
 use crate::parser::parse::{
-    call_node::*, flag::*, operator::*, pipeline::*, span::*, token_tree::*, token_tree_builder::*,
+    call_node::*, flag::*, operator::*, pipeline::*, token_tree::*, token_tree_builder::*,
     tokens::*, unit::*,
 };
+use crate::{Span, Tagged};
 use nom;
 use nom::branch::*;
 use nom::bytes::complete::*;
@@ -67,7 +68,7 @@ fn trace_step<'a, T: Debug>(
     }
 }
 
-pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Spanned<i64>> {
+pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Tagged<i64>> {
     let start = input.offset;
     trace_step(input, "raw_integer", move |input| {
         let (input, neg) = opt(tag("-"))(input)?;
@@ -76,7 +77,7 @@ pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Spanned<i64>> {
 
         Ok((
             input,
-            Spanned::from_item(int(num.fragment, neg), (start, end)),
+            Tagged::from_simple_spanned_item(int(num.fragment, neg), (start, end)),
         ))
     })
 }
@@ -85,7 +86,7 @@ pub fn integer(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "integer", move |input| {
         let (input, int) = raw_integer(input)?;
 
-        Ok((input, TokenTreeBuilder::spanned_int(*int, int.span)))
+        Ok((input, TokenTreeBuilder::spanned_int(*int, int.span())))
     })
 }
 */
@@ -202,7 +203,7 @@ pub fn shorthand(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     })
 }
 
-pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Spanned<Unit>> {
+pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Tagged<Unit>> {
     trace_step(input, "raw_unit", move |input| {
         let start = input.offset;
         let (input, unit) = alt((
@@ -230,7 +231,7 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Spanned<Unit>> {
 
         Ok((
             input,
-            Spanned::from_item(Unit::from(unit.fragment), (start, end)),
+            Tagged::from_simple_spanned_item(Unit::from(unit.fragment), (start, end)),
         ))
     })
 }
@@ -408,7 +409,7 @@ pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     })
 }
 
-pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Spanned<CallNode>> {
+pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Tagged<CallNode>> {
     trace_step(input, "raw_call", move |input| {
         let left = input.offset;
         let (input, items) = token_list(input)?;
@@ -484,10 +485,10 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 fn make_call_list(
-    head: Option<(Spanned<CallNode>, Option<NomSpan>, Option<NomSpan>)>,
+    head: Option<(Tagged<CallNode>, Option<NomSpan>, Option<NomSpan>)>,
     items: Vec<(
         Option<NomSpan>,
-        Spanned<CallNode>,
+        Tagged<CallNode>,
         Option<NomSpan>,
         Option<NomSpan>,
     )>,
@@ -531,6 +532,8 @@ fn is_start_bare_char(c: char) -> bool {
         '_' => true,
         '-' => true,
         '@' => true,
+        '*' => true,
+        '?' => true,
         _ => false,
     }
 }
@@ -545,6 +548,8 @@ fn is_bare_char(c: char) -> bool {
         '_' => true,
         '-' => true,
         '@' => true,
+        '*' => true,
+        '?' => true,
         _ => false,
     }
 }
@@ -701,12 +706,12 @@ mod tests {
     fn test_flag() {
         // assert_leaf! {
         //     parsers [ flag ]
-        //     "--hello" -> 0..7 { Flag(Spanned::from_item(FlagKind::Longhand, span(2, 7))) }
+        //     "--hello" -> 0..7 { Flag(Tagged::from_item(FlagKind::Longhand, span(2, 7))) }
         // }
 
         // assert_leaf! {
         //     parsers [ flag ]
-        //     "--hello-world" -> 0..13 { Flag(Spanned::from_item(FlagKind::Longhand, span(2, 13))) }
+        //     "--hello-world" -> 0..13 { Flag(Tagged::from_item(FlagKind::Longhand, span(2, 13))) }
         // }
     }
 
@@ -714,7 +719,7 @@ mod tests {
     fn test_shorthand() {
         // assert_leaf! {
         //     parsers [ shorthand ]
-        //     "-alt" -> 0..4 { Flag(Spanned::from_item(FlagKind::Shorthand, span(1, 4))) }
+        //     "-alt" -> 0..4 { Flag(Tagged::from_item(FlagKind::Shorthand, span(1, 4))) }
         // }
     }
 
@@ -1024,7 +1029,7 @@ mod tests {
         right: usize,
     ) -> TokenNode {
         let node = DelimitedNode::new(delimiter, children);
-        let spanned = Spanned::from_item(node, (left, right));
+        let spanned = Tagged::from_simple_spanned_item(node, (left, right));
         TokenNode::Delimited(spanned)
     }
 
@@ -1033,16 +1038,16 @@ mod tests {
             Box::new(head),
             tail.into_iter().map(TokenNode::Token).collect(),
         );
-        let spanned = Spanned::from_item(node, (left, right));
+        let spanned = Tagged::from_simple_spanned_item(node, (left, right));
         TokenNode::Path(spanned)
     }
 
     fn leaf_token(token: RawToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(Spanned::from_item(token, (left, right)))
+        TokenNode::Token(Tagged::from_simple_spanned_item(token, (left, right)))
     }
 
     fn token(token: RawToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(Spanned::from_item(token, (left, right)))
+        TokenNode::Token(Tagged::from_simple_spanned_item(token, (left, right)))
     }
 
     fn build<T>(block: CurriedNode<T>) -> T {

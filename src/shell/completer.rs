@@ -1,5 +1,3 @@
-use crate::context::CommandRegistry;
-
 use derive_new::new;
 use rustyline::completion::Completer;
 use rustyline::completion::{self, FilenameCompleter};
@@ -8,19 +6,32 @@ use rustyline::line_buffer::LineBuffer;
 #[derive(new)]
 crate struct NuCompleter {
     pub file_completer: FilenameCompleter,
-    pub commands: CommandRegistry,
+    //pub commands: indexmap::IndexMap<String, Arc<dyn Command>>,
 }
 
-impl Completer for NuCompleter {
-    type Candidate = completion::Pair;
+pub struct CompletionPair {
+    pub display: String,
+    pub replacement: String,
+}
 
-    fn complete(
+impl Into<completion::Pair> for CompletionPair {
+    fn into(self) -> completion::Pair {
+        completion::Pair {
+            display: self.display,
+            replacement: self.replacement,
+        }
+    }
+}
+
+impl NuCompleter {
+    /*
+    pub fn complete(
         &self,
         line: &str,
         pos: usize,
         context: &rustyline::Context,
-    ) -> rustyline::Result<(usize, Vec<completion::Pair>)> {
-        let commands: Vec<String> = self.commands.names();
+    ) -> rustyline::Result<(usize, Vec<CompletionPair>)> {
+        //let commands: Vec<String> = self.commands.keys().cloned().collect();
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;
 
@@ -51,6 +62,7 @@ impl Completer for NuCompleter {
             replace_pos -= 1;
         }
 
+        /*
         for command in commands.iter() {
             let mut pos = replace_pos;
             let mut matched = true;
@@ -68,15 +80,17 @@ impl Completer for NuCompleter {
             }
 
             if matched {
-                completions.push(completion::Pair {
+                completions.push(CompletionPair {
                     display: command.clone(),
                     replacement: command.clone(),
                 });
             }
         }
+        */
 
         Ok((replace_pos, completions))
     }
+    */
 
     fn update(&self, line: &mut LineBuffer, start: usize, elected: &str) {
         let end = line.pos();

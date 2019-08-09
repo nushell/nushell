@@ -1,7 +1,7 @@
 // TODO: Temporary redirect
 crate use crate::context::CommandRegistry;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode, Spanned};
+use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode};
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
@@ -136,15 +136,15 @@ impl Signature {
     }
 }
 
-#[derive(Debug, Default, new, Serialize, Deserialize)]
+#[derive(Debug, Default, new, Serialize, Deserialize, Clone)]
 pub struct EvaluatedArgs {
-    pub positional: Option<Vec<Spanned<Value>>>,
-    pub named: Option<IndexMap<String, Spanned<Value>>>,
+    pub positional: Option<Vec<Tagged<Value>>>,
+    pub named: Option<IndexMap<String, Tagged<Value>>>,
 }
 
 #[derive(new)]
 pub struct DebugEvaluatedPositional<'a> {
-    positional: &'a Option<Vec<Spanned<Value>>>,
+    positional: &'a Option<Vec<Tagged<Value>>>,
 }
 
 impl fmt::Debug for DebugEvaluatedPositional<'a> {
@@ -161,7 +161,7 @@ impl fmt::Debug for DebugEvaluatedPositional<'a> {
 
 #[derive(new)]
 pub struct DebugEvaluatedNamed<'a> {
-    named: &'a Option<IndexMap<String, Spanned<Value>>>,
+    named: &'a Option<IndexMap<String, Tagged<Value>>>,
 }
 
 impl fmt::Debug for DebugEvaluatedNamed<'a> {
@@ -199,14 +199,14 @@ impl EvaluatedArgs {
         DebugEvaluatedArgs { args: self }
     }
 
-    pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
+    pub fn nth(&self, pos: usize) -> Option<&Tagged<Value>> {
         match &self.positional {
             None => None,
             Some(array) => array.iter().nth(pos),
         }
     }
 
-    pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
+    pub fn expect_nth(&self, pos: usize) -> Result<&Tagged<Value>, ShellError> {
         match &self.positional {
             None => Err(ShellError::unimplemented("Better error: expect_nth")),
             Some(array) => match array.iter().nth(pos) {
@@ -230,7 +230,7 @@ impl EvaluatedArgs {
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Spanned<Value>> {
+    pub fn get(&self, name: &str) -> Option<&Tagged<Value>> {
         match &self.named {
             None => None,
             Some(named) => named.get(name),
@@ -250,11 +250,11 @@ impl EvaluatedArgs {
 
 pub enum PositionalIter<'a> {
     Empty,
-    Array(std::slice::Iter<'a, Spanned<Value>>),
+    Array(std::slice::Iter<'a, Tagged<Value>>),
 }
 
 impl Iterator for PositionalIter<'a> {
-    type Item = &'a Spanned<Value>;
+    type Item = &'a Tagged<Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -267,7 +267,7 @@ impl Iterator for PositionalIter<'a> {
 impl Signature {
     crate fn parse_args(
         &self,
-        call: &Spanned<CallNode>,
+        call: &Tagged<CallNode>,
         registry: &CommandRegistry,
         source: &Text,
     ) -> Result<hir::Call, ShellError> {
@@ -302,7 +302,7 @@ crate fn evaluate_args(
 
     let positional = positional?;
 
-    let named: Result<Option<IndexMap<String, Spanned<Value>>>, ShellError> = call
+    let named: Result<Option<IndexMap<String, Tagged<Value>>>, ShellError> = call
         .named()
         .as_ref()
         .map(|n| {
@@ -313,7 +313,7 @@ crate fn evaluate_args(
                     hir::named::NamedValue::PresentSwitch(span) => {
                         results.insert(
                             name.clone(),
-                            Spanned::from_item(Value::boolean(true), *span),
+                            Tagged::from_simple_spanned_item(Value::boolean(true), *span),
                         );
                     }
                     hir::named::NamedValue::Value(expr) => {

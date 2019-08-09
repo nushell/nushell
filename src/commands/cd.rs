@@ -8,7 +8,7 @@ pub struct Cd;
 
 #[derive(Deserialize)]
 pub struct CdArgs {
-    target: Option<Spanned<PathBuf>>,
+    target: Option<Tagged<PathBuf>>,
 }
 
 impl StaticCommand for Cd {
@@ -39,7 +39,7 @@ pub fn cd(CdArgs { target }: CdArgs, context: RunnableContext) -> Result<OutputS
         None => match dirs::home_dir() {
             Some(o) => o,
             _ => {
-                return Err(ShellError::maybe_labeled_error(
+                return Err(ShellError::labeled_error(
                     "Can not change to home directory",
                     "can not go to home",
                     context.name,
@@ -54,7 +54,7 @@ pub fn cd(CdArgs { target }: CdArgs, context: RunnableContext) -> Result<OutputS
                     return Err(ShellError::labeled_error(
                         "Can not change to directory",
                         "directory not found",
-                        v.span.clone(),
+                        v.span(),
                     ));
                 }
             }
@@ -69,13 +69,18 @@ pub fn cd(CdArgs { target }: CdArgs, context: RunnableContext) -> Result<OutputS
                 return Err(ShellError::labeled_error(
                     "Can not change to directory",
                     "directory not found",
-                    path.span,
+                    path.span(),
                 ));
             } else {
                 return Err(ShellError::string("Can not change to directory"));
             }
         }
     }
-    stream.push_back(ReturnSuccess::change_cwd(path));
+    stream.push_back(ReturnSuccess::change_cwd(
+        path.to_string_lossy().to_string(),
+    ));
     Ok(stream.into())
+
+    // pub fn cd(args: CommandArgs) -> Result<OutputStream, ShellError> {
+    //     args.shell_manager.cd(args.call_info, args.input)
 }

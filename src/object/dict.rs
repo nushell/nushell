@@ -9,7 +9,7 @@ use std::fmt;
 
 #[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, new)]
 pub struct Dictionary {
-    pub entries: IndexMap<String, Spanned<Value>>,
+    pub entries: IndexMap<String, Tagged<Value>>,
 }
 
 impl PartialOrd for Dictionary {
@@ -28,8 +28,8 @@ impl PartialOrd for Dictionary {
     }
 }
 
-impl From<IndexMap<String, Spanned<Value>>> for Dictionary {
-    fn from(input: IndexMap<String, Spanned<Value>>) -> Dictionary {
+impl From<IndexMap<String, Tagged<Value>>> for Dictionary {
+    fn from(input: IndexMap<String, Tagged<Value>>) -> Dictionary {
         let mut out = IndexMap::default();
 
         for (key, value) in input {
@@ -79,7 +79,7 @@ impl Dictionary {
         }
     }
 
-    crate fn get_data_by_key(&self, name: &str) -> Option<&Spanned<Value>> {
+    crate fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self
             .entries
             .iter()
@@ -101,72 +101,71 @@ impl Dictionary {
     }
 }
 
-pub struct SpannedListBuilder {
-    span: Span,
-    list: Vec<Spanned<Value>>,
+pub struct TaggedListBuilder {
+    tag: Tag,
+    list: Vec<Tagged<Value>>,
 }
 
-impl SpannedListBuilder {
-    pub fn new(span: impl Into<Span>) -> SpannedListBuilder {
-        SpannedListBuilder {
-            span: span.into(),
+impl TaggedListBuilder {
+    pub fn new(tag: impl Into<Tag>) -> TaggedListBuilder {
+        TaggedListBuilder {
+            tag: tag.into(),
             list: vec![],
         }
     }
 
     pub fn push(&mut self, value: impl Into<Value>) {
-        self.list.push(value.into().spanned(self.span));
+        self.list.push(value.into().tagged(self.tag));
     }
 
-    pub fn insert_spanned(&mut self, value: impl Into<Spanned<Value>>) {
+    pub fn insert_tagged(&mut self, value: impl Into<Tagged<Value>>) {
         self.list.push(value.into());
     }
 
-    pub fn into_spanned_value(self) -> Spanned<Value> {
-        Value::List(self.list).spanned(self.span)
+    pub fn into_tagged_value(self) -> Tagged<Value> {
+        Value::List(self.list).tagged(self.tag)
     }
 }
 
-impl From<SpannedListBuilder> for Spanned<Value> {
-    fn from(input: SpannedListBuilder) -> Spanned<Value> {
-        input.into_spanned_value()
+impl From<TaggedListBuilder> for Tagged<Value> {
+    fn from(input: TaggedListBuilder) -> Tagged<Value> {
+        input.into_tagged_value()
     }
 }
 
 #[derive(Debug)]
-pub struct SpannedDictBuilder {
-    span: Span,
-    dict: IndexMap<String, Spanned<Value>>,
+pub struct TaggedDictBuilder {
+    tag: Tag,
+    dict: IndexMap<String, Tagged<Value>>,
 }
 
-impl SpannedDictBuilder {
-    pub fn new(span: impl Into<Span>) -> SpannedDictBuilder {
-        SpannedDictBuilder {
-            span: span.into(),
+impl TaggedDictBuilder {
+    pub fn new(tag: impl Into<Tag>) -> TaggedDictBuilder {
+        TaggedDictBuilder {
+            tag: tag.into(),
             dict: IndexMap::default(),
         }
     }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
-        self.dict
-            .insert(key.into(), value.into().spanned(self.span));
+        self.dict.insert(key.into(), value.into().tagged(self.tag));
     }
 
-    pub fn insert_spanned(&mut self, key: impl Into<String>, value: impl Into<Spanned<Value>>) {
+    pub fn insert_tagged(&mut self, key: impl Into<String>, value: impl Into<Tagged<Value>>) {
         self.dict.insert(key.into(), value.into());
     }
 
-    pub fn into_spanned_value(self) -> Spanned<Value> {
-        self.into_spanned_dict().map(Value::Object)
+    pub fn into_tagged_value(self) -> Tagged<Value> {
+        self.into_tagged_dict().map(Value::Object)
     }
 
-    pub fn into_spanned_dict(self) -> Spanned<Dictionary> {
-        Dictionary { entries: self.dict }.spanned(self.span)
+    pub fn into_tagged_dict(self) -> Tagged<Dictionary> {
+        Dictionary { entries: self.dict }.tagged(self.tag)
     }
 }
 
-impl From<SpannedDictBuilder> for Spanned<Value> {
-    fn from(input: SpannedDictBuilder) -> Spanned<Value> {
-        input.into_spanned_value()
+impl From<TaggedDictBuilder> for Tagged<Value> {
+    fn from(input: TaggedDictBuilder) -> Tagged<Value> {
+        input.into_tagged_value()
     }
 }

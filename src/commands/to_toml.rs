@@ -9,6 +9,9 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
         Value::Primitive(Primitive::EndOfStream) => {
             toml::Value::String("<End of Stream>".to_string())
         }
+        Value::Primitive(Primitive::BeginningOfStream) => {
+            toml::Value::String("<Beginning of Stream>".to_string())
+        }
         Value::Primitive(Primitive::Float(f)) => toml::Value::Float(f.into_inner()),
         Value::Primitive(Primitive::Int(i)) => toml::Value::Integer(*i),
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),
@@ -40,13 +43,15 @@ pub fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         .map(move |a| match toml::to_string(&value_to_toml_value(&a)) {
             Ok(val) => {
                 return ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(val)).spanned(name_span),
+                    Value::Primitive(Primitive::String(val)).simple_spanned(name_span),
                 )
             }
-
-            Err(err) => Err(ShellError::type_error(
-                "Can not convert to a TOML string",
-                format!("{:?} - {:?}", a.type_name(), err).spanned(name_span),
+            _ => Err(ShellError::labeled_error_with_secondary(
+                "Expected an object with TOML-compatible structure from pipeline",
+                "requires TOML-compatible input",
+                name_span,
+                format!("{} originates from here", a.item.type_name()),
+                a.span(),
             )),
         })
         .to_output_stream())

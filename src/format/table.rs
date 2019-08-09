@@ -14,7 +14,7 @@ pub struct TableView {
 }
 
 impl TableView {
-    fn merge_descriptors(values: &[Spanned<Value>]) -> Vec<String> {
+    fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
         let mut ret = vec![];
         for value in values {
             for desc in value.data_descriptors() {
@@ -26,7 +26,7 @@ impl TableView {
         ret
     }
 
-    pub fn from_list(values: &[Spanned<Value>]) -> Option<TableView> {
+    pub fn from_list(values: &[Tagged<Value>]) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }

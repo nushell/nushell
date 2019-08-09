@@ -2,13 +2,15 @@ use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::prelude::*;
+
+use glob::glob;
 use std::path::PathBuf;
 
 pub struct Remove;
 
 #[derive(Deserialize)]
 pub struct RemoveArgs {
-    path: Spanned<PathBuf>,
+    path: Tagged<PathBuf>,
     recursive: bool,
 }
 
@@ -43,17 +45,32 @@ pub fn rm(
         file => full_path.push(file),
     }
 
-    if full_path.is_dir() {
-        if !recursive {
-            return Err(ShellError::maybe_labeled_error(
-                "is a directory",
-                "",
-                context.name,
-            ));
+    let entries = glob(&full_path.to_string_lossy());
+
+    if entries.is_err() {
+        return Err(ShellError::string("Invalid pattern."));
+    }
+
+    let entries = entries.unwrap();
+
+    for entry in entries {
+        match entry {
+            Ok(path) => {
+                if path.is_dir() {
+                    if !recursive {
+                        return Err(ShellError::string(
+                            "is a directory",
+                            // "is a directory",
+                            // args.call_info.name_span,
+                        ));
+                    }
+                    std::fs::remove_dir_all(&path).expect("can not remove directory");
+                } else if path.is_file() {
+                    std::fs::remove_file(&path).expect("can not remove file");
+                }
+            }
+            Err(e) => return Err(ShellError::string(&format!("{:?}", e))),
         }
-        std::fs::remove_dir_all(&full_path).expect("can not remove directory");
-    } else if full_path.is_file() {
-        std::fs::remove_file(&full_path).expect("can not remove file");
     }
 
     Ok(OutputStream::empty())

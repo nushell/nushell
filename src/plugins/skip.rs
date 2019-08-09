@@ -1,19 +1,19 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Spanned, Value,
+    Tagged, Value,
 };
 
-struct NewSkip {
+struct Skip {
     skip_amount: i64,
 }
-impl NewSkip {
-    fn new() -> NewSkip {
-        NewSkip { skip_amount: 0 }
+impl Skip {
+    fn new() -> Skip {
+        Skip { skip_amount: 0 }
     }
 }
 
-impl Plugin for NewSkip {
+impl Plugin for Skip {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature {
             name: "skip".to_string(),
@@ -23,11 +23,11 @@ impl Plugin for NewSkip {
             rest_positional: true,
         })
     }
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    Spanned {
+                    Tagged {
                         item: Value::Primitive(Primitive::Int(i)),
                         ..
                     } => {
@@ -37,17 +37,17 @@ impl Plugin for NewSkip {
                         return Err(ShellError::labeled_error(
                             "Unrecognized type in params",
                             "expected an integer",
-                            arg.span,
+                            arg.span(),
                         ))
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         if self.skip_amount == 0 {
             Ok(vec![ReturnSuccess::value(input)])
         } else {
@@ -58,5 +58,5 @@ impl Plugin for NewSkip {
 }
 
 fn main() {
-    serve_plugin(&mut NewSkip::new());
+    serve_plugin(&mut Skip::new());
 }

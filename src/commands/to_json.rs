@@ -9,6 +9,7 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         }
         Value::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
+        Value::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,
         Value::Primitive(Primitive::Float(f)) => {
             serde_json::Value::Number(serde_json::Number::from_f64(f.into_inner()).unwrap())
         }
@@ -49,13 +50,15 @@ pub fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         .values
         .map(
             move |a| match serde_json::to_string(&value_to_json_value(&a)) {
-                Ok(x) => {
-                    ReturnSuccess::value(Value::Primitive(Primitive::String(x)).spanned(name_span))
-                }
-                Err(_) => Err(ShellError::maybe_labeled_error(
-                    "Can not convert to JSON string",
-                    "can not convert piped data to JSON string",
+                Ok(x) => ReturnSuccess::value(
+                    Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+                ),
+                _ => Err(ShellError::labeled_error_with_secondary(
+                    "Expected an object with JSON-compatible structure from pipeline",
+                    "requires JSON-compatible input",
                     name_span,
+                    format!("{} originates from here", a.item.type_name()),
+                    a.span(),
                 )),
             },
         )

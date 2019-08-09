@@ -7,7 +7,7 @@ use serde::{de, forward_to_deserialize_any};
 pub struct DeserializerItem<'de> {
     key: String,
     struct_field: &'de str,
-    val: Spanned<Value>,
+    val: Tagged<Value>,
 }
 
 pub struct ConfigDeserializer<'de> {
@@ -28,10 +28,10 @@ impl ConfigDeserializer<'de> {
     }
 
     pub fn push(&mut self, name: &'static str) -> Result<(), ShellError> {
-        let value: Option<Spanned<Value>> = if name == "rest" {
+        let value: Option<Tagged<Value>> = if name == "rest" {
             let positional = self.args.slice_from(self.position);
             self.position += positional.len();
-            Some(Value::List(positional).spanned_unknown()) // TODO: correct span
+            Some(Value::List(positional).tagged_unknown()) // TODO: correct span
         } else {
             if self.args.has(name) {
                 self.args.get(name).map(|x| x.clone())
@@ -47,7 +47,9 @@ impl ConfigDeserializer<'de> {
         self.stack.push(DeserializerItem {
             key: name.to_string(),
             struct_field: name,
-            val: value.unwrap_or_else(|| Value::nothing().spanned(self.args.call_info.name_span)),
+            val: value.unwrap_or_else(|| {
+                Value::nothing().tagged(Tag::unknown_origin(self.args.call_info.name_span))
+            }),
         });
 
         Ok(())

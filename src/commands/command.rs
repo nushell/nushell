@@ -3,7 +3,7 @@ use crate::errors::ShellError;
 use crate::evaluate::Scope;
 use crate::object::Value;
 use crate::parser::hir;
-use crate::parser::{registry, ConfigDeserializer, Span, Spanned};
+use crate::parser::{registry, ConfigDeserializer};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
@@ -18,7 +18,7 @@ pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub source: Text,
     pub source_map: SourceMap,
-    pub name_span: Option<Span>,
+    pub name_span: Span,
 }
 
 impl ToDebug for UnevaluatedCallInfo {
@@ -43,19 +43,22 @@ impl UnevaluatedCallInfo {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CallInfo {
     pub args: registry::EvaluatedArgs,
     pub source_map: SourceMap,
-    pub name_span: Option<Span>,
+    pub name_span: Span,
 }
 
 #[derive(Getters)]
 #[get = "crate"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
-    pub env: Arc<Mutex<Environment>>,
+    pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
+    // pub host: Arc<Mutex<dyn Host + Send>>,
+    // pub shell_manager: ShellManager,
+    // pub call_info: CallInfo,
     pub input: InputStream,
 }
 
@@ -63,15 +66,15 @@ pub struct CommandArgs {
 #[get = "crate"]
 pub struct RawCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
-    pub env: Arc<Mutex<Environment>>,
+    pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
 }
 
 impl RawCommandArgs {
-    pub fn with_input(self, input: Vec<Spanned<Value>>) -> CommandArgs {
+    pub fn with_input(self, input: Vec<Tagged<Value>>) -> CommandArgs {
         CommandArgs {
             host: self.host,
-            env: self.env,
+            shell_manager: self.shell_manager,
             call_info: self.call_info,
             input: input.into(),
         }
@@ -90,14 +93,19 @@ impl CommandArgs {
         registry: &registry::CommandRegistry,
     ) -> Result<EvaluatedStaticCommandArgs, ShellError> {
         let host = self.host.clone();
-        let env = self.env.clone();
+        let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate(registry, &Scope::empty())?;
 
-        Ok(EvaluatedStaticCommandArgs::new(host, env, call_info, input))
+        Ok(EvaluatedStaticCommandArgs::new(
+            host,
+            shell_manager,
+            call_info,
+            input,
+        ))
     }
 
-    pub fn name_span(&self) -> Option<Span> {
+    pub fn name_span(&self) -> Span {
         self.call_info.name_span
     }
 
@@ -106,7 +114,7 @@ impl CommandArgs {
         registry: &CommandRegistry,
         callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnableArgs<T>, ShellError> {
-        let env = self.env.clone();
+        let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
@@ -118,7 +126,7 @@ impl CommandArgs {
             context: RunnableContext {
                 input: input,
                 commands: registry.clone(),
-                env,
+                shell_manager,
                 name: name_span,
                 host,
             },
@@ -133,11 +141,11 @@ impl CommandArgs {
     ) -> Result<RunnableRawArgs<T>, ShellError> {
         let raw_args = RawCommandArgs {
             host: self.host.clone(),
-            env: self.env.clone(),
+            shell_manager: self.shell_manager.clone(),
             call_info: self.call_info.clone(),
         };
 
-        let env = self.env.clone();
+        let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
@@ -149,7 +157,7 @@ impl CommandArgs {
             context: RunnableContext {
                 input: input,
                 commands: registry.clone(),
-                env,
+                shell_manager,
                 name: name_span,
                 host,
             },
@@ -161,18 +169,15 @@ impl CommandArgs {
 
 pub struct RunnableContext {
     pub input: InputStream,
-    pub env: Arc<Mutex<Environment>>,
+    pub shell_manager: ShellManager,
     pub host: Arc<Mutex<dyn Host>>,
     pub commands: CommandRegistry,
-    pub name: Option<Span>,
+    pub name: Span,
 }
 
 impl RunnableContext {
     pub fn cwd(&self) -> PathBuf {
-        let env = self.env.clone();
-        let env = env.lock().unwrap();
-
-        env.path.clone()
+        PathBuf::from(self.shell_manager.path())
     }
 
     pub fn expect_command(&self, name: &str) -> Arc<Command> {
@@ -222,21 +227,21 @@ impl Deref for EvaluatedStaticCommandArgs {
 impl EvaluatedStaticCommandArgs {
     pub fn new(
         host: Arc<Mutex<dyn Host>>,
-        env: Arc<Mutex<Environment>>,
+        shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
     ) -> EvaluatedStaticCommandArgs {
         EvaluatedStaticCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
-                env,
+                shell_manager,
                 call_info,
             },
             input: input.into(),
         }
     }
 
-    pub fn name_span(&self) -> Option<Span> {
+    pub fn name_span(&self) -> Span {
         self.args.call_info.name_span
     }
 
@@ -258,7 +263,7 @@ impl EvaluatedStaticCommandArgs {
 pub struct EvaluatedFilterCommandArgs {
     args: EvaluatedCommandArgs,
     #[allow(unused)]
-    input: Spanned<Value>,
+    input: Tagged<Value>,
 }
 
 impl Deref for EvaluatedFilterCommandArgs {
@@ -271,14 +276,14 @@ impl Deref for EvaluatedFilterCommandArgs {
 impl EvaluatedFilterCommandArgs {
     pub fn new(
         host: Arc<Mutex<dyn Host>>,
-        env: Arc<Mutex<Environment>>,
+        shell_manager: ShellManager,
         call_info: CallInfo,
-        input: Spanned<Value>,
+        input: Tagged<Value>,
     ) -> EvaluatedFilterCommandArgs {
         EvaluatedFilterCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
-                env,
+                shell_manager,
                 call_info,
             },
             input,
@@ -290,7 +295,7 @@ impl EvaluatedFilterCommandArgs {
 #[get = "crate"]
 pub struct EvaluatedCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
-    pub env: Arc<Mutex<Environment>>,
+    pub shell_manager: ShellManager,
     pub call_info: CallInfo,
 }
 
@@ -299,11 +304,11 @@ impl EvaluatedCommandArgs {
         &self.call_info.args
     }
 
-    pub fn nth(&self, pos: usize) -> Option<&Spanned<Value>> {
+    pub fn nth(&self, pos: usize) -> Option<&Tagged<Value>> {
         self.call_info.args.nth(pos)
     }
 
-    pub fn expect_nth(&self, pos: usize) -> Result<&Spanned<Value>, ShellError> {
+    pub fn expect_nth(&self, pos: usize) -> Result<&Tagged<Value>, ShellError> {
         self.call_info.args.expect_nth(pos)
     }
 
@@ -311,11 +316,11 @@ impl EvaluatedCommandArgs {
         self.call_info.args.len()
     }
 
-    pub fn get(&self, name: &str) -> Option<&Spanned<Value>> {
+    pub fn get(&self, name: &str) -> Option<&Tagged<Value>> {
         self.call_info.args.get(name)
     }
 
-    pub fn slice_from(&self, from: usize) -> Vec<Spanned<Value>> {
+    pub fn slice_from(&self, from: usize) -> Vec<Tagged<Value>> {
         let positional = &self.call_info.args.positional;
 
         match positional {
@@ -332,31 +337,35 @@ impl EvaluatedCommandArgs {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
-    ChangePath(PathBuf),
+    ChangePath(String),
     AddSpanSource(Uuid, SpanSource),
     Exit,
+    EnterShell(String),
+    PreviousShell,
+    NextShell,
+    LeaveShell,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ReturnSuccess {
-    Value(Spanned<Value>),
+    Value(Tagged<Value>),
     Action(CommandAction),
 }
 
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
 
-impl From<Spanned<Value>> for ReturnValue {
-    fn from(input: Spanned<Value>) -> ReturnValue {
+impl From<Tagged<Value>> for ReturnValue {
+    fn from(input: Tagged<Value>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input))
     }
 }
 
 impl ReturnSuccess {
-    pub fn change_cwd(path: PathBuf) -> ReturnValue {
+    pub fn change_cwd(path: String) -> ReturnValue {
         Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
     }
 
-    pub fn value(input: impl Into<Spanned<Value>>) -> ReturnValue {
+    pub fn value(input: impl Into<Tagged<Value>>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input.into()))
     }
 
@@ -365,7 +374,9 @@ impl ReturnSuccess {
     }
 
     pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
-        Ok(ReturnSuccess::Value(Spanned::from_item(input, span)))
+        Ok(ReturnSuccess::Value(Tagged::from_simple_spanned_item(
+            input, span,
+        )))
     }
 }
 
@@ -435,13 +446,13 @@ impl StaticCommand for FnFilterCommand {
     ) -> Result<OutputStream, ShellError> {
         let CommandArgs {
             host,
-            env,
+            shell_manager,
             call_info,
             input,
         } = args;
 
         let host: Arc<Mutex<dyn Host>> = host.clone();
-        let env: Arc<Mutex<Environment>> = env.clone();
+        let shell_manager = shell_manager.clone();
         let registry: registry::CommandRegistry = registry.clone();
         let func = self.func;
 
@@ -455,7 +466,8 @@ impl StaticCommand for FnFilterCommand {
                 Ok(args) => args,
             };
 
-            let args = EvaluatedFilterCommandArgs::new(host.clone(), env.clone(), call_info, it);
+            let args =
+                EvaluatedFilterCommandArgs::new(host.clone(), shell_manager.clone(), call_info, it);
 
             match func(args) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,

@@ -7,7 +7,7 @@ pub struct Get;
 
 #[derive(Deserialize)]
 pub struct GetArgs {
-    rest: Vec<Spanned<String>>,
+    rest: Vec<Tagged<String>>,
 }
 
 impl StaticCommand for Get {
@@ -27,7 +27,7 @@ impl StaticCommand for Get {
     }
 }
 
-fn get_member(path: &Spanned<String>, obj: &Spanned<Value>) -> Result<Spanned<Value>, ShellError> {
+fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
     let mut current = obj;
     for p in path.split(".") {
         match current.get_data_by_key(p) {
@@ -36,7 +36,7 @@ fn get_member(path: &Spanned<String>, obj: &Spanned<Value>) -> Result<Spanned<Va
                 return Err(ShellError::labeled_error(
                     "Unknown field",
                     "object missing field",
-                    path.span,
+                    path.span(),
                 ));
             }
         }
@@ -60,7 +60,7 @@ pub fn get(
             let mut result = VecDeque::new();
             for field in &fields {
                 match get_member(field, &item) {
-                    Ok(Spanned {
+                    Ok(Tagged {
                         item: Value::List(l),
                         ..
                     }) => {

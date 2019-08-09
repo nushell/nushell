@@ -1,7 +1,34 @@
-use crate::commands::command::CommandAction;
+use crate::commands::command::{CommandAction, StaticCommand};
 use crate::errors::ShellError;
+use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 
-pub fn exit(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::Exit))].into())
+pub struct Exit;
+
+impl StaticCommand for Exit {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        exit(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "exit"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("exit").switch("now")
+    }
+}
+
+pub fn exit(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
+    if args.call_info.args.has("now") {
+        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::Exit))].into())
+    } else {
+        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::LeaveShell))].into())
+    }
 }

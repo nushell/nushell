@@ -36,17 +36,24 @@ crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
     CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
 };
-crate use crate::context::{CommandRegistry, Context};
+crate use crate::commands::StaticCommand;
+crate use crate::context::CommandRegistry;
+crate use crate::context::{Context, SpanSource};
 crate use crate::env::host::handle_unexpected;
-crate use crate::env::{Environment, Host};
+crate use crate::env::Host;
 crate use crate::errors::ShellError;
 crate use crate::object::base as value;
+crate use crate::object::meta::{Tag, Tagged, TaggedItem};
 crate use crate::object::types::ExtractType;
 crate use crate::object::{Primitive, Value};
+crate use crate::parser::hir::SyntaxType;
 crate use crate::parser::registry::Signature;
-crate use crate::parser::{hir::SyntaxType, Span, Spanned, SpannedItem};
+crate use crate::shell::filesystem_shell::FilesystemShell;
+crate use crate::shell::shell_manager::ShellManager;
+crate use crate::shell::value_shell::ValueShell;
 crate use crate::stream::{InputStream, OutputStream};
 crate use crate::traits::{HasSpan, ToDebug};
+crate use crate::Span;
 crate use crate::Text;
 crate use futures::stream::BoxStream;
 crate use futures::{FutureExt, Stream, StreamExt};
@@ -63,7 +70,7 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Stream<Item = Spanned<Value>> + Send + 'static,
+    T: Stream<Item = Tagged<Value>> + Send + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {

@@ -5,15 +5,15 @@ use log::trace;
 use std::path::PathBuf;
 
 pub trait ExtractType: Sized {
-    fn extract(value: &Spanned<Value>) -> Result<Self, ShellError>;
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError>;
+    fn extract(value: &Tagged<Value>) -> Result<Self, ShellError>;
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError>;
     fn syntax_type() -> hir::SyntaxType {
         hir::SyntaxType::Any
     }
 }
 
 impl<T> ExtractType for T {
-    default fn extract(_value: &Spanned<Value>) -> Result<T, ShellError> {
+    default fn extract(_value: &Tagged<Value>) -> Result<T, ShellError> {
         let name = std::intrinsics::type_name::<T>();
         Err(ShellError::unimplemented(format!(
             "<T> ExtractType for {}",
@@ -21,7 +21,7 @@ impl<T> ExtractType for T {
         )))
     }
 
-    default fn check(_value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    default fn check(_value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         Err(ShellError::unimplemented("ExtractType for T"))
     }
 
@@ -30,8 +30,8 @@ impl<T> ExtractType for T {
     }
 }
 
-impl<T: ExtractType> ExtractType for Vec<Spanned<T>> {
-    fn extract(value: &Spanned<Value>) -> Result<Self, ShellError> {
+impl<T: ExtractType> ExtractType for Vec<Tagged<T>> {
+    fn extract(value: &Tagged<Value>) -> Result<Self, ShellError> {
         let name = std::intrinsics::type_name::<T>();
         trace!("<Vec> Extracting {:?} for Vec<{}>", value, name);
 
@@ -40,24 +40,24 @@ impl<T: ExtractType> ExtractType for Vec<Spanned<T>> {
                 let mut out = vec![];
 
                 for item in items {
-                    out.push(T::extract(item)?.spanned(item.span));
+                    out.push(T::extract(item)?.tagged(item.tag()));
                 }
 
                 Ok(out)
             }
             other => Err(ShellError::type_error(
                 "Vec",
-                other.type_name().spanned(value.span),
+                other.type_name().tagged(value.tag()),
             )),
         }
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         match value.item() {
             Value::List(_) => Ok(value),
             other => Err(ShellError::type_error(
                 "Vec",
-                other.type_name().spanned(value.span),
+                other.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -68,7 +68,7 @@ impl<T: ExtractType> ExtractType for Vec<Spanned<T>> {
 }
 
 impl<T: ExtractType, U: ExtractType> ExtractType for (T, U) {
-    fn extract(value: &Spanned<Value>) -> Result<(T, U), ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<(T, U), ShellError> {
         let t_name = std::intrinsics::type_name::<T>();
         let u_name = std::intrinsics::type_name::<U>();
 
@@ -84,20 +84,20 @@ impl<T: ExtractType, U: ExtractType> ExtractType for (T, U) {
                 } else {
                     Err(ShellError::type_error(
                         "two-element-tuple",
-                        "not-two".spanned(value.span),
+                        "not-two".tagged(value.tag()),
                     ))
                 }
             }
             other => Err(ShellError::type_error(
                 "two-element-tuple",
-                other.type_name().spanned(value.span),
+                other.type_name().tagged(value.tag()),
             )),
         }
     }
 }
 
 impl<T: ExtractType> ExtractType for Option<T> {
-    fn extract(value: &Spanned<Value>) -> Result<Option<T>, ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<Option<T>, ShellError> {
         let name = std::intrinsics::type_name::<T>();
         trace!("<Option> Extracting {:?} for Option<{}>", value, name);
 
@@ -109,7 +109,7 @@ impl<T: ExtractType> ExtractType for Option<T> {
         Ok(result)
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Nothing) => Ok(value),
             _ => T::check(value),
@@ -121,15 +121,15 @@ impl<T: ExtractType> ExtractType for Option<T> {
     }
 }
 
-impl<T: ExtractType> ExtractType for Spanned<T> {
-    fn extract(value: &Spanned<Value>) -> Result<Spanned<T>, ShellError> {
+impl<T: ExtractType> ExtractType for Tagged<T> {
+    fn extract(value: &Tagged<Value>) -> Result<Tagged<T>, ShellError> {
         let name = std::intrinsics::type_name::<T>();
-        trace!("<Spanned> Extracting {:?} for Spanned<{}>", value, name);
+        trace!("<Tagged> Extracting {:?} for Tagged<{}>", value, name);
 
-        Ok(T::extract(value)?.spanned(value.span))
+        Ok(T::extract(value)?.tagged(value.tag()))
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         T::check(value)
     }
 
@@ -139,13 +139,13 @@ impl<T: ExtractType> ExtractType for Spanned<T> {
 }
 
 impl ExtractType for Value {
-    fn extract(value: &Spanned<Value>) -> Result<Value, ShellError> {
-        trace!("<Spanned> Extracting {:?} for Value", value);
+    fn extract(value: &Tagged<Value>) -> Result<Value, ShellError> {
+        trace!("<Tagged> Extracting {:?} for Value", value);
 
         Ok(value.item().clone())
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         Ok(value)
     }
 
@@ -159,29 +159,29 @@ impl ExtractType for bool {
         hir::SyntaxType::Boolean
     }
 
-    fn extract(value: &'a Spanned<Value>) -> Result<bool, ShellError> {
+    fn extract(value: &'a Tagged<Value>) -> Result<bool, ShellError> {
         trace!("Extracting {:?} for bool", value);
 
         match &value {
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::Boolean(b)),
                 ..
             } => Ok(*b),
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::Nothing),
                 ..
             } => Ok(false),
-            other => Err(ShellError::type_error("Boolean", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
         }
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         match &value {
-            value @ Spanned {
+            value @ Tagged {
                 item: Value::Primitive(Primitive::Boolean(_)),
                 ..
             } => Ok(value),
-            other => Err(ShellError::type_error("Boolean", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
         }
     }
 }
@@ -191,97 +191,97 @@ impl ExtractType for std::path::PathBuf {
         hir::SyntaxType::Path
     }
 
-    fn extract(value: &'a Spanned<Value>) -> Result<std::path::PathBuf, ShellError> {
+    fn extract(value: &'a Tagged<Value>) -> Result<std::path::PathBuf, ShellError> {
         trace!("Extracting {:?} for PathBuf", value);
 
         match &value {
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::String(p)),
                 ..
             } => Ok(PathBuf::from(p)),
-            other => Err(ShellError::type_error("Path", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Path", other.tagged_type_name())),
         }
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         match &value {
-            v @ Spanned {
+            v @ Tagged {
                 item: Value::Primitive(Primitive::Path(_)),
                 ..
             } => Ok(v),
-            other => Err(ShellError::type_error("Path", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Path", other.tagged_type_name())),
         }
     }
 }
 
 impl ExtractType for i64 {
-    fn extract(value: &Spanned<Value>) -> Result<i64, ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<i64, ShellError> {
         trace!("Extracting {:?} for i64", value);
 
         match value {
-            &Spanned {
+            &Tagged {
                 item: Value::Primitive(Primitive::Int(int)),
                 ..
             } => Ok(int),
-            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
         }
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         match value {
-            v @ Spanned {
+            v @ Tagged {
                 item: Value::Primitive(Primitive::Int(_)),
                 ..
             } => Ok(v),
-            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
         }
     }
 }
 
 impl ExtractType for String {
-    fn extract(value: &Spanned<Value>) -> Result<String, ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<String, ShellError> {
         trace!("Extracting {:?} for String", value);
 
         match value {
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::String(string)),
                 ..
             } => Ok(string.clone()),
-            other => Err(ShellError::type_error("String", other.spanned_type_name())),
+            other => Err(ShellError::type_error("String", other.tagged_type_name())),
         }
     }
 
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         match value {
-            v @ Spanned {
+            v @ Tagged {
                 item: Value::Primitive(Primitive::String(_)),
                 ..
             } => Ok(v),
-            other => Err(ShellError::type_error("String", other.spanned_type_name())),
+            other => Err(ShellError::type_error("String", other.tagged_type_name())),
         }
     }
 }
 
 impl ExtractType for value::Block {
-    fn check(value: &'value Spanned<Value>) -> Result<&'value Spanned<Value>, ShellError> {
+    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
         trace!("Extracting {:?} for Block", value);
 
         match value {
-            v @ Spanned {
+            v @ Tagged {
                 item: Value::Block(_),
                 ..
             } => Ok(v),
-            other => Err(ShellError::type_error("Block", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Block", other.tagged_type_name())),
         }
     }
 
-    fn extract(value: &Spanned<Value>) -> Result<value::Block, ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<value::Block, ShellError> {
         match value {
-            Spanned {
+            Tagged {
                 item: Value::Block(block),
                 ..
             } => Ok(block.clone()),
-            other => Err(ShellError::type_error("Block", other.spanned_type_name())),
+            other => Err(ShellError::type_error("Block", other.tagged_type_name())),
         }
     }
 }

@@ -1,6 +1,6 @@
 use derive_new::new;
 use indexmap::IndexMap;
-use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, Spanned, Value};
+use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, Tagged, Value};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
 use ptree::print_config::PrintConfig;
@@ -90,15 +90,13 @@ impl Plugin for TreeViewer {
         })
     }
 
-    fn sink(&mut self, _call_info: CallInfo, input: Vec<Spanned<Value>>) {
+    fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {
         if input.len() > 0 {
             for i in input.iter() {
                 let view = TreeView::from_value(&i);
                 let _ = view.render_view();
             }
         }
-
-        //Ok(())
     }
 }
 

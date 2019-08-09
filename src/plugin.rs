@@ -1,25 +1,28 @@
-use crate::{CallInfo, Signature, ReturnValue, ShellError, Spanned, Value};
+use crate::Signature;
+use crate::Tagged;
+use crate::{CallInfo, ReturnValue, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
 pub trait Plugin {
     fn config(&mut self) -> Result<Signature, ShellError>;
-    #[allow(unused)]
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<(), ShellError> {
-        Err(ShellError::string(
-            "`begin_filter` not implemented in plugin",
-        ))
-    }
-    #[allow(unused)]
-    fn filter(&mut self, input: Spanned<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        Err(ShellError::string("`filter` not implemented in plugin"))
-    }
-    #[allow(unused)]
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Spanned<Value>>) {}
 
-    fn quit(&mut self) {
-        return;
+    #[allow(unused)]
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
     }
+    #[allow(unused)]
+    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
+    }
+    #[allow(unused)]
+    fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
+    }
+    #[allow(unused)]
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {}
+
+    fn quit(&mut self) {}
 }
 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
@@ -33,15 +36,15 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     send_response(plugin.config());
                 }
                 Ok(NuCommand::begin_filter { params }) => {
-                    send_response(
-                        plugin
-                            .begin_filter(params)
-                            .map(|_| Vec::<ReturnValue>::new()),
-                    );
+                    send_response(plugin.begin_filter(params));
                 }
                 Ok(NuCommand::filter { params }) => {
                     send_response(plugin.filter(params));
                 }
+                Ok(NuCommand::end_filter) => {
+                    send_response(plugin.end_filter());
+                }
+
                 Ok(NuCommand::sink { params }) => {
                     plugin.sink(params.0, params.1);
                     return;
@@ -70,14 +73,13 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                             send_response(plugin.config());
                         }
                         Ok(NuCommand::begin_filter { params }) => {
-                            send_response(
-                                plugin
-                                    .begin_filter(params)
-                                    .map(|_| Vec::<ReturnValue>::new()),
-                            );
+                            send_response(plugin.begin_filter(params));
                         }
                         Ok(NuCommand::filter { params }) => {
                             send_response(plugin.filter(params));
+                        }
+                        Ok(NuCommand::end_filter) => {
+                            send_response(plugin.end_filter());
                         }
                         Ok(NuCommand::sink { params }) => {
                             plugin.sink(params.0, params.1);
@@ -138,10 +140,11 @@ pub enum NuCommand {
         params: CallInfo,
     },
     filter {
-        params: Spanned<Value>,
+        params: Tagged<Value>,
     },
+    end_filter,
     sink {
-        params: (CallInfo, Vec<Spanned<Value>>),
+        params: (CallInfo, Vec<Tagged<Value>>),
     },
     quit,
 }

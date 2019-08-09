@@ -19,7 +19,7 @@ const APP_INFO: AppInfo = AppInfo {
 #[derive(Deserialize, Serialize)]
 struct Config {
     #[serde(flatten)]
-    extra: IndexMap<String, Value>,
+    extra: IndexMap<String, Tagged<Value>>,
 }
 
 crate fn config_path() -> Result<PathBuf, ShellError> {
@@ -29,7 +29,7 @@ crate fn config_path() -> Result<PathBuf, ShellError> {
     Ok(location.join("config.toml"))
 }
 
-crate fn write_config(config: &IndexMap<String, Spanned<Value>>) -> Result<(), ShellError> {
+crate fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(), ShellError> {
     let location = app_root(AppDataType::UserConfig, &APP_INFO)
         .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
 
@@ -45,7 +45,7 @@ crate fn write_config(config: &IndexMap<String, Spanned<Value>>) -> Result<(), S
     Ok(())
 }
 
-crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Spanned<Value>>, ShellError> {
+crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
     let span = span.into();
 
     let location = app_root(AppDataType::UserConfig, &APP_INFO)
@@ -57,19 +57,19 @@ crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Spanned<Value>
     trace!("config file = {}", filename.display());
 
     let contents = fs::read_to_string(filename)
-        .map(|v| v.spanned(span))
+        .map(|v| v.simple_spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
 
     let parsed: toml::Value = toml::from_str(&contents)
         .map_err(|err| ShellError::string(&format!("Couldn't parse config file:\n{}", err)))?;
 
-    let value = convert_toml_value_to_nu_value(&parsed, span);
-
+    let value = convert_toml_value_to_nu_value(&parsed, Tag::unknown_origin(span));
+    let tag = value.tag();
     match value.item {
         Value::Object(Dictionary { entries }) => Ok(entries),
         other => Err(ShellError::type_error(
             "Dictionary",
-            other.type_name().spanned(value.span),
+            other.type_name().tagged(tag),
         )),
     }
 }

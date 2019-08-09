@@ -5,12 +5,11 @@ use crate::commands::classified::{
 };
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::PluginCommand;
-use crate::commands::{static_command, Command};
+use crate::commands::static_command;
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::git::current_branch;
 use crate::object::Value;
-use crate::parser::parse::span::Spanned;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
@@ -150,11 +149,14 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("from-xml", Box::new(from_xml::from_xml)),
             command("ps", Box::new(ps::ps)),
             command("ls", Box::new(ls::ls)),
-            command("sysinfo", Box::new(sysinfo::sysinfo)),
             command("size", Box::new(size::size)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
-            command("exit", Box::new(exit::exit)),
+            command("enter", Box::new(enter::enter)),
+            command("n", Box::new(next::next)),
+            command("p", Box::new(prev::prev)),
             command("lines", Box::new(lines::lines)),
+            command("pick", Box::new(pick::pick)),
+            command("shells", Box::new(shells::shells)),
             command("split-column", Box::new(split_column::split_column)),
             command("split-row", Box::new(split_row::split_row)),
             command("lines", Box::new(lines::lines)),
@@ -166,6 +168,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-toml", Box::new(to_toml::to_toml)),
             command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
+            command("tags", Box::new(tags::tags)),
             static_command(Get),
             static_command(Cd),
             static_command(Remove),
@@ -173,8 +176,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             static_command(Where),
             static_command(Config),
             static_command(SkipWhile),
+            static_command(Exit),
             static_command(Clip),
             static_command(Autoview),
+            static_command(Copycp),
+            static_command(Date),
+            static_command(Mkdir),
             static_command(Save),
             static_command(Table),
             static_command(VTable),
@@ -183,15 +190,15 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
-    let h = crate::shell::Helper::new(context.clone_commands());
-    let mut rl: Editor<crate::shell::Helper> = Editor::with_config(config);
+    //let h = crate::shell::Helper::new(context.clone_commands());
+    let mut rl: Editor<_> = Editor::with_config(config);
 
     #[cfg(windows)]
     {
         let _ = ansi_term::enable_ansi_support();
     }
 
-    rl.set_helper(Some(h));
+    //rl.set_helper(Some(h));
     let _ = rl.load_history("history.txt");
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
@@ -207,10 +214,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let cwd = {
-            let env = context.env.lock().unwrap();
-            env.path().display().to_string()
-        };
+        let cwd = context.shell_manager.path();
+
+        rl.set_helper(Some(crate::shell::Helper::new(
+            context.shell_manager.clone(),
+        )));
+
         let readline = rl.readline(&format!(
             "{}{}> ",
             cwd,
@@ -336,7 +345,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     .commands
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         command: static_command(autoview::Autoview),
-                        name_span: None,
+                        name_span: Span::unknown(),
                         source_map: ctx.source_map.clone(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
@@ -473,19 +482,19 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
-                        name_span: Some(head.span().clone()),
+                        name_span: head.span().clone(),
                         source_map: context.source_map.clone(),
                         args,
                     }))
                 }
                 false => {
-                    let arg_list_strings: Vec<Spanned<String>> = match call.children() {
+                    let arg_list_strings: Vec<Tagged<String>> = match call.children() {
                         //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
                         Some(args) => args
                             .iter()
                             .filter_map(|i| match i {
                                 TokenNode::Whitespace(_) => None,
-                                other => Some(Spanned::from_item(
+                                other => Some(Tagged::from_simple_spanned_item(
                                     other.as_external_arg(source),
                                     other.span(),
                                 )),
@@ -496,7 +505,7 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::External(ExternalCommand {
                         name: name.to_string(),
-                        name_span: Some(head.span().clone()),
+                        name_span: head.span().clone(),
                         args: arg_list_strings,
                     }))
                 }

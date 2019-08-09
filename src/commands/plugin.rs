@@ -72,6 +72,7 @@ pub fn filter_plugin(
         .spawn()
         .expect("Failed to spawn child process");
 
+    /*
     {
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         let stdout = child.stdout.as_mut().expect("Failed to open stdout");
@@ -90,41 +91,117 @@ pub fn filter_plugin(
                         Ok(_) => {}
                         Err(e) => {
                             return Err(e);
+    */
+    let mut bos: VecDeque<Tagged<Value>> = VecDeque::new();
+    bos.push_back(Value::Primitive(Primitive::BeginningOfStream).tagged_unknown());
+
+    let mut eos: VecDeque<Tagged<Value>> = VecDeque::new();
+    eos.push_back(Value::Primitive(Primitive::EndOfStream).tagged_unknown());
+
+    let call_info = args.call_info.clone();
+
+    let stream = bos
+        .chain(args.input.values)
+        .chain(eos)
+        .map(move |v| match v {
+            Tagged {
+                item: Value::Primitive(Primitive::BeginningOfStream),
+                ..
+            } => {
+                let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+                let stdout = child.stdout.as_mut().expect("Failed to open stdout");
+
+                let mut reader = BufReader::new(stdout);
+
+                let request = JsonRpc::new("begin_filter", call_info.clone());
+                let request_raw = serde_json::to_string(&request).unwrap();
+                let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+
+                let mut input = String::new();
+                match reader.read_line(&mut input) {
+                    Ok(_) => {
+                        let response = serde_json::from_str::<NuResult>(&input);
+                        match response {
+                            Ok(NuResult::response { params }) => match params {
+                                Ok(params) => params,
+                                Err(e) => {
+                                    let mut result = VecDeque::new();
+                                    result.push_back(ReturnValue::Err(e));
+                                    result
+                                }
+                            },
+                            Err(e) => {
+                                let mut result = VecDeque::new();
+                                result.push_back(Err(ShellError::string(format!(
+                                    "Error while processing begin_filter response: {:?} {}",
+                                    e, input
+                                ))));
+                                result
+                            }
                         }
-                    },
+                    }
                     Err(e) => {
-                        return Err(ShellError::string(format!(
-                            "Error while processing input: {:?} {}",
-                            e, input
-                        )));
+                        let mut result = VecDeque::new();
+                        result.push_back(Err(ShellError::string(format!(
+                            "Error while reading begin_filter response: {:?}",
+                            e
+                        ))));
+                        result
                     }
                 }
             }
-            _ => {}
-        }
-    }
-
-    let mut eos: VecDeque<Spanned<Value>> = VecDeque::new();
-    eos.push_back(Value::Primitive(Primitive::EndOfStream).spanned_unknown());
-
-    let stream = args
-        .input
-        .values
-        .chain(eos)
-        .map(move |v| match v {
-            Spanned {
+            Tagged {
                 item: Value::Primitive(Primitive::EndOfStream),
                 ..
             } => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
                 let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
-                let _ = BufReader::new(stdout);
-                let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("quit", vec![]);
+                let mut reader = BufReader::new(stdout);
+
+                let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
                 let request_raw = serde_json::to_string(&request).unwrap();
                 let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
 
-                VecDeque::new()
+                let mut input = String::new();
+                match reader.read_line(&mut input) {
+                    Ok(_) => {
+                        let response = serde_json::from_str::<NuResult>(&input);
+                        match response {
+                            Ok(NuResult::response { params }) => match params {
+                                Ok(params) => {
+                                    let request: JsonRpc<std::vec::Vec<Value>> =
+                                        JsonRpc::new("quit", vec![]);
+                                    let request_raw = serde_json::to_string(&request).unwrap();
+                                    let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+
+                                    params
+                                }
+                                Err(e) => {
+                                    let mut result = VecDeque::new();
+                                    result.push_back(ReturnValue::Err(e));
+                                    result
+                                }
+                            },
+                            Err(e) => {
+                                let mut result = VecDeque::new();
+                                result.push_back(Err(ShellError::string(format!(
+                                    "Error while processing end_filter response: {:?} {}",
+                                    e, input
+                                ))));
+                                result
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let mut result = VecDeque::new();
+                        result.push_back(Err(ShellError::string(format!(
+                            "Error while reading end_filter: {:?}",
+                            e
+                        ))));
+                        result
+                    }
+                }
             }
             _ => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -152,7 +229,7 @@ pub fn filter_plugin(
                             Err(e) => {
                                 let mut result = VecDeque::new();
                                 result.push_back(Err(ShellError::string(format!(
-                                    "Error while processing input: {:?} {}",
+                                    "Error while processing filter response: {:?} {}",
                                     e, input
                                 ))));
                                 result
@@ -162,7 +239,7 @@ pub fn filter_plugin(
                     Err(e) => {
                         let mut result = VecDeque::new();
                         result.push_back(Err(ShellError::string(format!(
-                            "Error while processing input: {:?}",
+                            "Error while reading filter response: {:?}",
                             e
                         ))));
                         result

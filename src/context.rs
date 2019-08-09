@@ -1,5 +1,5 @@
 use crate::commands::{Command, UnevaluatedCallInfo};
-use crate::parser::{hir, Span};
+use crate::parser::hir;
 use crate::prelude::*;
 
 use derive_new::new;
@@ -75,7 +75,7 @@ pub struct Context {
     registry: CommandRegistry,
     crate source_map: SourceMap,
     crate host: Arc<Mutex<dyn Host + Send>>,
-    crate env: Arc<Mutex<Environment>>,
+    crate shell_manager: ShellManager,
 }
 
 impl Context {
@@ -88,7 +88,7 @@ impl Context {
             registry: CommandRegistry::new(),
             source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
-            env: Arc::new(Mutex::new(Environment::basic()?)),
+            shell_manager: ShellManager::basic()?,
         })
     }
 
@@ -117,13 +117,25 @@ impl Context {
     crate async fn run_command(
         &mut self,
         command: Arc<Command>,
-        name_span: Option<Span>,
+        name_span: Span,
         source_map: SourceMap,
         args: hir::Call,
         source: Text,
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = self.command_args(args, input, source, source_map, name_span);
+        /*
+        let command_args = CommandArgs {
+            host: self.host.clone(),
+            shell_manager: self.shell_manager.clone(),
+            call_info: CallInfo {
+                name_span,
+                source_map,
+                args,
+            },
+            input,
+        };
+        */
 
         command.run(command_args, self.registry()).await
     }
@@ -133,7 +145,7 @@ impl Context {
         args: hir::Call,
         source: Text,
         source_map: SourceMap,
-        name_span: Option<Span>,
+        name_span: Span,
     ) -> UnevaluatedCallInfo {
         UnevaluatedCallInfo {
             args,
@@ -149,11 +161,11 @@ impl Context {
         input: InputStream,
         source: Text,
         source_map: SourceMap,
-        name_span: Option<Span>,
+        name_span: Span,
     ) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),
-            env: self.env.clone(),
+            shell_manager: self.shell_manager.clone(),
             call_info: self.call_info(args, source, source_map, name_span),
             input,
         }

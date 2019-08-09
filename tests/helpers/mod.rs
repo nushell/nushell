@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-pub use std::path::{Path, PathBuf};
+use glob::glob;
+pub use std::path::Path;
+pub use std::path::PathBuf;
 
-use log::trace;
 use std::io::Read;
-use tempdir::TempDir;
 
 #[macro_export]
 macro_rules! nu {
@@ -21,7 +21,7 @@ macro_rules! nu {
             $cwd, $commands
         );
 
-        let process = match Command::new(helpers::executable_path())
+        let mut process = match Command::new(helpers::executable_path())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -30,22 +30,18 @@ macro_rules! nu {
             Err(why) => panic!("Can't run test {}", why.description()),
         };
 
-        match process.stdin.unwrap().write_all(commands.as_bytes()) {
-            Err(why) => panic!("couldn't write to wc stdin: {}", why.description()),
-            Ok(_) => {}
-        }
+        let stdin = process.stdin.as_mut().expect("couldn't open stdin");
+        stdin
+            .write_all(commands.as_bytes())
+            .expect("couldn't write to stdin");
 
-        let mut _s = String::new();
+        let output = process
+            .wait_with_output()
+            .expect("couldn't read from stdout");
 
-        match process.stdout.unwrap().read_to_string(&mut _s) {
-            Err(why) => panic!("couldn't read stdout: {}", why.description()),
-            Ok(_) => {
-                let _s = _s.replace("\r\n", "\n");
-            }
-        }
-
-        let _s = _s.replace("\r\n", "");
-        let $out = _s.replace("\n", "");
+        let $out = String::from_utf8_lossy(&output.stdout);
+        let $out = $out.replace("\r\n", "");
+        let $out = $out.replace("\n", "");
     };
 }
 
@@ -81,40 +77,100 @@ macro_rules! nu_error {
     };
 }
 
-pub fn setup_playground_for(topic: &str) -> Result<(TempDir, TempDir, String), std::io::Error> {
-    let _ = pretty_env_logger::try_init();
-
-    let home = TempDir::new("nuplayground")?;
-    let child = TempDir::new_in(home.path(), topic)?;
-    let relative = child
-        .path()
-        .file_name()
-        .unwrap()
-        .to_str()
-        .expect(&format!(
-            "file name {} was not valid",
-            child.path().display()
-        ))
-        .to_string();
-
-    trace!(
-        "created {:?} dir={}",
-        child.path().display(),
-        child.path().is_dir()
-    );
-
-    Ok((home, child, relative))
+pub enum Stub<'a> {
+    FileWithContent(&'a str, &'a str),
+    EmptyFile(&'a str),
 }
 
-pub fn file_contents(full_path: impl AsRef<Path>) -> String {
-    let full_path = full_path.as_ref();
+pub struct Playground {
+    tests: String,
+    cwd: PathBuf,
+}
 
-    let mut file = std::fs::File::open(full_path)
-        .expect(&format!("can not open file {}", &full_path.display()));
+impl Playground {
+    pub fn root() -> String {
+        String::from("tests/fixtures/nuplayground")
+    }
+
+    pub fn test_dir_name(&self) -> String {
+        self.tests.clone()
+    }
+
+    pub fn back_to_playground(&mut self) -> &mut Self {
+        self.cwd = PathBuf::from([Playground::root(), self.tests.clone()].join("/"));
+        self
+    }
+
+    pub fn setup_for(topic: &str) -> Playground {
+        let nuplay_dir = format!("{}/{}", Playground::root(), topic);
+
+        if PathBuf::from(&nuplay_dir).exists() {
+            std::fs::remove_dir_all(PathBuf::from(&nuplay_dir)).expect("can not remove directory");
+        }
+
+        std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
+
+        Playground {
+            tests: topic.to_string(),
+            cwd: PathBuf::from([Playground::root(), topic.to_string()].join("/")),
+        }
+    }
+
+    pub fn cd(&mut self, path: &str) -> &mut Self {
+        self.cwd.push(path);
+        self
+    }
+
+    pub fn with_files(&mut self, files: Vec<Stub>) -> &mut Self {
+        files
+            .iter()
+            .map(|f| {
+                let mut path = PathBuf::from(&self.cwd);
+
+                let (file_name, contents) = match *f {
+                    Stub::EmptyFile(name) => (name, "fake data"),
+                    Stub::FileWithContent(name, content) => (name, content),
+                };
+
+                path.push(file_name);
+
+                std::fs::write(PathBuf::from(path), contents.as_bytes())
+                    .expect("can not create file");
+            })
+            .for_each(drop);
+        self.back_to_playground();
+        self
+    }
+
+    pub fn within(&mut self, directory: &str) -> &mut Self {
+        self.cwd.push(directory);
+        std::fs::create_dir(&self.cwd).expect("can not create directory");
+        self
+    }
+
+    pub fn glob_vec(pattern: &str) -> Vec<PathBuf> {
+        glob(pattern).unwrap().map(|r| r.unwrap()).collect()
+    }
+}
+
+pub fn file_contents(full_path: &str) -> String {
+    let mut file = std::fs::File::open(full_path).expect("can not open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .expect("can not read file");
     contents
+}
+
+pub fn normalize_string(input: &str) -> String {
+    #[cfg(windows)]
+    {
+        input.to_string()
+    }
+
+    #[cfg(not(windows))]
+    {
+        format!("\"{}\"", input)
+    }
 }
 
 pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
@@ -128,23 +184,28 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
     std::fs::write(full_path, "fake data".as_bytes())
 }
 
-pub fn file_exists_at(full_path: &str) -> bool {
-    PathBuf::from(full_path).exists()
+pub fn copy_file_to(source: &str, destination: &str) {
+    std::fs::copy(source, destination).expect("can not copy file");
 }
 
-pub fn delete_directory_at(full_path: &Path) {
+pub fn files_exist_at(files: Vec<&Path>, path: PathBuf) -> bool {
+    files.iter().all(|f| {
+        let mut loc = path.clone();
+        loc.push(f);
+        loc.exists()
+    })
+}
+
+pub fn file_exists_at(path: PathBuf) -> bool {
+    path.exists()
+}
+
+pub fn dir_exists_at(path: PathBuf) -> bool {
+    path.exists()
+}
+
+pub fn delete_directory_at(full_path: &str) {
     std::fs::remove_dir_all(PathBuf::from(full_path)).expect("can not remove directory");
-}
-
-pub fn create_directory_at(full_path: &Path) {
-    let path = PathBuf::from(full_path);
-
-    println!("{:?} - is_dir: {:?}", path, path.is_dir());
-
-    if !path.is_dir() {
-        std::fs::create_dir_all(PathBuf::from(full_path))
-            .expect(&format!("can not create directory {:?}", full_path));
-    }
 }
 
 pub fn executable_path() -> PathBuf {
