@@ -239,7 +239,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
                         }
                     }
                     //FIXME: this probably isn't correct
-                    SpanSource::Source(source) => None,
+                    SpanSource::Source(_source) => None,
                 };
 
                 match extension {

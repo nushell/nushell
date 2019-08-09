@@ -1,4 +1,4 @@
-use crate::commands::command::{CallInfo, EvaluatedStaticCommandArgs};
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::object::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;

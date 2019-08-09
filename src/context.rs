@@ -64,10 +64,10 @@ impl CommandRegistry {
         registry.insert(name.into(), command);
     }
 
-    crate fn names(&self) -> Vec<String> {
-        let registry = self.registry.lock().unwrap();
-        registry.keys().cloned().collect()
-    }
+    // crate fn names(&self) -> Vec<String> {
+    //     let registry = self.registry.lock().unwrap();
+    //     registry.keys().cloned().collect()
+    // }
 }
 
 #[derive(Clone)]
@@ -102,9 +102,9 @@ impl Context {
         self.source_map.insert(uuid, span_source);
     }
 
-    pub fn clone_commands(&self) -> CommandRegistry {
-        self.registry.clone()
-    }
+    // pub fn clone_commands(&self) -> CommandRegistry {
+    //     self.registry.clone()
+    // }
 
     crate fn has_command(&self, name: &str) -> bool {
         self.registry.has(name)
@@ -124,19 +124,6 @@ impl Context {
         input: InputStream,
     ) -> Result<OutputStream, ShellError> {
         let command_args = self.command_args(args, input, source, source_map, name_span);
-        /*
-        let command_args = CommandArgs {
-            host: self.host.clone(),
-            shell_manager: self.shell_manager.clone(),
-            call_info: CallInfo {
-                name_span,
-                source_map,
-                args,
-            },
-            input,
-        };
-        */
-
         command.run(command_args, self.registry()).await
     }
 

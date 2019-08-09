@@ -1,25 +1,10 @@
 use derive_new::new;
-use rustyline::completion::{self, Completer, FilenameCompleter};
-use rustyline::line_buffer::LineBuffer;
+use rustyline::completion::{Completer, FilenameCompleter};
 
 #[derive(new)]
 crate struct NuCompleter {
     pub file_completer: FilenameCompleter,
     //pub commands: indexmap::IndexMap<String, Arc<dyn Command>>,
-}
-
-pub struct CompletionPair {
-    pub display: String,
-    pub replacement: String,
-}
-
-impl Into<completion::Pair> for CompletionPair {
-    fn into(self) -> completion::Pair {
-        completion::Pair {
-            display: self.display,
-            replacement: self.replacement,
-        }
-    }
 }
 
 impl NuCompleter {
@@ -89,8 +74,8 @@ impl NuCompleter {
         Ok((replace_pos, completions))
     }
 
-    fn update(&self, line: &mut LineBuffer, start: usize, elected: &str) {
-        let end = line.pos();
-        line.replace(start..end, elected)
-    }
+    // fn update(&self, line: &mut LineBuffer, start: usize, elected: &str) {
+    //     let end = line.pos();
+    //     line.replace(start..end, elected)
+    // }
 }

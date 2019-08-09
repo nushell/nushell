@@ -25,7 +25,7 @@ impl StaticCommand for Open {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxType::Block)
+            .required("path", SyntaxType::Path)
             .switch("raw")
     }
 
@@ -91,62 +91,6 @@ fn run(
 
     Ok(stream.boxed().to_output_stream())
 }
-
-// command! {
-//     Open as open(args, path: Spanned<PathBuf>, --raw: Switch,) {
-//         let span = args.name_span();
-//         let env = args.env.clone();
-
-//         let path = env
-//             .lock()
-//             .unwrap()
-//             .path()
-//             .to_path_buf();
-
-//         let full_path = PathBuf::from(cwd);
-
-//         let path_str = path.to_str().ok_or(ShellError::type_error("Path", "invalid path".spanned(path.span)))?;
-
-//         let (file_extension, contents, contents_span, span_source) = fetch(&full_path, path_str, path.span)?;
-
-//         let file_extension = if raw.is_present() {
-//             None
-//         } else {
-//             file_extension
-//         };
-
-//         let mut stream = VecDeque::new();
-
-//         if let Some(uuid) = contents_span.source {
-//             // If we have loaded something, track its source
-//             stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(uuid, span_source)))
-//         }
-
-//         match contents {
-//             Value::Primitive(Primitive::String(string)) => {
-//                 let value = parse_as_value(
-//                     file_extension,
-//                     string,
-//                     contents_span,
-//                     span,
-//                 )?;
-
-//                 match value {
-//                     Spanned { item: Value::List(list), .. } => {
-//                         for elem in list {
-//                             stream.push_back(ReturnSuccess::value(elem));
-//                         }
-//                     }
-//                     x => stream.push_back(ReturnSuccess::value(x))
-//                 }
-//             },
-
-//             other => stream.push_back(ReturnSuccess::value(other.spanned(contents_span))),
-//         };
-
-//         stream
-//     }
-// }
 
 pub fn fetch(
     cwd: &PathBuf,

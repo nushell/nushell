@@ -486,15 +486,15 @@ impl Value {
         }
     }
 
-    crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
-        match self {
-            Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
-            other => Err(ShellError::string(format!(
-                "Expected pair, got {:?}",
-                other
-            ))),
-        }
-    }
+    // crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
+    //     match self {
+    //         Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
+    //         other => Err(ShellError::string(format!(
+    //             "Expected pair, got {:?}",
+    //             other
+    //         ))),
+    //     }
+    // }
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {

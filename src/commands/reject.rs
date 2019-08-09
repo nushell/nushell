@@ -3,7 +3,6 @@ use crate::object::base::reject_fields;
 use crate::prelude::*;
 
 pub fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let name_span = args.name_span();
     let args = args.evaluate_once(registry)?;
     let len = args.len();
     let span = args.name_span();

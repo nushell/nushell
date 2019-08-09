@@ -58,27 +58,27 @@ pub fn save(
                             full_path.push(Path::new(file));
                         }
                         _ => {
-                            // yield Err(ShellError::labeled_error(
-                            //     "Save requires a filepath",
-                            //     "needs path",
-                            //     context.name,
-                            // ));
+                            yield Err(ShellError::labeled_error(
+                                "Save requires a filepath",
+                                "needs path",
+                                context.name,
+                            ));
                         }
                     },
                     None => {
-                        // yield Err(ShellError::labeled_error(
-                        //     "Save requires a filepath",
-                        //     "needs path",
-                        //     context.name,
-                        // ));
+                        yield Err(ShellError::labeled_error(
+                            "Save requires a filepath",
+                            "needs path",
+                            context.name,
+                        ));
                     }
                 }
             } else {
-                // yield Err(ShellError::labeled_error(
-                //     "Save requires a filepath",
-                //     "needs path",
-                //     context.name,
-                // ));
+                yield Err(ShellError::labeled_error(
+                    "Save requires a filepath",
+                    "needs path",
+                    context.name,
+                ));
             }
 
             let contents = match full_path.extension() {

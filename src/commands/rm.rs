@@ -58,10 +58,10 @@ pub fn rm(
             Ok(path) => {
                 if path.is_dir() {
                     if !recursive {
-                        return Err(ShellError::string(
+                        return Err(ShellError::labeled_error(
                             "is a directory",
-                            // "is a directory",
-                            // args.call_info.name_span,
+                            "is a directory",
+                            context.name,
                         ));
                     }
                     std::fs::remove_dir_all(&path).expect("can not remove directory");

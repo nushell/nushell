@@ -1,6 +1,6 @@
-use crate::commands::command::{CallInfo, EvaluatedStaticCommandArgs};
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::errors::ShellError;
-use crate::stream::{InputStream, OutputStream};
+use crate::stream::OutputStream;
 
 pub trait Shell {
     fn name(&self) -> String;

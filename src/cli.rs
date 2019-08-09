@@ -352,7 +352,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         command: static_command(autoview::Autoview),
                         name_span: Span::unknown(),
-                        source_map: ctx.source_map.clone(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,
@@ -489,7 +488,6 @@ fn classify_command(
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
                         name_span: head.span().clone(),
-                        source_map: context.source_map.clone(),
                         args,
                     }))
                 }

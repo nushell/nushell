@@ -1,5 +1,4 @@
 use crate::commands::Command;
-use crate::context::SourceMap;
 use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
@@ -99,7 +98,6 @@ impl ClassifiedCommand {
 crate struct InternalCommand {
     crate command: Arc<Command>,
     crate name_span: Span,
-    crate source_map: SourceMap,
     crate args: hir::Call,
 }
 

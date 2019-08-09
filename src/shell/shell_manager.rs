@@ -1,8 +1,8 @@
-use crate::commands::command::{CallInfo, EvaluatedStaticCommandArgs};
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::errors::ShellError;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
-use crate::stream::{InputStream, OutputStream};
+use crate::stream::OutputStream;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 

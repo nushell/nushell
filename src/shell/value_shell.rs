@@ -1,4 +1,4 @@
-use crate::commands::command::{CallInfo, EvaluatedStaticCommandArgs};
+use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use std::ffi::OsStr;
