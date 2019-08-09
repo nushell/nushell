@@ -44,19 +44,19 @@ impl ShellManager {
             .set_path(path)
     }
 
-    // pub fn complete(
-    //     &self,
-    //     line: &str,
-    //     pos: usize,
-    //     ctx: &rustyline::Context<'_>,
-    // ) -> Result<(usize, Vec<CompletionPair>), ReadlineError> {
-    //     self.shells
-    //         .lock()
-    //         .unwrap()
-    //         .last()
-    //         .unwrap()
-    //         .complete(line, pos, ctx)
-    // }
+    pub fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
+        self.shells
+            .lock()
+            .unwrap()
+            .last()
+            .unwrap()
+            .complete(line, pos, ctx)
+    }
 
     pub fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.shells
@@ -90,9 +90,9 @@ impl ShellManager {
 
         env.last().unwrap().ls(args)
     }
-    pub fn cd(&self, call_info: CallInfo, input: InputStream) -> Result<OutputStream, ShellError> {
+    pub fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
-        env.last().unwrap().cd(call_info, input)
+        env.last().unwrap().cd(args)
     }
 }

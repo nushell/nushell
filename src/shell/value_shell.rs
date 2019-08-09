@@ -64,8 +64,8 @@ impl Shell for ValueShell {
             .to_output_stream())
     }
 
-    fn cd(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
-        let path = match call_info.args.nth(0) {
+    fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+        let path = match args.nth(0) {
             None => "/".to_string(),
             Some(v) => {
                 let target = v.as_string()?;
@@ -100,13 +100,12 @@ impl Shell for ValueShell {
         self.path = path.clone();
     }
 
-    /*
     fn complete(
         &self,
         line: &str,
         pos: usize,
         _ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<CompletionPair>), ReadlineError> {
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
         let mut completions = vec![];
 
         let mut possible_completion = vec![];
@@ -147,7 +146,7 @@ impl Shell for ValueShell {
             }
 
             if matched {
-                completions.push(CompletionPair {
+                completions.push(rustyline::completion::Pair {
                     display: command.to_string(),
                     replacement: command.to_string(),
                 });
@@ -155,7 +154,6 @@ impl Shell for ValueShell {
         }
         Ok((replace_pos, completions))
     }
-    */
 
     fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String> {
         None

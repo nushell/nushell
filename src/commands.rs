@@ -50,7 +50,7 @@ crate mod vtable;
 crate mod where_;
 
 crate use autoview::Autoview;
-crate use cd::Cd;
+//crate use cd::Cd;
 crate use clip::Clip;
 crate use command::{
     command, static_command, Command, CommandArgs, RawCommandArgs, StaticCommand,

@@ -29,8 +29,7 @@ impl Completer for Helper {
         pos: usize,
         ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
-        //FIXME: Add back completions
-        Ok((0, vec![]))
+        self.helper.complete(line, pos, ctx)
     }
 }
 

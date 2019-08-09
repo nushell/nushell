@@ -126,15 +126,15 @@ impl Shell for FilesystemShell {
         Ok(shell_entries.to_output_stream())
     }
 
-    fn cd(&self, call_info: CallInfo, _input: InputStream) -> Result<OutputStream, ShellError> {
-        let path = match call_info.args.nth(0) {
+    fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+        let path = match args.nth(0) {
             None => match dirs::home_dir() {
                 Some(o) => o,
                 _ => {
                     return Err(ShellError::labeled_error(
                         "Can not change to home directory",
                         "can not go to home",
-                        call_info.name_span,
+                        args.call_info.name_span,
                     ))
                 }
             },
@@ -158,11 +158,11 @@ impl Shell for FilesystemShell {
         match std::env::set_current_dir(&path) {
             Ok(_) => {}
             Err(_) => {
-                if call_info.args.len() > 0 {
+                if args.len() > 0 {
                     return Err(ShellError::labeled_error(
                         "Can not change to directory",
                         "directory not found",
-                        call_info.args.nth(0).unwrap().span().clone(),
+                        args.nth(0).unwrap().span().clone(),
                     ));
                 } else {
                     return Err(ShellError::string("Can not change to directory"));
@@ -194,16 +194,14 @@ impl Shell for FilesystemShell {
         self.path = path.to_string_lossy().to_string();
     }
 
-    /*
     fn complete(
         &self,
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<CompletionPair>), ReadlineError> {
+    ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
         self.completer.complete(line, pos, ctx)
     }
-    */
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.hinter.hint(line, pos, ctx)

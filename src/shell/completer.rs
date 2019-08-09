@@ -1,5 +1,5 @@
 use derive_new::new;
-use rustyline::completion::{self, FilenameCompleter};
+use rustyline::completion::{self, Completer, FilenameCompleter};
 use rustyline::line_buffer::LineBuffer;
 
 #[derive(new)]
@@ -23,13 +23,12 @@ impl Into<completion::Pair> for CompletionPair {
 }
 
 impl NuCompleter {
-    /*
     pub fn complete(
         &self,
         line: &str,
         pos: usize,
         context: &rustyline::Context,
-    ) -> rustyline::Result<(usize, Vec<CompletionPair>)> {
+    ) -> rustyline::Result<(usize, Vec<rustyline::completion::Pair>)> {
         //let commands: Vec<String> = self.commands.keys().cloned().collect();
 
         let mut completions = self.file_completer.complete(line, pos, context)?.1;
@@ -89,7 +88,6 @@ impl NuCompleter {
 
         Ok((replace_pos, completions))
     }
-    */
 
     fn update(&self, line: &mut LineBuffer, start: usize, elected: &str) {
         let end = line.pos();
