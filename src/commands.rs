@@ -28,7 +28,6 @@ crate mod open;
 crate mod pick;
 crate mod plugin;
 crate mod prev;
-crate mod ps;
 crate mod reject;
 crate mod rm;
 crate mod save;
