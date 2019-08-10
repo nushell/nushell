@@ -64,10 +64,10 @@ impl CommandRegistry {
         registry.insert(name.into(), command);
     }
 
-    // crate fn names(&self) -> Vec<String> {
-    //     let registry = self.registry.lock().unwrap();
-    //     registry.keys().cloned().collect()
-    // }
+    crate fn names(&self) -> Vec<String> {
+        let registry = self.registry.lock().unwrap();
+        registry.keys().cloned().collect()
+    }
 }
 
 #[derive(Clone)]
@@ -84,11 +84,12 @@ impl Context {
     }
 
     crate fn basic() -> Result<Context, Box<dyn Error>> {
+        let registry = CommandRegistry::new();
         Ok(Context {
-            registry: CommandRegistry::new(),
+            registry: registry.clone(),
             source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
-            shell_manager: ShellManager::basic()?,
+            shell_manager: ShellManager::basic(registry)?,
         })
     }
 

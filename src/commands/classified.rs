@@ -148,7 +148,10 @@ impl InternalCommand {
                             // If it's a directory, add a new filesystem shell
                             context
                                 .shell_manager
-                                .push(Box::new(FilesystemShell::with_location(location)?));
+                                .push(Box::new(FilesystemShell::with_location(
+                                    location,
+                                    context.registry().clone(),
+                                )?));
                         } else {
                             // If it's a file, attempt to open the file as a value and enter it
                             let cwd = context.shell_manager.path();
