@@ -6,9 +6,17 @@ pub fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputSt
     let mut shells_out = VecDeque::new();
     let span = args.call_info.name_span;
 
-    for shell in args.shell_manager.shells.lock().unwrap().iter() {
+    let shells_len = args.shell_manager.shells.lock().unwrap().len();
+
+    for (index, shell) in args.shell_manager.shells.lock().unwrap().iter().enumerate() {
         let mut dict = TaggedDictBuilder::new(Tag::unknown_origin(span));
-        dict.insert("name", shell.name());
+
+        if index == (shells_len - 1) {
+            dict.insert(" ", "X".to_string());
+        } else {
+            dict.insert(" ", " ".to_string());
+        }
+        dict.insert("name", shell.name(&args.call_info.source_map));
         dict.insert("path", shell.path());
 
         shells_out.push_back(dict.into_tagged_value());

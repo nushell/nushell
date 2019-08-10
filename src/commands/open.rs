@@ -226,35 +226,43 @@ pub fn fetch(
         }
     } else {
         cwd.push(Path::new(location));
-        match std::fs::read(&cwd) {
-            Ok(bytes) => match std::str::from_utf8(&bytes) {
-                Ok(s) => Ok((
-                    cwd.extension()
-                        .map(|name| name.to_string_lossy().to_string()),
-                    Value::string(s),
-                    Tag {
+        if let Ok(cwd) = dunce::canonicalize(cwd) {
+            match std::fs::read(&cwd) {
+                Ok(bytes) => match std::str::from_utf8(&bytes) {
+                    Ok(s) => Ok((
+                        cwd.extension()
+                            .map(|name| name.to_string_lossy().to_string()),
+                        Value::string(s),
+                        Tag {
+                            span,
+                            origin: Some(Uuid::new_v4()),
+                        },
+                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                    )),
+                    Err(_) => Ok((
+                        None,
+                        Value::Binary(bytes),
+                        Tag {
+                            span,
+                            origin: Some(Uuid::new_v4()),
+                        },
+                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                    )),
+                },
+                Err(_) => {
+                    return Err(ShellError::labeled_error(
+                        "File could not be opened",
+                        "file not found",
                         span,
-                        origin: Some(Uuid::new_v4()),
-                    },
-                    SpanSource::File(cwd.to_string_lossy().to_string()),
-                )),
-                Err(_) => Ok((
-                    None,
-                    Value::Binary(bytes),
-                    Tag {
-                        span,
-                        origin: Some(Uuid::new_v4()),
-                    },
-                    SpanSource::File(cwd.to_string_lossy().to_string()),
-                )),
-            },
-            Err(_) => {
-                return Err(ShellError::labeled_error(
-                    "File could not be opened",
-                    "file not found",
-                    span,
-                ));
+                    ));
+                }
             }
+        } else {
+            return Err(ShellError::labeled_error(
+                "File could not be opened",
+                "file not found",
+                span,
+            ));
         }
     }
 }

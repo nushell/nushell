@@ -51,7 +51,10 @@ pub fn autoview(
                 let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
                 result.collect::<Vec<_>>().await;
             } else {
-                println!("TODO!")
+                let table = context.expect_command("table");
+                let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
+                result.collect::<Vec<_>>().await;
+                //println!("TODO!")
                 // TODO
                 // let mut host = context.host.lock().unwrap();
                 // for i in input.iter() {

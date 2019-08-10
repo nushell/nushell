@@ -15,16 +15,17 @@ pub fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStre
                 let mut dict = TaggedDictBuilder::new(v.tag());
                 dict.insert("start", Value::int(span.start as i64));
                 dict.insert("end", Value::int(span.end as i64));
+                tags.insert_tagged("span", dict.into_tagged_value());
+
                 match origin.map(|x| source_map.get(&x)).flatten() {
                     Some(SpanSource::File(source)) => {
-                        dict.insert("origin", Value::string(source));
+                        tags.insert("origin", Value::string(source));
                     }
                     Some(SpanSource::Url(source)) => {
-                        dict.insert("origin", Value::string(source));
+                        tags.insert("origin", Value::string(source));
                     }
                     _ => {}
                 }
-                tags.insert_tagged("span", dict.into_tagged_value());
             }
 
             tags.into_tagged_value()

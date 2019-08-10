@@ -1,4 +1,5 @@
 use crate::commands::command::EvaluatedStaticCommandArgs;
+use crate::context::SourceMap;
 use crate::object::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
@@ -55,7 +56,7 @@ impl FilesystemShell {
 }
 
 impl Shell for FilesystemShell {
-    fn name(&self) -> String {
+    fn name(&self, _source_map: &SourceMap) -> String {
         "filesystem".to_string()
     }
 

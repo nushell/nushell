@@ -1,9 +1,10 @@
 use crate::commands::command::EvaluatedStaticCommandArgs;
+use crate::context::SourceMap;
 use crate::errors::ShellError;
 use crate::stream::OutputStream;
 
 pub trait Shell {
-    fn name(&self) -> String;
+    fn name(&self, source_map: &SourceMap) -> String;
     fn ls(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError>;
     fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError>;
     fn path(&self) -> String;
