@@ -154,29 +154,6 @@ async fn temp(tag: Tag) -> Option<Value> {
     } else {
         None
     }
-
-    // if components_list.len() > 0 {
-    //     let mut v: Vec<Tagged<Value>> = vec![];
-    //     for component in components_list {
-    //         let mut component_idx = TaggedDictBuilder::new(tag);
-    //         component_idx.insert("name", Primitive::String(component.get_label().to_string()));
-    //         component_idx.insert(
-    //             "temp",
-    //             Primitive::Float(OF64::from(component.get_temperature() as f64)),
-    //         );
-    //         component_idx.insert(
-    //             "max",
-    //             Primitive::Float(OF64::from(component.get_max() as f64)),
-    //         );
-    //         if let Some(critical) = component.get_critical() {
-    //             component_idx.insert("critical", Primitive::Float(OF64::from(critical as f64)));
-    //         }
-    //         v.push(component_idx.into());
-    //     }
-    //     Some(Value::List(v))
-    // } else {
-    //     None
-    // }
 }
 
 async fn net(tag: Tag) -> Value {
