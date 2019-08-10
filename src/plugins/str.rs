@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, PositionalType, Primitive, ReturnSuccess,
+    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess,
     ReturnValue, ShellError, Signature, Tagged, Value,
 };
 
@@ -82,16 +82,15 @@ impl Str {
     fn strutils(
         &self,
         value: Tagged<Value>,
-        field: &Option<String>,
     ) -> Result<Tagged<Value>, ShellError> {
         match value.item {
             Value::Primitive(Primitive::String(ref s)) => {
                 Ok(Tagged::from_item(self.apply(&s), value.tag()))
             }
-            Value::Object(_) => match field {
-                Some(f) => {
+            Value::Object(_) => match self.field {
+                Some(ref f) => {
                     let replacement = match value.item.get_data_by_path(value.tag(), f) {
-                        Some(result) => self.strutils(result.map(|x| x.clone()), &None)?,
+                        Some(result) => self.strutils(result.map(|x| x.clone()))?,
                         None => {
                             return Err(ShellError::string("str could not find field to replace"))
                         }
@@ -129,7 +128,7 @@ impl Plugin for Str {
 
         Ok(Signature {
             name: "str".to_string(),
-            positional: vec![PositionalType::optional_any("Field")],
+            positional: vec![],
             is_filter: true,
             named,
             rest_positional: true,
@@ -178,7 +177,7 @@ impl Plugin for Str {
 
     fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(
-            self.strutils(input, &self.field)?,
+            self.strutils(input)?,
         )])
     }
 }
@@ -224,11 +223,11 @@ mod tests {
             self
         }
 
-        fn create(&self, name_span: Span) -> CallInfo {
+        fn create(&self) -> CallInfo {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
                 source_map: SourceMap::new(),
-                name_span,
+                name_span: Span::unknown(),
             }
         }
     }
@@ -258,7 +257,7 @@ mod tests {
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("downcase")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
         assert!(plugin.action.is_some());
@@ -272,7 +271,7 @@ mod tests {
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("upcase")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
         assert!(plugin.action.is_some());
@@ -286,7 +285,7 @@ mod tests {
             .begin_filter(
                 CallStub::new()
                     .with_long_flag("to-int")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
         assert!(plugin.action.is_some());
@@ -300,7 +299,7 @@ mod tests {
             .begin_filter(
                 CallStub::new()
                     .with_parameter("package.description")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
 
@@ -317,7 +316,7 @@ mod tests {
                     .with_long_flag("upcase")
                     .with_long_flag("downcase")
                     .with_long_flag("to-int")
-                    .create(Span::unknown()),
+                    .create(),
             )
             .is_err());
         assert_eq!(plugin.error, Some("can only apply one".to_string()));
@@ -353,7 +352,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("upcase")
                     .with_parameter("name")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
 
@@ -381,7 +380,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("downcase")
                     .with_parameter("name")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
 
@@ -409,7 +408,7 @@ mod tests {
                 CallStub::new()
                     .with_long_flag("to-int")
                     .with_parameter("Nu_birthday")
-                    .create(Span::unknown())
+                    .create()
             )
             .is_ok());
 
