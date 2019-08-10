@@ -28,8 +28,8 @@ chrono-humanize = "0.0.11"
 byte-unit = "3.0.1"
 ordered-float = {version = "1.0.2", features = ["serde"]}
 prettyprint = "0.7.0"
-futures-preview = { version = "=0.3.0-alpha.17", features = ["compat", "io-compat"] }
-futures-sink-preview = "=0.3.0-alpha.17"
+futures-preview = { version = "=0.3.0-alpha.18", features = ["compat", "io-compat"] }
+futures-sink-preview = "=0.3.0-alpha.18"
 futures-async-stream = "0.1.0-alpha.1"
 async-trait = "0.1.7"
 futures_codec = "0.2.5"
@@ -68,7 +68,6 @@ enum-utils = "0.1.1"
 unicode-xid = "0.2.0"
 serde_ini = "0.2.0"
 subprocess = "0.1.18"
-sys-info = "0.5.7"
 mime = "0.3.13"
 regex = "1.2.1"
 pretty-hex = "0.1.0"
@@ -82,7 +81,7 @@ uuid = {version = "0.7.4", features = [ "v4", "serde" ]}
 syntect = "3.2.0"
 strip-ansi-escapes = "0.1.0"
 onig_sys = "=69.1.0"
-heim = "0.0.6"
+heim = {git = "https://github.com/heim-rs/heim.git"}
 which = "2.0.1"
 
 [dev-dependencies]

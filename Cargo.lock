@@ -990,7 +990,7 @@ version = "0.1.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures-async-stream-macro 0.1.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "pin-project 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1006,16 +1006,16 @@ dependencies = [
 
 [[package]]
 name = "futures-channel-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-sink-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-sink-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "futures-core-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1029,51 +1029,50 @@ dependencies = [
 
 [[package]]
 name = "futures-executor-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "futures-channel-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-util-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-util-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "num_cpus 1.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "futures-io-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "futures-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "futures-channel-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-executor-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-io-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-sink-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-util-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-channel-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-executor-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-io-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-sink-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-util-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "futures-sink-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "futures-util-preview"
-version = "0.3.0-alpha.17"
+version = "0.3.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-channel-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-io-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-sink-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-channel-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-io-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-sink-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "memchr 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pin-utils 0.1.0-alpha.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1086,7 +1085,7 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1156,45 +1155,46 @@ dependencies = [
 [[package]]
 name = "heim"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-cpu 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-disk 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-host 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-memory 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-net 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-process 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-virt 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-cpu 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-disk 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-host 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-memory 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-net 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-process 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
+ "heim-sensors 0.0.1 (git+https://github.com/heim-rs/heim.git)",
+ "heim-virt 0.0.6 (git+https://github.com/heim-rs/heim.git)",
 ]
 
 [[package]]
 name = "heim-common"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pin-utils 0.1.0-alpha.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "heim-cpu"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1204,7 +1204,7 @@ dependencies = [
 [[package]]
 name = "heim-derive"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1214,14 +1214,14 @@ dependencies = [
 [[package]]
 name = "heim-disk"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1231,12 +1231,12 @@ dependencies = [
 [[package]]
 name = "heim-host"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1247,12 +1247,12 @@ dependencies = [
 [[package]]
 name = "heim-memory"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1262,13 +1262,13 @@ dependencies = [
 [[package]]
 name = "heim-net"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "macaddr 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1278,13 +1278,13 @@ dependencies = [
 [[package]]
 name = "heim-process"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
  "mach 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1295,23 +1295,34 @@ dependencies = [
 [[package]]
 name = "heim-runtime"
 version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "threadpool 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "heim-virt"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+name = "heim-sensors"
+version = "0.0.1"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
+]
+
+[[package]]
+name = "heim-virt"
+version = "0.0.6"
+source = "git+https://github.com/heim-rs/heim.git#9c53ce016978b78d684c65a3751c6a63ede5f6b2"
+dependencies = [
+ "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)",
+ "heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)",
  "raw-cpuid 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1912,13 +1923,13 @@ dependencies = [
  "enum-utils 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum_derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-async-stream 0.1.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "futures-sink-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-sink-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures_codec 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "getset 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "git2 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "heim 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heim 0.0.6 (git+https://github.com/heim-rs/heim.git)",
  "image 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1954,7 +1965,6 @@ dependencies = [
  "strip-ansi-escapes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subprocess 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "syntect 3.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sys-info 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "sysinfo 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3087,15 +3097,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sys-info"
-version = "0.5.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "cc 1.0.38 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "sysinfo"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3821,14 +3822,14 @@ dependencies = [
 "checksum futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)" = "45dc39533a6cae6da2b56da48edae506bb767ec07370f86f70fc062e9d435869"
 "checksum futures-async-stream 0.1.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)" = "11656e20f3c6e4a026757266461ffeb73d8c2fcbcc464fc6f9660d8d66452f32"
 "checksum futures-async-stream-macro 0.1.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)" = "bcb1eaa199281990734c14fdf5c22077ecd9f7fc2c24d7a37d796bd54dbb8f10"
-"checksum futures-channel-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "21c71ed547606de08e9ae744bb3c6d80f5627527ef31ecf2a7210d0e67bc8fae"
-"checksum futures-core-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "4b141ccf9b7601ef987f36f1c0d9522f76df3bba1cf2e63bfacccc044c4558f5"
+"checksum futures-channel-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "f477fd0292c4a4ae77044454e7f2b413207942ad405f759bb0b4698b7ace5b12"
+"checksum futures-core-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "4a2f26f774b81b3847dcda0c81bd4b6313acfb4f69e5a0390c7cb12c058953e9"
 "checksum futures-cpupool 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "ab90cde24b3319636588d0c35fe03b1333857621051837ed769faefb4c2162e4"
-"checksum futures-executor-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "87ba260fe51080ba37f063ad5b0732c4ff1f737ea18dcb67833d282cdc2c6f14"
-"checksum futures-io-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "082e402605fcb8b1ae1e5ba7d7fdfd3e31ef510e2a8367dd92927bb41ae41b3a"
-"checksum futures-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "bf25f91c8a9a1f64c451e91b43ba269ed359b9f52d35ed4b3ce3f9c842435867"
-"checksum futures-sink-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "4309a25a1069a1f3c10647b227b9afe6722b67a030d3f00a9cbdc171fc038de4"
-"checksum futures-util-preview 0.3.0-alpha.17 (registry+https://github.com/rust-lang/crates.io-index)" = "af8198c48b222f02326940ce2b3aa9e6e91a32886eeaad7ca3b8e4c70daa3f4e"
+"checksum futures-executor-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "80705612926df8a1bc05f0057e77460e29318801f988bf7d803a734cf54e7528"
+"checksum futures-io-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "ee7de0c1c9ed23f9457b0437fec7663ce64d9cc3c906597e714e529377b5ddd1"
+"checksum futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "efa8f90c4fb2328e381f8adfd4255b4a2b696f77d1c63a3dee6700b564c4e4b5"
+"checksum futures-sink-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "e9b65a2481863d1b78e094a07e9c0eed458cc7dc6e72b22b7138b8a67d924859"
+"checksum futures-util-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)" = "7df53daff1e98cc024bf2720f3ceb0414d96fbb0a94f3cad3a5c3bf3be1d261c"
 "checksum futures_codec 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "36552cd31353fd135114510d53b8d120758120c36aa636a9341970f9efb1e4a0"
 "checksum getrandom 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "34f33de6f0ae7c9cb5e574502a562e2b512799e32abb801cd1e79ad952b62b49"
 "checksum getset 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)" = "19fbde0fad0c1c1f9474694b1f5c9ba22b09f2f74f74e6d2bd19c43f6656e2cb"
@@ -3836,17 +3837,18 @@ dependencies = [
 "checksum git2 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "8cb400360e8a4d61b10e648285bbfa919bbf9519d0d5d5720354456f44349226"
 "checksum glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 "checksum h2 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)" = "a5b34c246847f938a410a03c5458c7fee2274436675e76d8b903c08efc29c462"
-"checksum heim 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "7a996721efa683319648b170ff0b7f22a7cec42b417f1d1871c229b87a3231e9"
-"checksum heim-common 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "61d9e785d002b44e31be34f9956b8c68af12070017a1020db1218e3f870407ae"
-"checksum heim-cpu 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "f112cb820851d6d24dd77d169bd5c32f8c6588de56bed1b82010ec0dbbe68c62"
-"checksum heim-derive 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0f1098f444459eec56e78527ff7f157e3c5e5c2c70c0c4a6ce7dce79fb8a4262"
-"checksum heim-disk 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "1d4c796b58239602481f3cc7e0695769ef0a2512f0272fd5a42d7f8fb4493e43"
-"checksum heim-host 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "87bc31113726eebe29a3b8aa876c322f09208c3d614708f89cea40e50e011c17"
-"checksum heim-memory 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0bcc41a4d761f8136d661c45c8ad22a6f87900459f84ec2347294fcd568da3f2"
-"checksum heim-net 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "aa7d8887d3940a30beea92368cf8be3eae0a89e46c80d036e2fd744525150e22"
-"checksum heim-process 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "5460611f1d0cace5460cbd8c02061927390a41cfeeed68007c794239b5274cd4"
-"checksum heim-runtime 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b3304dc68b138eb6e9b6c79785dd911306a4bca66757a88373cb034a4dfe3a4d"
-"checksum heim-virt 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "6f68f73f66e6f00404d7b8ed97b458778f6ccafe1ecd65af797ec36f2003bf90"
+"checksum heim 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-common 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-cpu 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-derive 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-disk 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-host 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-memory 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-net 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-process 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-runtime 0.0.2 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-sensors 0.0.1 (git+https://github.com/heim-rs/heim.git)" = "<none>"
+"checksum heim-virt 0.0.6 (git+https://github.com/heim-rs/heim.git)" = "<none>"
 "checksum hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
 "checksum http 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)" = "372bcb56f939e449117fb0869c2e8fd8753a8223d92a172c6e808cf123a5b6e4"
 "checksum http-body 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6741c859c1b2463a423a1dbce98d418e6c3c3fc720fb0d45528657320920292d"
@@ -4033,7 +4035,6 @@ dependencies = [
 "checksum syn 0.15.43 (registry+https://github.com/rust-lang/crates.io-index)" = "ee06ea4b620ab59a2267c6b48be16244a3389f8bfa0986bdd15c35b890b00af3"
 "checksum synstructure 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)" = "02353edf96d6e4dc81aea2d8490a7e9db177bf8acb0e951c24940bf866cb313f"
 "checksum syntect 3.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e80b8831c5a543192ffc3727f01cf0e57579c6ac15558e3048bfb5708892167b"
-"checksum sys-info 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)" = "76d6cf7b349b6a6daaf7a3797227e2f4108c8dd398e0aca7e29b9fb239948541"
 "checksum sysinfo 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ee7d12b854e48e680bf4b10856a7867e843845158fa8226e6c2f6cc38539cb01"
 "checksum tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
 "checksum tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e24d9338a0a5be79593e2fa15a648add6138caa803e2d5bc782c371732ca9"
