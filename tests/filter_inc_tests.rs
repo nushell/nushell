@@ -1,29 +1,7 @@
 mod helpers;
 
-use helpers::in_directory as cwd;
-
-#[test]
-fn regular_field_by_one() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | inc package.edition | get package.edition | echo $it"
-    );
-
-    assert_eq!(output, "2019");
-}
-
-
-#[test]
-fn by_one_without_passing_field() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | get package.edition | inc | echo $it"
-    );
-
-    assert_eq!(output, "2019");
-}
+use h::{in_directory as cwd, Playground, Stub::*};
+use helpers as h;
 
 #[test]
 fn can_only_apply_one() {
@@ -37,34 +15,82 @@ fn can_only_apply_one() {
 }
 
 #[test]
-fn semversion_major() {
+fn regular_field_by_one() {
+    Playground::setup_for("plugin_inc_test_1")
+        .with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                edition = "2018"
+            "#,
+        )]);
+
     nu!(
         output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | inc package.version --major | get package.version | echo $it"
+        cwd("tests/fixtures/nuplayground/plugin_inc_test_1"),
+        "open sample.toml | inc package.edition | get package.edition | echo $it"
+    );
+
+    assert_eq!(output, "2019");
+}
+
+
+#[test]
+fn by_one_without_passing_field() {
+    Playground::setup_for("plugin_inc_test_2")
+        .with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                contributors = "2"
+            "#,
+        )]);
+
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/plugin_inc_test_2"),
+        "open sample.toml | get package.contributors | inc | echo $it"
+    );
+
+    assert_eq!(output, "3");
+}
+
+#[test]
+fn semversion() {
+    Playground::setup_for("plugin_inc_test_3")
+        .with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                version = "0.1.3"
+            "#,
+        )]);
+
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/plugin_inc_test_3"),
+        "open sample.toml | inc package.version --major | get package.version | echo $it"
     );
 
     assert_eq!(output, "1.0.0");
 }
 
 #[test]
-fn semversion_minor() {
+fn semversion_without_passing_field() {
+    Playground::setup_for("plugin_inc_test_4")
+        .with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                version = "0.1.3"
+            "#,
+        )]);
+
     nu!(
         output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | inc package.version --minor | get package.version | echo $it"
+        cwd("tests/fixtures/nuplayground/plugin_inc_test_4"),
+        "open sample.toml | get package.version | inc --patch | echo $it"
     );
 
-    assert_eq!(output, "0.2.0");
-}
-
-#[test]
-fn semversion_patch() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | inc package.version --patch | get package.version | echo $it"
-    );
-
-    assert_eq!(output, "0.1.2");
+    assert_eq!(output, "0.1.4");
 }

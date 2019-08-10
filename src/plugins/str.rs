@@ -79,10 +79,7 @@ impl Str {
 }
 
 impl Str {
-    fn strutils(
-        &self,
-        value: Tagged<Value>,
-    ) -> Result<Tagged<Value>, ShellError> {
+    fn strutils(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         match value.item {
             Value::Primitive(Primitive::String(ref s)) => {
                 Ok(Tagged::from_item(self.apply(&s), value.tag()))
@@ -176,9 +173,7 @@ impl Plugin for Str {
     }
 
     fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(vec![ReturnSuccess::value(
-            self.strutils(input)?,
-        )])
+        Ok(vec![ReturnSuccess::value(self.strutils(input)?)])
     }
 }
 
@@ -254,11 +249,7 @@ mod tests {
         let mut plugin = Str::new();
 
         assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_long_flag("downcase")
-                    .create()
-            )
+            .begin_filter(CallStub::new().with_long_flag("downcase").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -268,11 +259,7 @@ mod tests {
         let mut plugin = Str::new();
 
         assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_long_flag("upcase")
-                    .create()
-            )
+            .begin_filter(CallStub::new().with_long_flag("upcase").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -282,11 +269,7 @@ mod tests {
         let mut plugin = Str::new();
 
         assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_long_flag("to-int")
-                    .create()
-            )
+            .begin_filter(CallStub::new().with_long_flag("to-int").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
