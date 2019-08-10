@@ -1,3 +1,4 @@
+use crate::context::{SourceMap, SpanSource};
 use crate::prelude::*;
 use crate::Text;
 use derive_new::new;
@@ -106,6 +107,14 @@ impl<T> Tagged<T> {
 
     pub fn origin(&self) -> Option<uuid::Uuid> {
         self.tag.origin
+    }
+
+    pub fn origin_name(&self, source_map: &SourceMap) -> Option<String> {
+        match self.tag.origin.map(|x| source_map.get(&x)) {
+            Some(Some(SpanSource::File(file))) => Some(file.clone()),
+            Some(Some(SpanSource::Url(url))) => Some(url.clone()),
+            _ => None,
+        }
     }
 
     pub fn item(&self) -> &T {

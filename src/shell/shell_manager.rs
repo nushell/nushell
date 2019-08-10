@@ -73,8 +73,8 @@ impl ShellManager {
     pub fn next(&mut self) {
         {
             let mut x = self.shells.lock().unwrap();
-            let shell = x.pop().unwrap();
-            x.insert(0, shell);
+            let shell = x.remove(0);
+            x.push(shell);
         }
         self.set_path(self.path());
     }
@@ -82,8 +82,8 @@ impl ShellManager {
     pub fn prev(&mut self) {
         {
             let mut x = self.shells.lock().unwrap();
-            let shell = x.remove(0);
-            x.push(shell);
+            let shell = x.pop().unwrap();
+            x.insert(0, shell);
         }
         self.set_path(self.path());
     }

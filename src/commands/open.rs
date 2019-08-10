@@ -226,6 +226,7 @@ pub fn fetch(
         }
     } else {
         cwd.push(Path::new(location));
+        let cwd = dunce::canonicalize(cwd).unwrap();
         match std::fs::read(&cwd) {
             Ok(bytes) => match std::str::from_utf8(&bytes) {
                 Ok(s) => Ok((

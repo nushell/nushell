@@ -158,12 +158,17 @@ impl InternalCommand {
 
                             let full_path = std::path::PathBuf::from(cwd);
 
-                            let (file_extension, contents, contents_tag, _) =
+                            let (file_extension, contents, contents_tag, span_source) =
                                 crate::commands::open::fetch(
                                     &full_path,
                                     &location,
                                     Span::unknown(),
                                 )?;
+
+                            if let Some(uuid) = contents_tag.origin {
+                                // If we have loaded something, track its source
+                                context.add_span_source(uuid, span_source);
+                            }
 
                             match contents {
                                 Value::Primitive(Primitive::String(string)) => {
@@ -178,7 +183,7 @@ impl InternalCommand {
                                 }
                                 value => context
                                     .shell_manager
-                                    .push(Box::new(ValueShell::new(value.tagged(Tag::unknown())))),
+                                    .push(Box::new(ValueShell::new(value.tagged(contents_tag)))),
                             }
                         }
                     }

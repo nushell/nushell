@@ -204,7 +204,7 @@ impl fmt::Debug for ValueDebug<'a> {
 impl Tagged<Value> {
     crate fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
-        Tagged::from_simple_spanned_item(name, self.span())
+        Tagged::from_item(name, self.tag())
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::commands::command::EvaluatedStaticCommandArgs;
+use crate::context::SourceMap;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use std::ffi::OsStr;
@@ -53,8 +54,15 @@ impl ValueShell {
 }
 
 impl Shell for ValueShell {
-    fn name(&self) -> String {
-        "value".to_string()
+    fn name(&self, source_map: &SourceMap) -> String {
+        let origin_name = self.value.origin_name(source_map);
+        format!(
+            "{}",
+            match origin_name {
+                Some(x) => format!("{{{}}}", x),
+                None => format!("<{}>", self.value.item.type_name(),),
+            }
+        )
     }
 
     fn ls(&self, _args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
