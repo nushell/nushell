@@ -1,5 +1,6 @@
 use crate::commands::command::EvaluatedStaticCommandArgs;
 use crate::errors::ShellError;
+use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
@@ -12,9 +13,11 @@ pub struct ShellManager {
 }
 
 impl ShellManager {
-    pub fn basic() -> Result<ShellManager, Box<dyn Error>> {
+    pub fn basic(commands: CommandRegistry) -> Result<ShellManager, Box<dyn Error>> {
         Ok(ShellManager {
-            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic()?)])),
+            shells: Arc::new(Mutex::new(vec![Box::new(FilesystemShell::basic(
+                commands,
+            )?)])),
         })
     }
 

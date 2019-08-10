@@ -18,6 +18,7 @@ impl Clone for FilesystemShell {
             path: self.path.clone(),
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
+                commands: self.completer.commands.clone(),
             },
             hinter: HistoryHinter {},
         }
@@ -25,23 +26,28 @@ impl Clone for FilesystemShell {
 }
 
 impl FilesystemShell {
-    pub fn basic() -> Result<FilesystemShell, std::io::Error> {
+    pub fn basic(commands: CommandRegistry) -> Result<FilesystemShell, std::io::Error> {
         let path = std::env::current_dir()?;
 
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
+                commands,
             },
             hinter: HistoryHinter {},
         })
     }
 
-    pub fn with_location(path: String) -> Result<FilesystemShell, std::io::Error> {
+    pub fn with_location(
+        path: String,
+        commands: CommandRegistry,
+    ) -> Result<FilesystemShell, std::io::Error> {
         Ok(FilesystemShell {
             path,
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
+                commands,
             },
             hinter: HistoryHinter {},
         })
