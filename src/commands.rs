@@ -48,6 +48,7 @@ crate mod to_yaml;
 crate mod trim;
 crate mod vtable;
 crate mod where_;
+crate mod which_;
 
 crate use autoview::Autoview;
 //crate use cd::Cd;
@@ -69,3 +70,4 @@ crate use skip_while::SkipWhile;
 crate use table::Table;
 crate use vtable::VTable;
 crate use where_::Where;
+crate use which_::Which;

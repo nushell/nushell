@@ -191,6 +191,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             static_command(Save),
             static_command(Table),
             static_command(VTable),
+            static_command(Which),
         ]);
     }
     let _ = load_plugins(&mut context);
