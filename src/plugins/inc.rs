@@ -1,62 +1,94 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, PositionalType, Primitive, ReturnSuccess,
+    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess,
     ReturnValue, ShellError, Signature, Tagged, TaggedItem, Value,
 };
 
+enum Action {
+    SemVerAction(SemVerAction),
+    Default,
+}
+
+pub enum SemVerAction {
+    Major,
+    Minor,
+    Patch,
+}
+
 struct Inc {
     field: Option<String>,
-    major: bool,
-    minor: bool,
-    patch: bool,
+    error: Option<String>,
+    action: Option<Action>,
 }
+
 impl Inc {
     fn new() -> Inc {
         Inc {
             field: None,
-            major: false,
-            minor: false,
-            patch: false,
+            error: None,
+            action: None,
         }
     }
 
-    fn inc(
-        &self,
-        value: Tagged<Value>,
-        field: &Option<String>,
-    ) -> Result<Tagged<Value>, ShellError> {
+    fn apply(&self, input: &str) -> Value {
+        match &self.action {
+            Some(Action::SemVerAction(act_on)) => {
+                let ver = semver::Version::parse(&input);
+
+                if ver.is_err() {
+                    return Value::string(input.to_string());
+                }
+
+                let mut ver = ver.unwrap();
+
+                match act_on {
+                    SemVerAction::Major => ver.increment_major(),
+                    SemVerAction::Minor => ver.increment_minor(),
+                    SemVerAction::Patch => ver.increment_patch(),
+                }
+
+                Value::string(ver.to_string())
+            }
+            Some(Action::Default) | None => match input.parse::<u64>() {
+                Ok(v) => Value::string(format!("{}", v + 1)),
+                Err(_) => Value::string(input),
+            },
+        }
+    }
+
+    fn for_semver(&mut self, part: SemVerAction) {
+        if self.permit() {
+            self.action = Some(Action::SemVerAction(part));
+        } else {
+            self.log_error("can only apply one");
+        }
+    }
+
+    fn permit(&mut self) -> bool {
+        self.action.is_none()
+    }
+
+    fn log_error(&mut self, message: &str) {
+        self.error = Some(message.to_string());
+    }
+
+    fn usage(&self) -> &'static str {
+        "Usage: inc field [--major|--minor|--patch]"
+    }
+
+    fn inc(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         match value.item {
             Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).tagged(value.tag())),
             Value::Primitive(Primitive::Bytes(b)) => {
                 Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
             }
             Value::Primitive(Primitive::String(ref s)) => {
-                if let Ok(i) = s.parse::<u64>() {
-                    Ok(Tagged::from_item(
-                        Value::string(format!("{}", i + 1)),
-                        value.tag(),
-                    ))
-                } else if let Ok(mut ver) = semver::Version::parse(&s) {
-                    if self.major {
-                        ver.increment_major();
-                    } else if self.minor {
-                        ver.increment_minor();
-                    } else {
-                        self.patch;
-                        ver.increment_patch();
-                    }
-                    Ok(Tagged::from_item(
-                        Value::string(ver.to_string()),
-                        value.tag(),
-                    ))
-                } else {
-                    Err(ShellError::string("string could not be incremented"))
-                }
+                Ok(Tagged::from_item(self.apply(&s), value.tag()))
             }
-            Value::Object(_) => match field {
-                Some(f) => {
+            Value::Object(_) => match self.field {
+                Some(ref f) => {
                     let replacement = match value.item.get_data_by_path(value.tag(), f) {
-                        Some(result) => self.inc(result.map(|x| x.clone()), &None)?,
+                        Some(result) => self.inc(result.map(|x| x.clone()))?,
                         None => {
                             return Err(ShellError::string("inc could not find field to replace"))
                         }
@@ -92,7 +124,7 @@ impl Plugin for Inc {
 
         Ok(Signature {
             name: "inc".to_string(),
-            positional: vec![PositionalType::optional_any("Field")],
+            positional: vec![],
             is_filter: true,
             named,
             rest_positional: true,
@@ -100,13 +132,13 @@ impl Plugin for Inc {
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if call_info.args.has("major") {
-            self.major = true;
+            self.for_semver(SemVerAction::Major);
         }
         if call_info.args.has("minor") {
-            self.minor = true;
+            self.for_semver(SemVerAction::Minor);
         }
         if call_info.args.has("patch") {
-            self.patch = true;
+            self.for_semver(SemVerAction::Patch);
         }
 
         if let Some(args) = call_info.args.positional {
@@ -128,14 +160,249 @@ impl Plugin for Inc {
             }
         }
 
-        Ok(vec![])
+        if self.action.is_none() {
+            self.action = Some(Action::Default);
+        }
+
+        match &self.error {
+            Some(reason) => {
+                return Err(ShellError::string(format!("{}: {}", reason, self.usage())))
+            }
+            None => Ok(vec![]),
+        }
     }
 
     fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(vec![ReturnSuccess::value(self.inc(input, &self.field)?)])
+        Ok(vec![ReturnSuccess::value(self.inc(input)?)])
     }
 }
 
 fn main() {
     serve_plugin(&mut Inc::new());
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::{Inc, SemVerAction};
+    use indexmap::IndexMap;
+    use nu::{
+        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
+    };
+
+    struct CallStub {
+        positionals: Vec<Tagged<Value>>,
+        flags: IndexMap<String, Tagged<Value>>,
+    }
+
+    impl CallStub {
+        fn new() -> CallStub {
+            CallStub {
+                positionals: vec![],
+                flags: indexmap::IndexMap::new(),
+            }
+        }
+
+        fn with_long_flag(&mut self, name: &str) -> &mut Self {
+            self.flags.insert(
+                name.to_string(),
+                Value::boolean(true).simple_spanned(Span::unknown()),
+            );
+            self
+        }
+
+        fn with_parameter(&mut self, name: &str) -> &mut Self {
+            self.positionals
+                .push(Value::string(name.to_string()).simple_spanned(Span::unknown()));
+            self
+        }
+
+        fn create(&self) -> CallInfo {
+            CallInfo {
+                args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
+                source_map: SourceMap::new(),
+                name_span: Span::unknown(),
+            }
+        }
+    }
+
+    fn cargo_sample_record(with_version: &str) -> Tagged<Value> {
+        let mut package = TaggedDictBuilder::new(Tag::unknown());
+        package.insert("version", Value::string(with_version));
+        package.into_tagged_value()
+    }
+
+    #[test]
+    fn inc_plugin_configuration_flags_wired() {
+        let mut plugin = Inc::new();
+
+        let configured = plugin.config().unwrap();
+
+        for action_flag in &["major", "minor", "patch"] {
+            assert!(configured.named.get(*action_flag).is_some());
+        }
+    }
+
+    #[test]
+    fn inc_plugin_accepts_major() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("major").create())
+            .is_ok());
+        assert!(plugin.action.is_some());
+    }
+
+    #[test]
+    fn inc_plugin_accepts_minor() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("minor").create())
+            .is_ok());
+        assert!(plugin.action.is_some());
+    }
+
+    #[test]
+    fn inc_plugin_accepts_patch() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("patch").create())
+            .is_ok());
+        assert!(plugin.action.is_some());
+    }
+
+    #[test]
+    fn inc_plugin_accepts_only_one_action() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("major")
+                    .with_long_flag("minor")
+                    .create(),
+            )
+            .is_err());
+        assert_eq!(plugin.error, Some("can only apply one".to_string()));
+    }
+
+    #[test]
+    fn inc_plugin_accepts_field() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_parameter("package.version").create())
+            .is_ok());
+
+        assert_eq!(plugin.field, Some("package.version".to_string()));
+    }
+
+    #[test]
+    fn incs_major() {
+        let mut inc = Inc::new();
+        inc.for_semver(SemVerAction::Major);
+        assert_eq!(inc.apply("0.1.3"), Value::string("1.0.0"));
+    }
+
+    #[test]
+    fn incs_minor() {
+        let mut inc = Inc::new();
+        inc.for_semver(SemVerAction::Minor);
+        assert_eq!(inc.apply("0.1.3"), Value::string("0.2.0"));
+    }
+
+    #[test]
+    fn incs_patch() {
+        let mut inc = Inc::new();
+        inc.for_semver(SemVerAction::Patch);
+        assert_eq!(inc.apply("0.1.3"), Value::string("0.1.4"));
+    }
+
+    #[test]
+    fn inc_plugin_applies_major() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("major")
+                    .with_parameter("version")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = cargo_sample_record("0.1.3");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("version")).borrow(),
+                Value::string(String::from("1.0.0"))
+            ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn inc_plugin_applies_minor() {
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("minor")
+                    .with_parameter("version")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = cargo_sample_record("0.1.3");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("version")).borrow(),
+                Value::string(String::from("0.2.0"))
+            ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn inc_plugin_applies_patch() {
+        let field = String::from("version");
+        let mut plugin = Inc::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_long_flag("patch")
+                    .with_parameter(&field)
+                    .create()
+            )
+            .is_ok());
+
+        let subject = cargo_sample_record("0.1.3");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&field).borrow(),
+                Value::string(String::from("0.1.4"))
+            ),
+            _ => {}
+        }
+    }
 }
