@@ -2,11 +2,11 @@
 
 use futures::executor::block_on;
 use futures::stream::StreamExt;
-use heim::{disk, memory};
+use heim::{disk, memory, net, sensors};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tag, Tagged, TaggedDictBuilder, Value, OF64,
+    Tag, Tagged, TaggedDictBuilder, Value,
 };
 use std::ffi::OsStr;
 
@@ -20,10 +20,19 @@ impl Sys {
 //TODO: add more error checking
 
 async fn cpu(tag: Tag) -> Option<Tagged<Value>> {
-    if let (Ok(num_cpu), Ok(cpu_speed)) = (sys_info::cpu_num(), sys_info::cpu_speed()) {
+    if let (Ok(num_cpu), Ok(cpu_speed)) = (
+        heim::cpu::logical_count().await,
+        heim::cpu::frequency().await,
+    ) {
         let mut cpu_idx = TaggedDictBuilder::new(tag);
         cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
-        cpu_idx.insert("speed", Primitive::Int(cpu_speed as i64));
+        cpu_idx.insert("speed", Primitive::Int(cpu_speed.current().get() as i64));
+        if let Some(min_speed) = cpu_speed.min() {
+            cpu_idx.insert("min", Primitive::Int(min_speed.get() as i64));
+        }
+        if let Some(max_speed) = cpu_speed.max() {
+            cpu_idx.insert("max", Primitive::Int(max_speed.get() as i64));
+        }
         Some(cpu_idx.into_tagged_value())
     } else {
         None
@@ -117,46 +126,49 @@ async fn disks(tag: Tag) -> Value {
     Value::List(output)
 }
 
-async fn temp(tag: Tag) -> Value {
-    use sysinfo::{ComponentExt, RefreshKind, SystemExt};
-    let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_system());
-    let components_list = system.get_components_list();
-    if components_list.len() > 0 {
-        let mut v: Vec<Tagged<Value>> = vec![];
-        for component in components_list {
-            let mut component_idx = TaggedDictBuilder::new(tag);
-            component_idx.insert("name", Primitive::String(component.get_label().to_string()));
-            component_idx.insert(
-                "temp",
-                Primitive::Float(OF64::from(component.get_temperature() as f64)),
-            );
-            component_idx.insert(
-                "max",
-                Primitive::Float(OF64::from(component.get_max() as f64)),
-            );
-            if let Some(critical) = component.get_critical() {
-                component_idx.insert("critical", Primitive::Float(OF64::from(critical as f64)));
+async fn temp(tag: Tag) -> Option<Value> {
+    let mut output = vec![];
+
+    let mut sensors = sensors::temperatures();
+    while let Some(sensor) = sensors.next().await {
+        if let Ok(sensor) = sensor {
+            let mut dict = TaggedDictBuilder::new(tag);
+            dict.insert("unit", Value::string(sensor.unit()));
+            if let Some(label) = sensor.label() {
+                dict.insert("label", Value::string(label));
             }
-            v.push(component_idx.into());
+            dict.insert("temp", Value::float(sensor.current().get()));
+            if let Some(high) = sensor.high() {
+                dict.insert("high", Value::float(high.get()));
+            }
+            if let Some(critical) = sensor.critical() {
+                dict.insert("critical", Value::float(critical.get()));
+            }
+
+            output.push(dict.into_tagged_value());
         }
-        Value::List(v)
+    }
+
+    if output.len() > 0 {
+        Some(Value::List(output))
     } else {
-        Value::List(vec![])
+        None
     }
 }
 
-async fn net(tag: Tag) -> Tagged<Value> {
-    use sysinfo::{NetworkExt, RefreshKind, SystemExt};
-    let system = sysinfo::System::new_with_specifics(RefreshKind::new().with_network());
-
-    let network = system.get_network();
-    let incoming = network.get_income();
-    let outgoing = network.get_outcome();
-
-    let mut network_idx = TaggedDictBuilder::new(tag);
-    network_idx.insert("incoming", Value::bytes(incoming));
-    network_idx.insert("outgoing", Value::bytes(outgoing));
-    network_idx.into_tagged_value()
+async fn net(tag: Tag) -> Value {
+    let mut output = vec![];
+    let mut io_counters = net::io_counters();
+    while let Some(nic) = io_counters.next().await {
+        if let Ok(nic) = nic {
+            let mut network_idx = TaggedDictBuilder::new(tag);
+            network_idx.insert("name", Value::string(nic.interface()));
+            network_idx.insert("sent", Value::bytes(nic.bytes_sent().get()));
+            network_idx.insert("recv", Value::bytes(nic.bytes_recv().get()));
+            output.push(network_idx.into_tagged_value());
+        }
+    }
+    Value::List(output)
 }
 
 async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
@@ -168,8 +180,10 @@ async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
     }
     sysinfo.insert("disks", disks(tag).await);
     sysinfo.insert_tagged("mem", mem(tag).await);
-    sysinfo.insert("temp", temp(tag).await);
-    sysinfo.insert_tagged("net", net(tag).await);
+    if let Some(temp) = temp(tag).await {
+        sysinfo.insert("temp", temp);
+    }
+    sysinfo.insert("net", net(tag).await);
 
     vec![sysinfo.into_tagged_value()]
 }
