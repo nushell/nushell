@@ -4,6 +4,7 @@ crate mod dict;
 crate mod files;
 crate mod into;
 crate mod meta;
+crate mod process;
 crate mod types;
 
 #[allow(unused)]
