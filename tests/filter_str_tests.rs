@@ -112,7 +112,7 @@ fn find_and_replaces() {
         "sample.toml",
         r#"
             [fortune.teller]
-            phone = "1-800 KATZ"
+            phone = "1-800-KATZ"
         "#,
     )]);
 
@@ -122,7 +122,7 @@ fn find_and_replaces() {
         "open sample.toml | str fortune.teller.phone --find-replace KATZ \"5289\" | get fortune.teller.phone | echo $it"
     );
 
-    assert_eq!(output, "1-800 5289");
+    assert_eq!(output, "1-800-5289");
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn find_and_replaces_without_passing_field() {
             "sample.toml",
             r#"
                 [fortune.teller]
-                phone = "1-800 KATZ"
+                phone = "1-800-KATZ"
             "#,
         )],
     );
@@ -143,5 +143,5 @@ fn find_and_replaces_without_passing_field() {
         "open sample.toml | get fortune.teller.phone | str --find-replace KATZ \"5289\" | echo $it"
     );
 
-    assert_eq!(output, "1-800 5289");
+    assert_eq!(output, "1-800-5289");
 }
