@@ -69,72 +69,6 @@ fn can_split_by_column() {
 }
 
 #[test]
-fn str_can_only_apply_one() {
-    nu_error!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
-    );
-
-    assert!(output.contains("Usage: str field [--downcase|--upcase|--to-int]"));
-}
-
-#[test]
-fn str_downcases() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open caco3_plastics.csv | first 1 | str origin --downcase | get origin | echo $it"
-    );
-
-    assert_eq!(output, "spain");
-}
-
-#[test]
-fn str_upcases() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open appveyor.yml | str environment.global.PROJECT_NAME --upcase | get environment.global.PROJECT_NAME | echo $it"
-    );
-
-    assert_eq!(output, "NUSHELL");
-}
-
-#[test]
-fn str_converts_to_int() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open caco3_plastics.csv | first 1 | str tariff_item --to-int | where tariff_item == 2509000000 | get tariff_item | echo $it"
-    );
-
-    assert_eq!(output, "2509000000");
-}
-
-#[test]
-fn can_inc_version() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | inc package.version --minor | get package.version | echo $it"
-    );
-
-    assert_eq!(output, "0.2.0");
-}
-
-#[test]
-fn can_inc_field() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | inc package.edition | get package.edition | echo $it"
-    );
-
-    assert_eq!(output, "2019");
-}
-
-#[test]
 fn can_sum() {
     nu!(
         output,
@@ -144,6 +78,7 @@ fn can_sum() {
 
     assert_eq!(output, "203")
 }
+
 #[test]
 fn can_filter_by_unit_size_comparison() {
     nu!(

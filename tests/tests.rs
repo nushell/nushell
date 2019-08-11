@@ -24,17 +24,6 @@ fn external_has_correct_quotes() {
 }
 
 #[test]
-fn inc_plugin() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.Height | inc | echo $it"
-    );
-
-    assert_eq!(output, "11");
-}
-
-#[test]
 fn add_plugin() {
     nu!(output,
         cwd("tests/fixtures/formats"),
