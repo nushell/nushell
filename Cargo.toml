@@ -14,6 +14,7 @@ homepage = "https://github.com/nushell/nushell"
 
 [dependencies]
 rustyline = "5.0.1"
+sysinfo = "0.9"
 chrono = { version = "0.4.7", features = ["serde"] }
 chrono-tz = "0.5.1"
 derive-new = "0.5.7"
@@ -118,10 +119,6 @@ path = "src/plugins/skip.rs"
 [[bin]]
 name = "nu_plugin_sys"
 path = "src/plugins/sys.rs"
-
-[[bin]]
-name = "nu_plugin_ps"
-path = "src/plugins/ps.rs"
 
 [[bin]]
 name = "nu_plugin_tree"
