@@ -165,7 +165,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                     max_bottom_line =
                         paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
-                if rawkey.is_pressed(rawkey::KeyCode::PageDown) {
+                if rawkey.is_pressed(rawkey::KeyCode::PageDown) || rawkey.is_pressed(rawkey::KeyCode::Space) {
                     if starting_row < (max_bottom_line - height) {
                         starting_row += height;
 
