@@ -26,12 +26,19 @@ async fn cpu(tag: Tag) -> Option<Tagged<Value>> {
     ) {
         let mut cpu_idx = TaggedDictBuilder::new(tag);
         cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
-        cpu_idx.insert("speed", Primitive::Int(cpu_speed.current().get() as i64));
+
+        let current_speed =
+            (cpu_speed.current().get() as f64 / 1000000000.0 * 100.0).round() / 100.0;
+        cpu_idx.insert("current ghz", Primitive::Float(current_speed.into()));
+
         if let Some(min_speed) = cpu_speed.min() {
-            cpu_idx.insert("min", Primitive::Int(min_speed.get() as i64));
+            let min_speed = (min_speed.get() as f64 / 1000000000.0 * 100.0).round() / 100.0;
+            cpu_idx.insert("min ghz", Primitive::Float(min_speed.into()));
         }
+
         if let Some(max_speed) = cpu_speed.max() {
-            cpu_idx.insert("max", Primitive::Int(max_speed.get() as i64));
+            let max_speed = (max_speed.get() as f64 / 1000000000.0 * 100.0).round() / 100.0;
+            cpu_idx.insert("max ghz", Primitive::Float(max_speed.into()));
         }
         Some(cpu_idx.into_tagged_value())
     } else {
