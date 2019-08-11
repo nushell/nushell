@@ -97,7 +97,7 @@ async fn host(tag: Tag) -> Tagged<Value> {
     dict.into_tagged_value()
 }
 
-async fn disks(tag: Tag) -> Value {
+async fn disks(tag: Tag) -> Option<Value> {
     let mut output = vec![];
     let mut partitions = disk::partitions_physical();
     while let Some(part) = partitions.next().await {
@@ -123,7 +123,53 @@ async fn disks(tag: Tag) -> Value {
         }
     }
 
-    Value::List(output)
+    if output.len() > 0 {
+        Some(Value::List(output))
+    } else {
+        None
+    }
+}
+
+async fn battery(tag: Tag) -> Option<Value> {
+    let mut output = vec![];
+
+    if let Ok(manager) = battery::Manager::new() {
+        if let Ok(batteries) = manager.batteries() {
+            for battery in batteries {
+                if let Ok(battery) = battery {
+                    let mut dict = TaggedDictBuilder::new(tag);
+                    if let Some(vendor) = battery.vendor() {
+                        dict.insert("vendor", Value::string(vendor));
+                    }
+                    if let Some(model) = battery.model() {
+                        dict.insert("model", Value::string(model));
+                    }
+                    if let Some(cycles) = battery.cycle_count() {
+                        dict.insert("cycles", Value::int(cycles));
+                    }
+                    if let Some(time_to_full) = battery.time_to_full() {
+                        dict.insert(
+                            "mins to full",
+                            Value::float(time_to_full.get::<battery::units::time::minute>() as f64),
+                        );
+                    }
+                    if let Some(time_to_empty) = battery.time_to_empty() {
+                        dict.insert(
+                            "mins to empty",
+                            Value::float(time_to_empty.get::<battery::units::time::minute>() as f64),
+                        );
+                    }
+                    output.push(dict.into_tagged_value());
+                }
+            }
+        }
+    }
+
+    if output.len() > 0 {
+        Some(Value::List(output))
+    } else {
+        None
+    }
 }
 
 async fn temp(tag: Tag) -> Option<Value> {
@@ -156,7 +202,7 @@ async fn temp(tag: Tag) -> Option<Value> {
     }
 }
 
-async fn net(tag: Tag) -> Value {
+async fn net(tag: Tag) -> Option<Value> {
     let mut output = vec![];
     let mut io_counters = net::io_counters();
     while let Some(nic) = io_counters.next().await {
@@ -168,7 +214,11 @@ async fn net(tag: Tag) -> Value {
             output.push(network_idx.into_tagged_value());
         }
     }
-    Value::List(output)
+    if output.len() > 0 {
+        Some(Value::List(output))
+    } else {
+        None
+    }
 }
 
 async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
@@ -178,12 +228,19 @@ async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
     if let Some(cpu) = cpu(tag).await {
         sysinfo.insert_tagged("cpu", cpu);
     }
-    sysinfo.insert("disks", disks(tag).await);
+    if let Some(disks) = disks(tag).await {
+        sysinfo.insert("disks", disks);
+    }
     sysinfo.insert_tagged("mem", mem(tag).await);
     if let Some(temp) = temp(tag).await {
         sysinfo.insert("temp", temp);
     }
-    sysinfo.insert("net", net(tag).await);
+    if let Some(net) = net(tag).await {
+        sysinfo.insert("net", net);
+    }
+    if let Some(battery) = battery(tag).await {
+        sysinfo.insert("battery", battery);
+    }
 
     vec![sysinfo.into_tagged_value()]
 }

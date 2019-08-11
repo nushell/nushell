@@ -83,6 +83,7 @@ strip-ansi-escapes = "0.1.0"
 onig_sys = "=69.1.0"
 heim = {git = "https://github.com/heim-rs/heim.git"}
 which = "2.0.1"
+battery = "0.7.4"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
