@@ -1,17 +1,27 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Signature, Tagged, Value,
+    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    Signature, Tagged, Value,
 };
+use regex::Regex;
 
+#[derive(Debug, Eq, PartialEq)]
 enum Action {
     Downcase,
     Upcase,
     ToInteger,
+    Replace(ReplaceAction),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum ReplaceAction {
+    Direct,
+    FindAndReplace,
 }
 
 struct Str {
     field: Option<String>,
+    params: Option<Vec<String>>,
     error: Option<String>,
     action: Option<Action>,
 }
@@ -20,25 +30,58 @@ impl Str {
     fn new() -> Str {
         Str {
             field: None,
+            params: Some(Vec::<String>::new()),
             error: None,
             action: None,
         }
     }
 
     fn apply(&self, input: &str) -> Value {
-        match self.action {
-            Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
-            Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
-            Some(Action::ToInteger) => match input.trim().parse::<i64>() {
+        if self.action.is_none() {
+            return Value::string(input.to_string());
+        }
+
+        match self.action.as_ref().unwrap() {
+            Action::Downcase => Value::string(input.to_ascii_lowercase()),
+            Action::Upcase => Value::string(input.to_ascii_uppercase()),
+            Action::ToInteger => match input.trim().parse::<i64>() {
                 Ok(v) => Value::int(v),
                 Err(_) => Value::string(input),
             },
-            None => Value::string(input.to_string()),
+            Action::Replace(ref mode) => match mode {
+                ReplaceAction::Direct => Value::string(self.first_param()),
+                ReplaceAction::FindAndReplace => {
+                    let regex = Regex::new(self.first_param());
+
+                    match regex {
+                        Ok(re) => Value::string(re.replace(input, self.second_param()).to_owned()),
+                        Err(_) => Value::string(input),
+                    }
+                }
+            },
         }
     }
 
-    fn for_input(&mut self, field: String) {
-        self.field = Some(field);
+    fn did_supply_field(&self) -> bool {
+        self.field.is_some()
+    }
+
+    fn first_param(&self) -> &str {
+        let idx = if self.did_supply_field() { 1 } else { 0 };
+        self.get_param(idx)
+    }
+
+    fn second_param(&self) -> &str {
+        let idx = if self.did_supply_field() { 2 } else { 1 };
+        self.get_param(idx)
+    }
+
+    fn get_param(&self, idx: usize) -> &str {
+        self.params.as_ref().unwrap().get(idx).unwrap().as_str()
+    }
+
+    fn for_field(&mut self, field: &str) {
+        self.field = Some(String::from(field));
     }
 
     fn permit(&mut self) -> bool {
@@ -47,6 +90,14 @@ impl Str {
 
     fn log_error(&mut self, message: &str) {
         self.error = Some(message.to_string());
+    }
+
+    fn for_replace(&mut self, mode: ReplaceAction) {
+        if self.permit() {
+            self.action = Some(Action::Replace(mode));
+        } else {
+            self.log_error("can only apply one");
+        }
     }
 
     fn for_to_int(&mut self) {
@@ -74,7 +125,7 @@ impl Str {
     }
 
     fn usage(&self) -> &'static str {
-        "Usage: str field [--downcase|--upcase|--to-int]"
+        "Usage: str field [--downcase|--upcase|--to-int|--replace|--find-replace]"
     }
 }
 
@@ -122,6 +173,8 @@ impl Plugin for Str {
         named.insert("downcase".to_string(), NamedType::Switch);
         named.insert("upcase".to_string(), NamedType::Switch);
         named.insert("to-int".to_string(), NamedType::Switch);
+        named.insert("replace".to_string(), NamedType::Switch);
+        named.insert("find-replace".to_string(), NamedType::Switch);
 
         Ok(Signature {
             name: "str".to_string(),
@@ -133,34 +186,63 @@ impl Plugin for Str {
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        if call_info.args.has("downcase") {
+        let args = call_info.args;
+
+        if args.has("downcase") {
             self.for_downcase();
         }
-
-        if call_info.args.has("upcase") {
+        if args.has("upcase") {
             self.for_upcase();
         }
-
-        if call_info.args.has("to-int") {
+        if args.has("to-int") {
             self.for_to_int();
         }
+        if args.has("replace") {
+            self.for_replace(ReplaceAction::Direct);
+        }
+        if args.has("find-replace") {
+            self.for_replace(ReplaceAction::FindAndReplace);
+        }
 
-        if let Some(args) = call_info.args.positional {
-            for arg in args {
-                match arg {
-                    Tagged {
-                        item: Value::Primitive(Primitive::String(s)),
-                        ..
-                    } => {
-                        self.for_input(s);
+        if let Some(possible_field) = args.nth(0) {
+            match possible_field {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    ..
+                } => match self.action {
+                    Some(Action::Replace(ReplaceAction::Direct)) => {
+                        if args.len() == 2 {
+                            self.for_field(&s);
+                        }
                     }
-                    _ => {
-                        return Err(ShellError::string(format!(
-                            "Unrecognized type in params: {:?}",
-                            arg
-                        )))
+                    Some(Action::Replace(ReplaceAction::FindAndReplace)) => {
+                        if args.len() == 3 {
+                            self.for_field(&s);
+                        }
                     }
+                    Some(Action::Downcase)
+                    | Some(Action::Upcase)
+                    | Some(Action::ToInteger)
+                    | None => {
+                        self.for_field(&s);
+                    }
+                },
+                _ => {
+                    return Err(ShellError::string(format!(
+                        "Unrecognized type in params: {:?}",
+                        possible_field
+                    )))
                 }
+            }
+        }
+
+        for param in args.positional_iter() {
+            match param {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    ..
+                } => self.params.as_mut().unwrap().push(String::from(s)),
+                _ => {}
             }
         }
 
@@ -184,12 +266,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
 
-    use super::Str;
+    use super::{Action, ReplaceAction, Str};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Span, Tag, Tagged,
         TaggedDictBuilder, TaggedItem, Value,
     };
+
+    impl Str {
+        fn replace_with(&mut self, value: &str) {
+            self.params.as_mut().unwrap().push(value.to_string());
+        }
+
+        fn find_with(&mut self, search: &str) {
+            self.params.as_mut().unwrap().push(search.to_string());
+        }
+    }
 
     struct CallStub {
         positionals: Vec<Tagged<Value>>,
@@ -227,10 +319,14 @@ mod tests {
         }
     }
 
-    fn sample_record(key: &str, value: &str) -> Tagged<Value> {
+    fn structured_sample_record(key: &str, value: &str) -> Tagged<Value> {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
         record.insert(key.clone(), Value::string(value));
         record.into_tagged_value()
+    }
+
+    fn unstructured_sample_record(value: &str) -> Tagged<Value> {
+        Tagged::from_item(Value::string(value), Tag::unknown())
     }
 
     #[test]
@@ -239,7 +335,7 @@ mod tests {
 
         let configured = plugin.config().unwrap();
 
-        for action_flag in &["downcase", "upcase", "to-int"] {
+        for action_flag in &["downcase", "upcase", "to-int", "replace", "find-replace"] {
             assert!(configured.named.get(*action_flag).is_some());
         }
     }
@@ -251,7 +347,7 @@ mod tests {
         assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("downcase").create())
             .is_ok());
-        assert!(plugin.action.is_some());
+        assert_eq!(plugin.action.unwrap(), Action::Downcase);
     }
 
     #[test]
@@ -261,7 +357,7 @@ mod tests {
         assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("upcase").create())
             .is_ok());
-        assert!(plugin.action.is_some());
+        assert_eq!(plugin.action.unwrap(), Action::Upcase);
     }
 
     #[test]
@@ -271,7 +367,33 @@ mod tests {
         assert!(plugin
             .begin_filter(CallStub::new().with_long_flag("to-int").create())
             .is_ok());
-        assert!(plugin.action.is_some());
+        assert_eq!(plugin.action.unwrap(), Action::ToInteger);
+    }
+
+    #[test]
+    fn str_plugin_accepts_replace() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("replace").create())
+            .is_ok());
+        assert_eq!(
+            plugin.action.unwrap(),
+            Action::Replace(ReplaceAction::Direct)
+        );
+    }
+
+    #[test]
+    fn str_plugin_accepts_find_replace() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("find-replace").create())
+            .is_ok());
+        assert_eq!(
+            plugin.action.unwrap(),
+            Action::Replace(ReplaceAction::FindAndReplace)
+        );
     }
 
     #[test]
@@ -327,7 +449,24 @@ mod tests {
     }
 
     #[test]
-    fn str_plugin_applies_upcase() {
+    fn str_replace() {
+        let mut strutils = Str::new();
+        strutils.for_replace(ReplaceAction::Direct);
+        strutils.replace_with("robalino");
+        assert_eq!(strutils.apply("andres"), Value::string("robalino"));
+    }
+
+    #[test]
+    fn str_find_replace() {
+        let mut strutils = Str::new();
+        strutils.for_replace(ReplaceAction::FindAndReplace);
+        strutils.find_with(r"kittens");
+        strutils.replace_with("jotandrehuda");
+        assert_eq!(strutils.apply("wykittens"), Value::string("wyjotandrehuda"));
+    }
+
+    #[test]
+    fn str_plugin_applies_upcase_with_field() {
         let mut plugin = Str::new();
 
         assert!(plugin
@@ -339,7 +478,7 @@ mod tests {
             )
             .is_ok());
 
-        let subject = sample_record("name", "jotandrehuda");
+        let subject = structured_sample_record("name", "jotandrehuda");
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
@@ -355,7 +494,27 @@ mod tests {
     }
 
     #[test]
-    fn str_plugin_applies_downcase() {
+    fn str_plugin_applies_upcase_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("upcase").create())
+            .is_ok());
+
+        let subject = unstructured_sample_record("jotandrehuda");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("JOTANDREHUDA")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_downcase_with_field() {
         let mut plugin = Str::new();
 
         assert!(plugin
@@ -367,7 +526,7 @@ mod tests {
             )
             .is_ok());
 
-        let subject = sample_record("name", "JOTANDREHUDA");
+        let subject = structured_sample_record("name", "JOTANDREHUDA");
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
@@ -383,7 +542,27 @@ mod tests {
     }
 
     #[test]
-    fn str_plugin_applies_to_int() {
+    fn str_plugin_applies_downcase_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("downcase").create())
+            .is_ok());
+
+        let subject = unstructured_sample_record("JOTANDREHUDA");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("jotandrehuda")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_to_int_with_field() {
         let mut plugin = Str::new();
 
         assert!(plugin
@@ -395,7 +574,7 @@ mod tests {
             )
             .is_ok());
 
-        let subject = sample_record("Nu_birthday", "10");
+        let subject = structured_sample_record("Nu_birthday", "10");
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
@@ -406,6 +585,136 @@ mod tests {
                 *o.get_data(&String::from("Nu_birthday")).borrow(),
                 Value::int(10)
             ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_to_int_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(CallStub::new().with_long_flag("to-int").create())
+            .is_ok());
+
+        let subject = unstructured_sample_record("10");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::Int(i)),
+                ..
+            }) => assert_eq!(*i, 10),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_replace_with_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_parameter("rustconf")
+                    .with_parameter("22nd August 2019")
+                    .with_long_flag("replace")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = structured_sample_record("rustconf", "1st January 1970");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("rustconf")).borrow(),
+                Value::string(String::from("22nd August 2019"))
+            ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_replace_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_parameter("22nd August 2019")
+                    .with_long_flag("replace")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("1st January 1970");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("22nd August 2019")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_find_replace_with_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_parameter("staff")
+                    .with_parameter("kittens")
+                    .with_parameter("jotandrehuda")
+                    .with_long_flag("find-replace")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = structured_sample_record("staff", "wykittens");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Object(o),
+                ..
+            }) => assert_eq!(
+                *o.get_data(&String::from("staff")).borrow(),
+                Value::string(String::from("wyjotandrehuda"))
+            ),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_find_replace_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_parameter("kittens")
+                    .with_parameter("jotandrehuda")
+                    .with_long_flag("find-replace")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("wykittens");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("wyjotandrehuda")),
             _ => {}
         }
     }
