@@ -155,6 +155,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | edit field value | Edit an existing field to have a new value |
 | skip amount | Skip a number of rows |
 | first amount | Show only the first number of rows |
+| nth row-number | Return only the selected row |
 | str (field) | Apply string function. Optional use the field of a table |
 | tags | Read the tags (metadata) for values |
 | to-array | Collapse rows into a single list |

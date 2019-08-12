@@ -158,6 +158,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("size", Box::new(size::size)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
             command("enter", Box::new(enter::enter)),
+            command("nth", Box::new(nth::nth)),
             command("n", Box::new(next::next)),
             command("p", Box::new(prev::prev)),
             command("lines", Box::new(lines::lines)),
