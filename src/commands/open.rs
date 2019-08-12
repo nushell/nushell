@@ -9,7 +9,6 @@ use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use uuid::Uuid;
-
 pub struct Open;
 
 #[derive(Deserialize)]
@@ -239,15 +238,96 @@ pub fn fetch(
                         },
                         SpanSource::File(cwd.to_string_lossy().to_string()),
                     )),
-                    Err(_) => Ok((
-                        None,
-                        Value::Binary(bytes),
-                        Tag {
-                            span,
-                            origin: Some(Uuid::new_v4()),
-                        },
-                        SpanSource::File(cwd.to_string_lossy().to_string()),
-                    )),
+                    Err(_) => {
+                        //Non utf8 data.
+                        match (bytes.get(0), bytes.get(1)) {
+                            (Some(x), Some(y)) if *x == 0xff && *y == 0xfe => {
+                                // Possibly UTF-16 little endian
+                                let utf16 = read_le_u16(&bytes[2..]);
+
+                                if let Some(utf16) = utf16 {
+                                    match std::string::String::from_utf16(&utf16) {
+                                        Ok(s) => Ok((
+                                            cwd.extension()
+                                                .map(|name| name.to_string_lossy().to_string()),
+                                            Value::string(s),
+                                            Tag {
+                                                span,
+                                                origin: Some(Uuid::new_v4()),
+                                            },
+                                            SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        )),
+                                        Err(_) => Ok((
+                                            None,
+                                            Value::Binary(bytes),
+                                            Tag {
+                                                span,
+                                                origin: Some(Uuid::new_v4()),
+                                            },
+                                            SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        )),
+                                    }
+                                } else {
+                                    Ok((
+                                        None,
+                                        Value::Binary(bytes),
+                                        Tag {
+                                            span,
+                                            origin: Some(Uuid::new_v4()),
+                                        },
+                                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                                    ))
+                                }
+                            }
+                            (Some(x), Some(y)) if *x == 0xfe && *y == 0xff => {
+                                // Possibly UTF-16 big endian
+                                let utf16 = read_be_u16(&bytes[2..]);
+
+                                if let Some(utf16) = utf16 {
+                                    match std::string::String::from_utf16(&utf16) {
+                                        Ok(s) => Ok((
+                                            cwd.extension()
+                                                .map(|name| name.to_string_lossy().to_string()),
+                                            Value::string(s),
+                                            Tag {
+                                                span,
+                                                origin: Some(Uuid::new_v4()),
+                                            },
+                                            SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        )),
+                                        Err(_) => Ok((
+                                            None,
+                                            Value::Binary(bytes),
+                                            Tag {
+                                                span,
+                                                origin: Some(Uuid::new_v4()),
+                                            },
+                                            SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        )),
+                                    }
+                                } else {
+                                    Ok((
+                                        None,
+                                        Value::Binary(bytes),
+                                        Tag {
+                                            span,
+                                            origin: Some(Uuid::new_v4()),
+                                        },
+                                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                                    ))
+                                }
+                            }
+                            _ => Ok((
+                                None,
+                                Value::Binary(bytes),
+                                Tag {
+                                    span,
+                                    origin: Some(Uuid::new_v4()),
+                                },
+                                SpanSource::File(cwd.to_string_lossy().to_string()),
+                            )),
+                        }
+                    }
                 },
                 Err(_) => {
                     return Err(ShellError::labeled_error(
@@ -264,6 +344,36 @@ pub fn fetch(
                 span,
             ));
         }
+    }
+}
+
+fn read_le_u16(input: &[u8]) -> Option<Vec<u16>> {
+    if input.len() % 2 != 0 || input.len() < 2 {
+        None
+    } else {
+        let mut result = vec![];
+        let mut pos = 0;
+        while pos < input.len() {
+            result.push(u16::from_le_bytes([input[pos], input[pos + 1]]));
+            pos += 2;
+        }
+
+        Some(result)
+    }
+}
+
+fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
+    if input.len() % 2 != 0 || input.len() < 2 {
+        None
+    } else {
+        let mut result = vec![];
+        let mut pos = 0;
+        while pos < input.len() {
+            result.push(u16::from_be_bytes([input[pos], input[pos + 1]]));
+            pos += 2;
+        }
+
+        Some(result)
     }
 }
 

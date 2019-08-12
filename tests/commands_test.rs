@@ -72,6 +72,17 @@ fn open_can_parse_ini() {
 }
 
 #[test]
+fn open_can_parse_utf16_ini() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open utf16.ini | get .ShellClassInfo | get IconIndex | echo $it"
+    );
+
+    assert_eq!(output, "-236")
+}
+
+#[test]
 fn open_error_if_file_not_found() {
     nu_error!(
         output,

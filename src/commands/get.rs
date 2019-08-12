@@ -33,11 +33,17 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
         match current.get_data_by_key(p) {
             Some(v) => current = v,
             None => {
-                return Err(ShellError::labeled_error(
-                    "Unknown field",
-                    "object missing field",
-                    path.span(),
-                ));
+                // Before we give up, see if they gave us a path that matches a field name by itself
+                match obj.get_data_by_key(&path.item) {
+                    Some(v) => return Ok(v.clone()),
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Unknown field",
+                            "object missing field",
+                            path.span(),
+                        ));
+                    }
+                }
             }
         }
     }
@@ -49,11 +55,6 @@ pub fn get(
     GetArgs { rest: fields }: GetArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    // If it's a number, get the row instead of the column
-    // if let Some(amount) = amount {
-    //     return Ok(input.values.skip(amount as u64).take(1).from_input_stream());
-    // }
-
     let stream = input
         .values
         .map(move |item| {
