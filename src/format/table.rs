@@ -40,11 +40,17 @@ impl TableView {
         let mut entries = vec![];
 
         for (idx, value) in values.iter().enumerate() {
-            let mut row: Vec<String> = headers
-                .iter()
-                .enumerate()
-                .map(|(i, d)| value.get_data(d).borrow().format_leaf(Some(&headers[i])))
-                .collect();
+            let mut row: Vec<String> = match value {
+                Tagged {
+                    item: Value::Object(..),
+                    ..
+                } => headers
+                    .iter()
+                    .enumerate()
+                    .map(|(i, d)| value.get_data(d).borrow().format_leaf(Some(&headers[i])))
+                    .collect(),
+                x => vec![x.format_leaf(None)],
+            };
 
             if values.len() > 1 {
                 row.insert(0, format!("{}", Color::Black.bold().paint(idx.to_string())));
