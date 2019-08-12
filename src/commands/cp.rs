@@ -394,6 +394,10 @@ mod tests {
                 Res {
                     loc: fixtures().join("sgml_description.json"),
                     at: 0
+                },
+                Res {
+                    loc: fixtures().join("utf16.ini"),
+                    at: 0
                 }
             ]
         );
