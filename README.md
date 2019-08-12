@@ -158,6 +158,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | nth row-number | Return only the selected row |
 | str (field) | Apply string function. Optional use the field of a table |
 | tags | Read the tags (metadata) for values |
+| from-array | Expand an array/list into rows |
 | to-array | Collapse rows into a single list |
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |

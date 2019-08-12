@@ -147,6 +147,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         context.add_commands(vec![
             command("first", Box::new(first::first)),
             command("pick", Box::new(pick::pick)),
+            command("from-array", Box::new(from_array::from_array)),
             command("from-ini", Box::new(from_ini::from_ini)),
             command("from-csv", Box::new(from_csv::from_csv)),
             command("from-json", Box::new(from_json::from_json)),
@@ -161,6 +162,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("nth", Box::new(nth::nth)),
             command("n", Box::new(next::next)),
             command("p", Box::new(prev::prev)),
+            command("debug", Box::new(debug::debug)),
             command("lines", Box::new(lines::lines)),
             command("pick", Box::new(pick::pick)),
             command("shells", Box::new(shells::shells)),
