@@ -2,13 +2,13 @@ use crate::errors::ShellError;
 use crate::parser::CommandRegistry;
 use crate::prelude::*;
 
-pub fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
 
     if args.len() == 0 {
         return Err(ShellError::labeled_error(
-            "First requires an amount",
-            "needs parameter",
+            "Nth requires an amount",
+            "needs amount",
             args.name_span(),
         ));
     }
@@ -27,6 +27,6 @@ pub fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     };
 
     Ok(OutputStream::from_input(
-        args.input.values.take(amount as u64),
+        args.input.values.skip(amount as u64).take(1),
     ))
 }

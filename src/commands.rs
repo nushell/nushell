@@ -24,6 +24,7 @@ crate mod lines;
 crate mod ls;
 crate mod mkdir;
 crate mod next;
+crate mod nth;
 crate mod open;
 crate mod pick;
 crate mod plugin;
