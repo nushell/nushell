@@ -26,10 +26,12 @@ impl TableView {
         ret
     }
 
-    pub fn from_list(values: &[Tagged<Value>]) -> Option<TableView> {
+    pub fn from_list(values: &[Tagged<Value>], full: bool) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }
+
+        let max_row: usize = termsize::get().map(|x| x.cols).unwrap() as usize;
 
         let mut headers = TableView::merge_descriptors(values);
 
@@ -61,6 +63,75 @@ impl TableView {
         if values.len() > 1 {
             headers.insert(0, format!("#"));
         }
+
+        // Trim if the row is too long
+        let mut max_up_to_now = 0;
+
+        let num_headers = headers.len();
+        let mut had_to_trim_off_rows = false;
+
+        for i in 0..num_headers {
+            let mut max_entry = 0;
+
+            if (max_up_to_now + 8) >= max_row && !full {
+                had_to_trim_off_rows = true;
+                headers.pop();
+                for j in 0..entries.len() {
+                    entries[j].pop();
+                }
+            } else {
+                if i == (num_headers - 1) {
+                    let amount = max_row - std::cmp::min(max_row, max_up_to_now);
+                    if headers[i].len() > amount && !full {
+                        headers[i] = headers[i].chars().take(amount).collect::<String>();
+                        headers[i].push_str("...");
+                    }
+                } else {
+                    if headers[i].len() > (max_row / num_headers) && !full {
+                        headers[i] = headers[i]
+                            .chars()
+                            .take(std::cmp::max(max_row / headers.len(), 5))
+                            .collect::<String>();
+                        headers[i].push_str("...");
+                    }
+                }
+
+                if headers[i].len() > max_entry {
+                    max_entry = headers[i].len();
+                }
+
+                for j in 0..entries.len() {
+                    if i == (num_headers - 1) {
+                        let amount = max_row - std::cmp::min(max_row, max_up_to_now);
+                        if entries[j][i].len() > amount && !full {
+                            entries[j][i] = entries[j][i].chars().take(amount).collect::<String>();
+                            entries[j][i].push_str("...");
+                        }
+                    } else {
+                        if entries[j][i].len() > (max_row / num_headers) && !full {
+                            entries[j][i] = entries[j][i]
+                                .chars()
+                                .take(std::cmp::max(max_row / headers.len(), 5))
+                                .collect::<String>();
+                            entries[j][i].push_str("...");
+                        }
+                    }
+                    if entries[j][i].len() > max_entry {
+                        max_entry = entries[j][i].len();
+                    }
+                }
+
+                max_up_to_now += max_entry + 3;
+            }
+        }
+
+        if had_to_trim_off_rows {
+            headers.push("...".to_string());
+            for j in 0..entries.len() {
+                entries[j].push("...".to_string());
+            }
+        }
+
         Some(TableView { headers, entries })
     }
 }
