@@ -31,6 +31,8 @@ impl TableView {
             return None;
         }
 
+        let max_row: usize = termsize::get().map(|x| x.cols).unwrap() as usize;
+
         let mut headers = TableView::merge_descriptors(values);
 
         if headers.len() == 0 {
@@ -61,6 +63,66 @@ impl TableView {
         if values.len() > 1 {
             headers.insert(0, format!("#"));
         }
+
+        // Trim if the row is too long
+        let mut max_up_to_now = 0;
+        let mut has_removed_column = false;
+
+        let num_headers = headers.len();
+        for i in 0..num_headers {
+            let mut max_entry = 0;
+
+            if i == (num_headers - 1) {
+                let amount = max_row - std::cmp::min(max_row, max_up_to_now);
+                if headers[i].len() > amount {
+                    headers[i] = headers[i].chars().take(amount).collect::<String>();
+                }
+            } else {
+                if headers[i].len() > (max_row / num_headers) {
+                    headers[i] = headers[i]
+                        .chars()
+                        .take(std::cmp::max(max_row / headers.len(), 5))
+                        .collect::<String>();
+                }
+            }
+
+            if headers[i].len() > max_entry {
+                max_entry = headers[i].len();
+            }
+
+            if has_removed_column {
+                for j in 0..entries.len() {
+                    entries[j].pop();
+                }
+            } else {
+                for j in 0..entries.len() {
+                    // If we have too many columns, trim the extra ones
+                    if (max_up_to_now + max_entry + 3) >= max_row {
+                        has_removed_column = true;
+                    }
+
+                    if i == (num_headers - 1) {
+                        let amount = max_row - std::cmp::min(max_row, max_up_to_now);
+                        if entries[j][i].len() > amount {
+                            entries[j][i] = entries[j][i].chars().take(amount).collect::<String>();
+                        }
+                    } else {
+                        if entries[j][i].len() > (max_row / num_headers) {
+                            entries[j][i] = entries[j][i]
+                                .chars()
+                                .take(std::cmp::max(max_row / headers.len(), 5))
+                                .collect::<String>();
+                        }
+                    }
+                    if entries[j][i].len() > max_entry {
+                        max_entry = entries[j][i].len();
+                    }
+                }
+
+                max_up_to_now += max_entry + 3;
+            }
+        }
+
         Some(TableView { headers, entries })
     }
 }
