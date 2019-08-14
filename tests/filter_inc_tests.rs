@@ -15,8 +15,8 @@ fn can_only_apply_one() {
 }
 
 #[test]
-fn regular_field_by_one() {
-    Playground::setup_for("plugin_inc_by_one_test")
+fn by_one_with_field_passed() {
+    Playground::setup_for("plugin_inc_by_one_with_field_passed_test")
         .with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -27,12 +27,33 @@ fn regular_field_by_one() {
 
     nu!(
         output,
-        cwd("tests/fixtures/nuplayground/plugin_inc_by_one_test"),
+        cwd("tests/fixtures/nuplayground/plugin_inc_by_one_with_field_passed_test"),
         "open sample.toml | inc package.edition | get package.edition | echo $it"
     );
 
     assert_eq!(output, "2019");
 }
+
+#[test]
+fn by_one_with_no_field_passed() {
+    Playground::setup_for("plugin_inc_by_one_with_no_field_passed_test")
+        .with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                contributors = "2"
+            "#,
+        )]);
+    
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/plugin_inc_by_one_with_no_field_passed_test"),
+        "open sample.toml | get package.contributors | inc | echo $it"
+    );
+    
+    assert_eq!(output, "3");
+}
+
 
 #[test]
 fn semversion_major_inc() {

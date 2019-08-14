@@ -150,7 +150,6 @@ impl Playground {
         self
     }
 
-
     pub fn glob_vec(pattern: &str) -> Vec<PathBuf> {
         glob(pattern).unwrap().map(|r| r.unwrap()).collect()
     }
