@@ -28,7 +28,7 @@ impl ToDebug for UnevaluatedCallInfo {
 }
 
 impl UnevaluatedCallInfo {
-    fn evaluate(
+    pub fn evaluate(
         self,
         registry: &registry::CommandRegistry,
         scope: &Scope,
@@ -62,7 +62,7 @@ pub struct CommandArgs {
     pub input: InputStream,
 }
 
-#[derive(Getters)]
+#[derive(Getters, Clone)]
 #[get = "crate"]
 pub struct RawCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
@@ -346,6 +346,7 @@ pub enum CommandAction {
     AddSpanSource(Uuid, SpanSource),
     Exit,
     EnterShell(String),
+    EnterValueShell(Tagged<Value>),
     PreviousShell,
     NextShell,
     LeaveShell,
@@ -405,20 +406,44 @@ pub trait StaticCommand: Send + Sync {
     }
 }
 
+pub trait PerItemCommand: Send + Sync {
+    fn name(&self) -> &str;
+
+    fn run(
+        &self,
+        args: RawCommandArgs,
+        registry: &registry::CommandRegistry,
+        input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError>;
+
+    fn signature(&self) -> Signature {
+        Signature {
+            name: self.name().to_string(),
+            positional: vec![],
+            rest_positional: true,
+            named: indexmap::IndexMap::new(),
+            is_filter: true,
+        }
+    }
+}
+
 pub enum Command {
     Static(Arc<dyn StaticCommand>),
+    PerItem(Arc<dyn PerItemCommand>),
 }
 
 impl Command {
     pub fn name(&self) -> &str {
         match self {
             Command::Static(command) => command.name(),
+            Command::PerItem(command) => command.name(),
         }
     }
 
     pub fn signature(&self) -> Signature {
         match self {
             Command::Static(command) => command.signature(),
+            Command::PerItem(command) => command.signature(),
         }
     }
 
@@ -429,7 +454,28 @@ impl Command {
     ) -> Result<OutputStream, ShellError> {
         match self {
             Command::Static(command) => command.run(args, registry),
+            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
         }
+    }
+
+    fn run_helper(
+        &self,
+        command: Arc<dyn PerItemCommand>,
+        args: CommandArgs,
+        registry: CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        let raw_args = RawCommandArgs {
+            host: args.host,
+            shell_manager: args.shell_manager,
+            call_info: args.call_info,
+        };
+        let out = args
+            .input
+            .values
+            .map(move |x| command.run(raw_args.clone(), &registry, x).unwrap())
+            .flatten();
+
+        Ok(out.to_output_stream())
     }
 }
 
@@ -526,6 +572,10 @@ pub fn command(
 
 pub fn static_command(command: impl StaticCommand + 'static) -> Arc<Command> {
     Arc::new(Command::Static(Arc::new(command)))
+}
+
+pub fn per_item_command(command: impl PerItemCommand + 'static) -> Arc<Command> {
+    Arc::new(Command::PerItem(Arc::new(command)))
 }
 
 #[allow(unused)]
