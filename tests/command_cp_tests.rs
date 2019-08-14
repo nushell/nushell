@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 #[test]
 fn copies_a_file() {
-    let sandbox = Playground::setup_for("cp_test").test_dir_name();
+    let sandbox = Playground::setup_for("cp_test_1").test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
     let expected_file = format!("{}/{}", full_path, "sample.ini");
@@ -15,7 +15,7 @@ fn copies_a_file() {
     nu!(
         _output,
         cwd(&Playground::root()),
-        "cp ../formats/sample.ini cp_test/sample.ini"
+        "cp ../formats/sample.ini cp_test_1/sample.ini"
     );
 
     assert!(h::file_exists_at(PathBuf::from(expected_file)));
@@ -56,7 +56,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
             EmptyFile("jonathan.txt"),
             EmptyFile("andres.txt"),
         ])
-        .within("copies_expected")
+        .mkdir("copies_expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
@@ -114,7 +114,7 @@ fn deep_copies_with_recursive_flag() {
         .with_files(vec![EmptyFile("coverage.txt"), EmptyFile("commands.txt")])
         .within("originals/contributors/yehuda")
         .with_files(vec![EmptyFile("defer-evaluation.txt")])
-        .within("copies_expected")
+        .mkdir("copies_expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
@@ -162,7 +162,8 @@ fn copies_using_path_with_wildcard() {
             Path::new("cargo_sample.toml"),
             Path::new("jonathan.xml"),
             Path::new("sample.ini"),
-            Path::new("sgml_description.json")
+            Path::new("sgml_description.json"),
+            Path::new("utf16.ini"),
         ],
         PathBuf::from(&expected_copies_path)
     ));
@@ -185,7 +186,8 @@ fn copies_using_a_glob() {
             Path::new("cargo_sample.toml"),
             Path::new("jonathan.xml"),
             Path::new("sample.ini"),
-            Path::new("sgml_description.json")
+            Path::new("sgml_description.json"),
+            Path::new("utf16.ini"),
         ],
         PathBuf::from(&expected_copies_path)
     ));

@@ -2,11 +2,12 @@ use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
-use std::path::{Path, PathBuf};
+use crate::utils::FileStructure;
+use std::path::PathBuf;
 
-pub struct Copycp;
+pub struct Cpy;
 
-impl StaticCommand for Copycp {
+impl StaticCommand for Cpy {
     fn run(
         &self,
         args: CommandArgs,
@@ -23,75 +24,6 @@ impl StaticCommand for Copycp {
         Signature::build("cp")
             .named("file", SyntaxType::Any)
             .switch("recursive")
-    }
-}
-
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Res {
-    pub loc: PathBuf,
-    pub at: usize,
-}
-
-impl Res {}
-
-pub struct FileStructure {
-    root: PathBuf,
-    resources: Vec<Res>,
-}
-
-impl FileStructure {
-    pub fn new() -> FileStructure {
-        FileStructure {
-            root: PathBuf::new(),
-            resources: Vec::<Res>::new(),
-        }
-    }
-
-    pub fn set_root(&mut self, path: &Path) {
-        self.root = path.to_path_buf();
-    }
-
-    pub fn paths_applying_with<F>(&mut self, to: F) -> Vec<(PathBuf, PathBuf)>
-    where
-        F: Fn((PathBuf, usize)) -> (PathBuf, PathBuf),
-    {
-        self.resources
-            .iter()
-            .map(|f| (PathBuf::from(&f.loc), f.at))
-            .map(|f| to(f))
-            .collect()
-    }
-
-    pub fn walk_decorate(&mut self, start_path: &Path) {
-        self.set_root(&dunce::canonicalize(start_path).unwrap());
-        self.resources = Vec::<Res>::new();
-        self.build(start_path, 0);
-        self.resources.sort();
-    }
-
-    fn build(&mut self, src: &'a Path, lvl: usize) {
-        let source = dunce::canonicalize(src).unwrap();
-
-        if source.is_dir() {
-            for entry in std::fs::read_dir(&source).unwrap() {
-                let entry = entry.unwrap();
-                let path = entry.path();
-
-                if path.is_dir() {
-                    self.build(&path, lvl + 1);
-                }
-
-                self.resources.push(Res {
-                    loc: path.to_path_buf(),
-                    at: lvl,
-                });
-            }
-        } else {
-            self.resources.push(Res {
-                loc: source,
-                at: lvl,
-            });
-        }
     }
 }
 
@@ -306,10 +238,10 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         }
     } else {
         if destination.exists() {
-            if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) && !args.has("recursive") {
+            if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) {
                 return Err(ShellError::labeled_error(
-                    "Copy aborted (directories found). Try using \"--recursive\".",
-                    "Copy aborted (directories found). Try using \"--recursive\".",
+                    "Copy aborted (directories found).",
+                    "Copy aborted (directories found).",
                     args.nth(0).unwrap().span(),
                 ));
             }
@@ -319,16 +251,18 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                     let mut to = PathBuf::from(&destination);
                     to.push(&entry.file_name().unwrap());
 
-                    match std::fs::copy(&entry, &to) {
-                        Err(e) => {
-                            return Err(ShellError::labeled_error(
-                                e.to_string(),
-                                e.to_string(),
-                                name_span,
-                            ));
-                        }
-                        Ok(o) => o,
-                    };
+                    if entry.is_file() {
+                        match std::fs::copy(&entry, &to) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    e.to_string(),
+                                    e.to_string(),
+                                    args.nth(0).unwrap().span(),
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
+                    }
                 }
             }
         } else {
@@ -347,59 +281,4 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     }
 
     Ok(OutputStream::empty())
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::{FileStructure, Res};
-    use std::path::PathBuf;
-
-    fn fixtures() -> PathBuf {
-        let mut sdx = PathBuf::new();
-        sdx.push("tests");
-        sdx.push("fixtures");
-        sdx.push("formats");
-        dunce::canonicalize(sdx).unwrap()
-    }
-
-    #[test]
-    fn prepares_and_decorates_source_files_for_copying() {
-        let mut res = FileStructure::new();
-        res.walk_decorate(fixtures().as_path());
-
-        assert_eq!(
-            res.resources,
-            vec![
-                Res {
-                    loc: fixtures().join("appveyor.yml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("caco3_plastics.csv"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("cargo_sample.toml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("jonathan.xml"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sample.ini"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("sgml_description.json"),
-                    at: 0
-                },
-                Res {
-                    loc: fixtures().join("utf16.ini"),
-                    at: 0
-                }
-            ]
-        );
-    }
 }
