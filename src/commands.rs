@@ -25,6 +25,7 @@ crate mod get;
 crate mod lines;
 crate mod ls;
 crate mod mkdir;
+crate mod mv;
 crate mod next;
 crate mod nth;
 crate mod open;
@@ -61,12 +62,13 @@ crate use command::{
     RawCommandArgs, StaticCommand, UnevaluatedCallInfo,
 };
 crate use config::Config;
-crate use cp::Copycp;
+crate use cp::Cpy;
 crate use date::Date;
 crate use enter::Enter;
 crate use exit::Exit;
 crate use get::Get;
 crate use mkdir::Mkdir;
+crate use mv::Move;
 crate use open::Open;
 crate use rm::Remove;
 crate use save::Save;
