@@ -141,6 +141,9 @@ impl InternalCommand {
                         context.add_span_source(uuid, span_source);
                     }
                     CommandAction::Exit => std::process::exit(0),
+                    CommandAction::EnterValueShell(value) => {
+                        context.shell_manager.push(Box::new(ValueShell::new(value)));
+                    }
                     CommandAction::EnterShell(location) => {
                         let path = std::path::Path::new(&location);
 

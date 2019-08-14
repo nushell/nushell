@@ -1,23 +1,46 @@
 use crate::commands::command::CommandAction;
+use crate::commands::{PerItemCommand, RawCommandArgs};
 use crate::errors::ShellError;
+use crate::evaluate::Scope;
+use crate::parser::registry;
 use crate::prelude::*;
 
-pub fn enter(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+pub struct Enter;
 
-    //TODO: We could also enter a value in the stream
-    if args.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "Enter requires a path",
-            "needs parameter",
-            args.call_info.name_span,
-        ));
+impl PerItemCommand for Enter {
+    fn name(&self) -> &str {
+        "enter"
     }
 
-    let location = args.expect_nth(0)?.as_string()?;
+    fn signature(&self) -> registry::Signature {
+        Signature::build("enter").required("location", SyntaxType::Block)
+    }
 
-    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
-        location,
-    )))]
-    .into())
+    fn run(
+        &self,
+        args: RawCommandArgs,
+        registry: &registry::CommandRegistry,
+        input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let call_info = args
+            .call_info
+            .evaluate(registry, &Scope::it_value(input))
+            .unwrap();
+
+        match call_info.args.expect_nth(0)? {
+            Tagged {
+                item: Value::Primitive(Primitive::String(location)),
+                ..
+            } => Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
+                location.to_string(),
+            )))]
+            .into()),
+            x => Ok(
+                vec![Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
+                    x.clone(),
+                )))]
+                .into(),
+            ),
+        }
+    }
 }

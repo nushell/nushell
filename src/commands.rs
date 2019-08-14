@@ -57,12 +57,13 @@ crate use autoview::Autoview;
 //crate use cd::Cd;
 crate use clip::Clip;
 crate use command::{
-    command, static_command, Command, CommandArgs, RawCommandArgs, StaticCommand,
-    UnevaluatedCallInfo,
+    command, per_item_command, static_command, Command, CommandArgs, PerItemCommand,
+    RawCommandArgs, StaticCommand, UnevaluatedCallInfo,
 };
 crate use config::Config;
 crate use cp::Copycp;
 crate use date::Date;
+crate use enter::Enter;
 crate use exit::Exit;
 crate use get::Get;
 crate use mkdir::Mkdir;

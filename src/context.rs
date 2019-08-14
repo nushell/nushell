@@ -115,7 +115,7 @@ impl Context {
         self.registry.get_command(name).unwrap()
     }
 
-    crate async fn run_command(
+    crate async fn run_command<'a>(
         &mut self,
         command: Arc<Command>,
         name_span: Span,
