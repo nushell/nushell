@@ -56,16 +56,16 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
             EmptyFile("jonathan.txt"),
             EmptyFile("andres.txt"),
         ])
-        .mkdir("copies_expected")
+        .mkdir("expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let expected_dir = format!("{}/{}", full_path, "copies_expected/originals");
+    let expected_dir = format!("{}/{}", full_path, "expected/originals");
 
     nu!(
         _output,
         cwd(&full_path),
-        "cp originals copies_expected --recursive"
+        "cp originals expected --recursive"
     );
 
     assert!(h::dir_exists_at(PathBuf::from(&expected_dir)));
@@ -114,11 +114,11 @@ fn deep_copies_with_recursive_flag() {
         .with_files(vec![EmptyFile("coverage.txt"), EmptyFile("commands.txt")])
         .within("originals/contributors/yehuda")
         .with_files(vec![EmptyFile("defer-evaluation.txt")])
-        .mkdir("copies_expected")
+        .mkdir("expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let expected_dir = format!("{}/{}", full_path, "copies_expected/originals");
+    let expected_dir = format!("{}/{}", full_path, "expected/originals");
 
     let jonathans_expected_copied_dir = format!("{}/contributors/jonathan", expected_dir);
     let andres_expected_copied_dir = format!("{}/contributors/andres", expected_dir);
@@ -127,7 +127,7 @@ fn deep_copies_with_recursive_flag() {
     nu!(
         _output,
         cwd(&full_path),
-        "cp originals copies_expected --recursive"
+        "cp originals expected --recursive"
     );
 
     assert!(h::dir_exists_at(PathBuf::from(&expected_dir)));
