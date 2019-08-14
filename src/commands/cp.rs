@@ -240,8 +240,8 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         if destination.exists() {
             if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) {
                 return Err(ShellError::labeled_error(
-                    "Copy aborted (directories found).",
-                    "Copy aborted (directories found).",
+                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
+                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
                     args.nth(0).unwrap().span(),
                 ));
             }

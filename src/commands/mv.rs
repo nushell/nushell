@@ -225,8 +225,8 @@ pub fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         if destination.exists() {
             if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) {
                 return Err(ShellError::labeled_error(
-                    "Rename aborted (directories found).",
-                    "Rename aborted (directories found).",
+                    "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
+                    "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
                     args.nth(0).unwrap().span(),
                 ));
             }
