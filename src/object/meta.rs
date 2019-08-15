@@ -120,6 +120,10 @@ impl<T> Tagged<T> {
     pub fn item(&self) -> &T {
         &self.item
     }
+
+    pub fn into_parts(self) -> (T, Tag) {
+        (self.item, self.tag)
+    }
 }
 
 impl<T> From<&Tagged<T>> for Span {
@@ -176,6 +180,21 @@ impl From<&std::ops::Range<usize>> for Span {
 pub struct Tag {
     pub origin: Option<Uuid>,
     pub span: Span,
+}
+
+impl From<Span> for Tag {
+    fn from(span: Span) -> Self {
+        Tag { origin: None, span }
+    }
+}
+
+impl From<&Span> for Tag {
+    fn from(span: &Span) -> Self {
+        Tag {
+            origin: None,
+            span: *span,
+        }
+    }
 }
 
 impl Tag {

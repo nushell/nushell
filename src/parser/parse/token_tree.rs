@@ -137,6 +137,26 @@ impl TokenNode {
         }
     }
 
+    pub fn is_external(&self) -> bool {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::External(..),
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn expect_external(&self) -> Span {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::External(span),
+                ..
+            }) => *span,
+            _ => panic!("Only call expect_external if you checked is_external first"),
+        }
+    }
+
     crate fn as_flag(&self, value: &str, source: &Text) -> Option<Tagged<Flag>> {
         match self {
             TokenNode::Flag(

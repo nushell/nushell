@@ -235,7 +235,10 @@ pub fn baseline_parse_path(
             TokenNode::Token(token) => match token.item() {
                 RawToken::Bare => token.span().slice(source),
                 RawToken::String(span) => span.slice(source),
-                RawToken::Integer(_) | RawToken::Size(..) | RawToken::Variable(_) => {
+                RawToken::Integer(_)
+                | RawToken::Size(..)
+                | RawToken::Variable(_)
+                | RawToken::External(_) => {
                     return Err(ShellError::type_error(
                         "String",
                         token.type_name().simple_spanned(part),

@@ -81,15 +81,6 @@ pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Tagged<i64>> {
         ))
     })
 }
-/*
-pub fn integer(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "integer", move |input| {
-        let (input, int) = raw_integer(input)?;
-
-        Ok((input, TokenTreeBuilder::spanned_int(*int, int.span())))
-    })
-}
-*/
 
 pub fn operator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "operator", |input| {
@@ -135,6 +126,20 @@ pub fn sq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 pub fn string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "string", move |input| {
         alt((sq_string, dq_string))(input)
+    })
+}
+
+pub fn external(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    trace_step(input, "external", move |input| {
+        let start = input.offset;
+        let (input, _) = tag("^")(input)?;
+        let (input, bare) = take_while(is_bare_char)(input)?;
+        let end = input.offset;
+
+        Ok((
+            input,
+            TokenTreeBuilder::spanned_external(bare, (start, end)),
+        ))
     })
 }
 
@@ -268,7 +273,8 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
 pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "leaf", move |input| {
-        let (input, node) = alt((size, string, operator, flag, shorthand, var, bare))(input)?;
+        let (input, node) =
+            alt((size, string, operator, flag, shorthand, var, external, bare))(input)?;
 
         Ok((input, node))
     })
@@ -733,6 +739,14 @@ mod tests {
         assert_leaf! {
             parsers [ var ]
             "$name" -> 0..5 { Variable(span(1, 5)) }
+        }
+    }
+
+    #[test]
+    fn test_external() {
+        assert_leaf! {
+            parsers [ external ]
+            "^ls" -> 0..3 { External(span(1, 3)) }
         }
     }
 

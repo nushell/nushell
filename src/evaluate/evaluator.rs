@@ -41,6 +41,7 @@ crate fn evaluate_baseline_expr(
         RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
+        RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),
         RawExpression::Binary(binary) => {
             let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
@@ -126,4 +127,14 @@ fn evaluate_reference(
             .map(|v| v.clone())
             .unwrap_or_else(|| Value::nothing().simple_spanned(span))),
     }
+}
+
+fn evaluate_external(
+    external: &hir::ExternalCommand,
+    _scope: &Scope,
+    _source: &Text,
+) -> Result<Tagged<Value>, ShellError> {
+    Err(ShellError::syntax_error(
+        "Unexpected external command".tagged(external.name()),
+    ))
 }
