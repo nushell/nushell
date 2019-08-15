@@ -39,8 +39,6 @@ fn run(
     let cwd = PathBuf::from(shell_manager.path());
     let full_path = PathBuf::from(cwd);
 
-    println!("{:?}", call_info.args.nth(0));
-
     let path = match call_info
         .args
         .nth(0)

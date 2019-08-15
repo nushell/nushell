@@ -41,6 +41,33 @@ impl UnevaluatedCallInfo {
             name_span: self.name_span,
         })
     }
+
+    pub fn has_it_or_block(&self) -> bool {
+        use hir::RawExpression;
+        use hir::Variable;
+
+        if let Some(positional) = &self.args.positional() {
+            for pos in positional {
+                match pos {
+                    Tagged {
+                        item: RawExpression::Variable(Variable::It(_)),
+                        ..
+                    } => {
+                        return true;
+                    }
+                    Tagged {
+                        item: RawExpression::Block(_),
+                        ..
+                    } => {
+                        return true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        false
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -465,29 +492,44 @@ impl Command {
         args: CommandArgs,
         registry: CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        println!("raw_args: {:?}", args.call_info);
         let raw_args = RawCommandArgs {
             host: args.host,
             shell_manager: args.shell_manager,
             call_info: args.call_info,
         };
 
-        let out = args
-            .input
-            .values
-            .map(move |x| {
-                let call_info = raw_args
-                    .clone()
-                    .call_info
-                    .evaluate(&registry, &Scope::it_value(x.clone()))
-                    .unwrap();
-                command
-                    .run(&call_info, &registry, &raw_args.shell_manager, x)
-                    .unwrap()
-            })
-            .flatten();
+        if raw_args.call_info.has_it_or_block() {
+            let out = args
+                .input
+                .values
+                .map(move |x| {
+                    let call_info = raw_args
+                        .clone()
+                        .call_info
+                        .evaluate(&registry, &Scope::it_value(x.clone()))
+                        .unwrap();
+                    match command.run(&call_info, &registry, &raw_args.shell_manager, x) {
+                        Ok(o) => o,
+                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]),
+                    }
+                })
+                .flatten();
 
-        Ok(out.to_output_stream())
+            Ok(out.to_output_stream())
+        } else {
+            let nothing = Value::nothing().tagged(Tag::unknown());
+            let call_info = raw_args
+                .clone()
+                .call_info
+                .evaluate(&registry, &Scope::it_value(nothing.clone()))
+                .unwrap();
+            // We don't have an $it or block, so just execute what we have
+            let out = match command.run(&call_info, &registry, &raw_args.shell_manager, nothing) {
+                Ok(o) => o,
+                Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]),
+            };
+            Ok(out.to_output_stream())
+        }
     }
 }
 
