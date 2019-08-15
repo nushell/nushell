@@ -116,8 +116,10 @@ impl Playground {
         }
     }
 
-    pub fn cd(&mut self, path: &str) -> &mut Self {
-        self.cwd.push(path);
+    pub fn mkdir(&mut self, directory: &str) -> &mut Self {
+        self.cwd.push(directory);
+        std::fs::create_dir_all(&self.cwd).expect("can not create directory");
+        self.back_to_playground();
         self
     }
 

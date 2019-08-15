@@ -125,7 +125,7 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
 
 #[test]
 fn save_can_write_out_csv() {
-    let sandbox = Playground::setup_for("save_test").test_dir_name();
+    let sandbox = Playground::setup_for("save_writes_out_csv_test").test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
     let expected_file = format!("{}/{}", full_path, "cargo_sample.csv");
@@ -133,7 +133,7 @@ fn save_can_write_out_csv() {
     nu!(
         _output,
         cwd(&Playground::root()),
-        "open ../formats/cargo_sample.toml | inc package.version --minor | get package | save save_test/cargo_sample.csv"
+        "open ../formats/cargo_sample.toml | inc package.version --minor | get package | save save_writes_out_csv_test/cargo_sample.csv"
     );
 
     let actual = h::file_contents(&expected_file);
@@ -142,14 +142,14 @@ fn save_can_write_out_csv() {
 
 #[test]
 fn rm_removes_a_file() {
-    let sandbox = Playground::setup_for("rm_test")
+    let sandbox = Playground::setup_for("rm_regular_file_test")
         .with_files(vec![EmptyFile("i_will_be_deleted.txt")])
         .test_dir_name();
 
     nu!(
         _output,
         cwd(&Playground::root()),
-        "rm rm_test/i_will_be_deleted.txt"
+        "rm rm_regular_file_test/i_will_be_deleted.txt"
     );
 
     let path = &format!(
@@ -180,7 +180,7 @@ fn rm_removes_files_with_wildcard() {
         src/parser/hir/baseline_parse_tokens.rs
     "#;
 
-    let sandbox = Playground::setup_for("rm_test_wildcard")
+    let sandbox = Playground::setup_for("rm_wildcard_test")
         .within("src")
         .with_files(vec![
             EmptyFile("cli.rs"),
@@ -210,7 +210,7 @@ fn rm_removes_files_with_wildcard() {
 
     nu!(
         _output,
-        cwd("tests/fixtures/nuplayground/rm_test_wildcard"),
+        cwd("tests/fixtures/nuplayground/rm_wildcard_test"),
         "rm \"src/*/*/*.rs\""
     );
 
@@ -231,7 +231,7 @@ fn rm_removes_files_with_wildcard() {
 
 #[test]
 fn rm_removes_directory_contents_with_recursive_flag() {
-    let sandbox = Playground::setup_for("rm_test_recursive")
+    let sandbox = Playground::setup_for("rm_directory_removal_recursively_test")
         .with_files(vec![
             EmptyFile("yehuda.txt"),
             EmptyFile("jonathan.txt"),
@@ -242,7 +242,7 @@ fn rm_removes_directory_contents_with_recursive_flag() {
     nu!(
         _output,
         cwd("tests/fixtures/nuplayground"),
-        "rm rm_test_recursive --recursive"
+        "rm rm_directory_removal_recursively_test --recursive"
     );
 
     let expected = format!("{}/{}", Playground::root(), sandbox);
@@ -252,10 +252,10 @@ fn rm_removes_directory_contents_with_recursive_flag() {
 
 #[test]
 fn rm_errors_if_attempting_to_delete_a_directory_without_recursive_flag() {
-    let sandbox = Playground::setup_for("rm_test_2").test_dir_name();
+    let sandbox = Playground::setup_for("rm_prevent_directory_removal_without_flag_test").test_dir_name();
     let full_path = format!("{}/{}", Playground::root(), sandbox);
 
-    nu_error!(output, cwd(&Playground::root()), "rm rm_test_2");
+    nu_error!(output, cwd(&Playground::root()), "rm rm_prevent_directory_removal_without_flag_test");
 
     assert!(h::file_exists_at(PathBuf::from(full_path)));
     assert!(output.contains("is a directory"));

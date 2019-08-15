@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 #[test]
 fn creates_directory() {
-    let sandbox = Playground::setup_for("mkdir_test").test_dir_name();
+    let sandbox = Playground::setup_for("mkdir_test_1").test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
 
