@@ -7,9 +7,7 @@ use futures_async_stream::async_stream_block;
 pub struct Table;
 
 #[derive(Deserialize)]
-pub struct TableArgs {
-    full: bool,
-}
+pub struct TableArgs {}
 
 impl WholeStreamCommand for Table {
     fn name(&self) -> &str {
@@ -23,19 +21,16 @@ impl WholeStreamCommand for Table {
         args.process(registry, table)?.run()
     }
     fn signature(&self) -> Signature {
-        Signature::build("table").switch("full")
+        Signature::build("table")
     }
 }
 
-pub fn table(
-    TableArgs { full }: TableArgs,
-    context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+pub fn table(_args: TableArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream_block! {
         let input: Vec<Tagged<Value>> = context.input.into_vec().await;
         if input.len() > 0 {
             let mut host = context.host.lock().unwrap();
-            let view = TableView::from_list(&input, full);
+            let view = TableView::from_list(&input);
             if let Some(view) = view {
                 handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
             }

@@ -54,6 +54,14 @@ pub fn autoview(
                 let table = context.expect_command("table");
                 let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
                 result.collect::<Vec<_>>().await;
+                //println!("TODO!")
+                // TODO
+                // let mut host = context.host.lock().unwrap();
+                // for i in input.iter() {
+                //     let view = GenericView::new(&i);
+                //     handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
+                //     host.stdout("");
+                // }
             }
         }
     }))

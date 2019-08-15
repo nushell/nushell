@@ -14,7 +14,7 @@ impl RenderView for GenericView<'value> {
         match self.value {
             Value::Primitive(p) => Ok(host.stdout(&p.format(None))),
             Value::List(l) => {
-                let view = TableView::from_list(l, false);
+                let view = TableView::from_list(l);
 
                 if let Some(view) = view {
                     view.render_view(host)?;
