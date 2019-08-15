@@ -6,13 +6,15 @@ use std::path::{Path, PathBuf};
 
 pub struct Mkdir;
 
-impl StaticCommand for Mkdir {
+impl PerItemCommand for Mkdir {
     fn run(
         &self,
-        args: CommandArgs,
+        call_info: &CallInfo,
         registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        mkdir(args, registry)
+        shell_manager: &ShellManager,
+        input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        mkdir(call_info, registry, shell_manager, input)
     }
 
     fn name(&self) -> &str {
@@ -24,12 +26,15 @@ impl StaticCommand for Mkdir {
     }
 }
 
-pub fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+pub fn mkdir(
+    call_info: &CallInfo,
+    _registry: &CommandRegistry,
+    shell_manager: &ShellManager,
+    _input: Tagged<Value>,
+) -> Result<VecDeque<ReturnValue>, ShellError> {
+    let mut full_path = PathBuf::from(shell_manager.path());
 
-    let mut full_path = PathBuf::from(args.shell_manager.path());
-
-    match &args.nth(0) {
+    match &call_info.args.nth(0) {
         Some(Tagged { item: value, .. }) => full_path.push(Path::new(&value.as_string()?)),
         _ => {}
     }
@@ -38,8 +43,8 @@ pub fn mkdir(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         Err(reason) => Err(ShellError::labeled_error(
             reason.to_string(),
             reason.to_string(),
-            args.nth(0).unwrap().span(),
+            call_info.args.nth(0).unwrap().span(),
         )),
-        Ok(_) => Ok(OutputStream::empty()),
+        Ok(_) => Ok(VecDeque::new()),
     }
 }

@@ -1,4 +1,4 @@
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::format::TableView;
 use crate::prelude::*;
@@ -11,7 +11,7 @@ pub struct TableArgs {
     full: bool,
 }
 
-impl StaticCommand for Table {
+impl WholeStreamCommand for Table {
     fn name(&self) -> &str {
         "table"
     }

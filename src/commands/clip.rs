@@ -1,4 +1,4 @@
-use crate::commands::{CommandArgs, StaticCommand};
+use crate::commands::{CommandArgs, WholeStreamCommand};
 use crate::context::CommandRegistry;
 use crate::errors::{labelled, ShellError};
 use crate::prelude::*;
@@ -11,7 +11,7 @@ pub struct Clip;
 #[derive(Deserialize)]
 pub struct ClipArgs {}
 
-impl StaticCommand for Clip {
+impl WholeStreamCommand for Clip {
     fn name(&self) -> &str {
         "clip"
     }

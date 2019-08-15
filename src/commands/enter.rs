@@ -1,7 +1,6 @@
 use crate::commands::command::CommandAction;
-use crate::commands::{PerItemCommand, RawCommandArgs};
+use crate::commands::PerItemCommand;
 use crate::errors::ShellError;
-use crate::evaluate::Scope;
 use crate::parser::registry;
 use crate::prelude::*;
 
@@ -18,15 +17,11 @@ impl PerItemCommand for Enter {
 
     fn run(
         &self,
-        args: RawCommandArgs,
-        registry: &registry::CommandRegistry,
-        input: Tagged<Value>,
+        call_info: &CallInfo,
+        _registry: &registry::CommandRegistry,
+        _shell_manager: &ShellManager,
+        _input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let call_info = args
-            .call_info
-            .evaluate(registry, &Scope::it_value(input))
-            .unwrap();
-
         match call_info.args.expect_nth(0)? {
             Tagged {
                 item: Value::Primitive(Primitive::String(location)),

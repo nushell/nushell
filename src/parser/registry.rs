@@ -295,7 +295,7 @@ crate fn evaluate_args(
         .as_ref()
         .map(|p| {
             p.iter()
-                .map(|e| evaluate_baseline_expr(e, &CommandRegistry::empty(), scope, source))
+                .map(|e| evaluate_baseline_expr(e, registry, scope, source))
                 .collect()
         })
         .transpose();

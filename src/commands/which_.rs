@@ -2,12 +2,12 @@ use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
 
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::parser::registry::Signature;
 
 pub struct Which;
 
-impl StaticCommand for Which {
+impl WholeStreamCommand for Which {
     fn run(
         &self,
         args: CommandArgs,

@@ -1,9 +1,8 @@
-use crate::commands::StaticCommand;
 use crate::context::SpanSource;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::parser::hir::SyntaxType;
-use crate::parser::registry::{self, Signature};
+use crate::parser::registry::Signature;
 use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};
@@ -11,13 +10,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 pub struct Open;
 
-#[derive(Deserialize)]
-pub struct OpenArgs {
-    path: Tagged<PathBuf>,
-    raw: bool,
-}
-
-impl StaticCommand for Open {
+impl PerItemCommand for Open {
     fn name(&self) -> &str {
         "open"
     }
@@ -30,33 +23,40 @@ impl StaticCommand for Open {
 
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &registry::CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, run)?.run()
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        shell_manager: &ShellManager,
+        _input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        run(call_info, shell_manager)
     }
 }
 
 fn run(
-    OpenArgs { raw, path }: OpenArgs,
-    RunnableContext {
-        shell_manager,
-        name,
-        ..
-    }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+    call_info: &CallInfo,
+    shell_manager: &ShellManager,
+) -> Result<VecDeque<ReturnValue>, ShellError> {
     let cwd = PathBuf::from(shell_manager.path());
     let full_path = PathBuf::from(cwd);
 
-    let path_str = path.to_str().ok_or(ShellError::type_error(
-        "Path",
-        "invalid path".tagged(path.tag()),
-    ))?;
+    let path = match call_info
+        .args
+        .nth(0)
+        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
+    {
+        file => file,
+    };
+
+    let path_str = path.as_string()?;
 
     let (file_extension, contents, contents_tag, span_source) =
-        fetch(&full_path, path_str, path.span())?;
+        fetch(&full_path, &path_str, path.span())?;
 
-    let file_extension = if raw { None } else { file_extension };
+    let file_extension = if call_info.args.has("raw") {
+        None
+    } else {
+        file_extension
+    };
 
     let mut stream = VecDeque::new();
 
@@ -70,7 +70,7 @@ fn run(
 
     match contents {
         Value::Primitive(Primitive::String(string)) => {
-            let value = parse_as_value(file_extension, string, contents_tag, name)?;
+            let value = parse_as_value(file_extension, string, contents_tag, call_info.name_span)?;
 
             match value {
                 Tagged {
@@ -88,7 +88,7 @@ fn run(
         other => stream.push_back(ReturnSuccess::value(other.tagged(contents_tag))),
     };
 
-    Ok(stream.boxed().to_output_stream())
+    Ok(stream)
 }
 
 pub fn fetch(

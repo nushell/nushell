@@ -1,4 +1,4 @@
-use crate::commands::command::EvaluatedStaticCommandArgs;
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::context::SourceMap;
 use crate::object::dir_entry_dict;
 use crate::prelude::*;
@@ -60,7 +60,7 @@ impl Shell for FilesystemShell {
         "filesystem".to_string()
     }
 
-    fn ls(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let cwd = self.path.clone();
         let mut full_path = PathBuf::from(&self.path);
         match &args.nth(0) {
@@ -133,7 +133,7 @@ impl Shell for FilesystemShell {
         Ok(shell_entries.to_output_stream())
     }
 
-    fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let path = match args.nth(0) {
             None => match dirs::home_dir() {
                 Some(o) => o,

@@ -5,7 +5,7 @@ use crate::commands::classified::{
 };
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
-use crate::commands::static_command;
+use crate::commands::whole_stream_command;
 use crate::context::Context;
 crate use crate::errors::ShellError;
 use crate::git::current_branch;
@@ -67,14 +67,14 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         if params.is_filter {
                             let fname = fname.to_string();
                             let name = params.name.clone();
-                            context.add_commands(vec![static_command(PluginCommand::new(
+                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
                                 name, fname, params,
                             ))]);
                             Ok(())
                         } else {
                             let fname = fname.to_string();
                             let name = params.name.clone();
-                            context.add_commands(vec![static_command(PluginSink::new(
+                            context.add_commands(vec![whole_stream_command(PluginSink::new(
                                 name, fname, params,
                             ))]);
                             Ok(())
@@ -178,25 +178,24 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("to-yaml", Box::new(to_yaml::to_yaml)),
             command("sort-by", Box::new(sort_by::sort_by)),
             command("tags", Box::new(tags::tags)),
-            static_command(Get),
-            //static_command(Cd),
-            static_command(Remove),
-            static_command(Open),
+            whole_stream_command(Get),
+            per_item_command(Remove),
+            per_item_command(Open),
             per_item_command(Where),
-            static_command(Config),
-            static_command(SkipWhile),
+            whole_stream_command(Config),
+            whole_stream_command(SkipWhile),
             per_item_command(Enter),
-            static_command(Exit),
-            static_command(Clip),
-            static_command(Autoview),
-            static_command(Cpy),
-            static_command(Date),
-            static_command(Mkdir),
-            static_command(Move),
-            static_command(Save),
-            static_command(Table),
-            static_command(VTable),
-            static_command(Which),
+            whole_stream_command(Exit),
+            whole_stream_command(Clip),
+            whole_stream_command(Autoview),
+            per_item_command(Cpy),
+            whole_stream_command(Date),
+            per_item_command(Mkdir),
+            per_item_command(Move),
+            whole_stream_command(Save),
+            whole_stream_command(Table),
+            whole_stream_command(VTable),
+            whole_stream_command(Which),
         ]);
     }
     let _ = load_plugins(&mut context);
@@ -356,7 +355,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 _ => pipeline
                     .commands
                     .push(ClassifiedCommand::Internal(InternalCommand {
-                        command: static_command(autoview::Autoview),
+                        command: whole_stream_command(autoview::Autoview),
                         name_span: Span::unknown(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),

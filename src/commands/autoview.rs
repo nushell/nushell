@@ -1,4 +1,4 @@
-use crate::commands::{RawCommandArgs, StaticCommand};
+use crate::commands::{RawCommandArgs, WholeStreamCommand};
 use crate::errors::ShellError;
 use crate::prelude::*;
 
@@ -7,7 +7,7 @@ pub struct Autoview;
 #[derive(Deserialize)]
 pub struct AutoviewArgs {}
 
-impl StaticCommand for Autoview {
+impl WholeStreamCommand for Autoview {
     fn name(&self) -> &str {
         "autoview"
     }

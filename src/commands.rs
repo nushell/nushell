@@ -58,8 +58,8 @@ crate use autoview::Autoview;
 //crate use cd::Cd;
 crate use clip::Clip;
 crate use command::{
-    command, per_item_command, static_command, Command, CommandArgs, PerItemCommand,
-    RawCommandArgs, StaticCommand, UnevaluatedCallInfo,
+    command, per_item_command, whole_stream_command, Command, CommandArgs, PerItemCommand,
+    RawCommandArgs, UnevaluatedCallInfo, WholeStreamCommand,
 };
 crate use config::Config;
 crate use cp::Cpy;
