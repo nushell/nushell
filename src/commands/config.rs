@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{config, Value};
 use crate::parser::hir::SyntaxType;
@@ -18,7 +18,7 @@ pub struct ConfigArgs {
     path: Tagged<bool>,
 }
 
-impl StaticCommand for Config {
+impl WholeStreamCommand for Config {
     fn name(&self) -> &str {
         "config"
     }

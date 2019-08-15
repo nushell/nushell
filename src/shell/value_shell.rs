@@ -1,4 +1,4 @@
-use crate::commands::command::EvaluatedStaticCommandArgs;
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::context::SourceMap;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
@@ -65,14 +65,14 @@ impl Shell for ValueShell {
         )
     }
 
-    fn ls(&self, _args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    fn ls(&self, _args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         Ok(self
             .members()
             .map(|x| ReturnSuccess::value(x))
             .to_output_stream())
     }
 
-    fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let path = match args.nth(0) {
             None => "/".to_string(),
             Some(v) => {

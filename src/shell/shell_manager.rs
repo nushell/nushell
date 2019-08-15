@@ -1,4 +1,4 @@
-use crate::commands::command::EvaluatedStaticCommandArgs;
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
@@ -88,12 +88,12 @@ impl ShellManager {
         self.set_path(self.path());
     }
 
-    pub fn ls(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
         env.last().unwrap().ls(args)
     }
-    pub fn cd(&self, args: EvaluatedStaticCommandArgs) -> Result<OutputStream, ShellError> {
+    pub fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
         env.last().unwrap().cd(args)

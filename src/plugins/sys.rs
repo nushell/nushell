@@ -17,8 +17,6 @@ impl Sys {
     }
 }
 
-//TODO: add more error checking
-
 async fn cpu(tag: Tag) -> Option<Tagged<Value>> {
     if let (Ok(num_cpu), Ok(cpu_speed)) = (
         heim::cpu::logical_count().await,

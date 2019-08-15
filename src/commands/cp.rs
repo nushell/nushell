@@ -7,13 +7,15 @@ use std::path::PathBuf;
 
 pub struct Cpy;
 
-impl StaticCommand for Cpy {
+impl PerItemCommand for Cpy {
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        cp(args, registry)
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        shell_manager: &ShellManager,
+        _input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        cp(call_info, shell_manager)
     }
 
     fn name(&self) -> &str {
@@ -27,13 +29,16 @@ impl StaticCommand for Cpy {
     }
 }
 
-pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut source = PathBuf::from(args.shell_manager.path());
-    let mut destination = PathBuf::from(args.shell_manager.path());
-    let name_span = args.call_info.name_span;
-    let args = args.evaluate_once(registry)?;
+pub fn cp(
+    call_info: &CallInfo,
+    shell_manager: &ShellManager,
+) -> Result<VecDeque<ReturnValue>, ShellError> {
+    let mut source = PathBuf::from(shell_manager.path());
+    let mut destination = PathBuf::from(shell_manager.path());
+    let name_span = call_info.name_span;
 
-    match args
+    match call_info
+        .args
         .nth(0)
         .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
         .as_string()?
@@ -44,7 +49,8 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         }
     }
 
-    match args
+    match call_info
+        .args
         .nth(1)
         .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
         .as_string()?
@@ -61,7 +67,7 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         return Err(ShellError::labeled_error(
             "Invalid pattern.",
             "Invalid pattern.",
-            args.nth(0).unwrap().span(),
+            call_info.args.nth(0).unwrap().span(),
         ));
     }
 
@@ -69,11 +75,11 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
 
     if sources.len() == 1 {
         if let Ok(entry) = &sources[0] {
-            if entry.is_dir() && !args.has("recursive") {
+            if entry.is_dir() && !call_info.args.has("recursive") {
                 return Err(ShellError::labeled_error(
                     "is a directory (not copied). Try using \"--recursive\".",
                     "is a directory (not copied). Try using \"--recursive\".",
-                    args.nth(0).unwrap().span(),
+                    call_info.args.nth(0).unwrap().span(),
                 ));
             }
 
@@ -242,7 +248,7 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                 return Err(ShellError::labeled_error(
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
-                    args.nth(0).unwrap().span(),
+                    call_info.args.nth(0).unwrap().span(),
                 ));
             }
 
@@ -257,7 +263,7 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    args.nth(0).unwrap().span(),
+                                    call_info.args.nth(0).unwrap().span(),
                                 ));
                             }
                             Ok(o) => o,
@@ -275,10 +281,10 @@ pub fn cp(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                     "Copy aborted. (Does {:?} exist?)",
                     &destination.file_name().unwrap()
                 ),
-                args.nth(1).unwrap().span(),
+                call_info.args.nth(1).unwrap().span(),
             ));
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(VecDeque::new())
 }

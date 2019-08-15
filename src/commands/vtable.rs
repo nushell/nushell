@@ -1,4 +1,4 @@
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::format::VTableView;
 use crate::prelude::*;
@@ -8,7 +8,7 @@ pub struct VTable;
 #[derive(Deserialize)]
 pub struct VTableArgs {}
 
-impl StaticCommand for VTable {
+impl WholeStreamCommand for VTable {
     fn name(&self) -> &str {
         "vtable"
     }

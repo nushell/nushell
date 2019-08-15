@@ -1,4 +1,4 @@
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
@@ -41,7 +41,7 @@ pub struct PluginCommand {
     config: registry::Signature,
 }
 
-impl StaticCommand for PluginCommand {
+impl WholeStreamCommand for PluginCommand {
     fn name(&self) -> &str {
         &self.name
     }
@@ -239,7 +239,7 @@ pub struct PluginSink {
     config: registry::Signature,
 }
 
-impl StaticCommand for PluginSink {
+impl WholeStreamCommand for PluginSink {
     fn name(&self) -> &str {
         &self.name
     }

@@ -9,13 +9,15 @@ use crate::utils::FileStructure;
 
 pub struct Move;
 
-impl StaticCommand for Move {
+impl PerItemCommand for Move {
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        mv(args, registry)
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        shell_manager: &ShellManager,
+        _input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        mv(call_info, shell_manager)
     }
 
     fn name(&self) -> &str {
@@ -27,13 +29,16 @@ impl StaticCommand for Move {
     }
 }
 
-pub fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut source = PathBuf::from(args.shell_manager.path());
-    let mut destination = PathBuf::from(args.shell_manager.path());
-    let span = args.name_span();
-    let args = args.evaluate_once(registry)?;
+pub fn mv(
+    call_info: &CallInfo,
+    shell_manager: &ShellManager,
+) -> Result<VecDeque<ReturnValue>, ShellError> {
+    let mut source = PathBuf::from(shell_manager.path());
+    let mut destination = PathBuf::from(shell_manager.path());
+    let span = call_info.name_span;
 
-    match args
+    match call_info
+        .args
         .nth(0)
         .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
         .as_string()?
@@ -44,7 +49,8 @@ pub fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         }
     }
 
-    match args
+    match call_info
+        .args
         .nth(1)
         .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
         .as_string()?
@@ -61,7 +67,7 @@ pub fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
         return Err(ShellError::labeled_error(
             "Invalid pattern.",
             "Invalid pattern.",
-            args.nth(0).unwrap().span(),
+            call_info.args.nth(0).unwrap().span(),
         ));
     }
 
@@ -227,7 +233,7 @@ pub fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                 return Err(ShellError::labeled_error(
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
-                    args.nth(0).unwrap().span(),
+                    call_info.args.nth(0).unwrap().span(),
                 ));
             }
 
@@ -270,10 +276,10 @@ pub fn mv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                     "Rename aborted. (Does {:?} exist?)",
                     &destination.file_name().unwrap()
                 ),
-                args.nth(1).unwrap().span(),
+                call_info.args.nth(1).unwrap().span(),
             ));
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(VecDeque::new())
 }

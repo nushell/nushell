@@ -290,16 +290,18 @@ crate fn evaluate_args(
     scope: &Scope,
     source: &Text,
 ) -> Result<EvaluatedArgs, ShellError> {
+    println!("positional (before): {:?}", call);
     let positional: Result<Option<Vec<_>>, _> = call
         .positional()
         .as_ref()
         .map(|p| {
             p.iter()
-                .map(|e| evaluate_baseline_expr(e, &CommandRegistry::empty(), scope, source))
+                .map(|e| evaluate_baseline_expr(e, registry, scope, source))
                 .collect()
         })
         .transpose();
 
+    println!("positional: {:?}", positional);
     let positional = positional?;
 
     let named: Result<Option<IndexMap<String, Tagged<Value>>>, ShellError> = call

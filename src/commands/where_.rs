@@ -1,4 +1,4 @@
-use crate::commands::{PerItemCommand, RawCommandArgs};
+use crate::commands::PerItemCommand;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry;
@@ -17,16 +17,13 @@ impl PerItemCommand for Where {
 
     fn run(
         &self,
-        args: RawCommandArgs,
-        registry: &registry::CommandRegistry,
+        call_info: &CallInfo,
+        _registry: &registry::CommandRegistry,
+        _shell_manager: &ShellManager,
         input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         let input_clone = input.clone();
-        let call_info = args
-            .with_input(vec![input])
-            .evaluate_once(registry)
-            .unwrap();
-        let condition = &call_info.args.call_info.args.positional.unwrap()[0];
+        let condition = call_info.args.expect_nth(0)?;
         match condition {
             Tagged {
                 item: Value::Block(block),

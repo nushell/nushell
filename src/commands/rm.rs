@@ -1,4 +1,3 @@
-use crate::commands::StaticCommand;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::prelude::*;
@@ -8,13 +7,7 @@ use std::path::PathBuf;
 
 pub struct Remove;
 
-#[derive(Deserialize)]
-pub struct RemoveArgs {
-    path: Tagged<PathBuf>,
-    recursive: bool,
-}
-
-impl StaticCommand for Remove {
+impl PerItemCommand for Remove {
     fn name(&self) -> &str {
         "rm"
     }
@@ -27,20 +20,28 @@ impl StaticCommand for Remove {
 
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, rm)?.run()
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        shell_manager: &ShellManager,
+        _input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        rm(call_info, shell_manager)
     }
 }
 
 pub fn rm(
-    RemoveArgs { path, recursive }: RemoveArgs,
-    context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
-    let mut full_path = context.cwd();
+    call_info: &CallInfo,
+    shell_manager: &ShellManager,
+) -> Result<VecDeque<ReturnValue>, ShellError> {
+    let mut full_path = PathBuf::from(shell_manager.path());
 
-    match path.item.to_str().unwrap() {
+    match call_info
+        .args
+        .nth(0)
+        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
+        .as_string()?
+        .as_str()
+    {
         "." | ".." => return Err(ShellError::string("\".\" and \"..\" may not be removed")),
         file => full_path.push(file),
     }
@@ -57,11 +58,11 @@ pub fn rm(
         match entry {
             Ok(path) => {
                 if path.is_dir() {
-                    if !recursive {
+                    if !call_info.args.has("recursive") {
                         return Err(ShellError::labeled_error(
                             "is a directory",
                             "is a directory",
-                            context.name,
+                            call_info.name_span,
                         ));
                     }
                     std::fs::remove_dir_all(&path).expect("can not remove directory");
@@ -73,5 +74,5 @@ pub fn rm(
         }
     }
 
-    Ok(OutputStream::empty())
+    Ok(VecDeque::new())
 }

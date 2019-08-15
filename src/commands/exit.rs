@@ -1,11 +1,11 @@
-use crate::commands::command::{CommandAction, StaticCommand};
+use crate::commands::command::{CommandAction, WholeStreamCommand};
 use crate::errors::ShellError;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 
 pub struct Exit;
 
-impl StaticCommand for Exit {
+impl WholeStreamCommand for Exit {
     fn run(
         &self,
         args: CommandArgs,

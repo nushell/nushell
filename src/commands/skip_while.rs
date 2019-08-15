@@ -1,4 +1,4 @@
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::prelude::*;
 
@@ -9,7 +9,7 @@ pub struct SkipWhileArgs {
     condition: value::Block,
 }
 
-impl StaticCommand for SkipWhile {
+impl WholeStreamCommand for SkipWhile {
     fn name(&self) -> &str {
         "skip-while"
     }

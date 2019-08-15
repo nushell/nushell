@@ -3,7 +3,7 @@ use crate::object::{Dictionary, Value};
 use crate::prelude::*;
 use chrono::{DateTime, Local, Utc};
 
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::parser::registry::Signature;
 use chrono::{Datelike, TimeZone, Timelike};
 use core::fmt::Display;
@@ -11,7 +11,7 @@ use indexmap::IndexMap;
 
 pub struct Date;
 
-impl StaticCommand for Date {
+impl WholeStreamCommand for Date {
     fn run(
         &self,
         args: CommandArgs,

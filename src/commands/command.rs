@@ -91,13 +91,13 @@ impl CommandArgs {
     pub fn evaluate_once(
         self,
         registry: &registry::CommandRegistry,
-    ) -> Result<EvaluatedStaticCommandArgs, ShellError> {
+    ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let host = self.host.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate(registry, &Scope::empty())?;
 
-        Ok(EvaluatedStaticCommandArgs::new(
+        Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
             shell_manager,
             call_info,
@@ -217,26 +217,26 @@ impl<T> RunnableRawArgs<T> {
     }
 }
 
-pub struct EvaluatedStaticCommandArgs {
+pub struct EvaluatedWholeStreamCommandArgs {
     pub args: EvaluatedCommandArgs,
     pub input: InputStream,
 }
 
-impl Deref for EvaluatedStaticCommandArgs {
+impl Deref for EvaluatedWholeStreamCommandArgs {
     type Target = EvaluatedCommandArgs;
     fn deref(&self) -> &Self::Target {
         &self.args
     }
 }
 
-impl EvaluatedStaticCommandArgs {
+impl EvaluatedWholeStreamCommandArgs {
     pub fn new(
         host: Arc<Mutex<dyn Host>>,
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
-    ) -> EvaluatedStaticCommandArgs {
-        EvaluatedStaticCommandArgs {
+    ) -> EvaluatedWholeStreamCommandArgs {
+        EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
                 shell_manager,
@@ -251,13 +251,13 @@ impl EvaluatedStaticCommandArgs {
     }
 
     pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
-        let EvaluatedStaticCommandArgs { args, input } = self;
+        let EvaluatedWholeStreamCommandArgs { args, input } = self;
 
         (input, args.call_info.args)
     }
 
     pub fn split(self) -> (InputStream, EvaluatedCommandArgs) {
-        let EvaluatedStaticCommandArgs { args, input } = self;
+        let EvaluatedWholeStreamCommandArgs { args, input } = self;
 
         (input, args)
     }
@@ -386,7 +386,7 @@ impl ReturnSuccess {
     }
 }
 
-pub trait StaticCommand: Send + Sync {
+pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
     fn run(
@@ -411,8 +411,9 @@ pub trait PerItemCommand: Send + Sync {
 
     fn run(
         &self,
-        args: RawCommandArgs,
-        registry: &registry::CommandRegistry,
+        call_info: &CallInfo,
+        registry: &CommandRegistry,
+        shell_manager: &ShellManager,
         input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError>;
 
@@ -428,21 +429,21 @@ pub trait PerItemCommand: Send + Sync {
 }
 
 pub enum Command {
-    Static(Arc<dyn StaticCommand>),
+    WholeStream(Arc<dyn WholeStreamCommand>),
     PerItem(Arc<dyn PerItemCommand>),
 }
 
 impl Command {
     pub fn name(&self) -> &str {
         match self {
-            Command::Static(command) => command.name(),
+            Command::WholeStream(command) => command.name(),
             Command::PerItem(command) => command.name(),
         }
     }
 
     pub fn signature(&self) -> Signature {
         match self {
-            Command::Static(command) => command.signature(),
+            Command::WholeStream(command) => command.signature(),
             Command::PerItem(command) => command.signature(),
         }
     }
@@ -453,7 +454,7 @@ impl Command {
         registry: &registry::CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         match self {
-            Command::Static(command) => command.run(args, registry),
+            Command::WholeStream(command) => command.run(args, registry),
             Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
         }
     }
@@ -464,15 +465,26 @@ impl Command {
         args: CommandArgs,
         registry: CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
+        println!("raw_args: {:?}", args.call_info);
         let raw_args = RawCommandArgs {
             host: args.host,
             shell_manager: args.shell_manager,
             call_info: args.call_info,
         };
+
         let out = args
             .input
             .values
-            .map(move |x| command.run(raw_args.clone(), &registry, x).unwrap())
+            .map(move |x| {
+                let call_info = raw_args
+                    .clone()
+                    .call_info
+                    .evaluate(&registry, &Scope::it_value(x.clone()))
+                    .unwrap();
+                command
+                    .run(&call_info, &registry, &raw_args.shell_manager, x)
+                    .unwrap()
+            })
             .flatten();
 
         Ok(out.to_output_stream())
@@ -485,7 +497,7 @@ pub struct FnFilterCommand {
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
 }
 
-impl StaticCommand for FnFilterCommand {
+impl WholeStreamCommand for FnFilterCommand {
     fn name(&self) -> &str {
         &self.name
     }
@@ -542,7 +554,7 @@ pub struct FnRawCommand {
     >,
 }
 
-impl StaticCommand for FnRawCommand {
+impl WholeStreamCommand for FnRawCommand {
     fn name(&self) -> &str {
         &self.name
     }
@@ -564,14 +576,14 @@ pub fn command(
             + Sync,
     >,
 ) -> Arc<Command> {
-    Arc::new(Command::Static(Arc::new(FnRawCommand {
+    Arc::new(Command::WholeStream(Arc::new(FnRawCommand {
         name: name.to_string(),
         func,
     })))
 }
 
-pub fn static_command(command: impl StaticCommand + 'static) -> Arc<Command> {
-    Arc::new(Command::Static(Arc::new(command)))
+pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Arc<Command> {
+    Arc::new(Command::WholeStream(Arc::new(command)))
 }
 
 pub fn per_item_command(command: impl PerItemCommand + 'static) -> Arc<Command> {
@@ -583,7 +595,7 @@ pub fn filter(
     name: &str,
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
 ) -> Arc<Command> {
-    Arc::new(Command::Static(Arc::new(FnFilterCommand {
+    Arc::new(Command::WholeStream(Arc::new(FnFilterCommand {
         name: name.to_string(),
         func,
     })))

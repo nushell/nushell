@@ -2,7 +2,7 @@ use crate::commands::to_csv::{to_string as to_csv_to_string, value_to_csv_value}
 use crate::commands::to_json::value_to_json_value;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
@@ -16,7 +16,7 @@ pub struct SaveArgs {
     raw: bool,
 }
 
-impl StaticCommand for Save {
+impl WholeStreamCommand for Save {
     fn name(&self) -> &str {
         "save"
     }

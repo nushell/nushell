@@ -1,4 +1,4 @@
-use crate::commands::StaticCommand;
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
@@ -10,7 +10,7 @@ pub struct GetArgs {
     rest: Vec<Tagged<String>>,
 }
 
-impl StaticCommand for Get {
+impl WholeStreamCommand for Get {
     fn name(&self) -> &str {
         "get"
     }
