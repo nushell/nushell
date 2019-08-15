@@ -200,9 +200,7 @@ impl ShellError {
                 }
 
                 if let Ok(label) = expr {
-                    diag = diag.with_label(
-                        Label::new_primary(label.span).with_message("unknown property"),
-                    );
+                    diag = diag.with_label(label);
                 }
 
                 diag
