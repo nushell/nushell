@@ -4,6 +4,7 @@ use crate::prelude::*;
 use ansi_term::Color;
 use derive_new::new;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
+use textwrap::fill;
 
 use prettytable::{color, Attr, Cell, Row, Table};
 
@@ -58,9 +59,70 @@ impl TableView {
             entries.push(row);
         }
 
+        let mut max_per_column = vec![];
+
         if values.len() > 1 {
             headers.insert(0, format!("#"));
         }
+
+        for head in 0..headers.len() {
+            let mut current_row_max = 0;
+            for row in 0..values.len() {
+                if entries[row][head].len() > current_row_max {
+                    current_row_max = entries[row][head].len();
+                }
+            }
+            max_per_column.push(current_row_max);
+        }
+
+        let termwidth = textwrap::termwidth() - 5;
+
+        // Make sure we have enough space for the columns we have
+        let max_num_of_columns = termwidth / 7;
+
+        // If we have too many columns, truncate the table
+        if max_num_of_columns < headers.len() {
+            headers.truncate(max_num_of_columns);
+            for row in 0..entries.len() {
+                entries[row].truncate(max_num_of_columns);
+            }
+
+            headers.push("...".to_string());
+            for row in 0..entries.len() {
+                entries[row].push("...".to_string());
+            }
+        }
+
+        // Measure how big our columns need to be
+        let max_naive_column_width = termwidth / headers.len();
+
+        let mut num_overages = 0;
+        let mut underage_sum = 0;
+        for idx in 0..headers.len() {
+            if max_per_column[idx] > max_naive_column_width {
+                num_overages += 1;
+            } else {
+                underage_sum += max_per_column[idx];
+            }
+        }
+
+        // Wrap cells as needed
+        for head in 0..headers.len() {
+            if max_per_column[head] > max_naive_column_width {
+                let max_column_width = (termwidth - underage_sum) / num_overages;
+                //Account for the separator
+                let max_column_width = if max_column_width > 1 {
+                    max_column_width - 2
+                } else {
+                    max_column_width
+                };
+                headers[head] = fill(&headers[head], max_column_width);
+                for row in 0..entries.len() {
+                    entries[row][head] = fill(&entries[row][head], max_column_width);
+                }
+            }
+        }
+
         Some(TableView { headers, entries })
     }
 }
