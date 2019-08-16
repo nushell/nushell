@@ -54,7 +54,7 @@ impl TableView {
             };
 
             if values.len() > 1 {
-                row.insert(0, format!("{}", Color::Black.bold().paint(idx.to_string())));
+                row.insert(0, format!("{}", idx.to_string()));
             }
             entries.push(row);
         }
@@ -75,7 +75,7 @@ impl TableView {
             max_per_column.push(current_row_max);
         }
 
-        let termwidth = textwrap::termwidth() - 5;
+        let termwidth = textwrap::termwidth() - 9;
 
         // Make sure we have enough space for the columns we have
         let max_num_of_columns = termwidth / 7;
@@ -120,6 +120,14 @@ impl TableView {
                 for row in 0..entries.len() {
                     entries[row][head] = fill(&entries[row][head], max_column_width);
                 }
+            }
+        }
+
+        // Paint the number column, if it exists
+        if entries.len() > 1 {
+            for row in 0..entries.len() {
+                entries[row][0] =
+                    format!("{}", Color::Black.bold().paint(entries[row][0].to_string()));
             }
         }
 
