@@ -116,7 +116,6 @@ impl TableView {
                 } else {
                     max_column_width
                 };
-                println!("{}", max_column_width);
                 headers[head] = fill(&headers[head], max_column_width);
                 for row in 0..entries.len() {
                     entries[row][head] = fill(&entries[row][head], max_column_width);
