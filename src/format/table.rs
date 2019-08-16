@@ -72,13 +72,14 @@ impl TableView {
                     current_row_max = entries[row][head].len();
                 }
             }
-            max_per_column.push(current_row_max);
+            max_per_column.push(std::cmp::max(current_row_max, headers[head].len()));
         }
 
-        let termwidth = textwrap::termwidth() - 9;
+        // Different platforms want different amounts of buffer, not sure why
+        let termwidth = std::cmp::max(textwrap::termwidth(), 20);
 
         // Make sure we have enough space for the columns we have
-        let max_num_of_columns = termwidth / 7;
+        let max_num_of_columns = termwidth / 10;
 
         // If we have too many columns, truncate the table
         if max_num_of_columns < headers.len() {
@@ -93,29 +94,77 @@ impl TableView {
             }
         }
 
-        // Measure how big our columns need to be
-        let max_naive_column_width = termwidth / headers.len();
+        // Measure how big our columns need to be (accounting for separators also)
+        let max_naive_column_width = (termwidth - 3 * (headers.len() - 1)) / headers.len();
 
+        // Measure how much space we have once we subtract off the columns who are small enough
         let mut num_overages = 0;
         let mut underage_sum = 0;
+        let mut overage_separator_sum = 0;
         for idx in 0..headers.len() {
             if max_per_column[idx] > max_naive_column_width {
                 num_overages += 1;
+                if idx != (headers.len() - 1) {
+                    overage_separator_sum += 3;
+                }
+                if idx == 0 {
+                    overage_separator_sum += 1;
+                }
             } else {
                 underage_sum += max_per_column[idx];
+                // if column isn't last, add 3 for its separator
+                if idx != (headers.len() - 1) {
+                    underage_sum += 3;
+                }
+                if idx == 0 {
+                    underage_sum += 1;
+                }
             }
         }
+
+        // This gives us the max column width
+        let max_column_width = if num_overages > 0 {
+            (termwidth - 1 - underage_sum - overage_separator_sum) / num_overages
+        } else {
+            99999
+        };
+
+        // This width isn't quite right, as we're rounding off some of our space
+        num_overages = 0;
+        overage_separator_sum = 0;
+        for idx in 0..headers.len() {
+            if max_per_column[idx] > max_naive_column_width {
+                if max_per_column[idx] <= max_column_width {
+                    underage_sum += max_per_column[idx];
+                    // if column isn't last, add 3 for its separator
+                    if idx != (headers.len() - 1) {
+                        underage_sum += 3;
+                    }
+                    if idx == 0 {
+                        underage_sum += 1;
+                    }
+                } else {
+                    // Column is still too large, so let's count it
+                    num_overages += 1;
+                    if idx != (headers.len() - 1) {
+                        overage_separator_sum += 3;
+                    }
+                    if idx == 0 {
+                        overage_separator_sum += 1;
+                    }
+                }
+            }
+        }
+        // This should give us the final max column width
+        let max_column_width = if num_overages > 0 {
+            (termwidth - 1 - underage_sum - overage_separator_sum) / num_overages
+        } else {
+            99999
+        };
 
         // Wrap cells as needed
         for head in 0..headers.len() {
             if max_per_column[head] > max_naive_column_width {
-                let max_column_width = (termwidth - underage_sum) / num_overages;
-                //Account for the separator
-                let max_column_width = if max_column_width > 1 {
-                    max_column_width - 2
-                } else {
-                    max_column_width
-                };
                 headers[head] = fill(&headers[head], max_column_width);
                 for row in 0..entries.len() {
                     entries[row][head] = fill(&entries[row][head], max_column_width);
