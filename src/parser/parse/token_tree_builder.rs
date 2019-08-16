@@ -152,6 +152,13 @@ impl TokenTreeBuilder {
         ))
     }
 
+    pub fn spanned_external(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Token(Tagged::from_simple_spanned_item(
+            RawToken::External(input.into()),
+            span.into(),
+        ))
+    }
+
     pub fn int(input: impl Into<i64>) -> CurriedToken {
         let int = input.into();
 

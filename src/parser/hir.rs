@@ -1,10 +1,10 @@
 crate mod baseline_parse;
 crate mod baseline_parse_tokens;
 crate mod binary;
+crate mod external_command;
 crate mod named;
 crate mod path;
 
-use crate::evaluate::Scope;
 use crate::parser::{registry, Unit};
 use crate::prelude::*;
 use derive_new::new;
@@ -12,11 +12,14 @@ use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-crate use baseline_parse::{baseline_parse_single_token, baseline_parse_token_as_string};
-crate use baseline_parse_tokens::{baseline_parse_next_expr, SyntaxType, TokensIterator};
-crate use binary::Binary;
-crate use named::NamedArguments;
-crate use path::Path;
+use crate::evaluate::Scope;
+
+crate use self::baseline_parse::{baseline_parse_single_token, baseline_parse_token_as_string};
+crate use self::baseline_parse_tokens::{baseline_parse_next_expr, SyntaxType, TokensIterator};
+crate use self::binary::Binary;
+crate use self::external_command::ExternalCommand;
+crate use self::named::NamedArguments;
+crate use self::path::Path;
 
 pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -> Path {
     Path::new(
@@ -78,6 +81,7 @@ pub enum RawExpression {
     Block(Vec<Expression>),
     List(Vec<Expression>),
     Path(Box<Path>),
+    ExternalCommand(ExternalCommand),
 
     #[allow(unused)]
     Boolean(bool),
@@ -107,6 +111,7 @@ impl RawExpression {
             RawExpression::Block(..) => "block",
             RawExpression::Path(..) => "path",
             RawExpression::Boolean(..) => "boolean",
+            RawExpression::ExternalCommand(..) => "external",
         }
     }
 }
@@ -147,6 +152,13 @@ impl Expression {
         )
     }
 
+    crate fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(
+            RawExpression::ExternalCommand(ExternalCommand::new(inner.into())),
+            outer.into(),
+        )
+    }
+
     crate fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::It(inner.into())),
@@ -163,6 +175,7 @@ impl ToDebug for Expression {
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
             RawExpression::Binary(b) => write!(f, "{}", b.debug(source)),
+            RawExpression::ExternalCommand(c) => write!(f, "^{}", c.name().slice(source)),
             RawExpression::Block(exprs) => {
                 write!(f, "{{ ")?;
 

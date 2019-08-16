@@ -77,6 +77,20 @@ impl ShellError {
         .start()
     }
 
+    crate fn syntax_error(problem: Tagged<impl Into<String>>) -> ShellError {
+        ProximateShellError::SyntaxError {
+            problem: problem.map(|p| p.into()),
+        }
+        .start()
+    }
+
+    crate fn invalid_command(problem: impl Into<Tag>) -> ShellError {
+        ProximateShellError::InvalidCommand {
+            command: problem.into(),
+        }
+        .start()
+    }
+
     crate fn coerce_error(
         left: Tagged<impl Into<String>>,
         right: Tagged<impl Into<String>>,
@@ -129,6 +143,10 @@ impl ShellError {
         match self.error {
             ProximateShellError::String(StringError { title, .. }) => {
                 Diagnostic::new(Severity::Error, title)
+            }
+            ProximateShellError::InvalidCommand { command } => {
+                Diagnostic::new(Severity::Error, "Invalid command")
+                    .with_label(Label::new_primary(command.span))
             }
             ProximateShellError::ArgumentError {
                 command,
@@ -187,6 +205,15 @@ impl ShellError {
                     },
             } => Diagnostic::new(Severity::Error, "Type Error")
                 .with_label(Label::new_primary(span).with_message(expected)),
+
+            ProximateShellError::SyntaxError {
+                problem:
+                    Tagged {
+                        tag: Tag { span, .. },
+                        ..
+                    },
+            } => Diagnostic::new(Severity::Error, "Syntax Error")
+                .with_label(Label::new_primary(span).with_message("Unexpected external command")),
 
             ProximateShellError::MissingProperty { subpath, expr } => {
                 let subpath = subpath.into_label();
@@ -258,6 +285,12 @@ impl ShellError {
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ProximateShellError {
     String(StringError),
+    SyntaxError {
+        problem: Tagged<String>,
+    },
+    InvalidCommand {
+        command: Tag,
+    },
     TypeError {
         expected: String,
         actual: Tagged<Option<String>>,
@@ -339,7 +372,9 @@ impl std::fmt::Display for ShellError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &self.error {
             ProximateShellError::String(s) => write!(f, "{}", &s.title),
+            ProximateShellError::InvalidCommand { .. } => write!(f, "InvalidCommand"),
             ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
+            ProximateShellError::SyntaxError { .. } => write!(f, "SyntaxError"),
             ProximateShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
             ProximateShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
             ProximateShellError::Diagnostic(_) => write!(f, "<diagnostic>"),

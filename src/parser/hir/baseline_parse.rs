@@ -10,6 +10,7 @@ pub fn baseline_parse_single_token(token: &Token, source: &Text) -> hir::Express
             hir::Expression::it_variable(span, token.span())
         }
         RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
+        RawToken::External(span) => hir::Expression::external_command(span, token.span()),
         RawToken::Bare => hir::Expression::bare(token.span()),
     }
 }
@@ -19,6 +20,7 @@ pub fn baseline_parse_token_as_string(token: &Token, source: &Text) -> hir::Expr
         RawToken::Variable(span) if span.slice(source) == "it" => {
             hir::Expression::it_variable(span, token.span())
         }
+        RawToken::External(span) => hir::Expression::external_command(span, token.span()),
         RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
         RawToken::Integer(_) => hir::Expression::bare(token.span()),
         RawToken::Size(_, _) => hir::Expression::bare(token.span()),

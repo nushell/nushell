@@ -11,7 +11,7 @@ crate use crate::errors::ShellError;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::registry::Signature;
-use crate::parser::{hir, Pipeline, PipelineElement, TokenNode};
+use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
 
 use log::{debug, trace};
@@ -158,7 +158,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             command("cd", Box::new(cd::cd)),
             command("size", Box::new(size::size)),
             command("from-yaml", Box::new(from_yaml::from_yaml)),
-            //command("enter", Box::new(enter::enter)),
             command("nth", Box::new(nth::nth)),
             command("n", Box::new(next::next)),
             command("p", Box::new(prev::prev)),
@@ -201,7 +200,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
-    //let h = crate::shell::Helper::new(context.clone_commands());
     let mut rl: Editor<_> = Editor::with_config(config);
 
     #[cfg(windows)]
@@ -209,7 +207,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let _ = ansi_term::enable_ansi_support();
     }
 
-    //rl.set_helper(Some(h));
     let _ = rl.load_history("history.txt");
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
@@ -477,11 +474,21 @@ fn classify_command(
     let call = command.call();
 
     match call {
+        // If the command starts with `^`, treat it as an external command no matter what
+        call if call.head().is_external() => {
+            let name_span = call.head().expect_external();
+            let name = name_span.slice(source);
+
+            Ok(external_command(call, source, name.tagged(name_span)))
+        }
+
+        // Otherwise, if the command is a bare word, we'll need to triage it
         call if call.head().is_bare() => {
             let head = call.head();
             let name = head.source(source);
 
             match context.has_command(name) {
+                // if the command is in the registry, it's an internal command
                 true => {
                     let command = context.get_command(name);
                     let config = command.signature();
@@ -496,37 +503,45 @@ fn classify_command(
                         args,
                     }))
                 }
-                false => {
-                    let arg_list_strings: Vec<Tagged<String>> = match call.children() {
-                        //Some(args) => args.iter().map(|i| i.as_external_arg(source)).collect(),
-                        Some(args) => args
-                            .iter()
-                            .filter_map(|i| match i {
-                                TokenNode::Whitespace(_) => None,
-                                other => Some(Tagged::from_simple_spanned_item(
-                                    other.as_external_arg(source),
-                                    other.span(),
-                                )),
-                            })
-                            .collect(),
-                        None => vec![],
-                    };
 
-                    Ok(ClassifiedCommand::External(ExternalCommand {
-                        name: name.to_string(),
-                        name_span: head.span().clone(),
-                        args: arg_list_strings,
-                    }))
-                }
+                // otherwise, it's an external command
+                false => Ok(external_command(call, source, name.tagged(head.span()))),
             }
         }
 
-        call => Err(ShellError::diagnostic(
-            language_reporting::Diagnostic::new(
-                language_reporting::Severity::Error,
-                "Invalid command",
-            )
-            .with_label(language_reporting::Label::new_primary(call.head().span())),
-        )),
+        // If the command is something else (like a number or a variable), that is currently unsupported.
+        // We might support `$somevar` as a curried command in the future.
+        call => Err(ShellError::invalid_command(call.head().span())),
     }
+}
+
+// Classify this command as an external command, which doesn't give special meaning
+// to nu syntactic constructs, and passes all arguments to the external command as
+// strings.
+fn external_command(
+    call: &Tagged<CallNode>,
+    source: &Text,
+    name: Tagged<&str>,
+) -> ClassifiedCommand {
+    let arg_list_strings: Vec<Tagged<String>> = match call.children() {
+        Some(args) => args
+            .iter()
+            .filter_map(|i| match i {
+                TokenNode::Whitespace(_) => None,
+                other => Some(Tagged::from_simple_spanned_item(
+                    other.as_external_arg(source),
+                    other.span(),
+                )),
+            })
+            .collect(),
+        None => vec![],
+    };
+
+    let (name, tag) = name.into_parts();
+
+    ClassifiedCommand::External(ExternalCommand {
+        name: name.to_string(),
+        name_span: tag.span,
+        args: arg_list_strings,
+    })
 }
