@@ -5,7 +5,6 @@ use crate::object::TaggedDictBuilder;
 use crate::parser::{hir, Operator};
 use crate::prelude::*;
 use crate::Text;
-use ansi_term::Color;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
@@ -87,15 +86,15 @@ impl Primitive {
 
     pub fn format(&self, field_name: Option<&String>) -> String {
         match self {
-            Primitive::Nothing => format!("{}", Color::Black.bold().paint("-")),
-            Primitive::BeginningOfStream => format!("{}", Color::Black.bold().paint("-")),
-            Primitive::EndOfStream => format!("{}", Color::Black.bold().paint("-")),
+            Primitive::Nothing => String::new(),
+            Primitive::BeginningOfStream => String::new(),
+            Primitive::EndOfStream => String::new(),
             Primitive::Path(p) => format!("{}", p.display()),
             Primitive::Bytes(b) => {
                 let byte = byte_unit::Byte::from_bytes(*b as u128);
 
                 if byte.get_bytes() == 0u128 {
-                    return Color::Black.bold().paint("Empty".to_string()).to_string();
+                    return "<empty>".to_string();
                 }
 
                 let byte = byte.get_appropriate_unit(false);
