@@ -84,6 +84,8 @@ onig_sys = "=69.1.0"
 heim = {git = "https://github.com/heim-rs/heim.git"}
 which = "2.0.1"
 battery = "0.7.4"
+textwrap = {version = "0.11.0", features = ["term_size"]}
+unicode-width = "0.1.5"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
