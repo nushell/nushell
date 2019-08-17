@@ -142,6 +142,17 @@ pub struct EvaluatedArgs {
     pub named: Option<IndexMap<String, Tagged<Value>>>,
 }
 
+impl EvaluatedArgs {
+    pub fn slice_from(&self, from: usize) -> Vec<Tagged<Value>> {
+        let positional = &self.positional;
+
+        match positional {
+            None => vec![],
+            Some(list) => list[from..].to_vec(),
+        }
+    }
+}
+
 #[derive(new)]
 pub struct DebugEvaluatedPositional<'a> {
     positional: &'a Option<Vec<Tagged<Value>>>,

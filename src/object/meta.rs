@@ -197,6 +197,18 @@ impl From<&Span> for Tag {
     }
 }
 
+impl From<Tag> for Span {
+    fn from(tag: Tag) -> Self {
+        tag.span
+    }
+}
+
+impl From<&Tag> for Span {
+    fn from(tag: &Tag) -> Self {
+        tag.span
+    }
+}
+
 impl Tag {
     pub fn unknown_origin(span: Span) -> Tag {
         Tag { origin: None, span }

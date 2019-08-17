@@ -3,7 +3,7 @@ use crate::context::SourceMap;
 use crate::errors::ShellError;
 use crate::stream::OutputStream;
 
-pub trait Shell {
+pub trait Shell: std::fmt::Debug {
     fn name(&self, source_map: &SourceMap) -> String;
     fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;

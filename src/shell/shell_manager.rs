@@ -7,7 +7,7 @@ use crate::stream::OutputStream;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ShellManager {
     crate shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
 }

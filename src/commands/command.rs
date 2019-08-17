@@ -77,6 +77,25 @@ pub struct CallInfo {
     pub name_span: Span,
 }
 
+impl CallInfo {
+    pub fn process<'de, T: Deserialize<'de>>(
+        &self,
+        shell_manager: &ShellManager,
+        callback: fn(T, &RunnablePerItemContext) -> Result<VecDeque<ReturnValue>, ShellError>,
+    ) -> Result<RunnablePerItemArgs<T>, ShellError> {
+        let mut deserializer = ConfigDeserializer::from_call_info(self.clone());
+
+        Ok(RunnablePerItemArgs {
+            args: T::deserialize(&mut deserializer)?,
+            context: RunnablePerItemContext {
+                shell_manager: shell_manager.clone(),
+                name: self.name_span,
+            },
+            callback,
+        })
+    }
+}
+
 #[derive(Getters)]
 #[get = "crate"]
 pub struct CommandArgs {
@@ -147,7 +166,7 @@ impl CommandArgs {
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
         let name_span = args.call_info.name_span;
-        let mut deserializer = ConfigDeserializer::from_call_node(args);
+        let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
 
         Ok(RunnableArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -180,7 +199,7 @@ impl CommandArgs {
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
         let name_span = args.call_info.name_span;
-        let mut deserializer = ConfigDeserializer::from_call_node(args);
+        let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
 
         Ok(RunnableRawArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -195,6 +214,17 @@ impl CommandArgs {
             raw_args,
             callback,
         })
+    }
+}
+
+pub struct RunnablePerItemContext {
+    pub shell_manager: ShellManager,
+    pub name: Span,
+}
+
+impl RunnablePerItemContext {
+    pub fn cwd(&self) -> PathBuf {
+        PathBuf::from(self.shell_manager.path())
     }
 }
 
@@ -219,6 +249,18 @@ impl RunnableContext {
     }
 }
 
+pub struct RunnablePerItemArgs<T> {
+    args: T,
+    context: RunnablePerItemContext,
+    callback: fn(T, &RunnablePerItemContext) -> Result<VecDeque<ReturnValue>, ShellError>,
+}
+
+impl<T> RunnablePerItemArgs<T> {
+    pub fn run(self) -> Result<VecDeque<ReturnValue>, ShellError> {
+        (self.callback)(self.args, &self.context)
+    }
+}
+
 pub struct RunnableArgs<T> {
     args: T,
     context: RunnableContext,
@@ -239,8 +281,11 @@ pub struct RunnableRawArgs<T> {
 }
 
 impl<T> RunnableRawArgs<T> {
-    pub fn run(self) -> Result<OutputStream, ShellError> {
-        (self.callback)(self.args, self.context, self.raw_args)
+    pub fn run(self) -> OutputStream {
+        match (self.callback)(self.args, self.context, self.raw_args) {
+            Ok(stream) => stream,
+            Err(err) => OutputStream::one(Err(err)),
+        }
     }
 }
 
@@ -475,13 +520,12 @@ impl Command {
         }
     }
 
-    pub async fn run(
-        &self,
-        args: CommandArgs,
-        registry: &registry::CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    pub fn run(&self, args: CommandArgs, registry: &registry::CommandRegistry) -> OutputStream {
         match self {
-            Command::WholeStream(command) => command.run(args, registry),
+            Command::WholeStream(command) => match command.run(args, registry) {
+                Ok(stream) => stream,
+                Err(err) => OutputStream::one(Err(err)),
+            },
             Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
         }
     }
@@ -491,7 +535,7 @@ impl Command {
         command: Arc<dyn PerItemCommand>,
         args: CommandArgs,
         registry: CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> OutputStream {
         let raw_args = RawCommandArgs {
             host: args.host,
             shell_manager: args.shell_manager,
@@ -515,7 +559,7 @@ impl Command {
                 })
                 .flatten();
 
-            Ok(out.to_output_stream())
+            out.to_output_stream()
         } else {
             let nothing = Value::nothing().tagged(Tag::unknown());
             let call_info = raw_args
@@ -524,11 +568,15 @@ impl Command {
                 .evaluate(&registry, &Scope::it_value(nothing.clone()))
                 .unwrap();
             // We don't have an $it or block, so just execute what we have
-            let out = match command.run(&call_info, &registry, &raw_args.shell_manager, nothing) {
-                Ok(o) => o,
-                Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]),
-            };
-            Ok(out.to_output_stream())
+
+            command
+                .run(&call_info, &registry, &raw_args.shell_manager, nothing)?
+                .into()
+            // let out = match command.run(&call_info, &registry, &raw_args.shell_manager, nothing) {
+            //     Ok(o) => o,
+            //     Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]),
+            // };
+            // Ok(out.to_output_stream())
         }
     }
 }

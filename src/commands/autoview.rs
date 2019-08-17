@@ -17,7 +17,7 @@ impl WholeStreamCommand for Autoview {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process_raw(registry, autoview)?.run()
+        Ok(args.process_raw(registry, autoview)?.run())
     }
 
     fn signature(&self) -> Signature {
@@ -40,28 +40,20 @@ pub fn autoview(
             } = input[0usize]
             {
                 let binary = context.expect_command("binaryview");
-                let result = binary.run(raw.with_input(input), &context.commands).await.unwrap();
+                let result = binary.run(raw.with_input(input), &context.commands);
                 result.collect::<Vec<_>>().await;
             } else if is_single_text_value(&input) {
                 let text = context.expect_command("textview");
-                let result = text.run(raw.with_input(input), &context.commands).await.unwrap();
+                let result = text.run(raw.with_input(input), &context.commands);
                 result.collect::<Vec<_>>().await;
             } else if equal_shapes(&input) {
                 let table = context.expect_command("table");
-                let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
+                let result = table.run(raw.with_input(input), &context.commands);
                 result.collect::<Vec<_>>().await;
             } else {
                 let table = context.expect_command("table");
-                let result = table.run(raw.with_input(input), &context.commands).await.unwrap();
+                let result = table.run(raw.with_input(input), &context.commands);
                 result.collect::<Vec<_>>().await;
-                //println!("TODO!")
-                // TODO
-                // let mut host = context.host.lock().unwrap();
-                // for i in input.iter() {
-                //     let view = GenericView::new(&i);
-                //     handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
-                //     host.stdout("");
-                // }
             }
         }
     }))

@@ -75,6 +75,29 @@ impl OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
         }
     }
+
+    pub fn drain_vec(&mut self) -> impl Future<Output = Vec<ReturnValue>> {
+        let mut values: BoxStream<'static, ReturnValue> = VecDeque::new().boxed();
+        std::mem::swap(&mut values, &mut self.values);
+
+        values.collect()
+    }
+}
+
+impl std::ops::Try for OutputStream {
+    type Ok = OutputStream;
+    type Error = ShellError;
+    fn into_result(self) -> Result<Self::Ok, Self::Error> {
+        Ok(self)
+    }
+
+    fn from_error(v: Self::Error) -> Self {
+        OutputStream::one(Err(v))
+    }
+
+    fn from_ok(v: Self::Ok) -> Self {
+        v
+    }
 }
 
 impl Stream for OutputStream {

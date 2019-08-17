@@ -52,9 +52,9 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let mut reader = BufReader::new(stdout);
 
     let request = JsonRpc::new("config", Vec::<Value>::new());
-    let request_raw = serde_json::to_string(&request).unwrap();
+    let request_raw = serde_json::to_string(&request)?;
     stdin.write(format!("{}\n", request_raw).as_bytes())?;
-    let path = dunce::canonicalize(path).unwrap();
+    let path = dunce::canonicalize(path)?;
 
     let mut input = String::new();
     match reader.read_line(&mut input) {
@@ -90,13 +90,13 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 }
 
 fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
-    let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$").unwrap();
-    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$").unwrap();
+    let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$")?;
+    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$")?;
 
     match std::fs::read_dir(path) {
         Ok(p) => {
             for entry in p {
-                let entry = entry.unwrap();
+                let entry = entry?;
                 let filename = entry.file_name();
                 let f_name = filename.to_string_lossy();
                 if re_bin.is_match(&f_name) || re_exe.is_match(&f_name) {
@@ -270,8 +270,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     &files,
                     &diag,
                     &language_reporting::DefaultConfig,
-                )
-                .unwrap();
+                )?;
             }
 
             LineResult::Break => {
@@ -288,7 +287,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         }
         ctrlcbreak = false;
     }
-    rl.save_history("history.txt").unwrap();
+    rl.save_history("history.txt")?;
 
     Ok(())
 }

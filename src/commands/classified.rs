@@ -117,16 +117,14 @@ impl InternalCommand {
         let objects: InputStream =
             trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
-        let result = context
-            .run_command(
-                self.command,
-                self.name_span.clone(),
-                context.source_map.clone(),
-                self.args,
-                source,
-                objects,
-            )
-            .await?;
+        let result = context.run_command(
+            self.command,
+            self.name_span.clone(),
+            context.source_map.clone(),
+            self.args,
+            source,
+            objects,
+        );
 
         let mut result = result.values;
 
@@ -285,7 +283,7 @@ impl ExternalCommand {
                             continue;
                         }
 
-                        process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
+                        process = process.arg(&arg.replace("$it", &i.as_string()?));
                     }
                 }
             } else {

@@ -1,3 +1,4 @@
+use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandRegistry, Signature};
@@ -7,15 +8,22 @@ use std::path::PathBuf;
 
 pub struct Cpy;
 
+#[derive(Deserialize)]
+pub struct CopyArgs {
+    source: Tagged<PathBuf>,
+    destination: Tagged<PathBuf>,
+    recursive: Tagged<bool>,
+}
+
 impl PerItemCommand for Cpy {
     fn run(
         &self,
         call_info: &CallInfo,
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
-        _input: Tagged<Value>,
+        input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        cp(call_info, shell_manager)
+        call_info.process(shell_manager, cp)?.run()
     }
 
     fn name(&self) -> &str {
@@ -24,42 +32,24 @@ impl PerItemCommand for Cpy {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
+            .required("source", SyntaxType::Path)
+            .required("destination", SyntaxType::Path)
             .named("file", SyntaxType::Any)
             .switch("recursive")
     }
 }
 
 pub fn cp(
-    call_info: &CallInfo,
-    shell_manager: &ShellManager,
+    args: CopyArgs,
+    context: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut source = PathBuf::from(shell_manager.path());
-    let mut destination = PathBuf::from(shell_manager.path());
-    let name_span = call_info.name_span;
+    let mut source = PathBuf::from(context.shell_manager.path());
+    let mut destination = PathBuf::from(context.shell_manager.path());
+    let name_span = context.name;
 
-    match call_info
-        .args
-        .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-        .as_string()?
-        .as_str()
-    {
-        file => {
-            source.push(file);
-        }
-    }
+    source.push(&args.source.item);
 
-    match call_info
-        .args
-        .nth(1)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-        .as_string()?
-        .as_str()
-    {
-        file => {
-            destination.push(file);
-        }
-    }
+    destination.push(&args.destination.item);
 
     let sources = glob::glob(&source.to_string_lossy());
 
@@ -67,7 +57,7 @@ pub fn cp(
         return Err(ShellError::labeled_error(
             "Invalid pattern.",
             "Invalid pattern.",
-            call_info.args.nth(0).unwrap().span(),
+            args.source.tag,
         ));
     }
 
@@ -75,11 +65,11 @@ pub fn cp(
 
     if sources.len() == 1 {
         if let Ok(entry) = &sources[0] {
-            if entry.is_dir() && !call_info.args.has("recursive") {
+            if entry.is_dir() && !args.recursive.item {
                 return Err(ShellError::labeled_error(
                     "is a directory (not copied). Try using \"--recursive\".",
                     "is a directory (not copied). Try using \"--recursive\".",
-                    call_info.args.nth(0).unwrap().span(),
+                    args.source.tag,
                 ));
             }
 
@@ -248,7 +238,7 @@ pub fn cp(
                 return Err(ShellError::labeled_error(
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
-                    call_info.args.nth(0).unwrap().span(),
+                    args.source.tag,
                 ));
             }
 
@@ -263,7 +253,7 @@ pub fn cp(
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    call_info.args.nth(0).unwrap().span(),
+                                    args.source.tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -281,7 +271,7 @@ pub fn cp(
                     "Copy aborted. (Does {:?} exist?)",
                     &destination.file_name().unwrap()
                 ),
-                call_info.args.nth(1).unwrap().span(),
+                args.destination.span(),
             ));
         }
     }
