@@ -106,6 +106,14 @@ impl ShellError {
         ProximateShellError::MissingProperty { subpath, expr }.start()
     }
 
+    crate fn missing_value(span: Option<Span>, reason: impl Into<String>) -> ShellError {
+        ProximateShellError::MissingValue {
+            span,
+            reason: reason.into(),
+        }
+        .start()
+    }
+
     crate fn argument_error(
         command: impl Into<String>,
         kind: ArgumentError,
@@ -147,6 +155,18 @@ impl ShellError {
             ProximateShellError::InvalidCommand { command } => {
                 Diagnostic::new(Severity::Error, "Invalid command")
                     .with_label(Label::new_primary(command.span))
+            }
+            ProximateShellError::MissingValue { span, reason } => {
+                let mut d = Diagnostic::new(
+                    Severity::Bug,
+                    format!("Internal Error (missing value) :: {}", reason),
+                );
+
+                if let Some(span) = span {
+                    d = d.with_label(Label::new_primary(span));
+                }
+
+                d
             }
             ProximateShellError::ArgumentError {
                 command,
@@ -245,11 +265,11 @@ impl ShellError {
     pub fn labeled_error(
         msg: impl Into<String>,
         label: impl Into<String>,
-        span: Span,
+        span: impl Into<Span>,
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::new(Severity::Error, msg.into())
-                .with_label(Label::new_primary(span).with_message(label.into())),
+                .with_label(Label::new_primary(span.into()).with_message(label.into())),
         )
     }
 
@@ -298,6 +318,10 @@ pub enum ProximateShellError {
     MissingProperty {
         subpath: Description,
         expr: Description,
+    },
+    MissingValue {
+        span: Option<Span>,
+        reason: String,
     },
     ArgumentError {
         command: String,
@@ -372,6 +396,7 @@ impl std::fmt::Display for ShellError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &self.error {
             ProximateShellError::String(s) => write!(f, "{}", &s.title),
+            ProximateShellError::MissingValue { .. } => write!(f, "MissingValue"),
             ProximateShellError::InvalidCommand { .. } => write!(f, "InvalidCommand"),
             ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
             ProximateShellError::SyntaxError { .. } => write!(f, "SyntaxError"),
@@ -412,5 +437,38 @@ impl std::convert::From<toml::ser::Error> for ShellError {
             error: Value::nothing(),
         })
         .start()
+    }
+}
+
+impl std::convert::From<serde_json::Error> for ShellError {
+    fn from(input: serde_json::Error) -> ShellError {
+        ProximateShellError::String(StringError {
+            title: format!("{:?}", input),
+            error: Value::nothing(),
+        })
+        .start()
+    }
+}
+
+impl std::convert::From<regex::Error> for ShellError {
+    fn from(input: regex::Error) -> ShellError {
+        ProximateShellError::String(StringError {
+            title: format!("{:?}", input),
+            error: Value::nothing(),
+        })
+        .start()
+    }
+}
+
+pub trait ShellErrorUtils<T> {
+    fn unwrap_error(self, desc: impl Into<String>) -> Result<T, ShellError>;
+}
+
+impl<T> ShellErrorUtils<Tagged<T>> for Option<Tagged<T>> {
+    fn unwrap_error(self, desc: impl Into<String>) -> Result<Tagged<T>, ShellError> {
+        match self {
+            Some(value) => Ok(value),
+            None => Err(ShellError::missing_value(None, desc.into())),
+        }
     }
 }

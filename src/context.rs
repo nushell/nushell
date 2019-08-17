@@ -115,7 +115,7 @@ impl Context {
         self.registry.get_command(name).unwrap()
     }
 
-    crate async fn run_command<'a>(
+    crate fn run_command<'a>(
         &mut self,
         command: Arc<Command>,
         name_span: Span,
@@ -123,9 +123,9 @@ impl Context {
         args: hir::Call,
         source: Text,
         input: InputStream,
-    ) -> Result<OutputStream, ShellError> {
+    ) -> OutputStream {
         let command_args = self.command_args(args, input, source, source_map, name_span);
-        command.run(command_args, self.registry()).await
+        command.run(command_args, self.registry())
     }
 
     fn call_info(

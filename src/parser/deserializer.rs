@@ -1,4 +1,5 @@
 use crate::commands::command::EvaluatedCommandArgs;
+use crate::parser::registry::EvaluatedArgs;
 use crate::prelude::*;
 use log::trace;
 use serde::{de, forward_to_deserialize_any};
@@ -11,16 +12,16 @@ pub struct DeserializerItem<'de> {
 }
 
 pub struct ConfigDeserializer<'de> {
-    args: EvaluatedCommandArgs,
+    call: CallInfo,
     stack: Vec<DeserializerItem<'de>>,
     saw_root: bool,
     position: usize,
 }
 
 impl ConfigDeserializer<'de> {
-    pub fn from_call_node(args: EvaluatedCommandArgs) -> ConfigDeserializer<'de> {
+    pub fn from_call_info(call: CallInfo) -> ConfigDeserializer<'de> {
         ConfigDeserializer {
-            args,
+            call,
             stack: vec![],
             saw_root: false,
             position: 0,
@@ -29,16 +30,16 @@ impl ConfigDeserializer<'de> {
 
     pub fn push(&mut self, name: &'static str) -> Result<(), ShellError> {
         let value: Option<Tagged<Value>> = if name == "rest" {
-            let positional = self.args.slice_from(self.position);
+            let positional = self.call.args.slice_from(self.position);
             self.position += positional.len();
             Some(Value::List(positional).tagged_unknown()) // TODO: correct span
         } else {
-            if self.args.has(name) {
-                self.args.get(name).map(|x| x.clone())
+            if self.call.args.has(name) {
+                self.call.args.get(name).map(|x| x.clone())
             } else {
                 let position = self.position;
                 self.position += 1;
-                self.args.nth(position).map(|x| x.clone())
+                self.call.args.nth(position).map(|x| x.clone())
             }
         };
 
@@ -48,7 +49,7 @@ impl ConfigDeserializer<'de> {
             key: name.to_string(),
             struct_field: name,
             val: value.unwrap_or_else(|| {
-                Value::nothing().tagged(Tag::unknown_origin(self.args.call_info.name_span))
+                Value::nothing().tagged(Tag::unknown_origin(self.call.name_span))
             }),
         });
 

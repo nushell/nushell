@@ -5,7 +5,7 @@ use crate::shell::shell::Shell;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ValueShell {
     crate path: String,
     crate value: Tagged<Value>,

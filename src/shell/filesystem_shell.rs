@@ -7,10 +7,17 @@ use crate::shell::shell::Shell;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
+
 pub struct FilesystemShell {
     crate path: String,
     completer: NuCompleter,
     hinter: HistoryHinter,
+}
+
+impl std::fmt::Debug for FilesystemShell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "FilesystemShell @ {}", self.path)
+    }
 }
 
 impl Clone for FilesystemShell {
