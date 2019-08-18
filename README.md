@@ -10,6 +10,8 @@ This project is currently in its early stages, though it already works well enou
 
 Nu has a list of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
+There is also a [book](https://github.com/nushell/book) about Nu, currently in progress.
+
 # Philosophy
 
 Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back in a list of objects, where each object represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
