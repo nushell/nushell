@@ -194,6 +194,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Save),
             whole_stream_command(Table),
             whole_stream_command(VTable),
+            whole_stream_command(Version),
             whole_stream_command(Which),
         ]);
     }
