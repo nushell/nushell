@@ -41,7 +41,7 @@ crate use crate::context::CommandRegistry;
 crate use crate::context::{Context, SpanSource};
 crate use crate::env::host::handle_unexpected;
 crate use crate::env::Host;
-crate use crate::errors::{ShellError, ShellErrorUtils};
+crate use crate::errors::ShellError;
 crate use crate::object::base as value;
 crate use crate::object::meta::{Tag, Tagged, TaggedItem};
 crate use crate::object::types::ExtractType;
