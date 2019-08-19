@@ -151,7 +151,20 @@ impl Playground {
     }
 
     pub fn glob_vec(pattern: &str) -> Vec<PathBuf> {
-        glob(pattern).unwrap().map(|r| r.unwrap()).collect()
+        let glob = glob(pattern);
+
+        match glob {
+            Ok(paths) => paths
+                .map(|path| {
+                    if let Ok(path) = path {
+                        path
+                    } else {
+                        unreachable!()
+                    }
+                })
+                .collect(),
+            Err(_) => panic!("Invalid pattern."),
+        }
     }
 }
 
@@ -178,11 +191,10 @@ pub fn normalize_string(input: &str) -> String {
 pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let full_path = full_path.as_ref();
 
-    assert!(
-        full_path.parent().unwrap().is_dir(),
-        "{:?} exists",
-        full_path.parent().unwrap().display(),
-    );
+    if let Some(parent) = full_path.parent() {
+        panic!(format!("{:?} exists", parent.display()));
+    }
+
     std::fs::write(full_path, "fake data".as_bytes())
 }
 

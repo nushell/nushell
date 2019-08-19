@@ -36,19 +36,15 @@ impl Str {
         }
     }
 
-    fn apply(&self, input: &str) -> Value {
-        if self.action.is_none() {
-            return Value::string(input.to_string());
-        }
-
-        match self.action.as_ref().unwrap() {
-            Action::Downcase => Value::string(input.to_ascii_lowercase()),
-            Action::Upcase => Value::string(input.to_ascii_uppercase()),
-            Action::ToInteger => match input.trim().parse::<i64>() {
+    fn apply(&self, input: &str) -> Result<Value, ShellError> {
+        let applied = match self.action.as_ref() {
+            Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
+            Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
+            Some(Action::ToInteger) => match input.trim().parse::<i64>() {
                 Ok(v) => Value::int(v),
                 Err(_) => Value::string(input),
             },
-            Action::Replace(ref mode) => match mode {
+            Some(Action::Replace(ref mode)) => match mode {
                 ReplaceAction::Direct => Value::string(self.first_param()),
                 ReplaceAction::FindAndReplace => {
                     let regex = Regex::new(self.first_param());
@@ -59,7 +55,10 @@ impl Str {
                     }
                 }
             },
-        }
+            None => Value::string(input),
+        };
+
+        Ok(applied)
     }
 
     fn did_supply_field(&self) -> bool {
@@ -133,7 +132,7 @@ impl Str {
     fn strutils(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         match value.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s), value.tag()))
+                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
             }
             Value::Object(_) => match self.field {
                 Some(ref f) => {
@@ -431,21 +430,21 @@ mod tests {
     fn str_downcases() {
         let mut strutils = Str::new();
         strutils.for_downcase();
-        assert_eq!(strutils.apply("ANDRES"), Value::string("andres"));
+        assert_eq!(strutils.apply("ANDRES").unwrap(), Value::string("andres"));
     }
 
     #[test]
     fn str_upcases() {
         let mut strutils = Str::new();
         strutils.for_upcase();
-        assert_eq!(strutils.apply("andres"), Value::string("ANDRES"));
+        assert_eq!(strutils.apply("andres").unwrap(), Value::string("ANDRES"));
     }
 
     #[test]
     fn str_to_int() {
         let mut strutils = Str::new();
         strutils.for_to_int();
-        assert_eq!(strutils.apply("9999"), Value::int(9999 as i64));
+        assert_eq!(strutils.apply("9999").unwrap(), Value::int(9999 as i64));
     }
 
     #[test]
@@ -453,7 +452,7 @@ mod tests {
         let mut strutils = Str::new();
         strutils.for_replace(ReplaceAction::Direct);
         strutils.replace_with("robalino");
-        assert_eq!(strutils.apply("andres"), Value::string("robalino"));
+        assert_eq!(strutils.apply("andres").unwrap(), Value::string("robalino"));
     }
 
     #[test]
@@ -462,7 +461,10 @@ mod tests {
         strutils.for_replace(ReplaceAction::FindAndReplace);
         strutils.find_with(r"kittens");
         strutils.replace_with("jotandrehuda");
-        assert_eq!(strutils.apply("wykittens"), Value::string("wyjotandrehuda"));
+        assert_eq!(
+            strutils.apply("wykittens").unwrap(),
+            Value::string("wyjotandrehuda")
+        );
     }
 
     #[test]

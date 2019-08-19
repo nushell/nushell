@@ -1,3 +1,4 @@
+use crate::errors::ShellError;
 use std::ops::Div;
 use std::path::{Path, PathBuf};
 
@@ -71,7 +72,6 @@ impl<T: AsRef<str>> Div<T> for &RelativePath {
     }
 }
 
-
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Res {
     pub loc: PathBuf,
@@ -108,23 +108,25 @@ impl FileStructure {
             .collect()
     }
 
-    pub fn walk_decorate(&mut self, start_path: &Path) {
-        self.set_root(&dunce::canonicalize(start_path).unwrap());
+    pub fn walk_decorate(&mut self, start_path: &Path) -> Result<(), ShellError> {
+        self.set_root(&dunce::canonicalize(start_path)?);
         self.resources = Vec::<Res>::new();
-        self.build(start_path, 0);
+        self.build(start_path, 0)?;
         self.resources.sort();
+
+        Ok(())
     }
 
-    fn build(&mut self, src: &'a Path, lvl: usize) {
-        let source = dunce::canonicalize(src).unwrap();
+    fn build(&mut self, src: &'a Path, lvl: usize) -> Result<(), ShellError> {
+        let source = dunce::canonicalize(src)?;
 
         if source.is_dir() {
-            for entry in std::fs::read_dir(&source).unwrap() {
-                let entry = entry.unwrap();
+            for entry in std::fs::read_dir(&source)? {
+                let entry = entry?;
                 let path = entry.path();
 
                 if path.is_dir() {
-                    self.build(&path, lvl + 1);
+                    self.build(&path, lvl + 1)?;
                 }
 
                 self.resources.push(Res {
@@ -138,6 +140,8 @@ impl FileStructure {
                 at: lvl,
             });
         }
+
+        Ok(())
     }
 }
 
@@ -152,13 +156,18 @@ mod tests {
         sdx.push("tests");
         sdx.push("fixtures");
         sdx.push("formats");
-        dunce::canonicalize(sdx).unwrap()
+
+        match dunce::canonicalize(sdx) {
+            Ok(path) => path,
+            Err(_) => panic!("Wrong path."),
+        }
     }
 
     #[test]
     fn prepares_and_decorates_source_files_for_copying() {
         let mut res = FileStructure::new();
-        res.walk_decorate(fixtures().as_path());
+
+        res.walk_decorate(fixtures().as_path()).expect("Can not decorate files traversal.");
 
         assert_eq!(
             res.resources,
@@ -195,4 +204,3 @@ mod tests {
         );
     }
 }
-

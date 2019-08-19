@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Signature, Tagged, TaggedItem, Value,
+    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    Signature, Tagged, TaggedItem, Value,
 };
 
 enum Action {
@@ -30,16 +30,13 @@ impl Inc {
         }
     }
 
-    fn apply(&self, input: &str) -> Value {
-        match &self.action {
+    fn apply(&self, input: &str) -> Result<Value, ShellError> {
+        let applied = match &self.action {
             Some(Action::SemVerAction(act_on)) => {
-                let ver = semver::Version::parse(&input);
-
-                if ver.is_err() {
-                    return Value::string(input.to_string());
-                }
-
-                let mut ver = ver.unwrap();
+                let mut ver = match semver::Version::parse(&input) {
+                    Ok(parsed_ver) => parsed_ver,
+                    Err(_) => return Ok(Value::string(input.to_string())),
+                };
 
                 match act_on {
                     SemVerAction::Major => ver.increment_major(),
@@ -53,7 +50,9 @@ impl Inc {
                 Ok(v) => Value::string(format!("{}", v + 1)),
                 Err(_) => Value::string(input),
             },
-        }
+        };
+
+        Ok(applied)
     }
 
     fn for_semver(&mut self, part: SemVerAction) {
@@ -83,7 +82,7 @@ impl Inc {
                 Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
             }
             Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s), value.tag()))
+                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
             }
             Value::Object(_) => match self.field {
                 Some(ref f) => {
@@ -187,8 +186,8 @@ mod tests {
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged, TaggedDictBuilder,
-        TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged,
+        TaggedDictBuilder, TaggedItem, Value,
     };
 
     struct CallStub {
@@ -237,7 +236,7 @@ mod tests {
     fn inc_plugin_configuration_flags_wired() {
         let mut plugin = Inc::new();
 
-        let configured = plugin.config().unwrap();
+        let configured = plugin.config().expect("Can not configure plugin");
 
         for action_flag in &["major", "minor", "patch"] {
             assert!(configured.named.get(*action_flag).is_some());
@@ -304,21 +303,21 @@ mod tests {
     fn incs_major() {
         let mut inc = Inc::new();
         inc.for_semver(SemVerAction::Major);
-        assert_eq!(inc.apply("0.1.3"), Value::string("1.0.0"));
+        assert_eq!(inc.apply("0.1.3").unwrap(), Value::string("1.0.0"));
     }
 
     #[test]
     fn incs_minor() {
         let mut inc = Inc::new();
         inc.for_semver(SemVerAction::Minor);
-        assert_eq!(inc.apply("0.1.3"), Value::string("0.2.0"));
+        assert_eq!(inc.apply("0.1.3").unwrap(), Value::string("0.2.0"));
     }
 
     #[test]
     fn incs_patch() {
         let mut inc = Inc::new();
         inc.for_semver(SemVerAction::Patch);
-        assert_eq!(inc.apply("0.1.3"), Value::string("0.1.4"));
+        assert_eq!(inc.apply("0.1.3").unwrap(), Value::string("0.1.4"));
     }
 
     #[test]
