@@ -48,6 +48,7 @@ fn knows_the_filesystems_entered() {
             cd ..
             rm red_pill --recursive
             exit
+            n
             rm blue_pill --recursive
             exit
         "#
