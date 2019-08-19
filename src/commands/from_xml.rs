@@ -1,5 +1,26 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
+
+pub struct FromXML;
+
+impl WholeStreamCommand for FromXML {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_xml(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-xml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-xml")
+    }
+}
 
 fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
@@ -56,7 +77,7 @@ pub fn from_xml_string_to_value(
     Ok(from_document_to_value(&parsed, tag))
 }
 
-pub fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
     let out = args.input;

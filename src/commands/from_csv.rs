@@ -1,6 +1,27 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use csv::ReaderBuilder;
+
+pub struct FromCSV;
+
+impl WholeStreamCommand for FromCSV {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_csv(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-csv"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-csv")
+    }
+}
 
 pub fn from_csv_string_to_value(
     s: String,
@@ -45,7 +66,7 @@ pub fn from_csv_string_to_value(
     Ok(Tagged::from_item(Value::List(rows), tag))
 }
 
-pub fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
     let out = args.input;

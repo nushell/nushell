@@ -1,26 +1,39 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use log::trace;
 
-pub fn split_row(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub struct SplitRow;
+
+impl WholeStreamCommand for SplitRow {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        split_row(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "split-row"
+    }
+
+    fn signature(&self) -> Signature {
+        // TODO: Signature?
+        // TODO: Improve error. Old error had extra info:
+        //
+        //   needs parameter (e.g. split-row ",")
+        Signature::build("split-row").required("delimeter", SyntaxType::Any)
+    }
+}
+
+fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
-    let len = args.len();
     let (input, args) = args.parts();
 
     let positional: Vec<Tagged<Value>> = args.positional.iter().flatten().cloned().collect();
-
-    if len == 0 {
-        return Err(ShellError::labeled_error(
-            "Split-row needs more information",
-            "needs parameter (eg split-row \"\\n\")",
-            span,
-        ));
-    }
 
     let stream = input
         .values

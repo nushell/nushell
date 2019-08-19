@@ -1,17 +1,30 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::parser::CommandRegistry;
 use crate::prelude::*;
 
-pub fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+pub struct First;
 
-    if args.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "First requires an amount",
-            "needs parameter",
-            args.name_span(),
-        ));
+impl WholeStreamCommand for First {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        first(args, registry)
     }
+
+    fn name(&self) -> &str {
+        "first"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("first").required("amount", SyntaxType::Literal)
+    }
+}
+
+fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
 
     let amount = args.expect_nth(0)?.as_i64();
 

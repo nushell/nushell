@@ -1,6 +1,27 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
+
+pub struct FromYAML;
+
+impl WholeStreamCommand for FromYAML {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_yaml(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-yaml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-yaml")
+    }
+}
 
 fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
@@ -47,10 +68,7 @@ pub fn from_yaml_string_to_value(
     Ok(convert_yaml_value_to_nu_value(&v, tag))
 }
 
-pub fn from_yaml(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+fn from_yaml(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let span = args.name_span();
     let out = args.input;
 

@@ -1,5 +1,26 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
+
+pub struct ToYAML;
+
+impl WholeStreamCommand for ToYAML {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_yaml(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "to-yaml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to-yaml")
+    }
+}
 
 pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
     match v {
@@ -39,7 +60,7 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
     }
 }
 
-pub fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
     let out = args.input;

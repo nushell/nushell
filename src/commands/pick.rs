@@ -1,21 +1,32 @@
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::errors::ShellError;
 use crate::object::base::select_fields;
 use crate::prelude::*;
 
-pub fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let len = args.len();
-    let span = args.name_span();
-    let (input, args) = args.parts();
+pub struct Pick;
 
-    if len == 0 {
-        return Err(ShellError::labeled_error(
-            "Pick requires fields",
-            "needs parameter",
-            span,
-        ));
+impl WholeStreamCommand for Pick {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        pick(args, registry)
     }
+
+    fn name(&self) -> &str {
+        "pick"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("pick").required("fields", SyntaxType::Any)
+    }
+}
+
+fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let (input, args) = args.parts();
 
     let fields: Result<Vec<String>, _> = args
         .positional

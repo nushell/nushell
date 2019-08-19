@@ -1,10 +1,28 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn from_array(
-    args: CommandArgs,
-    _registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub struct FromArray;
+
+impl WholeStreamCommand for FromArray {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_array(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-array"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-array")
+    }
+}
+
+fn from_array(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let stream = args
         .input
         .values

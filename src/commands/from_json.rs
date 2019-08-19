@@ -1,6 +1,27 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
+
+pub struct FromJSON;
+
+impl WholeStreamCommand for FromJSON {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_json(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-json"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-json")
+    }
+}
 
 fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
@@ -43,10 +64,7 @@ pub fn from_json_string_to_value(
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-pub fn from_json(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
     let out = args.input;

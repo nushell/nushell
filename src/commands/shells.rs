@@ -1,8 +1,30 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::TaggedDictBuilder;
 use crate::prelude::*;
 
-pub fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub struct Shells;
+
+impl WholeStreamCommand for Shells {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        shells(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "shells"
+    }
+
+    fn signature(&self) -> Signature {
+        // TODO: Signature?
+        Signature::build("shells")
+    }
+}
+
+fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut shells_out = VecDeque::new();
     let span = args.call_info.name_span;
 

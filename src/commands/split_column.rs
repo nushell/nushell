@@ -1,25 +1,39 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
-pub fn split_column(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
+pub struct SplitColumn;
+
+impl WholeStreamCommand for SplitColumn {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        split_column(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "split-column"
+    }
+
+    fn signature(&self) -> Signature {
+        // TODO: Signature?
+        // TODO: Improve error. Old error had extra info:
+        //
+        //   needs parameter (e.g. split-column ",")
+        Signature::build("split-column").required("delimeter", SyntaxType::Any)
+    }
+}
+
+fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
     let (input, args) = args.parts();
 
     let positional: Vec<_> = args.positional.iter().flatten().cloned().collect();
-
-    if positional.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "Split-column needs more information",
-            "needs parameter (eg split-column \",\")",
-            span,
-        ));
-    }
 
     Ok(input
         .values

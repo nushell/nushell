@@ -1,5 +1,26 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
+
+pub struct ToJSON;
+
+impl WholeStreamCommand for ToJSON {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_json(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "to-json"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to-json")
+    }
+}
 
 pub fn value_to_json_value(v: &Value) -> serde_json::Value {
     match v {
@@ -41,7 +62,7 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
     }
 }
 
-pub fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
     let out = args.input;

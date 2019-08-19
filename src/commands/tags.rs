@@ -1,8 +1,29 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
-pub fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub struct Tags;
+
+impl WholeStreamCommand for Tags {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        tags(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "tags"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("tags")
+    }
+}
+
+fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let source_map = args.call_info.source_map.clone();
     Ok(args
         .input
