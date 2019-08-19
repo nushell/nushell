@@ -24,7 +24,7 @@ impl WholeStreamCommand for Date {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("mkdir").switch("utc").switch("local")
+        Signature::build("date").switch("utc").switch("local")
     }
 }
 
