@@ -140,19 +140,21 @@ impl InternalCommand {
                     }
                     CommandAction::Exit => std::process::exit(0),
                     CommandAction::EnterValueShell(value) => {
-                        context.shell_manager.push(Box::new(ValueShell::new(value)));
+                        context
+                            .shell_manager
+                            .insert_at_current(Box::new(ValueShell::new(value)));
                     }
                     CommandAction::EnterShell(location) => {
                         let path = std::path::Path::new(&location);
 
                         if path.is_dir() {
                             // If it's a directory, add a new filesystem shell
-                            context
-                                .shell_manager
-                                .push(Box::new(FilesystemShell::with_location(
+                            context.shell_manager.insert_at_current(Box::new(
+                                FilesystemShell::with_location(
                                     location,
                                     context.registry().clone(),
-                                )?));
+                                )?,
+                            ));
                         } else {
                             // If it's a file, attempt to open the file as a value and enter it
                             let cwd = context.shell_manager.path();
@@ -180,11 +182,13 @@ impl InternalCommand {
                                         Span::unknown(),
                                     )?;
 
-                                    context.shell_manager.push(Box::new(ValueShell::new(value)));
+                                    context
+                                        .shell_manager
+                                        .insert_at_current(Box::new(ValueShell::new(value)));
                                 }
-                                value => context
-                                    .shell_manager
-                                    .push(Box::new(ValueShell::new(value.tagged(contents_tag)))),
+                                value => context.shell_manager.insert_at_current(Box::new(
+                                    ValueShell::new(value.tagged(contents_tag)),
+                                )),
                             }
                         }
                     }
@@ -195,7 +199,7 @@ impl InternalCommand {
                         context.shell_manager.next();
                     }
                     CommandAction::LeaveShell => {
-                        context.shell_manager.pop();
+                        context.shell_manager.remove_at_current();
                         if context.shell_manager.is_empty() {
                             std::process::exit(0);
                         }

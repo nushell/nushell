@@ -45,9 +45,11 @@ fn knows_the_filesystems_entered() {
             n
             mv andres.nu ../expected/andres.nu
             exit
+            n
             cd ..
             rm red_pill --recursive
             exit
+            n
             rm blue_pill --recursive
             exit
         "#

@@ -23,19 +23,30 @@ impl ShellManager {
         })
     }
 
-    pub fn push(&mut self, shell: Box<dyn Shell + Send>) {
+    pub fn insert_at_current(&mut self, shell: Box<dyn Shell + Send>) {
         self.shells.lock().unwrap().push(shell);
         self.current_shell = self.shells.lock().unwrap().len() - 1;
         self.set_path(self.path());
     }
 
-    pub fn pop(&mut self) {
-        self.shells.lock().unwrap().pop();
-        let new_len = self.shells.lock().unwrap().len();
-        if new_len > 0 {
-            self.current_shell = new_len - 1;
-            self.set_path(self.path());
+    pub fn remove_at_current(&mut self) {
+        {
+            let mut shells = self.shells.lock().unwrap();
+            if shells.len() > 0 {
+                if self.current_shell == shells.len() - 1 {
+                    shells.pop();
+                    let new_len = shells.len();
+                    if new_len > 0 {
+                        self.current_shell = new_len - 1;
+                    } else {
+                        return;
+                    }
+                } else {
+                    shells.remove(self.current_shell);
+                }
+            }
         }
+        self.set_path(self.path());
     }
 
     pub fn is_empty(&self) -> bool {
