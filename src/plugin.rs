@@ -28,7 +28,16 @@ pub trait Plugin {
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
     let args = std::env::args();
     if args.len() > 1 {
-        let input = std::fs::read_to_string(args.skip(1).next().unwrap());
+        let input = args.skip(1).next();
+
+        let input = match input {
+            Some(arg) => std::fs::read_to_string(arg),
+            None => {
+                send_response(ShellError::string(format!("No input given.")));
+                return;
+            }
+        };
+
         if let Ok(input) = input {
             let command = serde_json::from_str::<NuCommand>(&input);
             match command {
@@ -128,8 +137,12 @@ impl<T> JsonRpc<T> {
 
 fn send_response<T: Serialize>(result: T) {
     let response = JsonRpc::new("response", result);
-    let response_raw = serde_json::to_string(&response).unwrap();
-    println!("{}", response_raw);
+    let response_raw = serde_json::to_string(&response);
+
+    match response_raw {
+        Ok(response) => println!("{}", response),
+        Err(err) => println!("{}", err),
+    }
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "method")]

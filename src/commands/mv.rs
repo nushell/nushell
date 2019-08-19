@@ -1,3 +1,4 @@
+use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandRegistry, Signature};
@@ -9,6 +10,12 @@ use crate::utils::FileStructure;
 
 pub struct Move;
 
+#[derive(Deserialize)]
+pub struct MoveArgs {
+    source: Tagged<PathBuf>,
+    destination: Tagged<PathBuf>,
+}
+
 impl PerItemCommand for Move {
     fn run(
         &self,
@@ -17,7 +24,7 @@ impl PerItemCommand for Move {
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        mv(call_info, shell_manager)
+        call_info.process(shell_manager, mv)?.run()
     }
 
     fn name(&self) -> &str {
@@ -25,59 +32,77 @@ impl PerItemCommand for Move {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("mv").named("file", SyntaxType::Any)
+        Signature::build("mv")
+            .required("source", SyntaxType::Path)
+            .required("destination", SyntaxType::Path)
+            .named("file", SyntaxType::Any)
     }
 }
 
 pub fn mv(
-    call_info: &CallInfo,
-    shell_manager: &ShellManager,
+    args: MoveArgs,
+    context: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut source = PathBuf::from(shell_manager.path());
-    let mut destination = PathBuf::from(shell_manager.path());
-    let span = call_info.name_span;
+    let mut source = PathBuf::from(context.shell_manager.path());
+    let mut destination = PathBuf::from(context.shell_manager.path());
+    let name_span = context.name;
 
-    match call_info
-        .args
-        .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-        .as_string()?
-        .as_str()
-    {
-        file => {
-            source.push(file);
+    source.push(&args.source.item);
+
+    destination.push(&args.destination.item);
+
+    let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
+        Ok(files) => files.collect(),
+        Err(_) => {
+            return Err(ShellError::labeled_error(
+                "Invalid pattern.",
+                "Invalid pattern.",
+                args.source.tag,
+            ))
         }
-    }
+    };
 
-    match call_info
-        .args
-        .nth(1)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-        .as_string()?
-        .as_str()
-    {
-        file => {
-            destination.push(file);
+    let destination_file_name = {
+        let path = &destination;
+
+        match path.file_name() {
+            Some(name) => PathBuf::from(name),
+            None => {
+                return Err(ShellError::labeled_error(
+                    "Rename aborted. Not a valid destination",
+                    "Rename aborted. Not a valid destination",
+                    name_span,
+                ))
+            }
         }
-    }
-
-    let sources = glob::glob(&source.to_string_lossy());
-
-    if sources.is_err() {
-        return Err(ShellError::labeled_error(
-            "Invalid pattern.",
-            "Invalid pattern.",
-            call_info.args.nth(0).unwrap().span(),
-        ));
-    }
-
-    let sources: Vec<_> = sources.unwrap().collect();
+    };
 
     if sources.len() == 1 {
         if let Ok(entry) = &sources[0] {
+            let entry_file_name = match entry.file_name() {
+                Some(name) => name,
+                None => {
+                    return Err(ShellError::labeled_error(
+                        "Rename aborted. Not a valid entry name",
+                        "Rename aborted. Not a valid entry name",
+                        name_span,
+                    ))
+                }
+            };
+
             if destination.exists() && destination.is_dir() {
-                destination = dunce::canonicalize(&destination).unwrap();
-                destination.push(source.file_name().unwrap());
+                destination = match dunce::canonicalize(&destination) {
+                    Ok(path) => path,
+                    Err(e) => {
+                        return Err(ShellError::labeled_error(
+                            format!("Rename aborted. {:}", e.to_string()),
+                            format!("Rename aborted. {:}", e.to_string()),
+                            name_span,
+                        ))
+                    }
+                };
+
+                destination.push(entry_file_name);
             }
 
             if entry.is_file() {
@@ -86,17 +111,17 @@ pub fn mv(
                         return Err(ShellError::labeled_error(
                             format!(
                                 "Rename {:?} to {:?} aborted. {:}",
-                                entry.file_name().unwrap(),
-                                destination.file_name().unwrap(),
+                                entry_file_name,
+                                destination_file_name,
                                 e.to_string(),
                             ),
                             format!(
                                 "Rename {:?} to {:?} aborted. {:}",
-                                entry.file_name().unwrap(),
-                                destination.file_name().unwrap(),
+                                entry_file_name,
+                                destination_file_name,
                                 e.to_string(),
                             ),
-                            span,
+                            name_span,
                         ));
                     }
                     Ok(o) => o,
@@ -109,17 +134,17 @@ pub fn mv(
                         return Err(ShellError::labeled_error(
                             format!(
                                 "Rename {:?} to {:?} aborted. {:}",
-                                entry.file_name().unwrap(),
-                                destination.file_name().unwrap(),
+                                entry_file_name,
+                                destination_file_name,
                                 e.to_string(),
                             ),
                             format!(
                                 "Rename {:?} to {:?} aborted. {:}",
-                                entry.file_name().unwrap(),
-                                destination.file_name().unwrap(),
+                                entry_file_name,
+                                destination_file_name,
                                 e.to_string(),
                             ),
-                            span,
+                            name_span,
                         ));
                     }
                     Ok(o) => o,
@@ -131,17 +156,17 @@ pub fn mv(
                             return Err(ShellError::labeled_error(
                                 format!(
                                     "Rename {:?} to {:?} aborted. {:}",
-                                    entry.file_name().unwrap(),
-                                    destination.file_name().unwrap(),
+                                    entry_file_name,
+                                    destination_file_name,
                                     e.to_string(),
                                 ),
                                 format!(
                                     "Rename {:?} to {:?} aborted. {:}",
-                                    entry.file_name().unwrap(),
-                                    destination.file_name().unwrap(),
+                                    entry_file_name,
+                                    destination_file_name,
                                     e.to_string(),
                                 ),
-                                span,
+                                name_span,
                             ));
                         }
                         Ok(o) => o,
@@ -151,10 +176,11 @@ pub fn mv(
                 {
                     let mut sources: FileStructure = FileStructure::new();
 
-                    sources.walk_decorate(&entry);
+                    sources.walk_decorate(&entry)?;
 
                     let strategy = |(source_file, depth_level)| {
                         let mut new_dst = destination.clone();
+
                         let path = dunce::canonicalize(&source_file).unwrap();
 
                         let mut comps: Vec<_> = path
@@ -181,21 +207,21 @@ pub fn mv(
                                         return Err(ShellError::labeled_error(
                                             format!(
                                                 "Rename {:?} to {:?} aborted. {:}",
-                                                entry.file_name().unwrap(),
-                                                destination.file_name().unwrap(),
+                                                entry_file_name,
+                                                destination_file_name,
                                                 e.to_string(),
                                             ),
                                             format!(
                                                 "Rename {:?} to {:?} aborted. {:}",
-                                                entry.file_name().unwrap(),
-                                                destination.file_name().unwrap(),
+                                                entry_file_name,
+                                                destination_file_name,
                                                 e.to_string(),
                                             ),
-                                            span,
+                                            name_span,
                                         ));
                                     }
                                     Ok(o) => o,
-                                };
+                                }
                             }
                         }
 
@@ -205,42 +231,78 @@ pub fn mv(
                                     return Err(ShellError::labeled_error(
                                         format!(
                                             "Rename {:?} to {:?} aborted. {:}",
-                                            entry.file_name().unwrap(),
-                                            destination.file_name().unwrap(),
+                                            entry_file_name,
+                                            destination_file_name,
                                             e.to_string(),
                                         ),
                                         format!(
                                             "Rename {:?} to {:?} aborted. {:}",
-                                            entry.file_name().unwrap(),
-                                            destination.file_name().unwrap(),
+                                            entry_file_name,
+                                            destination_file_name,
                                             e.to_string(),
                                         ),
-                                        span,
+                                        name_span,
                                     ));
                                 }
                                 Ok(o) => o,
-                            };
+                            }
                         }
                     }
 
-                    std::fs::remove_dir_all(entry).expect("can not remove directory");
+                    match std::fs::remove_dir_all(entry) {
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                format!(
+                                    "Rename {:?} to {:?} aborted. {:}",
+                                    entry_file_name,
+                                    destination_file_name,
+                                    e.to_string(),
+                                ),
+                                format!(
+                                    "Rename {:?} to {:?} aborted. {:}",
+                                    entry_file_name,
+                                    destination_file_name,
+                                    e.to_string(),
+                                ),
+                                name_span,
+                            ));
+                        }
+                        Ok(o) => o,
+                    };
                 }
             }
         }
     } else {
         if destination.exists() {
-            if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) {
+            if !sources.iter().all(|x| {
+                if let Ok(entry) = x.as_ref() {
+                    entry.is_file()
+                } else {
+                    false
+                }
+            }) {
                 return Err(ShellError::labeled_error(
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
-                    call_info.args.nth(0).unwrap().span(),
+                    args.source.tag,
                 ));
             }
 
             for entry in sources {
                 if let Ok(entry) = entry {
+                    let entry_file_name = match entry.file_name() {
+                        Some(name) => name,
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Rename aborted. Not a valid entry name",
+                                "Rename aborted. Not a valid entry name",
+                                name_span,
+                            ))
+                        }
+                    };
+
                     let mut to = PathBuf::from(&destination);
-                    to.push(&entry.file_name().unwrap());
+                    to.push(entry_file_name);
 
                     if entry.is_file() {
                         match std::fs::rename(&entry, &to) {
@@ -248,17 +310,17 @@ pub fn mv(
                                 return Err(ShellError::labeled_error(
                                     format!(
                                         "Rename {:?} to {:?} aborted. {:}",
-                                        entry.file_name().unwrap(),
-                                        destination.file_name().unwrap(),
+                                        entry_file_name,
+                                        destination_file_name,
                                         e.to_string(),
                                     ),
                                     format!(
                                         "Rename {:?} to {:?} aborted. {:}",
-                                        entry.file_name().unwrap(),
-                                        destination.file_name().unwrap(),
+                                        entry_file_name,
+                                        destination_file_name,
                                         e.to_string(),
                                     ),
-                                    span,
+                                    name_span,
                                 ));
                             }
                             Ok(o) => o,
@@ -268,15 +330,9 @@ pub fn mv(
             }
         } else {
             return Err(ShellError::labeled_error(
-                format!(
-                    "Rename aborted. (Does {:?} exist?)",
-                    &destination.file_name().unwrap()
-                ),
-                format!(
-                    "Rename aborted. (Does {:?} exist?)",
-                    &destination.file_name().unwrap()
-                ),
-                call_info.args.nth(1).unwrap().span(),
+                format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
+                format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
+                args.destination.span(),
             ));
         }
     }

@@ -21,7 +21,7 @@ impl PerItemCommand for Cpy {
         call_info: &CallInfo,
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
-        input: Tagged<Value>,
+        _input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         call_info.process(shell_manager, cp)?.run()
     }
@@ -75,7 +75,7 @@ pub fn cp(
 
             let mut sources: FileStructure = FileStructure::new();
 
-            sources.walk_decorate(&entry);
+            sources.walk_decorate(&entry)?;
 
             if entry.is_file() {
                 let strategy = |(source_file, _depth_level)| {
