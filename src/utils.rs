@@ -93,6 +93,14 @@ impl FileStructure {
         }
     }
 
+    pub fn contains_more_than_one_file(&self) -> bool {
+        self.resources.len() > 1
+    }
+
+    pub fn contains_files(&self) -> bool {
+        self.resources.len() > 0
+    }
+
     pub fn set_root(&mut self, path: &Path) {
         self.root = path.to_path_buf();
     }

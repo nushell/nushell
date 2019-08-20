@@ -1,11 +1,18 @@
+use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
+use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
-
-use glob::glob;
+use crate::utils::FileStructure;
 use std::path::PathBuf;
 
 pub struct Remove;
+
+#[derive(Deserialize)]
+pub struct RemoveArgs {
+    path: Tagged<PathBuf>,
+    recursive: Tagged<bool>,
+}
 
 impl PerItemCommand for Remove {
     fn name(&self) -> &str {
@@ -25,52 +32,113 @@ impl PerItemCommand for Remove {
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        rm(call_info, shell_manager)
+        call_info.process(shell_manager, rm)?.run()
     }
 }
 
 pub fn rm(
-    call_info: &CallInfo,
-    shell_manager: &ShellManager,
+    args: RemoveArgs,
+    context: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut full_path = PathBuf::from(shell_manager.path());
+    let mut path = PathBuf::from(context.shell_manager.path());
+    let name_span = context.name;
 
-    match call_info
-        .args
-        .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-        .as_string()?
-        .as_str()
-    {
-        "." | ".." => return Err(ShellError::string("\".\" and \"..\" may not be removed")),
-        file => full_path.push(file),
+    let file = &args.path.item.to_string_lossy();
+
+    if file == "." || file == ".." {
+        return Err(ShellError::labeled_error(
+            "Remove aborted. \".\" or \"..\" may not be removed.",
+            "Remove aborted. \".\" or \"..\" may not be removed.",
+            args.path.span(),
+        ));
     }
 
-    let entries = glob(&full_path.to_string_lossy());
+    path.push(&args.path.item);
 
-    if entries.is_err() {
-        return Err(ShellError::string("Invalid pattern."));
+    let entries: Vec<_> = match glob::glob(&path.to_string_lossy()) {
+        Ok(files) => files.collect(),
+        Err(_) => {
+            return Err(ShellError::labeled_error(
+                "Invalid pattern.",
+                "Invalid pattern.",
+                args.path.tag,
+            ))
+        }
+    };
+
+    if entries.len() == 1 {
+        if let Ok(entry) = &entries[0] {
+            if entry.is_dir() {
+                let mut source_dir: FileStructure = FileStructure::new();
+
+                source_dir.walk_decorate(&entry)?;
+
+                if source_dir.contains_files() && !args.recursive.item {
+                    return Err(ShellError::labeled_error(
+                        format!(
+                            "{:?} is a directory. Try using \"--recursive\".",
+                            &args.path.item.to_string_lossy()
+                        ),
+                        format!(
+                            "{:?} is a directory. Try using \"--recursive\".",
+                            &args.path.item.to_string_lossy()
+                        ),
+                        args.path.span(),
+                    ));
+                }
+            }
+        }
     }
-
-    let entries = entries.unwrap();
 
     for entry in entries {
         match entry {
             Ok(path) => {
-                if path.is_dir() {
-                    if !call_info.args.has("recursive") {
-                        return Err(ShellError::labeled_error(
-                            "is a directory",
-                            "is a directory",
-                            call_info.name_span,
-                        ));
+                let path_file_name = {
+                    let p = &path;
+
+                    match p.file_name() {
+                        Some(name) => PathBuf::from(name),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Remove aborted. Not a valid path",
+                                "Remove aborted. Not a valid path",
+                                name_span,
+                            ))
+                        }
                     }
-                    std::fs::remove_dir_all(&path).expect("can not remove directory");
+                };
+
+                let mut source_dir: FileStructure = FileStructure::new();
+
+                source_dir.walk_decorate(&path)?;
+
+                if source_dir.contains_more_than_one_file() && !args.recursive.item {
+                    return Err(ShellError::labeled_error(
+                        format!(
+                            "Directory {:?} found somewhere inside. Try using \"--recursive\".",
+                            path_file_name
+                        ),
+                        format!(
+                            "Directory {:?} found somewhere inside. Try using \"--recursive\".",
+                            path_file_name
+                        ),
+                        args.path.span(),
+                    ));
+                }
+
+                if path.is_dir() {
+                    std::fs::remove_dir_all(&path)?;
                 } else if path.is_file() {
-                    std::fs::remove_file(&path).expect("can not remove file");
+                    std::fs::remove_file(&path)?;
                 }
             }
-            Err(e) => return Err(ShellError::string(&format!("{:?}", e))),
+            Err(e) => {
+                return Err(ShellError::labeled_error(
+                    format!("Remove aborted. {:}", e.to_string()),
+                    format!("Remove aborted. {:}", e.to_string()),
+                    name_span,
+                ))
+            }
         }
     }
 
