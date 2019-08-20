@@ -23,9 +23,10 @@ impl Add {
                 Some(f) => match obj.insert_data_at_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
-                        return Err(ShellError::string(
-                            "add could not find place to insert field",
-                        ))
+                        return Err(ShellError::string(format!(
+                            "add could not find place to insert field {:?} {}",
+                            obj, f
+                        )))
                     }
                 },
                 None => Err(ShellError::string(
