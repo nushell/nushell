@@ -354,7 +354,16 @@ impl Value {
 
         if let Value::Object(ref mut o) = new_obj {
             let mut current = o;
-            for idx in 0..split_path.len() - 1 {
+
+            if split_path.len() == 1 {
+                // Special case for inserting at the top level
+                current
+                    .entries
+                    .insert(path.to_string(), Tagged::from_item(new_value, tag));
+                return Some(Tagged::from_item(new_obj, tag));
+            }
+
+            for idx in 0..split_path.len() {
                 match current.entries.get_mut(split_path[idx]) {
                     Some(next) => {
                         if idx == (split_path.len() - 2) {
