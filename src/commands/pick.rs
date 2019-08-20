@@ -31,8 +31,16 @@ impl WholeStreamCommand for Pick {
 
 fn pick(
     PickArgs { rest: fields }: PickArgs,
-    RunnableContext { input, .. }: RunnableContext,
+    RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
+    if fields.len() == 0 {
+        return Err(ShellError::labeled_error(
+            "Pick requires fields",
+            "needs parameter",
+            name,
+        ));
+    }
+
     let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
     let objects = input

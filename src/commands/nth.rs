@@ -5,7 +5,7 @@ use crate::prelude::*;
 
 #[derive(Deserialize)]
 struct NthArgs {
-    position: Tagged<i64>,
+    amount: Tagged<i64>,
 }
 
 pub struct Nth;
@@ -24,12 +24,12 @@ impl WholeStreamCommand for Nth {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nth").optional("amount", SyntaxType::Any)
+        Signature::build("nth").required("amount", SyntaxType::Any)
     }
 }
 
 fn nth(
-    NthArgs { position: amount }: NthArgs,
+    NthArgs { amount }: NthArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::from_input(

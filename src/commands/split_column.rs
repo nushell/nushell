@@ -6,6 +6,7 @@ use log::trace;
 
 #[derive(Deserialize)]
 struct SplitColumnArgs {
+    separator: Tagged<String>,
     rest: Vec<Tagged<String>>,
 }
 
@@ -25,32 +26,30 @@ impl WholeStreamCommand for SplitColumn {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Improve error. Old error had extra info:
-        //
-        //   needs parameter (e.g. split-column ",")
-        Signature::build("split-column").rest()
+        Signature::build("split-column")
+            .required("separator", SyntaxType::Any)
+            .rest()
     }
 }
 
 fn split_column(
-    SplitColumnArgs { rest: positional }: SplitColumnArgs,
+    SplitColumnArgs { separator, rest }: SplitColumnArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(input
         .values
         .map(move |v| match v.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                let positional: Vec<_> = positional.iter().map(|f| f.item.clone()).collect();
-
-                // TODO: Require at least 1 positional argument.
-                let splitter = positional[0].replace("\\n", "\n");
+                let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
-                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
+                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
                 trace!("split result = {:?}", split_result);
 
+                let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
+
                 // If they didn't provide column names, make up our own
-                if (positional.len() - 1) == 0 {
+                if positional.len() == 0 {
                     let mut gen_columns = vec![];
                     for i in 0..split_result.len() {
                         gen_columns.push(format!("Column{}", i + 1));
@@ -62,16 +61,16 @@ fn split_column(
                     }
 
                     ReturnSuccess::value(dict.into_tagged_value())
-                } else if split_result.len() == (positional.len() - 1) {
+                } else if split_result.len() == positional.len() {
                     let mut dict = TaggedDictBuilder::new(v.tag());
-                    for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
+                    for (&k, v) in split_result.iter().zip(positional.iter()) {
                         dict.insert(v, Value::Primitive(Primitive::String(k.into())));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 } else {
                     let mut dict = TaggedDictBuilder::new(v.tag());
-                    for k in positional.iter().skip(1) {
-                        dict.insert(k.trim(), Primitive::String("".into()));
+                    for (&k, v) in split_result.iter().zip(positional.iter()) {
+                        dict.insert(v, Value::Primitive(Primitive::String(k.into())));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 }

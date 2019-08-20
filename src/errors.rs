@@ -186,13 +186,14 @@ impl ShellError {
                 ArgumentError::MissingMandatoryPositional(name) => Diagnostic::new(
                     Severity::Error,
                     format!(
-                        "{} requires {}",
+                        "{} requires {} parameter",
                         Color::Cyan.paint(command),
-                        Color::Green.bold().paint(name)
+                        Color::Green.bold().paint(name.clone())
                     ),
                 )
-                .with_label(Label::new_primary(span)),
-
+                .with_label(
+                    Label::new_primary(span).with_message(format!("requires {} parameter", name)),
+                ),
                 ArgumentError::MissingValueForName(name) => Diagnostic::new(
                     Severity::Error,
                     format!(

@@ -30,8 +30,16 @@ impl WholeStreamCommand for Reject {
 
 fn reject(
     RejectArgs { rest: fields }: RejectArgs,
-    RunnableContext { input, .. }: RunnableContext,
+    RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
+    if fields.len() == 0 {
+        return Err(ShellError::labeled_error(
+            "Reject requires fields",
+            "needs parameter",
+            name,
+        ));
+    }
+
     let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
     let stream = input

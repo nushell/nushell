@@ -6,7 +6,7 @@ use log::trace;
 
 #[derive(Deserialize)]
 struct SplitRowArgs {
-    rest: Vec<Tagged<String>>,
+    separator: Tagged<String>,
 }
 
 pub struct SplitRow;
@@ -25,22 +25,19 @@ impl WholeStreamCommand for SplitRow {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Improve error. Old error had extra info:
-        //
-        //   needs parameter (e.g. split-row ",")
-        Signature::build("split-row").rest()
+        Signature::build("split-row").required("separator", SyntaxType::Any)
     }
 }
 
 fn split_row(
-    SplitRowArgs { rest: positional }: SplitRowArgs,
+    SplitRowArgs { separator }: SplitRowArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = input
         .values
         .map(move |v| match v.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                let splitter = positional[0].item.replace("\\n", "\n");
+                let splitter = separator.item.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
