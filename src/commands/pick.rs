@@ -4,6 +4,11 @@ use crate::errors::ShellError;
 use crate::object::base::select_fields;
 use crate::prelude::*;
 
+#[derive(Deserialize)]
+struct PickArgs {
+    rest: Vec<Tagged<String>>,
+}
+
 pub struct Pick;
 
 impl WholeStreamCommand for Pick {
@@ -12,7 +17,7 @@ impl WholeStreamCommand for Pick {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        pick(args, registry)
+        args.process(registry, pick)?.run()
     }
 
     fn name(&self) -> &str {
@@ -20,22 +25,15 @@ impl WholeStreamCommand for Pick {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pick").required("fields", SyntaxType::Any)
+        Signature::build("pick").rest()
     }
 }
 
-fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let (input, args) = args.parts();
-
-    let fields: Result<Vec<String>, _> = args
-        .positional
-        .iter()
-        .flatten()
-        .map(|a| a.as_string())
-        .collect();
-
-    let fields = fields?;
+fn pick(
+    PickArgs { rest: fields }: PickArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
     let objects = input
         .values

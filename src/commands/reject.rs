@@ -3,6 +3,11 @@ use crate::errors::ShellError;
 use crate::object::base::reject_fields;
 use crate::prelude::*;
 
+#[derive(Deserialize)]
+pub struct RejectArgs {
+    rest: Vec<Tagged<String>>,
+}
+
 pub struct Reject;
 
 impl WholeStreamCommand for Reject {
@@ -11,7 +16,7 @@ impl WholeStreamCommand for Reject {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        reject(args, registry)
+        args.process(registry, reject)?.run()
     }
 
     fn name(&self) -> &str {
@@ -19,22 +24,15 @@ impl WholeStreamCommand for Reject {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("reject").required("fields", SyntaxType::Any)
+        Signature::build("reject").rest()
     }
 }
 
-fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let (input, args) = args.parts();
-
-    let fields: Result<Vec<String>, _> = args
-        .positional
-        .iter()
-        .flatten()
-        .map(|a| a.as_string())
-        .collect();
-
-    let fields = fields?;
+fn reject(
+    RejectArgs { rest: fields }: RejectArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
     let stream = input
         .values

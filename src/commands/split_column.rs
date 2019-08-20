@@ -4,6 +4,11 @@ use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
+#[derive(Deserialize)]
+struct SplitColumnArgs {
+    rest: Vec<Tagged<String>>,
+}
+
 pub struct SplitColumn;
 
 impl WholeStreamCommand for SplitColumn {
@@ -12,7 +17,7 @@ impl WholeStreamCommand for SplitColumn {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        split_column(args, registry)
+        args.process(registry, split_column)?.run()
     }
 
     fn name(&self) -> &str {
@@ -20,26 +25,25 @@ impl WholeStreamCommand for SplitColumn {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Signature?
         // TODO: Improve error. Old error had extra info:
         //
         //   needs parameter (e.g. split-column ",")
-        Signature::build("split-column").required("delimeter", SyntaxType::Any)
+        Signature::build("split-column").rest()
     }
 }
 
-fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
-    let (input, args) = args.parts();
-
-    let positional: Vec<_> = args.positional.iter().flatten().cloned().collect();
-
+fn split_column(
+    SplitColumnArgs { rest: positional }: SplitColumnArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     Ok(input
         .values
         .map(move |v| match v.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
+                let positional: Vec<_> = positional.iter().map(|f| f.item.clone()).collect();
+
+                // TODO: Require at least 1 positional argument.
+                let splitter = positional[0].replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
@@ -61,16 +65,13 @@ fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
                 } else if split_result.len() == (positional.len() - 1) {
                     let mut dict = TaggedDictBuilder::new(v.tag());
                     for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
-                        dict.insert(
-                            v.as_string().unwrap(),
-                            Value::Primitive(Primitive::String(k.into())),
-                        );
+                        dict.insert(v, Value::Primitive(Primitive::String(k.into())));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 } else {
                     let mut dict = TaggedDictBuilder::new(v.tag());
                     for k in positional.iter().skip(1) {
-                        dict.insert(k.as_string().unwrap().trim(), Primitive::String("".into()));
+                        dict.insert(k.trim(), Primitive::String("".into()));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 }
@@ -78,7 +79,7 @@ fn split_column(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputS
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                span,
+                name,
                 "value originates from here",
                 v.span(),
             )),

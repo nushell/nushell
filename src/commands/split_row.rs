@@ -4,6 +4,11 @@ use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use log::trace;
 
+#[derive(Deserialize)]
+struct SplitRowArgs {
+    rest: Vec<Tagged<String>>,
+}
+
 pub struct SplitRow;
 
 impl WholeStreamCommand for SplitRow {
@@ -12,7 +17,7 @@ impl WholeStreamCommand for SplitRow {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        split_row(args, registry)
+        args.process(registry, split_row)?.run()
     }
 
     fn name(&self) -> &str {
@@ -20,26 +25,22 @@ impl WholeStreamCommand for SplitRow {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Signature?
         // TODO: Improve error. Old error had extra info:
         //
         //   needs parameter (e.g. split-row ",")
-        Signature::build("split-row").required("delimeter", SyntaxType::Any)
+        Signature::build("split-row").rest()
     }
 }
 
-fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
-    let (input, args) = args.parts();
-
-    let positional: Vec<Tagged<Value>> = args.positional.iter().flatten().cloned().collect();
-
+fn split_row(
+    SplitRowArgs { rest: positional }: SplitRowArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     let stream = input
         .values
         .map(move |v| match v.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
+                let splitter = positional[0].item.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
@@ -58,7 +59,7 @@ fn split_row(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    name,
                     "value originates from here",
                     v.span(),
                 )));
