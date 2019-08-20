@@ -19,7 +19,6 @@ impl WholeStreamCommand for Shells {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Signature?
         Signature::build("shells")
     }
 }

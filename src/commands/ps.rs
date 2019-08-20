@@ -20,7 +20,6 @@ impl WholeStreamCommand for PS {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Signature?
         Signature::build("ps")
     }
 }

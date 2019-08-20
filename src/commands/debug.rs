@@ -18,7 +18,6 @@ impl WholeStreamCommand for Debug {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Signature?
         Signature::build("debug")
     }
 }

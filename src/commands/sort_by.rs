@@ -18,7 +18,6 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        // TODO: Signature?
         Signature::build("sort-by")
     }
 }
