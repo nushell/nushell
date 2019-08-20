@@ -18,7 +18,7 @@ impl WholeStreamCommand for CD {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cd").required("directory", SyntaxType::Path)
+        Signature::build("cd").optional("directory", SyntaxType::Path)
     }
 }
 
