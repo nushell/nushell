@@ -1,6 +1,6 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
+use h::{in_directory as cwd, normalize_string, Playground, Stub::*};
 use helpers as h;
 use std::path::{Path, PathBuf};
 
@@ -33,12 +33,12 @@ fn can_understand_known_formats() {
         r#"
             enter fortune_tellers.toml
             cd amigos
-            ls | get unicorns | sum
+            ls | get unicorns | sum 
             exit
         "#
     );
 
-    assert!(output.contains("3000"));
+    assert!(normalize_string(&output).contains("3000"));
 }
 
 #[test]
