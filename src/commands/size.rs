@@ -1,8 +1,29 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
-pub fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub struct Size;
+
+impl WholeStreamCommand for Size {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        size(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "size"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("size")
+    }
+}
+
+fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let span = args.call_info.name_span;
     Ok(input

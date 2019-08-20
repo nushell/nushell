@@ -1,7 +1,28 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::prelude::*;
 
-pub fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub struct SortBy;
+
+impl WholeStreamCommand for SortBy {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        sort_by(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "sort-by"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("sort-by")
+    }
+}
+
+fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let (input, args) = args.parts();
 

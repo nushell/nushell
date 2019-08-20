@@ -1,6 +1,27 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
+
+pub struct FromTOML;
+
+impl WholeStreamCommand for FromTOML {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_toml(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-toml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-toml")
+    }
+}
 
 pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();

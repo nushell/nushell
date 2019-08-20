@@ -1,6 +1,27 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use csv::WriterBuilder;
+
+pub struct ToCSV;
+
+impl WholeStreamCommand for ToCSV {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_csv(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "to-csv"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to-csv")
+    }
+}
 
 pub fn value_to_csv_value(v: &Value) -> Value {
     match v {
@@ -36,7 +57,7 @@ pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
     }
 }
 
-pub fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
     let out = args.input;

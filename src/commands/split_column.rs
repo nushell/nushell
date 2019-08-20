@@ -1,38 +1,55 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
-pub fn split_column(
-    args: CommandArgs,
-    registry: &CommandRegistry,
-) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
-    let (input, args) = args.parts();
+#[derive(Deserialize)]
+struct SplitColumnArgs {
+    separator: Tagged<String>,
+    rest: Vec<Tagged<String>>,
+}
 
-    let positional: Vec<_> = args.positional.iter().flatten().cloned().collect();
+pub struct SplitColumn;
 
-    if positional.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "Split-column needs more information",
-            "needs parameter (eg split-column \",\")",
-            span,
-        ));
+impl WholeStreamCommand for SplitColumn {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, split_column)?.run()
     }
 
+    fn name(&self) -> &str {
+        "split-column"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("split-column")
+            .required("separator", SyntaxType::Any)
+            .rest()
+    }
+}
+
+fn split_column(
+    SplitColumnArgs { separator, rest }: SplitColumnArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     Ok(input
         .values
         .map(move |v| match v.item {
             Value::Primitive(Primitive::String(ref s)) => {
-                let splitter = positional[0].as_string().unwrap().replace("\\n", "\n");
+                let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
-                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
 
+                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
                 trace!("split result = {:?}", split_result);
 
+                let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
+
                 // If they didn't provide column names, make up our own
-                if (positional.len() - 1) == 0 {
+                if positional.len() == 0 {
                     let mut gen_columns = vec![];
                     for i in 0..split_result.len() {
                         gen_columns.push(format!("Column{}", i + 1));
@@ -44,19 +61,16 @@ pub fn split_column(
                     }
 
                     ReturnSuccess::value(dict.into_tagged_value())
-                } else if split_result.len() == (positional.len() - 1) {
+                } else if split_result.len() == positional.len() {
                     let mut dict = TaggedDictBuilder::new(v.tag());
-                    for (&k, v) in split_result.iter().zip(positional.iter().skip(1)) {
-                        dict.insert(
-                            v.as_string().unwrap(),
-                            Value::Primitive(Primitive::String(k.into())),
-                        );
+                    for (&k, v) in split_result.iter().zip(positional.iter()) {
+                        dict.insert(v, Value::Primitive(Primitive::String(k.into())));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 } else {
                     let mut dict = TaggedDictBuilder::new(v.tag());
-                    for k in positional.iter().skip(1) {
-                        dict.insert(k.as_string().unwrap().trim(), Primitive::String("".into()));
+                    for (&k, v) in split_result.iter().zip(positional.iter()) {
+                        dict.insert(v, Value::Primitive(Primitive::String(k.into())));
                     }
                     ReturnSuccess::value(dict.into_tagged_value())
                 }
@@ -64,7 +78,7 @@ pub fn split_column(
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                span,
+                name,
                 "value originates from here",
                 v.span(),
             )),

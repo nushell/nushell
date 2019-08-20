@@ -1,11 +1,32 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use log::trace;
 
+pub struct Lines;
+
+impl WholeStreamCommand for Lines {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        lines(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "lines"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("lines")
+    }
+}
+
 // TODO: "Amount remaining" wrapper
 
-pub fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
     let input = args.input;

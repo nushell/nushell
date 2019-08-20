@@ -1,30 +1,47 @@
+use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::errors::ShellError;
 use crate::object::base::select_fields;
 use crate::prelude::*;
 
-pub fn pick(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let len = args.len();
-    let span = args.name_span();
-    let (input, args) = args.parts();
+#[derive(Deserialize)]
+struct PickArgs {
+    rest: Vec<Tagged<String>>,
+}
 
-    if len == 0 {
+pub struct Pick;
+
+impl WholeStreamCommand for Pick {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, pick)?.run()
+    }
+
+    fn name(&self) -> &str {
+        "pick"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("pick").rest()
+    }
+}
+
+fn pick(
+    PickArgs { rest: fields }: PickArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    if fields.len() == 0 {
         return Err(ShellError::labeled_error(
             "Pick requires fields",
             "needs parameter",
-            span,
+            name,
         ));
     }
 
-    let fields: Result<Vec<String>, _> = args
-        .positional
-        .iter()
-        .flatten()
-        .map(|a| a.as_string())
-        .collect();
-
-    let fields = fields?;
+    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
     let objects = input
         .values

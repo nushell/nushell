@@ -1,29 +1,46 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::base::reject_fields;
 use crate::prelude::*;
 
-pub fn reject(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let len = args.len();
-    let span = args.name_span();
-    let (input, args) = args.parts();
+#[derive(Deserialize)]
+pub struct RejectArgs {
+    rest: Vec<Tagged<String>>,
+}
 
-    if len == 0 {
+pub struct Reject;
+
+impl WholeStreamCommand for Reject {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, reject)?.run()
+    }
+
+    fn name(&self) -> &str {
+        "reject"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("reject").rest()
+    }
+}
+
+fn reject(
+    RejectArgs { rest: fields }: RejectArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    if fields.len() == 0 {
         return Err(ShellError::labeled_error(
             "Reject requires fields",
             "needs parameter",
-            span,
+            name,
         ));
     }
 
-    let fields: Result<Vec<String>, _> = args
-        .positional
-        .iter()
-        .flatten()
-        .map(|a| a.as_string())
-        .collect();
-
-    let fields = fields?;
+    let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
     let stream = input
         .values

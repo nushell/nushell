@@ -1,6 +1,27 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use std::collections::HashMap;
+
+pub struct FromINI;
+
+impl WholeStreamCommand for FromINI {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_ini(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-ini"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-ini")
+    }
+}
 
 fn convert_ini_second_to_nu_value(
     v: &HashMap<String, String>,
@@ -37,7 +58,7 @@ pub fn from_ini_string_to_value(
     Ok(convert_ini_top_to_nu_value(&v, tag))
 }
 
-pub fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
     let out = args.input;

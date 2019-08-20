@@ -635,43 +635,6 @@ impl WholeStreamCommand for FnFilterCommand {
     }
 }
 
-pub struct FnRawCommand {
-    name: String,
-    func: Box<
-        dyn Fn(CommandArgs, &registry::CommandRegistry) -> Result<OutputStream, ShellError>
-            + Send
-            + Sync,
-    >,
-}
-
-impl WholeStreamCommand for FnRawCommand {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &registry::CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        (self.func)(args, registry)
-    }
-}
-
-pub fn command(
-    name: &str,
-    func: Box<
-        dyn Fn(CommandArgs, &registry::CommandRegistry) -> Result<OutputStream, ShellError>
-            + Send
-            + Sync,
-    >,
-) -> Arc<Command> {
-    Arc::new(Command::WholeStream(Arc::new(FnRawCommand {
-        name: name.to_string(),
-        func,
-    })))
-}
-
 pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Arc<Command> {
     Arc::new(Command::WholeStream(Arc::new(command)))
 }

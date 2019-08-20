@@ -1,9 +1,30 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::process::process_dict;
 use crate::prelude::*;
 use sysinfo::{RefreshKind, SystemExt};
 
-pub fn ps(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub struct PS;
+
+impl WholeStreamCommand for PS {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        ps(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "ps"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("ps")
+    }
+}
+
+fn ps(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut system = sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
     system.refresh_processes();
     let list = system.get_process_list();

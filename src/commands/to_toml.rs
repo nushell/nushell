@@ -1,5 +1,26 @@
+use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
+
+pub struct ToTOML;
+
+impl WholeStreamCommand for ToTOML {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_toml(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "to-toml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to-toml")
+    }
+}
 
 pub fn value_to_toml_value(v: &Value) -> toml::Value {
     match v {
@@ -33,7 +54,7 @@ pub fn value_to_toml_value(v: &Value) -> toml::Value {
     }
 }
 
-pub fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
     let out = args.input;

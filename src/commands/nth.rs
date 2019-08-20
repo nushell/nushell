@@ -1,32 +1,38 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::parser::CommandRegistry;
 use crate::prelude::*;
 
-pub fn nth(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+#[derive(Deserialize)]
+struct NthArgs {
+    amount: Tagged<i64>,
+}
 
-    if args.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "Nth requires an amount",
-            "needs amount",
-            args.name_span(),
-        ));
+pub struct Nth;
+
+impl WholeStreamCommand for Nth {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, nth)?.run()
     }
 
-    let amount = args.expect_nth(0)?.as_i64();
+    fn name(&self) -> &str {
+        "nth"
+    }
 
-    let amount = match amount {
-        Ok(o) => o,
-        Err(_) => {
-            return Err(ShellError::labeled_error(
-                "Value is not a number",
-                "expected integer",
-                args.expect_nth(0)?.span(),
-            ))
-        }
-    };
+    fn signature(&self) -> Signature {
+        Signature::build("nth").required("amount", SyntaxType::Any)
+    }
+}
 
+fn nth(
+    NthArgs { amount }: NthArgs,
+    RunnableContext { input, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::from_input(
-        args.input.values.skip(amount as u64).take(1),
+        input.values.skip(amount.item as u64).take(1),
     ))
 }

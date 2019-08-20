@@ -1,8 +1,29 @@
+use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;
 
-pub fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub struct Trim;
+
+impl WholeStreamCommand for Trim {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        trim(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "trim"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("trim")
+    }
+}
+
+fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
 
     Ok(input
