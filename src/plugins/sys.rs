@@ -2,7 +2,7 @@
 
 use futures::executor::block_on;
 use futures::stream::StreamExt;
-use heim::{disk, memory, net, sensors};
+use heim::{disk, memory, net};
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
@@ -177,35 +177,36 @@ async fn battery(tag: Tag) -> Option<Value> {
     }
 }
 
-async fn temp(tag: Tag) -> Option<Value> {
-    let mut output = vec![];
+// FIXME: add back when heim releases new version
+// async fn temp(tag: Tag) -> Option<Value> {
+//     let mut output = vec![];
 
-    let mut sensors = sensors::temperatures();
-    while let Some(sensor) = sensors.next().await {
-        if let Ok(sensor) = sensor {
-            let mut dict = TaggedDictBuilder::new(tag);
-            dict.insert("unit", Value::string(sensor.unit()));
-            if let Some(label) = sensor.label() {
-                dict.insert("label", Value::string(label));
-            }
-            dict.insert("temp", Value::float(sensor.current().get()));
-            if let Some(high) = sensor.high() {
-                dict.insert("high", Value::float(high.get()));
-            }
-            if let Some(critical) = sensor.critical() {
-                dict.insert("critical", Value::float(critical.get()));
-            }
+//     let mut sensors = sensors::temperatures();
+//     while let Some(sensor) = sensors.next().await {
+//         if let Ok(sensor) = sensor {
+//             let mut dict = TaggedDictBuilder::new(tag);
+//             dict.insert("unit", Value::string(sensor.unit()));
+//             if let Some(label) = sensor.label() {
+//                 dict.insert("label", Value::string(label));
+//             }
+//             dict.insert("temp", Value::float(sensor.current().get()));
+//             if let Some(high) = sensor.high() {
+//                 dict.insert("high", Value::float(high.get()));
+//             }
+//             if let Some(critical) = sensor.critical() {
+//                 dict.insert("critical", Value::float(critical.get()));
+//             }
 
-            output.push(dict.into_tagged_value());
-        }
-    }
+//             output.push(dict.into_tagged_value());
+//         }
+//     }
 
-    if output.len() > 0 {
-        Some(Value::List(output))
-    } else {
-        None
-    }
-}
+//     if output.len() > 0 {
+//         Some(Value::List(output))
+//     } else {
+//         None
+//     }
+// }
 
 async fn net(tag: Tag) -> Option<Value> {
     let mut output = vec![];
@@ -237,9 +238,9 @@ async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
         sysinfo.insert("disks", disks);
     }
     sysinfo.insert_tagged("mem", mem(tag).await);
-    if let Some(temp) = temp(tag).await {
-        sysinfo.insert("temp", temp);
-    }
+    // if let Some(temp) = temp(tag).await {
+    //     sysinfo.insert("temp", temp);
+    // }
     if let Some(net) = net(tag).await {
         sysinfo.insert("net", net);
     }

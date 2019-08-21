@@ -258,19 +258,19 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
             LineResult::Error(mut line, err) => {
                 rl.add_history_entry(line.clone());
-
                 let diag = err.to_diagnostic();
                 let host = context.host.lock().unwrap();
                 let writer = host.err_termcolor();
                 line.push_str(" ");
                 let files = crate::parser::Files::new(line);
-
-                language_reporting::emit(
-                    &mut writer.lock(),
-                    &files,
-                    &diag,
-                    &language_reporting::DefaultConfig,
-                )?;
+                let _ = std::panic::catch_unwind(move || {
+                    let _ = language_reporting::emit(
+                        &mut writer.lock(),
+                        &files,
+                        &diag,
+                        &language_reporting::DefaultConfig,
+                    );
+                });
             }
 
             LineResult::Break => {

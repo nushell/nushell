@@ -13,7 +13,7 @@ homepage = "https://github.com/nushell/nushell"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = { git = "https://github.com/kkawakam/rustyline.git" }
+rustyline = "5.0.2"
 sysinfo = "0.9"
 chrono = { version = "0.4.7", features = ["serde"] }
 chrono-tz = "0.5.1"
@@ -81,7 +81,7 @@ uuid = {version = "0.7.4", features = [ "v4", "serde" ]}
 syntect = "3.2.0"
 strip-ansi-escapes = "0.1.0"
 onig_sys = "=69.1.0"
-heim = {git = "https://github.com/heim-rs/heim.git"}
+heim = "0.0.6"
 which = "2.0.1"
 battery = "0.7.4"
 textwrap = {version = "0.11.0", features = ["term_size"]}

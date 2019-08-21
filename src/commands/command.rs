@@ -151,9 +151,9 @@ impl CommandArgs {
         ))
     }
 
-    pub fn name_span(&self) -> Span {
-        self.call_info.name_span
-    }
+    // pub fn name_span(&self) -> Span {
+    //     self.call_info.name_span
+    // }
 
     pub fn process<'de, T: Deserialize<'de>>(
         self,
