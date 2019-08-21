@@ -476,13 +476,14 @@ impl Shell for FilesystemShell {
 
     fn mkdir(
         &self,
-        MkdirArgs { rest: directories }: MkdirArgs,
+        mkdir_args: MkdirArgs,
         RunnablePerItemContext {
             name,
             shell_manager,
             ..
         }: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        println!("full path");
         let full_path = PathBuf::from(shell_manager.path());
 
         if directories.len() == 0 {
@@ -493,12 +494,16 @@ impl Shell for FilesystemShell {
             ));
         }
 
+        println!("dirs");
         for dir in directories.iter() {
+            println!("create at:");
             let create_at = {
                 let mut loc = full_path.clone();
                 loc.push(&dir.item);
                 loc
             };
+
+            println!("{:?}", create_at);
 
             match std::fs::create_dir_all(create_at) {
                 Err(reason) => {
@@ -508,9 +513,14 @@ impl Shell for FilesystemShell {
                         dir.span(),
                     ))
                 }
-                Ok(_) => {}
+                Ok(_) => {
+                    println!("OK");
+                }
             }
+            println!("End loop");
         }
+
+        println!("Done");
 
         Ok(VecDeque::new())
     }
