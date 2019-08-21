@@ -17,16 +17,6 @@ pub struct MoveArgs {
 }
 
 impl PerItemCommand for Move {
-    fn run(
-        &self,
-        call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        shell_manager: &ShellManager,
-        _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        call_info.process(shell_manager, mv)?.run()
-    }
-
     fn name(&self) -> &str {
         "mv"
     }
@@ -36,6 +26,16 @@ impl PerItemCommand for Move {
             .required("source", SyntaxType::Path)
             .required("destination", SyntaxType::Path)
             .named("file", SyntaxType::Any)
+    }
+
+    fn run(
+        &self,
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        shell_manager: &ShellManager,
+        _input: Tagged<Value>,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        call_info.process(shell_manager, mv)?.run()
     }
 }
 
