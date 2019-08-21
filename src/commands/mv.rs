@@ -38,14 +38,15 @@ impl PerItemCommand for Move {
 
 fn mv(
     MoveArgs { src, dst }: MoveArgs,
-    RunnablePerItemContext {
-        name,
-        shell_manager,
-    }: &RunnablePerItemContext,
+    context: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let source = src.item.clone();
-    let mut destination = dst.item.clone();
-    let name_span = name;
+    let name_span = context.name;
+
+    let mut source = PathBuf::from(context.shell_manager.path());
+    let mut destination = PathBuf::from(context.shell_manager.path());
+
+    source.push(&src.item);
+    destination.push(&dst.item);
 
     let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
         Ok(files) => files.collect(),
@@ -57,10 +58,6 @@ fn mv(
             ))
         }
     };
-
-    if "." == destination.to_string_lossy() {
-        destination = PathBuf::from(shell_manager.path());
-    }
 
     let destination_file_name = {
         match destination.file_name() {
