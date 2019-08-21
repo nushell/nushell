@@ -1,13 +1,17 @@
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
+use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
+use crate::commands::cp::CopyArgs;
+use crate::commands::mkdir::MkdirArgs;
+use crate::commands::mv::MoveArgs;
+use crate::commands::rm::RemoveArgs;
 use crate::context::SourceMap;
 use crate::object::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
+use crate::utils::FileStructure;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
-
 pub struct FilesystemShell {
     crate path: String,
     completer: NuCompleter,
@@ -187,6 +191,731 @@ impl Shell for FilesystemShell {
             path.to_string_lossy().to_string(),
         ));
         Ok(stream.into())
+    }
+
+    fn cp(
+        &self,
+        CopyArgs {
+            src,
+            dst,
+            recursive,
+        }: CopyArgs,
+        RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let source = src.item.clone();
+        let mut destination = dst.item.clone();
+        let name_span = name;
+
+        let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
+            Ok(files) => files.collect(),
+            Err(_) => {
+                return Err(ShellError::labeled_error(
+                    "Invalid pattern.",
+                    "Invalid pattern.",
+                    src.tag,
+                ))
+            }
+        };
+
+        if sources.len() == 1 {
+            if let Ok(entry) = &sources[0] {
+                if entry.is_dir() && !recursive.item {
+                    return Err(ShellError::labeled_error(
+                        "is a directory (not copied). Try using \"--recursive\".",
+                        "is a directory (not copied). Try using \"--recursive\".",
+                        src.tag,
+                    ));
+                }
+
+                let mut sources: FileStructure = FileStructure::new();
+
+                sources.walk_decorate(&entry)?;
+
+                if entry.is_file() {
+                    let strategy = |(source_file, _depth_level)| {
+                        if destination.exists() {
+                            let mut new_dst = dunce::canonicalize(destination.clone())?;
+                            if let Some(name) = entry.file_name() {
+                                new_dst.push(name);
+                            }
+                            Ok((source_file, new_dst))
+                        } else {
+                            Ok((source_file, destination.clone()))
+                        }
+                    };
+
+                    let sources = sources.paths_applying_with(strategy)?;
+
+                    for (ref src, ref dst) in sources {
+                        if src.is_file() {
+                            match std::fs::copy(src, dst) {
+                                Err(e) => {
+                                    return Err(ShellError::labeled_error(
+                                        e.to_string(),
+                                        e.to_string(),
+                                        name_span,
+                                    ));
+                                }
+                                Ok(o) => o,
+                            };
+                        }
+                    }
+                }
+
+                if entry.is_dir() {
+                    if !destination.exists() {
+                        match std::fs::create_dir_all(&destination) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    e.to_string(),
+                                    e.to_string(),
+                                    name_span,
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
+
+                        let strategy = |(source_file, depth_level)| {
+                            let mut new_dst = destination.clone();
+                            let path = dunce::canonicalize(&source_file)?;
+
+                            let mut comps: Vec<_> = path
+                                .components()
+                                .map(|fragment| fragment.as_os_str())
+                                .rev()
+                                .take(1 + depth_level)
+                                .collect();
+
+                            comps.reverse();
+
+                            for fragment in comps.iter() {
+                                new_dst.push(fragment);
+                            }
+
+                            Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
+                        };
+
+                        let sources = sources.paths_applying_with(strategy)?;
+
+                        for (ref src, ref dst) in sources {
+                            if src.is_dir() {
+                                if !dst.exists() {
+                                    match std::fs::create_dir_all(dst) {
+                                        Err(e) => {
+                                            return Err(ShellError::labeled_error(
+                                                e.to_string(),
+                                                e.to_string(),
+                                                name_span,
+                                            ));
+                                        }
+                                        Ok(o) => o,
+                                    };
+                                }
+                            }
+
+                            if src.is_file() {
+                                match std::fs::copy(src, dst) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            e.to_string(),
+                                            e.to_string(),
+                                            name_span,
+                                        ));
+                                    }
+                                    Ok(o) => o,
+                                };
+                            }
+                        }
+                    } else {
+                        match entry.file_name() {
+                            Some(name) => destination.push(name),
+                            None => {
+                                return Err(ShellError::labeled_error(
+                                    "Copy aborted. Not a valid path",
+                                    "Copy aborted. Not a valid path",
+                                    name_span,
+                                ))
+                            }
+                        }
+
+                        match std::fs::create_dir_all(&destination) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    e.to_string(),
+                                    e.to_string(),
+                                    name_span,
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
+
+                        let strategy = |(source_file, depth_level)| {
+                            let mut new_dst = dunce::canonicalize(&destination)?;
+                            let path = dunce::canonicalize(&source_file)?;
+
+                            let mut comps: Vec<_> = path
+                                .components()
+                                .map(|fragment| fragment.as_os_str())
+                                .rev()
+                                .take(1 + depth_level)
+                                .collect();
+
+                            comps.reverse();
+
+                            for fragment in comps.iter() {
+                                new_dst.push(fragment);
+                            }
+
+                            Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
+                        };
+
+                        let sources = sources.paths_applying_with(strategy)?;
+
+                        for (ref src, ref dst) in sources {
+                            if src.is_dir() {
+                                if !dst.exists() {
+                                    match std::fs::create_dir_all(dst) {
+                                        Err(e) => {
+                                            return Err(ShellError::labeled_error(
+                                                e.to_string(),
+                                                e.to_string(),
+                                                name_span,
+                                            ));
+                                        }
+                                        Ok(o) => o,
+                                    };
+                                }
+                            }
+
+                            if src.is_file() {
+                                match std::fs::copy(src, dst) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            e.to_string(),
+                                            e.to_string(),
+                                            name_span,
+                                        ));
+                                    }
+                                    Ok(o) => o,
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            if destination.exists() {
+                if !sources.iter().all(|x| match x {
+                    Ok(f) => f.is_file(),
+                    Err(_) => false,
+                }) {
+                    return Err(ShellError::labeled_error(
+                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
+                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
+                    src.tag,
+                ));
+                }
+
+                for entry in sources {
+                    if let Ok(entry) = entry {
+                        let mut to = PathBuf::from(&destination);
+
+                        match entry.file_name() {
+                            Some(name) => to.push(name),
+                            None => {
+                                return Err(ShellError::labeled_error(
+                                    "Copy aborted. Not a valid path",
+                                    "Copy aborted. Not a valid path",
+                                    name_span,
+                                ))
+                            }
+                        }
+
+                        if entry.is_file() {
+                            match std::fs::copy(&entry, &to) {
+                                Err(e) => {
+                                    return Err(ShellError::labeled_error(
+                                        e.to_string(),
+                                        e.to_string(),
+                                        src.tag,
+                                    ));
+                                }
+                                Ok(o) => o,
+                            };
+                        }
+                    }
+                }
+            } else {
+                let destination_file_name = {
+                    match destination.file_name() {
+                        Some(name) => PathBuf::from(name),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Copy aborted. Not a valid destination",
+                                "Copy aborted. Not a valid destination",
+                                name_span,
+                            ))
+                        }
+                    }
+                };
+
+                return Err(ShellError::labeled_error(
+                    format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
+                    format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
+                    &dst.span(),
+                ));
+            }
+        }
+
+        Ok(VecDeque::new())
+    }
+
+    fn mkdir(
+        &self,
+        MkdirArgs { rest: directories }: MkdirArgs,
+        RunnablePerItemContext {
+            name,
+            shell_manager,
+            ..
+        }: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let full_path = PathBuf::from(shell_manager.path());
+
+        if directories.len() == 0 {
+            return Err(ShellError::labeled_error(
+                "mkdir requires directory paths",
+                "needs parameter",
+                name,
+            ));
+        }
+
+        for dir in directories.iter() {
+            let create_at = {
+                let mut loc = full_path.clone();
+                loc.push(&dir.item);
+                loc
+            };
+
+            match std::fs::create_dir_all(create_at) {
+                Err(reason) => {
+                    return Err(ShellError::labeled_error(
+                        reason.to_string(),
+                        reason.to_string(),
+                        dir.span(),
+                    ))
+                }
+                Ok(_) => {}
+            }
+        }
+
+        Ok(VecDeque::new())
+    }
+
+    fn mv(
+        &self,
+        MoveArgs { src, dst }: MoveArgs,
+        RunnablePerItemContext {
+            name,
+            shell_manager,
+        }: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let source = src.item.clone();
+        let mut destination = dst.item.clone();
+        let name_span = name;
+
+        let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
+            Ok(files) => files.collect(),
+            Err(_) => {
+                return Err(ShellError::labeled_error(
+                    "Invalid pattern.",
+                    "Invalid pattern.",
+                    src.tag,
+                ))
+            }
+        };
+
+        if "." == destination.to_string_lossy() {
+            destination = PathBuf::from(shell_manager.path());
+        }
+
+        let destination_file_name = {
+            match destination.file_name() {
+                Some(name) => PathBuf::from(name),
+                None => {
+                    return Err(ShellError::labeled_error(
+                        "Rename aborted. Not a valid destination",
+                        "Rename aborted. Not a valid destination",
+                        dst.span(),
+                    ))
+                }
+            }
+        };
+
+        if sources.len() == 1 {
+            if let Ok(entry) = &sources[0] {
+                let entry_file_name = match entry.file_name() {
+                    Some(name) => name,
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Rename aborted. Not a valid entry name",
+                            "Rename aborted. Not a valid entry name",
+                            name_span,
+                        ))
+                    }
+                };
+
+                if destination.exists() && destination.is_dir() {
+                    destination = match dunce::canonicalize(&destination) {
+                        Ok(path) => path,
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                format!("Rename aborted. {:}", e.to_string()),
+                                format!("Rename aborted. {:}", e.to_string()),
+                                name_span,
+                            ))
+                        }
+                    };
+
+                    destination.push(entry_file_name);
+                }
+
+                if entry.is_file() {
+                    match std::fs::rename(&entry, &destination) {
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                format!(
+                                    "Rename {:?} to {:?} aborted. {:}",
+                                    entry_file_name,
+                                    destination_file_name,
+                                    e.to_string(),
+                                ),
+                                format!(
+                                    "Rename {:?} to {:?} aborted. {:}",
+                                    entry_file_name,
+                                    destination_file_name,
+                                    e.to_string(),
+                                ),
+                                name_span,
+                            ));
+                        }
+                        Ok(o) => o,
+                    };
+                }
+
+                if entry.is_dir() {
+                    match std::fs::create_dir_all(&destination) {
+                        Err(e) => {
+                            return Err(ShellError::labeled_error(
+                                format!(
+                                    "Rename {:?} to {:?} aborted. {:}",
+                                    entry_file_name,
+                                    destination_file_name,
+                                    e.to_string(),
+                                ),
+                                format!(
+                                    "Rename {:?} to {:?} aborted. {:}",
+                                    entry_file_name,
+                                    destination_file_name,
+                                    e.to_string(),
+                                ),
+                                name_span,
+                            ));
+                        }
+                        Ok(o) => o,
+                    };
+                    #[cfg(not(windows))]
+                    {
+                        match std::fs::rename(&entry, &destination) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    name_span,
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
+                    }
+                    #[cfg(windows)]
+                    {
+                        use crate::utils::FileStructure;
+
+                        let mut sources: FileStructure = FileStructure::new();
+
+                        sources.walk_decorate(&entry)?;
+
+                        let strategy = |(source_file, depth_level)| {
+                            let mut new_dst = destination.clone();
+
+                            let path = dunce::canonicalize(&source_file)?;
+
+                            let mut comps: Vec<_> = path
+                                .components()
+                                .map(|fragment| fragment.as_os_str())
+                                .rev()
+                                .take(1 + depth_level)
+                                .collect();
+
+                            comps.reverse();
+
+                            for fragment in comps.iter() {
+                                new_dst.push(fragment);
+                            }
+
+                            Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
+                        };
+
+                        let sources = sources.paths_applying_with(strategy)?;
+
+                        for (ref src, ref dst) in sources {
+                            if src.is_dir() {
+                                if !dst.exists() {
+                                    match std::fs::create_dir_all(dst) {
+                                        Err(e) => {
+                                            return Err(ShellError::labeled_error(
+                                                format!(
+                                                    "Rename {:?} to {:?} aborted. {:}",
+                                                    entry_file_name,
+                                                    destination_file_name,
+                                                    e.to_string(),
+                                                ),
+                                                format!(
+                                                    "Rename {:?} to {:?} aborted. {:}",
+                                                    entry_file_name,
+                                                    destination_file_name,
+                                                    e.to_string(),
+                                                ),
+                                                name_span,
+                                            ));
+                                        }
+                                        Ok(o) => o,
+                                    }
+                                }
+                            }
+
+                            if src.is_file() {
+                                match std::fs::rename(src, dst) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            format!(
+                                                "Rename {:?} to {:?} aborted. {:}",
+                                                entry_file_name,
+                                                destination_file_name,
+                                                e.to_string(),
+                                            ),
+                                            format!(
+                                                "Rename {:?} to {:?} aborted. {:}",
+                                                entry_file_name,
+                                                destination_file_name,
+                                                e.to_string(),
+                                            ),
+                                            name_span,
+                                        ));
+                                    }
+                                    Ok(o) => o,
+                                }
+                            }
+                        }
+
+                        match std::fs::remove_dir_all(entry) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    name_span,
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
+                    }
+                }
+            }
+        } else {
+            if destination.exists() {
+                if !sources.iter().all(|x| {
+                    if let Ok(entry) = x.as_ref() {
+                        entry.is_file()
+                    } else {
+                        false
+                    }
+                }) {
+                    return Err(ShellError::labeled_error(
+                    "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
+                    "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
+                    src.tag,
+                ));
+                }
+
+                for entry in sources {
+                    if let Ok(entry) = entry {
+                        let entry_file_name = match entry.file_name() {
+                            Some(name) => name,
+                            None => {
+                                return Err(ShellError::labeled_error(
+                                    "Rename aborted. Not a valid entry name",
+                                    "Rename aborted. Not a valid entry name",
+                                    name_span,
+                                ))
+                            }
+                        };
+
+                        let mut to = PathBuf::from(&destination);
+                        to.push(entry_file_name);
+
+                        if entry.is_file() {
+                            match std::fs::rename(&entry, &to) {
+                                Err(e) => {
+                                    return Err(ShellError::labeled_error(
+                                        format!(
+                                            "Rename {:?} to {:?} aborted. {:}",
+                                            entry_file_name,
+                                            destination_file_name,
+                                            e.to_string(),
+                                        ),
+                                        format!(
+                                            "Rename {:?} to {:?} aborted. {:}",
+                                            entry_file_name,
+                                            destination_file_name,
+                                            e.to_string(),
+                                        ),
+                                        name_span,
+                                    ));
+                                }
+                                Ok(o) => o,
+                            };
+                        }
+                    }
+                }
+            } else {
+                return Err(ShellError::labeled_error(
+                    format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
+                    format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
+                    dst.span(),
+                ));
+            }
+        }
+
+        Ok(VecDeque::new())
+    }
+
+    fn rm(
+        &self,
+        RemoveArgs { target, recursive }: RemoveArgs,
+        RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let path = target.item.clone();
+        let name_span = name;
+
+        let file = path.to_string_lossy();
+
+        if file == "." || file == ".." {
+            return Err(ShellError::labeled_error(
+                "Remove aborted. \".\" or \"..\" may not be removed.",
+                "Remove aborted. \".\" or \"..\" may not be removed.",
+                target.span(),
+            ));
+        }
+
+        let entries: Vec<_> = match glob::glob(&path.to_string_lossy()) {
+            Ok(files) => files.collect(),
+            Err(_) => {
+                return Err(ShellError::labeled_error(
+                    "Invalid pattern.",
+                    "Invalid pattern.",
+                    target.tag,
+                ))
+            }
+        };
+
+        if entries.len() == 1 {
+            if let Ok(entry) = &entries[0] {
+                if entry.is_dir() {
+                    let mut source_dir: FileStructure = FileStructure::new();
+
+                    source_dir.walk_decorate(&entry)?;
+
+                    if source_dir.contains_files() && !recursive.item {
+                        return Err(ShellError::labeled_error(
+                            format!("{:?} is a directory. Try using \"--recursive\".", file),
+                            format!("{:?} is a directory. Try using \"--recursive\".", file),
+                            target.span(),
+                        ));
+                    }
+                }
+            }
+        }
+
+        for entry in entries {
+            match entry {
+                Ok(path) => {
+                    let path_file_name = {
+                        match path.file_name() {
+                            Some(name) => PathBuf::from(name),
+                            None => {
+                                return Err(ShellError::labeled_error(
+                                    "Remove aborted. Not a valid path",
+                                    "Remove aborted. Not a valid path",
+                                    name_span,
+                                ))
+                            }
+                        }
+                    };
+
+                    let mut source_dir: FileStructure = FileStructure::new();
+
+                    source_dir.walk_decorate(&path)?;
+
+                    if source_dir.contains_more_than_one_file() && !recursive.item {
+                        return Err(ShellError::labeled_error(
+                            format!(
+                                "Directory {:?} found somewhere inside. Try using \"--recursive\".",
+                                path_file_name
+                            ),
+                            format!(
+                                "Directory {:?} found somewhere inside. Try using \"--recursive\".",
+                                path_file_name
+                            ),
+                            target.span(),
+                        ));
+                    }
+
+                    if path.is_dir() {
+                        std::fs::remove_dir_all(&path)?;
+                    } else if path.is_file() {
+                        std::fs::remove_file(&path)?;
+                    }
+                }
+                Err(e) => {
+                    return Err(ShellError::labeled_error(
+                        format!("Remove aborted. {:}", e.to_string()),
+                        format!("Remove aborted. {:}", e.to_string()),
+                        name_span,
+                    ))
+                }
+            }
+        }
+
+        Ok(VecDeque::new())
     }
 
     fn path(&self) -> String {

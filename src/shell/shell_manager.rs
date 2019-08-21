@@ -1,4 +1,8 @@
-use crate::commands::command::EvaluatedWholeStreamCommandArgs;
+use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
+use crate::commands::cp::CopyArgs;
+use crate::commands::mkdir::MkdirArgs;
+use crate::commands::mv::MoveArgs;
+use crate::commands::rm::RemoveArgs;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
@@ -107,5 +111,44 @@ impl ShellManager {
         let env = self.shells.lock().unwrap();
 
         env[self.current_shell].cd(args)
+    }
+    pub fn cp(
+        &self,
+        args: CopyArgs,
+        context: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let env = self.shells.lock().unwrap();
+
+        env[self.current_shell].cp(args, context)
+    }
+
+    pub fn rm(
+        &self,
+        args: RemoveArgs,
+        context: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let env = self.shells.lock().unwrap();
+
+        env[self.current_shell].rm(args, context)
+    }
+
+    pub fn mkdir(
+        &self,
+        args: MkdirArgs,
+        context: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let env = self.shells.lock().unwrap();
+
+        env[self.current_shell].mkdir(args, context)
+    }
+
+    pub fn mv(
+        &self,
+        args: MoveArgs,
+        context: &RunnablePerItemContext,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        let env = self.shells.lock().unwrap();
+
+        env[self.current_shell].mv(args, context)
     }
 }
