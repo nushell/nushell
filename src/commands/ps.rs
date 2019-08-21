@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::process::process_dict;
 use crate::prelude::*;
-use sysinfo::{RefreshKind, SystemExt};
+use sysinfo::SystemExt;
 
 pub struct PS;
 
@@ -25,8 +25,7 @@ impl WholeStreamCommand for PS {
 }
 
 fn ps(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let mut system = sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
-    system.refresh_processes();
+    let system = sysinfo::System::new();
     let list = system.get_process_list();
 
     let list = list

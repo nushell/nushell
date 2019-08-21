@@ -55,7 +55,7 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> T
 pub fn from_toml_string_to_value(
     s: String,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, Box<dyn std::error::Error>> {
+) -> Result<Tagged<Value>, toml::de::Error> {
     let v: toml::Value = s.parse::<toml::Value>()?;
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
@@ -66,33 +66,46 @@ pub fn from_toml(
 ) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
-    let out = args.input;
+    let input = args.input;
 
-    Ok(out
-        .values
-        .map(move |a| {
-            let value_tag = a.tag();
-            match a.item {
+    let stream = async_stream_block! {
+        let values: Vec<Tagged<Value>> = input.values.collect().await;
+
+        let mut concat_string = String::new();
+        let mut latest_tag: Option<Tag> = None;
+
+        for value in values {
+            let value_tag = value.tag();
+            latest_tag = Some(value_tag);
+            match value.item {
                 Value::Primitive(Primitive::String(s)) => {
-                    match from_toml_string_to_value(s, value_tag) {
-                        Ok(x) => ReturnSuccess::value(x),
-                        Err(_) => Err(ShellError::labeled_error_with_secondary(
-                            "Could not parse as TOML",
-                            "input cannot be parsed as TOML",
-                            span,
-                            "value originates from here",
-                            value_tag.span,
-                        )),
-                    }
+                    concat_string.push_str(&s);
+                    concat_string.push_str("\n");
                 }
-                x => Err(ShellError::labeled_error_with_secondary(
+                _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     span,
-                    format!("{} originates from here", x.type_name()),
+                    "value originates from here",
                     value_tag.span,
                 )),
+
             }
-        })
-        .to_output_stream())
+        }
+
+        match from_toml_string_to_value(concat_string, span) {
+            Ok(x) => yield ReturnSuccess::value(x),
+            Err(_) => if let Some(last_tag) = latest_tag {
+                yield Err(ShellError::labeled_error_with_secondary(
+                    "Could not parse as TOML",
+                    "input cannot be parsed as TOML",
+                    span,
+                    "value originates from here",
+                    last_tag.span,
+                ))
+            } ,
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

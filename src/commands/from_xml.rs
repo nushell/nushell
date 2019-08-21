@@ -72,7 +72,7 @@ fn from_document_to_value(d: &roxmltree::Document, tag: impl Into<Tag>) -> Tagge
 pub fn from_xml_string_to_value(
     s: String,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, Box<dyn std::error::Error>> {
+) -> Result<Tagged<Value>, roxmltree::Error> {
     let parsed = roxmltree::Document::parse(&s)?;
     Ok(from_document_to_value(&parsed, tag))
 }
@@ -80,32 +80,46 @@ pub fn from_xml_string_to_value(
 fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let span = args.name_span();
-    let out = args.input;
-    Ok(out
-        .values
-        .map(move |a| {
-            let value_tag = a.tag();
-            match a.item {
+    let input = args.input;
+
+    let stream = async_stream_block! {
+        let values: Vec<Tagged<Value>> = input.values.collect().await;
+
+        let mut concat_string = String::new();
+        let mut latest_tag: Option<Tag> = None;
+
+        for value in values {
+            let value_tag = value.tag();
+            latest_tag = Some(value_tag);
+            match value.item {
                 Value::Primitive(Primitive::String(s)) => {
-                    match from_xml_string_to_value(s, value_tag) {
-                        Ok(x) => ReturnSuccess::value(x),
-                        Err(_) => Err(ShellError::labeled_error_with_secondary(
-                            "Could not parse as XML",
-                            "input cannot be parsed as XML",
-                            span,
-                            "value originates from here",
-                            value_tag.span,
-                        )),
-                    }
+                    concat_string.push_str(&s);
+                    concat_string.push_str("\n");
                 }
-                _ => Err(ShellError::labeled_error_with_secondary(
+                _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     span,
                     "value originates from here",
-                    a.span(),
+                    value_tag.span,
                 )),
+
             }
-        })
-        .to_output_stream())
+        }
+
+        match from_xml_string_to_value(concat_string, span) {
+            Ok(x) => yield ReturnSuccess::value(x),
+            Err(_) => if let Some(last_tag) = latest_tag {
+                yield Err(ShellError::labeled_error_with_secondary(
+                    "Could not parse as XML",
+                    "input cannot be parsed as XML",
+                    span,
+                    "value originates from here",
+                    last_tag.span,
+                ))
+            } ,
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

@@ -72,6 +72,11 @@ impl language_reporting::ReportingFiles for Files {
         }
     }
     fn source(&self, span: Self::Span) -> Option<String> {
+        if span.start > span.end {
+            return None;
+        } else if span.end >= self.snippet.len() {
+            return None;
+        }
         Some(self.snippet[span.start..span.end].to_string())
     }
 }
