@@ -5,15 +5,12 @@ use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 use std::path::PathBuf;
 
-#[cfg(windows)]
-use crate::utils::FileStructure;
-
 pub struct Move;
 
 #[derive(Deserialize)]
 pub struct MoveArgs {
-    source: Tagged<PathBuf>,
-    destination: Tagged<PathBuf>,
+    src: Tagged<PathBuf>,
+    dst: Tagged<PathBuf>,
 }
 
 impl PerItemCommand for Move {
@@ -39,17 +36,16 @@ impl PerItemCommand for Move {
     }
 }
 
-pub fn mv(
-    args: MoveArgs,
-    context: &RunnablePerItemContext,
+fn mv(
+    MoveArgs { src, dst }: MoveArgs,
+    RunnablePerItemContext {
+        name,
+        shell_manager,
+    }: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut source = PathBuf::from(context.shell_manager.path());
-    let mut destination = PathBuf::from(context.shell_manager.path());
-    let name_span = context.name;
-
-    source.push(&args.source.item);
-
-    destination.push(&args.destination.item);
+    let source = src.item.clone();
+    let mut destination = dst.item.clone();
+    let name_span = name;
 
     let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
         Ok(files) => files.collect(),
@@ -57,21 +53,23 @@ pub fn mv(
             return Err(ShellError::labeled_error(
                 "Invalid pattern.",
                 "Invalid pattern.",
-                args.source.tag,
+                src.tag,
             ))
         }
     };
 
-    let destination_file_name = {
-        let path = &destination;
+    if "." == destination.to_string_lossy() {
+        destination = PathBuf::from(shell_manager.path());
+    }
 
-        match path.file_name() {
+    let destination_file_name = {
+        match destination.file_name() {
             Some(name) => PathBuf::from(name),
             None => {
                 return Err(ShellError::labeled_error(
                     "Rename aborted. Not a valid destination",
                     "Rename aborted. Not a valid destination",
-                    name_span,
+                    dst.span(),
                 ))
             }
         }
@@ -174,6 +172,8 @@ pub fn mv(
                 }
                 #[cfg(windows)]
                 {
+                    use crate::utils::FileStructure;
+
                     let mut sources: FileStructure = FileStructure::new();
 
                     sources.walk_decorate(&entry)?;
@@ -181,7 +181,7 @@ pub fn mv(
                     let strategy = |(source_file, depth_level)| {
                         let mut new_dst = destination.clone();
 
-                        let path = dunce::canonicalize(&source_file).unwrap();
+                        let path = dunce::canonicalize(&source_file)?;
 
                         let mut comps: Vec<_> = path
                             .components()
@@ -196,10 +196,12 @@ pub fn mv(
                             new_dst.push(fragment);
                         }
 
-                        (PathBuf::from(&source_file), PathBuf::from(new_dst))
+                        Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
                     };
 
-                    for (ref src, ref dst) in sources.paths_applying_with(strategy) {
+                    let sources = sources.paths_applying_with(strategy)?;
+
+                    for (ref src, ref dst) in sources {
                         if src.is_dir() {
                             if !dst.exists() {
                                 match std::fs::create_dir_all(dst) {
@@ -284,7 +286,7 @@ pub fn mv(
                 return Err(ShellError::labeled_error(
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
-                    args.source.tag,
+                    src.tag,
                 ));
             }
 
@@ -332,7 +334,7 @@ pub fn mv(
             return Err(ShellError::labeled_error(
                 format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
                 format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
-                args.destination.span(),
+                dst.span(),
             ));
         }
     }

@@ -1,20 +1,25 @@
+use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub struct Mkdir;
+
+#[derive(Deserialize)]
+struct MkdirArgs {
+    rest: Vec<Tagged<PathBuf>>,
+}
 
 impl PerItemCommand for Mkdir {
     fn run(
         &self,
         call_info: &CallInfo,
-        registry: &CommandRegistry,
+        _registry: &CommandRegistry,
         shell_manager: &ShellManager,
-        input: Tagged<Value>,
+        _input: Tagged<Value>,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        mkdir(call_info, registry, shell_manager, input)
+        call_info.process(shell_manager, mkdir)?.run()
     }
 
     fn name(&self) -> &str {
@@ -22,29 +27,46 @@ impl PerItemCommand for Mkdir {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("mkdir").named("file", SyntaxType::Any)
+        Signature::build("mkdir").rest()
     }
 }
 
-pub fn mkdir(
-    call_info: &CallInfo,
-    _registry: &CommandRegistry,
-    shell_manager: &ShellManager,
-    _input: Tagged<Value>,
+fn mkdir(
+    MkdirArgs { rest: directories }: MkdirArgs,
+    RunnablePerItemContext {
+        name,
+        shell_manager,
+        ..
+    }: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut full_path = PathBuf::from(shell_manager.path());
+    let full_path = PathBuf::from(shell_manager.path());
 
-    match &call_info.args.nth(0) {
-        Some(Tagged { item: value, .. }) => full_path.push(Path::new(&value.as_string()?)),
-        _ => {}
+    if directories.len() == 0 {
+        return Err(ShellError::labeled_error(
+            "mkdir requires directory paths",
+            "needs parameter",
+            name,
+        ));
     }
 
-    match std::fs::create_dir_all(full_path) {
-        Err(reason) => Err(ShellError::labeled_error(
-            reason.to_string(),
-            reason.to_string(),
-            call_info.args.nth(0).unwrap().span(),
-        )),
-        Ok(_) => Ok(VecDeque::new()),
+    for dir in directories.iter() {
+        let create_at = {
+            let mut loc = full_path.clone();
+            loc.push(&dir.item);
+            loc
+        };
+
+        match std::fs::create_dir_all(create_at) {
+            Err(reason) => {
+                return Err(ShellError::labeled_error(
+                    reason.to_string(),
+                    reason.to_string(),
+                    dir.span(),
+                ))
+            }
+            Ok(_) => {}
+        }
     }
+
+    Ok(VecDeque::new())
 }

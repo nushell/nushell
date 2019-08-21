@@ -238,6 +238,7 @@ pub struct RunnableContext {
 }
 
 impl RunnableContext {
+    #[allow(unused)]
     pub fn cwd(&self) -> PathBuf {
         PathBuf::from(self.shell_manager.path())
     }
