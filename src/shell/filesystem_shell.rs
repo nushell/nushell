@@ -200,11 +200,15 @@ impl Shell for FilesystemShell {
             dst,
             recursive,
         }: CopyArgs,
-        RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
+        context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let source = src.item.clone();
-        let mut destination = dst.item.clone();
-        let name_span = name;
+        let name_span = context.name;
+
+        let mut source = PathBuf::from(context.shell_manager.path());
+        let mut destination = PathBuf::from(context.shell_manager.path());
+
+        source.push(&src.item);
+        destination.push(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -514,14 +518,15 @@ impl Shell for FilesystemShell {
     fn mv(
         &self,
         MoveArgs { src, dst }: MoveArgs,
-        RunnablePerItemContext {
-            name,
-            shell_manager,
-        }: &RunnablePerItemContext,
+        context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let source = src.item.clone();
-        let mut destination = dst.item.clone();
-        let name_span = name;
+        let name_span = context.name;
+
+        let mut source = PathBuf::from(context.shell_manager.path());
+        let mut destination = PathBuf::from(context.shell_manager.path());
+
+        source.push(&src.item);
+        destination.push(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -533,10 +538,6 @@ impl Shell for FilesystemShell {
                 ))
             }
         };
-
-        if "." == destination.to_string_lossy() {
-            destination = PathBuf::from(shell_manager.path());
-        }
 
         let destination_file_name = {
             match destination.file_name() {
@@ -821,10 +822,13 @@ impl Shell for FilesystemShell {
     fn rm(
         &self,
         RemoveArgs { target, recursive }: RemoveArgs,
-        RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
+        context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let path = target.item.clone();
-        let name_span = name;
+        let name_span = context.name;
+
+        let mut path = PathBuf::from(context.shell_manager.path());
+
+        path.push(&target.item);
 
         let file = path.to_string_lossy();
 

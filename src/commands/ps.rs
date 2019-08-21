@@ -2,8 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::process::process_dict;
 use crate::prelude::*;
-#[allow(unused)]
-use sysinfo::{RefreshKind, SystemExt};
+use sysinfo::SystemExt;
 
 pub struct PS;
 
@@ -35,6 +34,7 @@ fn ps(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, Sh
 
     #[cfg(not(target_os = "linux"))]
     {
+        use sysinfo::RefreshKind;
         let mut sy = sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
         sy.refresh_processes();
 
