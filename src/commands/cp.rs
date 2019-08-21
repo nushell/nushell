@@ -79,15 +79,19 @@ fn cp(
             if entry.is_file() {
                 let strategy = |(source_file, _depth_level)| {
                     if destination.exists() {
-                        let mut new_dst = dunce::canonicalize(destination.clone()).unwrap();
-                        new_dst.push(entry.file_name().unwrap());
-                        (source_file, new_dst)
+                        let mut new_dst = dunce::canonicalize(destination.clone())?;
+                        if let Some(name) = entry.file_name() {
+                            new_dst.push(name);
+                        }
+                        Ok((source_file, new_dst))
                     } else {
-                        (source_file, destination.clone())
+                        Ok((source_file, destination.clone()))
                     }
                 };
 
-                for (ref src, ref dst) in sources.paths_applying_with(strategy) {
+                let sources = sources.paths_applying_with(strategy)?;
+
+                for (ref src, ref dst) in sources {
                     if src.is_file() {
                         match std::fs::copy(src, dst) {
                             Err(e) => {
@@ -118,7 +122,7 @@ fn cp(
 
                     let strategy = |(source_file, depth_level)| {
                         let mut new_dst = destination.clone();
-                        let path = dunce::canonicalize(&source_file).unwrap();
+                        let path = dunce::canonicalize(&source_file)?;
 
                         let mut comps: Vec<_> = path
                             .components()
@@ -133,10 +137,12 @@ fn cp(
                             new_dst.push(fragment);
                         }
 
-                        (PathBuf::from(&source_file), PathBuf::from(new_dst))
+                        Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
                     };
 
-                    for (ref src, ref dst) in sources.paths_applying_with(strategy) {
+                    let sources = sources.paths_applying_with(strategy)?;
+
+                    for (ref src, ref dst) in sources {
                         if src.is_dir() {
                             if !dst.exists() {
                                 match std::fs::create_dir_all(dst) {
@@ -189,8 +195,8 @@ fn cp(
                     };
 
                     let strategy = |(source_file, depth_level)| {
-                        let mut new_dst = dunce::canonicalize(&destination).unwrap();
-                        let path = dunce::canonicalize(&source_file).unwrap();
+                        let mut new_dst = dunce::canonicalize(&destination)?;
+                        let path = dunce::canonicalize(&source_file)?;
 
                         let mut comps: Vec<_> = path
                             .components()
@@ -205,10 +211,12 @@ fn cp(
                             new_dst.push(fragment);
                         }
 
-                        (PathBuf::from(&source_file), PathBuf::from(new_dst))
+                        Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
                     };
 
-                    for (ref src, ref dst) in sources.paths_applying_with(strategy) {
+                    let sources = sources.paths_applying_with(strategy)?;
+
+                    for (ref src, ref dst) in sources {
                         if src.is_dir() {
                             if !dst.exists() {
                                 match std::fs::create_dir_all(dst) {

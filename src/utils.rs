@@ -105,9 +105,9 @@ impl FileStructure {
         self.root = path.to_path_buf();
     }
 
-    pub fn paths_applying_with<F>(&mut self, to: F) -> Vec<(PathBuf, PathBuf)>
+    pub fn paths_applying_with<F>(&mut self, to: F) -> Result<Vec<(PathBuf, PathBuf)>, Box<dyn std::error::Error>>
     where
-        F: Fn((PathBuf, usize)) -> (PathBuf, PathBuf),
+        F: Fn((PathBuf, usize)) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>>,
     {
         self.resources
             .iter()
