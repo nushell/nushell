@@ -411,6 +411,16 @@ impl std::fmt::Display for ShellError {
 
 impl std::error::Error for ShellError {}
 
+impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
+    fn from(input: Box<dyn std::error::Error>) -> ShellError {
+        ProximateShellError::String(StringError {
+            title: format!("{}", input),
+            error: Value::nothing(),
+        })
+        .start()
+    }
+}
+
 impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
         ProximateShellError::String(StringError {
@@ -430,6 +440,17 @@ impl std::convert::From<subprocess::PopenError> for ShellError {
         .start()
     }
 }
+
+impl std::convert::From<serde_yaml::Error> for ShellError {
+    fn from(input: serde_yaml::Error) -> ShellError {
+        ProximateShellError::String(StringError {
+            title: format!("{:?}", input),
+            error: Value::nothing(),
+        })
+        .start()
+    }
+}
+
 
 impl std::convert::From<toml::ser::Error> for ShellError {
     fn from(input: toml::ser::Error) -> ShellError {

@@ -10,8 +10,8 @@ pub struct Cpy;
 
 #[derive(Deserialize)]
 pub struct CopyArgs {
-    source: Tagged<PathBuf>,
-    destination: Tagged<PathBuf>,
+    src: Tagged<PathBuf>,
+    dst: Tagged<PathBuf>,
     recursive: Tagged<bool>,
 }
 
@@ -32,44 +32,43 @@ impl PerItemCommand for Cpy {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .required("source", SyntaxType::Path)
-            .required("destination", SyntaxType::Path)
+            .required("src", SyntaxType::Path)
+            .required("dst", SyntaxType::Path)
             .named("file", SyntaxType::Any)
             .switch("recursive")
     }
 }
 
-pub fn cp(
-    args: CopyArgs,
-    context: &RunnablePerItemContext,
+fn cp(
+    CopyArgs {
+        src,
+        dst,
+        recursive,
+    }: CopyArgs,
+    RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut source = PathBuf::from(context.shell_manager.path());
-    let mut destination = PathBuf::from(context.shell_manager.path());
-    let name_span = context.name;
+    let source = src.item.clone();
+    let mut destination = dst.item.clone();
+    let name_span = name;
 
-    source.push(&args.source.item);
-
-    destination.push(&args.destination.item);
-
-    let sources = glob::glob(&source.to_string_lossy());
-
-    if sources.is_err() {
-        return Err(ShellError::labeled_error(
-            "Invalid pattern.",
-            "Invalid pattern.",
-            args.source.tag,
-        ));
-    }
-
-    let sources: Vec<_> = sources.unwrap().collect();
+    let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
+        Ok(files) => files.collect(),
+        Err(_) => {
+            return Err(ShellError::labeled_error(
+                "Invalid pattern.",
+                "Invalid pattern.",
+                src.tag,
+            ))
+        }
+    };
 
     if sources.len() == 1 {
         if let Ok(entry) = &sources[0] {
-            if entry.is_dir() && !args.recursive.item {
+            if entry.is_dir() && !recursive.item {
                 return Err(ShellError::labeled_error(
                     "is a directory (not copied). Try using \"--recursive\".",
                     "is a directory (not copied). Try using \"--recursive\".",
-                    args.source.tag,
+                    src.tag,
                 ));
             }
 
@@ -167,7 +166,16 @@ pub fn cp(
                         }
                     }
                 } else {
-                    destination.push(entry.file_name().unwrap());
+                    match entry.file_name() {
+                        Some(name) => destination.push(name),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Copy aborted. Not a valid path",
+                                "Copy aborted. Not a valid path",
+                                name_span,
+                            ))
+                        }
+                    }
 
                     match std::fs::create_dir_all(&destination) {
                         Err(e) => {
@@ -234,18 +242,31 @@ pub fn cp(
         }
     } else {
         if destination.exists() {
-            if !sources.iter().all(|x| (x.as_ref().unwrap()).is_file()) {
+            if !sources.iter().all(|x| match x {
+                Ok(f) => f.is_file(),
+                Err(_) => false,
+            }) {
                 return Err(ShellError::labeled_error(
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
-                    args.source.tag,
+                    src.tag,
                 ));
             }
 
             for entry in sources {
                 if let Ok(entry) = entry {
                     let mut to = PathBuf::from(&destination);
-                    to.push(&entry.file_name().unwrap());
+
+                    match entry.file_name() {
+                        Some(name) => to.push(name),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Copy aborted. Not a valid path",
+                                "Copy aborted. Not a valid path",
+                                name_span,
+                            ))
+                        }
+                    }
 
                     if entry.is_file() {
                         match std::fs::copy(&entry, &to) {
@@ -253,7 +274,7 @@ pub fn cp(
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    args.source.tag,
+                                    src.tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -262,16 +283,23 @@ pub fn cp(
                 }
             }
         } else {
+            let destination_file_name = {
+                match destination.file_name() {
+                    Some(name) => PathBuf::from(name),
+                    None => {
+                        return Err(ShellError::labeled_error(
+                            "Copy aborted. Not a valid destination",
+                            "Copy aborted. Not a valid destination",
+                            name_span,
+                        ))
+                    }
+                }
+            };
+
             return Err(ShellError::labeled_error(
-                format!(
-                    "Copy aborted. (Does {:?} exist?)",
-                    &destination.file_name().unwrap()
-                ),
-                format!(
-                    "Copy aborted. (Does {:?} exist?)",
-                    &destination.file_name().unwrap()
-                ),
-                args.destination.span(),
+                format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
+                format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
+                &dst.span(),
             ));
         }
     }

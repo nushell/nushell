@@ -12,20 +12,20 @@ struct PickArgs {
 pub struct Pick;
 
 impl WholeStreamCommand for Pick {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, pick)?.run()
-    }
-
     fn name(&self) -> &str {
         "pick"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("pick").rest()
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, pick)?.run()
     }
 }
 

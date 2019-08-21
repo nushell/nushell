@@ -10,7 +10,7 @@ pub struct Remove;
 
 #[derive(Deserialize)]
 pub struct RemoveArgs {
-    path: Tagged<PathBuf>,
+    target: Tagged<PathBuf>,
     recursive: Tagged<bool>,
 }
 
@@ -36,24 +36,22 @@ impl PerItemCommand for Remove {
     }
 }
 
-pub fn rm(
-    args: RemoveArgs,
-    context: &RunnablePerItemContext,
+fn rm(
+    RemoveArgs { target, recursive }: RemoveArgs,
+    RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let mut path = PathBuf::from(context.shell_manager.path());
-    let name_span = context.name;
+    let path = target.item.clone();
+    let name_span = name;
 
-    let file = &args.path.item.to_string_lossy();
+    let file = path.to_string_lossy();
 
     if file == "." || file == ".." {
         return Err(ShellError::labeled_error(
             "Remove aborted. \".\" or \"..\" may not be removed.",
             "Remove aborted. \".\" or \"..\" may not be removed.",
-            args.path.span(),
+            target.span(),
         ));
     }
-
-    path.push(&args.path.item);
 
     let entries: Vec<_> = match glob::glob(&path.to_string_lossy()) {
         Ok(files) => files.collect(),
@@ -61,7 +59,7 @@ pub fn rm(
             return Err(ShellError::labeled_error(
                 "Invalid pattern.",
                 "Invalid pattern.",
-                args.path.tag,
+                target.tag,
             ))
         }
     };
@@ -73,17 +71,11 @@ pub fn rm(
 
                 source_dir.walk_decorate(&entry)?;
 
-                if source_dir.contains_files() && !args.recursive.item {
+                if source_dir.contains_files() && !recursive.item {
                     return Err(ShellError::labeled_error(
-                        format!(
-                            "{:?} is a directory. Try using \"--recursive\".",
-                            &args.path.item.to_string_lossy()
-                        ),
-                        format!(
-                            "{:?} is a directory. Try using \"--recursive\".",
-                            &args.path.item.to_string_lossy()
-                        ),
-                        args.path.span(),
+                        format!("{:?} is a directory. Try using \"--recursive\".", file),
+                        format!("{:?} is a directory. Try using \"--recursive\".", file),
+                        target.span(),
                     ));
                 }
             }
@@ -94,9 +86,7 @@ pub fn rm(
         match entry {
             Ok(path) => {
                 let path_file_name = {
-                    let p = &path;
-
-                    match p.file_name() {
+                    match path.file_name() {
                         Some(name) => PathBuf::from(name),
                         None => {
                             return Err(ShellError::labeled_error(
@@ -112,7 +102,7 @@ pub fn rm(
 
                 source_dir.walk_decorate(&path)?;
 
-                if source_dir.contains_more_than_one_file() && !args.recursive.item {
+                if source_dir.contains_more_than_one_file() && !recursive.item {
                     return Err(ShellError::labeled_error(
                         format!(
                             "Directory {:?} found somewhere inside. Try using \"--recursive\".",
@@ -122,7 +112,7 @@ pub fn rm(
                             "Directory {:?} found somewhere inside. Try using \"--recursive\".",
                             path_file_name
                         ),
-                        args.path.span(),
+                        target.span(),
                     ));
                 }
 
