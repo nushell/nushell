@@ -28,12 +28,12 @@ impl WholeStreamCommand for PS {
 fn ps(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let system;
 
-    #[cfg(not(windows))]
+    #[cfg(linux)]
     {
         system = sysinfo::System::new();
     }
 
-    #[cfg(windows)]
+    #[cfg(not(linux))]
     {
         let mut sy = sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
         sy.refresh_processes();
