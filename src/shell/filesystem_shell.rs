@@ -110,7 +110,11 @@ impl Shell for FilesystemShell {
                     for entry in entries {
                         let entry = entry?;
                         let filepath = entry.path();
-                        let filename = filepath.strip_prefix(&cwd).unwrap();
+                        let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                            fname
+                        } else {
+                            Path::new(&filepath)
+                        };
                         let value = dir_entry_dict(
                             filename,
                             &entry.metadata()?,
