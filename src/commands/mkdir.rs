@@ -7,8 +7,8 @@ use std::path::PathBuf;
 pub struct Mkdir;
 
 #[derive(Deserialize)]
-struct MkdirArgs {
-    rest: Vec<Tagged<PathBuf>>,
+pub struct MkdirArgs {
+    pub rest: Vec<Tagged<PathBuf>>,
 }
 
 impl PerItemCommand for Mkdir {
@@ -32,41 +32,9 @@ impl PerItemCommand for Mkdir {
 }
 
 fn mkdir(
-    MkdirArgs { rest: directories }: MkdirArgs,
-    RunnablePerItemContext {
-        name,
-        shell_manager,
-        ..
-    }: &RunnablePerItemContext,
+    args: MkdirArgs,
+    context: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    let full_path = PathBuf::from(shell_manager.path());
-
-    if directories.len() == 0 {
-        return Err(ShellError::labeled_error(
-            "mkdir requires directory paths",
-            "needs parameter",
-            name,
-        ));
-    }
-
-    for dir in directories.iter() {
-        let create_at = {
-            let mut loc = full_path.clone();
-            loc.push(&dir.item);
-            loc
-        };
-
-        match std::fs::create_dir_all(create_at) {
-            Err(reason) => {
-                return Err(ShellError::labeled_error(
-                    reason.to_string(),
-                    reason.to_string(),
-                    dir.span(),
-                ))
-            }
-            Ok(_) => {}
-        }
-    }
-
-    Ok(VecDeque::new())
+    let shell_manager = context.shell_manager.clone();
+    shell_manager.mkdir(args, context)
 }

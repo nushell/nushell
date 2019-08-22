@@ -1,4 +1,8 @@
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
+use crate::commands::cp::CopyArgs;
+use crate::commands::mkdir::MkdirArgs;
+use crate::commands::mv::MoveArgs;
+use crate::commands::rm::RemoveArgs;
 use crate::context::SourceMap;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
@@ -97,6 +101,58 @@ impl Shell for ValueShell {
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::change_cwd(path));
         Ok(stream.into())
+    }
+
+    fn cp(
+        &self,
+        _args: CopyArgs,
+        name: Span,
+        _path: &str,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        Err(ShellError::labeled_error(
+            "cp not currently supported on values",
+            "not currently supported",
+            name,
+        ))
+    }
+
+    fn mv(
+        &self,
+        _args: MoveArgs,
+        name: Span,
+        _path: &str,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        Err(ShellError::labeled_error(
+            "mv not currently supported on values",
+            "not currently supported",
+            name,
+        ))
+    }
+
+    fn mkdir(
+        &self,
+        _args: MkdirArgs,
+        name: Span,
+        _path: &str,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        Err(ShellError::labeled_error(
+            "mkdir not currently supported on values",
+            "not currently supported",
+            name,
+        ))
+    }
+
+    fn rm(
+        &self,
+        _args: RemoveArgs,
+        name: Span,
+        _path: &str,
+    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+        Err(ShellError::labeled_error(
+            "rm not currently supported on values",
+            "not currently supported",
+            name,
+        ))
     }
 
     fn path(&self) -> String {
