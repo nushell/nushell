@@ -134,7 +134,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
 
         let input = crossterm::input();
 
-        let mut use_rawkey = false;
+        let use_rawkey;
         let mut sync_stdin = None;
 
         #[cfg(target_os = "linux")]
@@ -142,7 +142,14 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
             // if we're in Linux but not X11, we need to avoid using rawkey for now
             if std::env::var("DISPLAY").is_err() {
                 use_rawkey = false;
+            } else {
+                use_rawkey = true;
             }
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            use_rawkey = true
         }
 
         if use_rawkey {
