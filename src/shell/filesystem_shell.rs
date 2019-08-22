@@ -12,6 +12,7 @@ use crate::utils::FileStructure;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
+
 pub struct FilesystemShell {
     crate path: String,
     completer: NuCompleter,
@@ -653,8 +654,6 @@ impl Shell for FilesystemShell {
                     }
                     #[cfg(windows)]
                     {
-                        use crate::utils::FileStructure;
-
                         let mut sources: FileStructure = FileStructure::new();
 
                         sources.walk_decorate(&entry)?;
