@@ -831,19 +831,19 @@ impl Shell for FilesystemShell {
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         let name_span = name;
 
-        let mut path = PathBuf::from(path);
-
-        path.push(&target.item);
-
-        let file = path.to_string_lossy();
-
-        if file == "." || file == ".." {
+        if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
             return Err(ShellError::labeled_error(
                 "Remove aborted. \".\" or \"..\" may not be removed.",
                 "Remove aborted. \".\" or \"..\" may not be removed.",
                 target.span(),
             ));
         }
+
+        let mut path = PathBuf::from(path);
+
+        path.push(&target.item);
+
+        let file = path.to_string_lossy();
 
         let entries: Vec<_> = match glob::glob(&path.to_string_lossy()) {
             Ok(files) => files.collect(),
