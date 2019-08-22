@@ -125,6 +125,7 @@ fn paint_textview(
 
 fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer: bool) {
     let mut starting_row = 0;
+
     let rawkey = RawKey::new();
 
     if let Ok(_raw) = RawScreen::into_raw_mode() {
@@ -132,7 +133,30 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
         let _ = cursor.hide();
 
         let input = crossterm::input();
-        let _ = input.read_async();
+
+        let use_rawkey;
+        let mut sync_stdin = None;
+
+        #[cfg(target_os = "linux")]
+        {
+            // if we're in Linux but not X11, we need to avoid using rawkey for now
+            if std::env::var("DISPLAY").is_err() {
+                use_rawkey = false;
+            } else {
+                use_rawkey = true;
+            }
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            use_rawkey = true
+        }
+
+        if use_rawkey {
+            let _ = input.read_async();
+        } else {
+            sync_stdin = Some(input.read_sync());
+        }
 
         let terminal = terminal();
         let mut size = terminal.terminal_size();
@@ -143,41 +167,102 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
         // Only scroll if needed
         if max_bottom_line > height as usize {
             loop {
-                if rawkey.is_pressed(rawkey::KeyCode::Escape) {
-                    break;
-                }
-                if rawkey.is_pressed(rawkey::KeyCode::UpArrow) {
-                    if starting_row > 0 {
-                        starting_row -= 1;
+                if use_rawkey {
+                    if rawkey.is_pressed(rawkey::KeyCode::Escape) {
+                        break;
+                    }
+                    if rawkey.is_pressed(rawkey::KeyCode::UpArrow) {
+                        if starting_row > 0 {
+                            starting_row -= 1;
+                            max_bottom_line =
+                                paint_textview(&draw_commands, starting_row, use_color_buffer);
+                        }
+                    }
+                    if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
+                        if starting_row < (max_bottom_line - height) {
+                            starting_row += 1;
+                        }
                         max_bottom_line =
                             paint_textview(&draw_commands, starting_row, use_color_buffer);
                     }
-                }
-                if rawkey.is_pressed(rawkey::KeyCode::DownArrow) {
-                    if starting_row < (max_bottom_line - height) {
-                        starting_row += 1;
+                    if rawkey.is_pressed(rawkey::KeyCode::PageUp) {
+                        starting_row -= std::cmp::min(height, starting_row);
+                        max_bottom_line =
+                            paint_textview(&draw_commands, starting_row, use_color_buffer);
                     }
-                    max_bottom_line =
-                        paint_textview(&draw_commands, starting_row, use_color_buffer);
-                }
-                if rawkey.is_pressed(rawkey::KeyCode::PageUp) {
-                    starting_row -= std::cmp::min(height, starting_row);
-                    max_bottom_line =
-                        paint_textview(&draw_commands, starting_row, use_color_buffer);
-                }
-                if rawkey.is_pressed(rawkey::KeyCode::PageDown) || rawkey.is_pressed(rawkey::KeyCode::Space) {
-                    if starting_row < (max_bottom_line - height) {
-                        starting_row += height;
+                    if rawkey.is_pressed(rawkey::KeyCode::PageDown)
+                        || rawkey.is_pressed(rawkey::KeyCode::Space)
+                    {
+                        if starting_row < (max_bottom_line - height) {
+                            starting_row += height;
 
-                        if starting_row > (max_bottom_line - height) {
-                            starting_row = max_bottom_line - height;
+                            if starting_row > (max_bottom_line - height) {
+                                starting_row = max_bottom_line - height;
+                            }
+                        }
+                        max_bottom_line =
+                            paint_textview(&draw_commands, starting_row, use_color_buffer);
+                    }
+                    thread::sleep(Duration::from_millis(50));
+                } else {
+                    use crossterm::{InputEvent, KeyEvent};
+
+                    if let Some(ref mut sync_stdin) = sync_stdin {
+                        if let Some(ev) = sync_stdin.next() {
+                            match ev {
+                                InputEvent::Keyboard(k) => match k {
+                                    KeyEvent::Esc => {
+                                        break;
+                                    }
+                                    KeyEvent::Up => {
+                                        if starting_row > 0 {
+                                            starting_row -= 1;
+                                            max_bottom_line = paint_textview(
+                                                &draw_commands,
+                                                starting_row,
+                                                use_color_buffer,
+                                            );
+                                        }
+                                    }
+                                    KeyEvent::Down => {
+                                        if starting_row < (max_bottom_line - height) {
+                                            starting_row += 1;
+                                        }
+                                        max_bottom_line = paint_textview(
+                                            &draw_commands,
+                                            starting_row,
+                                            use_color_buffer,
+                                        );
+                                    }
+                                    KeyEvent::PageUp => {
+                                        starting_row -= std::cmp::min(height, starting_row);
+                                        max_bottom_line = paint_textview(
+                                            &draw_commands,
+                                            starting_row,
+                                            use_color_buffer,
+                                        );
+                                    }
+                                    KeyEvent::PageDown | KeyEvent::Char(' ') => {
+                                        if starting_row < (max_bottom_line - height) {
+                                            starting_row += height;
+
+                                            if starting_row > (max_bottom_line - height) {
+                                                starting_row = max_bottom_line - height;
+                                            }
+                                        }
+                                        max_bottom_line = paint_textview(
+                                            &draw_commands,
+                                            starting_row,
+                                            use_color_buffer,
+                                        );
+                                    }
+                                    _ => {}
+                                },
+                                _ => {}
+                            }
                         }
                     }
-                    max_bottom_line =
-                        paint_textview(&draw_commands, starting_row, use_color_buffer);
                 }
-
-                thread::sleep(Duration::from_millis(50));
 
                 let new_size = terminal.terminal_size();
                 if size != new_size {
