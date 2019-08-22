@@ -1,4 +1,4 @@
-use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
@@ -200,12 +200,13 @@ impl Shell for FilesystemShell {
             dst,
             recursive,
         }: CopyArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let name_span = context.name;
+        let name_span = name;
 
-        let mut source = PathBuf::from(context.shell_manager.path());
-        let mut destination = PathBuf::from(context.shell_manager.path());
+        let mut source = PathBuf::from(path);
+        let mut destination = PathBuf::from(path);
 
         source.push(&src.item);
         destination.push(&dst.item);
@@ -476,15 +477,16 @@ impl Shell for FilesystemShell {
 
     fn mkdir(
         &self,
-        mkdir_args: MkdirArgs,
-        RunnablePerItemContext {
-            name,
-            shell_manager,
-            ..
-        }: &RunnablePerItemContext,
+        MkdirArgs { rest: directories }: MkdirArgs,
+        // RunnablePerItemContext {
+        //     name,
+        //     shell_manager,
+        //     ..
+        // }: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        println!("full path");
-        let full_path = PathBuf::from(shell_manager.path());
+        let full_path = PathBuf::from(path);
 
         if directories.len() == 0 {
             return Err(ShellError::labeled_error(
@@ -494,16 +496,12 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        println!("dirs");
         for dir in directories.iter() {
-            println!("create at:");
             let create_at = {
                 let mut loc = full_path.clone();
                 loc.push(&dir.item);
                 loc
             };
-
-            println!("{:?}", create_at);
 
             match std::fs::create_dir_all(create_at) {
                 Err(reason) => {
@@ -513,14 +511,9 @@ impl Shell for FilesystemShell {
                         dir.span(),
                     ))
                 }
-                Ok(_) => {
-                    println!("OK");
-                }
+                Ok(_) => {}
             }
-            println!("End loop");
         }
-
-        println!("Done");
 
         Ok(VecDeque::new())
     }
@@ -528,12 +521,13 @@ impl Shell for FilesystemShell {
     fn mv(
         &self,
         MoveArgs { src, dst }: MoveArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let name_span = context.name;
+        let name_span = name;
 
-        let mut source = PathBuf::from(context.shell_manager.path());
-        let mut destination = PathBuf::from(context.shell_manager.path());
+        let mut source = PathBuf::from(path);
+        let mut destination = PathBuf::from(path);
 
         source.push(&src.item);
         destination.push(&dst.item);
@@ -832,11 +826,12 @@ impl Shell for FilesystemShell {
     fn rm(
         &self,
         RemoveArgs { target, recursive }: RemoveArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let name_span = context.name;
+        let name_span = name;
 
-        let mut path = PathBuf::from(context.shell_manager.path());
+        let mut path = PathBuf::from(path);
 
         path.push(&target.item);
 

@@ -1,4 +1,4 @@
-use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
@@ -106,48 +106,52 @@ impl Shell for ValueShell {
     fn cp(
         &self,
         _args: CopyArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        _path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         Err(ShellError::labeled_error(
             "cp not currently supported on values",
             "not currently supported",
-            context.name,
+            name,
         ))
     }
 
     fn mv(
         &self,
         _args: MoveArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        _path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         Err(ShellError::labeled_error(
             "mv not currently supported on values",
             "not currently supported",
-            context.name,
+            name,
         ))
     }
 
     fn mkdir(
         &self,
         _args: MkdirArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        _path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         Err(ShellError::labeled_error(
             "mkdir not currently supported on values",
             "not currently supported",
-            context.name,
+            name,
         ))
     }
 
     fn rm(
         &self,
         _args: RemoveArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        _path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
         Err(ShellError::labeled_error(
             "rm not currently supported on values",
             "not currently supported",
-            context.name,
+            name,
         ))
     }
 

@@ -35,8 +35,6 @@ fn mkdir(
     args: MkdirArgs,
     context: &RunnablePerItemContext,
 ) -> Result<VecDeque<ReturnValue>, ShellError> {
-    println!("shell clone");
     let shell_manager = context.shell_manager.clone();
-    println!("mkdir");
     shell_manager.mkdir(args, context)
 }

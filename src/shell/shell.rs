@@ -1,4 +1,4 @@
-use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
+use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
@@ -15,22 +15,26 @@ pub trait Shell: std::fmt::Debug {
     fn cp(
         &self,
         args: CopyArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError>;
     fn mkdir(
         &self,
         args: MkdirArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError>;
     fn mv(
         &self,
         args: MoveArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError>;
     fn rm(
         &self,
         args: RemoveArgs,
-        context: &RunnablePerItemContext,
+        name: Span,
+        path: &str,
     ) -> Result<VecDeque<ReturnValue>, ShellError>;
     fn path(&self) -> String;
     fn set_path(&mut self, path: String);

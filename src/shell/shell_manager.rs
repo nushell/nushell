@@ -117,9 +117,19 @@ impl ShellManager {
         args: CopyArgs,
         context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
-        env[self.current_shell].cp(args, context)
+        match env {
+            Ok(x) => {
+                let path = x[self.current_shell].path();
+                x[self.current_shell].cp(args, context.name, &path)
+            }
+            Err(e) => Err(ShellError::labeled_error(
+                format!("Internal error: could not lock {}", e),
+                "Internal error: could not lock",
+                context.name,
+            )),
+        }
     }
 
     pub fn rm(
@@ -127,9 +137,19 @@ impl ShellManager {
         args: RemoveArgs,
         context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
-        env[self.current_shell].rm(args, context)
+        match env {
+            Ok(x) => {
+                let path = x[self.current_shell].path();
+                x[self.current_shell].rm(args, context.name, &path)
+            }
+            Err(e) => Err(ShellError::labeled_error(
+                format!("Internal error: could not lock {}", e),
+                "Internal error: could not lock",
+                context.name,
+            )),
+        }
     }
 
     pub fn mkdir(
@@ -137,9 +157,19 @@ impl ShellManager {
         args: MkdirArgs,
         context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
-        env[self.current_shell].mkdir(args, context)
+        match env {
+            Ok(x) => {
+                let path = x[self.current_shell].path();
+                x[self.current_shell].mkdir(args, context.name, &path)
+            }
+            Err(e) => Err(ShellError::labeled_error(
+                format!("Internal error: could not lock {}", e),
+                "Internal error: could not lock",
+                context.name,
+            )),
+        }
     }
 
     pub fn mv(
@@ -147,8 +177,18 @@ impl ShellManager {
         args: MoveArgs,
         context: &RunnablePerItemContext,
     ) -> Result<VecDeque<ReturnValue>, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
-        env[self.current_shell].mv(args, context)
+        match env {
+            Ok(x) => {
+                let path = x[self.current_shell].path();
+                x[self.current_shell].mv(args, context.name, &path)
+            }
+            Err(e) => Err(ShellError::labeled_error(
+                format!("Internal error: could not lock {}", e),
+                "Internal error: could not lock",
+                context.name,
+            )),
+        }
     }
 }
