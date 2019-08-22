@@ -135,7 +135,11 @@ impl Shell for FilesystemShell {
         // Enumerate the entries from the glob and add each
         for entry in entries {
             if let Ok(entry) = entry {
-                let filename = entry.strip_prefix(&cwd).unwrap();
+                let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
+                    fname
+                } else {
+                    Path::new(&entry)
+                };
                 let metadata = std::fs::metadata(&entry)?;
                 let value = dir_entry_dict(
                     filename,
