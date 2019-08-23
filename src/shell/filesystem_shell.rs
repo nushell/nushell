@@ -73,20 +73,30 @@ impl Shell for FilesystemShell {
     }
 
     fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let cwd = self.path.clone();
-        let mut full_path = PathBuf::from(&self.path);
+        let cwd = self.path();
+        let mut full_path = PathBuf::from(self.path());
+
         match &args.nth(0) {
             Some(Tagged { item: value, .. }) => full_path.push(Path::new(&value.as_string()?)),
             _ => {}
         }
-        let entries = glob::glob(&full_path.to_string_lossy());
 
-        if entries.is_err() {
-            return Err(ShellError::string("Invalid pattern."));
-        }
+        let entries: Vec<_> = match glob::glob(&full_path.to_string_lossy()) {
+            Ok(files) => files.collect(),
+            Err(_) => {
+                if let Some(source) = args.nth(0) {
+                    return Err(ShellError::labeled_error(
+                        "Invalid pattern",
+                        "Invalid pattern",
+                        source.span(),
+                    ));
+                } else {
+                    return Err(ShellError::string("Invalid pattern."));
+                }
+            }
+        };
 
         let mut shell_entries = VecDeque::new();
-        let entries: Vec<_> = entries.unwrap().collect();
 
         // If this is a single entry, try to display the contents of the entry if it's a directory
         if entries.len() == 1 {
@@ -185,11 +195,11 @@ impl Shell for FilesystemShell {
         match std::env::set_current_dir(&path) {
             Ok(_) => {}
             Err(_) => {
-                if args.len() > 0 {
+                if let Some(directory) = args.nth(0) {
                     return Err(ShellError::labeled_error(
                         "Can not change to directory",
                         "directory not found",
-                        args.nth(0).unwrap().span().clone(),
+                        directory.span(),
                     ));
                 } else {
                     return Err(ShellError::string("Can not change to directory"));
