@@ -151,12 +151,11 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
 
         // Only scroll if needed
         if max_bottom_line > height as usize {
-            loop {
-                #[cfg(feature = "rawkey")]
-                {
+            #[cfg(feature = "rawkey")]
+            {
+                let rawkey = rawkey::RawKey::new();
+                loop {
                     use std::{thread, time::Duration};
-
-                    let rawkey = rawkey::RawKey::new();
 
                     if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                         break;
@@ -194,12 +193,24 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                             paint_textview(&draw_commands, starting_row, use_color_buffer);
                     }
                     thread::sleep(Duration::from_millis(50));
+                    let new_size = terminal.terminal_size();
+                    if size != new_size {
+                        size = new_size;
+                        let _ = terminal.clear(crossterm::ClearType::All);
+                        max_bottom_line =
+                            paint_textview(&draw_commands, starting_row, use_color_buffer);
+                    }
                 }
+                let _ = cursor.show();
 
-                #[cfg(not(feature = "rawkey"))]
-                {
-                    use crossterm::{InputEvent, KeyEvent};
+                #[allow(unused)]
+                let screen = RawScreen::disable_raw_mode();
+            }
+            #[cfg(not(feature = "rawkey"))]
+            {
+                use crossterm::{InputEvent, KeyEvent};
 
+                loop {
                     if let Some(ref mut sync_stdin) = sync_stdin {
                         if let Some(ev) = sync_stdin.next() {
                             match ev {
@@ -255,24 +266,22 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                             }
                         }
                     }
-                }
 
-                let new_size = terminal.terminal_size();
-                if size != new_size {
-                    size = new_size;
-                    let _ = terminal.clear(crossterm::ClearType::All);
-                    max_bottom_line =
-                        paint_textview(&draw_commands, starting_row, use_color_buffer);
+                    let new_size = terminal.terminal_size();
+                    if size != new_size {
+                        size = new_size;
+                        let _ = terminal.clear(crossterm::ClearType::All);
+                        max_bottom_line =
+                            paint_textview(&draw_commands, starting_row, use_color_buffer);
+                    }
                 }
+                let _ = cursor.show();
+
+                #[allow(unused)]
+                let screen = RawScreen::disable_raw_mode();
             }
         }
     }
-
-    let cursor = cursor();
-    let _ = cursor.show();
-
-    #[allow(unused)]
-    let screen = RawScreen::disable_raw_mode();
 
     println!("");
 }
