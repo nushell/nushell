@@ -38,8 +38,8 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
                     Some(v) => return Ok(v.clone()),
                     None => {
                         return Err(ShellError::labeled_error(
-                            "Unknown field",
-                            "object missing field",
+                            "Unknown column",
+                            "table missing column",
                             path.span(),
                         ));
                     }
