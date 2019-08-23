@@ -115,7 +115,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 -------------+----------------------------+---------+---------+------+---------
  authors     | description                | edition | license | name | version
 -------------+----------------------------+---------+---------+------+---------
- [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.1.3
+ [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.2.0
 -------------+----------------------------+---------+---------+------+---------
 ```
 
@@ -123,7 +123,7 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.1.3
+0.2.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
