@@ -18,6 +18,17 @@ There is also a [book](https://github.com/nushell/book) about Nu, currently in p
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
 
+Required dependencies:
+
+* libssl
+  * on macOS (via homebrew): `brew install openssl`
+  * on Linux (on Debian/Ubuntu): `apt install libssl-dev`
+
+Optional dependnecies:
+
+* To use Nu with all possible optional features enabled, you'll also need the following:
+  * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
+
 To install Nu via cargo:
 
 ```
