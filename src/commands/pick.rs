@@ -35,7 +35,7 @@ fn pick(
 ) -> Result<OutputStream, ShellError> {
     if fields.len() == 0 {
         return Err(ShellError::labeled_error(
-            "Pick requires fields",
+            "Pick requires columns to pick",
             "needs parameter",
             name,
         ));
