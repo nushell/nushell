@@ -12,7 +12,7 @@ This project is currently in its early stages, though it already works well enou
 
 Nu has a list of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
-There is also a [book](https://github.com/nushell/book) about Nu, currently in progress.
+There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
 
 # Installation
 
