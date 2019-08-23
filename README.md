@@ -4,6 +4,8 @@
 
 Like having a shell in a playground.
 
+![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
+
 # Status
 
 This project is currently in its early stages, though it already works well enough for contributors to dogfood it as their daily driver. Its design is subject to change as it matures.
