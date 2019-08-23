@@ -40,15 +40,15 @@ pub enum ArgumentError {
     MissingValueForName(String),
 }
 
-pub fn labelled(
-    span: impl Into<Span>,
-    heading: &'a str,
-    span_message: &'a str,
-) -> impl FnOnce(ShellError) -> ShellError + 'a {
-    let span = span.into();
+// pub fn labelled(
+//     span: impl Into<Span>,
+//     heading: &'a str,
+//     span_message: &'a str,
+// ) -> impl FnOnce(ShellError) -> ShellError + 'a {
+//     let span = span.into();
 
-    move |_| ShellError::labeled_error(heading, span_message, span)
-}
+//     move |_| ShellError::labeled_error(heading, span_message, span)
+// }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ShellError {

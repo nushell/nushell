@@ -102,9 +102,6 @@ pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
-    // pub host: Arc<Mutex<dyn Host + Send>>,
-    // pub shell_manager: ShellManager,
-    // pub call_info: CallInfo,
     pub input: InputStream,
 }
 
