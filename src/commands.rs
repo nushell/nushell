@@ -57,9 +57,8 @@ crate mod which_;
 
 crate use autoview::Autoview;
 crate use cd::CD;
-crate use clip::Clip;
 crate use command::{
-    per_item_command, whole_stream_command, Command, CommandArgs, PerItemCommand, RawCommandArgs,
+    per_item_command, whole_stream_command, Command, PerItemCommand, RawCommandArgs,
     UnevaluatedCallInfo, WholeStreamCommand,
 };
 crate use config::Config;

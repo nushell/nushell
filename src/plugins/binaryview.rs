@@ -49,8 +49,16 @@ fn view_binary(
     if b.len() > 3 {
         match (b[0], b[1], b[2]) {
             (0x4e, 0x45, 0x53) => {
-                view_contents_interactive(b, source, lores_mode)?;
-                return Ok(());
+                #[cfg(feature = "rawkey")]
+                {
+                    view_contents_interactive(b, source, lores_mode)?;
+                    return Ok(());
+                }
+                #[cfg(not(feature = "rawkey"))]
+                {
+                    println!("Interactive binary viewing currently requires the 'rawkey' feature");
+                    return Ok(());
+                }
             }
             _ => {}
         }
@@ -339,6 +347,7 @@ pub fn view_contents(
     Ok(())
 }
 
+#[cfg(feature = "rawkey")]
 pub fn view_contents_interactive(
     buffer: &[u8],
     source: Option<&SpanSource>,

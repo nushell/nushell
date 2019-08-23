@@ -184,7 +184,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(SkipWhile),
             per_item_command(Enter),
             whole_stream_command(Exit),
-            whole_stream_command(Clip),
             whole_stream_command(Autoview),
             per_item_command(Cpy),
             whole_stream_command(Date),
@@ -196,6 +195,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Version),
             whole_stream_command(Which),
         ]);
+
+        #[cfg(feature = "clipboard")]
+        {
+            context.add_commands(vec![whole_stream_command(
+                crate::commands::clip::clipboard::Clip,
+            )]);
+        }
     }
     let _ = load_plugins(&mut context);
 

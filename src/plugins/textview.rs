@@ -6,7 +6,6 @@ use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap, SpanSource,
     Tagged, Value,
 };
-use rawkey::RawKey;
 
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, ThemeSet};
@@ -14,7 +13,6 @@ use syntect::parsing::SyntaxSet;
 
 use std::io::Write;
 use std::path::Path;
-use std::{thread, time::Duration};
 
 enum DrawCommand {
     DrawString(Style, String),
@@ -126,35 +124,22 @@ fn paint_textview(
 fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer: bool) {
     let mut starting_row = 0;
 
-    let rawkey = RawKey::new();
-
     if let Ok(_raw) = RawScreen::into_raw_mode() {
         let cursor = cursor();
         let _ = cursor.hide();
 
         let input = crossterm::input();
 
-        let use_rawkey;
-        let mut sync_stdin = None;
+        #[allow(unused)]
+        let mut sync_stdin: Option<crossterm::SyncReader>;
 
-        #[cfg(target_os = "linux")]
+        #[cfg(feature = "rawkey")]
         {
-            // if we're in Linux but not X11, we need to avoid using rawkey for now
-            if std::env::var("DISPLAY").is_err() {
-                use_rawkey = false;
-            } else {
-                use_rawkey = true;
-            }
-        }
-
-        #[cfg(not(target_os = "linux"))]
-        {
-            use_rawkey = true
-        }
-
-        if use_rawkey {
             let _ = input.read_async();
-        } else {
+        }
+
+        #[cfg(not(feature = "rawkey"))]
+        {
             sync_stdin = Some(input.read_sync());
         }
 
@@ -167,7 +152,12 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
         // Only scroll if needed
         if max_bottom_line > height as usize {
             loop {
-                if use_rawkey {
+                #[cfg(feature = "rawkey")]
+                {
+                    use std::{thread, time::Duration};
+
+                    let rawkey = rawkey::RawKey::new();
+
                     if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                         break;
                     }
@@ -204,7 +194,10 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                             paint_textview(&draw_commands, starting_row, use_color_buffer);
                     }
                     thread::sleep(Duration::from_millis(50));
-                } else {
+                }
+
+                #[cfg(not(feature = "rawkey"))]
+                {
                     use crossterm::{InputEvent, KeyEvent};
 
                     if let Some(ref mut sync_stdin) = sync_stdin {
