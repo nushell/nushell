@@ -226,6 +226,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | clip | Copy the contents of the pipeline to the copy/paste buffer |
 | save filename | Save the contents of the pipeline to a file |
 | table | View the contents of the pipeline as a table |
+| textview | Autoview of text data |
 | tree | View the contents of the pipeline as a tree |
 | vtable | View the contents of the pipeline as a vertical (rotated) table |
 
