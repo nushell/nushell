@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.1.3"
+version = "0.2.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>"]
 description = "A shell for the GitHub era"
 license = "MIT"
@@ -8,7 +8,8 @@ edition = "2018"
 readme = "README.md"
 default-run = "nu"
 repository = "https://github.com/nushell/nushell"
-homepage = "https://github.com/nushell/nushell"
+homepage = "http://nushell.sh"
+documentation = "https://book.nushell.sh"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
