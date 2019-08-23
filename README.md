@@ -12,6 +12,10 @@ Nu has a list of built-in commands (listed below). If a command is unknown, the 
 
 There is also a [book](https://github.com/nushell/book) about Nu, currently in progress.
 
+# Installation
+
+Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
+
 # Philosophy
 
 Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back in a list of objects, where each object represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
