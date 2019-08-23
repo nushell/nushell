@@ -2,15 +2,15 @@
             
 # Nu Shell
 
-Like having a shell in a playground.
+A modern, GitHub-era shell written in Rust
 
 ![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
 
 # Status
 
-This project is currently in its early stages, though it already works well enough for contributors to dogfood it as their daily driver. Its design is subject to change as it matures.
+This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be instable for some commands. Future releases will work fill out missing features and improve stability. Its design is also subject to change as it matures.
 
-Nu has a list of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
+Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
 There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
 
