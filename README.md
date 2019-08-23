@@ -24,7 +24,7 @@ Required dependencies:
   * on macOS (via homebrew): `brew install openssl`
   * on Linux (on Debian/Ubuntu): `apt install libssl-dev`
 
-Optional dependnecies:
+Optional dependencies:
 
 * To use Nu with all possible optional features enabled, you'll also need the following:
   * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
