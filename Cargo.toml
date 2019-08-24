@@ -90,7 +90,6 @@ clipboard = {version = "0.5", optional = true }
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
-tempdir = "0.3.7"
 
 [lib]
 name = "nu"
