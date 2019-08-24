@@ -89,7 +89,14 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
         }
 
         match from_ini_string_to_value(concat_string, span) {
-            Ok(x) => yield ReturnSuccess::value(x),
+            Ok(x) => match x {
+                Tagged { item: Value::List(list), .. } => {
+                    for l in list {
+                        yield ReturnSuccess::value(l);
+                    }
+                }
+                x => yield ReturnSuccess::value(x),
+            },
             Err(_) => if let Some(last_tag) = latest_tag {
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as INI",
