@@ -17,7 +17,6 @@ documentation = "https://book.nushell.sh"
 rustyline = "5.0.2"
 sysinfo = "0.9"
 chrono = { version = "0.4.7", features = ["serde"] }
-chrono-tz = "0.5.1"
 derive-new = "0.5.7"
 prettytable-rs = "0.8.0"
 itertools = "0.8.0"
