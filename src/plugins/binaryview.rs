@@ -1,5 +1,7 @@
 #![feature(option_flattening)]
-use crossterm::{cursor, terminal, Attribute, RawScreen};
+use crossterm::{cursor, terminal, Attribute};
+#[cfg(feature = "image")]
+use crossterm::RawScreen;
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, NamedType, Plugin, ShellError, Signature, SpanSource, Tagged, Value,
@@ -213,6 +215,7 @@ impl RenderContext {
     }
 }
 
+#[cfg(feature = "image")]
 #[derive(Debug)]
 struct RawImageBuffer {
     dimensions: (u64, u64),
@@ -220,6 +223,7 @@ struct RawImageBuffer {
     buffer: Vec<u8>,
 }
 
+#[cfg(feature = "image")]
 fn load_from_png_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     use image::ImageDecoder;
 
@@ -240,6 +244,7 @@ fn load_from_png_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
+#[cfg(feature = "image")]
 fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     use image::ImageDecoder;
 
@@ -260,6 +265,7 @@ fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
+#[cfg(feature = "image")]
 pub fn view_contents(
     buffer: &[u8],
     _source: Option<&SpanSource>,
@@ -344,6 +350,16 @@ pub fn view_contents(
     #[allow(unused)]
     let screen = RawScreen::disable_raw_mode();
 
+    Ok(())
+}
+
+#[cfg(not(feature = "image"))]
+pub fn view_contents(
+    buffer: &[u8],
+    _source: Option<&SpanSource>,
+    _lores_mode: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{:?}", buffer.hex_dump());
     Ok(())
 }
 

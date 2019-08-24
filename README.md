@@ -38,11 +38,12 @@ cargo install nu
 You can also install Nu with all the bells and whistles:
 
 ```
-cargo install nu --features rawkey,clipboard
+cargo install nu --features image,rawkey,clipboard
 ```
 
 The following optional features are currently supported:
 
+* **image** - PNG, JPEG support for `binaryview`
 * **rawkey** - direct keyboard input, which creates a smoother experience in viewing text and binaries
 * **clipboard** - integration with the native clipboard via the `clip` command
 
