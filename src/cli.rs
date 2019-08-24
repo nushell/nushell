@@ -338,6 +338,17 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
+            // Replace ~ with the address of the home directory.
+            let mut line_string = String::from(line);
+            if line.contains("~") {
+                match dirs::home_dir() {
+                    // unwrap() is fine here since we know home is a valid unicode string.
+                    Some(home) => line_string = line_string.replace("~", home.to_str().unwrap()),
+                    None => panic!("Cannot find home directory"),
+                };
+            };
+            let line = &line_string;
+
             let result = match crate::parser::parse(&line) {
                 Err(err) => {
                     return LineResult::Error(line.clone(), err);
