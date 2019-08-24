@@ -94,17 +94,14 @@ impl std::io::Read for BytesReader {
 
 pub fn from_bson_bytes_to_value(
     bytes: Vec<u8>,
-    tag: impl Into<Tag> + std::clone::Clone,
+    tag: impl Into<Tag>,
 ) -> bson::DecoderResult<Tagged<Value>> {
-    let mut out = Vec::new();
+    let mut docs = Vec::new();
     let mut b_reader = BytesReader::new(bytes);
     while let Ok(v) = decode_document(&mut b_reader) {
-        out.push(convert_bson_value_to_nu_value(
-            &Bson::Document(v),
-            tag.clone(),
-        ));
+        docs.push(Bson::Document(v));
     }
-    Ok(Value::List(out).tagged(tag))
+    Ok(convert_bson_value_to_nu_value(&Bson::Array(docs), tag))
 }
 
 fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -117,7 +114,7 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            let latest_tag = Some(value_tag);
             match value.item {
                 Value::Binary(vb) =>
                     match from_bson_bytes_to_value(vb, span) {
