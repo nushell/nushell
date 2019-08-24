@@ -221,7 +221,7 @@ impl Shell for FilesystemShell {
         }: CopyArgs,
         name: Span,
         path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let name_span = name;
 
         let mut source = PathBuf::from(path);
@@ -491,7 +491,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(VecDeque::new())
+        Ok(OutputStream::empty())
     }
 
     fn mkdir(
@@ -504,7 +504,7 @@ impl Shell for FilesystemShell {
         // }: &RunnablePerItemContext,
         name: Span,
         path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let full_path = PathBuf::from(path);
 
         if directories.len() == 0 {
@@ -534,7 +534,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(VecDeque::new())
+        Ok(OutputStream::empty())
     }
 
     fn mv(
@@ -542,7 +542,7 @@ impl Shell for FilesystemShell {
         MoveArgs { src, dst }: MoveArgs,
         name: Span,
         path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let name_span = name;
 
         let mut source = PathBuf::from(path);
@@ -837,7 +837,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(VecDeque::new())
+        Ok(OutputStream::empty())
     }
 
     fn rm(
@@ -845,7 +845,7 @@ impl Shell for FilesystemShell {
         RemoveArgs { target, recursive }: RemoveArgs,
         name: Span,
         path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let name_span = name;
 
         if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
@@ -941,7 +941,7 @@ impl Shell for FilesystemShell {
             }
         }
 
-        Ok(VecDeque::new())
+        Ok(OutputStream::empty())
     }
 
     fn path(&self) -> String {

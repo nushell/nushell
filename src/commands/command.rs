@@ -81,7 +81,7 @@ impl CallInfo {
     pub fn process<'de, T: Deserialize<'de>>(
         &self,
         shell_manager: &ShellManager,
-        callback: fn(T, &RunnablePerItemContext) -> Result<VecDeque<ReturnValue>, ShellError>,
+        callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnablePerItemArgs<T>, ShellError> {
         let mut deserializer = ConfigDeserializer::from_call_info(self.clone());
 
@@ -250,11 +250,11 @@ impl RunnableContext {
 pub struct RunnablePerItemArgs<T> {
     args: T,
     context: RunnablePerItemContext,
-    callback: fn(T, &RunnablePerItemContext) -> Result<VecDeque<ReturnValue>, ShellError>,
+    callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
 }
 
 impl<T> RunnablePerItemArgs<T> {
-    pub fn run(self) -> Result<VecDeque<ReturnValue>, ShellError> {
+    pub fn run(self) -> Result<OutputStream, ShellError> {
         (self.callback)(self.args, &self.context)
     }
 }
@@ -485,7 +485,7 @@ pub trait PerItemCommand: Send + Sync {
         registry: &CommandRegistry,
         shell_manager: &ShellManager,
         input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError>;
+    ) -> Result<OutputStream, ShellError>;
 
     fn signature(&self) -> Signature {
         Signature {
@@ -552,7 +552,7 @@ impl Command {
                         .unwrap();
                     match command.run(&call_info, &registry, &raw_args.shell_manager, x) {
                         Ok(o) => o,
-                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]),
+                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
                     }
                 })
                 .flatten();

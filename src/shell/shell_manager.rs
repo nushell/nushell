@@ -116,7 +116,7 @@ impl ShellManager {
         &self,
         args: CopyArgs,
         context: &RunnablePerItemContext,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
         match env {
@@ -136,7 +136,7 @@ impl ShellManager {
         &self,
         args: RemoveArgs,
         context: &RunnablePerItemContext,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
         match env {
@@ -156,7 +156,7 @@ impl ShellManager {
         &self,
         args: MkdirArgs,
         context: &RunnablePerItemContext,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
         match env {
@@ -176,7 +176,7 @@ impl ShellManager {
         &self,
         args: MoveArgs,
         context: &RunnablePerItemContext,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
         match env {

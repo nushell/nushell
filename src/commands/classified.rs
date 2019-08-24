@@ -166,7 +166,8 @@ impl InternalCommand {
                                     &full_path,
                                     &location,
                                     Span::unknown(),
-                                )?;
+                                )
+                                .await?;
 
                             if let Some(uuid) = contents_tag.origin {
                                 // If we have loaded something, track its source

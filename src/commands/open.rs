@@ -7,6 +7,7 @@ use crate::prelude::*;
 use mime::Mime;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use surf::mime;
 use uuid::Uuid;
 pub struct Open;
 
@@ -27,15 +28,12 @@ impl PerItemCommand for Open {
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         run(call_info, shell_manager)
     }
 }
 
-fn run(
-    call_info: &CallInfo,
-    shell_manager: &ShellManager,
-) -> Result<VecDeque<ReturnValue>, ShellError> {
+fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStream, ShellError> {
     let cwd = PathBuf::from(shell_manager.path());
     let full_path = PathBuf::from(cwd);
 
@@ -46,85 +44,101 @@ fn run(
     {
         file => file,
     };
-
     let path_str = path.as_string()?;
+    let path_span = path.span();
+    let name_span = call_info.name_span;
+    let has_raw = call_info.args.has("raw");
 
-    let (file_extension, contents, contents_tag, span_source) =
-        fetch(&full_path, &path_str, path.span())?;
+    let stream = async_stream_block! {
 
-    let file_extension = if call_info.args.has("raw") {
-        None
-    } else {
-        file_extension
-    };
+        //FIXME: unwraps
 
-    let mut stream = VecDeque::new();
+        let (file_extension, contents, contents_tag, span_source) =
+            fetch(&full_path, &path_str, path_span).await.unwrap();
 
-    if let Some(uuid) = contents_tag.origin {
-        // If we have loaded something, track its source
-        stream.push_back(ReturnSuccess::action(CommandAction::AddSpanSource(
-            uuid,
-            span_source,
-        )))
-    }
+        let file_extension = if has_raw {
+            None
+        } else {
+            file_extension
+        };
 
-    match contents {
-        Value::Primitive(Primitive::String(string)) => {
-            let value = parse_as_value(file_extension, string, contents_tag, call_info.name_span)?;
-
-            match value {
-                Tagged {
-                    item: Value::List(list),
-                    ..
-                } => {
-                    for elem in list {
-                        stream.push_back(ReturnSuccess::value(elem));
-                    }
-                }
-                x => stream.push_back(ReturnSuccess::value(x)),
-            }
+        if let Some(uuid) = contents_tag.origin {
+            // If we have loaded something, track its source
+            yield ReturnSuccess::action(CommandAction::AddSpanSource(
+                uuid,
+                span_source,
+            ));
         }
 
-        other => stream.push_back(ReturnSuccess::value(other.tagged(contents_tag))),
+        match contents {
+            Value::Primitive(Primitive::String(string)) => {
+                let value = parse_as_value(file_extension, string, contents_tag, name_span).unwrap();
+
+                match value {
+                    Tagged {
+                        item: Value::List(list),
+                        ..
+                    } => {
+                        for elem in list {
+                            yield ReturnSuccess::value(elem);
+                        }
+                    }
+                    x => yield ReturnSuccess::value(x),
+                }
+            }
+
+            other => yield ReturnSuccess::value(other.tagged(contents_tag)),
+        };
     };
 
-    Ok(stream)
+    Ok(stream.to_output_stream())
 }
 
-pub fn fetch(
+pub async fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
 ) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
     let mut cwd = cwd.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
-        let response = reqwest::get(location);
+        let response = surf::get(location).await;
         match response {
             Ok(mut r) => match r.headers().get("content-type") {
                 Some(content_type) => {
-                    let content_type = Mime::from_str(content_type.to_str().unwrap()).unwrap();
+                    let content_type = Mime::from_str(content_type).unwrap();
                     match (content_type.type_(), content_type.subtype()) {
                         (mime::APPLICATION, mime::XML) => Ok((
                             Some("xml".to_string()),
-                            Value::string(r.text().unwrap()),
+                            Value::string(r.body_string().await.map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load text from remote url",
+                                    "could not load",
+                                    span,
+                                )
+                            })?),
                             Tag {
                                 span,
                                 origin: Some(Uuid::new_v4()),
                             },
-                            SpanSource::Url(r.url().to_string()),
+                            SpanSource::Url(location.to_string()),
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
                             Some("json".to_string()),
-                            Value::string(r.text().unwrap()),
+                            Value::string(r.body_string().await.map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load text from remote url",
+                                    "could not load",
+                                    span,
+                                )
+                            })?),
                             Tag {
                                 span,
                                 origin: Some(Uuid::new_v4()),
                             },
-                            SpanSource::Url(r.url().to_string()),
+                            SpanSource::Url(location.to_string()),
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
-                            let mut buf: Vec<u8> = vec![];
-                            r.copy_to(&mut buf).map_err(|_| {
+                            let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
                                 ShellError::labeled_error(
                                     "Could not load binary file",
                                     "could not load",
@@ -138,12 +152,11 @@ pub fn fetch(
                                     span,
                                     origin: Some(Uuid::new_v4()),
                                 },
-                                SpanSource::Url(r.url().to_string()),
+                                SpanSource::Url(location.to_string()),
                             ))
                         }
                         (mime::IMAGE, image_ty) => {
-                            let mut buf: Vec<u8> = vec![];
-                            r.copy_to(&mut buf).map_err(|_| {
+                            let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
                                 ShellError::labeled_error(
                                     "Could not load image file",
                                     "could not load",
@@ -157,21 +170,27 @@ pub fn fetch(
                                     span,
                                     origin: Some(Uuid::new_v4()),
                                 },
-                                SpanSource::Url(r.url().to_string()),
+                                SpanSource::Url(location.to_string()),
                             ))
                         }
                         (mime::TEXT, mime::HTML) => Ok((
                             Some("html".to_string()),
-                            Value::string(r.text().unwrap()),
+                            Value::string(r.body_string().await.map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load text from remote url",
+                                    "could not load",
+                                    span,
+                                )
+                            })?),
                             Tag {
                                 span,
                                 origin: Some(Uuid::new_v4()),
                             },
-                            SpanSource::Url(r.url().to_string()),
+                            SpanSource::Url(location.to_string()),
                         )),
                         (mime::TEXT, mime::PLAIN) => {
-                            let path_extension = r
-                                .url()
+                            let path_extension = url::Url::parse(location)
+                                .unwrap()
                                 .path_segments()
                                 .and_then(|segments| segments.last())
                                 .and_then(|name| if name.is_empty() { None } else { Some(name) })
@@ -183,12 +202,18 @@ pub fn fetch(
 
                             Ok((
                                 path_extension,
-                                Value::string(r.text().unwrap()),
+                                Value::string(r.body_string().await.map_err(|_| {
+                                    ShellError::labeled_error(
+                                        "Could not load text from remote url",
+                                        "could not load",
+                                        span,
+                                    )
+                                })?),
                                 Tag {
                                     span,
                                     origin: Some(Uuid::new_v4()),
                                 },
-                                SpanSource::Url(r.url().to_string()),
+                                SpanSource::Url(location.to_string()),
                             ))
                         }
                         (ty, sub_ty) => Ok((
@@ -201,7 +226,7 @@ pub fn fetch(
                                 span,
                                 origin: Some(Uuid::new_v4()),
                             },
-                            SpanSource::Url(r.url().to_string()),
+                            SpanSource::Url(location.to_string()),
                         )),
                     }
                 }
@@ -212,7 +237,7 @@ pub fn fetch(
                         span,
                         origin: Some(Uuid::new_v4()),
                     },
-                    SpanSource::Url(r.url().to_string()),
+                    SpanSource::Url(location.to_string()),
                 )),
             },
             Err(_) => {

@@ -21,7 +21,7 @@ impl PerItemCommand for Cpy {
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         call_info.process(shell_manager, cp)?.run()
     }
 
@@ -38,10 +38,7 @@ impl PerItemCommand for Cpy {
     }
 }
 
-fn cp(
-    args: CopyArgs,
-    context: &RunnablePerItemContext,
-) -> Result<VecDeque<ReturnValue>, ShellError> {
+fn cp(args: CopyArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
     let shell_manager = context.shell_manager.clone();
     shell_manager.cp(args, context)
 }

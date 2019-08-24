@@ -30,15 +30,12 @@ impl PerItemCommand for Remove {
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         call_info.process(shell_manager, rm)?.run()
     }
 }
 
-fn rm(
-    args: RemoveArgs,
-    context: &RunnablePerItemContext,
-) -> Result<VecDeque<ReturnValue>, ShellError> {
+fn rm(args: RemoveArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
     let shell_manager = context.shell_manager.clone();
     shell_manager.rm(args, context)
 }
