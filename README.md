@@ -18,6 +18,8 @@ There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
 
+To build Nu, you will need to use the **nightly** version of the compiler.
+
 Required dependencies:
 
 * libssl
