@@ -501,19 +501,17 @@ pub fn parse_binary_as_value(
     contents_tag: Tag,
     name_span: Span,
 ) -> Result<Tagged<Value>, ShellError> {
-    println!("{:?}", extension);
     match extension {
         Some(x) if x == "bson" => {
-            Err(ShellError::labeled_error("Could not open as BSON", "Could not open as BSON", name_span))
-            //crate::commands::from_json::from_bson_bytes_to_value(contents, contents_tag).map_err(
-            //    move |_| {
-            //        ShellError::labeled_error(
-             //           "Could not open as BSON",
-             //           "could not open as BSON",
-             //           name_span,
-             //       )
-            //    },
-           // )
+            crate::commands::from_bson::from_bson_bytes_to_value(contents, contents_tag).map_err(
+                move |_| {
+                    ShellError::labeled_error(
+                       "Could not open as BSON",
+                       "could not open as BSON",
+                       name_span,
+                    )
+                },
+            )
         }
         _ => Ok(Value::Binary(contents).tagged(contents_tag)),
     }
