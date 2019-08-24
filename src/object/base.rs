@@ -94,14 +94,14 @@ impl Primitive {
                 let byte = byte_unit::Byte::from_bytes(*b as u128);
 
                 if byte.get_bytes() == 0u128 {
-                    return "    –   ".to_string();
+                    return "—".to_string();
                 }
 
                 let byte = byte.get_appropriate_unit(false);
 
                 match byte.get_unit() {
-                    byte_unit::ByteUnit::B => format!("{:>5} B ", byte.get_value()),
-                    _ => format!("{:>8}", byte.format(1)),
+                    byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
+                    _ => format!("{}", byte.format(1)),
                 }
             }
             Primitive::Int(i) => format!("{}", i),
@@ -116,6 +116,16 @@ impl Primitive {
                 (false, Some(_)) => format!("No"),
             },
             Primitive::Date(d) => format!("{}", d.humanize()),
+        }
+    }
+
+    pub fn style(&self) -> &'static str {
+        match self {
+            Primitive::Bytes(0) => "c", // centre 'missing' indicator
+            Primitive::Int(_) |
+            Primitive::Bytes(_) |
+            Primitive::Float(_) => "r",
+            _ => ""
         }
     }
 }
@@ -456,6 +466,13 @@ impl Value {
                 if l.len() == 1 { "item" } else { "items" }
             ),
             Value::Binary(_) => format!("<binary>"),
+        }
+    }
+
+    crate fn style_leaf(&self) -> &'static str {
+        match self {
+            Value::Primitive(p) => p.style(),
+            _ => ""
         }
     }
 
