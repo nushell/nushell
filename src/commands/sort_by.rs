@@ -18,7 +18,7 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by")
+        Signature::build("sort-by").switch("reverse")
     }
 }
 
@@ -37,13 +37,21 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
     let output = input.values.collect::<Vec<_>>();
 
+    let reverse = args.has("reverse");
     let output = output.map(move |mut vec| {
-        vec.sort_by_key(|item| {
+        let calc_key = |item: &Tagged<Value>| {
             fields
                 .iter()
                 .map(|f| item.get_data_by_key(f).map(|i| i.clone()))
                 .collect::<Vec<Option<Tagged<Value>>>>()
-        });
+        };
+        if reverse {
+            vec.sort_by_cached_key(|item| {
+                std::cmp::Reverse(calc_key(item))
+            });
+        } else {
+            vec.sort_by_cached_key(calc_key);
+        }
 
         vec.into_iter().collect::<VecDeque<_>>()
     });

@@ -185,7 +185,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | pick ...columns | Down-select table to only these columns |
 | reject ...columns | Remove the given columns from the table |
 | get column-or-column-path | Open given cells as text |
-| sort-by ...columns | Sort by the given columns |
+| sort-by ...columns (--reverse) | Sort by the given columns |
 | where condition | Filter table to match the condition |
 | inc (field) | Increment a value or version. Optional use the field of a table |
 | add field value | Add a new field to the table |
