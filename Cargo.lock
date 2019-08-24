@@ -847,11 +847,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enum_derive"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
 name = "env_logger"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1839,7 +1834,6 @@ dependencies = [
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "dunce 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum-utils 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "enum_derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-async-stream 0.1.0-alpha.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-sink-preview 0.3.0-alpha.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3677,7 +3671,6 @@ dependencies = [
 "checksum encoding_rs 0.8.17 (registry+https://github.com/rust-lang/crates.io-index)" = "4155785c79f2f6701f185eb2e6b4caf0555ec03477cb4c70db67b465311620ed"
 "checksum enum-utils 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1f1ae672d9891879fb93e17ab6015c4e3bbe63fbeb23a41b9ac39ffa845b8836"
 "checksum enum-utils-from-str 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6b5669381f76d7320e122abdd4a8307f986634f6d067fb69e31179422175801a"
-"checksum enum_derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "406ac2a8c9eedf8af9ee1489bee9e50029278a6456c740f7454cf8a158abc816"
 "checksum env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "aafcde04e90a5226a6443b7aabdb016ba2f8307c847d524724bd9b346dd1a2d3"
 "checksum error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3ab49e9dcb602294bc42f9a7dfc9bc6e936fca4418ea300dbfb84fe16de0b7d9"
 "checksum failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "795bd83d3abeb9220f257e597aa0080a508b27533824adf336529648f6abf7e2"
