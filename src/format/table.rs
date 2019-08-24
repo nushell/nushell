@@ -1,7 +1,6 @@
 use crate::format::RenderView;
 use crate::object::Value;
 use crate::prelude::*;
-use ansi_term::Color;
 use derive_new::new;
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use textwrap::fill;
