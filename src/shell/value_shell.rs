@@ -103,12 +103,7 @@ impl Shell for ValueShell {
         Ok(stream.into())
     }
 
-    fn cp(
-        &self,
-        _args: CopyArgs,
-        name: Span,
-        _path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn cp(&self, _args: CopyArgs, name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Err(ShellError::labeled_error(
             "cp not currently supported on values",
             "not currently supported",
@@ -116,12 +111,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn mv(
-        &self,
-        _args: MoveArgs,
-        name: Span,
-        _path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn mv(&self, _args: MoveArgs, name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Err(ShellError::labeled_error(
             "mv not currently supported on values",
             "not currently supported",
@@ -129,12 +119,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn mkdir(
-        &self,
-        _args: MkdirArgs,
-        name: Span,
-        _path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn mkdir(&self, _args: MkdirArgs, name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Err(ShellError::labeled_error(
             "mkdir not currently supported on values",
             "not currently supported",
@@ -142,12 +127,7 @@ impl Shell for ValueShell {
         ))
     }
 
-    fn rm(
-        &self,
-        _args: RemoveArgs,
-        name: Span,
-        _path: &str,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    fn rm(&self, _args: RemoveArgs, name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Err(ShellError::labeled_error(
             "rm not currently supported on values",
             "not currently supported",

@@ -21,10 +21,10 @@ impl PerItemCommand for Where {
         _registry: &registry::CommandRegistry,
         _shell_manager: &ShellManager,
         input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         let input_clone = input.clone();
         let condition = call_info.args.expect_nth(0)?;
-        match condition {
+        let stream = match condition {
             Tagged {
                 item: Value::Block(block),
                 tag,
@@ -33,23 +33,29 @@ impl PerItemCommand for Where {
                 match result {
                     Ok(v) => {
                         if v.is_true() {
-                            Ok(VecDeque::from(vec![Ok(ReturnSuccess::Value(input_clone))]))
+                            VecDeque::from(vec![Ok(ReturnSuccess::Value(input_clone))])
                         } else {
-                            Ok(VecDeque::new())
+                            VecDeque::new()
                         }
                     }
-                    Err(e) => Err(ShellError::labeled_error(
-                        format!("Could not evaluate ({})", e.to_string()),
-                        "could not evaluate",
-                        tag.span,
-                    )),
+                    Err(e) => {
+                        return Err(ShellError::labeled_error(
+                            format!("Could not evaluate ({})", e.to_string()),
+                            "could not evaluate",
+                            tag.span,
+                        ))
+                    }
                 }
             }
-            Tagged { tag, .. } => Err(ShellError::labeled_error(
-                "Expected a condition",
-                "where needs a condition",
-                tag.span,
-            )),
-        }
+            Tagged { tag, .. } => {
+                return Err(ShellError::labeled_error(
+                    "Expected a condition",
+                    "where needs a condition",
+                    tag.span,
+                ))
+            }
+        };
+
+        Ok(stream.to_output_stream())
     }
 }

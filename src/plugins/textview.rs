@@ -308,7 +308,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
                         path.extension().map(|x| x.to_string_lossy().to_string())
                     }
                     SpanSource::Url(url) => {
-                        let url = reqwest::Url::parse(url);
+                        let url = url::Url::parse(url);
                         if let Ok(url) = url {
                             let url = url.clone();
                             if let Some(mut segments) = url.path_segments() {
