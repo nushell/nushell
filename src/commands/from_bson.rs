@@ -46,20 +46,40 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
         }
         Bson::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
         Bson::Null => Value::Primitive(Primitive::String(String::from(""))).tagged(tag),
-        //        Bson::RegExp(r, opts) => {
-        //            let mut collected = TaggedDictBuilder::new(tag);
-        //            collected.insert_tagged(
-        //                "$regex".to_owned(),
-        //                Value::Primitive(Primitive::String(String::from(r))),
-        //            );
-        //            collected.insert_tagged(
-        //                "$options".to_owned(),
-        //                Value::Primitive(Primitive::String(String::from(opts))),
-        //            );
-        //            collected.into_tagged_value()
-        //        }
+        Bson::RegExp(r, opts) => {
+             let mut collected = TaggedDictBuilder::new(tag);
+             collected.insert_tagged(
+                 "$regex".to_string(),
+                 Value::Primitive(Primitive::String(String::from(r))).tagged(tag),
+             );
+             collected.insert_tagged(
+                 "$options".to_string(),
+                 Value::Primitive(Primitive::String(String::from(opts))).tagged(tag),
+             );
+             collected.into_tagged_value()
+        }
         Bson::I32(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
         Bson::I64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
+        Bson::JavaScriptCode(js) => {
+             let mut collected = TaggedDictBuilder::new(tag);
+             collected.insert_tagged(
+                 "$javascript".to_string(),
+                 Value::Primitive(Primitive::String(String::from(js))).tagged(tag),
+             );
+             collected.into_tagged_value()
+        }
+        Bson::JavaScriptCodeWithScope(js, doc) => {
+             let mut collected = TaggedDictBuilder::new(tag);
+             collected.insert_tagged(
+                 "$javascript".to_string(),
+                 Value::Primitive(Primitive::String(String::from(js))).tagged(tag),
+             );
+             collected.insert_tagged(
+                 "$scope".to_string(),
+                 convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag),
+             );
+             collected.into_tagged_value()
+        }
         Bson::ObjectId(obj_id) => Value::Primitive(Primitive::String(obj_id.to_hex())).tagged(tag),
         x => {
             println!("{:?}", x);
