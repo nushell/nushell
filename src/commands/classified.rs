@@ -176,7 +176,7 @@ impl InternalCommand {
 
                             match contents {
                                 Value::Primitive(Primitive::String(string)) => {
-                                    let value = crate::commands::open::parse_as_value(
+                                    let value = crate::commands::open::parse_string_as_value(
                                         file_extension,
                                         string,
                                         contents_tag,
