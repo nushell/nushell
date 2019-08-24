@@ -31,7 +31,6 @@ prettyprint = "0.7.0"
 futures-preview = { version = "=0.3.0-alpha.18", features = ["compat", "io-compat"] }
 futures-sink-preview = "=0.3.0-alpha.18"
 futures-async-stream = "0.1.0-alpha.1"
-async-trait = "0.1.10"
 futures_codec = "0.2.5"
 term = "0.5.2"
 bytes = "0.4.12"
