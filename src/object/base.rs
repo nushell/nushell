@@ -94,14 +94,14 @@ impl Primitive {
                 let byte = byte_unit::Byte::from_bytes(*b as u128);
 
                 if byte.get_bytes() == 0u128 {
-                    return "<empty>".to_string();
+                    return "    –   ".to_string();
                 }
 
                 let byte = byte.get_appropriate_unit(false);
 
                 match byte.get_unit() {
-                    byte_unit::ByteUnit::B => format!("{}", byte.format(0)),
-                    _ => format!("{}", byte.format(1)),
+                    byte_unit::ByteUnit::B => format!("{:>5} B ", byte.get_value()),
+                    _ => format!("{:>8}", byte.format(1)),
                 }
             }
             Primitive::Int(i) => format!("{}", i),
