@@ -168,6 +168,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(SortBy),
             whole_stream_command(Tags),
             whole_stream_command(First),
+            whole_stream_command(Last),
+            whole_stream_command(FromArray),
             whole_stream_command(FromArray),
             whole_stream_command(FromCSV),
             whole_stream_command(FromINI),
