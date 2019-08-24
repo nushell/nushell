@@ -1,6 +1,5 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
-#![feature(async_await)]
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
 
