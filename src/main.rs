@@ -1,8 +1,3 @@
-#![feature(crate_visibility_modifier)]
-#![feature(in_band_lifetimes)]
-#![feature(try_trait)]
-#![feature(bind_by_move_pattern_guards)]
-
 use clap::{App, Arg};
 use log::LevelFilter;
 use std::error::Error;

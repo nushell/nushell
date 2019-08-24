@@ -3,8 +3,6 @@
 #![feature(generators)]
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
-#![feature(box_syntax)]
-#![feature(type_ascription)]
 #![feature(core_intrinsics)]
 #![feature(option_flattening)]
 #![feature(specialization)]
