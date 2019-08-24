@@ -1,9 +1,8 @@
-use crate::format::RenderView;
+use crate::format::{RenderView, consts};
 use crate::object::Value;
 use crate::prelude::*;
 use ansi_term::Color;
 use derive_new::new;
-use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use textwrap::fill;
 
 use prettytable::{color, Attr, Cell, Row, Table};
@@ -191,16 +190,7 @@ impl RenderView for TableView {
         }
 
         let mut table = Table::new();
-
-        let fb = FormatBuilder::new()
-            .separator(LinePosition::Top, LineSeparator::new('-', '+', ' ', ' '))
-            .separator(LinePosition::Bottom, LineSeparator::new('-', '+', ' ', ' '))
-            .separator(LinePosition::Title, LineSeparator::new('-', '+', '|', '|'))
-            .column_separator('|')
-            .padding(1, 1);
-
-        //table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-        table.set_format(fb.build());
+        table.set_format(*consts::TABLE_FORMAT);
 
         let header: Vec<Cell> = self
             .headers
