@@ -157,7 +157,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 * Nu views data as both structured and unstructured. It is an object shell like PowerShell.
 
-* Finally, Nu views data functionally. Rather than using mutation, pipelines act as a mean to load, change, and save data without mutable state.
+* Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
 # Commands
 ## Initial commands
