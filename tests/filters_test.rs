@@ -111,3 +111,14 @@ fn can_get_last() {
 
     assert_eq!(output, "utf16.ini");
 }
+
+#[test]
+fn can_get_reverse_first() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "ls | sort-by name | reverse | first 1 | get name | trim | echo $it"
+    );
+
+    assert_eq!(output, "utf16.ini");
+}
