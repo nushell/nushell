@@ -29,17 +29,6 @@ fn open_can_parse_bson_1() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
-        "open sample.bson | nth 3 | get b | get '$javascript' | echo $it"
-    );
-
-    assert_eq!(h::normalize_string(&output), "\"let x = y\"");
-}
-
-#[test]
-fn open_can_parse_bson_2() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
         "open sample.bson | nth 0 | get b | echo $it"
     );
 
@@ -47,7 +36,7 @@ fn open_can_parse_bson_2() {
 }
 
 #[test]
-fn open_can_parse_bson_3() {
+fn open_can_parse_bson_2() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
