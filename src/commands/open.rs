@@ -51,17 +51,18 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
 
     let stream = async_stream_block! {
 
-    //FIXME: unwraps
-    let (file_extension, contents, contents_tag, span_source) =
-        fetch(&full_path, &path_str, path_span).await.unwrap();
+        //FIXME: unwraps
 
-    let file_extension = if call_info.args.has("raw") {
-        None
-    } else {
-        // If the extension could not be determined via mimetype, try to use the path
-        // extension. Some file types do not declare their mimetypes (such as bson files).
-        file_extension.or(path_str.split('.').last().map(String::from))
-    };
+        let (file_extension, contents, contents_tag, span_source) =
+            fetch(&full_path, &path_str, path_span).await.unwrap();
+
+        let file_extension = if has_raw {
+            None
+        } else {
+            // If the extension could not be determined via mimetype, try to use the path
+            // extension. Some file types do not declare their mimetypes (such as bson files).
+            file_extension.or(path_str.split('.').last().map(String::from))
+        };
 
 
         if let Some(uuid) = contents_tag.origin {
@@ -72,24 +73,9 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
             ));
         }
 
-    match contents {
-        Value::Primitive(Primitive::String(string)) => {
-            let value = parse_string_as_value(file_extension, string, contents_tag, call_info.name_span)?;
-
-            match value {
-                Tagged {
-                    item: Value::List(list),
-                    ..
-                } => {
-                    for elem in list {
-                        stream.push_back(ReturnSuccess::value(elem));
-                    }
-                }
-                x => stream.push_back(ReturnSuccess::value(x)),
-            }
-        }
-        Value::Binary(binary) => {
-            let value = parse_binary_as_value(file_extension, binary, contents_tag, call_info.name_span)?;
+        match contents {
+            Value::Primitive(Primitive::String(string)) => {
+                let value = parse_string_as_value(file_extension, string, contents_tag, name_span).unwrap();
 
                 match value {
                     Tagged {
@@ -103,7 +89,21 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
                     x => yield ReturnSuccess::value(x),
                 }
             }
+            Value::Binary(binary) => {
+                let value = parse_binary_as_value(file_extension, binary, contents_tag, name_span).unwrap();
 
+                match value {
+                    Tagged {
+                        item: Value::List(list),
+                        ..
+                    } => {
+                        for elem in list {
+                            yield ReturnSuccess::value(elem);
+                        }
+                    }
+                    x => yield ReturnSuccess::value(x),
+                }
+            }
             other => yield ReturnSuccess::value(other.tagged(contents_tag)),
         };
     };
