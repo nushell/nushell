@@ -174,18 +174,17 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
         for value in values {
             let value_tag = value.tag();
-            let latest_tag = Some(value_tag);
             match value.item {
                 Value::Binary(vb) =>
                     match from_bson_bytes_to_value(vb, span) {
                         Ok(x) => yield ReturnSuccess::value(x),
-                        Err(_) => if let Some(last_tag) = latest_tag {
+                        Err(_) => {
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could not parse as BSON",
                                 "input cannot be parsed as BSON",
                                 span,
                                 "value originates from here",
-                                last_tag.span,
+                                value_tag.span,
                             ))
                         }
                     }
