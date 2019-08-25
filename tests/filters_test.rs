@@ -95,7 +95,7 @@ fn can_get_last() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
-        "ls | last 1 | get name | trim | echo $it"
+        "ls | sort-by name | last 1 | get name | trim | echo $it"
     );
 
     assert_eq!(output, "utf16.ini");
