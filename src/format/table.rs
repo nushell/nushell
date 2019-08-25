@@ -97,9 +97,9 @@ impl TableView {
                 entries[row].truncate(max_num_of_columns);
             }
 
-            headers.push("…".to_string());
+            headers.push("...".to_string());
             for row in 0..entries.len() {
-                entries[row].push(("…".to_string(), "c")); // ellipsis is centred
+                entries[row].push(("...".to_string(), "c")); // ellipsis is centred
             }
         }
 
