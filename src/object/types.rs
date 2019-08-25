@@ -14,7 +14,7 @@ pub trait ExtractType: Sized {
 
 impl<T> ExtractType for T {
     default fn extract(_value: &Tagged<Value>) -> Result<T, ShellError> {
-        let name = std::intrinsics::type_name::<T>();
+        let name = std::any::type_name::<T>();
         Err(ShellError::unimplemented(format!(
             "<T> ExtractType for {}",
             name
@@ -32,7 +32,7 @@ impl<T> ExtractType for T {
 
 impl<T: ExtractType> ExtractType for Vec<Tagged<T>> {
     fn extract(value: &Tagged<Value>) -> Result<Self, ShellError> {
-        let name = std::intrinsics::type_name::<T>();
+        let name = std::any::type_name::<T>();
         trace!("<Vec> Extracting {:?} for Vec<{}>", value, name);
 
         match value.item() {
@@ -69,8 +69,8 @@ impl<T: ExtractType> ExtractType for Vec<Tagged<T>> {
 
 impl<T: ExtractType, U: ExtractType> ExtractType for (T, U) {
     fn extract(value: &Tagged<Value>) -> Result<(T, U), ShellError> {
-        let t_name = std::intrinsics::type_name::<T>();
-        let u_name = std::intrinsics::type_name::<U>();
+        let t_name = std::any::type_name::<T>();
+        let u_name = std::any::type_name::<U>();
 
         trace!("Extracting {:?} for ({}, {})", value, t_name, u_name);
 
@@ -98,7 +98,7 @@ impl<T: ExtractType, U: ExtractType> ExtractType for (T, U) {
 
 impl<T: ExtractType> ExtractType for Option<T> {
     fn extract(value: &Tagged<Value>) -> Result<Option<T>, ShellError> {
-        let name = std::intrinsics::type_name::<T>();
+        let name = std::any::type_name::<T>();
         trace!("<Option> Extracting {:?} for Option<{}>", value, name);
 
         let result = match value.item() {
@@ -123,7 +123,7 @@ impl<T: ExtractType> ExtractType for Option<T> {
 
 impl<T: ExtractType> ExtractType for Tagged<T> {
     fn extract(value: &Tagged<Value>) -> Result<Tagged<T>, ShellError> {
-        let name = std::intrinsics::type_name::<T>();
+        let name = std::any::type_name::<T>();
         trace!("<Tagged> Extracting {:?} for Tagged<{}>", value, name);
 
         Ok(T::extract(value)?.tagged(value.tag()))

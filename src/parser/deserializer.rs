@@ -70,7 +70,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = self.pop();
-        let name = std::intrinsics::type_name::<V::Value>();
+        let name = std::any::type_name::<V::Value>();
         trace!("<Deserialize any> Extracting {:?}", name);
 
         V::Value::extract(&value.val)
@@ -237,7 +237,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
         if self.saw_root {
             let value = self.pop();
-            let name = std::intrinsics::type_name::<V::Value>();
+            let name = std::any::type_name::<V::Value>();
             trace!("Extracting {:?} for {:?}", value.val, name);
             V::Value::extract(&value.val)
         } else {

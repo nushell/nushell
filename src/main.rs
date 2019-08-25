@@ -4,7 +4,7 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("nushell")
-        .version("0.1.3")
+        .version(clap::crate_version!())
         .arg(
             Arg::with_name("loglevel")
                 .short("l")

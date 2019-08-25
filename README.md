@@ -18,11 +18,12 @@ There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
 
+To build Nu, you will need to use the **nightly** version of the compiler.
+
 Required dependencies:
 
-* libssl
-  * on macOS (via homebrew): `brew install openssl`
-  * on Linux (on Debian/Ubuntu): `apt install libssl-dev`
+* libssl (only needed on Linux)
+  * on Debian/Ubuntu: `apt install libssl-dev`
 
 Optional dependencies:
 
@@ -156,7 +157,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 * Nu views data as both structured and unstructured. It is an object shell like PowerShell.
 
-* Finally, Nu views data functionally. Rather than using mutation, pipelines act as a mean to load, change, and save data without mutable state.
+* Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
 # Commands
 ## Initial commands
@@ -184,7 +185,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | pick ...columns | Down-select table to only these columns |
 | reject ...columns | Remove the given columns from the table |
 | get column-or-column-path | Open given cells as text |
-| sort-by ...columns | Sort by the given columns |
+| sort-by ...columns (--reverse) | Sort by the given columns |
 | where condition | Filter table to match the condition |
 | inc (field) | Increment a value or version. Optional use the field of a table |
 | add field value | Add a new field to the table |

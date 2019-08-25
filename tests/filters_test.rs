@@ -58,6 +58,17 @@ fn can_sort_by_column() {
 }
 
 #[test]
+fn can_sort_by_column_reverse() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open cargo_sample.toml --raw | lines | skip 1 | first 4 | split-column \"=\" | sort-by Column1 --reverse | skip 1 | first 1 | get Column1 | trim | echo $it"
+    );
+
+    assert_eq!(output, "name");
+}
+
+#[test]
 fn can_split_by_column() {
     nu!(
         output,
@@ -88,4 +99,15 @@ fn can_filter_by_unit_size_comparison() {
     );
 
     assert_eq!(output, "caco3_plastics.csv");
+}
+
+#[test]
+fn can_get_last() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "ls | sort-by name | last 1 | get name | trim | echo $it"
+    );
+
+    assert_eq!(output, "utf16.ini");
 }
