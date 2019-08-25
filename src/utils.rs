@@ -197,6 +197,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("sample.bson"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sample.ini"),
                     at: 0
                 },

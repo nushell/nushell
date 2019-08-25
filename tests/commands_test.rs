@@ -25,6 +25,28 @@ fn open_can_parse_csv() {
 }
 
 #[test]
+fn open_can_parse_bson_1() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open sample.bson | nth 0 | get b | echo $it"
+    );
+
+    assert_eq!(output, "hello");
+}
+
+#[test]
+fn open_can_parse_bson_2() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "open sample.bson | nth 6 | get b | get '$binary_subtype' | echo $it "
+    );
+
+    assert_eq!(output, "function");
+}
+
+#[test]
 fn open_can_parse_toml() {
     nu!(
         output,

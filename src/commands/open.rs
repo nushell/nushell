@@ -59,8 +59,11 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
         let file_extension = if has_raw {
             None
         } else {
-            file_extension
+            // If the extension could not be determined via mimetype, try to use the path
+            // extension. Some file types do not declare their mimetypes (such as bson files).
+            file_extension.or(path_str.split('.').last().map(String::from))
         };
+
 
         if let Some(uuid) = contents_tag.origin {
             // If we have loaded something, track its source
@@ -72,7 +75,7 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
 
         match contents {
             Value::Primitive(Primitive::String(string)) => {
-                let value = parse_as_value(file_extension, string, contents_tag, name_span).unwrap();
+                let value = parse_string_as_value(file_extension, string, contents_tag, name_span).unwrap();
 
                 match value {
                     Tagged {
@@ -86,7 +89,21 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
                     x => yield ReturnSuccess::value(x),
                 }
             }
+            Value::Binary(binary) => {
+                let value = parse_binary_as_value(file_extension, binary, contents_tag, name_span).unwrap();
 
+                match value {
+                    Tagged {
+                        item: Value::List(list),
+                        ..
+                    } => {
+                        for elem in list {
+                            yield ReturnSuccess::value(elem);
+                        }
+                    }
+                    x => yield ReturnSuccess::value(x),
+                }
+            }
             other => yield ReturnSuccess::value(other.tagged(contents_tag)),
         };
     };
@@ -402,7 +419,7 @@ fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
     }
 }
 
-pub fn parse_as_value(
+pub fn parse_string_as_value(
     extension: Option<String>,
     contents: String,
     contents_tag: Tag,
@@ -475,5 +492,27 @@ pub fn parse_as_value(
             )
         }
         _ => Ok(Value::string(contents).tagged(contents_tag)),
+    }
+}
+
+pub fn parse_binary_as_value(
+    extension: Option<String>,
+    contents: Vec<u8>,
+    contents_tag: Tag,
+    name_span: Span,
+) -> Result<Tagged<Value>, ShellError> {
+    match extension {
+        Some(x) if x == "bson" => {
+            crate::commands::from_bson::from_bson_bytes_to_value(contents, contents_tag).map_err(
+                move |_| {
+                    ShellError::labeled_error(
+                       "Could not open as BSON",
+                       "could not open as BSON",
+                       name_span,
+                    )
+                },
+            )
+        }
+        _ => Ok(Value::Binary(contents).tagged(contents_tag)),
     }
 }
