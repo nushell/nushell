@@ -32,7 +32,7 @@ fn open_can_parse_bson_1() {
         "open sample.bson | nth 3 | get b | get '$javascript' | echo $it"
     );
 
-    assert_eq!(output, "let x = y");
+    assert_eq!(h::normalize_string(&output), "\"let x = y\"");
 }
 
 #[test]
