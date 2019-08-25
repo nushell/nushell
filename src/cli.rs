@@ -17,7 +17,7 @@ use crate::prelude::*;
 use log::{debug, trace};
 use regex::Regex;
 use rustyline::error::ReadlineError;
-use rustyline::{self, ColorMode, Config, Editor};
+use rustyline::{self, ColorMode, Config, Editor, config::Configurer, config::EditMode};
 use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
@@ -233,6 +233,17 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         rl.set_helper(Some(crate::shell::Helper::new(
             context.shell_manager.clone(),
         )));
+
+        let edit_mode = crate::object::config::config(Span::unknown())?
+            .get("edit_mode")
+            .map(|s| match s.as_string().unwrap().as_ref() {
+                "vi" => EditMode::Vi,
+                "emacs" => EditMode::Emacs,
+                _ => EditMode::Emacs,
+            })
+            .unwrap_or(EditMode::Emacs);
+
+        rl.set_edit_mode(edit_mode);
 
         let readline = rl.readline(&format!(
             "{}{}> ",
