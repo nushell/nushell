@@ -73,7 +73,7 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
  .git   | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
  src    | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
  .cargo | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago
------------+-----------+----------+--------+--------------+----------------
+--------+-----------+----------+--------+--------------+----------------
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
