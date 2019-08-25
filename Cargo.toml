@@ -52,7 +52,7 @@ dirs = "2.0.2"
 glob = "0.3.0"
 ctrlc = "3.1.3"
 ptree = "0.2"
-surf = { version = "1.0", features = [ "hyper-client" ] }
+surf = "1.0"
 url = "2.1.0"
 roxmltree = "0.7.0"
 nom5_locate = "0.1.1"
