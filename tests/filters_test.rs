@@ -1,6 +1,6 @@
 mod helpers;
 
-use helpers::in_directory as cwd;
+use helpers::{in_directory as cwd, Playground, Stub::*};
 
 #[test]
 fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
@@ -11,6 +11,88 @@ fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
     );
 
     assert_eq!(output, "SPAIN");
+}
+
+#[test]
+fn converts_structured_table_to_csv_text() {
+    Playground::setup_for("filter_to_csv_test_1").with_files(vec![FileWithContentToBeTrimmed(
+        "sample.csv",
+        r#"
+            importer,shipper,tariff_item,name,origin
+            Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+            Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+        "#,
+    )]);
+
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/filter_to_csv_test_1"),
+        "open sample.csv --raw | lines | split-column \",\" a b c d origin  | last 1 | to-csv | lines | nth 1 | echo \"$it\""
+    );
+
+    assert!(output.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+}
+
+#[test]
+fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
+    Playground::setup_for("filter_to_csv_test_2").with_files(vec![FileWithContentToBeTrimmed(
+        "sample.csv",
+        r#"
+            importer,shipper,tariff_item,name,origin
+            Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+            Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+        "#,
+    )]);
+
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/filter_to_csv_test_2"),
+        "open sample.csv --raw | lines | split-column \",\" a b c d origin  | last 1 | to-csv --headerless | echo \"$it\""
+    );
+
+    assert!(output.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+}
+
+#[test]
+fn converts_from_csv_text_to_structured_table() {
+    Playground::setup_for("filter_from_csv_test_1").with_files(vec![FileWithContentToBeTrimmed(
+        "los_tres_amigos.txt",
+        r#"
+            first_name,last_name,rusty_luck
+            Andrés,Robalino,1
+            Jonathan,Turner,1
+            Yehuda,Katz,1
+        "#,
+    )]);
+
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/filter_from_csv_test_1"),
+        "open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo $it"
+    );
+
+    assert_eq!(output, "3");
+}
+
+#[test]
+fn converts_from_csv_text_skipping_headers_to_structured_table() {
+    Playground::setup_for("filter_from_csv_test_2").with_files(vec![FileWithContentToBeTrimmed(
+        "los_tres_amigos.txt",
+        r#"
+            first_name,last_name,rusty_luck
+            Andrés,Robalino,1
+            Jonathan,Turner,1
+            Yehuda,Katz,1
+        "#,
+    )]);
+
+    nu!(
+        output,
+        cwd("tests/fixtures/nuplayground/filter_from_csv_test_2"),
+        "open los_tres_amigos.txt | from-csv --headerless | get Column3 | str --to-int | sum | echo $it"
+    );
+
+    assert_eq!(output, "3");
 }
 
 #[test]
