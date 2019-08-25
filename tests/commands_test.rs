@@ -51,17 +51,6 @@ fn open_can_parse_bson_3() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
-        "open sample.bson | nth 0 | get b | echo $it"
-    );
-
-    assert_eq!(output, "hello");
-}
-
-#[test]
-fn open_can_parse_bson_4() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
         "open sample.bson | nth 6 | get b | get '$binary_subtype' | echo $it "
     );
 
