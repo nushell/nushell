@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
-use bson::{decode_document, Bson};
+use bson::{decode_document, Bson, spec::BinarySubtype};
 
 pub struct FromBSON;
 
@@ -80,12 +80,52 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
              );
              collected.into_tagged_value()
         }
+        Bson::TimeStamp(ts) => {
+             let mut collected = TaggedDictBuilder::new(tag);
+             collected.insert_tagged(
+                 "$timestamp".to_string(),
+                 Value::Primitive(Primitive::Int(*ts as i64)).tagged(tag),
+             );
+             collected.into_tagged_value()
+        }
+        Bson::Binary(bst, bytes) => {
+             let mut collected = TaggedDictBuilder::new(tag);
+             collected.insert_tagged(
+                 "$binary_subtype".to_string(),
+                 match bst {
+                     BinarySubtype::UserDefined(u) => Value::Primitive(Primitive::Int(*u as i64)),
+                     _ => Value::Primitive(Primitive::String(binary_subtype_to_string(*bst))),
+                 }.tagged(tag)
+             );
+             collected.insert_tagged(
+                 "$binary".to_string(),
+                 Value::Binary(bytes.to_owned()).tagged(tag),
+             );
+             collected.into_tagged_value()
+        }
         Bson::ObjectId(obj_id) => Value::Primitive(Primitive::String(obj_id.to_hex())).tagged(tag),
-        x => {
-            println!("{:?}", x);
-            panic!()
+        Bson::UtcDatetime(dt) => Value::Primitive(Primitive::Date(*dt)).tagged(tag),
+        Bson::Symbol(s) => {
+             let mut collected = TaggedDictBuilder::new(tag);
+             collected.insert_tagged(
+                 "$symbol".to_string(),
+                 Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
+             );
+             collected.into_tagged_value()
         }
     }
+}
+
+fn binary_subtype_to_string(bst: BinarySubtype) -> String {
+    match bst {
+        BinarySubtype::Generic => "generic",
+        BinarySubtype::Function => "function",
+        BinarySubtype::BinaryOld => "binary_old",
+        BinarySubtype::UuidOld => "uuid_old",
+        BinarySubtype::Uuid => "uuid",
+        BinarySubtype::Md5 => "md5",
+        _ => unreachable!(),
+    }.to_string()
 }
 
 #[derive(Debug)]
