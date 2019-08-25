@@ -428,6 +428,7 @@ pub fn parse_string_as_value(
     match extension {
         Some(x) if x == "csv" => crate::commands::from_csv::from_csv_string_to_value(
             contents,
+            false,
             contents_tag,
         )
         .map_err(move |_| {

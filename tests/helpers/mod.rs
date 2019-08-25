@@ -79,6 +79,7 @@ macro_rules! nu_error {
 
 pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
+    FileWithContentToBeTrimmed(&'a str, &'a str),
     EmptyFile(&'a str),
 }
 
@@ -124,14 +125,25 @@ impl Playground {
     }
 
     pub fn with_files(&mut self, files: Vec<Stub>) -> &mut Self {
+        let endl = line_ending();
+
         files
             .iter()
             .map(|f| {
                 let mut path = PathBuf::from(&self.cwd);
 
                 let (file_name, contents) = match *f {
-                    Stub::EmptyFile(name) => (name, "fake data"),
-                    Stub::FileWithContent(name, content) => (name, content),
+                    Stub::EmptyFile(name) => (name, "fake data".to_string()),
+                    Stub::FileWithContent(name, content) => (name, content.to_string()),
+                    Stub::FileWithContentToBeTrimmed(name, content) => (
+                        name,
+                        content
+                            .lines()
+                            .skip(1)
+                            .map(|line| line.trim())
+                            .collect::<Vec<&str>>()
+                            .join(&endl),
+                    ),
                 };
 
                 path.push(file_name);
@@ -174,6 +186,18 @@ pub fn file_contents(full_path: &str) -> String {
     file.read_to_string(&mut contents)
         .expect("can not read file");
     contents
+}
+
+pub fn line_ending() -> String {
+    #[cfg(windows)]
+    {
+        String::from("\r\n")
+    }
+
+    #[cfg(not(windows))]
+    {
+        String::from("\n")
+    }
 }
 
 pub fn normalize_string(input: &str) -> String {

@@ -5,26 +5,32 @@ use csv::ReaderBuilder;
 
 pub struct FromCSV;
 
-impl WholeStreamCommand for FromCSV {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_csv(args, registry)
-    }
+#[derive(Deserialize)]
+pub struct FromCSVArgs {
+    headerless: bool,
+}
 
+impl WholeStreamCommand for FromCSV {
     fn name(&self) -> &str {
         "from-csv"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-csv")
+        Signature::build("from-csv").switch("headerless")
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, from_csv)?.run()
     }
 }
 
 pub fn from_csv_string_to_value(
     s: String,
+    headerless: bool,
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, csv::Error> {
     let mut reader = ReaderBuilder::new()
@@ -39,8 +45,12 @@ pub fn from_csv_string_to_value(
     if let Some(result) = iter.next() {
         let line = result?;
 
-        for item in line.iter() {
-            fields.push_back(item.to_string());
+        for (idx, item) in line.iter().enumerate() {
+            if headerless {
+                fields.push_back(format!("Column{}", idx + 1));
+            } else {
+                fields.push_back(item.to_string());
+            }
         }
     }
 
@@ -66,10 +76,13 @@ pub fn from_csv_string_to_value(
     Ok(Tagged::from_item(Value::List(rows), tag))
 }
 
-fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
-    let input = args.input;
+fn from_csv(
+    FromCSVArgs {
+        headerless: skip_headers,
+    }: FromCSVArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let name_span = name;
 
     let stream = async_stream_block! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
@@ -88,7 +101,7 @@ fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    name_span,
                     "value originates from here",
                     value_tag.span,
                 )),
@@ -96,7 +109,7 @@ fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
             }
         }
 
-        match from_csv_string_to_value(concat_string, span) {
+        match from_csv_string_to_value(concat_string, skip_headers, name_span) {
             Ok(x) => match x {
                 Tagged { item: Value::List(list), .. } => {
                     for l in list {
@@ -109,7 +122,7 @@ fn from_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as CSV",
                     "input cannot be parsed as CSV",
-                    span,
+                    name_span,
                     "value originates from here",
                     last_tag.span,
                 ))

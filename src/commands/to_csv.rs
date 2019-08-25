@@ -5,21 +5,26 @@ use csv::WriterBuilder;
 
 pub struct ToCSV;
 
-impl WholeStreamCommand for ToCSV {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_csv(args, registry)
-    }
+#[derive(Deserialize)]
+pub struct ToCSVArgs {
+    headerless: bool,
+}
 
+impl WholeStreamCommand for ToCSV {
     fn name(&self) -> &str {
         "to-csv"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-csv")
+        Signature::build("to-csv").switch("headerless")
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, to_csv)?.run()
     }
 }
 
@@ -27,6 +32,9 @@ pub fn value_to_csv_value(v: &Value) -> Value {
     match v {
         Value::Primitive(Primitive::String(s)) => Value::Primitive(Primitive::String(s.clone())),
         Value::Primitive(Primitive::Nothing) => Value::Primitive(Primitive::Nothing),
+        Value::Primitive(Primitive::Boolean(b)) => Value::Primitive(Primitive::Boolean(b.clone())),
+        Value::Primitive(Primitive::Bytes(b)) => Value::Primitive(Primitive::Bytes(b.clone())),
+        Value::Primitive(Primitive::Date(d)) => Value::Primitive(Primitive::Date(d.clone())),
         Value::Object(o) => Value::Object(o.clone()),
         Value::List(l) => Value::List(l.clone()),
         Value::Block(_) => Value::Primitive(Primitive::Nothing),
@@ -34,9 +42,20 @@ pub fn value_to_csv_value(v: &Value) -> Value {
     }
 }
 
+fn to_string_helper(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
+    match v {
+        Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
+        Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", *b as u64)),
+        Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
+        Value::List(_) => return Ok(String::from("[list list]")),
+        Value::Object(_) => return Ok(String::from("[object]")),
+        Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
+        _ => return Err("Bad input".into()),
+    }
+}
+
 pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
     match v {
-        Value::List(_l) => return Ok(String::from("[list list]")),
         Value::Object(o) => {
             let mut wtr = WriterBuilder::new().from_writer(vec![]);
             let mut fields: VecDeque<String> = VecDeque::new();
@@ -44,7 +63,7 @@ pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
 
             for (k, v) in o.entries.iter() {
                 fields.push_back(k.clone());
-                values.push_back(to_string(&v)?);
+                values.push_back(to_string_helper(&v)?);
             }
 
             wtr.write_record(fields).expect("can not write.");
@@ -52,22 +71,31 @@ pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
 
             return Ok(String::from_utf8(wtr.into_inner()?)?);
         }
-        Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => return Err("Bad input".into()),
+        _ => return to_string_helper(&v),
     }
 }
 
-fn to_csv(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let name_span = args.name_span();
-    let out = args.input;
+fn to_csv(
+    ToCSVArgs { headerless }: ToCSVArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let name_span = name;
+    let out = input;
 
     Ok(out
         .values
         .map(move |a| match to_string(&value_to_csv_value(&a.item)) {
-            Ok(x) => ReturnSuccess::value(
-                Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
-            ),
+            Ok(x) => {
+                let converted = if headerless {
+                    x.lines().skip(1).collect()
+                } else {
+                    x
+                };
+
+                ReturnSuccess::value(
+                    Value::Primitive(Primitive::String(converted)).simple_spanned(name_span),
+                )
+            }
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected an object with CSV-compatible structure from pipeline",
                 "requires CSV-compatible input",
