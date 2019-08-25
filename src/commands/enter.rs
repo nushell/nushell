@@ -21,7 +21,7 @@ impl PerItemCommand for Enter {
         _registry: &registry::CommandRegistry,
         _shell_manager: &ShellManager,
         _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         match call_info.args.expect_nth(0)? {
             Tagged {
                 item: Value::Primitive(Primitive::String(location)),

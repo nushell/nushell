@@ -31,15 +31,12 @@ impl PerItemCommand for Move {
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         call_info.process(shell_manager, mv)?.run()
     }
 }
 
-fn mv(
-    args: MoveArgs,
-    context: &RunnablePerItemContext,
-) -> Result<VecDeque<ReturnValue>, ShellError> {
+fn mv(args: MoveArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
     let shell_manager = context.shell_manager.clone();
     shell_manager.mv(args, context)
 }

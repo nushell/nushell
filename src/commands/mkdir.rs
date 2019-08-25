@@ -18,7 +18,7 @@ impl PerItemCommand for Mkdir {
         _registry: &CommandRegistry,
         shell_manager: &ShellManager,
         _input: Tagged<Value>,
-    ) -> Result<VecDeque<ReturnValue>, ShellError> {
+    ) -> Result<OutputStream, ShellError> {
         call_info.process(shell_manager, mkdir)?.run()
     }
 
@@ -31,10 +31,7 @@ impl PerItemCommand for Mkdir {
     }
 }
 
-fn mkdir(
-    args: MkdirArgs,
-    context: &RunnablePerItemContext,
-) -> Result<VecDeque<ReturnValue>, ShellError> {
+fn mkdir(args: MkdirArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
     let shell_manager = context.shell_manager.clone();
     shell_manager.mkdir(args, context)
 }
