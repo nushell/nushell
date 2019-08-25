@@ -33,13 +33,13 @@ Optional dependencies:
 To install Nu via cargo:
 
 ```
-cargo install nu
+cargo install --locked nu
 ```
 
 You can also install Nu with all the bells and whistles:
 
 ```
-cargo install nu --features rawkey,clipboard
+cargo install --locked nu --features rawkey,clipboard
 ```
 
 The following optional features are currently supported:
