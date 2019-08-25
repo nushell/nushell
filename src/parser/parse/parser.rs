@@ -556,6 +556,7 @@ fn is_bare_char(c: char) -> bool {
         '@' => true,
         '*' => true,
         '?' => true,
+        '=' => true,
         _ => false,
     }
 }
