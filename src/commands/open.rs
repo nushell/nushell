@@ -426,14 +426,16 @@ pub fn parse_string_as_value(
     name_span: Span,
 ) -> Result<Tagged<Value>, ShellError> {
     match extension {
-        Some(x) if x == "csv" => crate::commands::from_csv::from_csv_string_to_value(
-            contents,
-            false,
-            contents_tag,
-        )
-        .map_err(move |_| {
-            ShellError::labeled_error("Could not open as CSV", "could not open as CSV", name_span)
-        }),
+        Some(x) if x == "csv" => {
+            crate::commands::from_csv::from_csv_string_to_value(contents, false, contents_tag)
+                .map_err(move |_| {
+                    ShellError::labeled_error(
+                        "Could not open as CSV",
+                        "could not open as CSV",
+                        name_span,
+                    )
+                })
+        }
         Some(x) if x == "toml" => {
             crate::commands::from_toml::from_toml_string_to_value(contents, contents_tag).map_err(
                 move |_| {
@@ -507,9 +509,9 @@ pub fn parse_binary_as_value(
             crate::commands::from_bson::from_bson_bytes_to_value(contents, contents_tag).map_err(
                 move |_| {
                     ShellError::labeled_error(
-                       "Could not open as BSON",
-                       "could not open as BSON",
-                       name_span,
+                        "Could not open as BSON",
+                        "could not open as BSON",
+                        name_span,
                     )
                 },
             )

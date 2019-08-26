@@ -196,8 +196,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
             }
             let _ = cursor.show();
 
-            #[allow(unused)]
-            let screen = RawScreen::disable_raw_mode();
+            let _ = RawScreen::disable_raw_mode();
         }
     }
 

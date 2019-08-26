@@ -46,9 +46,7 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 .collect::<Vec<Option<Tagged<Value>>>>()
         };
         if reverse {
-            vec.sort_by_cached_key(|item| {
-                std::cmp::Reverse(calc_key(item))
-            });
+            vec.sort_by_cached_key(|item| std::cmp::Reverse(calc_key(item)));
         } else {
             vec.sort_by_cached_key(calc_key);
         }

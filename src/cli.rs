@@ -286,14 +286,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             LineResult::Break => {
                 break;
             }
-
-            LineResult::FatalError(_, err) => {
-                context
-                    .host
-                    .lock()
-                    .unwrap()
-                    .stdout(&format!("A surprising fatal error occurred.\n{:?}", err));
-            }
         }
         ctrlcbreak = false;
     }
@@ -307,9 +299,6 @@ enum LineResult {
     Error(String, ShellError),
     CtrlC,
     Break,
-
-    #[allow(unused)]
-    FatalError(String, ShellError),
 }
 
 impl std::ops::Try for LineResult {
@@ -322,7 +311,6 @@ impl std::ops::Try for LineResult {
             LineResult::Error(string, err) => Err((string, err)),
             LineResult::Break => Ok(None),
             LineResult::CtrlC => Ok(None),
-            LineResult::FatalError(string, err) => Err((string, err)),
         }
     }
     fn from_error(v: (String, ShellError)) -> Self {
@@ -381,20 +369,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
                 input = match (item, next) {
                     (None, _) => break,
-
-                    (Some(ClassifiedCommand::Expr(_)), _) => {
-                        return LineResult::Error(
-                            line.clone(),
-                            ShellError::unimplemented("Expression-only commands"),
-                        )
-                    }
-
-                    (_, Some(ClassifiedCommand::Expr(_))) => {
-                        return LineResult::Error(
-                            line.clone(),
-                            ShellError::unimplemented("Expression-only commands"),
-                        )
-                    }
 
                     (
                         Some(ClassifiedCommand::Internal(left)),

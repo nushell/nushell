@@ -35,7 +35,6 @@ impl From<f64> for OF64 {
 pub enum Primitive {
     Nothing,
     Int(i64),
-    #[allow(unused)]
     Float(OF64),
     Bytes(u64),
     String(String),
@@ -122,10 +121,8 @@ impl Primitive {
     pub fn style(&self) -> &'static str {
         match self {
             Primitive::Bytes(0) => "c", // centre 'missing' indicator
-            Primitive::Int(_) |
-            Primitive::Bytes(_) |
-            Primitive::Float(_) => "r",
-            _ => ""
+            Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Float(_) => "r",
+            _ => "",
         }
     }
 }
@@ -174,7 +171,6 @@ pub enum Value {
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
     List(Vec<Tagged<Value>>),
-    #[allow(unused)]
     Block(Block),
 }
 
@@ -251,16 +247,6 @@ pub enum Switch {
     Absent,
 }
 
-impl Switch {
-    #[allow(unused)]
-    pub fn is_present(&self) -> bool {
-        match self {
-            Switch::Present => true,
-            Switch::Absent => false,
-        }
-    }
-}
-
 impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
     type Error = ShellError;
 
@@ -328,14 +314,6 @@ impl Value {
                 }
                 None
             }
-            _ => None,
-        }
-    }
-
-    #[allow(unused)]
-    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Tagged<Value>> {
-        match self {
-            Value::List(l) => l.iter().nth(idx),
             _ => None,
         }
     }
@@ -472,11 +450,10 @@ impl Value {
     crate fn style_leaf(&self) -> &'static str {
         match self {
             Value::Primitive(p) => p.style(),
-            _ => ""
+            _ => "",
         }
     }
 
-    #[allow(unused)]
     crate fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
         match operator {
             _ => {
@@ -502,24 +479,6 @@ impl Value {
             }
         }
     }
-
-    #[allow(unused)]
-    crate fn is_string(&self, expected: &str) -> bool {
-        match self {
-            Value::Primitive(Primitive::String(s)) if s == expected => true,
-            other => false,
-        }
-    }
-
-    // crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
-    //     match self {
-    //         Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
-    //         other => Err(ShellError::string(format!(
-    //             "Expected pair, got {:?}",
-    //             other
-    //         ))),
-    //     }
-    // }
 
     crate fn as_string(&self) -> Result<String, ShellError> {
         match self {
@@ -579,7 +538,6 @@ impl Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
-    #[allow(unused)]
     pub fn date_from_str(s: &str) -> Result<Value, ShellError> {
         let date = DateTime::parse_from_rfc3339(s)
             .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
@@ -622,87 +580,6 @@ crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> T
     }
 
     out.into_tagged_value()
-}
-
-#[allow(unused)]
-crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
-    let descs = obj.data_descriptors();
-    match descs.iter().find(|d| *d == field) {
-        None => false,
-        Some(desc) => {
-            let v = obj.get_data(desc).borrow().clone();
-
-            match v {
-                Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {
-                    (Operator::Equal, Value::Primitive(Primitive::Boolean(b2))) => b == *b2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Boolean(b2))) => b != *b2,
-                    _ => false,
-                },
-                Value::Primitive(Primitive::Bytes(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < (*i2 as u64),
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i > (*i2 as u64)
-                    }
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i <= (*i2 as u64)
-                    }
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= (*i2 as u64)
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == (*i2 as u64),
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != (*i2 as u64),
-                    _ => false,
-                },
-                Value::Primitive(Primitive::Int(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < *i2,
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => i > *i2,
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i <= *i2,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= *i2
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == *i2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != *i2,
-                    _ => false,
-                },
-                Value::Primitive(Primitive::Float(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Float(i2))) => i < *i2,
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Float(i2))) => i > *i2,
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Float(i2))) => i <= *i2,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Float(i2))) => {
-                        i >= *i2
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Float(i2))) => i == *i2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Float(i2))) => i != *i2,
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
-                        (i.into_inner()) < *i2 as f64
-                    }
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() > *i2 as f64
-                    }
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() <= *i2 as f64
-                    }
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() >= *i2 as f64
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() == *i2 as f64
-                    }
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() != *i2 as f64
-                    }
-
-                    _ => false,
-                },
-                Value::Primitive(Primitive::String(s)) => match (op, rhs) {
-                    (Operator::Equal, Value::Primitive(Primitive::String(s2))) => s == *s2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::String(s2))) => s != *s2,
-                    _ => false,
-                },
-                _ => false,
-            }
-        }
-    }
 }
 
 enum CompareValues {

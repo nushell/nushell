@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
-use bson::{decode_document, Bson, spec::BinarySubtype};
+use bson::{decode_document, spec::BinarySubtype, Bson};
 
 pub struct FromBSON;
 
@@ -47,71 +47,72 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
         Bson::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
         Bson::Null => Value::Primitive(Primitive::String(String::from(""))).tagged(tag),
         Bson::RegExp(r, opts) => {
-             let mut collected = TaggedDictBuilder::new(tag);
-             collected.insert_tagged(
-                 "$regex".to_string(),
-                 Value::Primitive(Primitive::String(String::from(r))).tagged(tag),
-             );
-             collected.insert_tagged(
-                 "$options".to_string(),
-                 Value::Primitive(Primitive::String(String::from(opts))).tagged(tag),
-             );
-             collected.into_tagged_value()
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$regex".to_string(),
+                Value::Primitive(Primitive::String(String::from(r))).tagged(tag),
+            );
+            collected.insert_tagged(
+                "$options".to_string(),
+                Value::Primitive(Primitive::String(String::from(opts))).tagged(tag),
+            );
+            collected.into_tagged_value()
         }
         Bson::I32(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
         Bson::I64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
         Bson::JavaScriptCode(js) => {
-             let mut collected = TaggedDictBuilder::new(tag);
-             collected.insert_tagged(
-                 "$javascript".to_string(),
-                 Value::Primitive(Primitive::String(String::from(js))).tagged(tag),
-             );
-             collected.into_tagged_value()
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$javascript".to_string(),
+                Value::Primitive(Primitive::String(String::from(js))).tagged(tag),
+            );
+            collected.into_tagged_value()
         }
         Bson::JavaScriptCodeWithScope(js, doc) => {
-             let mut collected = TaggedDictBuilder::new(tag);
-             collected.insert_tagged(
-                 "$javascript".to_string(),
-                 Value::Primitive(Primitive::String(String::from(js))).tagged(tag),
-             );
-             collected.insert_tagged(
-                 "$scope".to_string(),
-                 convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag),
-             );
-             collected.into_tagged_value()
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$javascript".to_string(),
+                Value::Primitive(Primitive::String(String::from(js))).tagged(tag),
+            );
+            collected.insert_tagged(
+                "$scope".to_string(),
+                convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag),
+            );
+            collected.into_tagged_value()
         }
         Bson::TimeStamp(ts) => {
-             let mut collected = TaggedDictBuilder::new(tag);
-             collected.insert_tagged(
-                 "$timestamp".to_string(),
-                 Value::Primitive(Primitive::Int(*ts as i64)).tagged(tag),
-             );
-             collected.into_tagged_value()
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$timestamp".to_string(),
+                Value::Primitive(Primitive::Int(*ts as i64)).tagged(tag),
+            );
+            collected.into_tagged_value()
         }
         Bson::Binary(bst, bytes) => {
-             let mut collected = TaggedDictBuilder::new(tag);
-             collected.insert_tagged(
-                 "$binary_subtype".to_string(),
-                 match bst {
-                     BinarySubtype::UserDefined(u) => Value::Primitive(Primitive::Int(*u as i64)),
-                     _ => Value::Primitive(Primitive::String(binary_subtype_to_string(*bst))),
-                 }.tagged(tag)
-             );
-             collected.insert_tagged(
-                 "$binary".to_string(),
-                 Value::Binary(bytes.to_owned()).tagged(tag),
-             );
-             collected.into_tagged_value()
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$binary_subtype".to_string(),
+                match bst {
+                    BinarySubtype::UserDefined(u) => Value::Primitive(Primitive::Int(*u as i64)),
+                    _ => Value::Primitive(Primitive::String(binary_subtype_to_string(*bst))),
+                }
+                .tagged(tag),
+            );
+            collected.insert_tagged(
+                "$binary".to_string(),
+                Value::Binary(bytes.to_owned()).tagged(tag),
+            );
+            collected.into_tagged_value()
         }
         Bson::ObjectId(obj_id) => Value::Primitive(Primitive::String(obj_id.to_hex())).tagged(tag),
         Bson::UtcDatetime(dt) => Value::Primitive(Primitive::Date(*dt)).tagged(tag),
         Bson::Symbol(s) => {
-             let mut collected = TaggedDictBuilder::new(tag);
-             collected.insert_tagged(
-                 "$symbol".to_string(),
-                 Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
-             );
-             collected.into_tagged_value()
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$symbol".to_string(),
+                Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
+            );
+            collected.into_tagged_value()
         }
     }
 }
@@ -125,7 +126,8 @@ fn binary_subtype_to_string(bst: BinarySubtype) -> String {
         BinarySubtype::Uuid => "uuid",
         BinarySubtype::Md5 => "md5",
         _ => unreachable!(),
-    }.to_string()
+    }
+    .to_string()
 }
 
 #[derive(Debug)]

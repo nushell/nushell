@@ -9,7 +9,6 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[allow(unused)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NamedType {
     Switch,
@@ -17,7 +16,6 @@ pub enum NamedType {
     Optional(SyntaxType),
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
     Mandatory(String, SyntaxType),
@@ -43,15 +41,6 @@ impl PositionalType {
 
     pub fn optional_any(name: &str) -> PositionalType {
         PositionalType::Optional(name.to_string(), SyntaxType::Any)
-    }
-
-    #[allow(unused)]
-    crate fn to_coerce_hint(&self) -> Option<SyntaxType> {
-        match self {
-            PositionalType::Mandatory(_, SyntaxType::Block)
-            | PositionalType::Optional(_, SyntaxType::Block) => Some(SyntaxType::Block),
-            _ => None,
-        }
     }
 
     crate fn name(&self) -> &str {
@@ -289,10 +278,7 @@ impl Signature {
         Ok(args)
     }
 
-    #[allow(unused)]
-    crate fn signature(&self) -> String {
-        format!("TODO")
-    }
+    // TODO: signature() -> String
 }
 
 crate fn evaluate_args(

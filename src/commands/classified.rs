@@ -1,5 +1,5 @@
 use crate::commands::Command;
-use crate::parser::{hir, TokenNode};
+use crate::parser::hir;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -78,21 +78,8 @@ crate struct ClassifiedPipeline {
 }
 
 crate enum ClassifiedCommand {
-    #[allow(unused)]
-    Expr(TokenNode),
     Internal(InternalCommand),
     External(ExternalCommand),
-}
-
-impl ClassifiedCommand {
-    #[allow(unused)]
-    pub fn span(&self) -> Span {
-        match self {
-            ClassifiedCommand::Expr(token) => token.span(),
-            ClassifiedCommand::Internal(internal) => internal.name_span.into(),
-            ClassifiedCommand::External(external) => external.name_span.into(),
-        }
-    }
 }
 
 crate struct InternalCommand {
@@ -219,7 +206,6 @@ impl InternalCommand {
 
 crate struct ExternalCommand {
     crate name: String,
-    #[allow(unused)]
     crate name_span: Span,
     crate args: Vec<Tagged<String>>,
 }

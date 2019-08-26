@@ -1,7 +1,6 @@
 #[macro_use]
 crate mod macros;
 
-crate mod args;
 crate mod autoview;
 crate mod cd;
 crate mod classified;
@@ -35,8 +34,8 @@ crate mod pick;
 crate mod plugin;
 crate mod prev;
 crate mod ps;
-crate mod reverse;
 crate mod reject;
+crate mod reverse;
 crate mod rm;
 crate mod save;
 crate mod shells;

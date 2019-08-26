@@ -1,8 +1,5 @@
-#![allow(unused)]
-
 use crate::parser::parse::{
-    call_node::*, flag::*, operator::*, pipeline::*, token_tree::*, token_tree_builder::*,
-    tokens::*, unit::*,
+    call_node::*, pipeline::*, token_tree::*, token_tree_builder::*, unit::*,
 };
 use crate::{Span, Tagged};
 use nom;
@@ -14,10 +11,9 @@ use nom::multi::*;
 use nom::sequence::*;
 
 use log::trace;
-use nom::dbg;
 use nom::*;
-use nom::{AsBytes, FindSubstring, IResult, InputLength, InputTake, Slice};
-use nom5_locate::{position, LocatedSpan};
+use nom::{IResult, InputLength};
+use nom5_locate::LocatedSpan;
 use std::fmt::Debug;
 use std::str::FromStr;
 
@@ -243,14 +239,13 @@ pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Tagged<Unit>> {
 
 pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "size", move |input| {
-        let mut is_size = false;
         let start = input.offset;
         let (input, int) = raw_integer(input)?;
         if let Ok((input, Some(size))) = opt(raw_unit)(input) {
             let end = input.offset;
 
             // Check to make sure there is no trailing parseable characters
-            if let Ok((input, Some(extra))) = opt(bare)(input) {
+            if let Ok((input, Some(_))) = opt(bare)(input) {
                 return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
             }
 
@@ -262,11 +257,11 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
             let end = input.offset;
 
             // Check to make sure there is no trailing parseable characters
-            if let Ok((input, Some(extra))) = opt(bare)(input) {
+            if let Ok((input, Some(_))) = opt(bare)(input) {
                 return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
             }
 
-            Ok((input, TokenTreeBuilder::spanned_int((*int), (start, end))))
+            Ok((input, TokenTreeBuilder::spanned_int(*int, (start, end))))
         }
     })
 }
@@ -286,17 +281,6 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
         let (input, list) = many0(pair(space1, node))(input)?;
 
         Ok((input, make_token_list(None, first, list, None)))
-    })
-}
-
-pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
-    trace_step(input, "spaced_token_list", move |input| {
-        let (input, sp_left) = opt(space1)(input)?;
-        let (input, first) = node(input)?;
-        let (input, list) = many0(pair(space1, node))(input)?;
-        let (input, sp_right) = opt(space1)(input)?;
-
-        Ok((input, make_token_list(sp_left, first, list, sp_right)))
     })
 }
 
@@ -329,7 +313,7 @@ fn make_token_list(
 pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "whitespace", move |input| {
         let left = input.offset;
-        let (input, ws1) = space1(input)?;
+        let (input, _) = space1(input)?;
         let right = input.offset;
 
         Ok((input, TokenTreeBuilder::spanned_ws((left, right))))
@@ -469,7 +453,7 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
         )?;
 
         let (input, tail) = opt(space1)(input)?;
-        let (input, newline) = opt(multispace1)(input)?;
+        let (input, _) = opt(multispace1)(input)?;
 
         if input.input_len() != 0 {
             return Err(Err::Error(error_position!(

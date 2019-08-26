@@ -341,8 +341,7 @@ pub fn view_contents(
     let cursor = cursor();
     let _ = cursor.show();
 
-    #[allow(unused)]
-    let screen = RawScreen::disable_raw_mode();
+    let _ = RawScreen::disable_raw_mode();
 
     Ok(())
 }
@@ -446,8 +445,7 @@ pub fn view_contents_interactive(
     let cursor = cursor();
     let _ = cursor.show();
 
-    #[allow(unused)]
-    let screen = RawScreen::disable_raw_mode();
+    let _ = RawScreen::disable_raw_mode();
 
     Ok(())
 }

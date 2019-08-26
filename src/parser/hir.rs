@@ -82,8 +82,6 @@ pub enum RawExpression {
     List(Vec<Expression>),
     Path(Box<Path>),
     ExternalCommand(ExternalCommand),
-
-    #[allow(unused)]
     Boolean(bool),
 }
 

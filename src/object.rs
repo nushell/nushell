@@ -7,7 +7,6 @@ crate mod meta;
 crate mod process;
 crate mod types;
 
-#[allow(unused)]
-crate use base::{Block, Primitive, Switch, Value};
+crate use base::{Primitive, Value};
 crate use dict::{Dictionary, TaggedDictBuilder};
 crate use files::dir_entry_dict;

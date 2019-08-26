@@ -58,8 +58,7 @@ crate use crate::Text;
 crate use futures::stream::BoxStream;
 crate use futures::{FutureExt, Stream, StreamExt};
 crate use futures_async_stream::async_stream_block;
-#[allow(unused)]
-crate use serde::{Deserialize, Serialize};
+crate use serde::Deserialize;
 crate use std::collections::VecDeque;
 crate use std::future::Future;
 crate use std::sync::{Arc, Mutex};

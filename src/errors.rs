@@ -1,4 +1,3 @@
-#[allow(unused)]
 use crate::prelude::*;
 
 use ansi_term::Color;
@@ -347,24 +346,6 @@ impl ProximateShellError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellDiagnostic {
     crate diagnostic: Diagnostic<Span>,
-}
-
-impl ShellDiagnostic {
-    #[allow(unused)]
-    crate fn simple_diagnostic(
-        span: impl Into<Span>,
-        source: impl Into<String>,
-    ) -> ShellDiagnostic {
-        use language_reporting::*;
-
-        let span = span.into();
-        let source = source.into();
-
-        let diagnostic =
-            Diagnostic::new(Severity::Error, "Parse error").with_label(Label::new_primary(span));
-
-        ShellDiagnostic { diagnostic }
-    }
 }
 
 impl PartialEq for ShellDiagnostic {

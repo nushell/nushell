@@ -10,7 +10,6 @@ use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::Deref;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -219,12 +218,6 @@ pub struct RunnablePerItemContext {
     pub name: Span,
 }
 
-impl RunnablePerItemContext {
-    pub fn cwd(&self) -> PathBuf {
-        PathBuf::from(self.shell_manager.path())
-    }
-}
-
 pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
@@ -235,11 +228,6 @@ pub struct RunnableContext {
 }
 
 impl RunnableContext {
-    #[allow(unused)]
-    pub fn cwd(&self) -> PathBuf {
-        PathBuf::from(self.shell_manager.path())
-    }
-
     pub fn expect_command(&self, name: &str) -> Arc<Command> {
         self.commands
             .get_command(name)
@@ -333,39 +321,6 @@ impl EvaluatedWholeStreamCommandArgs {
     }
 }
 
-#[derive(Getters)]
-#[get = "pub"]
-pub struct EvaluatedFilterCommandArgs {
-    args: EvaluatedCommandArgs,
-    #[allow(unused)]
-    input: Tagged<Value>,
-}
-
-impl Deref for EvaluatedFilterCommandArgs {
-    type Target = EvaluatedCommandArgs;
-    fn deref(&self) -> &Self::Target {
-        &self.args
-    }
-}
-
-impl EvaluatedFilterCommandArgs {
-    pub fn new(
-        host: Arc<Mutex<dyn Host>>,
-        shell_manager: ShellManager,
-        call_info: CallInfo,
-        input: Tagged<Value>,
-    ) -> EvaluatedFilterCommandArgs {
-        EvaluatedFilterCommandArgs {
-            args: EvaluatedCommandArgs {
-                host,
-                shell_manager,
-                call_info,
-            },
-            input,
-        }
-    }
-}
-
 #[derive(Getters, new)]
 #[get = "crate"]
 pub struct EvaluatedCommandArgs {
@@ -404,7 +359,6 @@ impl EvaluatedCommandArgs {
         }
     }
 
-    #[allow(unused)]
     pub fn has(&self, name: &str) -> bool {
         self.call_info.args.has(name)
     }
@@ -579,75 +533,10 @@ impl Command {
     }
 }
 
-#[allow(unused)]
-pub struct FnFilterCommand {
-    name: String,
-    func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
-}
-
-impl WholeStreamCommand for FnFilterCommand {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &registry::CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        let CommandArgs {
-            host,
-            shell_manager,
-            call_info,
-            input,
-        } = args;
-
-        let host: Arc<Mutex<dyn Host>> = host.clone();
-        let shell_manager = shell_manager.clone();
-        let registry: registry::CommandRegistry = registry.clone();
-        let func = self.func;
-
-        let result = input.values.map(move |it| {
-            let registry = registry.clone();
-            let call_info = match call_info
-                .clone()
-                .evaluate(&registry, &Scope::it_value(it.clone()))
-            {
-                Err(err) => return OutputStream::from(vec![Err(err)]).values,
-                Ok(args) => args,
-            };
-
-            let args =
-                EvaluatedFilterCommandArgs::new(host.clone(), shell_manager.clone(), call_info, it);
-
-            match func(args) {
-                Err(err) => return OutputStream::from(vec![Err(err)]).values,
-                Ok(stream) => stream.values,
-            }
-        });
-
-        let result = result.flatten();
-        let result: BoxStream<ReturnValue> = result.boxed();
-
-        Ok(result.into())
-    }
-}
-
 pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Arc<Command> {
     Arc::new(Command::WholeStream(Arc::new(command)))
 }
 
 pub fn per_item_command(command: impl PerItemCommand + 'static) -> Arc<Command> {
     Arc::new(Command::PerItem(Arc::new(command)))
-}
-
-#[allow(unused)]
-pub fn filter(
-    name: &str,
-    func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
-) -> Arc<Command> {
-    Arc::new(Command::WholeStream(Arc::new(FnFilterCommand {
-        name: name.to_string(),
-        func,
-    })))
 }

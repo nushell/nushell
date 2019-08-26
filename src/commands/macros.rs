@@ -1,11 +1,3 @@
-#[doc(hidden)]
-#[allow(unused)]
-macro_rules! named_type {
-    ($name:ident) => {
-        $crate::parser::registry::NamedType::$($name)*
-    }
-}
-
 #[macro_export]
 macro_rules! command {
     (
@@ -63,7 +55,6 @@ macro_rules! command {
                     named: {
                         use $crate::parser::registry::NamedType;
 
-                        #[allow(unused_mut)]
                         let mut named: indexmap::IndexMap<String, NamedType> = indexmap::IndexMap::new();
 
                         $(

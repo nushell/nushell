@@ -1,14 +1,8 @@
-crate mod entries;
-crate mod generic;
-crate mod list;
 crate mod table;
 crate mod vtable;
 
 use crate::prelude::*;
 
-crate use entries::EntriesView;
-#[allow(unused)]
-crate use generic::GenericView;
 crate use table::TableView;
 crate use vtable::VTableView;
 

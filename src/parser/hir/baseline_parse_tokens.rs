@@ -29,7 +29,6 @@ pub fn baseline_parse_tokens(
     Ok(exprs)
 }
 
-#[allow(unused)]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SyntaxType {
     Any,
