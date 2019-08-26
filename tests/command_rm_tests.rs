@@ -90,7 +90,7 @@ fn rm_removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    
+
     nu!(
         _output,
         cwd("tests/fixtures/nuplayground/rm_wildcard_test_2"),
@@ -98,10 +98,7 @@ fn rm_removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
     );
 
     assert!(!h::files_exist_at(
-        vec![
-            Path::new("src/parser/parse"),
-            Path::new("src/parser/hir"),
-        ],
+        vec![Path::new("src/parser/parse"), Path::new("src/parser/hir"),],
         PathBuf::from(&full_path)
     ));
 }
@@ -150,7 +147,11 @@ fn rm_errors_if_attempting_to_delete_a_directory_with_content_without_recursive_
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
 
-    nu_error!(output, cwd(&Playground::root()), "rm rm_prevent_directory_removal_without_flag_test");
+    nu_error!(
+        output,
+        cwd(&Playground::root()),
+        "rm rm_prevent_directory_removal_without_flag_test"
+    );
 
     assert!(h::file_exists_at(PathBuf::from(full_path)));
     assert!(output.contains("is a directory"));

@@ -122,10 +122,8 @@ impl Primitive {
     pub fn style(&self) -> &'static str {
         match self {
             Primitive::Bytes(0) => "c", // centre 'missing' indicator
-            Primitive::Int(_) |
-            Primitive::Bytes(_) |
-            Primitive::Float(_) => "r",
-            _ => ""
+            Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Float(_) => "r",
+            _ => "",
         }
     }
 }
@@ -472,7 +470,7 @@ impl Value {
     crate fn style_leaf(&self) -> &'static str {
         match self {
             Value::Primitive(p) => p.style(),
-            _ => ""
+            _ => "",
         }
     }
 
