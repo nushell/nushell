@@ -43,7 +43,12 @@ fn split_column(
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
 
-                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
+                let split_result: Vec<_> = if splitter.chars().all(|c| c.is_whitespace()) {
+                    s.split(&splitter).filter(|s| *s != "").collect()
+                } else {
+                    s.split(&splitter).collect()
+                };
+
                 trace!("split result = {:?}", split_result);
 
                 let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
