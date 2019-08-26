@@ -58,6 +58,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             );
             collected.into_tagged_value()
         }
+        // TODO: Add Int32 to nushell?
         Bson::I32(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
         Bson::I64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
         Bson::JavaScriptCode(js) => {
@@ -104,7 +105,14 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             );
             collected.into_tagged_value()
         }
-        Bson::ObjectId(obj_id) => Value::Primitive(Primitive::String(obj_id.to_hex())).tagged(tag),
+        Bson::ObjectId(obj_id) => {
+            let mut collected = TaggedDictBuilder::new(tag);
+            collected.insert_tagged(
+                "$object_id".to_string(),
+                Value::Primitive(Primitive::String(obj_id.to_hex())).tagged(tag),
+            );
+            collected.into_tagged_value()
+        }
         Bson::UtcDatetime(dt) => Value::Primitive(Primitive::Date(*dt)).tagged(tag),
         Bson::Symbol(s) => {
             let mut collected = TaggedDictBuilder::new(tag);

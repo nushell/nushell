@@ -107,6 +107,17 @@ fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
 }
 
 #[test]
+fn can_convert_json_text_to_bson_and_back_into_table() {
+    nu!(
+        output,
+        cwd("tests/fixtures/formats"),
+        "echo '{\"root\":[{\"x\": 2, \"y\": 4}, {\"z\": \"42\"}]}' | from-json | to-bson | from-bson | get root | nth 1 | get z | echo $it"
+    );
+
+    assert_eq!(output, "42");
+}
+
+#[test]
 fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
     nu!(
         output,
