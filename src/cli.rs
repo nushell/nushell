@@ -297,7 +297,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         }
         ctrlcbreak = false;
     }
-    rl.save_history("history.txt")?;
+    let _ = rl.save_history("history.txt");
 
     Ok(())
 }
