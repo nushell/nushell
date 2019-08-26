@@ -13,6 +13,7 @@ fn lines() {
     assert_eq!(output, "rustyline");
 }
 
+#[test]
 fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
     let sandbox = Playground::setup_for("save_smart_test")
         .with_files(vec![FileWithContent(
