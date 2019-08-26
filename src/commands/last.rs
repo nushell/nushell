@@ -44,7 +44,7 @@ fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
             "Value is too low",
             "expected a positive integer",
             args.expect_nth(0)?.span(),
-        ))
+        ));
     }
 
     let stream = async_stream_block! {

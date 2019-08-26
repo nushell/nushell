@@ -16,14 +16,15 @@ fn can_only_apply_one() {
 
 #[test]
 fn by_one_with_field_passed() {
-    Playground::setup_for("plugin_inc_by_one_with_field_passed_test")
-        .with_files(vec![FileWithContent(
+    Playground::setup_for("plugin_inc_by_one_with_field_passed_test").with_files(vec![
+        FileWithContent(
             "sample.toml",
             r#"
                 [package]
                 edition = "2018"
             "#,
-        )]);
+        ),
+    ]);
 
     nu!(
         output,
@@ -36,35 +37,34 @@ fn by_one_with_field_passed() {
 
 #[test]
 fn by_one_with_no_field_passed() {
-    Playground::setup_for("plugin_inc_by_one_with_no_field_passed_test")
-        .with_files(vec![FileWithContent(
+    Playground::setup_for("plugin_inc_by_one_with_no_field_passed_test").with_files(vec![
+        FileWithContent(
             "sample.toml",
             r#"
                 [package]
                 contributors = "2"
             "#,
-        )]);
-    
+        ),
+    ]);
+
     nu!(
         output,
         cwd("tests/fixtures/nuplayground/plugin_inc_by_one_with_no_field_passed_test"),
         "open sample.toml | get package.contributors | inc | echo $it"
     );
-    
+
     assert_eq!(output, "3");
 }
 
-
 #[test]
 fn semversion_major_inc() {
-    Playground::setup_for("plugin_inc_major_semversion_test")
-        .with_files(vec![FileWithContent(
-            "sample.toml",
-            r#"
+    Playground::setup_for("plugin_inc_major_semversion_test").with_files(vec![FileWithContent(
+        "sample.toml",
+        r#"
                 [package]
                 version = "0.1.3"
             "#,
-        )]);
+    )]);
 
     nu!(
         output,
@@ -77,14 +77,13 @@ fn semversion_major_inc() {
 
 #[test]
 fn semversion_minor_inc() {
-    Playground::setup_for("plugin_inc_minor_semversion_test")
-        .with_files(vec![FileWithContent(
-            "sample.toml",
-            r#"
+    Playground::setup_for("plugin_inc_minor_semversion_test").with_files(vec![FileWithContent(
+        "sample.toml",
+        r#"
                 [package]
                 version = "0.1.3"
             "#,
-        )]);
+    )]);
 
     nu!(
         output,
@@ -97,14 +96,13 @@ fn semversion_minor_inc() {
 
 #[test]
 fn semversion_patch_inc() {
-    Playground::setup_for("plugin_inc_patch_semversion_test")
-        .with_files(vec![FileWithContent(
-            "sample.toml",
-            r#"
+    Playground::setup_for("plugin_inc_patch_semversion_test").with_files(vec![FileWithContent(
+        "sample.toml",
+        r#"
                 [package]
                 version = "0.1.3"
             "#,
-        )]);
+    )]);
 
     nu!(
         output,
@@ -117,14 +115,15 @@ fn semversion_patch_inc() {
 
 #[test]
 fn semversion_without_passing_field() {
-    Playground::setup_for("plugin_inc_semversion_without_passing_field_test")
-        .with_files(vec![FileWithContent(
+    Playground::setup_for("plugin_inc_semversion_without_passing_field_test").with_files(vec![
+        FileWithContent(
             "sample.toml",
             r#"
                 [package]
                 version = "0.1.3"
             "#,
-        )]);
+        ),
+    ]);
 
     nu!(
         output,

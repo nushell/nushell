@@ -105,7 +105,10 @@ impl FileStructure {
         self.root = path.to_path_buf();
     }
 
-    pub fn paths_applying_with<F>(&mut self, to: F) -> Result<Vec<(PathBuf, PathBuf)>, Box<dyn std::error::Error>>
+    pub fn paths_applying_with<F>(
+        &mut self,
+        to: F,
+    ) -> Result<Vec<(PathBuf, PathBuf)>, Box<dyn std::error::Error>>
     where
         F: Fn((PathBuf, usize)) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>>,
     {
@@ -175,7 +178,8 @@ mod tests {
     fn prepares_and_decorates_source_files_for_copying() {
         let mut res = FileStructure::new();
 
-        res.walk_decorate(fixtures().as_path()).expect("Can not decorate files traversal.");
+        res.walk_decorate(fixtures().as_path())
+            .expect("Can not decorate files traversal.");
 
         assert_eq!(
             res.resources,
