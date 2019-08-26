@@ -1,9 +1,11 @@
 use crossterm::{Color, Colored};
 use git2::{Repository, RepositoryOpenFlags};
+use log::{trace, warn};
 use std::ffi::OsString;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::object::config::config;
 use crate::prelude::*;
 
 pub struct Prompt {
@@ -12,13 +14,43 @@ pub struct Prompt {
 
 impl Prompt {
     pub fn new() -> Self {
-        Prompt {
-            ast: vec![
+        let ast = match config(Span::unknown()) {
+            Ok(map) => map.get("prompt").and_then(|val| {
+                let format = match val.as_string() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        warn!("prompt format: {:?}", e);
+                        return None;
+                    }
+                };
+
+                match parse(&format) {
+                    Ok(ast) => Some(ast),
+                    Err(e) => {
+                        warn!("error parsing prompt format: {:?}", e);
+                        None
+                    }
+                }
+            }),
+            Err(e) => {
+                warn!("error getting config: {:?}", e);
+                None
+            }
+        };
+
+        let ast = match ast {
+            Some(ast) => {
+                trace!("prompt AST: {:#?}", ast);
+                ast
+            }
+            None => vec![
                 Node::Value(Value::Cwd),
                 Node::Value(Value::VcsBranch),
                 Node::Literal("> ".to_string()),
             ],
-        }
+        };
+
+        Prompt { ast }
     }
 
     pub fn render(&self, context: &Context) -> String {
