@@ -217,6 +217,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let _ = ansi_term::enable_ansi_support();
     }
 
+    // we are ok if history does not exist
     let _ = rl.load_history("history.txt");
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
@@ -297,7 +298,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         }
         ctrlcbreak = false;
     }
-    rl.save_history("history.txt")?;
+
+    // we are ok if we can not save history
+    let _ = rl.save_history("history.txt");
 
     Ok(())
 }
