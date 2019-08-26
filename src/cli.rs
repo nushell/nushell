@@ -91,7 +91,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
 fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
     let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$")?;
-    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$")?;
+    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.(exe|bat)$")?;
 
     match std::fs::read_dir(path) {
         Ok(p) => {
