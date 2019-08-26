@@ -11,10 +11,11 @@ impl Prompt {
     }
 
     pub fn render(&self, context: &Context) -> String {
+        let cwd = context.shell_manager.path();
         format!(
             "{}{}> ",
-            context.shell_manager.path(),
-            match current_branch() {
+            cwd,
+            match current_branch(&cwd) {
                 Some(s) => format!("({})", s),
                 None => "".to_string(),
             }
@@ -22,19 +23,10 @@ impl Prompt {
     }
 }
 
-pub fn current_branch() -> Option<String> {
+pub fn current_branch(cwd: &str) -> Option<String> {
     let v: Vec<OsString> = vec![];
-    match Repository::open_ext(".", RepositoryOpenFlags::empty(), v) {
-        Ok(repo) => {
-            let r = repo.head();
-            match r {
-                Ok(r) => match r.shorthand() {
-                    Some(s) => Some(s.to_string()),
-                    None => None,
-                },
-                _ => None,
-            }
-        }
+    match Repository::open_ext(cwd, RepositoryOpenFlags::empty(), v) {
+        Ok(repo) => Some(repo.head().ok()?.shorthand()?.to_string()),
         _ => None,
     }
 }
