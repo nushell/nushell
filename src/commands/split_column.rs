@@ -28,7 +28,7 @@ impl WholeStreamCommand for SplitColumn {
     fn signature(&self) -> Signature {
         Signature::build("split-column")
             .required("separator", SyntaxType::Any)
-            .rest()
+            .rest(SyntaxType::Member)
     }
 }
 

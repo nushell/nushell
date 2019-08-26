@@ -1,9 +1,6 @@
 #![feature(option_flattening)]
 use crossterm::{cursor, terminal, Attribute, RawScreen};
-use indexmap::IndexMap;
-use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, ShellError, Signature, SpanSource, Tagged, Value,
-};
+use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, SpanSource, Tagged, Value};
 use pretty_hex::*;
 
 struct BinaryView;
@@ -16,15 +13,7 @@ impl BinaryView {
 
 impl Plugin for BinaryView {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        let mut named = IndexMap::new();
-        named.insert("lores".to_string(), NamedType::Switch);
-        Ok(Signature {
-            name: "binaryview".to_string(),
-            positional: vec![],
-            is_filter: false,
-            named,
-            rest_positional: false,
-        })
+        Ok(Signature::build("binaryview").switch("lores"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {

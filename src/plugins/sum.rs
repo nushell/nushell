@@ -1,4 +1,3 @@
-use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
     Tag, Tagged, Value,
@@ -14,6 +13,7 @@ impl Sum {
 
     fn sum(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
         match value.item {
+            Value::Primitive(Primitive::Nothing) => Ok(()),
             Value::Primitive(Primitive::Int(i)) => {
                 match self.total {
                     Some(Tagged {
@@ -64,14 +64,9 @@ impl Sum {
 
 impl Plugin for Sum {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "sum".to_string(),
-            positional: vec![],
-            is_filter: true,
-            named: IndexMap::new(),
-            rest_positional: true,
-        })
+        Ok(Signature::build("sum").filter())
     }
+
     fn begin_filter(&mut self, _: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }

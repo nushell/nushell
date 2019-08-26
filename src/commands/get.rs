@@ -22,33 +22,41 @@ impl WholeStreamCommand for Get {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, get)?.run()
     }
+
     fn signature(&self) -> Signature {
-        Signature::build("get").rest()
+        Signature::build("get").rest(SyntaxType::Member)
     }
 }
 
 fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
-    let mut current = obj;
+    let mut current = Some(obj);
     for p in path.split(".") {
-        match current.get_data_by_key(p) {
-            Some(v) => current = v,
-            None => {
+        if let Some(obj) = current {
+            current = match obj.get_data_by_key(p) {
+                Some(v) => Some(v),
+                None =>
                 // Before we give up, see if they gave us a path that matches a field name by itself
-                match obj.get_data_by_key(&path.item) {
-                    Some(v) => return Ok(v.clone()),
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            "Unknown column",
-                            "table missing column",
-                            path.span(),
-                        ));
+                {
+                    match obj.get_data_by_key(&path.item) {
+                        Some(v) => return Ok(v.clone()),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "Unknown column",
+                                "table missing column",
+                                path.span(),
+                            ));
+                        }
                     }
                 }
             }
         }
     }
 
-    Ok(current.clone())
+    match current {
+        Some(v) => Ok(v.clone()),
+        None => Ok(Value::nothing().tagged(obj.tag)),
+    }
+    // Ok(current.clone())
 }
 
 pub fn get(

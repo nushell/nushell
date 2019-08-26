@@ -1,7 +1,6 @@
-use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, Plugin, PositionalType, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Signature, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    SyntaxType, Tagged, Value,
 };
 
 struct Edit {
@@ -42,17 +41,12 @@ impl Edit {
 
 impl Plugin for Edit {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "edit".to_string(),
-            positional: vec![
-                PositionalType::mandatory_any("Field"),
-                PositionalType::mandatory_any("Value"),
-            ],
-            is_filter: true,
-            named: IndexMap::new(),
-            rest_positional: true,
-        })
+        Ok(Signature::build("edit")
+            .required("Field", SyntaxType::String)
+            .required("Value", SyntaxType::String)
+            .filter())
     }
+
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {

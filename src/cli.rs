@@ -58,12 +58,17 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
     let mut input = String::new();
     match reader.read_line(&mut input) {
-        Ok(_) => {
+        Ok(count) => {
+            trace!("processing response ({} bytes)", count);
+
             let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
                 Ok(jrpc) => match jrpc.params {
                     Ok(params) => {
                         let fname = path.to_string_lossy();
+
+                        trace!("processing {:?}", params);
+
                         if params.is_filter {
                             let fname = fname.to_string();
                             let name = params.name.clone();
@@ -93,14 +98,18 @@ fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Resu
     let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$")?;
     let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$")?;
 
+    trace!("Looking for plugins in {:?}", path);
+
     match std::fs::read_dir(path) {
         Ok(p) => {
             for entry in p {
                 let entry = entry?;
                 let filename = entry.file_name();
                 let f_name = filename.to_string_lossy();
+
                 if re_bin.is_match(&f_name) || re_exe.is_match(&f_name) {
                     let mut load_path = path.clone();
+                    trace!("Found {:?}", f_name);
                     load_path.push(f_name.to_string());
                     load_plugin(&load_path, context)?;
                 }
@@ -504,7 +513,9 @@ fn classify_command(
 
                     trace!(target: "nu::build_pipeline", "classifying {:?}", config);
 
-                    let args: hir::Call = config.parse_args(call, context.registry(), source)?;
+                    let args: hir::Call = config.parse_args(call, &context, source)?;
+
+                    trace!(target: "nu::build_pipeline", "args :: {}", args.debug(source));
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,

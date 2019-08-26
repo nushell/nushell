@@ -11,15 +11,21 @@ use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::path::PathBuf;
 
 use crate::evaluate::Scope;
 
-crate use self::baseline_parse::{baseline_parse_single_token, baseline_parse_token_as_string};
-crate use self::baseline_parse_tokens::{baseline_parse_next_expr, SyntaxType, TokensIterator};
+crate use self::baseline_parse::{
+    baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
+    baseline_parse_token_as_string,
+};
+crate use self::baseline_parse_tokens::{baseline_parse_next_expr, TokensIterator};
 crate use self::binary::Binary;
 crate use self::external_command::ExternalCommand;
 crate use self::named::NamedArguments;
 crate use self::path::Path;
+
+pub use self::baseline_parse_tokens::SyntaxType;
 
 pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -> Path {
     Path::new(
@@ -68,6 +74,8 @@ impl ToDebug for Call {
             write!(f, "{}", named.debug(source))?;
         }
 
+        write!(f, ")")?;
+
         Ok(())
     }
 }
@@ -81,6 +89,7 @@ pub enum RawExpression {
     Block(Vec<Expression>),
     List(Vec<Expression>),
     Path(Box<Path>),
+    FilePath(PathBuf),
     ExternalCommand(ExternalCommand),
 
     #[allow(unused)]
@@ -105,6 +114,7 @@ impl RawExpression {
         match self {
             RawExpression::Literal(literal) => literal.type_name(),
             RawExpression::Synthetic(synthetic) => synthetic.type_name(),
+            RawExpression::FilePath(..) => "filepath",
             RawExpression::Variable(..) => "variable",
             RawExpression::List(..) => "list",
             RawExpression::Binary(..) => "binary",
@@ -141,6 +151,10 @@ impl Expression {
         )
     }
 
+    crate fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(RawExpression::FilePath(path.into()), outer.into())
+    }
+
     crate fn bare(span: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
     }
@@ -170,7 +184,8 @@ impl Expression {
 impl ToDebug for Expression {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         match self.item() {
-            RawExpression::Literal(l) => write!(f, "{:?}", l),
+            RawExpression::Literal(l) => l.tagged(self.span()).fmt_debug(f, source),
+            RawExpression::FilePath(p) => write!(f, "{}", p.display()),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),

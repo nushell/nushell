@@ -3,6 +3,7 @@ use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
 use derive_new::new;
+use log::trace;
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -64,6 +65,8 @@ pub fn filter_plugin(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
+    trace!("filter_plugin :: {}", path);
+
     let args = args.evaluate_once(registry)?;
 
     let mut child = std::process::Command::new(path)
@@ -80,6 +83,8 @@ pub fn filter_plugin(
 
     let call_info = args.call_info.clone();
 
+    trace!("filtering :: {:?}", call_info);
+
     let stream = bos
         .chain(args.input.values)
         .chain(eos)
@@ -95,7 +100,14 @@ pub fn filter_plugin(
 
                 let request = JsonRpc::new("begin_filter", call_info.clone());
                 let request_raw = serde_json::to_string(&request).unwrap();
-                let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                match stdin.write(format!("{}\n", request_raw).as_bytes()) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        let mut result = VecDeque::new();
+                        result.push_back(Err(ShellError::unexpected(format!("{}", err))));
+                        return result;
+                    }
+                }
 
                 let mut input = String::new();
                 match reader.read_line(&mut input) {
@@ -140,7 +152,15 @@ pub fn filter_plugin(
                 let mut reader = BufReader::new(stdout);
 
                 let request: JsonRpc<std::vec::Vec<Value>> = JsonRpc::new("end_filter", vec![]);
-                let request_raw = serde_json::to_string(&request).unwrap();
+                let request_raw = match serde_json::to_string(&request) {
+                    Ok(req) => req,
+                    Err(err) => {
+                        let mut result = VecDeque::new();
+                        result.push_back(Err(ShellError::unexpected(format!("{}", err))));
+                        return result;
+                    }
+                };
+
                 let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
 
                 let mut input = String::new();
