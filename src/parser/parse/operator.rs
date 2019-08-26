@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Operator {
+    And,
     Equal,
     NotEqual,
     LessThan,
@@ -27,6 +28,7 @@ impl Operator {
 
     pub fn as_str(&self) -> &str {
         match *self {
+            Operator::And => "&&",
             Operator::Equal => "==",
             Operator::NotEqual => "!=",
             Operator::LessThan => "<",
@@ -47,6 +49,7 @@ impl FromStr for Operator {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
         match input {
+            "&&" => Ok(Operator::And),
             "==" => Ok(Operator::Equal),
             "!=" => Ok(Operator::NotEqual),
             "<" => Ok(Operator::LessThan),

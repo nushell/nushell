@@ -6,6 +6,7 @@ use crate::parser::{
         baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
         baseline_parse_token_as_string,
     },
+    parse::operator::Operator,
     DelimitedNode, Delimiter, PathNode, RawToken, TokenNode,
 };
 use crate::{Span, Tag, Tagged, TaggedItem, Text};
@@ -116,44 +117,82 @@ pub fn baseline_parse_next_expr(
         (SyntaxType::Boolean, _) => {}
     };
 
-    let first = baseline_parse_semantic_token(next, context, source)?;
-
     let possible_op = tokens.peek();
+    match possible_op {
+        Some(TokenNode::Operator(_)) => {},
+        _ => return baseline_parse_semantic_token(next, context, source),
+    }
 
-    let op = match possible_op {
-        Some(TokenNode::Operator(op)) => op.clone(),
-        _ => return Ok(first),
-    };
+    // We now know we have a boolean_expression that we need to begin parsing
+    let mut expression_stack = Vec::new();
+    let mut op_stack = Vec::new();
 
-    tokens.next();
+    expression_stack.push(baseline_parse_semantic_token(next, context, source)?);
+    while match tokens.peek() {
+        Some(TokenNode::Operator(_)) => true,
+        _ => false,
+    }{
+        let op = match tokens.next() {
+            Some(TokenNode::Operator(op)) => op.clone(),
+            _ => panic!("Invariant violated: Next token was not available"),
+        };
 
-    let second = match tokens.next() {
-        None => {
-            return Err(ShellError::labeled_error(
-                "Expected something after an operator",
-                "operator",
-                op.span(),
-            ))
+         match tokens.next() {
+            None => {
+                return Err(ShellError::labeled_error(
+                    "Expected something after an operator",
+                    "operator",
+                    op.span(),
+                ))
+            }
+            Some(token) => {
+                op_stack.push(op);
+                expression_stack.push(baseline_parse_semantic_token(token, context, source)?);
+            },
         }
-        Some(token) => baseline_parse_semantic_token(token, context, source)?,
     };
 
     // We definitely have a binary expression here -- let's see if we should coerce it into a block
 
+    let bin_expr = |first, second, op, span| {
+        let binary = hir::Binary::new(first, op, second);
+        let binary = hir::RawExpression::Binary(Box::new(binary));
+        Tagged::from_simple_spanned_item(binary, span)
+    };
+
     match syntax_type {
         SyntaxType::Any => {
+            let second = expression_stack.pop().unwrap();
+            let first = expression_stack.pop().unwrap();
+            let op = op_stack.pop().unwrap();
             let span = (first.span().start, second.span().end);
-            let binary = hir::Binary::new(first, op, second);
-            let binary = hir::RawExpression::Binary(Box::new(binary));
-            let binary = Tagged::from_simple_spanned_item(binary, span);
+            let end_of_expr = second.span().end;
+            let mut binary = bin_expr(first, second, op, span);
+            while let Some(ops) = op_stack.pop() {
+                if ops.item == Operator::And {
+                    let second = expression_stack.pop().unwrap();
+                    let first = expression_stack.pop().unwrap();
+                    let begin_of_expr = first.span().start;
+                    let span = (first.span().start, second.span().end);
+                    let op = op_stack.pop().unwrap();
+                    let inner_bin = bin_expr(first, second, op, span);
+                    binary = bin_expr(inner_bin, binary, ops, (begin_of_expr, end_of_expr));
+                } else {
+                    panic!("Invalid bool expr");
+                }
+            }
+
 
             Ok(binary)
         }
-
         SyntaxType::Block => {
+            let second = expression_stack.pop().unwrap();
+            let first = expression_stack.pop().unwrap();
+            let op = op_stack.pop().unwrap();
             let span = (first.span().start, second.span().end);
-
-            let path: Tagged<hir::RawExpression> = match first {
+            let mut begin_of_expr = first.span().end;
+            let end_of_expr = second.span().end;
+            let path = |first| match first {
                 Tagged {
                     item: hir::RawExpression::Literal(hir::Literal::Bare),
                     tag: Tag { span, .. },
@@ -169,7 +208,7 @@ pub fn baseline_parse_next_expr(
                         vec![string],
                     );
                     let path = hir::RawExpression::Path(Box::new(path));
-                    Tagged::from_simple_spanned_item(path, first.span())
+                    Ok(Tagged::from_simple_spanned_item(path, first.span()))
                 }
                 Tagged {
                     item: hir::RawExpression::Literal(hir::Literal::String(inner)),
@@ -186,31 +225,40 @@ pub fn baseline_parse_next_expr(
                         vec![string],
                     );
                     let path = hir::RawExpression::Path(Box::new(path));
-                    Tagged::from_simple_spanned_item(path, first.span())
+                    Ok(Tagged::from_simple_spanned_item(path, first.span()))
                 }
                 Tagged {
                     item: hir::RawExpression::Variable(..),
                     ..
-                } => first,
+                } => Ok(first),
                 Tagged {
                     tag: Tag { span, .. },
                     item,
                 } => {
-                    return Err(ShellError::labeled_error(
+                    Err(ShellError::labeled_error(
                         "The first part of an un-braced block must be a column name",
                         item.type_name(),
                         span,
                     ))
                 }
             };
-
-            let binary = hir::Binary::new(path, op, second);
-            let binary = hir::RawExpression::Binary(Box::new(binary));
-            let binary = Tagged::from_simple_spanned_item(binary, span);
+            let mut binary = bin_expr(path(first)?, second, op, span);
+            while let Some(ops) = op_stack.pop() {
+                if ops.item == Operator::And {
+                    let second = expression_stack.pop().unwrap();
+                    let first = expression_stack.pop().unwrap();
+                    begin_of_expr = first.span().start;
+                    let span = (first.span().start, second.span().end);
+                    let op = op_stack.pop().unwrap();
+                    let inner_bin = bin_expr(path(first)?, second, op, span);
+                    binary = bin_expr(inner_bin, binary, ops, (begin_of_expr, end_of_expr));
+                } else {
+                    panic!("Invalid bool expr");
+                }
+            }
 
             let block = hir::RawExpression::Block(vec![binary]);
-            let block = Tagged::from_simple_spanned_item(block, span);
-
+            let block = Tagged::from_simple_spanned_item(block, (begin_of_expr, end_of_expr));
             Ok(block)
         }
 

@@ -519,29 +519,34 @@ impl Value {
 
     #[allow(unused)]
     crate fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
-        match operator {
-            _ => {
-                let coerced = coerce_compare(self, other)?;
-                let ordering = coerced.compare();
-
-                use std::cmp::Ordering;
-
-                let result = match (operator, ordering) {
-                    (Operator::Equal, Ordering::Equal) => true,
-                    (Operator::NotEqual, Ordering::Less)
-                    | (Operator::NotEqual, Ordering::Greater) => true,
-                    (Operator::LessThan, Ordering::Less) => true,
-                    (Operator::GreaterThan, Ordering::Greater) => true,
-                    (Operator::GreaterThanOrEqual, Ordering::Greater)
-                    | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
-                    (Operator::LessThanOrEqual, Ordering::Less)
-                    | (Operator::LessThanOrEqual, Ordering::Equal) => true,
-                    _ => false,
-                };
-
-                Ok(result)
+    Ok(match (self,other) {
+        (Value::Primitive(Primitive::Boolean(a)), Value::Primitive(Primitive::Boolean(b))) =>
+        {
+            match (a, b, operator) {
+                (true, true, Operator::And) => true,
+                _ => false
             }
         }
+        _ => {
+            let coerced = coerce_compare(self, other)?;
+            let ordering = coerced.compare();
+
+            use std::cmp::Ordering;
+
+            match (operator, ordering) {
+                (Operator::Equal, Ordering::Equal) => true,
+                (Operator::NotEqual, Ordering::Less)
+                | (Operator::NotEqual, Ordering::Greater) => true,
+                (Operator::LessThan, Ordering::Less) => true,
+                (Operator::GreaterThan, Ordering::Greater) => true,
+                (Operator::GreaterThanOrEqual, Ordering::Greater)
+                | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
+                (Operator::LessThanOrEqual, Ordering::Less)
+                | (Operator::LessThanOrEqual, Ordering::Equal) => true,
+                _ => false,
+            }
+        }
+    })
     }
 
     #[allow(unused)]

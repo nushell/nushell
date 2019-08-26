@@ -48,6 +48,7 @@ operator! { gte: >= }
 operator! { lte: <= }
 operator! { eq:  == }
 operator! { neq: != }
+operator! { and:  &&  }
 
 fn trace_step<'a, T: Debug>(
     input: NomSpan<'a>,
@@ -84,7 +85,7 @@ pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Tagged<i64>> {
 
 pub fn operator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "operator", |input| {
-        let (input, operator) = alt((gte, lte, neq, gt, lt, eq))(input)?;
+        let (input, operator) = alt((gte, lte, neq, gt, lt, eq, and))(input)?;
 
         Ok((input, operator))
     })
