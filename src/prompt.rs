@@ -1,6 +1,8 @@
+use crossterm::{Color, Colored};
 use git2::{Repository, RepositoryOpenFlags};
 use std::ffi::OsString;
 use std::fmt;
+use std::str::FromStr;
 
 use crate::prelude::*;
 
@@ -67,18 +69,177 @@ impl fmt::Display for Render<'_> {
                 Node::Value(Value::VcsBranch) => {
                     self.vcs_branch(f);
                 }
+                Node::Color(color) => {
+                    let _ = color.fmt(f);
+                }
             }
         }
         Ok(())
     }
 }
 
+fn parse(spec: &str) -> Result<Vec<Node>, String> {
+    let (mut out, mut cur) = (vec![], String::new());
+
+    let (mut state, mut escape) = (State::Literal, false);
+    for c in spec.chars() {
+        state = match c {
+            c if escape => {
+                cur.push(c);
+                escape = false;
+                state
+            }
+            '{' => {
+                if !cur.is_empty() {
+                    out.push(Node::Literal(cur.clone()));
+                    cur.clear();
+                }
+                State::Value
+            }
+            '}' => {
+                if state != State::Value {
+                    return Err("value end without starting".to_string());
+                }
+
+                out.push(Node::Value(cur.parse()?));
+                cur.clear();
+                State::Literal
+            }
+            '<' => {
+                if !cur.is_empty() {
+                    out.push(Node::Literal(cur.clone()));
+                    cur.clear();
+                }
+                State::Style
+            }
+            '>' => {
+                if state != State::Style {
+                    return Err("style end without starting".to_string());
+                }
+
+                let mut iter = str::splitn(&cur, 2, ':');
+                let prefix = match iter.next() {
+                    Some(p) => p,
+                    None => return Err("invalid: empty style string".to_string()),
+                };
+
+                let (foreground, name) = if prefix == "b" {
+                    (false, iter.next())
+                } else if prefix == "f" {
+                    (true, iter.next())
+                } else {
+                    // foreground is the default
+                    (true, Some(prefix))
+                };
+
+                let color: Color = match name {
+                    Some(n) => n.parse().map_err(|_| "invalid color name".to_string())?,
+                    _ => return Err("invalid: empty style string".to_string()),
+                };
+
+                if foreground {
+                    out.push(Node::Color(Colored::Fg(color)));
+                } else {
+                    out.push(Node::Color(Colored::Bg(color)));
+                }
+
+                cur.clear();
+                State::Literal
+            }
+            '\\' if escape => {
+                cur.push('\\');
+                state
+            }
+            '\\' => {
+                escape = true;
+                state
+            }
+            c => {
+                cur.push(c);
+                state
+            }
+        }
+    }
+
+    if state != State::Literal {
+        return Err("invalid: must end in literal state".to_string());
+    } else if !cur.is_empty() {
+        out.push(Node::Literal(cur));
+    }
+
+    Ok(out)
+}
+
+#[derive(Debug, PartialEq)]
 enum Node {
     Literal(String),
     Value(Value),
+    Color(Colored),
 }
 
+#[derive(Debug, PartialEq)]
 enum Value {
     Cwd,
     VcsBranch,
+}
+
+impl FromStr for Value {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "cwd" => Value::Cwd,
+            "vcs_branch" => Value::VcsBranch,
+            _ => return Err(format!("invalid value '{}'", s)),
+        })
+    }
+}
+
+#[derive(PartialEq)]
+enum State {
+    Literal,
+    Value,
+    Style,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prompt_simple() {
+        assert_eq!(
+            parse("{cwd}{vcs_branch}\\> ").unwrap(),
+            vec![
+                Node::Value(Value::Cwd),
+                Node::Value(Value::VcsBranch),
+                Node::Literal("> ".to_string()),
+            ]
+        )
+    }
+
+    #[test]
+    fn prompt_colors() {
+        assert_eq!(
+            parse("<blue>{cwd}<green>{vcs_branch}<reset> $ ").unwrap(),
+            vec![
+                Node::Color(Colored::Fg(Color::Blue)),
+                Node::Value(Value::Cwd),
+                Node::Color(Colored::Fg(Color::Green)),
+                Node::Value(Value::VcsBranch),
+                Node::Color(Colored::Fg(Color::White)),
+                Node::Literal(" $ ".to_string()),
+            ]
+        )
+    }
+
+    #[test]
+    fn prompt_unclosed_value() {
+        assert!(parse("{ ").is_err())
+    }
+
+    #[test]
+    fn prompt_unclosed_style() {
+        assert!(parse("< ").is_err())
+    }
 }
