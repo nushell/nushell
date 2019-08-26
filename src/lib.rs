@@ -21,6 +21,7 @@ mod git;
 mod object;
 mod parser;
 mod plugin;
+mod prompt;
 mod shell;
 mod stream;
 mod traits;

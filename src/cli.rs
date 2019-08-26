@@ -8,11 +8,11 @@ use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
 crate use crate::errors::ShellError;
-use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
+use crate::prompt::Prompt;
 
 use log::{debug, trace};
 use regex::Regex;
@@ -226,27 +226,18 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     })
     .expect("Error setting Ctrl-C handler");
     let mut ctrlcbreak = false;
+    let prompt = Prompt::new();
     loop {
         if ctrl_c.load(Ordering::SeqCst) {
             ctrl_c.store(false, Ordering::SeqCst);
             continue;
         }
 
-        let cwd = context.shell_manager.path();
-
         rl.set_helper(Some(crate::shell::Helper::new(
             context.shell_manager.clone(),
         )));
 
-        let readline = rl.readline(&format!(
-            "{}{}> ",
-            cwd,
-            match current_branch() {
-                Some(s) => format!("({})", s),
-                None => "".to_string(),
-            }
-        ));
-
+        let readline = rl.readline(&prompt.render(&context));
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
