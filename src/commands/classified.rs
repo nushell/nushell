@@ -342,7 +342,7 @@ impl ExternalCommand {
                             continue;
                         }
 
-                        process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
+                        process = process.arg(&arg.replace("$it", &i.as_string()?));
                     }
                 }
             } else {
