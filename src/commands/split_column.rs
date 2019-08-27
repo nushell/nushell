@@ -8,6 +8,8 @@ use log::trace;
 struct SplitColumnArgs {
     separator: Tagged<String>,
     rest: Vec<Tagged<String>>,
+    #[serde(rename(deserialize = "collapse-empty"))]
+    collapse_empty: bool,
 }
 
 pub struct SplitColumn;
@@ -28,12 +30,13 @@ impl WholeStreamCommand for SplitColumn {
     fn signature(&self) -> Signature {
         Signature::build("split-column")
             .required("separator", SyntaxType::Any)
+            .switch("collapse-empty")
             .rest(SyntaxType::Member)
     }
 }
 
 fn split_column(
-    SplitColumnArgs { separator, rest }: SplitColumnArgs,
+    SplitColumnArgs { separator, rest, collapse_empty}: SplitColumnArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(input
@@ -43,7 +46,12 @@ fn split_column(
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
 
-                let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
+                let split_result: Vec<_> = if collapse_empty {
+                    s.split(&splitter).filter(|s| !s.is_empty()).collect()
+                } else {
+                    s.split(&splitter).collect()
+                };
+
                 trace!("split result = {:?}", split_result);
 
                 let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
