@@ -96,7 +96,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
 fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
     let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$")?;
-    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.exe$")?;
+    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.(exe|bat)$")?;
 
     trace!("Looking for plugins in {:?}", path);
 
@@ -130,19 +130,24 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         None => println!("PATH is not defined in the environment."),
     }
 
-    // Also use our debug output for now
-    let mut path = std::path::PathBuf::from(".");
-    path.push("target");
-    path.push("debug");
+    #[cfg(debug_assertions)]
+    {
+        // Use our debug plugins in debug mode
+        let mut path = std::path::PathBuf::from(".");
+        path.push("target");
+        path.push("debug");
+        let _ = load_plugins_in_dir(&path, context);
+    }
 
-    let _ = load_plugins_in_dir(&path, context);
+    #[cfg(not(debug_assertions))]
+    {
+        // Use our release plugins in release mode
+        let mut path = std::path::PathBuf::from(".");
+        path.push("target");
+        path.push("release");
 
-    // Also use our release output for now
-    let mut path = std::path::PathBuf::from(".");
-    path.push("target");
-    path.push("release");
-
-    let _ = load_plugins_in_dir(&path, context);
+        let _ = load_plugins_in_dir(&path, context);
+    }
 
     Ok(())
 }
@@ -171,6 +176,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Reverse),
             whole_stream_command(Trim),
             whole_stream_command(ToArray),
+            whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
             whole_stream_command(ToJSON),
             whole_stream_command(ToTOML),
@@ -226,6 +232,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let _ = ansi_term::enable_ansi_support();
     }
 
+    // we are ok if history does not exist
     let _ = rl.load_history("history.txt");
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
@@ -306,7 +313,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         }
         ctrlcbreak = false;
     }
-    rl.save_history("history.txt")?;
+
+    // we are ok if we can not save history
+    let _ = rl.save_history("history.txt");
 
     Ok(())
 }

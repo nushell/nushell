@@ -25,7 +25,7 @@ fn accepts_and_creates_directories() {
     let full_path = format!("{}/{}", Playground::root(), sandbox);
 
     nu!(_output, cwd(&full_path), "mkdir dir_1 dir_2 dir_3");
-    
+
     assert!(h::files_exist_at(
         vec![Path::new("dir_1"), Path::new("dir_2"), Path::new("dir_3")],
         PathBuf::from(&full_path)

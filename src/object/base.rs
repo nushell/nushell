@@ -94,13 +94,13 @@ impl Primitive {
                 let byte = byte_unit::Byte::from_bytes(*b as u128);
 
                 if byte.get_bytes() == 0u128 {
-                    return "<empty>".to_string();
+                    return "—".to_string();
                 }
 
                 let byte = byte.get_appropriate_unit(false);
 
                 match byte.get_unit() {
-                    byte_unit::ByteUnit::B => format!("{}", byte.format(0)),
+                    byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
                     _ => format!("{}", byte.format(1)),
                 }
             }
@@ -116,6 +116,14 @@ impl Primitive {
                 (false, Some(_)) => format!("No"),
             },
             Primitive::Date(d) => format!("{}", d.humanize()),
+        }
+    }
+
+    pub fn style(&self) -> &'static str {
+        match self {
+            Primitive::Bytes(0) => "c", // centre 'missing' indicator
+            Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Float(_) => "r",
+            _ => "",
         }
     }
 }
@@ -229,6 +237,48 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
             Value::Primitive(Primitive::Int(int)) => Ok(*int),
             v => Err(ShellError::type_error(
                 "Integer",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for String {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<String, ShellError> {
+        match value.item() {
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            v => Err(ShellError::type_error(
+                "String",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<Vec<u8>, ShellError> {
+        match value.item() {
+            Value::Binary(b) => Ok(b.clone()),
+            v => Err(ShellError::type_error(
+                "Binary",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::object::Dictionary, ShellError> {
+        match value.item() {
+            Value::Object(d) => Ok(d),
+            v => Err(ShellError::type_error(
+                "Dictionary",
                 value.copy_span(v.type_name()),
             )),
         }
@@ -457,6 +507,13 @@ impl Value {
                 if l.len() == 1 { "item" } else { "items" }
             ),
             Value::Binary(_) => format!("<binary>"),
+        }
+    }
+
+    crate fn style_leaf(&self) -> &'static str {
+        match self {
+            Value::Primitive(p) => p.style(),
+            _ => "",
         }
     }
 

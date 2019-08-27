@@ -1,17 +1,19 @@
 use crate::format::RenderView;
 use crate::object::Value;
 use crate::prelude::*;
-use ansi_term::Color;
 use derive_new::new;
-use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use textwrap::fill;
 
+use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
 
 #[derive(Debug, new)]
 pub struct TableView {
+    // List of header cell values:
     headers: Vec<String>,
-    entries: Vec<Vec<String>>,
+
+    // List of rows of cells, each containing value and prettytable style-string:
+    entries: Vec<Vec<(String, &'static str)>>,
 }
 
 impl TableView {
@@ -41,21 +43,29 @@ impl TableView {
         let mut entries = vec![];
 
         for (idx, value) in values.iter().enumerate() {
-            let mut row: Vec<String> = match value {
+            let mut row: Vec<(String, &'static str)> = match value {
                 Tagged {
                     item: Value::Object(..),
                     ..
                 } => headers
                     .iter()
                     .enumerate()
-                    .map(|(i, d)| value.get_data(d).borrow().format_leaf(Some(&headers[i])))
+                    .map(|(i, d)| {
+                        let data = value.get_data(d);
+                        return (
+                            data.borrow().format_leaf(Some(&headers[i])),
+                            data.borrow().style_leaf(),
+                        );
+                    })
                     .collect(),
-                x => vec![x.format_leaf(None)],
+                x => vec![(x.format_leaf(None), x.style_leaf())],
             };
 
             if values.len() > 1 {
-                row.insert(0, format!("{}", idx.to_string()));
+                // Indices are black, bold, right-aligned:
+                row.insert(0, (format!("{}", idx.to_string()), "Fdbr"));
             }
+
             entries.push(row);
         }
 
@@ -66,13 +76,15 @@ impl TableView {
         }
 
         for head in 0..headers.len() {
-            let mut current_row_max = 0;
+            let mut current_col_max = 0;
             for row in 0..values.len() {
-                if head > entries[row].len() && entries[row][head].len() > current_row_max {
-                    current_row_max = entries[row][head].len();
+                let value_length = entries[row][head].0.len();
+                if head > entries[row].len() && value_length > current_col_max {
+                    current_col_max = value_length;
                 }
             }
-            max_per_column.push(std::cmp::max(current_row_max, headers[head].len()));
+
+            max_per_column.push(std::cmp::max(current_col_max, headers[head].len()));
         }
 
         // Different platforms want different amounts of buffer, not sure why
@@ -90,7 +102,7 @@ impl TableView {
 
             headers.push("...".to_string());
             for row in 0..entries.len() {
-                entries[row].push("...".to_string());
+                entries[row].push(("...".to_string(), "c")); // ellipsis is centred
             }
         }
 
@@ -167,16 +179,8 @@ impl TableView {
             if max_per_column[head] > max_naive_column_width {
                 headers[head] = fill(&headers[head], max_column_width);
                 for row in 0..entries.len() {
-                    entries[row][head] = fill(&entries[row][head], max_column_width);
+                    entries[row][head].0 = fill(&entries[row][head].0, max_column_width);
                 }
-            }
-        }
-
-        // Paint the number column, if it exists
-        if entries.len() > 1 {
-            for row in 0..entries.len() {
-                entries[row][0] =
-                    format!("{}", Color::Black.bold().paint(entries[row][0].to_string()));
             }
         }
 
@@ -191,16 +195,15 @@ impl RenderView for TableView {
         }
 
         let mut table = Table::new();
-
-        let fb = FormatBuilder::new()
-            .separator(LinePosition::Top, LineSeparator::new('-', '+', ' ', ' '))
-            .separator(LinePosition::Bottom, LineSeparator::new('-', '+', ' ', ' '))
-            .separator(LinePosition::Title, LineSeparator::new('-', '+', '|', '|'))
-            .column_separator('|')
-            .padding(1, 1);
-
-        //table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-        table.set_format(fb.build());
+        table.set_format(
+            FormatBuilder::new()
+                .column_separator('│')
+                .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
+                .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
+                .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
+                .padding(1, 1)
+                .build(),
+        );
 
         let header: Vec<Cell> = self
             .headers
@@ -215,7 +218,11 @@ impl RenderView for TableView {
         table.set_titles(Row::new(header));
 
         for row in &self.entries {
-            table.add_row(Row::new(row.iter().map(|h| Cell::new(h)).collect()));
+            table.add_row(Row::new(
+                row.iter()
+                    .map(|(v, s)| Cell::new(v).style_spec(s))
+                    .collect(),
+            ));
         }
 
         table.print_term(&mut *host.out_terminal()).unwrap();

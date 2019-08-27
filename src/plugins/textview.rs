@@ -1,5 +1,3 @@
-#![feature(option_flattening)]
-
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
 use nu::{
@@ -210,7 +208,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
     let value_origin = value.origin();
     match value.item {
         Value::Primitive(Primitive::String(ref s)) => {
-            let source = value_origin.map(|x| source_map.get(&x)).flatten();
+            let source = value_origin.and_then(|x| source_map.get(&x));
 
             if let Some(source) = source {
                 let extension: Option<String> = match source {

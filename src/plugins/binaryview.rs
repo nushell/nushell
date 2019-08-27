@@ -1,4 +1,3 @@
-#![feature(option_flattening)]
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, SpanSource, Tagged, Value};
 use pretty_hex::*;
@@ -21,7 +20,7 @@ impl Plugin for BinaryView {
             let value_origin = v.origin();
             match v.item {
                 Value::Binary(b) => {
-                    let source = value_origin.map(|x| call_info.source_map.get(&x)).flatten();
+                    let source = value_origin.and_then(|x| call_info.source_map.get(&x));
                     let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}

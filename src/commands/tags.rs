@@ -38,7 +38,7 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
                 dict.insert("end", Value::int(span.end as i64));
                 tags.insert_tagged("span", dict.into_tagged_value());
 
-                match origin.map(|x| source_map.get(&x)).flatten() {
+                match origin.and_then(|x| source_map.get(&x)) {
                     Some(SpanSource::File(source)) => {
                         tags.insert("origin", Value::string(source));
                     }

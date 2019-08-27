@@ -2,8 +2,8 @@ use crate::format::RenderView;
 use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
-use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 
+use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
 
 #[derive(new)]
@@ -47,14 +47,15 @@ impl RenderView for VTableView {
         }
 
         let mut table = Table::new();
-
-        let fb = FormatBuilder::new()
-            .separator(LinePosition::Top, LineSeparator::new('-', '+', ' ', ' '))
-            .separator(LinePosition::Bottom, LineSeparator::new('-', '+', ' ', ' '))
-            .column_separator('|')
-            .padding(1, 1);
-
-        table.set_format(fb.build());
+        table.set_format(
+            FormatBuilder::new()
+                .column_separator('│')
+                .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
+                .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
+                .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
+                .padding(1, 1)
+                .build(),
+        );
 
         for row in &self.entries {
             table.add_row(Row::new(
