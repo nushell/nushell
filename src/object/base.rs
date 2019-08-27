@@ -243,6 +243,48 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
     }
 }
 
+impl std::convert::TryFrom<&'a Tagged<Value>> for String {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<String, ShellError> {
+        match value.item() {
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            v => Err(ShellError::type_error(
+                "String",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<Vec<u8>, ShellError> {
+        match value.item() {
+            Value::Binary(b) => Ok(b.clone()),
+            v => Err(ShellError::type_error(
+                "Binary",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::object::Dictionary, ShellError> {
+        match value.item() {
+            Value::Object(d) => Ok(d),
+            v => Err(ShellError::type_error(
+                "Dictionary",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum Switch {
     Present,
