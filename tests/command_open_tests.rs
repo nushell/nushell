@@ -17,7 +17,7 @@ fn recognizes_csv() {
     nu!(
         output,
         cwd("tests/fixtures/nuplayground/open_recognizes_csv_test"),
-        "open nu.zion.csv | where author == \"Andres N. Robalino\" | get source | echo $it"
+        r#"open nu.zion.csv | where author == "Andres N. Robalino" | get source | echo $it"#
     );
 
     assert_eq!(output, "Ecuador");

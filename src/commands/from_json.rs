@@ -5,21 +5,26 @@ use crate::prelude::*;
 
 pub struct FromJSON;
 
-impl WholeStreamCommand for FromJSON {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_json(args, registry)
-    }
+#[derive(Deserialize)]
+pub struct FromJSONArgs {
+    objects: bool,
+}
 
+impl WholeStreamCommand for FromJSON {
     fn name(&self) -> &str {
         "from-json"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-json")
+        Signature::build("from-json").switch("objects")
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, from_json)?.run()
     }
 }
 
@@ -64,10 +69,11 @@ pub fn from_json_string_to_value(
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
 
-fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
-    let input = args.input;
+fn from_json(
+    FromJSONArgs { objects }: FromJSONArgs,
+    RunnableContext { input, name, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let name_span = name;
 
     let stream = async_stream_block! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
@@ -86,7 +92,7 @@ fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    name_span,
                     "value originates from here",
                     value_tag.span,
                 )),
@@ -94,25 +100,50 @@ fn from_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             }
         }
 
-        match from_json_string_to_value(concat_string, span) {
-            Ok(x) =>
-                match x {
-                    Tagged { item: Value::List(list), .. } => {
-                        for l in list {
-                            yield ReturnSuccess::value(l);
+
+        if objects {
+            for json_str in concat_string.lines() {
+                if json_str.is_empty() {
+                    continue;
+                }
+
+                match from_json_string_to_value(json_str.to_string(), name_span) {
+                    Ok(x) =>
+                        yield ReturnSuccess::value(x),
+                    Err(_) => {
+                        if let Some(last_tag) = latest_tag {
+                            yield Err(ShellError::labeled_error_with_secondary(
+                                "Could nnot parse as JSON",
+                                "input cannot be parsed as JSON",
+                                name_span,
+                                "value originates from here",
+                                last_tag.span))
                         }
                     }
-                    x => yield ReturnSuccess::value(x),
                 }
-            Err(_) => if let Some(last_tag) = latest_tag {
-                yield Err(ShellError::labeled_error_with_secondary(
-                    "Could not parse as JSON",
-                    "input cannot be parsed as JSON",
-                    span,
-                    "value originates from here",
-                    last_tag.span,
-                ))
-            } ,
+            }
+        } else {
+            match from_json_string_to_value(concat_string, name_span) {
+                Ok(x) =>
+                    match x {
+                        Tagged { item: Value::List(list), .. } => {
+                            for l in list {
+                                yield ReturnSuccess::value(l);
+                            }
+                        }
+                        x => yield ReturnSuccess::value(x),
+                    }
+                Err(_) => {
+                    if let Some(last_tag) = latest_tag {
+                        yield Err(ShellError::labeled_error_with_secondary(
+                            "Could not parse as JSON",
+                            "input cannot be parsed as JSON",
+                            name_span,
+                            "value originates from here",
+                            last_tag.span))
+                    }
+                }
+            }
         }
     };
 

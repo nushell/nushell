@@ -18,7 +18,7 @@ fn ls_lists_regular_files() {
     nu!(
         output,
         cwd(&full_path),
-        r#"ls | get name | lines | split-column "." | get Column2 | str Column2 --to-int | sum | echo $it"#
+        r#"ls | get name | lines | split-column "." | get Column2 | str --to-int | sum | echo $it"#
     );
 
     assert_eq!(output, "30");
@@ -40,7 +40,7 @@ fn ls_lists_regular_files_using_asterisk_wildcard() {
     nu!(
         output,
         cwd(&full_path),
-        "ls *.txt | get name | lines| split-column \".\" | get Column2 | str Column2 --to-int | sum | echo $it"
+        r#"ls *.txt | get name | lines| split-column "." | get Column2 | str --to-int | sum | echo $it"#
     );
 
     assert_eq!(output, "3");
@@ -62,7 +62,7 @@ fn ls_lists_regular_files_using_question_mark_wildcard() {
     nu!(
         output,
         cwd(&full_path),
-        "ls *.??.txt | get name | lines| split-column \".\" | get Column2 | str Column2 --to-int | sum | echo $it"
+        r#"ls *.??.txt | get name | lines| split-column "." | get Column2 | str --to-int | sum | echo $it"#
     );
 
     assert_eq!(output, "30");

@@ -7,7 +7,7 @@ use helpers as h;
 fn lines() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml --raw | lines | skip-while $it != \"[dependencies]\" | skip 1 | first 1 | split-column \"=\" | get Column1 | trim | echo $it"
+        r#"open cargo_sample.toml --raw | lines | skip-while $it != "[dependencies]" | skip 1 | first 1 | split-column "=" | get Column1 | trim | echo $it"#
     );
 
     assert_eq!(output, "rustyline");

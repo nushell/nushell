@@ -27,7 +27,7 @@ fn external_has_correct_quotes() {
 fn add_plugin() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | add dev-dependencies.newdep \"1\" | get dev-dependencies.newdep | echo $it"
+        r#"open cargo_sample.toml | add dev-dependencies.newdep "1" | get dev-dependencies.newdep | echo $it"#
     );
 
     assert_eq!(output, "1");
@@ -37,7 +37,7 @@ fn add_plugin() {
 fn edit_plugin() {
     nu!(output,
         cwd("tests/fixtures/formats"),
-        "open cargo_sample.toml | edit dev-dependencies.pretty_assertions \"7\" | get dev-dependencies.pretty_assertions | echo $it"
+        r#"open cargo_sample.toml | edit dev-dependencies.pretty_assertions "7" | get dev-dependencies.pretty_assertions | echo $it"#
     );
 
     assert_eq!(output, "7");

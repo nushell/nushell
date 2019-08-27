@@ -51,7 +51,7 @@ fn rm_removes_files_with_wildcard() {
     nu!(
         _output,
         cwd("tests/fixtures/nuplayground/rm_wildcard_test_1"),
-        "rm \"src/*/*/*.rs\""
+        r#"rm "src/*/*/*.rs""#
     );
 
     assert!(!h::files_exist_at(
