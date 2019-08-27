@@ -140,7 +140,15 @@ impl ShellError {
         use language_reporting::*;
 
         match error {
-            nom::Err::Incomplete(_) => unreachable!(),
+            nom::Err::Incomplete(_) => {
+                // TODO: Get span of EOF
+                let diagnostic = Diagnostic::new(
+                    Severity::Error,
+                    format!("Parse Error: Unexpected end of line"),
+                );
+
+                ShellError::diagnostic(diagnostic)
+            }
             nom::Err::Failure(span) | nom::Err::Error(span) => {
                 let diagnostic = Diagnostic::new(Severity::Error, format!("Parse Error"))
                     .with_label(Label::new_primary(Span::from(span.0)));
