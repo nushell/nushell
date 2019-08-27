@@ -121,19 +121,24 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         None => println!("PATH is not defined in the environment."),
     }
 
-    // Also use our debug output for now
-    let mut path = std::path::PathBuf::from(".");
-    path.push("target");
-    path.push("debug");
+    #[cfg(debug_assertions)]
+    {
+        // Use our debug plugins in debug mode
+        let mut path = std::path::PathBuf::from(".");
+        path.push("target");
+        path.push("debug");
+        let _ = load_plugins_in_dir(&path, context);
+    }
 
-    let _ = load_plugins_in_dir(&path, context);
+    #[cfg(not(debug_assertions))]
+    {
+        // Use our release plugins in release mode
+        let mut path = std::path::PathBuf::from(".");
+        path.push("target");
+        path.push("release");
 
-    // Also use our release output for now
-    let mut path = std::path::PathBuf::from(".");
-    path.push("target");
-    path.push("release");
-
-    let _ = load_plugins_in_dir(&path, context);
+        let _ = load_plugins_in_dir(&path, context);
+    }
 
     Ok(())
 }
