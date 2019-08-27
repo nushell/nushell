@@ -16,6 +16,8 @@ There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
 
 # Installation
 
+## Local 
+
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
 
 To build Nu, you will need to use the **nightly** version of the compiler.
@@ -46,6 +48,21 @@ The following optional features are currently supported:
 
 * **rawkey** - direct keyboard input, which creates a smoother experience in viewing text and binaries
 * **clipboard** - integration with the native clipboard via the `clip` command
+
+## Docker
+
+Optionally, you can build a container with nu installed using the [Dockerfile](Dockerfile):
+
+```bash
+$ docker build -t nu .
+``` 
+
+And then run the container:
+
+```bash
+$ docker run -it nu
+/> exit
+```
 
 # Philosophy
 
