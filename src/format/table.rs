@@ -78,13 +78,16 @@ impl TableView {
         for head in 0..headers.len() {
             let mut current_col_max = 0;
             for row in 0..values.len() {
-                let value_length = entries[row][head].0.len();
+                let value_length = entries[row][head].0.chars().count();
                 if value_length > current_col_max {
                     current_col_max = value_length;
                 }
             }
 
-            max_per_column.push(std::cmp::max(current_col_max, headers[head].len()));
+            max_per_column.push(std::cmp::max(
+                current_col_max,
+                headers[head].chars().count(),
+            ));
         }
 
         // Different platforms want different amounts of buffer, not sure why

@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tagged, Value,
+    SyntaxType, Tagged, Value,
 };
 
 struct Skip {
@@ -20,7 +20,7 @@ impl Plugin for Skip {
             positional: vec![],
             is_filter: true,
             named: IndexMap::new(),
-            rest_positional: true,
+            rest_positional: Some(SyntaxType::Number),
         })
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

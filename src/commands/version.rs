@@ -5,8 +5,6 @@ use crate::parser::registry::Signature;
 use crate::prelude::*;
 use indexmap::IndexMap;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
 pub struct Version;
 
 impl WholeStreamCommand for Version {
@@ -34,7 +32,7 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "version".to_string(),
-        Tagged::from_simple_spanned_item(Value::string(VERSION.to_string()), span),
+        Tagged::from_simple_spanned_item(Value::string(clap::crate_version!()), span),
     );
 
     let value = Tagged::from_simple_spanned_item(Value::Object(Dictionary::from(indexmap)), span);

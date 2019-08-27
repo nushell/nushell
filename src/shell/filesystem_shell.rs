@@ -72,12 +72,16 @@ impl Shell for FilesystemShell {
         "filesystem".to_string()
     }
 
+    fn homedir(&self) -> Option<PathBuf> {
+        dirs::home_dir()
+    }
+
     fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
 
         match &args.nth(0) {
-            Some(Tagged { item: value, .. }) => full_path.push(Path::new(&value.as_string()?)),
+            Some(value) => full_path.push(Path::new(&value.as_path()?)),
             _ => {}
         }
 
@@ -176,7 +180,7 @@ impl Shell for FilesystemShell {
                 }
             },
             Some(v) => {
-                let target = v.as_string()?;
+                let target = v.as_path()?;
                 let path = PathBuf::from(self.path());
                 match dunce::canonicalize(path.join(target).as_path()) {
                     Ok(p) => p,

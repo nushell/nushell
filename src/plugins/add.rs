@@ -1,7 +1,6 @@
-use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, Plugin, PositionalType, Primitive, ReturnSuccess, ReturnValue,
-    ShellError, Signature, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    SyntaxType, Tagged, Value,
 };
 
 struct Add {
@@ -43,17 +42,12 @@ impl Add {
 
 impl Plugin for Add {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "add".to_string(),
-            positional: vec![
-                PositionalType::mandatory_any("Field"),
-                PositionalType::mandatory_any("Value"),
-            ],
-            is_filter: true,
-            named: IndexMap::new(),
-            rest_positional: true,
-        })
+        Ok(Signature::build("add")
+            .required("Field", SyntaxType::String)
+            .required("Value", SyntaxType::String)
+            .rest(SyntaxType::String).filter())
     }
+
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {

@@ -2,7 +2,6 @@ use crate::object::base as value;
 use crate::parser::hir;
 use crate::prelude::*;
 use log::trace;
-use std::path::PathBuf;
 
 pub trait ExtractType: Sized {
     fn extract(value: &Tagged<Value>) -> Result<Self, ShellError>;
@@ -196,9 +195,9 @@ impl ExtractType for std::path::PathBuf {
 
         match &value {
             Tagged {
-                item: Value::Primitive(Primitive::String(p)),
+                item: Value::Primitive(Primitive::Path(p)),
                 ..
-            } => Ok(PathBuf::from(p)),
+            } => Ok(p.clone()),
             other => Err(ShellError::type_error("Path", other.tagged_type_name())),
         }
     }

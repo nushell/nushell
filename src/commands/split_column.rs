@@ -31,7 +31,7 @@ impl WholeStreamCommand for SplitColumn {
         Signature::build("split-column")
             .required("separator", SyntaxType::Any)
             .switch("collapse-empty")
-            .rest()
+            .rest(SyntaxType::Member)
     }
 }
 

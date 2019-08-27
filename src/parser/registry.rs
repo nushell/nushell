@@ -74,8 +74,8 @@ pub struct Signature {
     pub name: String,
     #[new(default)]
     pub positional: Vec<PositionalType>,
-    #[new(value = "false")]
-    pub rest_positional: bool,
+    #[new(value = "None")]
+    pub rest_positional: Option<SyntaxType>,
     #[new(default)]
     pub named: IndexMap<String, NamedType>,
     #[new(value = "false")]
@@ -130,8 +130,8 @@ impl Signature {
         self
     }
 
-    pub fn rest(mut self) -> Signature {
-        self.rest_positional = true;
+    pub fn rest(mut self, ty: SyntaxType) -> Signature {
+        self.rest_positional = Some(ty);
         self
     }
 }
@@ -279,10 +279,10 @@ impl Signature {
     crate fn parse_args(
         &self,
         call: &Tagged<CallNode>,
-        registry: &CommandRegistry,
+        context: &Context,
         source: &Text,
     ) -> Result<hir::Call, ShellError> {
-        let args = parse_command(self, registry, call, source)?;
+        let args = parse_command(self, context, call, source)?;
 
         trace!("parsed args: {:?}", args);
 

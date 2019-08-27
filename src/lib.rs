@@ -3,7 +3,6 @@
 #![feature(generators)]
 #![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
-#![feature(option_flattening)]
 #![feature(specialization)]
 #![feature(proc_macro_hygiene)]
 
@@ -30,6 +29,7 @@ pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
 pub use crate::context::{SourceMap, SpanSource};
 pub use crate::env::host::BasicHost;
 pub use crate::object::base::OF64;
+pub use crate::parser::hir::SyntaxType;
 pub use crate::plugin::{serve_plugin, Plugin};
 pub use crate::utils::{AbsolutePath, RelativePath};
 pub use cli::cli;

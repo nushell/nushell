@@ -122,10 +122,8 @@ impl Primitive {
     pub fn style(&self) -> &'static str {
         match self {
             Primitive::Bytes(0) => "c", // centre 'missing' indicator
-            Primitive::Int(_) |
-            Primitive::Bytes(_) |
-            Primitive::Float(_) => "r",
-            _ => ""
+            Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Float(_) => "r",
+            _ => "",
         }
     }
 }
@@ -245,6 +243,48 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
     }
 }
 
+impl std::convert::TryFrom<&'a Tagged<Value>> for String {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<String, ShellError> {
+        match value.item() {
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            v => Err(ShellError::type_error(
+                "String",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<Vec<u8>, ShellError> {
+        match value.item() {
+            Value::Binary(b) => Ok(b.clone()),
+            v => Err(ShellError::type_error(
+                "Binary",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
+    type Error = ShellError;
+
+    fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::object::Dictionary, ShellError> {
+        match value.item() {
+            Value::Object(d) => Ok(d),
+            v => Err(ShellError::type_error(
+                "Dictionary",
+                value.copy_span(v.type_name()),
+            )),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum Switch {
     Present,
@@ -295,6 +335,7 @@ impl Value {
         }
     }
 
+    // TODO: This is basically a legacy construct, I think
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
@@ -472,7 +513,7 @@ impl Value {
     crate fn style_leaf(&self) -> &'static str {
         match self {
             Value::Primitive(p) => p.style(),
-            _ => ""
+            _ => "",
         }
     }
 
@@ -559,6 +600,10 @@ impl Value {
         Value::Primitive(Primitive::String(s.into()))
     }
 
+    pub fn path(s: impl Into<PathBuf>) -> Value {
+        Value::Primitive(Primitive::Path(s.into()))
+    }
+
     pub fn bytes(s: impl Into<u64>) -> Value {
         Value::Primitive(Primitive::Bytes(s.into()))
     }
@@ -591,6 +636,18 @@ impl Value {
 
     pub fn nothing() -> Value {
         Value::Primitive(Primitive::Nothing)
+    }
+}
+
+impl Tagged<Value> {
+    crate fn as_path(&self) -> Result<PathBuf, ShellError> {
+        match self.item() {
+            Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
+            other => Err(ShellError::type_error(
+                "Path",
+                other.type_name().tagged(self.span()),
+            )),
+        }
     }
 }
 

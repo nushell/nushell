@@ -32,6 +32,25 @@ macro_rules! trace_stream {
     }};
 }
 
+#[macro_export]
+macro_rules! trace_out_stream {
+    (target: $target:tt, source: $source:expr, $desc:tt = $expr:expr) => {{
+        if log::log_enabled!(target: $target, log::Level::Trace) {
+            use futures::stream::StreamExt;
+
+            let source = $source.clone();
+
+            let objects = $expr.values.inspect(move |o| {
+                trace!(target: $target, "{} = {}", $desc, o.debug(&source));
+            });
+
+            $crate::stream::OutputStream::new(objects)
+        } else {
+            $expr
+        }
+    }};
+}
+
 crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
     CallInfo, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,

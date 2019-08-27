@@ -122,10 +122,11 @@ impl InternalCommand {
             self.name_span.clone(),
             context.source_map.clone(),
             self.args,
-            source,
+            &source,
             objects,
         );
 
+        let result = trace_out_stream!(target: "nu::trace_stream::internal", source: &source, "output" = result);
         let mut result = result.values;
 
         let mut stream = VecDeque::new();

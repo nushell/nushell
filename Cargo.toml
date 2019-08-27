@@ -78,6 +78,7 @@ battery = "0.7.4"
 textwrap = {version = "0.11.0", features = ["term_size"]}
 rawkey = {version = "0.1.2", optional = true }
 clipboard = {version = "0.5", optional = true }
+shellexpand = "1.0.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

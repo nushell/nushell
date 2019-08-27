@@ -1,7 +1,6 @@
-use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    SyntaxType, Tagged, Value,
 };
 use regex::Regex;
 
@@ -40,9 +39,11 @@ impl Str {
         let applied = match self.action.as_ref() {
             Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
             Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
-            Some(Action::ToInteger) => match input.trim().parse::<i64>() {
-                Ok(v) => Value::int(v),
-                Err(_) => Value::string(input),
+            Some(Action::ToInteger) => match input.trim() {
+                other => match other.parse::<i64>() {
+                    Ok(v) => Value::int(v),
+                    Err(_) => Value::string(input),
+                },
             },
             Some(Action::Replace(ref mode)) => match mode {
                 ReplaceAction::Direct => Value::string(self.first_param()),
@@ -138,9 +139,7 @@ impl Str {
                 Some(ref f) => {
                     let replacement = match value.item.get_data_by_path(value.tag(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()))?,
-                        None => {
-                            return Err(ShellError::string("str could not find field to replace"))
-                        }
+                        None => return Ok(Tagged::from_item(Value::nothing(), value.tag)),
                     };
                     match value
                         .item
@@ -168,20 +167,14 @@ impl Str {
 
 impl Plugin for Str {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        let mut named = IndexMap::new();
-        named.insert("downcase".to_string(), NamedType::Switch);
-        named.insert("upcase".to_string(), NamedType::Switch);
-        named.insert("to-int".to_string(), NamedType::Switch);
-        named.insert("replace".to_string(), NamedType::Switch);
-        named.insert("find-replace".to_string(), NamedType::Switch);
-
-        Ok(Signature {
-            name: "str".to_string(),
-            positional: vec![],
-            is_filter: true,
-            named,
-            rest_positional: true,
-        })
+        Ok(Signature::build("str")
+            .switch("downcase")
+            .switch("upcase")
+            .switch("to-int")
+            .switch("replace")
+            .switch("find-replace")
+            .rest(SyntaxType::Member)
+            .filter())
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

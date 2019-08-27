@@ -1,8 +1,5 @@
-#![feature(option_flattening)]
-
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
-use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap, SpanSource,
     Tagged, Value,
@@ -29,13 +26,7 @@ impl TextView {
 
 impl Plugin for TextView {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "textview".to_string(),
-            positional: vec![],
-            is_filter: false,
-            named: IndexMap::new(),
-            rest_positional: false,
-        })
+        Ok(Signature::build("textview"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
@@ -217,7 +208,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
     let value_origin = value.origin();
     match value.item {
         Value::Primitive(Primitive::String(ref s)) => {
-            let source = value_origin.map(|x| source_map.get(&x)).flatten();
+            let source = value_origin.and_then(|x| source_map.get(&x));
 
             if let Some(source) = source {
                 let extension: Option<String> = match source {

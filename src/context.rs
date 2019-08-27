@@ -121,7 +121,7 @@ impl Context {
         name_span: Span,
         source_map: SourceMap,
         args: hir::Call,
-        source: Text,
+        source: &Text,
         input: InputStream,
     ) -> OutputStream {
         let command_args = self.command_args(args, input, source, source_map, name_span);
@@ -131,13 +131,13 @@ impl Context {
     fn call_info(
         &self,
         args: hir::Call,
-        source: Text,
+        source: &Text,
         source_map: SourceMap,
         name_span: Span,
     ) -> UnevaluatedCallInfo {
         UnevaluatedCallInfo {
             args,
-            source,
+            source: source.clone(),
             source_map,
             name_span,
         }
@@ -147,7 +147,7 @@ impl Context {
         &self,
         args: hir::Call,
         input: InputStream,
-        source: Text,
+        source: &Text,
         source_map: SourceMap,
         name_span: Span,
     ) -> CommandArgs {

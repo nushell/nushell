@@ -8,15 +8,13 @@ use std::path::{Path, PathBuf};
 #[test]
 fn moves_a_file() {
     let sandbox = Playground::setup_for("mv_test_1")
-        .with_files(vec![
-            EmptyFile("andres.txt"),
-        ])
+        .with_files(vec![EmptyFile("andres.txt")])
         .mkdir("expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
     let original = format!("{}/{}", full_path, "andres.txt");
-    let expected  = format!("{}/{}", full_path, "expected/yehuda.txt");
+    let expected = format!("{}/{}", full_path, "expected/yehuda.txt");
 
     nu!(
         _output,
@@ -31,21 +29,14 @@ fn moves_a_file() {
 #[test]
 fn overwrites_if_moving_to_existing_file() {
     let sandbox = Playground::setup_for("mv_test_2")
-        .with_files(vec![
-            EmptyFile("andres.txt"),
-            EmptyFile("jonathan.txt"),
-        ])
+        .with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")])
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
     let original = format!("{}/{}", full_path, "andres.txt");
-    let expected  = format!("{}/{}", full_path, "jonathan.txt");
+    let expected = format!("{}/{}", full_path, "jonathan.txt");
 
-    nu!(
-        _output,
-        cwd(&full_path),
-        "mv andres.txt jonathan.txt"
-    );
+    nu!(_output, cwd(&full_path), "mv andres.txt jonathan.txt");
 
     assert!(!h::file_exists_at(PathBuf::from(original)));
     assert!(h::file_exists_at(PathBuf::from(expected)));
@@ -58,14 +49,10 @@ fn moves_a_directory() {
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let original_dir  = format!("{}/{}", full_path, "empty_dir");
-    let expected  = format!("{}/{}", full_path, "renamed_dir");
+    let original_dir = format!("{}/{}", full_path, "empty_dir");
+    let expected = format!("{}/{}", full_path, "renamed_dir");
 
-    nu!(
-        _output,
-        cwd(&full_path),
-        "mv empty_dir renamed_dir"
-    );
+    nu!(_output, cwd(&full_path), "mv empty_dir renamed_dir");
 
     assert!(!h::dir_exists_at(PathBuf::from(original_dir)));
     assert!(h::dir_exists_at(PathBuf::from(expected)));
@@ -74,22 +61,15 @@ fn moves_a_directory() {
 #[test]
 fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() {
     let sandbox = Playground::setup_for("mv_test_4")
-        .with_files(vec![
-            EmptyFile("jonathan.txt"),
-        ])
+        .with_files(vec![EmptyFile("jonathan.txt")])
         .mkdir("expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let original_dir   = format!("{}/{}", full_path, "jonathan.txt");
-    let expected  = format!("{}/{}", full_path, "expected/jonathan.txt");
+    let original_dir = format!("{}/{}", full_path, "jonathan.txt");
+    let expected = format!("{}/{}", full_path, "expected/jonathan.txt");
 
-    nu!(
-        _output,
-        cwd(&full_path),
-        "mv jonathan.txt expected"
-    );
-
+    nu!(_output, cwd(&full_path), "mv jonathan.txt expected");
 
     assert!(!h::file_exists_at(PathBuf::from(original_dir)));
     assert!(h::file_exists_at(PathBuf::from(expected)));
@@ -99,22 +79,15 @@ fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() {
 fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() {
     let sandbox = Playground::setup_for("mv_test_5")
         .within("contributors")
-        .with_files(vec![
-            EmptyFile("jonathan.txt"),
-        ])
+        .with_files(vec![EmptyFile("jonathan.txt")])
         .mkdir("expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let original_dir  = format!("{}/{}", full_path, "contributors");
-    let expected  = format!("{}/{}", full_path, "expected/contributors");
+    let original_dir = format!("{}/{}", full_path, "contributors");
+    let expected = format!("{}/{}", full_path, "expected/contributors");
 
-    nu!(
-        _output,
-        cwd(&full_path),
-        "mv contributors expected"
-    );
-
+    nu!(_output, cwd(&full_path), "mv contributors expected");
 
     assert!(!h::dir_exists_at(PathBuf::from(original_dir)));
     assert!(h::file_exists_at(PathBuf::from(expected)));
@@ -124,14 +97,12 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
 fn moves_the_directory_inside_directory_if_path_to_move_is_nonexistent_directory() {
     let sandbox = Playground::setup_for("mv_test_6")
         .within("contributors")
-        .with_files(vec![
-            EmptyFile("jonathan.txt"),
-        ])
+        .with_files(vec![EmptyFile("jonathan.txt")])
         .mkdir("expected")
         .test_dir_name();
 
     let full_path = format!("{}/{}", Playground::root(), sandbox);
-    let original_dir   = format!("{}/{}", full_path, "contributors");
+    let original_dir = format!("{}/{}", full_path, "contributors");
 
     nu!(
         _output,
@@ -139,7 +110,10 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_nonexistent_directory
         "mv contributors expected/this_dir_exists_now/los_tres_amigos"
     );
 
-    let expected  = format!("{}/{}", full_path, "expected/this_dir_exists_now/los_tres_amigos");
+    let expected = format!(
+        "{}/{}",
+        full_path, "expected/this_dir_exists_now/los_tres_amigos"
+    );
 
     assert!(!h::dir_exists_at(PathBuf::from(original_dir)));
     assert!(h::file_exists_at(PathBuf::from(expected)));
@@ -168,11 +142,7 @@ fn moves_using_path_with_wildcard() {
     let work_dir = format!("{}/{}", full_path, "work_dir");
     let expected_copies_path = format!("{}/{}", full_path, "expected");
 
-    nu!(
-        _output,
-        cwd(&work_dir),
-        "mv ../originals/*.ini ../expected"
-    );
+    nu!(_output, cwd(&work_dir), "mv ../originals/*.ini ../expected");
 
     assert!(h::files_exist_at(
         vec![
@@ -184,7 +154,6 @@ fn moves_using_path_with_wildcard() {
         PathBuf::from(&expected_copies_path)
     ));
 }
-
 
 #[test]
 fn moves_using_a_glob() {
@@ -204,11 +173,7 @@ fn moves_using_a_glob() {
     let work_dir = format!("{}/{}", full_path, "work_dir");
     let expected_copies_path = format!("{}/{}", full_path, "expected");
 
-    nu!(
-        _output,
-        cwd(&work_dir),
-        "mv ../meals/* ../expected"
-    );
+    nu!(_output, cwd(&work_dir), "mv ../meals/* ../expected");
 
     assert!(h::dir_exists_at(PathBuf::from(meal_dir)));
     assert!(h::files_exist_at(

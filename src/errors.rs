@@ -5,6 +5,7 @@ use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Description {
@@ -54,6 +55,12 @@ pub enum ArgumentError {
 pub struct ShellError {
     error: ProximateShellError,
     cause: Option<Box<ProximateShellError>>,
+}
+
+impl ToDebug for ShellError {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+        self.error.fmt_debug(f, source)
+    }
 }
 
 impl serde::de::Error for ShellError {
@@ -335,12 +342,20 @@ pub enum ProximateShellError {
         right: Tagged<String>,
     },
 }
+
 impl ProximateShellError {
     fn start(self) -> ShellError {
         ShellError {
             cause: None,
             error: self,
         }
+    }
+}
+
+impl ToDebug for ProximateShellError {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+        // TODO: Custom debug for inner spans
+        write!(f, "{:?}", self)
     }
 }
 

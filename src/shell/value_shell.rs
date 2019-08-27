@@ -69,6 +69,10 @@ impl Shell for ValueShell {
         )
     }
 
+    fn homedir(&self) -> Option<PathBuf> {
+        dirs::home_dir()
+    }
+
     fn ls(&self, _args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         Ok(self
             .members()
@@ -80,19 +84,20 @@ impl Shell for ValueShell {
         let path = match args.nth(0) {
             None => "/".to_string(),
             Some(v) => {
-                let target = v.as_string()?;
+                let target = v.as_path()?;
 
                 let mut cwd = PathBuf::from(&self.path);
-                match target {
-                    x if x == ".." => {
-                        cwd.pop();
+
+                if target == PathBuf::from("..") {
+                    cwd.pop();
+                } else {
+                    match target.to_str() {
+                        Some(target) => match target.chars().nth(0) {
+                            Some(x) if x == '/' => cwd = PathBuf::from(target),
+                            _ => cwd.push(target),
+                        },
+                        None => cwd.push(target),
                     }
-                    _ => match target.chars().nth(0) {
-                        Some(x) if x == '/' => cwd = PathBuf::from(target),
-                        _ => {
-                            cwd.push(target);
-                        }
-                    },
                 }
                 cwd.to_string_lossy().to_string()
             }
