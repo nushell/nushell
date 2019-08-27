@@ -111,10 +111,10 @@ fn can_convert_json_text_to_bson_and_back_into_table() {
     nu!(
         output,
         cwd("tests/fixtures/formats"),
-        "echo '{\"root\":[{\"x\": 2, \"y\": 4}, {\"z\": \"42\"}]}' | from-json | to-bson | from-bson | get root | nth 1 | get z | echo $it"
+        "open sample.bson | to-bson | from-bson | get root | nth 1 | get b | echo $it"
     );
 
-    assert_eq!(output, "42");
+    assert_eq!(output, "whel");
 }
 
 #[test]
