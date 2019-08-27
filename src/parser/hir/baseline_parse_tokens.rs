@@ -231,12 +231,16 @@ pub fn baseline_parse_semantic_token(
         TokenNode::Call(_call) => unimplemented!(),
         TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, context, source),
         TokenNode::Pipeline(_pipeline) => unimplemented!(),
-        TokenNode::Operator(_op) => unreachable!(),
-        TokenNode::Flag(_flag) => Err(ShellError::unimplemented(
-            "passing flags is not supported yet.",
+        TokenNode::Operator(op) => Err(ShellError::syntax_error(
+            "Unexpected operator".tagged(op.tag),
         )),
-        TokenNode::Member(_span) => unreachable!(),
-        TokenNode::Whitespace(_span) => unreachable!(),
+        TokenNode::Flag(flag) => Err(ShellError::syntax_error("Unexpected flag".tagged(flag.tag))),
+        TokenNode::Member(span) => Err(ShellError::syntax_error(
+            "BUG: Top-level member".tagged(span),
+        )),
+        TokenNode::Whitespace(span) => Err(ShellError::syntax_error(
+            "BUG: Whitespace found during parse".tagged(span),
+        )),
         TokenNode::Error(error) => Err(*error.item.clone()),
         TokenNode::Path(path) => baseline_parse_path(path, context, source),
     }
@@ -304,7 +308,11 @@ pub fn baseline_parse_path(
             TokenNode::Member(span) => span.slice(source),
 
             // TODO: Make this impossible
-            other => unreachable!("{:?}", other),
+            other => {
+                return Err(ShellError::syntax_error(
+                    format!("{} in path", other.type_name()).tagged(other.span()),
+                ))
+            }
         }
         .to_string();
 
