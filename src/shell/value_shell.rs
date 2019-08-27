@@ -84,7 +84,7 @@ impl Shell for ValueShell {
         let path = match args.nth(0) {
             None => "/".to_string(),
             Some(v) => {
-                let target = v.as_string()?;
+                let target = format!("{}", v.as_path()?.display());
 
                 let mut cwd = PathBuf::from(&self.path);
                 match target {
