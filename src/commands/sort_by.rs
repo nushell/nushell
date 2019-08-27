@@ -4,13 +4,19 @@ use crate::prelude::*;
 
 pub struct SortBy;
 
+#[derive(Deserialize)]
+pub struct SortByArgs {
+    rest: Vec<Tagged<String>>,
+    reverse: bool,
+}
+
 impl WholeStreamCommand for SortBy {
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        sort_by(args, registry)
+        args.process(registry, sort_by)?.run()
     }
 
     fn name(&self) -> &str {
@@ -18,30 +24,21 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by").switch("reverse")
+        Signature::build("sort-by")
+            .rest(SyntaxType::String)
+            .switch("reverse")
     }
 }
 
-fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let (input, args) = args.parts();
+fn sort_by(
+    SortByArgs { reverse, rest }: SortByArgs,
+    mut context: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    Ok(OutputStream::new(async_stream_block! {
+        let mut vec = context.input.drain_vec().await;
 
-    let fields: Result<Vec<_>, _> = args
-        .positional
-        .iter()
-        .flatten()
-        .map(|a| a.as_string())
-        .collect();
-
-    let fields = fields?;
-
-    let output = input.values.collect::<Vec<_>>();
-
-    let reverse = args.has("reverse");
-    let output = output.map(move |mut vec| {
         let calc_key = |item: &Tagged<Value>| {
-            fields
-                .iter()
+            rest.iter()
                 .map(|f| item.get_data_by_key(f).map(|i| i.clone()))
                 .collect::<Vec<Option<Tagged<Value>>>>()
         };
@@ -49,10 +46,10 @@ fn sort_by(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
             vec.sort_by_cached_key(|item| std::cmp::Reverse(calc_key(item)));
         } else {
             vec.sort_by_cached_key(calc_key);
+        };
+
+        for item in vec {
+            yield item.into();
         }
-
-        vec.into_iter().collect::<VecDeque<_>>()
-    });
-
-    Ok(output.flatten_stream().from_input_stream())
+    }))
 }

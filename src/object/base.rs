@@ -335,6 +335,7 @@ impl Value {
         }
     }
 
+    // TODO: This is basically a legacy construct, I think
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
@@ -599,6 +600,10 @@ impl Value {
         Value::Primitive(Primitive::String(s.into()))
     }
 
+    pub fn path(s: impl Into<PathBuf>) -> Value {
+        Value::Primitive(Primitive::Path(s.into()))
+    }
+
     pub fn bytes(s: impl Into<u64>) -> Value {
         Value::Primitive(Primitive::Bytes(s.into()))
     }
@@ -631,6 +636,18 @@ impl Value {
 
     pub fn nothing() -> Value {
         Value::Primitive(Primitive::Nothing)
+    }
+}
+
+impl Tagged<Value> {
+    crate fn as_path(&self) -> Result<PathBuf, ShellError> {
+        match self.item() {
+            Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
+            other => Err(ShellError::type_error(
+                "Path",
+                other.type_name().tagged(self.span()),
+            )),
+        }
     }
 }
 

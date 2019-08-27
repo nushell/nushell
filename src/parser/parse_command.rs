@@ -1,5 +1,6 @@
+use crate::context::Context;
 use crate::errors::{ArgumentError, ShellError};
-use crate::parser::registry::{CommandRegistry, NamedType, PositionalType, Signature};
+use crate::parser::registry::{NamedType, PositionalType, Signature};
 use crate::parser::{baseline_parse_tokens, CallNode};
 use crate::parser::{
     hir::{self, NamedArguments},
@@ -10,7 +11,7 @@ use log::trace;
 
 pub fn parse_command(
     config: &Signature,
-    registry: &CommandRegistry,
+    context: &Context,
     call: &Tagged<CallNode>,
     source: &Text,
 ) -> Result<hir::Call, ShellError> {
@@ -31,7 +32,7 @@ pub fn parse_command(
             .collect()
     });
 
-    match parse_command_tail(&config, registry, children, source, call.span())? {
+    match parse_command_tail(&config, context, children, source, call.span())? {
         None => Ok(hir::Call::new(Box::new(head), None, None)),
         Some((positional, named)) => Ok(hir::Call::new(Box::new(head), positional, named)),
     }
@@ -63,7 +64,7 @@ fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
 
 fn parse_command_tail(
     config: &Signature,
-    registry: &CommandRegistry,
+    context: &Context,
     tail: Option<Vec<TokenNode>>,
     source: &Text,
     command_span: Span,
@@ -101,7 +102,7 @@ fn parse_command_tail(
                         }
 
                         let expr =
-                            hir::baseline_parse_next_expr(tail, registry, source, *syntax_type)?;
+                            hir::baseline_parse_next_expr(tail, context, source, *syntax_type)?;
 
                         tail.restart();
                         named.insert_mandatory(name, expr);
@@ -121,7 +122,7 @@ fn parse_command_tail(
                         ));
                     }
 
-                    let expr = hir::baseline_parse_next_expr(tail, registry, source, *syntax_type)?;
+                    let expr = hir::baseline_parse_next_expr(tail, context, source, *syntax_type)?;
 
                     tail.restart();
                     named.insert_optional(name, Some(expr));
@@ -160,16 +161,17 @@ fn parse_command_tail(
             }
         }
 
-        let result = hir::baseline_parse_next_expr(tail, registry, source, arg.syntax_type())?;
+        let result = hir::baseline_parse_next_expr(tail, context, source, arg.syntax_type())?;
 
         positional.push(result);
     }
 
     trace_remaining("after positional", tail.clone(), source);
 
-    // TODO: Only do this if rest params are specified
-    let remainder = baseline_parse_tokens(tail, registry, source)?;
-    positional.extend(remainder);
+    if let Some(syntax_type) = config.rest_positional {
+        let remainder = baseline_parse_tokens(tail, context, source, syntax_type)?;
+        positional.extend(remainder);
+    }
 
     trace_remaining("after rest", tail.clone(), source);
 
@@ -179,6 +181,8 @@ fn parse_command_tail(
         positional if positional.len() == 0 => None,
         positional => Some(positional),
     };
+
+    // TODO: Error if extra unconsumed positional arguments
 
     let named = match named {
         named if named.named.is_empty() => None,

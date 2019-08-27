@@ -158,6 +158,7 @@ impl FileStructure {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
 
     use super::{FileStructure, Res};
     use std::path::PathBuf;

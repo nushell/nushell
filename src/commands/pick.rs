@@ -17,7 +17,7 @@ impl WholeStreamCommand for Pick {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pick").rest()
+        Signature::build("pick").rest(SyntaxType::Any)
     }
 
     fn run(

@@ -422,6 +422,25 @@ pub enum CommandAction {
     LeaveShell,
 }
 
+impl ToDebug for CommandAction {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+        match self {
+            CommandAction::ChangePath(s) => write!(f, "action:change-path={}", s),
+            CommandAction::AddSpanSource(u, source) => {
+                write!(f, "action:add-span-source={}@{:?}", u, source)
+            }
+            CommandAction::Exit => write!(f, "action:exit"),
+            CommandAction::EnterShell(s) => write!(f, "action:enter-shell={}", s),
+            CommandAction::EnterValueShell(t) => {
+                write!(f, "action:enter-value-shell={:?}", t.debug())
+            }
+            CommandAction::PreviousShell => write!(f, "action:previous-shell"),
+            CommandAction::NextShell => write!(f, "action:next-shell"),
+            CommandAction::LeaveShell => write!(f, "action:leave-shell"),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ReturnSuccess {
     Value(Tagged<Value>),
@@ -429,6 +448,16 @@ pub enum ReturnSuccess {
 }
 
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
+
+impl ToDebug for ReturnValue {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+        match self {
+            Err(err) => write!(f, "{}", err.debug(source)),
+            Ok(ReturnSuccess::Value(v)) => write!(f, "{:?}", v.debug()),
+            Ok(ReturnSuccess::Action(a)) => write!(f, "{}", a.debug(source)),
+        }
+    }
+}
 
 impl From<Tagged<Value>> for ReturnValue {
     fn from(input: Tagged<Value>) -> ReturnValue {
@@ -469,7 +498,7 @@ pub trait WholeStreamCommand: Send + Sync {
         Signature {
             name: self.name().to_string(),
             positional: vec![],
-            rest_positional: true,
+            rest_positional: None,
             named: indexmap::IndexMap::new(),
             is_filter: true,
         }
@@ -491,7 +520,7 @@ pub trait PerItemCommand: Send + Sync {
         Signature {
             name: self.name().to_string(),
             positional: vec![],
-            rest_positional: true,
+            rest_positional: None,
             named: indexmap::IndexMap::new(),
             is_filter: true,
         }

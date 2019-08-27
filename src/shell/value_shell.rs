@@ -69,6 +69,10 @@ impl Shell for ValueShell {
         )
     }
 
+    fn homedir(&self) -> Option<PathBuf> {
+        dirs::home_dir()
+    }
+
     fn ls(&self, _args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         Ok(self
             .members()

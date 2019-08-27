@@ -1,10 +1,9 @@
 use futures::executor::block_on;
 use futures::stream::StreamExt;
 use heim::{disk, memory, net};
-use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tag, Tagged, TaggedDictBuilder, Value,
+    SyntaxType, Tag, Tagged, TaggedDictBuilder, Value,
 };
 use std::ffi::OsStr;
 
@@ -251,14 +250,9 @@ async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
 
 impl Plugin for Sys {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "sys".to_string(),
-            positional: vec![],
-            is_filter: true,
-            named: IndexMap::new(),
-            rest_positional: true,
-        })
+        Ok(Signature::build("sys").rest(SyntaxType::Any))
     }
+
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(block_on(sysinfo(Tag::unknown_origin(callinfo.name_span)))
             .into_iter()

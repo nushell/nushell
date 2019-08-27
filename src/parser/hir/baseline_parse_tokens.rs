@@ -1,8 +1,11 @@
+use crate::context::Context;
 use crate::errors::ShellError;
-use crate::parser::registry::CommandRegistry;
 use crate::parser::{
     hir,
-    hir::{baseline_parse_single_token, baseline_parse_token_as_string},
+    hir::{
+        baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
+        baseline_parse_token_as_string,
+    },
     DelimitedNode, Delimiter, PathNode, RawToken, TokenNode,
 };
 use crate::{Span, Tag, Tagged, TaggedItem, Text};
@@ -12,8 +15,9 @@ use serde::{Deserialize, Serialize};
 
 pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
-    registry: &CommandRegistry,
+    context: &Context,
     source: &Text,
+    syntax_type: SyntaxType,
 ) -> Result<Vec<hir::Expression>, ShellError> {
     let mut exprs: Vec<hir::Expression> = vec![];
 
@@ -22,7 +26,7 @@ pub fn baseline_parse_tokens(
             break;
         }
 
-        let expr = baseline_parse_next_expr(token_nodes, registry, source, SyntaxType::Any)?;
+        let expr = baseline_parse_next_expr(token_nodes, context, source, syntax_type)?;
         exprs.push(expr);
     }
 
@@ -35,7 +39,10 @@ pub enum SyntaxType {
     Any,
     List,
     Literal,
+    String,
+    Member,
     Variable,
+    Number,
     Path,
     Binary,
     Block,
@@ -44,7 +51,7 @@ pub enum SyntaxType {
 
 pub fn baseline_parse_next_expr(
     tokens: &mut TokensIterator,
-    registry: &CommandRegistry,
+    context: &Context,
     source: &Text,
     syntax_type: SyntaxType,
 ) -> Result<hir::Expression, ShellError> {
@@ -56,7 +63,7 @@ pub fn baseline_parse_next_expr(
 
     match (syntax_type, next) {
         (SyntaxType::Path, TokenNode::Token(token)) => {
-            return Ok(baseline_parse_token_as_string(token, source))
+            return Ok(baseline_parse_token_as_path(token, context, source))
         }
 
         (SyntaxType::Path, token) => {
@@ -66,10 +73,50 @@ pub fn baseline_parse_next_expr(
             ))
         }
 
-        _ => {}
+        (SyntaxType::String, TokenNode::Token(token)) => {
+            return Ok(baseline_parse_token_as_string(token, source));
+        }
+
+        (SyntaxType::String, token) => {
+            return Err(ShellError::type_error(
+                "String",
+                token.type_name().simple_spanned(token.span()),
+            ))
+        }
+
+        (SyntaxType::Number, TokenNode::Token(token)) => {
+            return Ok(baseline_parse_token_as_number(token, source));
+        }
+
+        (SyntaxType::Number, token) => {
+            return Err(ShellError::type_error(
+                "Numeric",
+                token.type_name().simple_spanned(token.span()),
+            ))
+        }
+
+        // TODO: More legit member processing
+        (SyntaxType::Member, TokenNode::Token(token)) => {
+            return Ok(baseline_parse_token_as_string(token, source));
+        }
+
+        (SyntaxType::Member, token) => {
+            return Err(ShellError::type_error(
+                "member",
+                token.type_name().simple_spanned(token.span()),
+            ))
+        }
+
+        (SyntaxType::Any, _) => {}
+        (SyntaxType::List, _) => {}
+        (SyntaxType::Literal, _) => {}
+        (SyntaxType::Variable, _) => {}
+        (SyntaxType::Binary, _) => {}
+        (SyntaxType::Block, _) => {}
+        (SyntaxType::Boolean, _) => {}
     };
 
-    let first = baseline_parse_semantic_token(next, registry, source)?;
+    let first = baseline_parse_semantic_token(next, context, source)?;
 
     let possible_op = tokens.peek();
 
@@ -88,7 +135,7 @@ pub fn baseline_parse_next_expr(
                 op.span(),
             ))
         }
-        Some(token) => baseline_parse_semantic_token(token, registry, source)?,
+        Some(token) => baseline_parse_semantic_token(token, context, source)?,
     };
 
     // We definitely have a binary expression here -- let's see if we should coerce it into a block
@@ -176,13 +223,13 @@ pub fn baseline_parse_next_expr(
 
 pub fn baseline_parse_semantic_token(
     token: &TokenNode,
-    registry: &CommandRegistry,
+    context: &Context,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token {
         TokenNode::Token(token) => Ok(baseline_parse_single_token(token, source)),
         TokenNode::Call(_call) => unimplemented!(),
-        TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, registry, source),
+        TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, context, source),
         TokenNode::Pipeline(_pipeline) => unimplemented!(),
         TokenNode::Operator(_op) => unreachable!(),
         TokenNode::Flag(_flag) => Err(ShellError::unimplemented(
@@ -191,20 +238,24 @@ pub fn baseline_parse_semantic_token(
         TokenNode::Member(_span) => unreachable!(),
         TokenNode::Whitespace(_span) => unreachable!(),
         TokenNode::Error(error) => Err(*error.item.clone()),
-        TokenNode::Path(path) => baseline_parse_path(path, registry, source),
+        TokenNode::Path(path) => baseline_parse_path(path, context, source),
     }
 }
 
 pub fn baseline_parse_delimited(
     token: &Tagged<DelimitedNode>,
-    registry: &CommandRegistry,
+    context: &Context,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token.delimiter() {
         Delimiter::Brace => {
             let children = token.children();
-            let exprs =
-                baseline_parse_tokens(&mut TokensIterator::new(children), registry, source)?;
+            let exprs = baseline_parse_tokens(
+                &mut TokensIterator::new(children),
+                context,
+                source,
+                SyntaxType::Any,
+            )?;
 
             let expr = hir::RawExpression::Block(exprs);
             Ok(Tagged::from_simple_spanned_item(expr, token.span()))
@@ -212,8 +263,12 @@ pub fn baseline_parse_delimited(
         Delimiter::Paren => unimplemented!(),
         Delimiter::Square => {
             let children = token.children();
-            let exprs =
-                baseline_parse_tokens(&mut TokensIterator::new(children), registry, source)?;
+            let exprs = baseline_parse_tokens(
+                &mut TokensIterator::new(children),
+                context,
+                source,
+                SyntaxType::Any,
+            )?;
 
             let expr = hir::RawExpression::List(exprs);
             Ok(expr.tagged(Tag::unknown_origin(token.span())))
@@ -223,10 +278,10 @@ pub fn baseline_parse_delimited(
 
 pub fn baseline_parse_path(
     token: &Tagged<PathNode>,
-    registry: &CommandRegistry,
+    context: &Context,
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
-    let head = baseline_parse_semantic_token(token.head(), registry, source)?;
+    let head = baseline_parse_semantic_token(token.head(), context, source)?;
 
     let mut tail = vec![];
 

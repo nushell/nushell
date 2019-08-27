@@ -1,7 +1,6 @@
-use indexmap::IndexMap;
 use nu::{
-    serve_plugin, CallInfo, NamedType, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, Tagged, TaggedItem, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    SyntaxType, Tagged, TaggedItem, Value,
 };
 
 enum Action {
@@ -116,19 +115,14 @@ impl Inc {
 
 impl Plugin for Inc {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        let mut named = IndexMap::new();
-        named.insert("major".to_string(), NamedType::Switch);
-        named.insert("minor".to_string(), NamedType::Switch);
-        named.insert("patch".to_string(), NamedType::Switch);
-
-        Ok(Signature {
-            name: "inc".to_string(),
-            positional: vec![],
-            is_filter: true,
-            named,
-            rest_positional: true,
-        })
+        Ok(Signature::build("inc")
+            .switch("major")
+            .switch("minor")
+            .switch("patch")
+            .rest(SyntaxType::String)
+            .filter())
     }
+
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if call_info.args.has("major") {
             self.for_semver(SemVerAction::Major);

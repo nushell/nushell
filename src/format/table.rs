@@ -79,7 +79,7 @@ impl TableView {
             let mut current_col_max = 0;
             for row in 0..values.len() {
                 let value_length = entries[row][head].0.len();
-                if value_length > current_col_max {
+                if head > entries[row].len() && value_length > current_col_max {
                     current_col_max = value_length;
                 }
             }

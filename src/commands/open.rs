@@ -44,7 +44,8 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
     {
         file => file,
     };
-    let path_str = path.as_string()?;
+    let path_buf = path.as_path()?;
+    let path_str = path_buf.display().to_string();
     let path_span = path.span();
     let name_span = call_info.name_span;
     let has_raw = call_info.args.has("raw");

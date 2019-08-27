@@ -39,6 +39,7 @@ crate fn evaluate_baseline_expr(
 ) -> Result<Tagged<Value>, ShellError> {
     match &expr.item {
         RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
+        RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.span())),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
         RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),

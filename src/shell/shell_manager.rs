@@ -9,6 +9,7 @@ use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug)]
@@ -102,16 +103,24 @@ impl ShellManager {
         self.set_path(self.path());
     }
 
+    pub fn homedir(&self) -> Option<PathBuf> {
+        let env = self.shells.lock().unwrap();
+
+        env[self.current_shell].homedir()
+    }
+
     pub fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
         env[self.current_shell].ls(args)
     }
+
     pub fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
         env[self.current_shell].cd(args)
     }
+
     pub fn cp(
         &self,
         args: CopyArgs,

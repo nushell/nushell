@@ -1,6 +1,5 @@
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
-use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap, SpanSource,
     Tagged, Value,
@@ -27,13 +26,7 @@ impl TextView {
 
 impl Plugin for TextView {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "textview".to_string(),
-            positional: vec![],
-            is_filter: false,
-            named: IndexMap::new(),
-            rest_positional: false,
-        })
+        Ok(Signature::build("textview"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {

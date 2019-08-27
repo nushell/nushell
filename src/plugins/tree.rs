@@ -1,5 +1,4 @@
 use derive_new::new;
-use indexmap::IndexMap;
 use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, Tagged, Value};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
@@ -81,13 +80,7 @@ struct TreeViewer;
 
 impl Plugin for TreeViewer {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "tree".to_string(),
-            positional: vec![],
-            is_filter: false,
-            named: IndexMap::new(),
-            rest_positional: true,
-        })
+        Ok(Signature::build("tree"))
     }
 
     fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {
