@@ -3,7 +3,7 @@ use futures::stream::StreamExt;
 use heim::{disk, memory, net};
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxType, Tag, Tagged, TaggedDictBuilder, Value,
+    Tag, Tagged, TaggedDictBuilder, Value,
 };
 use std::ffi::OsStr;
 
@@ -250,7 +250,7 @@ async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
 
 impl Plugin for Sys {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("sys").rest(SyntaxType::Any))
+        Ok(Signature::build("sys").filter())
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
