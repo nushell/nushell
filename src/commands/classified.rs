@@ -254,6 +254,7 @@ impl ExternalCommand {
 
         #[cfg(windows)]
         {
+            // TODO: Switch to Exec::cmd()
             process = Exec::shell(&self.name);
 
             if arg_string.contains("$it") {
@@ -308,9 +309,10 @@ impl ExternalCommand {
                 }
             }
         }
+
         #[cfg(not(windows))]
         {
-            let mut new_arg_string = self.name.to_string();
+            process = Exec::cmd(&self.name);
 
             if arg_string.contains("$it") {
                 let mut first = true;
@@ -329,8 +331,8 @@ impl ExternalCommand {
                         ));
                     }
                     if !first {
-                        new_arg_string.push_str("&&");
-                        new_arg_string.push_str(&self.name);
+                        process = process.arg("&&");
+                        process = process.arg(&self.name);
                     } else {
                         first = false;
                     }
@@ -340,19 +342,26 @@ impl ExternalCommand {
                             continue;
                         }
 
-                        new_arg_string.push_str(" ");
-                        new_arg_string.push_str(&arg.replace("$it", &i.as_string().unwrap()));
+                        process = process.arg(&arg.replace("$it", &i.as_string().unwrap()));
                     }
                 }
             } else {
                 for arg in &self.args {
-                    new_arg_string.push_str(" ");
-                    new_arg_string.push_str(&arg);
+                    let arg_chars: Vec<_> = arg.chars().collect();
+                    if arg_chars.len() > 1
+                        && arg_chars[0] == '"'
+                        && arg_chars[arg_chars.len() - 1] == '"'
+                    {
+                        // quoted string
+                        let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
+                        process = process.arg(new_arg);
+                    } else {
+                        process = process.arg(arg.item.clone());
+                    }
                 }
             }
-
-            process = Exec::shell(new_arg_string);
         }
+
         process = process.cwd(context.shell_manager.path());
 
         let mut process = match stream_next {
@@ -366,7 +375,16 @@ impl ExternalCommand {
             process = process.stdin(stdin);
         }
 
-        let mut popen = process.popen().unwrap();
+        let mut popen = match process.popen() {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(ShellError::labeled_error(
+                    "Command not found",
+                    "not found",
+                    name_span,
+                ));
+            }
+        };
 
         match stream_next {
             StreamNext::Last => {
