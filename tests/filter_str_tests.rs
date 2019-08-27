@@ -119,7 +119,7 @@ fn find_and_replaces() {
     nu!(
         output,
         cwd("tests/fixtures/nuplayground/plugin_str_find_and_replaces_test"),
-        "open sample.toml | str fortune.teller.phone --find-replace KATZ \"5289\" | get fortune.teller.phone | echo $it"
+        r#"open sample.toml | str fortune.teller.phone --find-replace KATZ "5289" | get fortune.teller.phone | echo $it"#
     );
 
     assert_eq!(output, "1-800-5289");
@@ -140,7 +140,7 @@ fn find_and_replaces_without_passing_field() {
     nu!(
         output,
         cwd("tests/fixtures/nuplayground/plugin_str_find_and_replaces_without_passing_field_test"),
-        "open sample.toml | get fortune.teller.phone | str --find-replace KATZ \"5289\" | echo $it"
+        r#"open sample.toml | get fortune.teller.phone | str --find-replace KATZ "5289" | echo $it"#
     );
 
     assert_eq!(output, "1-800-5289");

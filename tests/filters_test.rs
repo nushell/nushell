@@ -27,7 +27,7 @@ fn converts_structured_table_to_csv_text() {
     nu!(
         output,
         cwd("tests/fixtures/nuplayground/filter_to_csv_test_1"),
-        r#"open sample.txt | lines | split-column ",s" a b c d origin  | last 1 | to-csv | lines | nth 1 | echo "$it""#
+        r#"open sample.txt | lines | split-column "," a b c d origin  | last 1 | to-csv | lines | nth 1 | echo "$it""#
     );
 
     assert!(output.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
