@@ -27,7 +27,6 @@ indexmap = { version = "1.0.2", features = ["serde-1"] }
 chrono-humanize = "0.0.11"
 byte-unit = "3.0.1"
 ordered-float = {version = "1.0.2", features = ["serde"]}
-prettyprint = "0.7.0"
 futures-preview = { version = "=0.3.0-alpha.17", features = ["compat", "io-compat"] }
 futures-sink-preview = "=0.3.0-alpha.17"
 futures-async-stream = "=0.1.0-alpha.2"
