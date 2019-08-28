@@ -299,8 +299,8 @@ impl Playground {
     }
 }
 
-pub fn file_contents(full_path: &str) -> String {
-    let mut file = std::fs::File::open(full_path).expect("can not open file");
+pub fn file_contents(full_path: impl AsRef<Path>) -> String {
+    let mut file = std::fs::File::open(full_path.as_ref()).expect("can not open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .expect("can not read file");
