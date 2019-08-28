@@ -7,7 +7,6 @@ pub struct SortBy;
 #[derive(Deserialize)]
 pub struct SortByArgs {
     rest: Vec<Tagged<String>>,
-    reverse: bool,
 }
 
 impl WholeStreamCommand for SortBy {
@@ -24,14 +23,12 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by")
-            .rest(SyntaxType::String)
-            .switch("reverse")
+        Signature::build("sort-by").rest(SyntaxType::String)
     }
 }
 
 fn sort_by(
-    SortByArgs { reverse, rest }: SortByArgs,
+    SortByArgs { rest }: SortByArgs,
     mut context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::new(async_stream_block! {
@@ -42,11 +39,7 @@ fn sort_by(
                 .map(|f| item.get_data_by_key(f).map(|i| i.clone()))
                 .collect::<Vec<Option<Tagged<Value>>>>()
         };
-        if reverse {
-            vec.sort_by_cached_key(|item| std::cmp::Reverse(calc_key(item)));
-        } else {
-            vec.sort_by_cached_key(calc_key);
-        };
+        vec.sort_by_cached_key(calc_key);
 
         for item in vec {
             yield item.into();
