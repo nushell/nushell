@@ -14,8 +14,7 @@ fn recognizes_csv() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/open_recognizes_csv_test"),
         r#"open nu.zion.csv | where author == "Andres N. Robalino" | get source | echo $it"#
     );
@@ -25,8 +24,7 @@ fn recognizes_csv() {
 
 #[test]
 fn open_can_parse_bson_1() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.bson | get root | nth 0 | get b | echo $it"
     );
@@ -36,8 +34,7 @@ fn open_can_parse_bson_1() {
 
 #[test]
 fn open_can_parse_bson_2() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.bson | get root | nth 6 | get b | get '$binary_subtype' | echo $it "
     );
@@ -47,8 +44,7 @@ fn open_can_parse_bson_2() {
 
 #[test]
 fn open_can_parse_toml() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open cargo_sample.toml | get package.edition | echo $it"
     );
@@ -58,7 +54,7 @@ fn open_can_parse_toml() {
 
 #[test]
 fn open_can_parse_json() {
-    nu!(output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it"
     );
@@ -68,8 +64,7 @@ fn open_can_parse_json() {
 
 #[test]
 fn open_can_parse_xml() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open jonathan.xml | get rss.channel.item.link | echo $it"
     );
@@ -82,8 +77,7 @@ fn open_can_parse_xml() {
 
 #[test]
 fn open_can_parse_ini() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.ini | get SectionOne.integer | echo $it"
     );
@@ -93,8 +87,7 @@ fn open_can_parse_ini() {
 
 #[test]
 fn open_can_parse_utf16_ini() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open utf16.ini | get .ShellClassInfo | get IconIndex | echo $it"
     );
@@ -104,8 +97,7 @@ fn open_can_parse_utf16_ini() {
 
 #[test]
 fn errors_if_file_not_found() {
-    nu_error!(
-        output,
+    let output = nu_error!(
         cwd("tests/fixtures/formats"),
         "open i_dont_exist.txt | echo $it"
     );

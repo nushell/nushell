@@ -5,8 +5,7 @@ use helpers as h;
 
 #[test]
 fn can_only_apply_one() {
-    nu_error!(
-        output,
+    let output = nu_error!(
         cwd("tests/fixtures/formats"),
         "open cargo_sample.toml | first 1 | inc package.version --major --minor"
     );
@@ -26,8 +25,7 @@ fn by_one_with_field_passed() {
         ),
     ]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_inc_by_one_with_field_passed_test"),
         "open sample.toml | inc package.edition | get package.edition | echo $it"
     );
@@ -47,8 +45,7 @@ fn by_one_with_no_field_passed() {
         ),
     ]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_inc_by_one_with_no_field_passed_test"),
         "open sample.toml | get package.contributors | inc | echo $it"
     );
@@ -66,8 +63,7 @@ fn semversion_major_inc() {
             "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_inc_major_semversion_test"),
         "open sample.toml | inc package.version --major | get package.version | echo $it"
     );
@@ -85,8 +81,7 @@ fn semversion_minor_inc() {
             "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_inc_minor_semversion_test"),
         "open sample.toml | inc package.version --minor | get package.version | echo $it"
     );
@@ -104,8 +99,7 @@ fn semversion_patch_inc() {
             "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_inc_patch_semversion_test"),
         "open sample.toml | inc package.version --patch | get package.version | echo $it"
     );
@@ -125,8 +119,7 @@ fn semversion_without_passing_field() {
         ),
     ]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_inc_semversion_without_passing_field_test"),
         "open sample.toml | get package.version | inc --patch | echo $it"
     );

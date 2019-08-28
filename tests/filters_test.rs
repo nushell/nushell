@@ -4,8 +4,7 @@ use helpers::{in_directory as cwd, Playground, Stub::*};
 
 #[test]
 fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
     );
@@ -24,8 +23,7 @@ fn converts_structured_table_to_csv_text() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_to_csv_test_1"),
         r#"open sample.txt | lines | split-column "," a b c d origin  | last 1 | to-csv | lines | nth 1 | echo "$it""#
     );
@@ -44,8 +42,7 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_to_csv_test_2"),
         r#"open sample.txt | lines | split-column "," a b c d origin  | last 1 | to-csv --headerless | echo "$it""#
     );
@@ -65,8 +62,7 @@ fn converts_from_csv_text_to_structured_table() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_from_csv_test_1"),
         "open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo $it"
     );
@@ -86,8 +82,7 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_from_csv_test_2"),
         "open los_tres_amigos.txt | from-csv --headerless | get Column3 | str --to-int | sum | echo $it"
     );
@@ -97,8 +92,7 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
 
 #[test]
 fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sgml_description.json | to-json | from-json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it"
     );
@@ -122,8 +116,7 @@ fn converts_from_json_text_to_structured_table() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_from_json_test_1"),
         "open katz.txt | from-json | get katz | get rusty_luck | sum | echo $it"
     );
@@ -143,8 +136,7 @@ fn converts_from_json_text_recognizing_objects_independendtly_to_structured_tabl
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_from_json_test_2"),
         r#"open katz.txt | from-json --objects | where name == "GorbyPuff" | get rusty_luck | echo $it"#
     );
@@ -162,8 +154,7 @@ fn converts_structured_table_to_json_text() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/filter_to_json_test_1"),
         r#"open sample.txt | lines | split-column "," name luck | pick name | to-json | nth 0 | from-json | get name | echo $it"#
     );
@@ -173,8 +164,7 @@ fn converts_structured_table_to_json_text() {
 
 #[test]
 fn can_convert_json_text_to_bson_and_back_into_table() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.bson | to-bson | from-bson | get root | nth 1 | get b | echo $it"
     );
@@ -184,8 +174,7 @@ fn can_convert_json_text_to_bson_and_back_into_table() {
 
 #[test]
 fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open cargo_sample.toml | to-toml | from-toml | get package.name | echo $it"
     );
@@ -195,8 +184,7 @@ fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
 
 #[test]
 fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open appveyor.yml | to-yaml | from-yaml | get environment.global.PROJECT_NAME | echo $it"
     );
@@ -206,8 +194,7 @@ fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
 
 #[test]
 fn can_sort_by_column() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml --raw | lines | skip 1 | first 4 | split-column "=" | sort-by Column1 | skip 1 | first 1 | get Column1 | trim | echo $it"#
     );
@@ -217,8 +204,7 @@ fn can_sort_by_column() {
 
 #[test]
 fn can_sort_by_column_reverse() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml --raw | lines | skip 1 | first 4 | split-column "=" | sort-by Column1 --reverse | skip 1 | first 1 | get Column1 | trim | echo $it"#
     );
@@ -228,8 +214,7 @@ fn can_sort_by_column_reverse() {
 
 #[test]
 fn can_split_by_column() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml --raw | lines | skip 1 | first 1 | split-column "=" | get Column1 | trim | echo $it"#
     );
@@ -239,8 +224,7 @@ fn can_split_by_column() {
 
 #[test]
 fn can_sum() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.Sections | sum | echo $it"
     );
@@ -250,8 +234,7 @@ fn can_sum() {
 
 #[test]
 fn can_filter_by_unit_size_comparison() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "ls | where size > 1kb | sort-by size | get name | skip 1 | trim | echo $it"
     );
@@ -261,8 +244,7 @@ fn can_filter_by_unit_size_comparison() {
 
 #[test]
 fn can_get_last() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "ls | sort-by name | last 1 | get name | trim | echo $it"
     );
@@ -272,8 +254,7 @@ fn can_get_last() {
 
 #[test]
 fn can_get_reverse_first() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "ls | sort-by name | reverse | first 1 | get name | trim | echo $it"
     );

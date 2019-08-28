@@ -4,7 +4,7 @@ use helpers::in_directory as cwd;
 
 #[test]
 fn external_command() {
-    nu!(output, cwd("tests/fixtures"), "echo 1");
+    let output = nu!(cwd("tests/fixtures"), "echo 1");
 
     assert!(output.contains("1"));
 }

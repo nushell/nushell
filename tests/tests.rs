@@ -5,8 +5,7 @@ use helpers::normalize_string;
 
 #[test]
 fn external_num() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.Height | echo $it"
     );
@@ -16,7 +15,7 @@ fn external_num() {
 
 #[test]
 fn external_has_correct_quotes() {
-    nu!(output, cwd("."), r#"echo "hello world""#);
+    let output = nu!(cwd("."), r#"echo "hello world""#);
 
     let output = normalize_string(&output);
 
@@ -25,7 +24,7 @@ fn external_has_correct_quotes() {
 
 #[test]
 fn add_plugin() {
-    nu!(output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml | add dev-dependencies.newdep "1" | get dev-dependencies.newdep | echo $it"#
     );
@@ -35,7 +34,7 @@ fn add_plugin() {
 
 #[test]
 fn edit_plugin() {
-    nu!(output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml | edit dev-dependencies.pretty_assertions "7" | get dev-dependencies.pretty_assertions | echo $it"#
     );

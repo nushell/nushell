@@ -315,19 +315,23 @@ impl ExternalCommand {
             if arg_string.contains("$it") {
                 let mut first = true;
                 for i in &inputs {
-                    if i.as_string().is_err() {
-                        let mut span = name_span;
-                        for arg in &self.args {
-                            if arg.item.contains("$it") {
-                                span = arg.span();
+                    let i = match i.as_string() {
+                        Err(err) => {
+                            let mut span = name_span;
+                            for arg in &self.args {
+                                if arg.item.contains("$it") {
+                                    span = arg.span();
+                                }
                             }
+                            return Err(ShellError::labeled_error(
+                                "External $it needs string data",
+                                "given object instead of string data",
+                                span,
+                            ));
                         }
-                        return Err(ShellError::labeled_error(
-                            "External $it needs string data",
-                            "given object instead of string data",
-                            span,
-                        ));
-                    }
+                        Ok(val) => val,
+                    };
+
                     if !first {
                         new_arg_string.push_str("&&");
                         new_arg_string.push_str(&self.name);
@@ -341,7 +345,7 @@ impl ExternalCommand {
                         }
 
                         new_arg_string.push_str(" ");
-                        new_arg_string.push_str(&arg.replace("$it", &i.as_string().unwrap()));
+                        new_arg_string.push_str(&arg.replace("$it", &i));
                     }
                 }
             } else {
@@ -366,7 +370,7 @@ impl ExternalCommand {
             process = process.stdin(stdin);
         }
 
-        let mut popen = process.popen().unwrap();
+        let mut popen = process.popen()?;
 
         match stream_next {
             StreamNext::Last => {

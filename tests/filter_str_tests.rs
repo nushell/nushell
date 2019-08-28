@@ -5,8 +5,7 @@ use helpers as h;
 
 #[test]
 fn can_only_apply_one() {
-    nu_error!(
-        output,
+    let output = nu_error!(
         cwd("tests/fixtures/formats"),
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
@@ -29,8 +28,7 @@ fn acts_without_passing_field() {
         ),
     ]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_str_acts_without_passing_field_test"),
         "open sample.yml | get environment.global.PROJECT_NAME | str --upcase | echo $it"
     );
@@ -48,8 +46,7 @@ fn downcases() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_str_downcases_test"),
         "open sample.toml | str dependency.name --downcase | get dependency.name | echo $it"
     );
@@ -67,8 +64,7 @@ fn upcases() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_str_upcases_test"),
         "open sample.toml | str package.name --upcase | get package.name | echo $it"
     );
@@ -78,8 +74,7 @@ fn upcases() {
 
 #[test]
 fn converts_to_int() {
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/formats"),
         "open caco3_plastics.csv | first 1 | str tariff_item --to-int | where tariff_item == 2509000000 | get tariff_item | echo $it"
     );
@@ -97,8 +92,7 @@ fn replaces() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_str_replaces_test"),
         "open sample.toml | str package.name --replace wykittenshell  | get package.name | echo $it"
     );
@@ -116,8 +110,7 @@ fn find_and_replaces() {
         "#,
     )]);
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_str_find_and_replaces_test"),
         r#"open sample.toml | str fortune.teller.phone --find-replace KATZ "5289" | get fortune.teller.phone | echo $it"#
     );
@@ -137,8 +130,7 @@ fn find_and_replaces_without_passing_field() {
         )],
     );
 
-    nu!(
-        output,
+    let output = nu!(
         cwd("tests/fixtures/nuplayground/plugin_str_find_and_replaces_without_passing_field_test"),
         r#"open sample.toml | get fortune.teller.phone | str --find-replace KATZ "5289" | echo $it"#
     );
