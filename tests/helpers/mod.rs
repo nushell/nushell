@@ -345,7 +345,7 @@ pub fn copy_file_to(source: &str, destination: &str) {
     std::fs::copy(source, destination).expect("can not copy file");
 }
 
-pub fn files_exist_at(files: Vec<&Path>, path: impl AsRef<Path>) -> bool {
+pub fn files_exist_at(files: Vec<impl AsRef<Path>>, path: impl AsRef<Path>) -> bool {
     files.iter().all(|f| {
         let mut loc = PathBuf::from(path.as_ref());
         loc.push(f);
