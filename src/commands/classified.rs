@@ -140,6 +140,29 @@ impl InternalCommand {
                         context.add_span_source(uuid, span_source);
                     }
                     CommandAction::Exit => std::process::exit(0),
+                    CommandAction::EnterHelpShell(value) => {
+                        match value {
+                            Tagged {
+                                item: Value::Primitive(Primitive::String(cmd)),
+                                ..
+                            } => {
+                                context.shell_manager.insert_at_current(Box::new(
+                                    HelpShell::for_command(
+                                        Tagged::from_simple_spanned_item(
+                                            Value::string(cmd),
+                                            Span::unknown(),
+                                        ),
+                                        &context.registry().clone(),
+                                    )?,
+                                ));
+                            }
+                            _ => {
+                                context.shell_manager.insert_at_current(Box::new(
+                                    HelpShell::index(&context.registry().clone())?,
+                                ));
+                            }
+                        }
+                    }
                     CommandAction::EnterValueShell(value) => {
                         context
                             .shell_manager

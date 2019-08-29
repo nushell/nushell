@@ -49,6 +49,24 @@ pub enum SyntaxType {
     Boolean,
 }
 
+impl std::fmt::Display for SyntaxType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            SyntaxType::Any => write!(f, "Any"),
+            SyntaxType::List => write!(f, "List"),
+            SyntaxType::Literal => write!(f, "Literal"),
+            SyntaxType::String => write!(f, "String"),
+            SyntaxType::Member => write!(f, "Member"),
+            SyntaxType::Variable => write!(f, "Variable"),
+            SyntaxType::Number => write!(f, "Number"),
+            SyntaxType::Path => write!(f, "Path"),
+            SyntaxType::Binary => write!(f, "Binary"),
+            SyntaxType::Block => write!(f, "Block"),
+            SyntaxType::Boolean => write!(f, "Boolean")
+        }
+    }
+}
+
 pub fn baseline_parse_next_expr(
     tokens: &mut TokensIterator,
     context: &Context,

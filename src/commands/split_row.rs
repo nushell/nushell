@@ -12,20 +12,25 @@ struct SplitRowArgs {
 pub struct SplitRow;
 
 impl WholeStreamCommand for SplitRow {
+    fn name(&self) -> &str {
+        "split-row"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("split-row")
+            .required("separator", SyntaxType::Any)
+    }
+
+    fn usage(&self) -> &str {
+        "Split row contents over multiple rows via the separator."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, split_row)?.run()
-    }
-
-    fn name(&self) -> &str {
-        "split-row"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("split-row").required("separator", SyntaxType::Any)
     }
 }
 

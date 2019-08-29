@@ -6,20 +6,25 @@ use crate::prelude::*;
 pub struct Last;
 
 impl WholeStreamCommand for Last {
+    fn name(&self) -> &str {
+        "last"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("last")
+            .required("amount", SyntaxType::Number)
+    }
+
+    fn usage(&self) -> &str {
+        "Show only the last number of rows."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         last(args, registry)
-    }
-
-    fn name(&self) -> &str {
-        "last"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("last").required("amount", SyntaxType::Literal)
     }
 }
 

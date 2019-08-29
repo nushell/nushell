@@ -8,19 +8,25 @@ use crate::parser::registry::Signature;
 pub struct Which;
 
 impl WholeStreamCommand for Which {
+    fn name(&self) -> &str {
+        "which"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("which")
+            .required("name", SyntaxType::Any)
+    }
+
+    fn usage(&self) -> &str {
+        "Finds a program file."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         which(args, registry)
-    }
-    fn name(&self) -> &str {
-        "which"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("which").required("name", SyntaxType::Any)
     }
 }
 

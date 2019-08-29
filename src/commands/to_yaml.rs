@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct ToYAML;
 
 impl WholeStreamCommand for ToYAML {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_yaml(args, registry)
-    }
-
     fn name(&self) -> &str {
         "to-yaml"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("to-yaml")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert table into .yaml/.yml text"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_yaml(args, registry)
     }
 }
 

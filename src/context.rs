@@ -53,7 +53,7 @@ impl CommandRegistry {
         registry.get(name).map(|c| c.clone())
     }
 
-    fn has(&self, name: &str) -> bool {
+    pub(crate) fn has(&self, name: &str) -> bool {
         let registry = self.registry.lock().unwrap();
 
         registry.contains_key(name)

@@ -19,6 +19,10 @@ impl WholeStreamCommand for FromTSV {
         Signature::build("from-tsv").switch("headerless")
     }
 
+    fn usage(&self) -> &str {
+        "Parse text as .tsv and create table."
+    }
+
     fn run(
         &self,
         args: CommandArgs,

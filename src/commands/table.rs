@@ -13,15 +13,21 @@ impl WholeStreamCommand for Table {
     fn name(&self) -> &str {
         "table"
     }
+
+    fn signature(&self) -> Signature {
+        Signature::build("table")
+    }
+
+    fn usage(&self) -> &str {
+        "View the contents of the pipeline as a table."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, table)?.run()
-    }
-    fn signature(&self) -> Signature {
-        Signature::build("table")
     }
 }
 

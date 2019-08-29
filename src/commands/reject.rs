@@ -11,20 +11,24 @@ pub struct RejectArgs {
 pub struct Reject;
 
 impl WholeStreamCommand for Reject {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, reject)?.run()
-    }
-
     fn name(&self) -> &str {
         "reject"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("reject").rest(SyntaxType::Member)
+    }
+
+    fn usage(&self) -> &str {
+        "Remove the given columns from the table."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, reject)?.run()
     }
 }
 

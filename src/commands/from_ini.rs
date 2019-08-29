@@ -6,20 +6,24 @@ use std::collections::HashMap;
 pub struct FromINI;
 
 impl WholeStreamCommand for FromINI {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_ini(args, registry)
-    }
-
     fn name(&self) -> &str {
         "from-ini"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from-ini")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .ini and create table"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_ini(args, registry)
     }
 }
 

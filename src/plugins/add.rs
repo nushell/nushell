@@ -43,6 +43,7 @@ impl Add {
 impl Plugin for Add {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("add")
+            .desc("Add a new field to the table.")
             .required("Field", SyntaxType::String)
             .required("Value", SyntaxType::String)
             .rest(SyntaxType::String).filter())

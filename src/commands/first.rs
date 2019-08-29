@@ -6,20 +6,25 @@ use crate::prelude::*;
 pub struct First;
 
 impl WholeStreamCommand for First {
+    fn name(&self) -> &str {
+        "first"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("first")
+            .required("amount", SyntaxType::Literal)
+    }
+
+    fn usage(&self) -> &str {
+        "Show only the first number of rows."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         first(args, registry)
-    }
-
-    fn name(&self) -> &str {
-        "first"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("first").required("amount", SyntaxType::Literal)
     }
 }
 

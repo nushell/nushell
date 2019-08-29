@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct ToJSON;
 
 impl WholeStreamCommand for ToJSON {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_json(args, registry)
-    }
-
     fn name(&self) -> &str {
         "to-json"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("to-json")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert table into .json text"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_json(args, registry)
     }
 }
 

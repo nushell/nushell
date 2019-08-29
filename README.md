@@ -209,6 +209,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | date (--utc) | Get the current datetime |
 | ps | View current processes |
 | sys | View information about the current system |
+| which filename | Finds a program file. |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 | post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
@@ -217,6 +218,8 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | p | Go to previous shell |
 | n | Go to next shell |
 | shells | Display the list of current shells |
+| help | Display help information about commands |
+| version | Display Nu version |
 
 ## Filters on tables (structured data)
 | command | description |
@@ -230,8 +233,11 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | add field value | Add a new field to the table |
 | sum | Sum a column of values |
 | edit field value | Edit an existing field to have a new value |
+| reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
+| skip-while condition | Skips rows while the condition matches. |
 | first amount | Show only the first number of rows |
+| last amount | Show only the last number of rows |
 | nth row-number | Return only the selected row |
 | str (field) | Apply string function. Optional use the field of a table |
 | tags | Read the tags (metadata) for values |
@@ -240,12 +246,12 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |
 | to-yaml | Convert table into .yaml text |
+| to-bson | Convert table into .bson text |
 | to-csv  | Convert table into .csv text  |
 | to-bson | Convert table into .bson binary data |
 | to-tsv | Convert table into .tsv text |
 | to-sqlite | Convert table to sqlite .db binary data |
 | reverse | Reverse the rows of a table |
-
 
 ## Filters on text (unstructured data)
 | command | description |
@@ -256,7 +262,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-json | Parse text as .json and create table |
 | from-sqlite | Parse binary data as sqlite .db and create table |
 | from-toml | Parse text as .toml and create table |
-| from-tsv | Parse text as .tsv and create table |
+| from-tsv  | Parse text as .tsv and create table  |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |

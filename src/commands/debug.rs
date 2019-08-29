@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct Debug;
 
 impl WholeStreamCommand for Debug {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        debug(args, registry)
-    }
-
     fn name(&self) -> &str {
         "debug"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("debug")
+    }
+
+    fn usage(&self) -> &str {
+        "Debug input fed."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        debug(args, registry)
     }
 }
 

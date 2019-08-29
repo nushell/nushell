@@ -15,14 +15,6 @@ struct SplitColumnArgs {
 pub struct SplitColumn;
 
 impl WholeStreamCommand for SplitColumn {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, split_column)?.run()
-    }
-
     fn name(&self) -> &str {
         "split-column"
     }
@@ -32,6 +24,18 @@ impl WholeStreamCommand for SplitColumn {
             .required("separator", SyntaxType::Any)
             .switch("collapse-empty")
             .rest(SyntaxType::Member)
+    }
+
+    fn usage(&self) -> &str {
+        "Split row contents across multiple columns via the separator."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, split_column)?.run()
     }
 }
 

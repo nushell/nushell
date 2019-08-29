@@ -20,6 +20,10 @@ impl WholeStreamCommand for Pick {
         Signature::build("pick").rest(SyntaxType::Any)
     }
 
+    fn usage(&self) -> &str {
+        "Down-select table to only these columns."
+    }
+
     fn run(
         &self,
         args: CommandArgs,

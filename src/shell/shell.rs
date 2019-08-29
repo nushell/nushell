@@ -12,6 +12,7 @@ use std::path::PathBuf;
 pub trait Shell: std::fmt::Debug {
     fn name(&self, source_map: &SourceMap) -> String;
     fn homedir(&self) -> Option<PathBuf>;
+
     fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Span, path: &str) -> Result<OutputStream, ShellError>;

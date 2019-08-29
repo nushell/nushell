@@ -23,6 +23,10 @@ impl WholeStreamCommand for Save {
             .switch("raw")
     }
 
+    fn usage(&self) -> &str {
+        "Save the contents of the pipeline to a file."
+    }
+
     fn run(
         &self,
         args: CommandArgs,

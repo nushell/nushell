@@ -12,19 +12,26 @@ use indexmap::IndexMap;
 pub struct Date;
 
 impl WholeStreamCommand for Date {
+    fn name(&self) -> &str {
+        "date"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("date")
+            .switch("utc")
+            .switch("local")
+    }
+
+    fn usage(&self) -> &str {
+        "Get the current datetime."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         date(args, registry)
-    }
-    fn name(&self) -> &str {
-        "date"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("date").switch("utc").switch("local")
     }
 }
 

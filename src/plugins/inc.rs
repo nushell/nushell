@@ -70,7 +70,7 @@ impl Inc {
         self.error = Some(message.to_string());
     }
 
-    fn usage(&self) -> &'static str {
+    pub fn usage() -> &'static str {
         "Usage: inc field [--major|--minor|--patch]"
     }
 
@@ -116,6 +116,7 @@ impl Inc {
 impl Plugin for Inc {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("inc")
+            .desc("Increment a value or version. Optional use the field of a table.")
             .switch("major")
             .switch("minor")
             .switch("patch")
@@ -159,7 +160,7 @@ impl Plugin for Inc {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, self.usage())))
+                return Err(ShellError::string(format!("{}: {}", reason, Inc::usage())))
             }
             None => Ok(vec![]),
         }

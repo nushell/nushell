@@ -17,6 +17,10 @@ impl PerItemCommand for Enter {
         Signature::build("enter").required("location", SyntaxType::Block)
     }
 
+    fn usage(&self) -> &str {
+        "Create a new shell and begin at this path."
+    }
+
     fn run(
         &self,
         call_info: &CallInfo,
@@ -33,7 +37,13 @@ impl PerItemCommand for Enter {
             } => {
                 let location = location.to_string();
                 let location_clone = location.to_string();
-                if PathBuf::from(location).is_dir() {
+
+                if registry.has(&location) {
+                    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                        Value::string(location_clone).tagged(Tag::unknown()),
+                    )))]
+                    .into())
+                } else if PathBuf::from(location).is_dir() {
                     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
                         location_clone,
                     )))]

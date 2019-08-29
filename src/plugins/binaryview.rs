@@ -12,7 +12,9 @@ impl BinaryView {
 
 impl Plugin for BinaryView {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("binaryview").switch("lores"))
+        Ok(Signature::build("binaryview")
+            .desc("Autoview of binary data.")
+            .switch("lores"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {

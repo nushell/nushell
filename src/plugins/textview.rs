@@ -26,7 +26,8 @@ impl TextView {
 
 impl Plugin for TextView {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("textview"))
+        Ok(Signature::build("textview")
+            .desc("Autoview of text data."))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {

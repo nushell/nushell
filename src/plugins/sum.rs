@@ -64,7 +64,9 @@ impl Sum {
 
 impl Plugin for Sum {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("sum").filter())
+        Ok(Signature::build("sum")
+            .desc("Sum a column of values.")
+            .filter())
     }
 
     fn begin_filter(&mut self, _: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

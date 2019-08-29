@@ -7,20 +7,24 @@ use std::convert::TryInto;
 pub struct ToBSON;
 
 impl WholeStreamCommand for ToBSON {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_bson(args, registry)
-    }
-
     fn name(&self) -> &str {
         "to-bson"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("to-bson")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert table into .bson text."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_bson(args, registry)
     }
 }
 

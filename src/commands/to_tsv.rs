@@ -16,7 +16,12 @@ impl WholeStreamCommand for ToTSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-tsv").switch("headerless")
+        Signature::build("to-tsv")
+            .switch("headerless")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert table into .tsv text"
     }
 
     fn run(

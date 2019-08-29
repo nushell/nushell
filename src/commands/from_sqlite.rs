@@ -9,14 +9,6 @@ use std::path::Path;
 pub struct FromSQLite;
 
 impl WholeStreamCommand for FromSQLite {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_sqlite(args, registry)
-    }
-
     fn name(&self) -> &str {
         "from-sqlite"
     }
@@ -24,11 +16,11 @@ impl WholeStreamCommand for FromSQLite {
     fn signature(&self) -> Signature {
         Signature::build("from-sqlite")
     }
-}
 
-pub struct FromDB;
+    fn usage(&self) -> &str {
+        "Parse binary data as sqlite .db and create table."
+    }
 
-impl WholeStreamCommand for FromDB {
     fn run(
         &self,
         args: CommandArgs,
@@ -36,13 +28,29 @@ impl WholeStreamCommand for FromDB {
     ) -> Result<OutputStream, ShellError> {
         from_sqlite(args, registry)
     }
+}
 
+pub struct FromDB;
+
+impl WholeStreamCommand for FromDB {
     fn name(&self) -> &str {
         "from-db"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from-db")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse binary data as db and create table."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_sqlite(args, registry)
     }
 }
 

@@ -6,20 +6,24 @@ use crate::prelude::*;
 pub struct Tags;
 
 impl WholeStreamCommand for Tags {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        tags(args, registry)
-    }
-
     fn name(&self) -> &str {
         "tags"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("tags")
+    }
+
+    fn usage(&self) -> &str {
+        "Read the tags (metadata) for values."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        tags(args, registry)
     }
 }
 

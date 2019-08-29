@@ -7,20 +7,24 @@ use std::str::FromStr;
 pub struct FromBSON;
 
 impl WholeStreamCommand for FromBSON {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_bson(args, registry)
-    }
-
     fn name(&self) -> &str {
         "from-bson"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from-bson")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .bson and create table."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_bson(args, registry)
     }
 }
 

@@ -12,20 +12,24 @@ use heim::units::{ratio, Ratio};
 pub struct PS;
 
 impl WholeStreamCommand for PS {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        ps(args, registry)
-    }
-
     fn name(&self) -> &str {
         "ps"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
+    }
+
+    fn usage(&self) -> &str {
+        "View current processes."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        ps(args, registry)
     }
 }
 

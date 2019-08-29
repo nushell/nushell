@@ -16,7 +16,12 @@ impl WholeStreamCommand for FromCSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-csv").switch("headerless")
+        Signature::build("from-csv")
+            .switch("headerless")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .csv and create table"
     }
 
     fn run(

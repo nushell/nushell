@@ -20,6 +20,10 @@ impl WholeStreamCommand for SkipWhile {
             .filter()
     }
 
+    fn usage(&self) -> &str {
+        "Skips rows while the condition matches."
+    }
+
     fn run(
         &self,
         args: CommandArgs,

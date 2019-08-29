@@ -7,20 +7,24 @@ use log::trace;
 pub struct Lines;
 
 impl WholeStreamCommand for Lines {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        lines(args, registry)
-    }
-
     fn name(&self) -> &str {
         "lines"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("lines")
+    }
+
+    fn usage(&self) -> &str {
+        "Split single string into rows, one per line."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        lines(args, registry)
     }
 }
 

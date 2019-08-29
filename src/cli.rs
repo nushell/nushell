@@ -212,6 +212,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Config),
             whole_stream_command(SkipWhile),
             per_item_command(Enter),
+            per_item_command(Help),
             whole_stream_command(Exit),
             whole_stream_command(Autoview),
             per_item_command(Cpy),

@@ -51,6 +51,10 @@ impl WholeStreamCommand for PluginCommand {
         self.config.clone()
     }
 
+    fn usage(&self) -> &str {
+        &self.config.usage
+    }
+
     fn run(
         &self,
         args: CommandArgs,
@@ -268,6 +272,10 @@ impl WholeStreamCommand for PluginSink {
 
     fn signature(&self) -> registry::Signature {
         self.config.clone()
+    }
+
+    fn usage(&self) -> &str {
+        &self.config.usage
     }
 
     fn run(
