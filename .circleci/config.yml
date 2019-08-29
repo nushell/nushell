@@ -1,0 +1,122 @@
+# CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/configuration-reference/ for more details
+# See https://circleci.com/docs/2.0/config-intro/#section=configuration for spec
+#
+version: 2.1
+
+orbs:
+  # https://circleci.com/orbs/registry/orb/circleci/docker
+  docker: circleci/docker@0.5.13
+
+
+workflows:
+  version: 2.0
+
+  # This builds on all pull requests to test, and ignores master
+  build_without_deploy:
+    jobs:
+      - docker/publish:
+          deploy: false
+          image: nushell/nu-base
+          tag: latest
+          dockerfile: docker/Dockerfile.nu-base
+          filters:
+            branches:
+              ignore: 
+                - master
+
+      - docker/publish:
+          deploy: false
+          image: nushell/nu
+          tag: latest
+          dockerfile: docker/Dockerfile
+          requires:
+            - docker/publish
+          after_build:
+            - run:
+                name: Preview Docker Tag for Build
+                command: |
+                   DOCKER_TAG=v$(docker run nushell/nushell --version | cut -d' ' -f2)
+                   echo "Version that would be used for Docker tag is v${DOCKER_TAG}"
+
+  # workflow publishes to Docker Hub, with each job having different triggers
+  build_with_deploy:
+    jobs:
+
+        # Deploy versioned and latest images on tags (releases) only.
+      - docker/publish:
+          image: nushell/nu-base
+          tag: latest
+          dockerfile: docker/Dockerfile.nu-base
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+          after_build:
+            - run:
+                name: Publish Docker Tag with Nushell Version
+                command: |
+                   DOCKER_TAG=v$(docker run nushell/nu-base --version | cut -d' ' -f2)
+                   echo "Version for Docker tag is ${DOCKER_TAG}"
+                   docker tag nushell/nu-base:latest nushell/nu-base:${DOCKER_TAG}
+
+      - docker/publish:
+          image: nushell/nu
+          tag: latest
+          dockerfile: docker/Dockerfile
+          requires:
+            - docker/publish
+          after_build:
+            - run:
+                name: Publish Docker Tag with Nushell Version
+                command: |
+                   DOCKER_TAG=v$(docker run nushell/nu --version | cut -d' ' -f2)
+                   echo "Version for Docker tag is ${DOCKER_TAG}"
+                   docker tag nushell/nu-base:latest nushell/nu:${DOCKER_TAG}
+
+
+  # publish devel to Docker Hub on merge to master
+  build_with_deploy_devel:
+    jobs:
+
+      # Deploy devel tag on merge to master
+      - docker/publish:
+          image: nushell/nu-base
+          tag: devel
+          dockerfile: docker/Dockerfile.nu-base
+          filters:
+            branches:
+              only: master
+
+      - docker/publish:
+          image: nushell/nu
+          tag: devel
+          dockerfile: docker/Dockerfile
+          requires: 
+            - docker/publish
+
+
+  # Nightly build
+  build_with_deploy_nightly:
+    triggers:
+      - schedule:
+          cron: "0 22 * * *"  # 22:00 UTC
+          filters:
+            branches:
+              only:
+                - master
+
+    jobs:
+      - docker/publish:
+          image: nushell/nu-base
+          tag: nightly
+          dockerfile: docker/Dockerfile.nu-base
+
+      - docker/publish:
+          image: nushell/nu
+          tag: nightly
+          requires: 
+            - docker/publish
+          dockerfile: docker/Dockerfile
