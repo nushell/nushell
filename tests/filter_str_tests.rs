@@ -1,12 +1,12 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use h::{Playground, Stub::*};
 
 #[test]
 fn can_only_apply_one() {
     let actual = nu_error!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
@@ -28,7 +28,7 @@ fn acts_without_passing_field() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.yml | get environment.global.PROJECT_NAME | str --upcase | echo $it"
         );
 
@@ -49,7 +49,7 @@ fn downcases() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | str dependency.name --downcase | get dependency.name | echo $it"
         );
 
@@ -70,7 +70,7 @@ fn upcases() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | str package.name --upcase | get package.name | echo $it"
         );
     
@@ -81,15 +81,15 @@ fn upcases() {
 #[test]
 fn converts_to_int() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
-            r#"
-                open caco3_plastics.csv 
-                | first 1 
-                | str tariff_item --to-int 
-                | where tariff_item == 2509000000 
-                | get tariff_item 
-                | echo $it
-            "#
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open caco3_plastics.csv 
+            | first 1 
+            | str tariff_item --to-int 
+            | where tariff_item == 2509000000 
+            | get tariff_item 
+            | echo $it
+        "#
     ));
 
     assert_eq!(actual, "2509000000");
@@ -108,7 +108,7 @@ fn replaces() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.toml 
                 | str package.name --replace wykittenshell  
@@ -134,7 +134,7 @@ fn find_and_replaces() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.toml 
                 | str fortune.teller.phone --find-replace KATZ "5289" 
@@ -160,7 +160,7 @@ fn find_and_replaces_without_passing_field() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.toml 
                 | get fortune.teller.phone 

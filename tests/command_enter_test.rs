@@ -1,8 +1,9 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
-use std::path::{Path, PathBuf};
+use helpers::{Playground, Stub::*};
+
+use std::path::Path;
 
 #[test]
 fn knows_the_filesystems_entered() {
@@ -28,47 +29,47 @@ fn knows_the_filesystems_entered() {
         let expected_recycled = expected.join("recycled");
 
         nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             r#"
-            enter expected
-            mkdir recycled
-            enter ../red_pill
-            mv jonathan.nu ../expected
-            enter ../blue_pill
-            cp *.nxt ../expected/recycled
-            p
-            p
-            mv ../red_pill/yehuda.nu .
-            n
-            mv andres.nu ../expected/andres.nu
-            exit
-            cd ..
-            rm red_pill --recursive
-            exit
-            n
-            rm blue_pill --recursive
-            exit
-        "#
+                enter expected
+                mkdir recycled
+                enter ../red_pill
+                mv jonathan.nu ../expected
+                enter ../blue_pill
+                cp *.nxt ../expected/recycled
+                p
+                p
+                mv ../red_pill/yehuda.nu .
+                n
+                mv andres.nu ../expected/andres.nu
+                exit
+                cd ..
+                rm red_pill --recursive
+                exit
+                n
+                rm blue_pill --recursive
+                exit
+            "#
         );
 
-        assert!(!h::dir_exists_at(PathBuf::from(red_pill_dir)));
+        assert!(!red_pill_dir.exists());
         assert!(h::files_exist_at(
             vec![
                 Path::new("andres.nu"),
                 Path::new("jonathan.nu"),
                 Path::new("yehuda.nu"),
             ],
-            PathBuf::from(&expected)
+            expected
         ));
 
-        assert!(!h::dir_exists_at(PathBuf::from(blue_pill_dir)));
+        assert!(!blue_pill_dir.exists());
         assert!(h::files_exist_at(
             vec![
                 Path::new("bash.nxt"),
                 Path::new("korn.nxt"),
                 Path::new("powedsh.nxt"),
             ],
-            PathBuf::from(&expected_recycled)
+            expected_recycled
         ));
     })
 }

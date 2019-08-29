@@ -1,7 +1,7 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use helpers::{Playground, Stub::*};
 
 #[test]
 fn ls_lists_regular_files() {
@@ -14,17 +14,17 @@ fn ls_lists_regular_files() {
         ]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
-                r#"
-                    ls 
-                    | get name 
-                    | lines 
-                    | split-column "." 
-                    | get Column2 
-                    | str --to-int 
-                    | sum 
-                    | echo $it
-                "#
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls 
+                | get name 
+                | lines 
+                | split-column "." 
+                | get Column2 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
         ));
 
         assert_eq!(actual, "30");
@@ -43,17 +43,17 @@ fn ls_lists_regular_files_using_asterisk_wildcard() {
         ]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
-                r#"
-                    ls *.txt 
-                    | get name 
-                    | lines 
-                    | split-column "." 
-                    | get Column2 
-                    | str --to-int 
-                    | sum 
-                    | echo $it
-                "#
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls *.txt 
+                | get name 
+                | lines 
+                | split-column "." 
+                | get Column2 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
         ));
 
         assert_eq!(actual, "3");
@@ -72,17 +72,17 @@ fn ls_lists_regular_files_using_question_mark_wildcard() {
         ]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
-                r#"
-                    ls *.??.txt 
-                    | get name 
-                    | lines 
-                    | split-column "." 
-                    | get Column2 
-                    | str --to-int 
-                    | sum 
-                    | echo $it
-                "#
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls *.??.txt 
+                | get name 
+                | lines 
+                | split-column "." 
+                | get Column2 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
         ));
 
         assert_eq!(actual, "30");

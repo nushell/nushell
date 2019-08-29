@@ -1,14 +1,24 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use helpers::{Playground, Stub::*};
 
 #[test]
 fn lines() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
-        r#"open cargo_sample.toml --raw | lines | skip-while $it != "[dependencies]" | skip 1 | first 1 | split-column "=" | get Column1 | trim | echo $it"#
-    );
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open cargo_sample.toml --raw 
+            | lines 
+            | skip-while $it != "[dependencies]" 
+            | skip 1 
+            | first 1 
+            | split-column "=" 
+            | get Column1 
+            | trim 
+            | echo $it
+        "#
+    ));
 
     assert_eq!(actual, "rustyline");
 }
@@ -32,7 +42,7 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
         let subject_file = dirs.test().join("cargo_sample.toml");
 
         nu!(
-            cwd(dirs.root()),
+            cwd: dirs.root(),
             "open save_test_1/cargo_sample.toml | inc package.version --minor | save"
         );
 
@@ -47,7 +57,7 @@ fn save_can_write_out_csv() {
         let expected_file = dirs.test().join("cargo_sample.csv");
 
         nu!(
-            dirs.root(),
+            cwd: dirs.root(),
             "open {}/cargo_sample.toml | inc package.version --minor | get package | save save_test_2/cargo_sample.csv",
             dirs.formats()
         );
