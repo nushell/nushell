@@ -176,7 +176,7 @@ pub enum Value {
     Block(Block),
 }
 
-pub fn debug_list(values: &'a Vec<Tagged<Value>>) -> ValuesDebug<'a> {
+pub fn debug_list(values: &Vec<Tagged<Value>>) -> ValuesDebug<'_> {
     ValuesDebug { values }
 }
 
@@ -184,7 +184,7 @@ pub struct ValuesDebug<'a> {
     values: &'a Vec<Tagged<Value>>,
 }
 
-impl fmt::Debug for ValuesDebug<'a> {
+impl fmt::Debug for ValuesDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_list()
             .entries(self.values.iter().map(|i| i.debug()))
@@ -196,7 +196,7 @@ pub struct ValueDebug<'a> {
     value: &'a Tagged<Value>,
 }
 
-impl fmt::Debug for ValueDebug<'a> {
+impl fmt::Debug for ValueDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value.item() {
             Value::Primitive(p) => p.debug(f),
@@ -215,10 +215,10 @@ impl Tagged<Value> {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for Block {
+impl std::convert::TryFrom<&Tagged<Value>> for Block {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<Block, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<Block, ShellError> {
         match value.item() {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
@@ -229,10 +229,10 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for Block {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
+impl std::convert::TryFrom<&Tagged<Value>> for i64 {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<i64, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<i64, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Int(int)) => Ok(*int),
             v => Err(ShellError::type_error(
@@ -243,10 +243,10 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for String {
+impl std::convert::TryFrom<&Tagged<Value>> for String {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<String, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<String, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             v => Err(ShellError::type_error(
@@ -257,10 +257,10 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for String {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
+impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<Vec<u8>, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<Vec<u8>, ShellError> {
         match value.item() {
             Value::Binary(b) => Ok(b.clone()),
             v => Err(ShellError::type_error(
@@ -271,7 +271,7 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
+impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
     type Error = ShellError;
 
     fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::object::Dictionary, ShellError> {
@@ -301,10 +301,10 @@ impl Switch {
     }
 }
 
-impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
+impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
     type Error = ShellError;
 
-    fn try_from(value: Option<&'a Tagged<Value>>) -> Result<Switch, ShellError> {
+    fn try_from(value: Option<&Tagged<Value>>) -> Result<Switch, ShellError> {
         match value {
             None => Ok(Switch::Absent),
             Some(value) => match value.item() {
@@ -319,7 +319,7 @@ impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
 }
 
 impl Tagged<Value> {
-    pub(crate) fn debug(&'a self) -> ValueDebug<'a> {
+    pub(crate) fn debug(&self) -> ValueDebug<'_> {
         ValueDebug { value: self }
     }
 }
@@ -351,7 +351,7 @@ impl Value {
         }
     }
 
-    pub(crate) fn get_data_by_key(&'a self, name: &str) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(l) => {
@@ -374,14 +374,14 @@ impl Value {
     }
 
     #[allow(unused)]
-    pub(crate) fn get_data_by_index(&'a self, idx: usize) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_index(&self, idx: usize) -> Option<&Tagged<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
             _ => None,
         }
     }
 
-    pub fn get_data_by_path(&'a self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
+    pub fn get_data_by_path(&self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
         let mut current = self;
         for p in path.split(".") {
             match current.get_data_by_key(p) {
@@ -394,7 +394,7 @@ impl Value {
     }
 
     pub fn insert_data_at_path(
-        &'a self,
+        &self,
         tag: Tag,
         path: &str,
         new_value: Value,
@@ -447,7 +447,7 @@ impl Value {
     }
 
     pub fn replace_data_at_path(
-        &'a self,
+        &self,
         tag: Tag,
         path: &str,
         replaced_value: Value,
@@ -481,7 +481,7 @@ impl Value {
         None
     }
 
-    pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
+    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),

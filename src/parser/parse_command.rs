@@ -205,7 +205,7 @@ fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Tex
 fn extract_mandatory(
     config: &Signature,
     name: &str,
-    tokens: &mut hir::TokensIterator<'a>,
+    tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
     span: Span,
 ) -> Result<(usize, Tagged<Flag>), ShellError> {
@@ -227,7 +227,7 @@ fn extract_mandatory(
 
 fn extract_optional(
     name: &str,
-    tokens: &mut hir::TokensIterator<'a>,
+    tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
 ) -> Result<(Option<(usize, Tagged<Flag>)>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
@@ -241,7 +241,7 @@ fn extract_optional(
     }
 }
 
-pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'a>, source: &Text) {
+pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'_>, source: &Text) {
     trace!(
         "{} = {:?}",
         desc,

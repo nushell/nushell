@@ -28,7 +28,7 @@ impl RawToken {
 pub type Token = Tagged<RawToken>;
 
 impl Token {
-    pub fn debug(&self, source: &'a Text) -> DebugToken<'a> {
+    pub fn debug<'a>(&self, source: &'a Text) -> DebugToken<'a> {
         DebugToken {
             node: *self,
             source,
@@ -41,7 +41,7 @@ pub struct DebugToken<'a> {
     source: &'a Text,
 }
 
-impl fmt::Debug for DebugToken<'a> {
+impl fmt::Debug for DebugToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.node.span().slice(self.source))
     }

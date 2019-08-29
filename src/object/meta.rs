@@ -256,7 +256,7 @@ impl Span {
         self.start == 0 && self.end == 0
     }
 
-    pub fn slice(&self, source: &'a str) -> &'a str {
+    pub fn slice<'a>(&self, source: &'a str) -> &'a str {
         &source[self.start..self.end]
     }
 }
