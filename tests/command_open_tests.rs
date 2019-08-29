@@ -69,6 +69,21 @@ fn open_can_parse_toml() {
 }
 
 #[test]
+fn open_can_parse_tsv() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open caco3_plastics.tsv
+            | first 1 
+            | get origin 
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "SPAIN")
+}
+
+#[test]
 fn open_can_parse_json() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(

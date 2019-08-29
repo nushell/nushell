@@ -251,6 +251,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("caco3_plastics.tsv"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("cargo_sample.toml"),
                     at: 0
                 },
