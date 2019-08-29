@@ -4,11 +4,63 @@ use glob::glob;
 pub use std::path::Path;
 pub use std::path::PathBuf;
 
+use getset::Getters;
 use std::io::Read;
+use tempfile::{tempdir, TempDir};
+
+pub trait DisplayPath {
+    fn display_path(&self) -> String;
+}
+
+impl DisplayPath for PathBuf {
+    fn display_path(&self) -> String {
+        self.display().to_string()
+    }
+}
+
+impl DisplayPath for str {
+    fn display_path(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl DisplayPath for &str {
+    fn display_path(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl DisplayPath for String {
+    fn display_path(&self) -> String {
+        self.clone()
+    }
+}
+
+impl DisplayPath for &String {
+    fn display_path(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl DisplayPath for nu::AbsolutePath {
+    fn display_path(&self) -> String {
+        self.to_string()
+    }
+}
 
 #[macro_export]
 macro_rules! nu {
-    ($out:ident, $cwd:expr, $commands:expr) => {
+    ($cwd:expr, $path:expr, $($part:expr),*) => {{
+        use $crate::helpers::DisplayPath;
+
+        let path = format!($path, $(
+            $part.display_path()
+        ),*);
+
+        nu!($cwd, &path)
+    }};
+
+    ($cwd:expr, $path:expr) => {{
         pub use std::error::Error;
         pub use std::io::prelude::*;
         pub use std::process::{Command, Stdio};
@@ -18,7 +70,8 @@ macro_rules! nu {
                             cd {}
                             {}
                             exit",
-            $cwd, $commands
+            $crate::helpers::in_directory($cwd),
+            $crate::helpers::DisplayPath::display_path(&$path)
         );
 
         let mut process = match Command::new(helpers::executable_path())
@@ -39,15 +92,27 @@ macro_rules! nu {
             .wait_with_output()
             .expect("couldn't read from stdout");
 
-        let $out = String::from_utf8_lossy(&output.stdout);
-        let $out = $out.replace("\r\n", "");
-        let $out = $out.replace("\n", "");
-    };
+        let out = String::from_utf8_lossy(&output.stdout);
+        let out = out.replace("\r\n", "");
+        let out = out.replace("\n", "");
+        out
+    }};
 }
 
 #[macro_export]
 macro_rules! nu_error {
-    ($out:ident, $cwd:expr, $commands:expr) => {
+    ($cwd:expr, $path:expr, $($part:expr),*) => {{
+        use $crate::helpers::DisplayPath;
+
+        let path = format!($path, $(
+            $part.display_path()
+        ),*);
+
+        nu_error!($cwd, &path)
+    }};
+
+
+    ($cwd:expr, $commands:expr) => {{
         use std::io::prelude::*;
         use std::process::{Command, Stdio};
 
@@ -56,7 +121,7 @@ macro_rules! nu_error {
                             cd {}
                             {}
                             exit",
-            $cwd, $commands
+            $crate::helpers::in_directory($cwd), $commands
         );
 
         let mut process = Command::new(helpers::executable_path())
@@ -73,8 +138,11 @@ macro_rules! nu_error {
         let output = process
             .wait_with_output()
             .expect("couldn't read from stderr");
-        let $out = String::from_utf8_lossy(&output.stderr);
-    };
+
+        let out = String::from_utf8_lossy(&output.stderr);
+
+        out.into_owned()
+    }};
 }
 
 pub enum Stub<'a> {
@@ -84,26 +152,38 @@ pub enum Stub<'a> {
 }
 
 pub struct Playground {
+    root: TempDir,
     tests: String,
     cwd: PathBuf,
 }
 
-impl Playground {
-    pub fn root() -> String {
-        String::from("tests/fixtures/nuplayground")
-    }
+#[derive(Getters)]
+#[get = "pub"]
+pub struct Dirs {
+    pub root: PathBuf,
+    pub test: PathBuf,
+    pub fixtures: PathBuf,
+}
 
-    pub fn test_dir_name(&self) -> String {
-        self.tests.clone()
+impl Dirs {
+    pub fn formats(&self) -> PathBuf {
+        PathBuf::from(self.fixtures.join("formats"))
+    }
+}
+
+impl Playground {
+    pub fn root(&self) -> &Path {
+        self.root.path()
     }
 
     pub fn back_to_playground(&mut self) -> &mut Self {
-        self.cwd = PathBuf::from([Playground::root(), self.tests.clone()].join("/"));
+        self.cwd = PathBuf::from(self.root()).join(self.tests.clone());
         self
     }
 
-    pub fn setup_for(topic: &str) -> Playground {
-        let nuplay_dir = format!("{}/{}", Playground::root(), topic);
+    pub fn setup(topic: &str, block: impl FnOnce(Dirs, &mut Playground)) {
+        let root = tempdir().expect("Couldn't create a tempdir");
+        let nuplay_dir = root.path().join(topic);
 
         if PathBuf::from(&nuplay_dir).exists() {
             std::fs::remove_dir_all(PathBuf::from(&nuplay_dir)).expect("can not remove directory");
@@ -111,10 +191,41 @@ impl Playground {
 
         std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
 
-        Playground {
+        let mut playground = Playground {
+            root: root,
             tests: topic.to_string(),
-            cwd: PathBuf::from([Playground::root(), topic.to_string()].join("/")),
-        }
+            cwd: nuplay_dir,
+        };
+
+        let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let playground_root = playground.root.path();
+
+        let fixtures = project_root.join(file!());
+        let fixtures = fixtures
+            .parent()
+            .expect("Couldn't find the fixtures directory")
+            .parent()
+            .expect("Couldn't find the fixtures directory")
+            .join("fixtures");
+
+        let fixtures = dunce::canonicalize(fixtures.clone()).expect(&format!(
+            "Couldn't canonicalize fixtures path {}",
+            fixtures.display()
+        ));
+
+        let test =
+            dunce::canonicalize(PathBuf::from(playground_root.join(topic))).expect(&format!(
+                "Couldn't canonicalize test path {}",
+                playground_root.join(topic).display()
+            ));
+
+        let dirs = Dirs {
+            root: PathBuf::from(playground_root),
+            test,
+            fixtures,
+        };
+
+        block(dirs, &mut playground);
     }
 
     pub fn mkdir(&mut self, directory: &str) -> &mut Self {
@@ -180,8 +291,8 @@ impl Playground {
     }
 }
 
-pub fn file_contents(full_path: &str) -> String {
-    let mut file = std::fs::File::open(full_path).expect("can not open file");
+pub fn file_contents(full_path: impl AsRef<Path>) -> String {
+    let mut file = std::fs::File::open(full_path.as_ref()).expect("can not open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .expect("can not read file");
@@ -226,20 +337,20 @@ pub fn copy_file_to(source: &str, destination: &str) {
     std::fs::copy(source, destination).expect("can not copy file");
 }
 
-pub fn files_exist_at(files: Vec<&Path>, path: PathBuf) -> bool {
+pub fn files_exist_at(files: Vec<impl AsRef<Path>>, path: impl AsRef<Path>) -> bool {
     files.iter().all(|f| {
-        let mut loc = path.clone();
+        let mut loc = PathBuf::from(path.as_ref());
         loc.push(f);
         loc.exists()
     })
 }
 
-pub fn file_exists_at(path: PathBuf) -> bool {
-    path.exists()
+pub fn file_exists_at(path: impl AsRef<Path>) -> bool {
+    path.as_ref().exists()
 }
 
-pub fn dir_exists_at(path: PathBuf) -> bool {
-    path.exists()
+pub fn dir_exists_at(path: impl AsRef<Path>) -> bool {
+    path.as_ref().exists()
 }
 
 pub fn delete_directory_at(full_path: &str) {
@@ -254,6 +365,17 @@ pub fn executable_path() -> PathBuf {
     buf
 }
 
-pub fn in_directory(str: &str) -> &str {
-    str
+pub fn in_directory(str: impl AsRef<Path>) -> String {
+    str.as_ref().display().to_string()
+}
+
+
+pub fn pipeline(commands: &str) -> String {
+    commands.lines()
+            .skip(1)
+            .map(|line| line.trim())
+            .collect::<Vec<&str>>()
+            .join(" ")
+            .trim_end()
+            .to_string()
 }

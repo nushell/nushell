@@ -1,6 +1,51 @@
 use crate::errors::ShellError;
+use std::fmt;
 use std::ops::Div;
 use std::path::{Path, PathBuf};
+
+pub struct AbsoluteFile {
+    inner: PathBuf,
+}
+
+impl AbsoluteFile {
+    pub fn new(path: impl AsRef<Path>) -> AbsoluteFile {
+        let path = path.as_ref();
+
+        if !path.is_absolute() {
+            panic!(
+                "AbsoluteFile::new must take an absolute path :: {}",
+                path.display()
+            )
+        } else if path.is_dir() {
+            // At the moment, this is not an invariant, but rather a way to catch bugs
+            // in tests.
+            panic!(
+                "AbsoluteFile::new must not take a directory :: {}",
+                path.display()
+            )
+        } else {
+            AbsoluteFile {
+                inner: path.to_path_buf(),
+            }
+        }
+    }
+
+    pub fn dir(&self) -> AbsolutePath {
+        AbsolutePath::new(self.inner.parent().unwrap())
+    }
+}
+
+impl From<AbsoluteFile> for PathBuf {
+    fn from(file: AbsoluteFile) -> Self {
+        file.inner
+    }
+}
+
+impl fmt::Display for AbsoluteFile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.inner.display())
+    }
+}
 
 pub struct AbsolutePath {
     inner: PathBuf,
@@ -17,6 +62,12 @@ impl AbsolutePath {
         } else {
             panic!("AbsolutePath::new must take an absolute path")
         }
+    }
+}
+
+impl fmt::Display for AbsolutePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.inner.display())
     }
 }
 
@@ -69,6 +120,12 @@ impl<T: AsRef<str>> Div<T> for &RelativePath {
         }
 
         RelativePath::new(result)
+    }
+}
+
+impl fmt::Display for RelativePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.inner.display())
     }
 }
 

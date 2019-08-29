@@ -1,7 +1,6 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
 #![feature(generators)]
-#![feature(try_trait)]
 #![feature(specialization)]
 #![feature(proc_macro_hygiene)]
 
@@ -30,7 +29,7 @@ pub use crate::env::host::BasicHost;
 pub use crate::object::base::OF64;
 pub use crate::parser::hir::SyntaxType;
 pub use crate::plugin::{serve_plugin, Plugin};
-pub use crate::utils::{AbsolutePath, RelativePath};
+pub use crate::utils::{AbsoluteFile, AbsolutePath, RelativePath};
 pub use cli::cli;
 pub use errors::ShellError;
 pub use object::base::{Primitive, Value};

@@ -84,22 +84,6 @@ impl OutputStream {
     }
 }
 
-impl std::ops::Try for OutputStream {
-    type Ok = OutputStream;
-    type Error = ShellError;
-    fn into_result(self) -> Result<Self::Ok, Self::Error> {
-        Ok(self)
-    }
-
-    fn from_error(v: Self::Error) -> Self {
-        OutputStream::one(Err(v))
-    }
-
-    fn from_ok(v: Self::Ok) -> Self {
-        v
-    }
-}
-
 impl Stream for OutputStream {
     type Item = ReturnValue;
 

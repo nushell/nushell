@@ -74,7 +74,7 @@ impl CommandRegistry {
 pub struct Context {
     registry: CommandRegistry,
     crate source_map: SourceMap,
-    crate host: Arc<Mutex<dyn Host + Send>>,
+    host: Arc<Mutex<dyn Host + Send>>,
     crate shell_manager: ShellManager,
 }
 
@@ -93,6 +93,12 @@ impl Context {
         })
     }
 
+    crate fn with_host(&mut self, block: impl FnOnce(&mut dyn Host)) {
+        let mut host = self.host.lock().unwrap();
+
+        block(&mut *host)
+    }
+
     pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) {
         for command in commands {
             self.registry.insert(command.name().to_string(), command);
@@ -102,10 +108,6 @@ impl Context {
     pub fn add_span_source(&mut self, uuid: Uuid, span_source: SpanSource) {
         self.source_map.insert(uuid, span_source);
     }
-
-    // pub fn clone_commands(&self) -> CommandRegistry {
-    //     self.registry.clone()
-    // }
 
     crate fn has_command(&self, name: &str) -> bool {
         self.registry.has(name)

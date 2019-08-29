@@ -596,14 +596,10 @@ impl Command {
                 .unwrap();
             // We don't have an $it or block, so just execute what we have
 
-            command
-                .run(&call_info, &registry, &raw_args.shell_manager, nothing)?
-                .into()
-            // let out = match command.run(&call_info, &registry, &raw_args.shell_manager, nothing) {
-            //     Ok(o) => o,
-            //     Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]),
-            // };
-            // Ok(out.to_output_stream())
+            match command.run(&call_info, &registry, &raw_args.shell_manager, nothing) {
+                Ok(o) => o,
+                Err(e) => OutputStream::one(Err(e)),
+            }
         }
     }
 }
