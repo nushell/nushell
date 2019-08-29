@@ -1,106 +1,126 @@
 mod helpers;
 
 use helpers::{in_directory as cwd, Playground, Stub::*};
+use helpers as h;
 
 #[test]
 fn recognizes_csv() {
-    Playground::setup_for("open_recognizes_csv_test").with_files(vec![FileWithContentToBeTrimmed(
-        "nu.zion.csv",
-        r#"
-            author,lang,source
-            Jonathan Turner,Rust,New Zealand
-            Andres N. Robalino,Rust,Ecuador
-            Yehuda Katz,Rust,Estados Unidos
-        "#,
-    )]);
+    Playground::setup("open_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "nu.zion.csv",
+                r#"
+                    author,lang,source
+                    Jonathan Turner,Rust,New Zealand
+                    Andres N. Robalino,Rust,Ecuador
+                    Yehuda Katz,Rust,Estados Unidos
+                "#
+        )]);
 
-    let output = nu!(
-        cwd("tests/fixtures/nuplayground/open_recognizes_csv_test"),
-        r#"open nu.zion.csv | where author == "Andres N. Robalino" | get source | echo $it"#
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open nu.zion.csv 
+                | where author == "Andres N. Robalino" 
+                | get source 
+                | echo $it
+            "#
+        ));
 
-    assert_eq!(output, "Ecuador");
+        assert_eq!(actual, "Ecuador");
+    })
 }
 
 #[test]
 fn open_can_parse_bson_1() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.bson | get root | nth 0 | get b | echo $it"
     );
 
-    assert_eq!(output, "hello");
+    assert_eq!(actual, "hello");
 }
 
 #[test]
 fn open_can_parse_bson_2() {
-    let output = nu!(
-        cwd("tests/fixtures/formats"),
-        "open sample.bson | get root | nth 6 | get b | get '$binary_subtype' | echo $it "
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+            r#"
+                open sample.bson 
+                | get root 
+                | nth 6 
+                | get b 
+                | get '$binary_subtype' 
+                | echo $it
+            "#
+        ));
 
-    assert_eq!(output, "function");
+    assert_eq!(actual, "function");
 }
 
 #[test]
 fn open_can_parse_toml() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open cargo_sample.toml | get package.edition | echo $it"
     );
 
-    assert_eq!(output, "2018");
+    assert_eq!(actual, "2018");
 }
 
 #[test]
 fn open_can_parse_json() {
-    let output = nu!(
-        cwd("tests/fixtures/formats"),
-        "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it"
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+        r#"
+            open sgml_description.json 
+            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee 
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(output, "markup")
+    assert_eq!(actual, "markup")
 }
 
 #[test]
 fn open_can_parse_xml() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open jonathan.xml | get rss.channel.item.link | echo $it"
     );
 
     assert_eq!(
-        output,
+        actual,
         "http://www.jonathanturner.org/2015/10/off-to-new-adventures.html"
     )
 }
 
 #[test]
 fn open_can_parse_ini() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.ini | get SectionOne.integer | echo $it"
     );
 
-    assert_eq!(output, "1234")
+    assert_eq!(actual, "1234")
 }
 
 #[test]
 fn open_can_parse_utf16_ini() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open utf16.ini | get .ShellClassInfo | get IconIndex | echo $it"
     );
 
-    assert_eq!(output, "-236")
+    assert_eq!(actual, "-236")
 }
 
 #[test]
 fn errors_if_file_not_found() {
-    let output = nu_error!(
+    let actual = nu_error!(
         cwd("tests/fixtures/formats"),
         "open i_dont_exist.txt | echo $it"
     );
 
-    assert!(output.contains("File could not be opened"));
+    assert!(actual.contains("File could not be opened"));
 }

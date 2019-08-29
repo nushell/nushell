@@ -176,17 +176,26 @@ impl Playground {
         self.root.path()
     }
 
-    pub fn test_dir_name(&self) -> String {
-        self.tests.clone()
-    }
-
     pub fn back_to_playground(&mut self) -> &mut Self {
         self.cwd = PathBuf::from(self.root()).join(self.tests.clone());
         self
     }
 
     pub fn setup(topic: &str, block: impl FnOnce(Dirs, &mut Playground)) {
-        let mut playground = Playground::setup_for(topic);
+        let root = tempdir().expect("Couldn't create a tempdir");
+        let nuplay_dir = root.path().join(topic);
+
+        if PathBuf::from(&nuplay_dir).exists() {
+            std::fs::remove_dir_all(PathBuf::from(&nuplay_dir)).expect("can not remove directory");
+        }
+
+        std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
+
+        let mut playground = Playground {
+            root: root,
+            tests: topic.to_string(),
+            cwd: nuplay_dir,
+        };
 
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let playground_root = playground.root.path();
@@ -217,23 +226,6 @@ impl Playground {
         };
 
         block(dirs, &mut playground);
-    }
-
-    pub fn setup_for(topic: &str) -> Playground {
-        let root = tempdir().expect("Couldn't create a tempdir");
-        let nuplay_dir = root.path().join(topic);
-
-        if PathBuf::from(&nuplay_dir).exists() {
-            std::fs::remove_dir_all(PathBuf::from(&nuplay_dir)).expect("can not remove directory");
-        }
-
-        std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
-
-        Playground {
-            root: root,
-            tests: topic.to_string(),
-            cwd: nuplay_dir,
-        }
     }
 
     pub fn mkdir(&mut self, directory: &str) -> &mut Self {
@@ -375,4 +367,11 @@ pub fn executable_path() -> PathBuf {
 
 pub fn in_directory(str: impl AsRef<Path>) -> String {
     str.as_ref().display().to_string()
+}
+
+pub fn pipeline(commands: &str) -> String {
+    commands.lines()
+            .skip(1)
+            .collect::<Vec<&str>>()
+            .concat()
 }

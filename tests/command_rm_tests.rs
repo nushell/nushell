@@ -2,16 +2,15 @@ mod helpers;
 
 use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
-use std::path::{Path, PathBuf};
 
 #[test]
 fn rm_removes_a_file() {
-    Playground::setup("rm_regular_file_test", |dirs, playground| {
-        playground
-            .with_files(vec![EmptyFile("i_will_be_deleted.txt")])
-            .test_dir_name();
+    Playground::setup("rm_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![EmptyFile("i_will_be_deleted.txt")
+        ]);
 
-        nu!(dirs.root(), "rm rm_regular_file_test/i_will_be_deleted.txt");
+        nu!(cwd(dirs.root()), "rm rm_test_1/i_will_be_deleted.txt");
 
         let path = dirs.test().join("i_will_be_deleted.txt");
 
@@ -21,13 +20,13 @@ fn rm_removes_a_file() {
 
 #[test]
 fn rm_removes_files_with_wildcard() {
-    Playground::setup("rm_wildcard_test_1", |dirs, playground| {
-        playground
+    Playground::setup("rm_test_2", |dirs, sandbox| {
+        sandbox
             .within("src")
             .with_files(vec![
                 EmptyFile("cli.rs"),
                 EmptyFile("lib.rs"),
-                EmptyFile("prelude.rs"),
+                EmptyFile("prelude.rs")
             ])
             .within("src/parser")
             .with_files(vec![EmptyFile("parse.rs"), EmptyFile("parser.rs")])
@@ -36,11 +35,10 @@ fn rm_removes_files_with_wildcard() {
             .within("src/parser/hir")
             .with_files(vec![
                 EmptyFile("baseline_parse.rs"),
-                EmptyFile("baseline_parse_tokens.rs"),
-            ])
-            .test_dir_name();
+                EmptyFile("baseline_parse_tokens.rs")
+        ]);
 
-        nu!(dirs.test(), r#"rm "src/*/*/*.rs""#);
+        nu!(cwd(dirs.test()), r#"rm "src/*/*/*.rs""#);
 
         assert!(!h::files_exist_at(
             vec![
@@ -53,20 +51,20 @@ fn rm_removes_files_with_wildcard() {
 
         assert_eq!(
             Playground::glob_vec(&format!("{}/src/*/*/*.rs", dirs.test().display())),
-            Vec::<PathBuf>::new()
+            Vec::<std::path::PathBuf>::new()
         );
     })
 }
 
 #[test]
 fn rm_removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
-    Playground::setup("rm_wildcard_test_2", |dirs, playground| {
-        playground
+    Playground::setup("rm_test_3", |dirs, sandbox| {
+        sandbox
             .within("src")
             .with_files(vec![
                 EmptyFile("cli.rs"),
                 EmptyFile("lib.rs"),
-                EmptyFile("prelude.rs"),
+                EmptyFile("prelude.rs")
             ])
             .within("src/parser")
             .with_files(vec![EmptyFile("parse.rs"), EmptyFile("parser.rs")])
@@ -75,11 +73,10 @@ fn rm_removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
             .within("src/parser/hir")
             .with_files(vec![
                 EmptyFile("baseline_parse.rs"),
-                EmptyFile("baseline_parse_tokens.rs"),
-            ])
-            .test_dir_name();
+                EmptyFile("baseline_parse_tokens.rs")
+        ]);
 
-        nu!(dirs.test(), "rm src/* --recursive");
+        nu!(cwd(dirs.test()), "rm src/* --recursive");
 
         assert!(!h::files_exist_at(
             vec!["src/parser/parse", "src/parser/hir"],
@@ -90,8 +87,8 @@ fn rm_removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
 
 #[test]
 fn rm_removes_directory_contents_without_recursive_flag_if_empty() {
-    Playground::setup("rm_directory_removal_recursively_test_1", |dirs, _| {
-        nu!(dirs.root(), "rm rm_directory_removal_recursively_test_1");
+    Playground::setup("rm_test_4", |dirs, _| {
+        nu!(cwd(dirs.root()), "rm rm_test_4");
 
         assert!(!h::file_exists_at(dirs.test()));
     })
@@ -99,67 +96,51 @@ fn rm_removes_directory_contents_without_recursive_flag_if_empty() {
 
 #[test]
 fn rm_removes_directory_contents_with_recursive_flag() {
-    Playground::setup(
-        "rm_directory_removal_recursively_test_2",
-        |dirs, playground| {
-            playground
-                .with_files(vec![
-                    EmptyFile("yehuda.txt"),
-                    EmptyFile("jonathan.txt"),
-                    EmptyFile("andres.txt"),
-                ])
-                .test_dir_name();
+    Playground::setup("rm_test_5", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![
+                EmptyFile("yehuda.txt"),
+                EmptyFile("jonathan.txt"),
+                EmptyFile("andres.txt")
+        ]);
 
-            nu!(
-                dirs.root(),
-                "rm rm_directory_removal_recursively_test_2 --recursive"
-            );
+        nu!(cwd(dirs.root()), "rm rm_test_5 --recursive");
 
-            assert!(!h::file_exists_at(dirs.test()));
-        },
-    )
+        assert!(!h::file_exists_at(dirs.test()));
+    })
 }
 
 #[test]
 fn rm_errors_if_attempting_to_delete_a_directory_with_content_without_recursive_flag() {
-    Playground::setup(
-        "rm_prevent_directory_removal_without_flag_test",
-        |dirs, playground| {
-            playground
-                .with_files(vec![EmptyFile("some_empty_file.txt")])
-                .test_dir_name();
+    Playground::setup("rm_test_6", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![EmptyFile("some_empty_file.txt")
+        ]);
 
-            let output = nu_error!(
-                dirs.root(),
-                "rm rm_prevent_directory_removal_without_flag_test"
-            );
+        let actual = nu_error!(
+            cwd(dirs.root()),
+            "rm rm_test_6"
+        );
 
-            assert!(h::file_exists_at(dirs.test()));
-            assert!(output.contains("is a directory"));
-        },
-    )
+        assert!(h::file_exists_at(dirs.test()));
+        assert!(actual.contains("is a directory"));
+    })
 }
 
 #[test]
 fn rm_errors_if_attempting_to_delete_single_dot_as_argument() {
-    Playground::setup(
-        "rm_errors_if_attempting_to_delete_single_dot_as_argument",
-        |dirs, _| {
-            let output = nu_error!(dirs.root(), "rm .");
+    Playground::setup("rm_test_7", |dirs, _| {
+        let actual = nu_error!(cwd(dirs.root()), "rm .");
 
-            assert!(output.contains("may not be removed"));
-        },
-    )
+        assert!(actual.contains("may not be removed"));
+    })
 }
 
 #[test]
 fn rm_errors_if_attempting_to_delete_two_dot_as_argument() {
-    Playground::setup(
-        "rm_errors_if_attempting_to_delete_single_dot_as_argument",
-        |dirs, _| {
-            let output = nu_error!(dirs.root(), "rm ..");
+    Playground::setup("rm_test_8", |dirs, _| {
+        let actual = nu_error!(cwd(dirs.root()), "rm ..");
 
-            assert!(output.contains("may not be removed"));
-        },
-    )
+        assert!(actual.contains("may not be removed"));
+    })
 }

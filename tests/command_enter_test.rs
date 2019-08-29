@@ -1,13 +1,13 @@
 mod helpers;
 
-use h::{Playground, Stub::*};
+use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
 use std::path::{Path, PathBuf};
 
 #[test]
 fn knows_the_filesystems_entered() {
-    Playground::setup("enter_filesystem_sessions_test", |dirs, playground| {
-        playground
+    Playground::setup("enter_test_1", |dirs, sandbox| {
+        sandbox
             .within("red_pill")
             .with_files(vec![
                 EmptyFile("andres.nu"),
@@ -20,8 +20,7 @@ fn knows_the_filesystems_entered() {
                 EmptyFile("korn.nxt"),
                 EmptyFile("powedsh.nxt"),
             ])
-            .mkdir("expected")
-            .test_dir_name();
+            .mkdir("expected");
 
         let red_pill_dir = dirs.test().join("red_pill");
         let blue_pill_dir = dirs.test().join("blue_pill");
@@ -29,7 +28,7 @@ fn knows_the_filesystems_entered() {
         let expected_recycled = expected.join("recycled");
 
         nu!(
-            dirs.test(),
+            cwd(dirs.test()),
             r#"
             enter expected
             mkdir recycled
