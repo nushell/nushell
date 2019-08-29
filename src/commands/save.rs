@@ -89,7 +89,7 @@ fn save(
             }
 
             let content = if !save_raw {
-                to_string_for(full_path.extension(), &input)
+                to_string_for(full_path.extension(), &input).await
             } else {
                 string_from(&input)
             };
@@ -114,7 +114,7 @@ fn save(
             let input: Vec<Tagged<Value>> = input.values.collect().await;
 
             let content = if !save_raw {
-                to_string_for(full_path.extension(), &input)
+                to_string_for(full_path.extension(), &input).await
             } else {
                 string_from(&input)
             };
@@ -153,7 +153,7 @@ fn string_from(input: &Vec<Tagged<Value>>) -> Result<String, ShellError> {
     Ok(save_data)
 }
 
-fn to_string_for(
+async fn to_string_for(
     ext: Option<&std::ffi::OsStr>,
     input: &Vec<Tagged<Value>>,
 ) -> Result<String, ShellError> {
