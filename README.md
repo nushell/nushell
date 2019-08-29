@@ -41,12 +41,12 @@ cargo +nightly install nu
 You can also install Nu with all the bells and whistles:
 
 ```
-cargo +nightly install nu --features rawkey,clipboard
+cargo +nightly install nu --features raw-key,clipboard
 ```
 
 The following optional features are currently supported:
 
-* **rawkey** - direct keyboard input, which creates a smoother experience in viewing text and binaries
+* **raw-key** - direct keyboard input, which creates a smoother experience in viewing text and binaries
 * **clipboard** - integration with the native clipboard via the `clip` command
 
 ## Docker
@@ -202,7 +202,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | pick ...columns | Down-select table to only these columns |
 | reject ...columns | Remove the given columns from the table |
 | get column-or-column-path | Open given cells as text |
-| sort-by ...columns (--reverse) | Sort by the given columns |
+| sort-by ...columns | Sort by the given columns |
 | where condition | Filter table to match the condition |
 | inc (field) | Increment a value or version. Optional use the field of a table |
 | add field value | Add a new field to the table |
