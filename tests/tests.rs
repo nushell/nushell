@@ -1,43 +1,59 @@
 mod helpers;
 
-use helpers::in_directory as cwd;
-use helpers::normalize_string;
+use helpers::{in_directory as cwd};
+use helpers as h;
+
+#[test]
+fn pipeline_helper() {
+    let actual = h::pipeline(
+        r#"
+            open los_tres_amigos.txt 
+            | from-csv 
+            | get rusty_luck 
+            | str --to-int 
+            | sum 
+            | echo "$it"
+        "#);
+
+    assert_eq!(actual, r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo "$it""#);
+}
+
 
 #[test]
 fn external_num() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.Height | echo $it"
     );
 
-    assert_eq!(output, "10");
+    assert_eq!(actual, "10");
 }
 
 #[test]
 fn external_has_correct_quotes() {
-    let output = nu!(cwd("."), r#"echo "hello world""#);
+    let actual = nu!(cwd("."), r#"echo "hello world""#);
 
-    let output = normalize_string(&output);
+    let actual = h::normalize_string(&actual);
 
-    assert_eq!(output, r#""hello world""#);
+    assert_eq!(actual, r#""hello world""#);
 }
 
 #[test]
 fn add_plugin() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml | add dev-dependencies.newdep "1" | get dev-dependencies.newdep | echo $it"#
     );
 
-    assert_eq!(output, "1");
+    assert_eq!(actual, "1");
 }
 
 #[test]
 fn edit_plugin() {
-    let output = nu!(
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         r#"open cargo_sample.toml | edit dev-dependencies.pretty_assertions "7" | get dev-dependencies.pretty_assertions | echo $it"#
     );
 
-    assert_eq!(output, "7");
+    assert_eq!(actual, "7");
 }

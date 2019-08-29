@@ -369,9 +369,13 @@ pub fn in_directory(str: impl AsRef<Path>) -> String {
     str.as_ref().display().to_string()
 }
 
+
 pub fn pipeline(commands: &str) -> String {
     commands.lines()
             .skip(1)
+            .map(|line| line.trim())
             .collect::<Vec<&str>>()
-            .concat()
+            .join(" ")
+            .trim_end()
+            .to_string()
 }
