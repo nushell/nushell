@@ -238,6 +238,136 @@ fn converts_structured_table_to_json_text() {
 }
 
 #[test]
+fn can_convert_table_to_tsv_text_and_from_tsv_text_back_into_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "open caco3_plastics.tsv | to-tsv | from-tsv | first 1 | get origin | echo $it"
+    );
+
+    assert_eq!(actual, "SPAIN");
+}
+
+#[test]
+fn converts_structured_table_to_tsv_text() {
+    Playground::setup("filter_to_tsv_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "tsv_text_sample.txt",
+                r#"
+                    importer	shipper	tariff_item	name	origin
+                    Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
+                    Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
+                "#
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open tsv_text_sample.txt 
+                | lines 
+                | split-column "\t" a b c d origin  
+                | last 1 
+                | to-tsv
+                | lines 
+                | nth 1 
+                | echo "$it"
+            "#
+        ));
+
+        assert!(actual.contains("Colombia"));
+    })
+}
+
+#[test]
+fn converts_structured_table_to_tsv_text_skipping_headers_after_conversion() {
+    Playground::setup("filter_to_tsv_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "tsv_text_sample.txt",
+                r#"
+                    importer    shipper tariff_item name    origin
+                    Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
+                    Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
+                "#
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open tsv_text_sample.txt 
+                | lines 
+                | split-column "\t" a b c d origin  
+                | last 1 
+                | to-tsv --headerless 
+                | echo "$it"
+            "#
+        ));
+
+        assert!(actual.contains("Colombia"));
+    })
+}
+
+#[test]
+fn converts_from_tsv_text_to_structured_table() {
+    Playground::setup("filter_from_tsv_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "los_tres_amigos.txt",
+                r#"
+                    first Name	Last Name	rusty_luck
+                    Andrés	Robalino	1
+                    Jonathan	Turner	1
+                    Yehuda	Katz	1
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_amigos.txt 
+                | from-tsv 
+                | get rusty_luck 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn converts_from_tsv_text_skipping_headers_to_structured_table() {
+    Playground::setup("filter_from_tsv_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "los_tres_amigos.txt",
+                r#"
+                    first Name	Last Name	rusty_luck
+                    Andrés	Robalino	1
+                    Jonathan	Turner	1
+                    Yehuda	Katz	1
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_amigos.txt 
+                | from-tsv --headerless 
+                | get Column3 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
 fn can_convert_json_text_to_bson_and_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
@@ -333,10 +463,10 @@ fn can_sum() {
 fn can_filter_by_unit_size_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | where size > 1kb | sort-by size | get name | skip 1 | trim | echo $it"
+        "ls | where size > 1kb | sort-by size | get name | first 1 | trim | echo $it"
     );
 
-    assert_eq!(actual, "caco3_plastics.csv");
+    assert_eq!(actual, "cargo_sample.toml");
 }
 
 #[test]

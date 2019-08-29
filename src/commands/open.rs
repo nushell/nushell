@@ -437,6 +437,16 @@ pub fn parse_string_as_value(
                     )
                 })
         }
+        Some(ref x) if x == "tsv" => {
+            crate::commands::from_tsv::from_tsv_string_to_value(contents, false, contents_tag)
+                .map_err(move |_| {
+                    ShellError::labeled_error(
+                        "Could not open as TSV",
+                        "could not open as TSV",
+                        name_span,
+                    )
+                })
+        }
         Some(ref x) if x == "toml" => {
             crate::commands::from_toml::from_toml_string_to_value(contents, contents_tag).map_err(
                 move |_| {
