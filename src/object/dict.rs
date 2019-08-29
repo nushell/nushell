@@ -72,7 +72,7 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
+    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),

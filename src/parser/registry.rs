@@ -158,7 +158,7 @@ pub struct DebugEvaluatedPositional<'a> {
     positional: &'a Option<Vec<Tagged<Value>>>,
 }
 
-impl fmt::Debug for DebugEvaluatedPositional<'a> {
+impl fmt::Debug for DebugEvaluatedPositional<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.positional {
             None => write!(f, "None"),
@@ -175,7 +175,7 @@ pub struct DebugEvaluatedNamed<'a> {
     named: &'a Option<IndexMap<String, Tagged<Value>>>,
 }
 
-impl fmt::Debug for DebugEvaluatedNamed<'a> {
+impl fmt::Debug for DebugEvaluatedNamed<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.named {
             None => write!(f, "None"),
@@ -191,7 +191,7 @@ pub struct DebugEvaluatedArgs<'a> {
     args: &'a EvaluatedArgs,
 }
 
-impl fmt::Debug for DebugEvaluatedArgs<'a> {
+impl fmt::Debug for DebugEvaluatedArgs<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = f.debug_struct("Args");
 
@@ -206,7 +206,7 @@ impl fmt::Debug for DebugEvaluatedArgs<'a> {
 }
 
 impl EvaluatedArgs {
-    pub fn debug(&'a self) -> DebugEvaluatedArgs<'a> {
+    pub fn debug(&self) -> DebugEvaluatedArgs<'_> {
         DebugEvaluatedArgs { args: self }
     }
 
@@ -248,7 +248,7 @@ impl EvaluatedArgs {
         }
     }
 
-    pub fn positional_iter(&'a self) -> PositionalIter<'a> {
+    pub fn positional_iter(&self) -> PositionalIter<'_> {
         match &self.positional {
             None => PositionalIter::Empty,
             Some(v) => {
@@ -264,7 +264,7 @@ pub enum PositionalIter<'a> {
     Array(std::slice::Iter<'a, Tagged<Value>>),
 }
 
-impl Iterator for PositionalIter<'a> {
+impl<'a> Iterator for PositionalIter<'a> {
     type Item = &'a Tagged<Value>;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -16,7 +16,7 @@ pub struct ConfigDeserializer<'de> {
     position: usize,
 }
 
-impl ConfigDeserializer<'de> {
+impl<'de> ConfigDeserializer<'de> {
     pub fn from_call_info(call: CallInfo) -> ConfigDeserializer<'de> {
         ConfigDeserializer {
             call,

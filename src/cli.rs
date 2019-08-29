@@ -30,7 +30,7 @@ pub enum MaybeOwned<'a, T> {
     Borrowed(&'a T),
 }
 
-impl<T> MaybeOwned<'a, T> {
+impl<T> MaybeOwned<'_, T> {
     pub fn borrow(&self) -> &T {
         match self {
             MaybeOwned::Owned(v) => v,

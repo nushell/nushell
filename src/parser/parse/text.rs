@@ -213,7 +213,7 @@ impl Serialize for Text {
     }
 }
 
-impl Deserialize<'de> for Text {
+impl<'de> Deserialize<'de> for Text {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

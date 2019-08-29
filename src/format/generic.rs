@@ -9,7 +9,7 @@ pub struct GenericView<'value> {
     value: &'value Value,
 }
 
-impl RenderView for GenericView<'value> {
+impl RenderView for GenericView<'_> {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         match self.value {
             Value::Primitive(p) => Ok(host.stdout(&p.format(None))),

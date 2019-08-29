@@ -100,7 +100,7 @@ impl ExtractType for Value {
 }
 
 impl ExtractType for bool {
-    fn extract(value: &'a Tagged<Value>) -> Result<bool, ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<bool, ShellError> {
         trace!("Extracting {:?} for bool", value);
 
         match &value {
@@ -118,7 +118,7 @@ impl ExtractType for bool {
 }
 
 impl ExtractType for std::path::PathBuf {
-    fn extract(value: &'a Tagged<Value>) -> Result<std::path::PathBuf, ShellError> {
+    fn extract(value: &Tagged<Value>) -> Result<std::path::PathBuf, ShellError> {
         trace!("Extracting {:?} for PathBuf", value);
 
         match &value {

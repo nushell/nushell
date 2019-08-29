@@ -1,5 +1,4 @@
 #![feature(crate_visibility_modifier)]
-#![feature(in_band_lifetimes)]
 #![feature(generators)]
 #![feature(specialization)]
 #![feature(proc_macro_hygiene)]

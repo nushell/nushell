@@ -27,7 +27,7 @@ pub struct DebugTokenNode<'a> {
     source: &'a Text,
 }
 
-impl fmt::Debug for DebugTokenNode<'a> {
+impl fmt::Debug for DebugTokenNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.node {
             TokenNode::Token(t) => write!(f, "{:?}", t.debug(self.source)),
@@ -115,7 +115,7 @@ impl TokenNode {
         .to_string()
     }
 
-    pub fn debug(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
+    pub fn debug<'a>(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
         DebugTokenNode { node: self, source }
     }
 
@@ -123,7 +123,7 @@ impl TokenNode {
         self.span().slice(source).to_string()
     }
 
-    pub fn source(&self, source: &'a Text) -> &'a str {
+    pub fn source<'a>(&self, source: &'a Text) -> &'a str {
         self.span().slice(source)
     }
 
