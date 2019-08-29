@@ -1,7 +1,6 @@
 #![feature(crate_visibility_modifier)]
 #![feature(in_band_lifetimes)]
 #![feature(generators)]
-#![feature(try_trait)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(specialization)]
 #![feature(proc_macro_hygiene)]

@@ -330,31 +330,6 @@ enum LineResult {
     FatalError(String, ShellError),
 }
 
-impl std::ops::Try for LineResult {
-    type Ok = Option<String>;
-    type Error = (String, ShellError);
-
-    fn into_result(self) -> Result<Option<String>, (String, ShellError)> {
-        match self {
-            LineResult::Success(s) => Ok(Some(s)),
-            LineResult::Error(string, err) => Err((string, err)),
-            LineResult::Break => Ok(None),
-            LineResult::CtrlC => Ok(None),
-            LineResult::FatalError(string, err) => Err((string, err)),
-        }
-    }
-    fn from_error(v: (String, ShellError)) -> Self {
-        LineResult::Error(v.0, v.1)
-    }
-
-    fn from_ok(v: Option<String>) -> Self {
-        match v {
-            None => LineResult::Break,
-            Some(v) => LineResult::Success(v),
-        }
-    }
-}
-
 async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
@@ -371,8 +346,10 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line))
-                .map_err(|err| (line.clone(), err))?;
+            let mut pipeline = match classify_pipeline(&result, ctx, &Text::from(line)) {
+                Ok(pipeline) => pipeline,
+                Err(err) => return LineResult::Error(line.clone(), err),
+            };
 
             match pipeline.commands.last() {
                 Some(ClassifiedCommand::External(_)) => {}
