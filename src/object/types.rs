@@ -1,14 +1,9 @@
 use crate::object::base as value;
-use crate::parser::hir;
 use crate::prelude::*;
 use log::trace;
 
 pub trait ExtractType: Sized {
     fn extract(value: &Tagged<Value>) -> Result<Self, ShellError>;
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError>;
-    fn syntax_type() -> hir::SyntaxType {
-        hir::SyntaxType::Any
-    }
 }
 
 impl<T> ExtractType for T {
@@ -18,14 +13,6 @@ impl<T> ExtractType for T {
             "<T> ExtractType for {}",
             name
         )))
-    }
-
-    default fn check(_value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        Err(ShellError::unimplemented("ExtractType for T"))
-    }
-
-    default fn syntax_type() -> hir::SyntaxType {
-        hir::SyntaxType::Any
     }
 }
 
@@ -49,20 +36,6 @@ impl<T: ExtractType> ExtractType for Vec<Tagged<T>> {
                 other.type_name().tagged(value.tag()),
             )),
         }
-    }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        match value.item() {
-            Value::List(_) => Ok(value),
-            other => Err(ShellError::type_error(
-                "Vec",
-                other.type_name().tagged(value.tag()),
-            )),
-        }
-    }
-
-    fn syntax_type() -> hir::SyntaxType {
-        hir::SyntaxType::List
     }
 }
 
@@ -107,17 +80,6 @@ impl<T: ExtractType> ExtractType for Option<T> {
 
         Ok(result)
     }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        match value.item() {
-            Value::Primitive(Primitive::Nothing) => Ok(value),
-            _ => T::check(value),
-        }
-    }
-
-    fn syntax_type() -> hir::SyntaxType {
-        T::syntax_type()
-    }
 }
 
 impl<T: ExtractType> ExtractType for Tagged<T> {
@@ -127,14 +89,6 @@ impl<T: ExtractType> ExtractType for Tagged<T> {
 
         Ok(T::extract(value)?.tagged(value.tag()))
     }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        T::check(value)
-    }
-
-    fn syntax_type() -> hir::SyntaxType {
-        T::syntax_type()
-    }
 }
 
 impl ExtractType for Value {
@@ -143,21 +97,9 @@ impl ExtractType for Value {
 
         Ok(value.item().clone())
     }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        Ok(value)
-    }
-
-    fn syntax_type() -> hir::SyntaxType {
-        SyntaxType::Any
-    }
 }
 
 impl ExtractType for bool {
-    fn syntax_type() -> hir::SyntaxType {
-        hir::SyntaxType::Boolean
-    }
-
     fn extract(value: &'a Tagged<Value>) -> Result<bool, ShellError> {
         trace!("Extracting {:?} for bool", value);
 
@@ -173,23 +115,9 @@ impl ExtractType for bool {
             other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
         }
     }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        match &value {
-            value @ Tagged {
-                item: Value::Primitive(Primitive::Boolean(_)),
-                ..
-            } => Ok(value),
-            other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
-        }
-    }
 }
 
 impl ExtractType for std::path::PathBuf {
-    fn syntax_type() -> hir::SyntaxType {
-        hir::SyntaxType::Path
-    }
-
     fn extract(value: &'a Tagged<Value>) -> Result<std::path::PathBuf, ShellError> {
         trace!("Extracting {:?} for PathBuf", value);
 
@@ -198,16 +126,6 @@ impl ExtractType for std::path::PathBuf {
                 item: Value::Primitive(Primitive::Path(p)),
                 ..
             } => Ok(p.clone()),
-            other => Err(ShellError::type_error("Path", other.tagged_type_name())),
-        }
-    }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        match &value {
-            v @ Tagged {
-                item: Value::Primitive(Primitive::Path(_)),
-                ..
-            } => Ok(v),
             other => Err(ShellError::type_error("Path", other.tagged_type_name())),
         }
     }
@@ -225,16 +143,6 @@ impl ExtractType for i64 {
             other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
         }
     }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        match value {
-            v @ Tagged {
-                item: Value::Primitive(Primitive::Int(_)),
-                ..
-            } => Ok(v),
-            other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
-        }
-    }
 }
 
 impl ExtractType for String {
@@ -249,31 +157,9 @@ impl ExtractType for String {
             other => Err(ShellError::type_error("String", other.tagged_type_name())),
         }
     }
-
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        match value {
-            v @ Tagged {
-                item: Value::Primitive(Primitive::String(_)),
-                ..
-            } => Ok(v),
-            other => Err(ShellError::type_error("String", other.tagged_type_name())),
-        }
-    }
 }
 
 impl ExtractType for value::Block {
-    fn check(value: &'value Tagged<Value>) -> Result<&'value Tagged<Value>, ShellError> {
-        trace!("Extracting {:?} for Block", value);
-
-        match value {
-            v @ Tagged {
-                item: Value::Block(_),
-                ..
-            } => Ok(v),
-            other => Err(ShellError::type_error("Block", other.tagged_type_name())),
-        }
-    }
-
     fn extract(value: &Tagged<Value>) -> Result<value::Block, ShellError> {
         match value {
             Tagged {
