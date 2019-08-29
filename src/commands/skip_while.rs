@@ -37,7 +37,7 @@ pub fn skip_while(
         let result = condition.invoke(&item);
 
         let return_value = match result {
-            Ok(v) if v.is_true() => true,
+            Ok(ref v) if v.is_true() => true,
             _ => false,
         };
 
