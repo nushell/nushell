@@ -95,7 +95,7 @@ fn converts_from_csv_text_to_structured_table() {
                 | get rusty_luck 
                 | str --to-int 
                 | sum 
-                | echo "$it"
+                | echo $it
             "#
         ));
 
