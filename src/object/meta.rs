@@ -87,7 +87,7 @@ impl<T> Tagged<T> {
         Tagged::from_item(mapped, tag.clone())
     }
 
-    crate fn copy_span<U>(&self, output: U) -> Tagged<U> {
+    pub(crate) fn copy_span<U>(&self, output: U) -> Tagged<U> {
         let span = self.span();
 
         Tagged::from_simple_spanned_item(output, span)
@@ -224,8 +224,8 @@ impl Tag {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Span {
-    crate start: usize,
-    crate end: usize,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
 }
 
 impl From<Option<Span>> for Span {

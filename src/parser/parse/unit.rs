@@ -24,7 +24,7 @@ impl Unit {
         }
     }
 
-    crate fn compute(&self, size: i64) -> Value {
+    pub(crate) fn compute(&self, size: i64) -> Value {
         Value::int(match self {
             Unit::B => size,
             Unit::KB => size * 1024,

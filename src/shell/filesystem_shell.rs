@@ -14,7 +14,7 @@ use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
 
 pub struct FilesystemShell {
-    crate path: String,
+    pub(crate) path: String,
     completer: NuCompleter,
     hinter: HistoryHinter,
 }

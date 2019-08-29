@@ -14,8 +14,8 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug)]
 pub struct ShellManager {
-    crate current_shell: usize,
-    crate shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
+    pub(crate) current_shell: usize,
+    pub(crate) shells: Arc<Mutex<Vec<Box<dyn Shell + Send>>>>,
 }
 
 impl ShellManager {

@@ -73,7 +73,7 @@ impl Host for BasicHost {
     }
 }
 
-crate fn handle_unexpected<T>(
+pub(crate) fn handle_unexpected<T>(
     host: &mut dyn Host,
     func: impl FnOnce(&mut dyn Host) -> Result<T, ShellError>,
 ) {

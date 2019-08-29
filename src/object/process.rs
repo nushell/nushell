@@ -3,7 +3,7 @@ use crate::prelude::*;
 use itertools::join;
 use sysinfo::ProcessExt;
 
-crate fn process_dict(proc: &sysinfo::Process, tag: impl Into<Tag>) -> Tagged<Value> {
+pub(crate) fn process_dict(proc: &sysinfo::Process, tag: impl Into<Tag>) -> Tagged<Value> {
     let mut dict = TaggedDictBuilder::new(tag);
 
     let cmd = proc.cmd();

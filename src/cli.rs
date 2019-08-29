@@ -7,7 +7,7 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
-crate use crate::errors::ShellError;
+pub(crate) use crate::errors::ShellError;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::registry::Signature;

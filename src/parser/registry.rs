@@ -1,5 +1,5 @@
 // TODO: Temporary redirect
-crate use crate::context::CommandRegistry;
+pub(crate) use crate::context::CommandRegistry;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
 use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode};
 use crate::prelude::*;
@@ -46,7 +46,7 @@ impl PositionalType {
     }
 
     #[allow(unused)]
-    crate fn to_coerce_hint(&self) -> Option<SyntaxType> {
+    pub(crate) fn to_coerce_hint(&self) -> Option<SyntaxType> {
         match self {
             PositionalType::Mandatory(_, SyntaxType::Block)
             | PositionalType::Optional(_, SyntaxType::Block) => Some(SyntaxType::Block),
@@ -54,14 +54,14 @@ impl PositionalType {
         }
     }
 
-    crate fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         match self {
             PositionalType::Mandatory(s, _) => s,
             PositionalType::Optional(s, _) => s,
         }
     }
 
-    crate fn syntax_type(&self) -> SyntaxType {
+    pub(crate) fn syntax_type(&self) -> SyntaxType {
         match *self {
             PositionalType::Mandatory(_, t) => t,
             PositionalType::Optional(_, t) => t,
@@ -276,7 +276,7 @@ impl Iterator for PositionalIter<'a> {
 }
 
 impl Signature {
-    crate fn parse_args(
+    pub(crate) fn parse_args(
         &self,
         call: &Tagged<CallNode>,
         context: &Context,
@@ -290,12 +290,12 @@ impl Signature {
     }
 
     #[allow(unused)]
-    crate fn signature(&self) -> String {
+    pub(crate) fn signature(&self) -> String {
         format!("TODO")
     }
 }
 
-crate fn evaluate_args(
+pub(crate) fn evaluate_args(
     call: &hir::Call,
     registry: &CommandRegistry,
     scope: &Scope,

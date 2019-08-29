@@ -1,3 +1,3 @@
-crate mod evaluator;
+pub(crate) mod evaluator;
 
-crate use evaluator::{evaluate_baseline_expr, Scope};
+pub(crate) use evaluator::{evaluate_baseline_expr, Scope};

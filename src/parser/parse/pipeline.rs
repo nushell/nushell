@@ -5,8 +5,8 @@ use getset::Getters;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
 pub struct Pipeline {
-    crate parts: Vec<PipelineElement>,
-    crate post_ws: Option<Span>,
+    pub(crate) parts: Vec<PipelineElement>,
+    pub(crate) post_ws: Option<Span>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]

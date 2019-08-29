@@ -79,7 +79,7 @@ impl Dictionary {
         }
     }
 
-    crate fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self
             .entries
             .iter()
@@ -90,7 +90,7 @@ impl Dictionary {
         }
     }
 
-    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut debug = f.debug_struct("Dictionary");
 
         for (desc, value) in self.entries.iter() {

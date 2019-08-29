@@ -9,7 +9,7 @@ pub enum FileType {
     Symlink,
 }
 
-crate fn dir_entry_dict(
+pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: &std::fs::Metadata,
     tag: impl Into<Tag>,

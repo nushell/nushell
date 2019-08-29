@@ -22,14 +22,14 @@ struct Config {
     extra: IndexMap<String, Tagged<Value>>,
 }
 
-crate fn config_path() -> Result<PathBuf, ShellError> {
+pub(crate) fn config_path() -> Result<PathBuf, ShellError> {
     let location = app_root(AppDataType::UserConfig, &APP_INFO)
         .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
 
     Ok(location.join("config.toml"))
 }
 
-crate fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(), ShellError> {
+pub(crate) fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(), ShellError> {
     let location = app_root(AppDataType::UserConfig, &APP_INFO)
         .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
 
@@ -45,7 +45,7 @@ crate fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(), Sh
     Ok(())
 }
 
-crate fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
+pub(crate) fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
     let span = span.into();
 
     let location = app_root(AppDataType::UserConfig, &APP_INFO)

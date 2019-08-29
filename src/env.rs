@@ -1,3 +1,3 @@
-crate mod host;
+pub(crate) mod host;
 
-crate use self::host::Host;
+pub(crate) use self::host::Host;

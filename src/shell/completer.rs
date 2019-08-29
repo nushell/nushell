@@ -3,7 +3,7 @@ use derive_new::new;
 use rustyline::completion::{Completer, FilenameCompleter};
 
 #[derive(new)]
-crate struct NuCompleter {
+pub(crate) struct NuCompleter {
     pub file_completer: FilenameCompleter,
     pub commands: CommandRegistry,
 }

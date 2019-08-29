@@ -11,8 +11,8 @@ use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub struct ValueShell {
-    crate path: String,
-    crate value: Tagged<Value>,
+    pub(crate) path: String,
+    pub(crate) value: Tagged<Value>,
 }
 
 impl ValueShell {
