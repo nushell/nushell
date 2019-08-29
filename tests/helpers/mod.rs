@@ -50,7 +50,7 @@ impl DisplayPath for nu::AbsolutePath {
 
 #[macro_export]
 macro_rules! nu {
-    ($cwd:expr, $path:expr, $($part:expr),*) => {{
+    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
         use $crate::helpers::DisplayPath;
 
         let path = format!($path, $(
@@ -58,6 +58,10 @@ macro_rules! nu {
         ),*);
 
         nu!($cwd, &path)
+    }};
+
+    (cwd: $cwd:expr, $path:expr) => {{
+        nu!($cwd, $path)
     }};
 
     ($cwd:expr, $path:expr) => {{
@@ -101,7 +105,7 @@ macro_rules! nu {
 
 #[macro_export]
 macro_rules! nu_error {
-    ($cwd:expr, $path:expr, $($part:expr),*) => {{
+    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
         use $crate::helpers::DisplayPath;
 
         let path = format!($path, $(
@@ -111,17 +115,22 @@ macro_rules! nu_error {
         nu_error!($cwd, &path)
     }};
 
+    (cwd: $cwd:expr, $path:expr) => {{
+        nu_error!($cwd, $path)
+    }};
 
-    ($cwd:expr, $commands:expr) => {{
-        use std::io::prelude::*;
-        use std::process::{Command, Stdio};
+    ($cwd:expr, $path:expr) => {{
+        pub use std::error::Error;
+        pub use std::io::prelude::*;
+        pub use std::process::{Command, Stdio};
 
         let commands = &*format!(
             "
                             cd {}
                             {}
                             exit",
-            $crate::helpers::in_directory($cwd), $commands
+            $crate::helpers::in_directory($cwd),
+            $crate::helpers::DisplayPath::display_path(&$path)
         );
 
         let mut process = Command::new(helpers::executable_path())
@@ -140,7 +149,6 @@ macro_rules! nu_error {
             .expect("couldn't read from stderr");
 
         let out = String::from_utf8_lossy(&output.stderr);
-
         out.into_owned()
     }};
 }
@@ -343,14 +351,6 @@ pub fn files_exist_at(files: Vec<impl AsRef<Path>>, path: impl AsRef<Path>) -> b
         loc.push(f);
         loc.exists()
     })
-}
-
-pub fn file_exists_at(path: impl AsRef<Path>) -> bool {
-    path.as_ref().exists()
-}
-
-pub fn dir_exists_at(path: impl AsRef<Path>) -> bool {
-    path.as_ref().exists()
 }
 
 pub fn delete_directory_at(full_path: &str) {

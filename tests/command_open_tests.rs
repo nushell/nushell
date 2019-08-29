@@ -1,7 +1,7 @@
 mod helpers;
 
-use helpers::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use helpers::{Playground, Stub::*};
 
 #[test]
 fn recognizes_csv() {
@@ -18,7 +18,7 @@ fn recognizes_csv() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open nu.zion.csv 
                 | where author == "Andres N. Robalino" 
@@ -34,7 +34,7 @@ fn recognizes_csv() {
 #[test]
 fn open_can_parse_bson_1() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open sample.bson | get root | nth 0 | get b | echo $it"
     );
 
@@ -44,16 +44,16 @@ fn open_can_parse_bson_1() {
 #[test]
 fn open_can_parse_bson_2() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
-            r#"
-                open sample.bson 
-                | get root 
-                | nth 6 
-                | get b 
-                | get '$binary_subtype' 
-                | echo $it
-            "#
-        ));
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open sample.bson 
+            | get root 
+            | nth 6 
+            | get b 
+            | get '$binary_subtype' 
+            | echo $it
+        "#
+    ));
 
     assert_eq!(actual, "function");
 }
@@ -61,7 +61,7 @@ fn open_can_parse_bson_2() {
 #[test]
 fn open_can_parse_toml() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open cargo_sample.toml | get package.edition | echo $it"
     );
 
@@ -71,7 +71,7 @@ fn open_can_parse_toml() {
 #[test]
 fn open_can_parse_json() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
+        cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open sgml_description.json 
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee 
@@ -85,7 +85,7 @@ fn open_can_parse_json() {
 #[test]
 fn open_can_parse_xml() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open jonathan.xml | get rss.channel.item.link | echo $it"
     );
 
@@ -98,7 +98,7 @@ fn open_can_parse_xml() {
 #[test]
 fn open_can_parse_ini() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open sample.ini | get SectionOne.integer | echo $it"
     );
 
@@ -108,7 +108,7 @@ fn open_can_parse_ini() {
 #[test]
 fn open_can_parse_utf16_ini() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open utf16.ini | get .ShellClassInfo | get IconIndex | echo $it"
     );
 
@@ -118,7 +118,7 @@ fn open_can_parse_utf16_ini() {
 #[test]
 fn errors_if_file_not_found() {
     let actual = nu_error!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open i_dont_exist.txt | echo $it"
     );
 

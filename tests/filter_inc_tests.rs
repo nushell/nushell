@@ -1,12 +1,11 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
-use helpers as h;
+use helpers::{Playground, Stub::*};
 
 #[test]
 fn can_only_apply_one() {
     let actual = nu_error!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open cargo_sample.toml | first 1 | inc package.version --major --minor"
     );
 
@@ -26,7 +25,7 @@ fn by_one_with_field_passed() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | inc package.edition | get package.edition | echo $it"
         );
 
@@ -47,7 +46,7 @@ fn by_one_with_no_field_passed() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | get package.contributors | inc | echo $it"
         );
 
@@ -68,7 +67,7 @@ fn semversion_major_inc() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | inc package.version --major | get package.version | echo $it"
         );
 
@@ -89,7 +88,7 @@ fn semversion_minor_inc() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | inc package.version --minor | get package.version | echo $it"
         );
 
@@ -110,7 +109,7 @@ fn semversion_patch_inc() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | inc package.version --patch | get package.version | echo $it"
         );
 
@@ -131,7 +130,7 @@ fn semversion_without_passing_field() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open sample.toml | get package.version | inc --patch | echo $it"
         );
 

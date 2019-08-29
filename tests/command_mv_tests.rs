@@ -1,7 +1,7 @@
 mod helpers;
 
-use h::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use helpers::{Playground, Stub::*};
 
 #[test]
 fn moves_a_file() {
@@ -13,10 +13,13 @@ fn moves_a_file() {
         let original = dirs.test().join("andres.txt");
         let expected = dirs.test().join("expected/yehuda.txt");
 
-        nu!(cwd(dirs.test()), "mv andres.txt expected/yehuda.txt");
+        nu!(
+            cwd: dirs.test(),
+            "mv andres.txt expected/yehuda.txt"
+        );
 
-        assert!(!h::file_exists_at(original));
-        assert!(h::file_exists_at(expected));
+        assert!(!original.exists());
+        assert!(expected.exists());
     })
 }
 
@@ -32,10 +35,13 @@ fn overwrites_if_moving_to_existing_file() {
         let original = dirs.test().join("andres.txt");
         let expected = dirs.test().join("jonathan.txt");
 
-        nu!(cwd(dirs.test()), "mv andres.txt jonathan.txt");
+        nu!(
+            cwd: dirs.test(),
+            "mv andres.txt jonathan.txt"
+        );
 
-        assert!(!h::file_exists_at(original));
-        assert!(h::file_exists_at(expected));
+        assert!(!original.exists());
+        assert!(expected.exists());
     })
 }
 
@@ -47,10 +53,13 @@ fn moves_a_directory() {
         let original_dir = dirs.test().join("empty_dir");
         let expected = dirs.test().join("renamed_dir");
 
-        nu!(cwd(dirs.test()), "mv empty_dir renamed_dir");
+        nu!(
+            cwd: dirs.test(),
+            "mv empty_dir renamed_dir"
+        );
 
-        assert!(!h::dir_exists_at(original_dir));
-        assert!(h::dir_exists_at(expected));
+        assert!(!original_dir.exists());
+        assert!(expected.exists());
     })
 }
 
@@ -64,10 +73,13 @@ fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() {
         let original_dir = dirs.test().join("jonathan.txt");
         let expected = dirs.test().join("expected/jonathan.txt");
 
-        nu!(dirs.test(), "mv jonathan.txt expected");
+        nu!(
+            cwd: dirs.test(),
+            "mv jonathan.txt expected"
+        );
 
-        assert!(!h::file_exists_at(original_dir));
-        assert!(h::file_exists_at(expected));
+        assert!(!original_dir.exists());
+        assert!(expected.exists());
     })
 }
 
@@ -82,10 +94,13 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
         let original_dir = dirs.test().join("contributors");
         let expected = dirs.test().join("expected/contributors");
 
-        nu!(dirs.test(), "mv contributors expected");
+        nu!(
+            cwd: dirs.test(),
+            "mv contributors expected"
+        );
 
-        assert!(!h::dir_exists_at(original_dir));
-        assert!(h::file_exists_at(expected));
+        assert!(!original_dir.exists());
+        assert!(expected.exists());
     })
 }
 
@@ -100,7 +115,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_nonexistent_directory
         let original_dir = dirs.test().join("contributors");
 
         nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "mv contributors expected/this_dir_exists_now/los_tres_amigos"
         );
 
@@ -108,8 +123,8 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_nonexistent_directory
             .test()
             .join("expected/this_dir_exists_now/los_tres_amigos");
 
-        assert!(!h::dir_exists_at(original_dir));
-        assert!(h::file_exists_at(expected));
+        assert!(!original_dir.exists());
+        assert!(expected.exists());
     })
 }
 
@@ -135,7 +150,10 @@ fn moves_using_path_with_wildcard() {
         let work_dir = dirs.test().join("work_dir");
         let expected = dirs.test().join("expected");
 
-        nu!(cwd(work_dir), "mv ../originals/*.ini ../expected");
+        nu!(
+            cwd: work_dir,
+            "mv ../originals/*.ini ../expected"
+        );
 
         assert!(h::files_exist_at(
             vec!["yehuda.ini", "jonathan.ini", "sample.ini", "andres.ini",],
@@ -161,9 +179,12 @@ fn moves_using_a_glob() {
         let work_dir = dirs.test().join("work_dir");
         let expected = dirs.test().join("expected");
 
-        nu!(cwd(work_dir), "mv ../meals/* ../expected");
+        nu!(
+            cwd: work_dir,
+            "mv ../meals/* ../expected"
+        );
 
-        assert!(h::dir_exists_at(meal_dir));
+        assert!(meal_dir.exists());
         assert!(h::files_exist_at(
             vec!["arepa.txt", "empanada.txt", "taquiza.txt",],
             expected
