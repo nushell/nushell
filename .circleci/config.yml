@@ -5,10 +5,29 @@
 #
 version: 2.1
 
+# Commands
+
+commands:
+
+  check_token:
+    description: Check that QUAY_TOKEN is provided in environment
+    steps:
+      - run: 
+          if [[ -z "${QUAY_TOKEN}" ]]; then
+            echo "QUAY_TOKEN is undefined. Add to CircleCI environment to continue."
+            exit 1;
+          fi
+
+  pull_cache:
+    description: Pulls Quay.io docker images usable for our cache
+    steps:
+      - run: docker pull quay.io/nushell/nu:latest
+      - run: docker pull quay.io/nushell/nu-base:latest
+
+
 orbs:
   # https://circleci.com/orbs/registry/orb/circleci/docker
   docker: circleci/docker@0.5.13
-
 
 workflows:
   version: 2.0
@@ -21,23 +40,23 @@ workflows:
           image: nushell/nu-base
           tag: latest
           dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
           filters:
             branches:
               ignore: 
                 - master
-
-      - docker/publish:
-          deploy: false
-          image: nushell/nu
-          tag: latest
-          dockerfile: docker/Dockerfile
-          requires:
-            - docker/publish
+          before_build:
+            - check_token
+            - pull_cache
           after_build:
             - run:
-                name: Preview Docker Tag for Build
+                name: Build Multistage (smaller) container
                 command: |
-                   DOCKER_TAG=v$(docker run nushell/nushell --version | cut -d' ' -f2)
+                  docker build -f docker/Dockerfile -t nushell/nu .
+            - run:
+                name: Preview Docker Tag for Nushell Build
+                command: |
+                   DOCKER_TAG=$(docker run nushell/nu --version | cut -d' ' -f2)
                    echo "Version that would be used for Docker tag is v${DOCKER_TAG}"
 
   # workflow publishes to Docker Hub, with each job having different triggers
@@ -47,34 +66,33 @@ workflows:
         # Deploy versioned and latest images on tags (releases) only.
       - docker/publish:
           image: nushell/nu-base
+          registry: quay.io
           tag: latest
           dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /^v.*/
+          before_build:
+            - check_token
+            - pull_cache
           after_build:
+            - run:
+                name: Build Multistage (smaller) container
+                command: |
+                  docker build -f docker/Dockerfile -t nushell/nu .
             - run:
                 name: Publish Docker Tag with Nushell Version
                 command: |
-                   DOCKER_TAG=v$(docker run nushell/nu-base --version | cut -d' ' -f2)
+                   DOCKER_TAG=$(docker run nushell/nu --version | cut -d' ' -f2)
                    echo "Version for Docker tag is ${DOCKER_TAG}"
                    docker tag nushell/nu-base:latest nushell/nu-base:${DOCKER_TAG}
-
-      - docker/publish:
-          image: nushell/nu
-          tag: latest
-          dockerfile: docker/Dockerfile
-          requires:
-            - docker/publish
-          after_build:
-            - run:
-                name: Publish Docker Tag with Nushell Version
-                command: |
-                   DOCKER_TAG=v$(docker run nushell/nu --version | cut -d' ' -f2)
-                   echo "Version for Docker tag is ${DOCKER_TAG}"
-                   docker tag nushell/nu-base:latest nushell/nu:${DOCKER_TAG}
+                   docker tag nushell/nu:latest nushell/nu:${DOCKER_TAG}
+                   docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
+                   docker push nushell/nu-base
+                   docker push nushell/nu
 
 
   # publish devel to Docker Hub on merge to master
@@ -84,39 +102,24 @@ workflows:
       # Deploy devel tag on merge to master
       - docker/publish:
           image: nushell/nu-base
+          registry: quay.io
           tag: devel
           dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          before_build:
+            - check_token
+            - pull_cache
           filters:
             branches:
               only: master
-
-      - docker/publish:
-          image: nushell/nu
-          tag: devel
-          dockerfile: docker/Dockerfile
-          requires: 
-            - docker/publish
-
-
-  # Nightly build
-  build_with_deploy_nightly:
-    triggers:
-      - schedule:
-          cron: "0 22 * * *"  # 22:00 UTC
-          filters:
-            branches:
-              only:
-                - master
-
-    jobs:
-      - docker/publish:
-          image: nushell/nu-base
-          tag: nightly
-          dockerfile: docker/Dockerfile.nu-base
-
-      - docker/publish:
-          image: nushell/nu
-          tag: nightly
-          requires: 
-            - docker/publish
-          dockerfile: docker/Dockerfile
+          after_build:
+            - run:
+                name: Build Multistage (smaller) container
+                command: |
+                  docker build -f docker/Dockerfile -t nushell/nu:devel .
+            - run:
+                name: Publish Development Docker Tags
+                command: |
+                   docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
+                   docker push nushell/nu-base:devel
+                   docker push nushell/nu:devel
