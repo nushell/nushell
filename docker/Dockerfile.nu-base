@@ -1,17 +1,18 @@
 FROM rust:1.37-slim
 
-# docker build -t nushell/nu-base .
+# docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
 # docker run -it nushell/nu-base
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y libssl-dev \
     libxcb-composite0-dev \
     libx11-dev \
-    pkg-config && \
-    mkdir -p /code
+    pkg-config
 
-ADD . /code
+RUN USER=root cargo new --bin /code
+
 WORKDIR /code
-RUN cargo build --release && cargo run --release && \
-    cp target/release/nu /usr/local/bin
+ADD . /code
+RUN cargo build --release && cargo run --release
+RUN cp target/release/nu /usr/local/bin
 ENTRYPOINT ["nu"]
