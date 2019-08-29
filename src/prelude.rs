@@ -16,10 +16,6 @@ macro_rules! trace_stream {
     (target: $target:tt, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
-            // Blocking is generally quite bad, but this is for debugging
-            // let mut local = futures::executor::LocalPool::new();
-            // let objects = local.run_until($expr.into_vec());
-            // let objects: Vec<_> = futures::executor::block_on($expr.into_vec());
 
             let objects = $expr.values.inspect(|o| {
                 trace!(target: $target, "{} = {:#?}", $desc, o.debug());

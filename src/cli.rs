@@ -272,11 +272,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 if ctrlcbreak {
                     std::process::exit(0);
                 } else {
-                    context
-                        .host
-                        .lock()
-                        .unwrap()
-                        .stdout("CTRL-C pressed (again to quit)");
+                    context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
                     ctrlcbreak = true;
                     continue;
                 }
@@ -285,18 +281,19 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             LineResult::Error(mut line, err) => {
                 rl.add_history_entry(line.clone());
                 let diag = err.to_diagnostic();
-                let host = context.host.lock().unwrap();
-                let writer = host.err_termcolor();
-                line.push_str(" ");
-                let files = crate::parser::Files::new(line);
-                let _ = std::panic::catch_unwind(move || {
-                    let _ = language_reporting::emit(
-                        &mut writer.lock(),
-                        &files,
-                        &diag,
-                        &language_reporting::DefaultConfig,
-                    );
-                });
+                context.with_host(|host| {
+                    let writer = host.err_termcolor();
+                    line.push_str(" ");
+                    let files = crate::parser::Files::new(line);
+                    let _ = std::panic::catch_unwind(move || {
+                        let _ = language_reporting::emit(
+                            &mut writer.lock(),
+                            &files,
+                            &diag,
+                            &language_reporting::DefaultConfig,
+                        );
+                    });
+                })
             }
 
             LineResult::Break => {
@@ -304,11 +301,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             }
 
             LineResult::FatalError(_, err) => {
-                context
-                    .host
-                    .lock()
-                    .unwrap()
-                    .stdout(&format!("A surprising fatal error occurred.\n{:?}", err));
+                context.with_host(|host| {
+                    host.stdout(&format!("A surprising fatal error occurred.\n{:?}", err))
+                });
             }
         }
         ctrlcbreak = false;

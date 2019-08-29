@@ -1,271 +1,360 @@
 mod helpers;
 
 use helpers::{in_directory as cwd, Playground, Stub::*};
+use helpers as h;
 
 #[test]
 fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
-    nu!(
-        output,
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
     );
 
-    assert_eq!(output, "SPAIN");
+    assert_eq!(actual, "SPAIN");
 }
 
 #[test]
 fn converts_structured_table_to_csv_text() {
-    Playground::setup_for("filter_to_csv_test_1").with_files(vec![FileWithContentToBeTrimmed(
-        "sample.txt",
-        r#"
-            importer,shipper,tariff_item,name,origin
-            Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
-            Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-        "#,
-    )]);
+    Playground::setup("filter_to_csv_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "csv_text_sample.txt",
+                r#"
+                    importer,shipper,tariff_item,name,origin
+                    Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+                    Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+                "#
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_to_csv_test_1"),
-        r#"open sample.txt | lines | split-column "," a b c d origin  | last 1 | to-csv | lines | nth 1 | echo "$it""#
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open csv_text_sample.txt 
+                | lines 
+                | split-column "," a b c d origin  
+                | last 1 
+                | to-csv 
+                | lines 
+                | nth 1 
+                | echo "$it"
+            "#
+        ));
 
-    assert!(output.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(actual.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+    })
 }
 
 #[test]
 fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
-    Playground::setup_for("filter_to_csv_test_2").with_files(vec![FileWithContentToBeTrimmed(
-        "sample.txt",
-        r#"
-            importer,shipper,tariff_item,name,origin
-            Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
-            Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-        "#,
-    )]);
+    Playground::setup("filter_to_csv_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "csv_text_sample.txt",
+                r#"
+                    importer,shipper,tariff_item,name,origin
+                    Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+                    Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+                "#
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_to_csv_test_2"),
-        r#"open sample.txt | lines | split-column "," a b c d origin  | last 1 | to-csv --headerless | echo "$it""#
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open csv_text_sample.txt 
+                | lines 
+                | split-column "," a b c d origin  
+                | last 1 
+                | to-csv --headerless 
+                | echo "$it"
+            "#
+        ));
 
-    assert!(output.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+        assert!(actual.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+    })
 }
 
 #[test]
 fn converts_from_csv_text_to_structured_table() {
-    Playground::setup_for("filter_from_csv_test_1").with_files(vec![FileWithContentToBeTrimmed(
-        "los_tres_amigos.txt",
-        r#"
-            first_name,last_name,rusty_luck
-            Andrés,Robalino,1
-            Jonathan,Turner,1
-            Yehuda,Katz,1
-        "#,
-    )]);
+    Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "los_tres_amigos.txt",
+                r#"
+                    first_name,last_name,rusty_luck
+                    Andrés,Robalino,1
+                    Jonathan,Turner,1
+                    Yehuda,Katz,1
+                "#,
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_from_csv_test_1"),
-        "open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo $it"
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open los_tres_amigos.txt 
+                | from-csv 
+                | get rusty_luck 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
+        ));
 
-    assert_eq!(output, "3");
+        assert_eq!(actual, "3");
+    })
 }
 
 #[test]
 fn converts_from_csv_text_skipping_headers_to_structured_table() {
-    Playground::setup_for("filter_from_csv_test_2").with_files(vec![FileWithContentToBeTrimmed(
-        "los_tres_amigos.txt",
-        r#"
-            first_name,last_name,rusty_luck
-            Andrés,Robalino,1
-            Jonathan,Turner,1
-            Yehuda,Katz,1
-        "#,
-    )]);
+    Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "los_tres_amigos.txt",
+                r#"
+                    first_name,last_name,rusty_luck
+                    Andrés,Robalino,1
+                    Jonathan,Turner,1
+                    Yehuda,Katz,1
+                "#,
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_from_csv_test_2"),
-        "open los_tres_amigos.txt | from-csv --headerless | get Column3 | str --to-int | sum | echo $it"
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open los_tres_amigos.txt 
+                | from-csv --headerless 
+                | get Column3 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
+        ));
 
-    assert_eq!(output, "3");
+        assert_eq!(actual, "3");
+    })
 }
 
 #[test]
 fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open sgml_description.json | to-json | from-json | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee | echo $it"
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+        r#"
+            open sgml_description.json 
+            | to-json 
+            | from-json 
+            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee 
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(output, "markup");
+    assert_eq!(actual, "markup");
 }
 
 #[test]
 fn converts_from_json_text_to_structured_table() {
-    Playground::setup_for("filter_from_json_test_1").with_files(vec![FileWithContentToBeTrimmed(
-        "katz.txt",
-        r#"
-            {
-                "katz": [
-                    {"name":   "Yehuda", "rusty_luck": 1}, 
-                    {"name": "Jonathan", "rusty_luck": 1}, 
-                    {"name":   "Andres", "rusty_luck": 1},
-                    {"name":"GorbyPuff", "rusty_luck": 1}
-                ]
-            }
-        "#,
-    )]);
+    Playground::setup("filter_from_json_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "katz.txt",
+                r#"
+                    {
+                        "katz": [
+                            {"name":   "Yehuda", "rusty_luck": 1}, 
+                            {"name": "Jonathan", "rusty_luck": 1}, 
+                            {"name":   "Andres", "rusty_luck": 1},
+                            {"name":"GorbyPuff", "rusty_luck": 1}
+                        ]
+                    }
+                "#,
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_from_json_test_1"),
-        "open katz.txt | from-json | get katz | get rusty_luck | sum | echo $it"
-    );
+        let actual = nu!(
+            cwd(dirs.test()),
+            "open katz.txt | from-json | get katz | get rusty_luck | sum | echo $it"
+        );
 
-    assert_eq!(output, "4");
+        assert_eq!(actual, "4");
+
+    })
 }
 
 #[test]
 fn converts_from_json_text_recognizing_objects_independendtly_to_structured_table() {
-    Playground::setup_for("filter_from_json_test_2").with_files(vec![FileWithContentToBeTrimmed(
-        "katz.txt",
-        r#"
-            {"name":   "Yehuda", "rusty_luck": 1} 
-            {"name": "Jonathan", "rusty_luck": 1} 
-            {"name":   "Andres", "rusty_luck": 1}
-            {"name":"GorbyPuff", "rusty_luck": 3}
-        "#,
-    )]);
+    Playground::setup("filter_from_json_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "katz.txt",
+                r#"
+                    {"name":   "Yehuda", "rusty_luck": 1} 
+                    {"name": "Jonathan", "rusty_luck": 1} 
+                    {"name":   "Andres", "rusty_luck": 1}
+                    {"name":"GorbyPuff", "rusty_luck": 3}
+                "#,
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_from_json_test_2"),
-        r#"open katz.txt | from-json --objects | where name == "GorbyPuff" | get rusty_luck | echo $it"#
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open katz.txt 
+                | from-json --objects 
+                | where name == "GorbyPuff" 
+                | get rusty_luck 
+                | echo $it
+            "#
+        ));
 
-    assert_eq!(output, "3");
+        assert_eq!(actual, "3");
+    })
 }
 
 #[test]
 fn converts_structured_table_to_json_text() {
-    Playground::setup_for("filter_to_json_test_1").with_files(vec![FileWithContentToBeTrimmed(
-        "sample.txt",
-        r#"
-            JonAndrehudaTZ,3
-            GorbyPuff,100
-        "#,
-    )]);
+    Playground::setup("filter_to_json_test", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "sample.txt",
+                r#"
+                    JonAndrehudaTZ,3
+                    GorbyPuff,100
+                "#,
+        )]);
 
-    nu!(
-        output,
-        cwd("tests/fixtures/nuplayground/filter_to_json_test_1"),
-        r#"open sample.txt | lines | split-column "," name luck | pick name | to-json | nth 0 | from-json | get name | echo $it"#
-    );
+        let actual = nu!(
+            cwd(dirs.test()), h::pipeline(
+            r#"
+                open sample.txt 
+                | lines 
+                | split-column "," name luck 
+                | pick name 
+                | to-json 
+                | nth 0 
+                | from-json 
+                | get name 
+                | echo $it
+            "#
+        ));
 
-    assert_eq!(output, "JonAndrehudaTZ");
+        assert_eq!(actual, "JonAndrehudaTZ");
+    })
 }
 
 #[test]
 fn can_convert_json_text_to_bson_and_back_into_table() {
-    nu!(
-        output,
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open sample.bson | to-bson | from-bson | get root | nth 1 | get b | echo $it"
     );
 
-    assert_eq!(output, "whel");
+    assert_eq!(actual, "whel");
 }
 
 #[test]
 fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
-    nu!(
-        output,
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "open cargo_sample.toml | to-toml | from-toml | get package.name | echo $it"
     );
 
-    assert_eq!(output, "nu");
+    assert_eq!(actual, "nu");
 }
 
 #[test]
 fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open appveyor.yml | to-yaml | from-yaml | get environment.global.PROJECT_NAME | echo $it"
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+        r#"
+            open appveyor.yml 
+            | to-yaml 
+            | from-yaml 
+            | get environment.global.PROJECT_NAME 
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(output, "nushell");
+    assert_eq!(actual, "nushell");
 }
 
 #[test]
 fn can_sort_by_column() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        r#"open cargo_sample.toml --raw | lines | skip 1 | first 4 | split-column "=" | sort-by Column1 | skip 1 | first 1 | get Column1 | trim | echo $it"#
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+        r#"
+            open cargo_sample.toml --raw 
+            | lines 
+            | skip 1 
+            | first 4 
+            | split-column "=" 
+            | sort-by Column1 
+            | skip 1 
+            | first 1 
+            | get Column1 
+            | trim 
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(output, "description");
+    assert_eq!(actual, "description");
 }
 
 #[test]
 fn can_split_by_column() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        r#"open cargo_sample.toml --raw | lines | skip 1 | first 1 | split-column "=" | get Column1 | trim | echo $it"#
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+        r#"
+            open cargo_sample.toml --raw 
+            | lines 
+            | skip 1 
+            | first 1 
+            | split-column "=" 
+            | get Column1 
+            | trim 
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(output, "name");
+    assert_eq!(actual, "name");
 }
 
 #[test]
 fn can_sum() {
-    nu!(
-        output,
-        cwd("tests/fixtures/formats"),
-        "open sgml_description.json | get glossary.GlossDiv.GlossList.GlossEntry.Sections | sum | echo $it"
-    );
+    let actual = nu!(
+        cwd("tests/fixtures/formats"), h::pipeline(
+        r#"
+            open sgml_description.json 
+            | get glossary.GlossDiv.GlossList.GlossEntry.Sections 
+            | sum 
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(output, "203")
+    assert_eq!(actual, "203")
 }
 
 #[test]
 fn can_filter_by_unit_size_comparison() {
-    nu!(
-        output,
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "ls | where size > 1kb | sort-by size | get name | skip 1 | trim | echo $it"
     );
 
-    assert_eq!(output, "caco3_plastics.csv");
+    assert_eq!(actual, "caco3_plastics.csv");
 }
 
 #[test]
 fn can_get_last() {
-    nu!(
-        output,
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "ls | sort-by name | last 1 | get name | trim | echo $it"
     );
 
-    assert_eq!(output, "utf16.ini");
+    assert_eq!(actual, "utf16.ini");
 }
 
 #[test]
 fn can_get_reverse_first() {
-    nu!(
-        output,
+    let actual = nu!(
         cwd("tests/fixtures/formats"),
         "ls | sort-by name | reverse | first 1 | get name | trim | echo $it"
     );
 
-    assert_eq!(output, "utf16.ini");
+    assert_eq!(actual, "utf16.ini");
 }
