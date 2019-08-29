@@ -11,12 +11,12 @@ use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use std::borrow::Cow::{self, Owned};
 
-crate struct Helper {
+pub(crate) struct Helper {
     helper: ShellManager,
 }
 
 impl Helper {
-    crate fn new(helper: ShellManager) -> Helper {
+    pub(crate) fn new(helper: ShellManager) -> Helper {
         Helper { helper }
     }
 }

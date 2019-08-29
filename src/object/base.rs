@@ -16,11 +16,11 @@ use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new, Serialize, Deserialize)]
 pub struct OF64 {
-    crate inner: OrderedFloat<f64>,
+    pub(crate) inner: OrderedFloat<f64>,
 }
 
 impl OF64 {
-    crate fn into_inner(&self) -> f64 {
+    pub(crate) fn into_inner(&self) -> f64 {
         self.inner.into_inner()
     }
 }
@@ -49,7 +49,7 @@ pub enum Primitive {
 }
 
 impl Primitive {
-    crate fn type_name(&self) -> String {
+    pub(crate) fn type_name(&self) -> String {
         use Primitive::*;
 
         match self {
@@ -67,7 +67,7 @@ impl Primitive {
         .to_string()
     }
 
-    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Primitive::*;
 
         match self {
@@ -130,16 +130,16 @@ impl Primitive {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
 pub struct Operation {
-    crate left: Value,
-    crate operator: Operator,
-    crate right: Value,
+    pub(crate) left: Value,
+    pub(crate) operator: Operator,
+    pub(crate) right: Value,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Serialize, Deserialize, new)]
 pub struct Block {
-    crate expressions: Vec<hir::Expression>,
-    crate source: Text,
-    crate span: Span,
+    pub(crate) expressions: Vec<hir::Expression>,
+    pub(crate) source: Text,
+    pub(crate) span: Span,
 }
 
 impl Block {
@@ -209,7 +209,7 @@ impl fmt::Debug for ValueDebug<'a> {
 }
 
 impl Tagged<Value> {
-    crate fn tagged_type_name(&self) -> Tagged<String> {
+    pub(crate) fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
         Tagged::from_item(name, self.tag())
     }
@@ -319,13 +319,13 @@ impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
 }
 
 impl Tagged<Value> {
-    crate fn debug(&'a self) -> ValueDebug<'a> {
+    pub(crate) fn debug(&'a self) -> ValueDebug<'a> {
         ValueDebug { value: self }
     }
 }
 
 impl Value {
-    crate fn type_name(&self) -> String {
+    pub(crate) fn type_name(&self) -> String {
         match self {
             Value::Primitive(p) => p.type_name(),
             Value::Object(_) => format!("object"),
@@ -351,7 +351,7 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_key(&'a self, name: &str) -> Option<&Tagged<Value>> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(l) => {
@@ -374,7 +374,7 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_index(&'a self, idx: usize) -> Option<&Tagged<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
             _ => None,
@@ -491,7 +491,7 @@ impl Value {
         }
     }
 
-    crate fn format_leaf(&self, desc: Option<&String>) -> String {
+    pub(crate) fn format_leaf(&self, desc: Option<&String>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
             Value::Block(b) => itertools::join(
@@ -510,7 +510,7 @@ impl Value {
         }
     }
 
-    crate fn style_leaf(&self) -> &'static str {
+    pub(crate) fn style_leaf(&self) -> &'static str {
         match self {
             Value::Primitive(p) => p.style(),
             _ => "",
@@ -518,7 +518,7 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
+    pub(crate) fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
@@ -545,14 +545,14 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn is_string(&self, expected: &str) -> bool {
+    pub(crate) fn is_string(&self, expected: &str) -> bool {
         match self {
             Value::Primitive(Primitive::String(s)) if s == expected => true,
             other => false,
         }
     }
 
-    // crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
+    // pub(crate) fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
     //     match self {
     //         Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
     //         other => Err(ShellError::string(format!(
@@ -562,7 +562,7 @@ impl Value {
     //     }
     // }
 
-    crate fn as_string(&self) -> Result<String, ShellError> {
+    pub(crate) fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
@@ -577,7 +577,7 @@ impl Value {
         }
     }
 
-    crate fn as_i64(&self) -> Result<i64, ShellError> {
+    pub(crate) fn as_i64(&self) -> Result<i64, ShellError> {
         match self {
             Value::Primitive(Primitive::Int(i)) => Ok(*i),
             Value::Primitive(Primitive::Bytes(b)) => Ok(*b as i64),
@@ -589,7 +589,7 @@ impl Value {
         }
     }
 
-    crate fn is_true(&self) -> bool {
+    pub(crate) fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
             _ => false,
@@ -640,7 +640,7 @@ impl Value {
 }
 
 impl Tagged<Value> {
-    crate fn as_path(&self) -> Result<PathBuf, ShellError> {
+    pub(crate) fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self.item() {
             Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
             other => Err(ShellError::type_error(
@@ -651,7 +651,7 @@ impl Tagged<Value> {
     }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
+pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
@@ -666,7 +666,7 @@ crate fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> T
     out.into_tagged_value()
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
+pub(crate) fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
@@ -683,7 +683,7 @@ crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> T
 }
 
 #[allow(unused)]
-crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
+pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     let descs = obj.data_descriptors();
     match descs.iter().find(|d| *d == field) {
         None => false,

@@ -16,14 +16,14 @@ pub struct Scope {
 }
 
 impl Scope {
-    crate fn empty() -> Scope {
+    pub(crate) fn empty() -> Scope {
         Scope {
             it: Value::nothing().tagged_unknown(),
             vars: IndexMap::new(),
         }
     }
 
-    crate fn it_value(value: Tagged<Value>) -> Scope {
+    pub(crate) fn it_value(value: Tagged<Value>) -> Scope {
         Scope {
             it: value,
             vars: IndexMap::new(),
@@ -31,7 +31,7 @@ impl Scope {
     }
 }
 
-crate fn evaluate_baseline_expr(
+pub(crate) fn evaluate_baseline_expr(
     expr: &Expression,
     registry: &CommandRegistry,
     scope: &Scope,

@@ -157,7 +157,7 @@ impl TokenNode {
         }
     }
 
-    crate fn as_flag(&self, value: &str, source: &Text) -> Option<Tagged<Flag>> {
+    pub(crate) fn as_flag(&self, value: &str, source: &Text) -> Option<Tagged<Flag>> {
         match self {
             TokenNode::Flag(
                 flag @ Tagged {

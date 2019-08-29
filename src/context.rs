@@ -41,13 +41,13 @@ pub struct CommandRegistry {
 }
 
 impl CommandRegistry {
-    crate fn empty() -> CommandRegistry {
+    pub(crate) fn empty() -> CommandRegistry {
         CommandRegistry {
             registry: Arc::new(Mutex::new(IndexMap::default())),
         }
     }
 
-    crate fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         let registry = self.registry.lock().unwrap();
 
         registry.get(name).map(|c| c.clone())
@@ -64,7 +64,7 @@ impl CommandRegistry {
         registry.insert(name.into(), command);
     }
 
-    crate fn names(&self) -> Vec<String> {
+    pub(crate) fn names(&self) -> Vec<String> {
         let registry = self.registry.lock().unwrap();
         registry.keys().cloned().collect()
     }
@@ -73,17 +73,17 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     registry: CommandRegistry,
-    crate source_map: SourceMap,
+    pub(crate) source_map: SourceMap,
     host: Arc<Mutex<dyn Host + Send>>,
-    crate shell_manager: ShellManager,
+    pub(crate) shell_manager: ShellManager,
 }
 
 impl Context {
-    crate fn registry(&self) -> &CommandRegistry {
+    pub(crate) fn registry(&self) -> &CommandRegistry {
         &self.registry
     }
 
-    crate fn basic() -> Result<Context, Box<dyn Error>> {
+    pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
         let registry = CommandRegistry::new();
         Ok(Context {
             registry: registry.clone(),
@@ -93,7 +93,7 @@ impl Context {
         })
     }
 
-    crate fn with_host(&mut self, block: impl FnOnce(&mut dyn Host)) {
+    pub(crate) fn with_host(&mut self, block: impl FnOnce(&mut dyn Host)) {
         let mut host = self.host.lock().unwrap();
 
         block(&mut *host)
@@ -109,15 +109,15 @@ impl Context {
         self.source_map.insert(uuid, span_source);
     }
 
-    crate fn has_command(&self, name: &str) -> bool {
+    pub(crate) fn has_command(&self, name: &str) -> bool {
         self.registry.has(name)
     }
 
-    crate fn get_command(&self, name: &str) -> Arc<Command> {
+    pub(crate) fn get_command(&self, name: &str) -> Arc<Command> {
         self.registry.get_command(name).unwrap()
     }
 
-    crate fn run_command<'a>(
+    pub(crate) fn run_command<'a>(
         &mut self,
         command: Arc<Command>,
         name_span: Span,

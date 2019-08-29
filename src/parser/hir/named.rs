@@ -19,7 +19,7 @@ pub enum NamedValue {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, new)]
 pub struct NamedArguments {
     #[new(default)]
-    crate named: IndexMap<String, NamedValue>,
+    pub(crate) named: IndexMap<String, NamedValue>,
 }
 
 impl ToDebug for NamedArguments {

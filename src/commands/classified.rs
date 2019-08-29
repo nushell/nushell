@@ -45,27 +45,27 @@ impl Decoder for LinesCodec {
     }
 }
 
-crate struct ClassifiedInputStream {
-    crate objects: InputStream,
-    crate stdin: Option<std::fs::File>,
+pub(crate) struct ClassifiedInputStream {
+    pub(crate) objects: InputStream,
+    pub(crate) stdin: Option<std::fs::File>,
 }
 
 impl ClassifiedInputStream {
-    crate fn new() -> ClassifiedInputStream {
+    pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
             objects: VecDeque::new().into(),
             stdin: None,
         }
     }
 
-    crate fn from_input_stream(stream: impl Into<InputStream>) -> ClassifiedInputStream {
+    pub(crate) fn from_input_stream(stream: impl Into<InputStream>) -> ClassifiedInputStream {
         ClassifiedInputStream {
             objects: stream.into(),
             stdin: None,
         }
     }
 
-    crate fn from_stdout(stdout: std::fs::File) -> ClassifiedInputStream {
+    pub(crate) fn from_stdout(stdout: std::fs::File) -> ClassifiedInputStream {
         ClassifiedInputStream {
             objects: VecDeque::new().into(),
             stdin: Some(stdout),
@@ -73,11 +73,11 @@ impl ClassifiedInputStream {
     }
 }
 
-crate struct ClassifiedPipeline {
-    crate commands: Vec<ClassifiedCommand>,
+pub(crate) struct ClassifiedPipeline {
+    pub(crate) commands: Vec<ClassifiedCommand>,
 }
 
-crate enum ClassifiedCommand {
+pub(crate) enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
     Internal(InternalCommand),
@@ -95,14 +95,14 @@ impl ClassifiedCommand {
     }
 }
 
-crate struct InternalCommand {
-    crate command: Arc<Command>,
-    crate name_span: Span,
-    crate args: hir::Call,
+pub(crate) struct InternalCommand {
+    pub(crate) command: Arc<Command>,
+    pub(crate) name_span: Span,
+    pub(crate) args: hir::Call,
 }
 
 impl InternalCommand {
-    crate async fn run(
+    pub(crate) async fn run(
         self,
         context: &mut Context,
         input: ClassifiedInputStream,
@@ -218,21 +218,21 @@ impl InternalCommand {
     }
 }
 
-crate struct ExternalCommand {
-    crate name: String,
+pub(crate) struct ExternalCommand {
+    pub(crate) name: String,
     #[allow(unused)]
-    crate name_span: Span,
-    crate args: Vec<Tagged<String>>,
+    pub(crate) name_span: Span,
+    pub(crate) args: Vec<Tagged<String>>,
 }
 
-crate enum StreamNext {
+pub(crate) enum StreamNext {
     Last,
     External,
     Internal,
 }
 
 impl ExternalCommand {
-    crate async fn run(
+    pub(crate) async fn run(
         self,
         context: &mut Context,
         input: ClassifiedInputStream,
