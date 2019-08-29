@@ -116,7 +116,7 @@ workflows:
             - run:
                 name: Build Multistage (smaller) container
                 command: |
-                  docker build -f docker/Dockerfile -t nushell/nu:devel .
+                  docker build --build-arg FROMTAG=devel -f docker/Dockerfile -t nushell/nu:devel .
             - run:
                 name: Publish Development Docker Tags
                 command: |
