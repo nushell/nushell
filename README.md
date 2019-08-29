@@ -41,12 +41,12 @@ cargo +nightly install nu
 You can also install Nu with all the bells and whistles:
 
 ```
-cargo +nightly install nu --features rawkey,clipboard
+cargo +nightly install nu --features raw-key,clipboard
 ```
 
 The following optional features are currently supported:
 
-* **rawkey** - direct keyboard input, which creates a smoother experience in viewing text and binaries
+* **raw-key** - direct keyboard input, which creates a smoother experience in viewing text and binaries
 * **clipboard** - integration with the native clipboard via the `clip` command
 
 ## Docker
