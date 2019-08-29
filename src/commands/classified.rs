@@ -316,7 +316,7 @@ impl ExternalCommand {
                 let mut first = true;
                 for i in &inputs {
                     let i = match i.as_string() {
-                        Err(err) => {
+                        Err(_err) => {
                             let mut span = name_span;
                             for arg in &self.args {
                                 if arg.item.contains("$it") {
