@@ -19,7 +19,7 @@ impl PerItemCommand for Enter {
         &self,
         call_info: &CallInfo,
         _registry: &registry::CommandRegistry,
-        _shell_manager: &ShellManager,
+        _raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
         match call_info.args.expect_nth(0)? {

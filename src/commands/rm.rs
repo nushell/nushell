@@ -28,10 +28,10 @@ impl PerItemCommand for Remove {
         &self,
         call_info: &CallInfo,
         _registry: &CommandRegistry,
-        shell_manager: &ShellManager,
+        raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        call_info.process(shell_manager, rm)?.run()
+        call_info.process(&raw_args.shell_manager, rm)?.run()
     }
 }
 

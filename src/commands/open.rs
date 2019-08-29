@@ -1,6 +1,7 @@
+use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
 use crate::errors::ShellError;
-use crate::object::{Primitive, Value};
+use crate::object::Value;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
@@ -25,15 +26,20 @@ impl PerItemCommand for Open {
     fn run(
         &self,
         call_info: &CallInfo,
-        _registry: &CommandRegistry,
-        shell_manager: &ShellManager,
+        registry: &CommandRegistry,
+        raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        run(call_info, shell_manager)
+        run(call_info, registry, raw_args)
     }
 }
 
-fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStream, ShellError> {
+fn run(
+    call_info: &CallInfo,
+    registry: &CommandRegistry,
+    raw_args: &RawCommandArgs,
+) -> Result<OutputStream, ShellError> {
+    let shell_manager = &raw_args.shell_manager;
     let cwd = PathBuf::from(shell_manager.path());
     let full_path = PathBuf::from(cwd);
 
@@ -47,8 +53,9 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
     let path_buf = path.as_path()?;
     let path_str = path_buf.display().to_string();
     let path_span = path.span();
-    let name_span = call_info.name_span;
     let has_raw = call_info.args.has("raw");
+    let registry = registry.clone();
+    let raw_args = raw_args.clone();
 
     let stream = async_stream_block! {
 
@@ -65,7 +72,6 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-
         if let Some(uuid) = contents_tag.origin {
             // If we have loaded something, track its source
             yield ReturnSuccess::action(CommandAction::AddSpanSource(
@@ -74,39 +80,41 @@ fn run(call_info: &CallInfo, shell_manager: &ShellManager) -> Result<OutputStrea
             ));
         }
 
-        match contents {
-            Value::Primitive(Primitive::String(string)) => {
-                let value = parse_string_as_value(file_extension, string, contents_tag, name_span).unwrap();
+        let tagged_contents = contents.tagged(contents_tag);
 
-                match value {
-                    Tagged {
-                        item: Value::List(list),
-                        ..
-                    } => {
-                        for elem in list {
-                            yield ReturnSuccess::value(elem);
-                        }
+        if let Some(extension) = file_extension {
+            let command_name = format!("from-{}", extension);
+            if let Some(converter) = registry.get_command(&command_name) {
+                let new_args = RawCommandArgs {
+                    host: raw_args.host,
+                    shell_manager: raw_args.shell_manager,
+                    call_info: UnevaluatedCallInfo {
+                        args: crate::parser::hir::Call {
+                            head: raw_args.call_info.args.head,
+                            positional: None,
+                            named: None
+                        },
+                        source: raw_args.call_info.source,
+                        source_map: raw_args.call_info.source_map,
+                        name_span: raw_args.call_info.name_span,
                     }
-                    x => yield ReturnSuccess::value(x),
-                }
-            }
-            Value::Binary(binary) => {
-                let value = parse_binary_as_value(file_extension, binary, contents_tag, name_span).unwrap();
-
-                match value {
-                    Tagged {
-                        item: Value::List(list),
-                        ..
-                    } => {
-                        for elem in list {
-                            yield ReturnSuccess::value(elem);
+                };
+                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
+                let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
+                for res in result_vec {
+                    match res {
+                        Ok(ReturnSuccess::Value(Tagged { item, .. })) => {
+                            yield Ok(ReturnSuccess::Value(Tagged { item: item, tag: contents_tag }));
                         }
+                        x => yield x,
                     }
-                    x => yield ReturnSuccess::value(x),
                 }
+            } else {
+                yield ReturnSuccess::value(tagged_contents);
             }
-            other => yield ReturnSuccess::value(other.tagged(contents_tag)),
-        };
+        } else {
+            yield ReturnSuccess::value(tagged_contents);
+        }
     };
 
     Ok(stream.to_output_stream())
@@ -417,106 +425,5 @@ fn read_be_u16(input: &[u8]) -> Option<Vec<u16>> {
         }
 
         Some(result)
-    }
-}
-
-pub fn parse_string_as_value(
-    extension: Option<String>,
-    contents: String,
-    contents_tag: Tag,
-    name_span: Span,
-) -> Result<Tagged<Value>, ShellError> {
-    match extension {
-        Some(ref x) if x == "csv" => {
-            crate::commands::from_csv::from_csv_string_to_value(contents, false, contents_tag)
-                .map_err(move |_| {
-                    ShellError::labeled_error(
-                        "Could not open as CSV",
-                        "could not open as CSV",
-                        name_span,
-                    )
-                })
-        }
-        Some(ref x) if x == "toml" => {
-            crate::commands::from_toml::from_toml_string_to_value(contents, contents_tag).map_err(
-                move |_| {
-                    ShellError::labeled_error(
-                        "Could not open as TOML",
-                        "could not open as TOML",
-                        name_span,
-                    )
-                },
-            )
-        }
-        Some(ref x) if x == "json" => {
-            crate::commands::from_json::from_json_string_to_value(contents, contents_tag).map_err(
-                move |_| {
-                    ShellError::labeled_error(
-                        "Could not open as JSON",
-                        "could not open as JSON",
-                        name_span,
-                    )
-                },
-            )
-        }
-        Some(ref x) if x == "ini" => crate::commands::from_ini::from_ini_string_to_value(
-            contents,
-            contents_tag,
-        )
-        .map_err(move |_| {
-            ShellError::labeled_error("Could not open as INI", "could not open as INI", name_span)
-        }),
-        Some(ref x) if x == "xml" => crate::commands::from_xml::from_xml_string_to_value(
-            contents,
-            contents_tag,
-        )
-        .map_err(move |_| {
-            ShellError::labeled_error("Could not open as XML", "could not open as XML", name_span)
-        }),
-        Some(ref x) if x == "yml" => {
-            crate::commands::from_yaml::from_yaml_string_to_value(contents, contents_tag).map_err(
-                move |_| {
-                    ShellError::labeled_error(
-                        "Could not open as YAML",
-                        "could not open as YAML",
-                        name_span,
-                    )
-                },
-            )
-        }
-        Some(ref x) if x == "yaml" => {
-            crate::commands::from_yaml::from_yaml_string_to_value(contents, contents_tag).map_err(
-                move |_| {
-                    ShellError::labeled_error(
-                        "Could not open as YAML",
-                        "could not open as YAML",
-                        name_span,
-                    )
-                },
-            )
-        }
-        _ => Ok(Value::string(contents).tagged(contents_tag)),
-    }
-}
-
-pub fn parse_binary_as_value(
-    extension: Option<String>,
-    contents: Vec<u8>,
-    contents_tag: Tag,
-    name_span: Span,
-) -> Result<Tagged<Value>, ShellError> {
-    match extension {
-        Some(ref x) if x == "bson" => {
-            crate::commands::from_bson::from_bson_bytes_to_value(contents, contents_tag).map_err(
-                move |_| {
-                    ShellError::labeled_error(
-                        "Could not open as BSON",
-                        "could not open as BSON",
-                        name_span,
-                    )
-                },
-            )
-        }
-        _ => Ok(Value::Binary(contents).tagged(contents_tag)),
     }
 }

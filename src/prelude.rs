@@ -51,7 +51,7 @@ crate use crate::cli::MaybeOwned;
 crate use crate::commands::command::{
     CallInfo, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
 };
-crate use crate::commands::PerItemCommand;
+crate use crate::commands::{PerItemCommand, RawCommandArgs};
 crate use crate::context::CommandRegistry;
 crate use crate::context::{Context, SpanSource};
 crate use crate::env::host::handle_unexpected;

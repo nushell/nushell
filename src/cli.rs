@@ -194,6 +194,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromTOML),
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
+            whole_stream_command(FromYML),
             whole_stream_command(Pick),
             whole_stream_command(Get),
             per_item_command(Remove),

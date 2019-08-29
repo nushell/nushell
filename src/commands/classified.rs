@@ -162,7 +162,7 @@ impl InternalCommand {
 
                             let full_path = std::path::PathBuf::from(cwd);
 
-                            let (file_extension, contents, contents_tag, span_source) =
+                            let (_file_extension, contents, contents_tag, span_source) =
                                 crate::commands::open::fetch(
                                     &full_path,
                                     &location,
@@ -175,23 +175,11 @@ impl InternalCommand {
                                 context.add_span_source(uuid, span_source);
                             }
 
-                            match contents {
-                                Value::Primitive(Primitive::String(string)) => {
-                                    let value = crate::commands::open::parse_string_as_value(
-                                        file_extension,
-                                        string,
-                                        contents_tag,
-                                        Span::unknown(),
-                                    )?;
-
-                                    context
-                                        .shell_manager
-                                        .insert_at_current(Box::new(ValueShell::new(value)));
-                                }
-                                value => context.shell_manager.insert_at_current(Box::new(
-                                    ValueShell::new(value.tagged(contents_tag)),
-                                )),
-                            }
+                            context
+                                .shell_manager
+                                .insert_at_current(Box::new(ValueShell::new(
+                                    contents.tagged(contents_tag),
+                                )))
                         }
                     }
                     CommandAction::PreviousShell => {

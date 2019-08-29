@@ -80,6 +80,7 @@ crate use from_json::FromJSON;
 crate use from_toml::FromTOML;
 crate use from_xml::FromXML;
 crate use from_yaml::FromYAML;
+crate use from_yaml::FromYML;
 crate use get::Get;
 crate use last::Last;
 crate use lines::Lines;

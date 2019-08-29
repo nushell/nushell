@@ -19,7 +19,7 @@ impl PerItemCommand for Where {
         &self,
         call_info: &CallInfo,
         _registry: &registry::CommandRegistry,
-        _shell_manager: &ShellManager,
+        _raw_args: &RawCommandArgs,
         input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
         let input_clone = input.clone();
