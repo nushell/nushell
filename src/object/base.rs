@@ -672,9 +672,10 @@ crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> T
     let descs = obj.data_descriptors();
 
     for desc in descs {
-        match desc {
-            x if fields.iter().any(|field| *field == x) => continue,
-            _ => out.insert(desc.clone(), obj.get_data(&desc).borrow().clone()),
+        if fields.iter().any(|field| *field == desc) {
+            continue;
+        } else {
+            out.insert(desc.clone(), obj.get_data(&desc).borrow().clone())
         }
     }
 

@@ -177,16 +177,18 @@ fn parse_command_tail(
 
     trace!("Constructed positional={:?} named={:?}", positional, named);
 
-    let positional = match positional {
-        positional if positional.len() == 0 => None,
-        positional => Some(positional),
+    let positional = if positional.len() == 0 {
+        None
+    } else {
+        Some(positional)
     };
 
     // TODO: Error if extra unconsumed positional arguments
 
-    let named = match named {
-        named if named.named.is_empty() => None,
-        named => Some(named),
+    let named = if named.named.is_empty() {
+        None
+    } else {
+        Some(named)
     };
 
     trace!("Normalized positional={:?} named={:?}", positional, named);

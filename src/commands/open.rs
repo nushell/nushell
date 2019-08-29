@@ -427,7 +427,7 @@ pub fn parse_string_as_value(
     name_span: Span,
 ) -> Result<Tagged<Value>, ShellError> {
     match extension {
-        Some(x) if x == "csv" => {
+        Some(ref x) if x == "csv" => {
             crate::commands::from_csv::from_csv_string_to_value(contents, false, contents_tag)
                 .map_err(move |_| {
                     ShellError::labeled_error(
@@ -437,7 +437,7 @@ pub fn parse_string_as_value(
                     )
                 })
         }
-        Some(x) if x == "toml" => {
+        Some(ref x) if x == "toml" => {
             crate::commands::from_toml::from_toml_string_to_value(contents, contents_tag).map_err(
                 move |_| {
                     ShellError::labeled_error(
@@ -448,7 +448,7 @@ pub fn parse_string_as_value(
                 },
             )
         }
-        Some(x) if x == "json" => {
+        Some(ref x) if x == "json" => {
             crate::commands::from_json::from_json_string_to_value(contents, contents_tag).map_err(
                 move |_| {
                     ShellError::labeled_error(
@@ -459,21 +459,21 @@ pub fn parse_string_as_value(
                 },
             )
         }
-        Some(x) if x == "ini" => crate::commands::from_ini::from_ini_string_to_value(
+        Some(ref x) if x == "ini" => crate::commands::from_ini::from_ini_string_to_value(
             contents,
             contents_tag,
         )
         .map_err(move |_| {
             ShellError::labeled_error("Could not open as INI", "could not open as INI", name_span)
         }),
-        Some(x) if x == "xml" => crate::commands::from_xml::from_xml_string_to_value(
+        Some(ref x) if x == "xml" => crate::commands::from_xml::from_xml_string_to_value(
             contents,
             contents_tag,
         )
         .map_err(move |_| {
             ShellError::labeled_error("Could not open as XML", "could not open as XML", name_span)
         }),
-        Some(x) if x == "yml" => {
+        Some(ref x) if x == "yml" => {
             crate::commands::from_yaml::from_yaml_string_to_value(contents, contents_tag).map_err(
                 move |_| {
                     ShellError::labeled_error(
@@ -484,7 +484,7 @@ pub fn parse_string_as_value(
                 },
             )
         }
-        Some(x) if x == "yaml" => {
+        Some(ref x) if x == "yaml" => {
             crate::commands::from_yaml::from_yaml_string_to_value(contents, contents_tag).map_err(
                 move |_| {
                     ShellError::labeled_error(
@@ -506,7 +506,7 @@ pub fn parse_binary_as_value(
     name_span: Span,
 ) -> Result<Tagged<Value>, ShellError> {
     match extension {
-        Some(x) if x == "bson" => {
+        Some(ref x) if x == "bson" => {
             crate::commands::from_bson::from_bson_bytes_to_value(contents, contents_tag).map_err(
                 move |_| {
                     ShellError::labeled_error(
