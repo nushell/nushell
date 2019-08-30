@@ -8,35 +8,16 @@ use crate::Text;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
-use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new, Serialize, Deserialize)]
-pub struct OF64 {
-    pub(crate) inner: OrderedFloat<f64>,
-}
-
-impl OF64 {
-    pub(crate) fn into_inner(&self) -> f64 {
-        self.inner.into_inner()
-    }
-}
-
-impl From<f64> for OF64 {
-    fn from(float: f64) -> Self {
-        OF64::new(OrderedFloat(float))
-    }
-}
-
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
     Int(i64),
-    #[allow(unused)]
-    Float(OF64),
+    Decimal(Decimal),
     Bytes(u64),
     String(String),
     Boolean(bool),
@@ -46,6 +27,24 @@ pub enum Primitive {
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
     EndOfStream,
+}
+
+impl From<i64> for Primitive {
+    fn from(int: i64) -> Primitive {
+        Primitive::Int(int)
+    }
+}
+
+impl From<Decimal> for Primitive {
+    fn from(decimal: Decimal) -> Primitive {
+        Primitive::Decimal(decimal)
+    }
+}
+
+impl From<f64> for Primitive {
+    fn from(float: f64) -> Primitive {
+        Primitive::Decimal(Decimal::from_f64(float).unwrap())
+    }
 }
 
 impl Primitive {
@@ -58,7 +57,7 @@ impl Primitive {
             EndOfStream => "end-of-stream",
             Path(_) => "path",
             Int(_) => "int",
-            Float(_) => "float",
+            Decimal(_) => "decimal",
             Bytes(_) => "bytes",
             String(_) => "string",
             Boolean(_) => "boolean",
@@ -76,11 +75,20 @@ impl Primitive {
             EndOfStream => write!(f, "EndOfStream"),
             Int(int) => write!(f, "{}", int),
             Path(path) => write!(f, "{}", path.display()),
-            Float(float) => write!(f, "{:?}", float),
+            Decimal(decimal) => write!(f, "{}", decimal),
             Bytes(bytes) => write!(f, "{}", bytes),
             String(string) => write!(f, "{:?}", string),
             Boolean(boolean) => write!(f, "{}", boolean),
             Date(date) => write!(f, "{}", date),
+        }
+    }
+
+    pub fn number(number: impl Into<Number>) -> Primitive {
+        let number = number.into();
+
+        match number {
+            Number::Int(int) => Primitive::Int(int),
+            Number::Decimal(decimal) => Primitive::Decimal(decimal),
         }
     }
 
@@ -105,7 +113,7 @@ impl Primitive {
                 }
             }
             Primitive::Int(i) => format!("{}", i),
-            Primitive::Float(OF64 { inner: f }) => format!("{:.*}", 2, f.into_inner()),
+            Primitive::Decimal(decimal) => format!("{}", decimal),
             Primitive::String(s) => format!("{}", s),
             Primitive::Boolean(b) => match (b, field_name) {
                 (true, None) => format!("Yes"),
@@ -122,7 +130,7 @@ impl Primitive {
     pub fn style(&self) -> &'static str {
         match self {
             Primitive::Bytes(0) => "c", // centre 'missing' indicator
-            Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Float(_) => "r",
+            Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Decimal(_) => "r",
             _ => "",
         }
     }
@@ -174,6 +182,15 @@ pub enum Value {
     List(Vec<Tagged<Value>>),
     #[allow(unused)]
     Block(Block),
+}
+
+impl Into<Value> for Number {
+    fn into(self) -> Value {
+        match self {
+            Number::Int(int) => Value::int(int),
+            Number::Decimal(decimal) => Value::decimal(decimal),
+        }
+    }
 }
 
 pub fn debug_list(values: &Vec<Tagged<Value>>) -> ValuesDebug<'_> {
@@ -518,7 +535,11 @@ impl Value {
     }
 
     #[allow(unused)]
-    pub(crate) fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
+    pub(crate) fn compare(
+        &self,
+        operator: &Operator,
+        other: &Value,
+    ) -> Result<bool, (String, String)> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
@@ -566,7 +587,7 @@ impl Value {
         match self {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Float(x)) => Ok(format!("{}", x.into_inner())),
+            Value::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
             // TODO: this should definitely be more general with better errors
@@ -612,8 +633,17 @@ impl Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
-    pub fn float(s: impl Into<OF64>) -> Value {
-        Value::Primitive(Primitive::Float(s.into()))
+    pub fn decimal(s: impl Into<Decimal>) -> Value {
+        Value::Primitive(Primitive::Decimal(s.into()))
+    }
+
+    pub fn number(s: impl Into<Number>) -> Value {
+        let num = s.into();
+
+        match num {
+            Number::Int(int) => Value::int(int),
+            Number::Decimal(decimal) => Value::decimal(decimal),
+        }
     }
 
     pub fn boolean(s: impl Into<bool>) -> Value {
@@ -722,32 +752,34 @@ pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool
                     (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != *i2,
                     _ => false,
                 },
-                Value::Primitive(Primitive::Float(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Float(i2))) => i < *i2,
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Float(i2))) => i > *i2,
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Float(i2))) => i <= *i2,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Float(i2))) => {
+                Value::Primitive(Primitive::Decimal(i)) => match (op, rhs) {
+                    (Operator::LessThan, Value::Primitive(Primitive::Decimal(i2))) => i < *i2,
+                    (Operator::GreaterThan, Value::Primitive(Primitive::Decimal(i2))) => i > *i2,
+                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Decimal(i2))) => {
+                        i <= *i2
+                    }
+                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Decimal(i2))) => {
                         i >= *i2
                     }
-                    (Operator::Equal, Value::Primitive(Primitive::Float(i2))) => i == *i2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Float(i2))) => i != *i2,
+                    (Operator::Equal, Value::Primitive(Primitive::Decimal(i2))) => i == *i2,
+                    (Operator::NotEqual, Value::Primitive(Primitive::Decimal(i2))) => i != *i2,
                     (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
-                        (i.into_inner()) < *i2 as f64
+                        i < Decimal::from(*i2)
                     }
                     (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() > *i2 as f64
+                        i > Decimal::from(*i2)
                     }
                     (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() <= *i2 as f64
+                        i <= Decimal::from(*i2)
                     }
                     (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() >= *i2 as f64
+                        i >= Decimal::from(*i2)
                     }
                     (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() == *i2 as f64
+                        i == Decimal::from(*i2)
                     }
                     (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i.into_inner() != *i2 as f64
+                        i != Decimal::from(*i2)
                     }
 
                     _ => false,
@@ -765,8 +797,8 @@ pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool
 
 enum CompareValues {
     Ints(i64, i64),
-    Floats(OF64, OF64),
-    Bytes(i128, i128),
+    Decimals(Decimal, Decimal),
+    Bytes(u64, u64),
     String(String, String),
 }
 
@@ -774,7 +806,7 @@ impl CompareValues {
     fn compare(&self) -> std::cmp::Ordering {
         match self {
             CompareValues::Ints(left, right) => left.cmp(right),
-            CompareValues::Floats(left, right) => left.cmp(right),
+            CompareValues::Decimals(left, right) => left.cmp(right),
             CompareValues::Bytes(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
         }
@@ -797,10 +829,11 @@ fn coerce_compare_primitive(
 
     Ok(match (left, right) {
         (Int(left), Int(right)) => CompareValues::Ints(*left, *right),
-        (Float(left), Int(right)) => CompareValues::Floats(*left, (*right as f64).into()),
-        (Int(left), Float(right)) => CompareValues::Floats((*left as f64).into(), *right),
-        (Int(left), Bytes(right)) => CompareValues::Bytes(*left as i128, *right as i128),
-        (Bytes(left), Int(right)) => CompareValues::Bytes(*left as i128, *right as i128),
+        (Decimal(left), Decimal(right)) => CompareValues::Decimals(*left, *right),
+        (Decimal(left), Int(right)) => CompareValues::Decimals(*left, (*right).into()),
+        (Int(left), Decimal(right)) => CompareValues::Decimals((*left).into(), *right),
+        (Int(left), Bytes(right)) => CompareValues::Bytes(*left as u64, *right),
+        (Bytes(left), Int(right)) => CompareValues::Bytes(*left, *right as u64),
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),
     })

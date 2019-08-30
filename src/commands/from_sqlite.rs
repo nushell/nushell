@@ -1,6 +1,5 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use rusqlite::{types::ValueRef, Connection, Row, NO_PARAMS};
@@ -94,7 +93,7 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone
     match value {
         ValueRef::Null => Value::Primitive(Primitive::String(String::from(""))).tagged(tag),
         ValueRef::Integer(i) => Value::Primitive(Primitive::Int(i)).tagged(tag),
-        ValueRef::Real(f) => Value::Primitive(Primitive::Float(OF64::from(f))).tagged(tag),
+        ValueRef::Real(f) => Value::number(f).tagged(tag),
         t @ ValueRef::Text(_) => {
             // this unwrap is safe because we know the ValueRef is Text.
             Value::Primitive(Primitive::String(t.as_str().unwrap().to_string())).tagged(tag)

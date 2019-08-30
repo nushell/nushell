@@ -106,7 +106,7 @@ pub(crate) fn evaluate_baseline_expr(
 
 fn evaluate_literal(literal: Tagged<hir::Literal>, source: &Text) -> Tagged<Value> {
     let result = match literal.item {
-        hir::Literal::Integer(int) => Value::int(int),
+        hir::Literal::Number(int) => int.into(),
         hir::Literal::Size(int, unit) => unit.compute(int),
         hir::Literal::String(span) => Value::string(span.slice(source)),
         hir::Literal::Bare => Value::string(literal.span().slice(source)),

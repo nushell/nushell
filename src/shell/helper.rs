@@ -116,7 +116,7 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
         TokenNode::Operator(..) => Color::White.normal().paint(token_node.span().slice(line)),
         TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.span().slice(line)),
         TokenNode::Token(Tagged {
-            item: RawToken::Integer(..),
+            item: RawToken::Number(..),
             ..
         }) => Color::Purple.bold().paint(token_node.span().slice(line)),
         TokenNode::Token(Tagged {

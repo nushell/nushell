@@ -1,5 +1,4 @@
-use crate::commands::UnevaluatedCallInfo;
-use crate::commands::WholeStreamCommand;
+use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::errors::ShellError;
 use crate::object::Value;
 use crate::prelude::*;

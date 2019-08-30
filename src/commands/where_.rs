@@ -27,7 +27,7 @@ impl PerItemCommand for Where {
         let stream = match condition {
             Tagged {
                 item: Value::Block(block),
-                tag,
+                ..
             } => {
                 let result = block.invoke(&input_clone);
                 match result {
@@ -39,11 +39,7 @@ impl PerItemCommand for Where {
                         }
                     }
                     Err(e) => {
-                        return Err(ShellError::labeled_error(
-                            format!("Could not evaluate ({})", e.to_string()),
-                            "could not evaluate",
-                            tag.span,
-                        ))
+                        return Err(e)
                     }
                 }
             }

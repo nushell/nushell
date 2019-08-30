@@ -129,11 +129,15 @@ impl RawExpression {
 pub type Expression = Tagged<RawExpression>;
 
 impl Expression {
-    pub(crate) fn int(i: impl Into<i64>, span: impl Into<Span>) -> Expression {
-        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Integer(i.into())), span)
+    pub(crate) fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Number(i.into())), span)
     }
 
-    pub(crate) fn size(i: impl Into<i64>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
+    pub(crate) fn size(
+        i: impl Into<Number>,
+        unit: impl Into<Unit>,
+        span: impl Into<Span>,
+    ) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::Size(i.into(), unit.into())),
             span,
@@ -224,8 +228,8 @@ impl From<Tagged<Path>> for Expression {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Literal {
-    Integer(i64),
-    Size(i64, Unit),
+    Number(Number),
+    Size(Number, Unit),
     String(Span),
     Bare,
 }
@@ -233,8 +237,8 @@ pub enum Literal {
 impl ToDebug for Tagged<&Literal> {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         match self.item() {
-            Literal::Integer(int) => write!(f, "{}", *int),
-            Literal::Size(int, unit) => write!(f, "{}{:?}", *int, unit),
+            Literal::Number(number) => write!(f, "{:?}", *number),
+            Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
             Literal::String(span) => write!(f, "{}", span.slice(source)),
             Literal::Bare => write!(f, "{}", self.span().slice(source)),
         }
@@ -244,7 +248,7 @@ impl ToDebug for Tagged<&Literal> {
 impl Literal {
     fn type_name(&self) -> &'static str {
         match self {
-            Literal::Integer(_) => "integer",
+            Literal::Number(..) => "number",
             Literal::Size(..) => "size",
             Literal::String(..) => "string",
             Literal::Bare => "string",

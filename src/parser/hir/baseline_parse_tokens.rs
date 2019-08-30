@@ -294,7 +294,7 @@ pub fn baseline_parse_path(
             TokenNode::Token(token) => match token.item() {
                 RawToken::Bare => token.span().slice(source),
                 RawToken::String(span) => span.slice(source),
-                RawToken::Integer(_)
+                RawToken::Number(_)
                 | RawToken::Size(..)
                 | RawToken::Variable(_)
                 | RawToken::External(_) => {

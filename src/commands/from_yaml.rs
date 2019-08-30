@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
@@ -52,7 +51,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) ->
             Value::Primitive(Primitive::Int(n.as_i64().unwrap())).tagged(tag)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
-            Value::Primitive(Primitive::Float(OF64::from(n.as_f64().unwrap()))).tagged(tag)
+            Value::Primitive(Primitive::from(n.as_f64().unwrap())).tagged(tag)
         }
         serde_yaml::Value::String(s) => Value::string(s).tagged(tag),
         serde_yaml::Value::Sequence(a) => Value::List(

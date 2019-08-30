@@ -84,6 +84,17 @@ impl ShellError {
         .start()
     }
 
+    pub(crate) fn range_error(
+        expected: impl Into<String>,
+        actual: Tagged<impl fmt::Debug>,
+    ) -> ShellError {
+        ProximateShellError::RangeError {
+            kind: expected.into(),
+            actual_kind: actual.map(|a| format!("{:?}", a)),
+        }
+        .start()
+    }
+
     pub(crate) fn syntax_error(problem: Tagged<impl Into<String>>) -> ShellError {
         ProximateShellError::SyntaxError {
             problem: problem.map(|p| p.into()),
@@ -242,6 +253,20 @@ impl ShellError {
             } => Diagnostic::new(Severity::Error, "Type Error")
                 .with_label(Label::new_primary(span).with_message(expected)),
 
+            ProximateShellError::RangeError {
+                kind,
+                actual_kind:
+                    Tagged {
+                        item,
+                        tag: Tag { span, .. },
+                    },
+            } => Diagnostic::new(Severity::Error, "Range Error").with_label(
+                Label::new_primary(span).with_message(format!(
+                    "Expected to covert {} to {}, but it was out of range",
+                    item, kind
+                )),
+            ),
+
             ProximateShellError::SyntaxError {
                 problem:
                     Tagged {
@@ -344,6 +369,10 @@ pub enum ProximateShellError {
         error: ArgumentError,
         span: Span,
     },
+    RangeError {
+        kind: String,
+        actual_kind: Tagged<String>,
+    },
     Diagnostic(ShellDiagnostic),
     CoerceError {
         left: Tagged<String>,
@@ -423,6 +452,7 @@ impl std::fmt::Display for ShellError {
             ProximateShellError::MissingValue { .. } => write!(f, "MissingValue"),
             ProximateShellError::InvalidCommand { .. } => write!(f, "InvalidCommand"),
             ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
+            ProximateShellError::RangeError { .. } => write!(f, "RangeError"),
             ProximateShellError::SyntaxError { .. } => write!(f, "SyntaxError"),
             ProximateShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
             ProximateShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
@@ -524,5 +554,16 @@ impl<T> ShellErrorUtils<Tagged<T>> for Option<Tagged<T>> {
             Some(value) => Ok(value),
             None => Err(ShellError::missing_value(None, desc.into())),
         }
+    }
+}
+
+pub fn ranged<T>(
+    input: Option<T>,
+    expected: impl Into<String>,
+    actual: Tagged<impl fmt::Debug>,
+) -> Result<T, ShellError> {
+    match input {
+        Some(v) => Ok(v),
+        None => Err(ShellError::range_error(expected, actual)),
     }
 }
