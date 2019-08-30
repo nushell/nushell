@@ -53,18 +53,18 @@ fn ps(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
         pin_utils::pin_mut!(processes);
 
         while let Some(res) = processes.next().await {
-            let (process, usage) = res.unwrap();
-
-            let mut dict = TaggedDictBuilder::new(Tag::unknown_origin(span));
-            dict.insert("pid", Value::int(process.pid()));
-            if let Ok(name) = process.name().await {
-                dict.insert("name", Value::string(name));
+            if let Ok((process, usage)) = res {
+                let mut dict = TaggedDictBuilder::new(Tag::unknown_origin(span));
+                dict.insert("pid", Value::int(process.pid()));
+                if let Ok(name) = process.name().await {
+                    dict.insert("name", Value::string(name));
+                }
+                if let Ok(status) = process.status().await {
+                    dict.insert("status", Value::string(format!("{:?}", status)));
+                }
+                dict.insert("cpu", Value::float(usage.get::<ratio::percent>() as f64));
+                yield ReturnSuccess::value(dict.into_tagged_value());
             }
-            if let Ok(status) = process.status().await {
-                dict.insert("status", Value::string(format!("{:?}", status)));
-            }
-            dict.insert("cpu", Value::float(usage.get::<ratio::percent>() as f64));
-            yield ReturnSuccess::value(dict.into_tagged_value());
         }
     };
 
