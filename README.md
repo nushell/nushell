@@ -51,18 +51,39 @@ The following optional features are currently supported:
 
 ## Docker
 
-Optionally, you can build a container with nu installed using the [Dockerfile](Dockerfile):
+If you want to pull a pre-built container, you can browse tags for the [nushell organization](https://quay.io/organization/nushell)
+on Quay.io. Pulling a container would come down to:
 
 ```bash
-$ docker build -t nu .
+$ docker pull quay.io/nushell/nu
+$ docker pull quay.io/nushell/nu-base
+```
+
+Both "nu-base" and "nu" provide the nu binary, however nu-base also includes the source code at `/code`
+in the container and all dependencies.
+
+Optionally, you can also build the containers locally using the [dockerfiles provided](docker):
+To build the base image:
+
+```bash
+$ docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
 ``` 
 
-And then run the container:
+And then to build the smaller container (using a Multistage build):
 
 ```bash
-$ docker run -it nu
+$ docker build -f docker/Dockerfile -t nushell/nu .
+``` 
+
+Either way, you can run either container as follows:
+
+```bash
+$ docker run -it nushell/nu-base
+$ docker run -it nushell/nu
 /> exit
 ```
+
+The second container is a bit smaller, if size is important to you.
 
 # Philosophy
 
