@@ -33,7 +33,7 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
                 name = "nu"
                 version = "0.1.1"
                 authors = ["Yehuda Katz <wycats@gmail.com>"]
-                description = "A shell for the GitHub era"
+                description = "An elegant shell for a data-oriented age"
                 license = "ISC"
                 edition = "2018"
             "#)
@@ -63,6 +63,6 @@ fn save_can_write_out_csv() {
         );
 
         let actual = h::file_contents(expected_file);
-        assert!(actual.contains("[list list],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
+        assert!(actual.contains("[list list],An elegant shell for a data-oriented age,2018,ISC,nu,0.2.0"));
     })
 }

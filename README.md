@@ -2,7 +2,7 @@
             
 # Nu Shell
 
-A modern shell for the GitHub era
+An elegant shell for a data-oriented age
 
 ![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
 
@@ -151,11 +151,11 @@ We can pipeline this into a command that gets the contents of one of the columns
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
--------------+----------------------------+---------+---------+------+---------
- authors     | description                | edition | license | name | version
--------------+----------------------------+---------+---------+------+---------
- [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.2.0
--------------+----------------------------+---------+---------+------+---------
+-------------+------------------------------------------+---------+---------+------+---------
+ authors     | description                              | edition | license | name | version
+-------------+------------------------------------------+---------+---------+------+---------
+ [list List] | An elegant shell for a data-oriented age | 2018    | MIT     | nu   | 0.2.0
+-------------+------------------------------------------+---------+---------+------+---------
 ```
 
 Finally, we can use commands outside of Nu once we have the data we want:
