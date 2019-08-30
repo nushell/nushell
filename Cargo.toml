@@ -15,7 +15,6 @@ documentation = "https://book.nushell.sh"
 
 [dependencies]
 rustyline = "5.0.2"
-sysinfo = "0.9.2"
 chrono = { version = "0.4.7", features = ["serde"] }
 derive-new = "0.5.7"
 prettytable-rs = "0.8.0"
@@ -77,6 +76,8 @@ textwrap = {version = "0.11.0", features = ["term_size"]}
 rawkey = {version = "0.1.2", optional = true }
 clipboard = {version = "0.5", optional = true }
 shellexpand = "1.0.0"
+futures-timer = "0.3.0"
+pin-utils = "0.1.0-alpha.4"
 
 [features]
 raw-key = ["rawkey", "neso"]
