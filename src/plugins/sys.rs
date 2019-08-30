@@ -1,11 +1,13 @@
+use std::ffi::OsStr;
+
 use futures::executor::block_on;
 use futures::stream::StreamExt;
-use heim::{disk, memory, net};
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
     Tag, Tagged, TaggedDictBuilder, Value,
 };
-use std::ffi::OsStr;
+use heim::{disk, memory, net, sensors, host};
+use heim::units::{frequency, information, time, thermodynamic_temperature};
 
 struct Sys;
 impl Sys {
@@ -15,52 +17,65 @@ impl Sys {
 }
 
 async fn cpu(tag: Tag) -> Option<Tagged<Value>> {
-    if let (Ok(num_cpu), Ok(cpu_speed)) = (
-        heim::cpu::logical_count().await,
-        heim::cpu::frequency().await,
-    ) {
-        let mut cpu_idx = TaggedDictBuilder::new(tag);
-        cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
+    match futures::future::try_join(
+        heim::cpu::logical_count(),
+        heim::cpu::frequency(),
+    ).await {
+        Ok((num_cpu, cpu_speed)) => {
+            let mut cpu_idx = TaggedDictBuilder::with_capacity(tag, 4);
+            cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
 
-        let current_speed =
-            (cpu_speed.current().get() as f64 / 1000000000.0 * 100.0).round() / 100.0;
-        cpu_idx.insert("current ghz", Primitive::Float(current_speed.into()));
+            let current_speed =
+                (cpu_speed.current().get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round() / 100.0;
+            cpu_idx.insert("current ghz", Primitive::Float(current_speed.into()));
 
-        if let Some(min_speed) = cpu_speed.min() {
-            let min_speed = (min_speed.get() as f64 / 1000000000.0 * 100.0).round() / 100.0;
-            cpu_idx.insert("min ghz", Primitive::Float(min_speed.into()));
-        }
+            if let Some(min_speed) = cpu_speed.min() {
+                let min_speed = (min_speed.get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round() / 100.0;
+                cpu_idx.insert("min ghz", Primitive::Float(min_speed.into()));
+            }
 
-        if let Some(max_speed) = cpu_speed.max() {
-            let max_speed = (max_speed.get() as f64 / 1000000000.0 * 100.0).round() / 100.0;
-            cpu_idx.insert("max ghz", Primitive::Float(max_speed.into()));
-        }
-        Some(cpu_idx.into_tagged_value())
-    } else {
-        None
+            if let Some(max_speed) = cpu_speed.max() {
+                let max_speed = (max_speed.get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round() / 100.0;
+                cpu_idx.insert("max ghz", Primitive::Float(max_speed.into()));
+            }
+
+            Some(cpu_idx.into_tagged_value())
+        },
+        Err(_) => None,
     }
 }
 
 async fn mem(tag: Tag) -> Tagged<Value> {
-    let mut dict = TaggedDictBuilder::new(tag);
+    let mut dict = TaggedDictBuilder::with_capacity(tag, 4);
 
-    if let Ok(memory) = memory::memory().await {
-        dict.insert("total", Value::bytes(memory.total().get()));
-        dict.insert("free", Value::bytes(memory.free().get()));
+    let (memory_result, swap_result) = futures::future::join(
+        memory::memory(), 
+        memory::swap()
+    ).await;
+
+    if let Ok(memory) = memory_result {
+        dict.insert("total", Value::bytes(memory.total().get::<information::byte>()));
+        dict.insert("free", Value::bytes(memory.free().get::<information::byte>()));
     }
-    if let Ok(swap) = memory::swap().await {
-        dict.insert("swap total", Value::bytes(swap.total().get()));
-        dict.insert("swap free", Value::bytes(swap.free().get()));
+
+    if let Ok(swap) = swap_result {
+        dict.insert("swap total", Value::bytes(swap.total().get::<information::byte>()));
+        dict.insert("swap free", Value::bytes(swap.free().get::<information::byte>()));
     }
 
     dict.into_tagged_value()
 }
 
 async fn host(tag: Tag) -> Tagged<Value> {
-    let mut dict = TaggedDictBuilder::new(tag);
+    let mut dict = TaggedDictBuilder::with_capacity(tag, 6);
+
+    let (platform_result, uptime_result) = futures::future::join(
+        host::platform(),
+        host::uptime(),
+    ).await;
 
     // OS
-    if let Ok(platform) = heim::host::platform().await {
+    if let Ok(platform) = platform_result {
         dict.insert("name", Value::string(platform.system()));
         dict.insert("release", Value::string(platform.release()));
         dict.insert("hostname", Value::string(platform.hostname()));
@@ -68,10 +83,10 @@ async fn host(tag: Tag) -> Tagged<Value> {
     }
 
     // Uptime
-    if let Ok(uptime) = heim::host::uptime().await {
-        let mut uptime_dict = TaggedDictBuilder::new(tag);
+    if let Ok(uptime) = uptime_result {
+        let mut uptime_dict = TaggedDictBuilder::with_capacity(tag, 4);
 
-        let uptime = uptime.get().round() as i64;
+        let uptime = uptime.get::<time::second>().round() as i64;
         let days = uptime / (60 * 60 * 24);
         let hours = (uptime - days * 60 * 60 * 24) / (60 * 60);
         let minutes = (uptime - days * 60 * 60 * 24 - hours * 60 * 60) / 60;
@@ -82,11 +97,11 @@ async fn host(tag: Tag) -> Tagged<Value> {
         uptime_dict.insert("mins", Value::int(minutes));
         uptime_dict.insert("secs", Value::int(seconds));
 
-        dict.insert_tagged("uptime", uptime_dict.into_tagged_value());
+        dict.insert_tagged("uptime", uptime_dict);
     }
 
     // Users
-    let mut users = heim::host::users();
+    let mut users = host::users();
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
@@ -104,7 +119,7 @@ async fn disks(tag: Tag) -> Option<Value> {
     let mut partitions = disk::partitions_physical();
     while let Some(part) = partitions.next().await {
         if let Ok(part) = part {
-            let mut dict = TaggedDictBuilder::new(tag);
+            let mut dict = TaggedDictBuilder::with_capacity(tag, 6);
             dict.insert(
                 "device",
                 Value::string(
@@ -116,16 +131,18 @@ async fn disks(tag: Tag) -> Option<Value> {
 
             dict.insert("type", Value::string(part.file_system().as_str()));
             dict.insert("mount", Value::string(part.mount_point().to_string_lossy()));
+
             if let Ok(usage) = disk::usage(part.mount_point().to_path_buf()).await {
-                dict.insert("total", Value::bytes(usage.total().get()));
-                dict.insert("used", Value::bytes(usage.used().get()));
-                dict.insert("free", Value::bytes(usage.free().get()));
+                dict.insert("total", Value::bytes(usage.total().get::<information::byte>()));
+                dict.insert("used", Value::bytes(usage.used().get::<information::byte>()));
+                dict.insert("free", Value::bytes(usage.free().get::<information::byte>()));
             }
+
             output.push(dict.into_tagged_value());
         }
     }
 
-    if output.len() > 0 {
+    if !output.is_empty() {
         Some(Value::List(output))
     } else {
         None
@@ -167,57 +184,56 @@ async fn battery(tag: Tag) -> Option<Value> {
         }
     }
 
-    if output.len() > 0 {
+    if !output.is_empty() {
         Some(Value::List(output))
     } else {
         None
     }
 }
 
-// FIXME: add back when heim releases new version
-// async fn temp(tag: Tag) -> Option<Value> {
-//     let mut output = vec![];
+async fn temp(tag: Tag) -> Option<Value> {
+    let mut output = vec![];
 
-//     let mut sensors = sensors::temperatures();
-//     while let Some(sensor) = sensors.next().await {
-//         if let Ok(sensor) = sensor {
-//             let mut dict = TaggedDictBuilder::new(tag);
-//             dict.insert("unit", Value::string(sensor.unit()));
-//             if let Some(label) = sensor.label() {
-//                 dict.insert("label", Value::string(label));
-//             }
-//             dict.insert("temp", Value::float(sensor.current().get()));
-//             if let Some(high) = sensor.high() {
-//                 dict.insert("high", Value::float(high.get()));
-//             }
-//             if let Some(critical) = sensor.critical() {
-//                 dict.insert("critical", Value::float(critical.get()));
-//             }
+    let mut sensors = sensors::temperatures();
+    while let Some(sensor) = sensors.next().await {
+        if let Ok(sensor) = sensor {
+            let mut dict = TaggedDictBuilder::new(tag);
+            dict.insert("unit", Value::string(sensor.unit()));
+            if let Some(label) = sensor.label() {
+                dict.insert("label", Value::string(label));
+            }
+            dict.insert("temp", Value::float(sensor.current().get::<thermodynamic_temperature::degree_celsius>() as f64));
+            if let Some(high) = sensor.high() {
+                dict.insert("high", Value::float(high.get::<thermodynamic_temperature::degree_celsius>() as f64));
+            }
+            if let Some(critical) = sensor.critical() {
+                dict.insert("critical", Value::float(critical.get::<thermodynamic_temperature::degree_celsius>() as f64));
+            }
 
-//             output.push(dict.into_tagged_value());
-//         }
-//     }
+            output.push(dict.into_tagged_value());
+        }
+    }
 
-//     if output.len() > 0 {
-//         Some(Value::List(output))
-//     } else {
-//         None
-//     }
-// }
+    if !output.is_empty() {
+        Some(Value::List(output))
+    } else {
+        None
+    }
+}
 
 async fn net(tag: Tag) -> Option<Value> {
     let mut output = vec![];
     let mut io_counters = net::io_counters();
     while let Some(nic) = io_counters.next().await {
         if let Ok(nic) = nic {
-            let mut network_idx = TaggedDictBuilder::new(tag);
+            let mut network_idx = TaggedDictBuilder::with_capacity(tag, 3);
             network_idx.insert("name", Value::string(nic.interface()));
-            network_idx.insert("sent", Value::bytes(nic.bytes_sent().get()));
-            network_idx.insert("recv", Value::bytes(nic.bytes_recv().get()));
+            network_idx.insert("sent", Value::bytes(nic.bytes_sent().get::<information::byte>()));
+            network_idx.insert("recv", Value::bytes(nic.bytes_recv().get::<information::byte>()));
             output.push(network_idx.into_tagged_value());
         }
     }
-    if output.len() > 0 {
+    if !output.is_empty() {
         Some(Value::List(output))
     } else {
         None
@@ -225,23 +241,35 @@ async fn net(tag: Tag) -> Option<Value> {
 }
 
 async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
-    let mut sysinfo = TaggedDictBuilder::new(tag);
+    let mut sysinfo = TaggedDictBuilder::with_capacity(tag, 7);
+    
+    let (host, cpu, disks, memory, temp) = futures::future::join5(
+        host(tag),
+        cpu(tag),
+        disks(tag),
+        mem(tag),
+        temp(tag),
+    ).await;
+    let (net, battery) = futures::future::join(
+        net(tag),
+        battery(tag),
+    ).await;
 
-    sysinfo.insert_tagged("host", host(tag).await);
-    if let Some(cpu) = cpu(tag).await {
+    sysinfo.insert_tagged("host", host);
+    if let Some(cpu) = cpu {
         sysinfo.insert_tagged("cpu", cpu);
     }
-    if let Some(disks) = disks(tag).await {
+    if let Some(disks) = disks {
         sysinfo.insert("disks", disks);
     }
-    sysinfo.insert_tagged("mem", mem(tag).await);
-    // if let Some(temp) = temp(tag).await {
-    //     sysinfo.insert("temp", temp);
-    // }
-    if let Some(net) = net(tag).await {
+    sysinfo.insert_tagged("mem", memory);
+    if let Some(temp) = temp {
+        sysinfo.insert("temp", temp);
+    }
+    if let Some(net) = net {
         sysinfo.insert("net", net);
     }
-    if let Some(battery) = battery(tag).await {
+    if let Some(battery) = battery {
         sysinfo.insert("battery", battery);
     }
 
@@ -256,7 +284,7 @@ impl Plugin for Sys {
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(block_on(sysinfo(Tag::unknown_origin(callinfo.name_span)))
             .into_iter()
-            .map(|x| ReturnSuccess::value(x))
+            .map(ReturnSuccess::value)
             .collect())
     }
 

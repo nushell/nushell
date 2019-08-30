@@ -146,6 +146,13 @@ impl TaggedDictBuilder {
             dict: IndexMap::default(),
         }
     }
+    
+    pub fn with_capacity(tag: impl Into<Tag>, n: usize) -> TaggedDictBuilder {
+        TaggedDictBuilder {
+            tag: tag.into(),
+            dict: IndexMap::with_capacity(n),
+        }
+    }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
         self.dict.insert(key.into(), value.into().tagged(self.tag));
