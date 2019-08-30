@@ -829,11 +829,17 @@ fn coerce_compare_primitive(
 
     Ok(match (left, right) {
         (Int(left), Int(right)) => CompareValues::Ints(*left, *right),
-        (Decimal(left), Decimal(right)) => CompareValues::Decimals(*left, *right),
-        (Decimal(left), Int(right)) => CompareValues::Decimals(*left, (*right).into()),
         (Int(left), Decimal(right)) => CompareValues::Decimals((*left).into(), *right),
         (Int(left), Bytes(right)) => CompareValues::Bytes(*left as u64, *right),
+        (Decimal(left), Decimal(right)) => CompareValues::Decimals(*left, *right),
+        (Decimal(left), Int(right)) => CompareValues::Decimals(*left, (*right).into()),
+        (Decimal(left), Bytes(right)) => {
+            CompareValues::Decimals(*left, rust_decimal::Decimal::from(*right))
+        }
         (Bytes(left), Int(right)) => CompareValues::Bytes(*left, *right as u64),
+        (Bytes(left), Decimal(right)) => {
+            CompareValues::Decimals(rust_decimal::Decimal::from(*left), *right)
+        }
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),
     })
