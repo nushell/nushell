@@ -2,7 +2,7 @@
             
 # Nu Shell
 
-A modern, GitHub-era shell written in Rust
+A modern shell for the GitHub era
 
 ![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
 
