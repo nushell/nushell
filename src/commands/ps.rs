@@ -1,8 +1,13 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::process::process_dict;
+use crate::object::TaggedDictBuilder;
 use crate::prelude::*;
-use sysinfo::SystemExt;
+use std::time::Duration;
+use std::usize;
+
+use futures::stream::{StreamExt, TryStreamExt};
+use heim::process::{self as process, Process, ProcessResult};
+use heim::units::{ratio, Ratio};
 
 pub struct PS;
 
@@ -24,28 +29,44 @@ impl WholeStreamCommand for PS {
     }
 }
 
-fn ps(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let system;
+async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio)> {
+    let usage_1 = process.cpu_usage().await?;
+    futures_timer::Delay::new(Duration::from_millis(100)).await?;
+    let usage_2 = process.cpu_usage().await?;
 
-    #[cfg(target_os = "linux")]
-    {
-        system = sysinfo::System::new();
-    }
+    Ok((process, usage_2 - usage_1))
+}
 
-    #[cfg(not(target_os = "linux"))]
-    {
-        use sysinfo::RefreshKind;
-        let mut sy = sysinfo::System::new_with_specifics(RefreshKind::new().with_processes());
-        sy.refresh_processes();
+fn ps(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+    let span = args.name_span();
 
-        system = sy;
-    }
-    let list = system.get_process_list();
+    let stream = async_stream_block! {
+        let processes = process::processes()
+            .map_ok(|process| {
+                // Note that there is no `.await` here,
+                // as we want to pass the returned future
+                // into the `.try_buffer_unordered`.
+                usage(process)
+            })
+            .try_buffer_unordered(usize::MAX);
+        pin_utils::pin_mut!(processes);
 
-    let list = list
-        .into_iter()
-        .map(|(_, process)| process_dict(process, Tag::unknown_origin(args.call_info.name_span)))
-        .collect::<VecDeque<_>>();
+        while let Some(res) = processes.next().await {
+            let (process, usage) = res.unwrap();
 
-    Ok(list.from_input_stream())
+            let mut dict = TaggedDictBuilder::new(Tag::unknown_origin(span));
+            dict.insert("pid", Value::int(process.pid()));
+            if let Ok(name) = process.name().await {
+                dict.insert("name", Value::string(name));
+            }
+            if let Ok(status) = process.status().await {
+                dict.insert("status", Value::string(format!("{:?}", status)));
+            }
+            dict.insert("cpu", Value::float(usage.get::<ratio::percent>() as f64));
+            yield ReturnSuccess::value(dict.into_tagged_value());
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }
