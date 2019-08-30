@@ -54,13 +54,25 @@ fn paint_textview(
         match command {
             DrawCommand::DrawString(style, string) => {
                 for chr in string.chars() {
-                    frame_buffer.push((
-                        chr,
-                        style.foreground.r,
-                        style.foreground.g,
-                        style.foreground.b,
-                    ));
-                    pos += 1;
+                    if chr == '\t' {
+                        for _ in 0..8 {
+                            frame_buffer.push((
+                                ' ',
+                                style.foreground.r,
+                                style.foreground.g,
+                                style.foreground.b,
+                            ));
+                        }
+                        pos += 8;
+                    } else {
+                        frame_buffer.push((
+                            chr,
+                            style.foreground.r,
+                            style.foreground.g,
+                            style.foreground.b,
+                        ));
+                        pos += 1;
+                    }
                 }
             }
             DrawCommand::NextLine => {
