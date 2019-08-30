@@ -1,0 +1,125 @@
+# CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/configuration-reference/ for more details
+# See https://circleci.com/docs/2.0/config-intro/#section=configuration for spec
+#
+version: 2.1
+
+# Commands
+
+commands:
+
+  check_token:
+    description: Check that QUAY_TOKEN is provided in environment
+    steps:
+      - run: 
+          if [[ -z "${QUAY_TOKEN}" ]]; then
+            echo "QUAY_TOKEN is undefined. Add to CircleCI environment to continue."
+            exit 1;
+          fi
+
+  pull_cache:
+    description: Pulls Quay.io docker images usable for our cache
+    steps:
+      - run: docker pull quay.io/nushell/nu:latest
+      - run: docker pull quay.io/nushell/nu-base:latest
+
+
+orbs:
+  # https://circleci.com/orbs/registry/orb/circleci/docker
+  docker: circleci/docker@0.5.13
+
+workflows:
+  version: 2.0
+
+  # This builds on all pull requests to test, and ignores master
+  build_without_deploy:
+    jobs:
+      - docker/publish:
+          deploy: false
+          image: nushell/nu-base
+          tag: latest
+          dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          filters:
+            branches:
+              ignore: 
+                - master
+          before_build:
+            - check_token
+            - pull_cache
+          after_build:
+            - run:
+                name: Build Multistage (smaller) container
+                command: |
+                  docker build -f docker/Dockerfile -t quay.io/nushell/nu .
+            - run:
+                name: Preview Docker Tag for Nushell Build
+                command: |
+                   DOCKER_TAG=$(docker run quay.io/nushell/nu --version | cut -d' ' -f2)
+                   echo "Version that would be used for Docker tag is v${DOCKER_TAG}"
+
+  # workflow publishes to Docker Hub, with each job having different triggers
+  build_with_deploy:
+    jobs:
+
+        # Deploy versioned and latest images on tags (releases) only.
+      - docker/publish:
+          image: nushell/nu-base
+          registry: quay.io
+          tag: latest
+          dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+          before_build:
+            - check_token
+            - pull_cache
+          after_build:
+            - run:
+                name: Build Multistage (smaller) container
+                command: |
+                  docker build -f docker/Dockerfile -t quay.io/nushell/nu .
+            - run:
+                name: Publish Docker Tag with Nushell Version
+                command: |
+                   DOCKER_TAG=$(docker run quay.io/nushell/nu --version | cut -d' ' -f2)
+                   echo "Version for Docker tag is ${DOCKER_TAG}"
+                   docker tag quay.io/nushell/nu-base:latest quay.io/nushell/nu-base:${DOCKER_TAG}
+                   docker tag quay.io/nushell/nu:latest quay.io/nushell/nu:${DOCKER_TAG}
+                   docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
+                   docker push quay.io/nushell/nu-base
+                   docker push quay.io/nushell/nu
+
+
+  # publish devel to Docker Hub on merge to master
+  build_with_deploy_devel:
+    jobs:
+
+      # Deploy devel tag on merge to master
+      - docker/publish:
+          image: nushell/nu-base
+          registry: quay.io
+          tag: devel
+          dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          before_build:
+            - check_token
+            - pull_cache
+          filters:
+            branches:
+              only: master
+          after_build:
+            - run:
+                name: Build Multistage (smaller) container
+                command: |
+                  docker build --build-arg FROMTAG=devel -f docker/Dockerfile -t quay.io/nushell/nu:devel .
+            - run:
+                name: Publish Development Docker Tags
+                command: |
+                   docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
+                   docker push quay.io/nushell/nu-base:devel
+                   docker push quay.io/nushell/nu:devel

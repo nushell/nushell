@@ -23,7 +23,7 @@ use std::str::FromStr;
 
 pub type NomSpan<'a> = LocatedSpan<&'a str>;
 
-pub fn nom_input(s: &'a str) -> NomSpan<'a> {
+pub fn nom_input(s: &str) -> NomSpan<'_> {
     LocatedSpan::new(s)
 }
 

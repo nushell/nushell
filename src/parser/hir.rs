@@ -1,9 +1,9 @@
-crate mod baseline_parse;
-crate mod baseline_parse_tokens;
-crate mod binary;
-crate mod external_command;
-crate mod named;
-crate mod path;
+pub(crate) mod baseline_parse;
+pub(crate) mod baseline_parse_tokens;
+pub(crate) mod binary;
+pub(crate) mod external_command;
+pub(crate) mod named;
+pub(crate) mod path;
 
 use crate::parser::{registry, Unit};
 use crate::prelude::*;
@@ -15,15 +15,15 @@ use std::path::PathBuf;
 
 use crate::evaluate::Scope;
 
-crate use self::baseline_parse::{
+pub(crate) use self::baseline_parse::{
     baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
     baseline_parse_token_as_string,
 };
-crate use self::baseline_parse_tokens::{baseline_parse_next_expr, TokensIterator};
-crate use self::binary::Binary;
-crate use self::external_command::ExternalCommand;
-crate use self::named::NamedArguments;
-crate use self::path::Path;
+pub(crate) use self::baseline_parse_tokens::{baseline_parse_next_expr, TokensIterator};
+pub(crate) use self::binary::Binary;
+pub(crate) use self::external_command::ExternalCommand;
+pub(crate) use self::named::NamedArguments;
+pub(crate) use self::path::Path;
 
 pub use self::baseline_parse_tokens::SyntaxType;
 
@@ -129,51 +129,51 @@ impl RawExpression {
 pub type Expression = Tagged<RawExpression>;
 
 impl Expression {
-    crate fn int(i: impl Into<i64>, span: impl Into<Span>) -> Expression {
+    pub(crate) fn int(i: impl Into<i64>, span: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Integer(i.into())), span)
     }
 
-    crate fn size(i: impl Into<i64>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
+    pub(crate) fn size(i: impl Into<i64>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::Size(i.into(), unit.into())),
             span,
         )
     }
 
-    crate fn synthetic_string(s: impl Into<String>) -> Expression {
+    pub(crate) fn synthetic_string(s: impl Into<String>) -> Expression {
         RawExpression::Synthetic(Synthetic::String(s.into())).tagged_unknown()
     }
 
-    crate fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    pub(crate) fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Literal(Literal::String(inner.into())),
             outer.into(),
         )
     }
 
-    crate fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
+    pub(crate) fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(RawExpression::FilePath(path.into()), outer.into())
     }
 
-    crate fn bare(span: impl Into<Span>) -> Expression {
+    pub(crate) fn bare(span: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
     }
 
-    crate fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::Other(inner.into())),
             outer.into(),
         )
     }
 
-    crate fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    pub(crate) fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::ExternalCommand(ExternalCommand::new(inner.into())),
             outer.into(),
         )
     }
 
-    crate fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    pub(crate) fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::It(inner.into())),
             outer.into(),

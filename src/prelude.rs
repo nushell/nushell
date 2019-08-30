@@ -47,37 +47,38 @@ macro_rules! trace_out_stream {
     }};
 }
 
-crate use crate::cli::MaybeOwned;
-crate use crate::commands::command::{
+pub(crate) use crate::cli::MaybeOwned;
+pub(crate) use crate::commands::command::{
     CallInfo, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
 };
-crate use crate::commands::{PerItemCommand, RawCommandArgs};
-crate use crate::context::CommandRegistry;
-crate use crate::context::{Context, SpanSource};
-crate use crate::env::host::handle_unexpected;
-crate use crate::env::Host;
-crate use crate::errors::ShellError;
-crate use crate::object::base as value;
-crate use crate::object::meta::{Tag, Tagged, TaggedItem};
-crate use crate::object::types::ExtractType;
-crate use crate::object::{Primitive, Value};
-crate use crate::parser::hir::SyntaxType;
-crate use crate::parser::registry::Signature;
-crate use crate::shell::filesystem_shell::FilesystemShell;
-crate use crate::shell::shell_manager::ShellManager;
-crate use crate::shell::value_shell::ValueShell;
-crate use crate::stream::{InputStream, OutputStream};
-crate use crate::traits::{HasSpan, ToDebug};
-crate use crate::Span;
-crate use crate::Text;
-crate use futures::stream::BoxStream;
-crate use futures::{FutureExt, Stream, StreamExt};
-crate use futures_async_stream::async_stream_block;
+pub(crate) use crate::commands::PerItemCommand;
+pub(crate) use crate::commands::RawCommandArgs;
+pub(crate) use crate::context::CommandRegistry;
+pub(crate) use crate::context::{Context, SpanSource};
+pub(crate) use crate::env::host::handle_unexpected;
+pub(crate) use crate::env::Host;
+pub(crate) use crate::errors::ShellError;
+pub(crate) use crate::object::base as value;
+pub(crate) use crate::object::meta::{Tag, Tagged, TaggedItem};
+pub(crate) use crate::object::types::ExtractType;
+pub(crate) use crate::object::{Primitive, Value};
+pub(crate) use crate::parser::hir::SyntaxType;
+pub(crate) use crate::parser::registry::Signature;
+pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
+pub(crate) use crate::shell::shell_manager::ShellManager;
+pub(crate) use crate::shell::value_shell::ValueShell;
+pub(crate) use crate::stream::{InputStream, OutputStream};
+pub(crate) use crate::traits::{HasSpan, ToDebug};
+pub(crate) use crate::Span;
+pub(crate) use crate::Text;
+pub(crate) use futures::stream::BoxStream;
+pub(crate) use futures::{FutureExt, Stream, StreamExt};
+pub(crate) use futures_async_stream::async_stream_block;
 #[allow(unused)]
-crate use serde::{Deserialize, Serialize};
-crate use std::collections::VecDeque;
-crate use std::future::Future;
-crate use std::sync::{Arc, Mutex};
+pub(crate) use serde::{Deserialize, Serialize};
+pub(crate) use std::collections::VecDeque;
+pub(crate) use std::future::Future;
+pub(crate) use std::sync::{Arc, Mutex};
 
 pub trait FromInputStream {
     fn from_input_stream(self) -> OutputStream;

@@ -1,21 +1,21 @@
-crate mod entries;
-crate mod generic;
-crate mod list;
-crate mod table;
-crate mod vtable;
+pub(crate) mod entries;
+pub(crate) mod generic;
+pub(crate) mod list;
+pub(crate) mod table;
+pub(crate) mod vtable;
 
 use crate::prelude::*;
 
-crate use entries::EntriesView;
+pub(crate) use entries::EntriesView;
 #[allow(unused)]
-crate use generic::GenericView;
-crate use table::TableView;
-crate use vtable::VTableView;
+pub(crate) use generic::GenericView;
+pub(crate) use table::TableView;
+pub(crate) use vtable::VTableView;
 
-crate trait RenderView {
+pub(crate) trait RenderView {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError>;
 }
 
-crate fn print_view(view: &impl RenderView, host: &mut dyn Host) -> Result<(), ShellError> {
+pub(crate) fn print_view(view: &impl RenderView, host: &mut dyn Host) -> Result<(), ShellError> {
     view.render_view(host)
 }

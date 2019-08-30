@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 pub struct InputStream {
-    crate values: BoxStream<'static, Tagged<Value>>,
+    pub(crate) values: BoxStream<'static, Tagged<Value>>,
 }
 
 impl InputStream {
@@ -49,7 +49,7 @@ impl From<Vec<Tagged<Value>>> for InputStream {
 }
 
 pub struct OutputStream {
-    crate values: BoxStream<'static, ReturnValue>,
+    pub(crate) values: BoxStream<'static, ReturnValue>,
 }
 
 impl OutputStream {

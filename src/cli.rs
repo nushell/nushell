@@ -7,7 +7,7 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
-crate use crate::errors::ShellError;
+pub(crate) use crate::errors::ShellError;
 use crate::git::current_branch;
 use crate::object::Value;
 use crate::parser::registry::Signature;
@@ -17,7 +17,7 @@ use crate::prelude::*;
 use log::{debug, trace};
 use regex::Regex;
 use rustyline::error::ReadlineError;
-use rustyline::{self, ColorMode, Config, Editor};
+use rustyline::{self, ColorMode, Config, Editor, config::Configurer, config::EditMode};
 use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
@@ -30,7 +30,7 @@ pub enum MaybeOwned<'a, T> {
     Borrowed(&'a T),
 }
 
-impl<T> MaybeOwned<'a, T> {
+impl<T> MaybeOwned<'_, T> {
     pub fn borrow(&self) -> &T {
         match self {
             MaybeOwned::Owned(v) => v,
@@ -180,6 +180,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(ToCSV),
             whole_stream_command(ToJSON),
             whole_stream_command(ToTOML),
+            whole_stream_command(ToTSV),
             whole_stream_command(ToYAML),
             whole_stream_command(SortBy),
             whole_stream_command(Tags),
@@ -188,6 +189,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromArray),
             whole_stream_command(FromArray),
             whole_stream_command(FromCSV),
+            whole_stream_command(FromTSV),
             whole_stream_command(FromINI),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
@@ -254,6 +256,17 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         rl.set_helper(Some(crate::shell::Helper::new(
             context.shell_manager.clone(),
         )));
+
+        let edit_mode = crate::object::config::config(Span::unknown())?
+            .get("edit_mode")
+            .map(|s| match s.as_string().unwrap().as_ref() {
+                "vi" => EditMode::Vi,
+                "emacs" => EditMode::Emacs,
+                _ => EditMode::Emacs,
+            })
+            .unwrap_or(EditMode::Emacs);
+
+        rl.set_edit_mode(edit_mode);
 
         let readline = rl.readline(&format!(
             "{}{}> ",

@@ -1,12 +1,12 @@
 mod helpers;
 
-use helpers::{in_directory as cwd, Playground, Stub::*};
 use helpers as h;
+use helpers::{Playground, Stub::*};
 
 #[test]
 fn can_convert_table_to_csv_text_and_from_csv_text_back_into_table() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
     );
 
@@ -27,7 +27,7 @@ fn converts_structured_table_to_csv_text() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open csv_text_sample.txt 
                 | lines 
@@ -58,7 +58,7 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open csv_text_sample.txt 
                 | lines 
@@ -88,7 +88,7 @@ fn converts_from_csv_text_to_structured_table() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open los_tres_amigos.txt 
                 | from-csv 
@@ -118,7 +118,7 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open los_tres_amigos.txt 
                 | from-csv --headerless 
@@ -136,7 +136,7 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
 #[test]
 fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
+        cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open sgml_description.json 
             | to-json 
@@ -168,7 +168,7 @@ fn converts_from_json_text_to_structured_table() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()),
+            cwd: dirs.test(),
             "open katz.txt | from-json | get katz | get rusty_luck | sum | echo $it"
         );
 
@@ -192,7 +192,7 @@ fn converts_from_json_text_recognizing_objects_independendtly_to_structured_tabl
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open katz.txt 
                 | from-json --objects 
@@ -219,7 +219,7 @@ fn converts_structured_table_to_json_text() {
         )]);
 
         let actual = nu!(
-            cwd(dirs.test()), h::pipeline(
+            cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.txt 
                 | lines 
@@ -238,9 +238,139 @@ fn converts_structured_table_to_json_text() {
 }
 
 #[test]
+fn can_convert_table_to_tsv_text_and_from_tsv_text_back_into_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "open caco3_plastics.tsv | to-tsv | from-tsv | first 1 | get origin | echo $it"
+    );
+
+    assert_eq!(actual, "SPAIN");
+}
+
+#[test]
+fn converts_structured_table_to_tsv_text() {
+    Playground::setup("filter_to_tsv_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "tsv_text_sample.txt",
+                r#"
+                    importer	shipper	tariff_item	name	origin
+                    Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
+                    Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
+                "#
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open tsv_text_sample.txt 
+                | lines 
+                | split-column "\t" a b c d origin  
+                | last 1 
+                | to-tsv
+                | lines 
+                | nth 1 
+                | echo "$it"
+            "#
+        ));
+
+        assert!(actual.contains("Colombia"));
+    })
+}
+
+#[test]
+fn converts_structured_table_to_tsv_text_skipping_headers_after_conversion() {
+    Playground::setup("filter_to_tsv_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "tsv_text_sample.txt",
+                r#"
+                    importer    shipper tariff_item name    origin
+                    Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
+                    Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
+                "#
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open tsv_text_sample.txt 
+                | lines 
+                | split-column "\t" a b c d origin  
+                | last 1 
+                | to-tsv --headerless 
+                | echo "$it"
+            "#
+        ));
+
+        assert!(actual.contains("Colombia"));
+    })
+}
+
+#[test]
+fn converts_from_tsv_text_to_structured_table() {
+    Playground::setup("filter_from_tsv_test_1", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "los_tres_amigos.txt",
+                r#"
+                    first Name	Last Name	rusty_luck
+                    Andrés	Robalino	1
+                    Jonathan	Turner	1
+                    Yehuda	Katz	1
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_amigos.txt 
+                | from-tsv 
+                | get rusty_luck 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn converts_from_tsv_text_skipping_headers_to_structured_table() {
+    Playground::setup("filter_from_tsv_test_2", |dirs, sandbox| {
+        sandbox
+            .with_files(vec![FileWithContentToBeTrimmed(
+                "los_tres_amigos.txt",
+                r#"
+                    first Name	Last Name	rusty_luck
+                    Andrés	Robalino	1
+                    Jonathan	Turner	1
+                    Yehuda	Katz	1
+                "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_amigos.txt 
+                | from-tsv --headerless 
+                | get Column3 
+                | str --to-int 
+                | sum 
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
 fn can_convert_json_text_to_bson_and_back_into_table() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open sample.bson | to-bson | from-bson | get root | nth 1 | get b | echo $it"
     );
 
@@ -250,7 +380,7 @@ fn can_convert_json_text_to_bson_and_back_into_table() {
 #[test]
 fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "open cargo_sample.toml | to-toml | from-toml | get package.name | echo $it"
     );
 
@@ -260,7 +390,7 @@ fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
 #[test]
 fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
+        cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open appveyor.yml 
             | to-yaml 
@@ -276,7 +406,7 @@ fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
 #[test]
 fn can_sort_by_column() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
+        cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open cargo_sample.toml --raw 
             | lines 
@@ -298,7 +428,7 @@ fn can_sort_by_column() {
 #[test]
 fn can_split_by_column() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
+        cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open cargo_sample.toml --raw 
             | lines 
@@ -317,7 +447,7 @@ fn can_split_by_column() {
 #[test]
 fn can_sum() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"), h::pipeline(
+        cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open sgml_description.json 
             | get glossary.GlossDiv.GlossList.GlossEntry.Sections 
@@ -332,17 +462,17 @@ fn can_sum() {
 #[test]
 fn can_filter_by_unit_size_comparison() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
-        "ls | where size > 1kb | sort-by size | get name | skip 1 | trim | echo $it"
+        cwd: "tests/fixtures/formats",
+        "ls | where size > 1kb | sort-by size | get name | first 1 | trim | echo $it"
     );
 
-    assert_eq!(actual, "caco3_plastics.csv");
+    assert_eq!(actual, "cargo_sample.toml");
 }
 
 #[test]
 fn can_get_last() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "ls | sort-by name | last 1 | get name | trim | echo $it"
     );
 
@@ -352,7 +482,7 @@ fn can_get_last() {
 #[test]
 fn can_get_reverse_first() {
     let actual = nu!(
-        cwd("tests/fixtures/formats"),
+        cwd: "tests/fixtures/formats",
         "ls | sort-by name | reverse | first 1 | get name | trim | echo $it"
     );
 

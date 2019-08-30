@@ -16,11 +16,11 @@ use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, new, Serialize, Deserialize)]
 pub struct OF64 {
-    crate inner: OrderedFloat<f64>,
+    pub(crate) inner: OrderedFloat<f64>,
 }
 
 impl OF64 {
-    crate fn into_inner(&self) -> f64 {
+    pub(crate) fn into_inner(&self) -> f64 {
         self.inner.into_inner()
     }
 }
@@ -49,7 +49,7 @@ pub enum Primitive {
 }
 
 impl Primitive {
-    crate fn type_name(&self) -> String {
+    pub(crate) fn type_name(&self) -> String {
         use Primitive::*;
 
         match self {
@@ -67,7 +67,7 @@ impl Primitive {
         .to_string()
     }
 
-    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Primitive::*;
 
         match self {
@@ -130,16 +130,16 @@ impl Primitive {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
 pub struct Operation {
-    crate left: Value,
-    crate operator: Operator,
-    crate right: Value,
+    pub(crate) left: Value,
+    pub(crate) operator: Operator,
+    pub(crate) right: Value,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Serialize, Deserialize, new)]
 pub struct Block {
-    crate expressions: Vec<hir::Expression>,
-    crate source: Text,
-    crate span: Span,
+    pub(crate) expressions: Vec<hir::Expression>,
+    pub(crate) source: Text,
+    pub(crate) span: Span,
 }
 
 impl Block {
@@ -176,7 +176,7 @@ pub enum Value {
     Block(Block),
 }
 
-pub fn debug_list(values: &'a Vec<Tagged<Value>>) -> ValuesDebug<'a> {
+pub fn debug_list(values: &Vec<Tagged<Value>>) -> ValuesDebug<'_> {
     ValuesDebug { values }
 }
 
@@ -184,7 +184,7 @@ pub struct ValuesDebug<'a> {
     values: &'a Vec<Tagged<Value>>,
 }
 
-impl fmt::Debug for ValuesDebug<'a> {
+impl fmt::Debug for ValuesDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_list()
             .entries(self.values.iter().map(|i| i.debug()))
@@ -196,7 +196,7 @@ pub struct ValueDebug<'a> {
     value: &'a Tagged<Value>,
 }
 
-impl fmt::Debug for ValueDebug<'a> {
+impl fmt::Debug for ValueDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value.item() {
             Value::Primitive(p) => p.debug(f),
@@ -209,16 +209,16 @@ impl fmt::Debug for ValueDebug<'a> {
 }
 
 impl Tagged<Value> {
-    crate fn tagged_type_name(&self) -> Tagged<String> {
+    pub(crate) fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
         Tagged::from_item(name, self.tag())
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for Block {
+impl std::convert::TryFrom<&Tagged<Value>> for Block {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<Block, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<Block, ShellError> {
         match value.item() {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
@@ -229,10 +229,10 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for Block {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
+impl std::convert::TryFrom<&Tagged<Value>> for i64 {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<i64, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<i64, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Int(int)) => Ok(*int),
             v => Err(ShellError::type_error(
@@ -243,10 +243,10 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for i64 {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for String {
+impl std::convert::TryFrom<&Tagged<Value>> for String {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<String, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<String, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             v => Err(ShellError::type_error(
@@ -257,10 +257,10 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for String {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
+impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<Vec<u8>, ShellError> {
+    fn try_from(value: &Tagged<Value>) -> Result<Vec<u8>, ShellError> {
         match value.item() {
             Value::Binary(b) => Ok(b.clone()),
             v => Err(ShellError::type_error(
@@ -271,7 +271,7 @@ impl std::convert::TryFrom<&'a Tagged<Value>> for Vec<u8> {
     }
 }
 
-impl std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
+impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
     type Error = ShellError;
 
     fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::object::Dictionary, ShellError> {
@@ -301,10 +301,10 @@ impl Switch {
     }
 }
 
-impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
+impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
     type Error = ShellError;
 
-    fn try_from(value: Option<&'a Tagged<Value>>) -> Result<Switch, ShellError> {
+    fn try_from(value: Option<&Tagged<Value>>) -> Result<Switch, ShellError> {
         match value {
             None => Ok(Switch::Absent),
             Some(value) => match value.item() {
@@ -319,13 +319,13 @@ impl std::convert::TryFrom<Option<&'a Tagged<Value>>> for Switch {
 }
 
 impl Tagged<Value> {
-    crate fn debug(&'a self) -> ValueDebug<'a> {
+    pub(crate) fn debug(&self) -> ValueDebug<'_> {
         ValueDebug { value: self }
     }
 }
 
 impl Value {
-    crate fn type_name(&self) -> String {
+    pub(crate) fn type_name(&self) -> String {
         match self {
             Value::Primitive(p) => p.type_name(),
             Value::Object(_) => format!("object"),
@@ -351,7 +351,7 @@ impl Value {
         }
     }
 
-    crate fn get_data_by_key(&'a self, name: &str) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self {
             Value::Object(o) => o.get_data_by_key(name),
             Value::List(l) => {
@@ -374,14 +374,14 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn get_data_by_index(&'a self, idx: usize) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_index(&self, idx: usize) -> Option<&Tagged<Value>> {
         match self {
             Value::List(l) => l.iter().nth(idx),
             _ => None,
         }
     }
 
-    pub fn get_data_by_path(&'a self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
+    pub fn get_data_by_path(&self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
         let mut current = self;
         for p in path.split(".") {
             match current.get_data_by_key(p) {
@@ -394,7 +394,7 @@ impl Value {
     }
 
     pub fn insert_data_at_path(
-        &'a self,
+        &self,
         tag: Tag,
         path: &str,
         new_value: Value,
@@ -447,7 +447,7 @@ impl Value {
     }
 
     pub fn replace_data_at_path(
-        &'a self,
+        &self,
         tag: Tag,
         path: &str,
         replaced_value: Value,
@@ -481,7 +481,7 @@ impl Value {
         None
     }
 
-    pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
+    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
             Value::Object(o) => o.get_data(desc),
@@ -491,7 +491,7 @@ impl Value {
         }
     }
 
-    crate fn format_leaf(&self, desc: Option<&String>) -> String {
+    pub(crate) fn format_leaf(&self, desc: Option<&String>) -> String {
         match self {
             Value::Primitive(p) => p.format(desc),
             Value::Block(b) => itertools::join(
@@ -510,7 +510,7 @@ impl Value {
         }
     }
 
-    crate fn style_leaf(&self) -> &'static str {
+    pub(crate) fn style_leaf(&self) -> &'static str {
         match self {
             Value::Primitive(p) => p.style(),
             _ => "",
@@ -518,7 +518,7 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
+    pub(crate) fn compare(&self, operator: &Operator, other: &Value) -> Result<bool, (String, String)> {
         match operator {
             _ => {
                 let coerced = coerce_compare(self, other)?;
@@ -545,14 +545,14 @@ impl Value {
     }
 
     #[allow(unused)]
-    crate fn is_string(&self, expected: &str) -> bool {
+    pub(crate) fn is_string(&self, expected: &str) -> bool {
         match self {
             Value::Primitive(Primitive::String(s)) if s == expected => true,
             other => false,
         }
     }
 
-    // crate fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
+    // pub(crate) fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
     //     match self {
     //         Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
     //         other => Err(ShellError::string(format!(
@@ -562,7 +562,7 @@ impl Value {
     //     }
     // }
 
-    crate fn as_string(&self) -> Result<String, ShellError> {
+    pub(crate) fn as_string(&self) -> Result<String, ShellError> {
         match self {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
@@ -577,7 +577,7 @@ impl Value {
         }
     }
 
-    crate fn as_i64(&self) -> Result<i64, ShellError> {
+    pub(crate) fn as_i64(&self) -> Result<i64, ShellError> {
         match self {
             Value::Primitive(Primitive::Int(i)) => Ok(*i),
             Value::Primitive(Primitive::Bytes(b)) => Ok(*b as i64),
@@ -589,7 +589,7 @@ impl Value {
         }
     }
 
-    crate fn is_true(&self) -> bool {
+    pub(crate) fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
             _ => false,
@@ -640,7 +640,7 @@ impl Value {
 }
 
 impl Tagged<Value> {
-    crate fn as_path(&self) -> Result<PathBuf, ShellError> {
+    pub(crate) fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self.item() {
             Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
             other => Err(ShellError::type_error(
@@ -651,7 +651,7 @@ impl Tagged<Value> {
     }
 }
 
-crate fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
+pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
@@ -666,7 +666,7 @@ crate fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> T
     out.into_tagged_value()
 }
 
-crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
+pub(crate) fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Tagged<Value> {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
@@ -683,7 +683,7 @@ crate fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> T
 }
 
 #[allow(unused)]
-crate fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
+pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
     let descs = obj.data_descriptors();
     match descs.iter().find(|d| *d == field) {
         None => false,

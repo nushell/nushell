@@ -111,6 +111,7 @@ pub fn config(
 
         if result.contains_key(&key) {
             result.remove(&key);
+            config::write_config(&result)?;
         } else {
             return Err(ShellError::string(&format!(
                 "{} does not exist in config",

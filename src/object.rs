@@ -1,13 +1,12 @@
-crate mod base;
-crate mod config;
-crate mod dict;
-crate mod files;
-crate mod into;
-crate mod meta;
-crate mod process;
-crate mod types;
+pub(crate) mod base;
+pub(crate) mod config;
+pub(crate) mod dict;
+pub(crate) mod files;
+pub(crate) mod into;
+pub(crate) mod meta;
+pub(crate) mod types;
 
 #[allow(unused)]
-crate use base::{Block, Primitive, Switch, Value};
-crate use dict::{Dictionary, TaggedDictBuilder};
-crate use files::dir_entry_dict;
+pub(crate) use base::{Block, Primitive, Switch, Value};
+pub(crate) use dict::{Dictionary, TaggedDictBuilder};
+pub(crate) use files::dir_entry_dict;

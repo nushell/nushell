@@ -1,4 +1,5 @@
 use crate::commands::to_csv::{to_string as to_csv_to_string, value_to_csv_value};
+use crate::commands::to_tsv::{to_string as to_tsv_to_string, value_to_tsv_value};
 use crate::commands::to_json::value_to_json_value;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::commands::to_yaml::value_to_yaml_value;
@@ -165,6 +166,14 @@ async fn to_string_for(
                 ));
             }
             to_csv_to_string(&value_to_csv_value(&input[0]))?
+        }
+        Some(x) if x == "tsv" => {
+            if input.len() != 1 {
+                return Err(ShellError::string(
+                    "saving to tsv requires a single object (or use --raw)",
+                ));
+            }
+            to_tsv_to_string(&value_to_tsv_value(&input[0]))?
         }
         Some(x) if x == "toml" => {
             if input.len() != 1 {

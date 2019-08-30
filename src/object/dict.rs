@@ -72,14 +72,14 @@ impl PartialEq<Value> for Dictionary {
 }
 
 impl Dictionary {
-    pub fn get_data(&'a self, desc: &String) -> MaybeOwned<'a, Value> {
+    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(Value::Primitive(Primitive::Nothing)),
         }
     }
 
-    crate fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
+    pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self
             .entries
             .iter()
@@ -90,7 +90,7 @@ impl Dictionary {
         }
     }
 
-    crate fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut debug = f.debug_struct("Dictionary");
 
         for (desc, value) in self.entries.iter() {
@@ -144,6 +144,13 @@ impl TaggedDictBuilder {
         TaggedDictBuilder {
             tag: tag.into(),
             dict: IndexMap::default(),
+        }
+    }
+    
+    pub fn with_capacity(tag: impl Into<Tag>, n: usize) -> TaggedDictBuilder {
+        TaggedDictBuilder {
+            tag: tag.into(),
+            dict: IndexMap::with_capacity(n),
         }
     }
 

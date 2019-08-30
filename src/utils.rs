@@ -185,7 +185,7 @@ impl FileStructure {
         Ok(())
     }
 
-    fn build(&mut self, src: &'a Path, lvl: usize) -> Result<(), ShellError> {
+    fn build(&mut self, src: &Path, lvl: usize) -> Result<(), ShellError> {
         let source = dunce::canonicalize(src)?;
 
         if source.is_dir() {
@@ -248,6 +248,10 @@ mod tests {
                 },
                 Res {
                     loc: fixtures().join("caco3_plastics.csv"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("caco3_plastics.tsv"),
                     at: 0
                 },
                 Res {

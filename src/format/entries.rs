@@ -14,7 +14,7 @@ pub struct EntriesView {
 }
 
 impl EntriesView {
-    crate fn from_value(value: &Value) -> EntriesView {
+    pub(crate) fn from_value(value: &Value) -> EntriesView {
         let descs = value.data_descriptors();
         let mut entries = vec![];
 

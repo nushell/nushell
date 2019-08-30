@@ -73,7 +73,7 @@ impl serde::de::Error for ShellError {
 }
 
 impl ShellError {
-    crate fn type_error(
+    pub(crate) fn type_error(
         expected: impl Into<String>,
         actual: Tagged<impl Into<String>>,
     ) -> ShellError {
@@ -84,21 +84,21 @@ impl ShellError {
         .start()
     }
 
-    crate fn syntax_error(problem: Tagged<impl Into<String>>) -> ShellError {
+    pub(crate) fn syntax_error(problem: Tagged<impl Into<String>>) -> ShellError {
         ProximateShellError::SyntaxError {
             problem: problem.map(|p| p.into()),
         }
         .start()
     }
 
-    crate fn invalid_command(problem: impl Into<Tag>) -> ShellError {
+    pub(crate) fn invalid_command(problem: impl Into<Tag>) -> ShellError {
         ProximateShellError::InvalidCommand {
             command: problem.into(),
         }
         .start()
     }
 
-    crate fn coerce_error(
+    pub(crate) fn coerce_error(
         left: Tagged<impl Into<String>>,
         right: Tagged<impl Into<String>>,
     ) -> ShellError {
@@ -109,11 +109,11 @@ impl ShellError {
         .start()
     }
 
-    crate fn missing_property(subpath: Description, expr: Description) -> ShellError {
+    pub(crate) fn missing_property(subpath: Description, expr: Description) -> ShellError {
         ProximateShellError::MissingProperty { subpath, expr }.start()
     }
 
-    crate fn missing_value(span: Option<Span>, reason: impl Into<String>) -> ShellError {
+    pub(crate) fn missing_value(span: Option<Span>, reason: impl Into<String>) -> ShellError {
         ProximateShellError::MissingValue {
             span,
             reason: reason.into(),
@@ -121,7 +121,7 @@ impl ShellError {
         .start()
     }
 
-    crate fn argument_error(
+    pub(crate) fn argument_error(
         command: impl Into<String>,
         kind: ArgumentError,
         span: Span,
@@ -134,7 +134,7 @@ impl ShellError {
         .start()
     }
 
-    crate fn parse_error(
+    pub(crate) fn parse_error(
         error: nom::Err<(nom5_locate::LocatedSpan<&str>, nom::error::ErrorKind)>,
     ) -> ShellError {
         use language_reporting::*;
@@ -158,11 +158,11 @@ impl ShellError {
         }
     }
 
-    crate fn diagnostic(diagnostic: Diagnostic<Span>) -> ShellError {
+    pub(crate) fn diagnostic(diagnostic: Diagnostic<Span>) -> ShellError {
         ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }).start()
     }
 
-    crate fn to_diagnostic(self) -> Diagnostic<Span> {
+    pub(crate) fn to_diagnostic(self) -> Diagnostic<Span> {
         match self.error {
             ProximateShellError::String(StringError { title, .. }) => {
                 Diagnostic::new(Severity::Error, title)
@@ -309,11 +309,11 @@ impl ShellError {
         ProximateShellError::String(StringError::new(title.into(), Value::nothing())).start()
     }
 
-    crate fn unimplemented(title: impl Into<String>) -> ShellError {
+    pub(crate) fn unimplemented(title: impl Into<String>) -> ShellError {
         ShellError::string(&format!("Unimplemented: {}", title.into()))
     }
 
-    crate fn unexpected(title: impl Into<String>) -> ShellError {
+    pub(crate) fn unexpected(title: impl Into<String>) -> ShellError {
         ShellError::string(&format!("Unexpected: {}", title.into()))
     }
 }
@@ -369,12 +369,12 @@ impl ToDebug for ProximateShellError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellDiagnostic {
-    crate diagnostic: Diagnostic<Span>,
+    pub(crate) diagnostic: Diagnostic<Span>,
 }
 
 impl ShellDiagnostic {
     #[allow(unused)]
-    crate fn simple_diagnostic(
+    pub(crate) fn simple_diagnostic(
         span: impl Into<Span>,
         source: impl Into<String>,
     ) -> ShellDiagnostic {

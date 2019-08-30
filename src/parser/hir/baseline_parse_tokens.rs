@@ -331,7 +331,7 @@ pub struct TokensIterator<'a> {
     seen: indexmap::IndexSet<usize>,
 }
 
-impl TokensIterator<'a> {
+impl TokensIterator<'_> {
     pub fn remove(&mut self, position: usize) {
         self.seen.insert(position);
     }
@@ -404,7 +404,7 @@ impl TokensIterator<'a> {
     }
 }
 
-impl Iterator for TokensIterator<'a> {
+impl<'a> Iterator for TokensIterator<'a> {
     type Item = &'a TokenNode;
 
     fn next(&mut self) -> Option<&'a TokenNode> {
