@@ -17,7 +17,7 @@ use crate::prelude::*;
 use log::{debug, trace};
 use regex::Regex;
 use rustyline::error::ReadlineError;
-use rustyline::{self, ColorMode, Config, Editor, config::Configurer, config::EditMode};
+use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
 use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
@@ -200,6 +200,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Get),
             per_item_command(Remove),
             per_item_command(Open),
+            per_item_command(Post),
             per_item_command(Where),
             whole_stream_command(Config),
             whole_stream_command(SkipWhile),
