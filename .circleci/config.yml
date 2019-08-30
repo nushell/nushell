@@ -52,11 +52,11 @@ workflows:
             - run:
                 name: Build Multistage (smaller) container
                 command: |
-                  docker build -f docker/Dockerfile -t nushell/nu .
+                  docker build -f docker/Dockerfile -t quay.io/nushell/nu .
             - run:
                 name: Preview Docker Tag for Nushell Build
                 command: |
-                   DOCKER_TAG=$(docker run nushell/nu --version | cut -d' ' -f2)
+                   DOCKER_TAG=$(docker run quay.io/nushell/nu --version | cut -d' ' -f2)
                    echo "Version that would be used for Docker tag is v${DOCKER_TAG}"
 
   # workflow publishes to Docker Hub, with each job having different triggers
@@ -82,17 +82,17 @@ workflows:
             - run:
                 name: Build Multistage (smaller) container
                 command: |
-                  docker build -f docker/Dockerfile -t nushell/nu .
+                  docker build -f docker/Dockerfile -t quay.io/nushell/nu .
             - run:
                 name: Publish Docker Tag with Nushell Version
                 command: |
-                   DOCKER_TAG=$(docker run nushell/nu --version | cut -d' ' -f2)
+                   DOCKER_TAG=$(docker run quay.io/nushell/nu --version | cut -d' ' -f2)
                    echo "Version for Docker tag is ${DOCKER_TAG}"
-                   docker tag nushell/nu-base:latest nushell/nu-base:${DOCKER_TAG}
-                   docker tag nushell/nu:latest nushell/nu:${DOCKER_TAG}
+                   docker tag quay.io/nushell/nu-base:latest quay.io/nushell/nu-base:${DOCKER_TAG}
+                   docker tag quay.io/nushell/nu:latest quay.io/nushell/nu:${DOCKER_TAG}
                    docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
-                   docker push nushell/nu-base
-                   docker push nushell/nu
+                   docker push quay.io/nushell/nu-base
+                   docker push quay.io/nushell/nu
 
 
   # publish devel to Docker Hub on merge to master
@@ -116,10 +116,10 @@ workflows:
             - run:
                 name: Build Multistage (smaller) container
                 command: |
-                  docker build --build-arg FROMTAG=devel -f docker/Dockerfile -t nushell/nu:devel .
+                  docker build --build-arg FROMTAG=devel -f docker/Dockerfile -t quay.io/nushell/nu:devel .
             - run:
                 name: Publish Development Docker Tags
                 command: |
                    docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
-                   docker push nushell/nu-base:devel
-                   docker push nushell/nu:devel
+                   docker push quay.io/nushell/nu-base:devel
+                   docker push quay.io/nushell/nu:devel
