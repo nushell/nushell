@@ -27,11 +27,16 @@ impl WholeStreamCommand for ToBSON {
 pub fn value_to_bson_value(v: &Value) -> Bson {
     match v {
         Value::Primitive(Primitive::Boolean(b)) => Bson::Boolean(*b),
-        Value::Primitive(Primitive::Bytes(b)) => Bson::I64(*b as i64),
+        // FIXME: What about really big decimals?
+        Value::Primitive(Primitive::Bytes(decimal)) => Bson::FloatingPoint(
+            (*decimal)
+                .to_f64()
+                .expect("Unimplemented BUG: What about big decimals?"),
+        ),
         Value::Primitive(Primitive::Date(d)) => Bson::UtcDatetime(*d),
         Value::Primitive(Primitive::EndOfStream) => Bson::Null,
         Value::Primitive(Primitive::BeginningOfStream) => Bson::Null,
-        Value::Primitive(Primitive::Float(f)) => Bson::FloatingPoint(f.into_inner()),
+        Value::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
         Value::Primitive(Primitive::Int(i)) => Bson::I64(*i),
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),

@@ -62,7 +62,7 @@ fn ps(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, She
                 if let Ok(status) = process.status().await {
                     dict.insert("status", Value::string(format!("{:?}", status)));
                 }
-                dict.insert("cpu", Value::float(usage.get::<ratio::percent>() as f64));
+                dict.insert("cpu", Value::number(usage.get::<ratio::percent>()));
                 yield ReturnSuccess::value(dict.into_tagged_value());
             }
         }

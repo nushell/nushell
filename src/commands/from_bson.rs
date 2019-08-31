@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
@@ -28,7 +27,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
     let tag = tag.into();
 
     match v {
-        Bson::FloatingPoint(n) => Value::Primitive(Primitive::Float(OF64::from(*n))).tagged(tag),
+        Bson::FloatingPoint(n) => Value::Primitive(Primitive::from(*n)).tagged(tag),
         Bson::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
         Bson::Array(a) => Value::List(
             a.iter()

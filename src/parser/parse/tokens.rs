@@ -1,11 +1,12 @@
 use crate::parser::parse::unit::*;
+use crate::prelude::*;
 use crate::{Span, Tagged, Text};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RawToken {
-    Integer(i64),
-    Size(i64, Unit),
+    Number(Number),
+    Size(Number, Unit),
     String(Span),
     Variable(Span),
     External(Span),
@@ -15,7 +16,7 @@ pub enum RawToken {
 impl RawToken {
     pub fn type_name(&self) -> &'static str {
         match self {
-            RawToken::Integer(_) => "Integer",
+            RawToken::Number(_) => "Number",
             RawToken::Size(..) => "Size",
             RawToken::String(_) => "String",
             RawToken::Variable(_) => "Variable",

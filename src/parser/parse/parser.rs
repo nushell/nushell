@@ -4,6 +4,7 @@ use crate::parser::parse::{
     call_node::*, flag::*, operator::*, pipeline::*, token_tree::*, token_tree_builder::*,
     tokens::*, unit::*,
 };
+use crate::prelude::*;
 use crate::{Span, Tagged};
 use nom;
 use nom::branch::*;
@@ -18,6 +19,7 @@ use nom::dbg;
 use nom::*;
 use nom::{AsBytes, FindSubstring, IResult, InputLength, InputTake, Slice};
 use nom5_locate::{position, LocatedSpan};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
 
@@ -68,16 +70,94 @@ fn trace_step<'a, T: Debug>(
     }
 }
 
-pub fn raw_integer(input: NomSpan) -> IResult<NomSpan, Tagged<i64>> {
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum Number {
+    Int(i64),
+    Decimal(Decimal),
+}
+
+impl std::ops::Mul for Number {
+    type Output = Number;
+
+    fn mul(self, other: Number) -> Number {
+        match (self, other) {
+            (Number::Int(a), Number::Int(b)) => Number::Int(a * b),
+            (Number::Int(a), Number::Decimal(b)) => Number::Decimal(Decimal::from(a) * b),
+            (Number::Decimal(a), Number::Int(b)) => Number::Decimal(a * Decimal::from(b)),
+            (Number::Decimal(a), Number::Decimal(b)) => Number::Decimal(a * b),
+        }
+    }
+}
+
+// For literals
+impl std::ops::Mul<u32> for Number {
+    type Output = Number;
+
+    fn mul(self, other: u32) -> Number {
+        match self {
+            Number::Int(left) => Number::Int(left * (other as i64)),
+            Number::Decimal(left) => Number::Decimal(left * Decimal::from(other)),
+        }
+    }
+}
+
+impl Into<Number> for f32 {
+    fn into(self) -> Number {
+        Number::Decimal(Decimal::from_f32(self).unwrap())
+    }
+}
+
+impl Into<Number> for f64 {
+    fn into(self) -> Number {
+        Number::Decimal(Decimal::from_f64(self).unwrap())
+    }
+}
+
+impl Into<Number> for i64 {
+    fn into(self) -> Number {
+        Number::Int(self)
+    }
+}
+
+impl Into<Number> for Decimal {
+    fn into(self) -> Number {
+        Number::Decimal(self)
+    }
+}
+
+pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<Number>> {
+    let original = input;
     let start = input.offset;
-    trace_step(input, "raw_integer", move |input| {
+    trace_step(input, "raw_decimal", move |input| {
         let (input, neg) = opt(tag("-"))(input)?;
-        let (input, num) = digit1(input)?;
+        let (input, head) = digit1(input)?;
+        let dot: IResult<NomSpan, NomSpan, (NomSpan, nom::error::ErrorKind)> = tag(".")(input);
+
+        let input = match dot {
+            Ok((input, dot)) => input,
+
+            // it's just an integer
+            Err(_) => {
+                return Ok((
+                    input,
+                    Tagged::from_simple_spanned_item(
+                        Number::Int(int(head.fragment, neg)),
+                        (start, input.offset),
+                    ),
+                ))
+            }
+        };
+
+        let (input, tail) = digit1(input)?;
+
         let end = input.offset;
+
+        let decimal = Decimal::from_str(&format!("{}.{}", head.fragment, tail.fragment))
+            .expect("BUG: Should have already ensured that the input is a valid decimal");
 
         Ok((
             input,
-            Tagged::from_simple_spanned_item(int(num.fragment, neg), (start, end)),
+            Tagged::from_simple_spanned_item(Number::Decimal(decimal), (start, end)),
         ))
     })
 }
@@ -245,7 +325,7 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "size", move |input| {
         let mut is_size = false;
         let start = input.offset;
-        let (input, int) = raw_integer(input)?;
+        let (input, number) = raw_number(input)?;
         if let Ok((input, Some(size))) = opt(raw_unit)(input) {
             let end = input.offset;
 
@@ -256,7 +336,7 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
             Ok((
                 input,
-                TokenTreeBuilder::spanned_size((*int, *size), (start, end)),
+                TokenTreeBuilder::spanned_size((number.item, *size), (start, end)),
             ))
         } else {
             let end = input.offset;
@@ -266,7 +346,10 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
                 return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
             }
 
-            Ok((input, TokenTreeBuilder::spanned_int((*int), (start, end))))
+            Ok((
+                input,
+                TokenTreeBuilder::spanned_number(number.item, number.tag),
+            ))
         }
     })
 }
@@ -625,12 +708,12 @@ mod tests {
     fn test_integer() {
         assert_leaf! {
             parsers [ size ]
-            "123" -> 0..3 { Integer(123) }
+            "123" -> 0..3 { Number(Number::Int(123)) }
         }
 
         assert_leaf! {
             parsers [ size ]
-            "-123" -> 0..4 { Integer(-123) }
+            "-123" -> 0..4 { Number(Number::Int(-123)) }
         }
     }
 
@@ -638,12 +721,12 @@ mod tests {
     fn test_size() {
         assert_leaf! {
             parsers [ size ]
-            "123MB" -> 0..5 { Size(123, Unit::MB) }
+            "123MB" -> 0..5 { Size(Number::Int(123), Unit::MB) }
         }
 
         assert_leaf! {
             parsers [ size ]
-            "10GB" -> 0..4 { Size(10, Unit::GB) }
+            "10GB" -> 0..4 { Size(Number::Int(10), Unit::GB) }
         }
     }
 
