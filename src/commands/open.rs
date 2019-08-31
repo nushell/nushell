@@ -103,6 +103,11 @@ fn run(
                 let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                 for res in result_vec {
                     match res {
+                        Ok(ReturnSuccess::Value(Tagged { item: Value::List(list), ..})) => {
+                            for l in list {
+                                yield Ok(ReturnSuccess::Value(l));
+                            }
+                        }
                         Ok(ReturnSuccess::Value(Tagged { item, .. })) => {
                             yield Ok(ReturnSuccess::Value(Tagged { item: item, tag: contents_tag }));
                         }
