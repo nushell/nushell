@@ -1581,6 +1581,7 @@ version = "0.2.0"
 dependencies = [
  "ansi_term 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "app_dirs 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "battery 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bson 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byte-unit 3.0.1 (registry+https://github.com/rust-lang/crates.io-index)",

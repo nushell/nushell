@@ -205,6 +205,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Get),
             per_item_command(Remove),
             per_item_command(Open),
+            per_item_command(Post),
             per_item_command(Where),
             whole_stream_command(Config),
             whole_stream_command(SkipWhile),
