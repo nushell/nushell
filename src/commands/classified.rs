@@ -146,41 +146,9 @@ impl InternalCommand {
                             .insert_at_current(Box::new(ValueShell::new(value)));
                     }
                     CommandAction::EnterShell(location) => {
-                        let path = std::path::Path::new(&location);
-
-                        if path.is_dir() {
-                            // If it's a directory, add a new filesystem shell
-                            context.shell_manager.insert_at_current(Box::new(
-                                FilesystemShell::with_location(
-                                    location,
-                                    context.registry().clone(),
-                                )?,
-                            ));
-                        } else {
-                            // If it's a file, attempt to open the file as a value and enter it
-                            let cwd = context.shell_manager.path();
-
-                            let full_path = std::path::PathBuf::from(cwd);
-
-                            let (_file_extension, contents, contents_tag, span_source) =
-                                crate::commands::open::fetch(
-                                    &full_path,
-                                    &location,
-                                    Span::unknown(),
-                                )
-                                .await?;
-
-                            if let Some(uuid) = contents_tag.origin {
-                                // If we have loaded something, track its source
-                                context.add_span_source(uuid, span_source);
-                            }
-
-                            context
-                                .shell_manager
-                                .insert_at_current(Box::new(ValueShell::new(
-                                    contents.tagged(contents_tag),
-                                )))
-                        }
+                        context.shell_manager.insert_at_current(Box::new(
+                            FilesystemShell::with_location(location, context.registry().clone())?,
+                        ));
                     }
                     CommandAction::PreviousShell => {
                         context.shell_manager.prev();
