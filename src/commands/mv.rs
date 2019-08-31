@@ -29,10 +29,10 @@ impl PerItemCommand for Move {
         &self,
         call_info: &CallInfo,
         _registry: &CommandRegistry,
-        shell_manager: &ShellManager,
+        raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        call_info.process(shell_manager, mv)?.run()
+        call_info.process(&raw_args.shell_manager, mv)?.run()
     }
 }
 

@@ -512,7 +512,7 @@ pub trait PerItemCommand: Send + Sync {
         &self,
         call_info: &CallInfo,
         registry: &CommandRegistry,
-        shell_manager: &ShellManager,
+        raw_args: &RawCommandArgs,
         input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError>;
 
@@ -579,7 +579,7 @@ impl Command {
                         .call_info
                         .evaluate(&registry, &Scope::it_value(x.clone()))
                         .unwrap();
-                    match command.run(&call_info, &registry, &raw_args.shell_manager, x) {
+                    match command.run(&call_info, &registry, &raw_args, x) {
                         Ok(o) => o,
                         Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
                     }
@@ -596,7 +596,10 @@ impl Command {
                 .unwrap();
             // We don't have an $it or block, so just execute what we have
 
-            match command.run(&call_info, &registry, &raw_args.shell_manager, nothing) {
+            match command
+                .run(&call_info, &registry, &raw_args, nothing)
+                .into()
+            {
                 Ok(o) => o,
                 Err(e) => OutputStream::one(Err(e)),
             }

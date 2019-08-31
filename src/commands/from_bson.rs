@@ -45,7 +45,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             collected.into_tagged_value()
         }
         Bson::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
-        Bson::Null => Value::Primitive(Primitive::String(String::from(""))).tagged(tag),
+        Bson::Null => Value::Primitive(Primitive::Nothing).tagged(tag),
         Bson::RegExp(r, opts) => {
             let mut collected = TaggedDictBuilder::new(tag);
             collected.insert_tagged(

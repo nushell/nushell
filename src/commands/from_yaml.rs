@@ -23,6 +23,26 @@ impl WholeStreamCommand for FromYAML {
     }
 }
 
+pub struct FromYML;
+
+impl WholeStreamCommand for FromYML {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_yaml(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-yml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-yml")
+    }
+}
+
 fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
 
