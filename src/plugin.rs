@@ -22,7 +22,7 @@ pub trait Plugin {
     #[allow(unused)]
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {}
 
-    fn quit(&mut self) {}
+    fn quit(&mut self){}
 }
 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
@@ -43,6 +43,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
             match command {
                 Ok(NuCommand::config) => {
                     send_response(plugin.config());
+                    return;
                 }
                 Ok(NuCommand::begin_filter { params }) => {
                     send_response(plugin.begin_filter(params));
@@ -52,6 +53,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                 }
                 Ok(NuCommand::end_filter) => {
                     send_response(plugin.end_filter());
+                    return;
                 }
 
                 Ok(NuCommand::sink { params }) => {
@@ -80,6 +82,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     match command {
                         Ok(NuCommand::config) => {
                             send_response(plugin.config());
+                            break;
                         }
                         Ok(NuCommand::begin_filter { params }) => {
                             send_response(plugin.begin_filter(params));
@@ -89,6 +92,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                         }
                         Ok(NuCommand::end_filter) => {
                             send_response(plugin.end_filter());
+                            break;
                         }
                         Ok(NuCommand::sink { params }) => {
                             plugin.sink(params.0, params.1);

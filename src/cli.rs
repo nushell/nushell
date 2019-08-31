@@ -57,7 +57,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let path = dunce::canonicalize(path)?;
 
     let mut input = String::new();
-    match reader.read_line(&mut input) {
+    let result = match reader.read_line(&mut input) {
         Ok(count) => {
             trace!("processing response ({} bytes)", count);
 
@@ -91,7 +91,9 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
             }
         }
         Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
-    }
+    };
+
+    result
 }
 
 fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {

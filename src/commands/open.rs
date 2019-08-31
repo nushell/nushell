@@ -186,6 +186,21 @@ pub async fn fetch(
                                 SpanSource::Url(location.to_string()),
                             ))
                         }
+                        (mime::IMAGE, mime::SVG) => Ok((
+                            Some("svg".to_string()),
+                            Value::string(r.body_string().await.map_err(|_| {
+                                ShellError::labeled_error(
+                                    "Could not load svg from remote url",
+                                    "could not load",
+                                    span,
+                                )
+                            })?),
+                            Tag {
+                                span,
+                                origin: Some(Uuid::new_v4()),
+                            },
+                            SpanSource::Url(location.to_string()),
+                        )),
                         (mime::IMAGE, image_ty) => {
                             let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
                                 ShellError::labeled_error(
