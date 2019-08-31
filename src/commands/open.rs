@@ -527,6 +527,16 @@ pub fn parse_binary_as_value(
                 },
             )
         }
+        Some(ref x) if x == "db" => {
+            crate::commands::from_sqlite::from_sqlite_bytes_to_value(contents, contents_tag)
+                .map_err(move |_| {
+                    ShellError::labeled_error(
+                        "Could not open as SQLite",
+                        "could not open as SQLite",
+                        name_span,
+                    )
+                })
+        }
         _ => Ok(Value::Binary(contents).tagged(contents_tag)),
     }
 }

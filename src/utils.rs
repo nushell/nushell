@@ -267,6 +267,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("sample.db"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sample.ini"),
                     at: 0
                 },

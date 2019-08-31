@@ -6,23 +6,22 @@ use helpers::{Playground, Stub::*};
 #[test]
 fn recognizes_csv() {
     Playground::setup("open_test_1", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
-                "nu.zion.csv",
-                r#"
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "nu.zion.csv",
+            r#"
                     author,lang,source
                     Jonathan Turner,Rust,New Zealand
                     Andres N. Robalino,Rust,Ecuador
                     Yehuda Katz,Rust,Estados Unidos
-                "#
+                "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open nu.zion.csv 
-                | where author == "Andres N. Robalino" 
-                | get source 
+                open nu.zion.csv
+                | where author == "Andres N. Robalino"
+                | get source
                 | echo $it
             "#
         ));
@@ -46,16 +45,31 @@ fn open_can_parse_bson_2() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open sample.bson 
-            | get root 
-            | nth 6 
-            | get b 
-            | get '$binary_subtype' 
+            open sample.bson
+            | get root
+            | nth 6
+            | get b
+            | get '$binary_subtype'
             | echo $it
         "#
     ));
 
     assert_eq!(actual, "function");
+}
+
+#[test]
+fn open_can_parse_sqlite() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open sample.db
+            | get table_values
+            | nth 2
+            | get x
+            | echo $it"#
+    ));
+
+    assert_eq!(actual, "hello");
 }
 
 #[test]
@@ -74,8 +88,8 @@ fn open_can_parse_tsv() {
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open caco3_plastics.tsv
-            | first 1 
-            | get origin 
+            | first 1
+            | get origin
             | echo $it
         "#
     ));
@@ -88,8 +102,8 @@ fn open_can_parse_json() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open sgml_description.json 
-            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee 
+            open sgml_description.json
+            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
             | echo $it
         "#
     ));
