@@ -164,7 +164,7 @@ pub fn filter_plugin(
                 let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
 
                 let mut input = String::new();
-                match reader.read_line(&mut input) {
+                let result = match reader.read_line(&mut input) {
                     Ok(_) => {
                         let response = serde_json::from_str::<NuResult>(&input);
                         match response {
@@ -201,7 +201,9 @@ pub fn filter_plugin(
                         ))));
                         result
                     }
-                }
+                };
+
+                result
             }
             _ => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");

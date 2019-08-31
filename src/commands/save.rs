@@ -121,7 +121,7 @@ fn save(
                             _ => {
                                 yield Err(ShellError::labeled_error(
                                     "Save could not successfully save",
-                                    "unexpected data during saveS",
+                                    "unexpected data during save",
                                     name_span,
                                 ));
                             },
@@ -138,7 +138,7 @@ fn save(
                             _ => {
                                 yield Err(ShellError::labeled_error(
                                     "Save could not successfully save",
-                                    "unexpected data during saveS",
+                                    "unexpected data during save",
                                     name_span,
                                 ));
                             },
@@ -156,7 +156,7 @@ fn save(
                         _ => {
                             yield Err(ShellError::labeled_error(
                                 "Save could not successfully save",
-                                "unexpected data during saveS",
+                                "unexpected data during save",
                                 name_span,
                             ));
                         },
