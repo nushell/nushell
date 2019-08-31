@@ -62,6 +62,7 @@ mime = "0.3.13"
 regex = "1.2.1"
 pretty-hex = "0.1.0"
 neso = { version = "0.5.0", optional = true }
+hex = "0.3.2"
 crossterm = "0.10.2"
 tempfile = "3.1.0"
 image = "0.22.1"
@@ -81,6 +82,10 @@ pin-utils = "0.1.0-alpha.4"
 
 [features]
 raw-key = ["rawkey", "neso"]
+
+[dependencies.rusqlite]
+version = "0.20.0"
+features = ["bundled", "blob"]
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
