@@ -25,6 +25,26 @@ impl WholeStreamCommand for ToSQLite {
     }
 }
 
+pub struct ToDB;
+
+impl WholeStreamCommand for ToDB {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_sqlite(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "to-db"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to-db")
+    }
+}
+
 fn comma_concat(acc: String, current: String) -> String {
     if acc == "" {
         current

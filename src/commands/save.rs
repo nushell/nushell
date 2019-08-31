@@ -1,8 +1,4 @@
-use crate::commands::to_csv::{to_string as to_csv_to_string, value_to_csv_value};
-use crate::commands::to_tsv::{to_string as to_tsv_to_string, value_to_tsv_value};
-use crate::commands::to_json::value_to_json_value;
-use crate::commands::to_toml::value_to_toml_value;
-use crate::commands::to_yaml::value_to_yaml_value;
+use crate::commands::UnevaluatedCallInfo;
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::object::Value;
@@ -33,7 +29,7 @@ impl WholeStreamCommand for Save {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, save)?.run()
+        Ok(args.process_raw(registry, save)?.run())
     }
 }
 
@@ -47,16 +43,19 @@ fn save(
         name,
         shell_manager,
         source_map,
+        host,
+        commands: registry,
         ..
     }: RunnableContext,
+    raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(shell_manager.path());
     let name_span = name;
 
-    if path.is_none() {
-        let source_map = source_map.clone();
-        let stream = async_stream_block! {
-            let input: Vec<Tagged<Value>> = input.values.collect().await;
+    let source_map = source_map.clone();
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = input.values.collect().await;
+        if path.is_none() {
             // If there is no filename, check the metadata for the origin filename
             if input.len() > 0 {
                 let origin = input[0].origin();
@@ -88,50 +87,99 @@ fn save(
                     name_span,
                 ));
             }
-
-            let content = if !save_raw {
-                to_string_for(full_path.extension(), &input)
-            } else {
-                string_from(&input)
-            };
-
-            match content {
-                Ok(save_data) => match std::fs::write(full_path, save_data) {
-                    Ok(o) => o,
-                    Err(e) => yield Err(ShellError::string(e.to_string())),
-                },
-                Err(e) => yield Err(ShellError::string(e.to_string())),
+        } else {
+            if let Some(file) = path {
+                full_path.push(file.item());
             }
-
-        };
-
-        Ok(OutputStream::new(stream))
-    } else {
-        if let Some(file) = path {
-            full_path.push(file.item());
         }
 
-        let stream = async_stream_block! {
-            let input: Vec<Tagged<Value>> = input.values.collect().await;
-
-            let content = if !save_raw {
-                to_string_for(full_path.extension(), &input)
+        let content = if !save_raw {
+            if let Some(extension) = full_path.extension() {
+                let command_name = format!("to-{}", extension.to_str().unwrap());
+                if let Some(converter) = registry.get_command(&command_name) {
+                    let new_args = RawCommandArgs {
+                        host: host,
+                        shell_manager: shell_manager,
+                        call_info: UnevaluatedCallInfo {
+                            args: crate::parser::hir::Call {
+                                head: raw_args.call_info.args.head,
+                                positional: None,
+                                named: None
+                            },
+                            source: raw_args.call_info.source,
+                            source_map: raw_args.call_info.source_map,
+                            name_span: raw_args.call_info.name_span,
+                        }
+                    };
+                    let mut result = converter.run(new_args.with_input(input), &registry);
+                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
+                    let mut result_string = String::new();
+                    for res in result_vec {
+                        match res {
+                            Ok(ReturnSuccess::Value(Tagged { item: Value::Primitive(Primitive::String(s)), .. })) => {
+                                result_string.push_str(&s);
+                            }
+                            _ => {
+                                yield Err(ShellError::labeled_error(
+                                    "Save could not successfully save",
+                                    "unexpected data during saveS",
+                                    name_span,
+                                ));
+                            },
+                        }
+                    }
+                    Ok(result_string)
+                } else {
+                    let mut result_string = String::new();
+                    for res in input {
+                        match res {
+                            Tagged { item: Value::Primitive(Primitive::String(s)), .. } => {
+                                result_string.push_str(&s);
+                            }
+                            _ => {
+                                yield Err(ShellError::labeled_error(
+                                    "Save could not successfully save",
+                                    "unexpected data during saveS",
+                                    name_span,
+                                ));
+                            },
+                        }
+                    }
+                    Ok(result_string)
+                }
             } else {
-                string_from(&input)
-            };
-
-            match content {
-                Ok(save_data) => match std::fs::write(full_path, save_data) {
-                    Ok(o) => o,
-                    Err(e) => yield Err(ShellError::string(e.to_string())),
-                },
-                Err(e) => yield Err(ShellError::string(e.to_string())),
+                let mut result_string = String::new();
+                for res in input {
+                    match res {
+                        Tagged { item: Value::Primitive(Primitive::String(s)), .. } => {
+                            result_string.push_str(&s);
+                        }
+                        _ => {
+                            yield Err(ShellError::labeled_error(
+                                "Save could not successfully save",
+                                "unexpected data during saveS",
+                                name_span,
+                            ));
+                        },
+                    }
+                }
+                Ok(result_string)
             }
-
+        } else {
+            string_from(&input)
         };
 
-        Ok(OutputStream::new(stream))
-    }
+        match content {
+            Ok(save_data) => match std::fs::write(full_path, save_data) {
+                Ok(o) => o,
+                Err(e) => yield Err(ShellError::string(e.to_string())),
+            },
+            Err(e) => yield Err(ShellError::string(e.to_string())),
+        }
+
+    };
+
+    Ok(OutputStream::new(stream))
 }
 
 fn string_from(input: &Vec<Tagged<Value>>) -> Result<String, ShellError> {
@@ -152,67 +200,4 @@ fn string_from(input: &Vec<Tagged<Value>>) -> Result<String, ShellError> {
     }
 
     Ok(save_data)
-}
-
-fn to_string_for(
-    ext: Option<&std::ffi::OsStr>,
-    input: &Vec<Tagged<Value>>,
-) -> Result<String, ShellError> {
-    let contents = match ext {
-        Some(x) if x == "csv" => {
-            if input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to csv requires a single object (or use --raw)",
-                ));
-            }
-            to_csv_to_string(&value_to_csv_value(&input[0]))?
-        }
-        Some(x) if x == "tsv" => {
-            if input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to tsv requires a single object (or use --raw)",
-                ));
-            }
-            to_tsv_to_string(&value_to_tsv_value(&input[0]))?
-        }
-        Some(x) if x == "toml" => {
-            if input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to toml requires a single object (or use --raw)",
-                ));
-            }
-            toml::to_string(&value_to_toml_value(&input[0]))?
-        }
-        Some(x) if x == "json" => {
-            if input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to json requires a single object (or use --raw)",
-                ));
-            }
-            serde_json::to_string(&value_to_json_value(&input[0]))?
-        }
-        Some(x) if x == "yml" => {
-            if input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to yml requires a single object (or use --raw)",
-                ));
-            }
-            serde_yaml::to_string(&value_to_yaml_value(&input[0]))?
-        }
-        Some(x) if x == "yaml" => {
-            if input.len() != 1 {
-                return Err(ShellError::string(
-                    "saving to yaml requires a single object (or use --raw)",
-                ));
-            }
-            serde_yaml::to_string(&value_to_yaml_value(&input[0]))?
-        }
-        _ => {
-            return Err(ShellError::string(
-                "tried saving a single object with an unrecognized format.",
-            ))
-        }
-    };
-
-    Ok(contents)
 }

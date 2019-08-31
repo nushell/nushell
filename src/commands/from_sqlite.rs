@@ -27,6 +27,26 @@ impl WholeStreamCommand for FromSQLite {
     }
 }
 
+pub struct FromDB;
+
+impl WholeStreamCommand for FromDB {
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_sqlite(args, registry)
+    }
+
+    fn name(&self) -> &str {
+        "from-db"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("from-db")
+    }
+}
+
 pub fn convert_sqlite_file_to_nu_value(
     path: &Path,
     tag: impl Into<Tag> + Clone,

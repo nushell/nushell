@@ -17,7 +17,7 @@ use crate::prelude::*;
 use log::{debug, trace};
 use regex::Regex;
 use rustyline::error::ReadlineError;
-use rustyline::{self, ColorMode, Config, Editor, config::Configurer, config::EditMode};
+use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
 use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
@@ -180,6 +180,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(ToCSV),
             whole_stream_command(ToJSON),
             whole_stream_command(ToSQLite),
+            whole_stream_command(ToDB),
             whole_stream_command(ToTOML),
             whole_stream_command(ToTSV),
             whole_stream_command(ToYAML),
@@ -194,10 +195,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromINI),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
+            whole_stream_command(FromDB),
             whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
+            whole_stream_command(FromYML),
             whole_stream_command(Pick),
             whole_stream_command(Get),
             per_item_command(Remove),

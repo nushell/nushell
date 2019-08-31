@@ -52,6 +52,7 @@ pub(crate) use crate::commands::command::{
     CallInfo, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
 };
 pub(crate) use crate::commands::PerItemCommand;
+pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::{Context, SpanSource};
 pub(crate) use crate::env::host::handle_unexpected;
