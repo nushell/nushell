@@ -210,6 +210,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | ps | View current processes |
 | sys | View information about the current system |
 | open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
+| post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
 | exit (--now) | Exit the current shell (or all shells) |
 | enter (path) | Create a new shell and begin at this path |
@@ -240,14 +241,22 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | to-toml | Convert table into .toml text |
 | to-yaml | Convert table into .yaml text |
 | to-csv  | Convert table into .csv text  |
+| to-bson | Convert table into .bson binary data |
+| to-tsv | Convert table into .tsv text |
+| to-sqlite | Convert table to sqlite .db binary data |
+| reverse | Reverse the rows of a table |
+
 
 ## Filters on text (unstructured data)
 | command | description |
 | ------------- | ------------- |
+| from-bson | Parse binary data as .bson and create table |
 | from-csv | Parse text as .csv and create table |
 | from-ini | Parse text as .ini and create table |
 | from-json | Parse text as .json and create table |
+| from-sqlite | Parse binary data as sqlite .db and create table |
 | from-toml | Parse text as .toml and create table |
+| from-tsv | Parse text as .tsv and create table |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
