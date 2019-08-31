@@ -2,6 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
+use std::str::FromStr;
 
 pub struct FromBSON;
 
@@ -60,6 +61,10 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
         // TODO: Add Int32 to nushell?
         Bson::I32(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
         Bson::I64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
+        Bson::Decimal128(n) => {
+            let decimal = Decimal::from_str(&format!("{}", n)).unwrap();
+            Value::Primitive(Primitive::Decimal(decimal)).tagged(tag)
+        }
         Bson::JavaScriptCode(js) => {
             let mut collected = TaggedDictBuilder::new(tag);
             collected.insert_tagged(
