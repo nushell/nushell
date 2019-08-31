@@ -112,7 +112,14 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
             match value.item {
                 Value::Binary(vb) =>
                     match from_sqlite_bytes_to_value(vb, span) {
-                        Ok(x) => yield ReturnSuccess::value(x),
+                        Ok(x) => match x {
+                            Tagged { item: Value::List(list), .. } => {
+                                for l in list {
+                                    yield ReturnSuccess::value(l);
+                                }
+                            }
+                            _ => yield ReturnSuccess::value(x),
+                        }
                         Err(_) => {
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could not parse as SQLite",
