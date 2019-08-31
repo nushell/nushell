@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 pub fn baseline_parse_single_token(token: &Token, source: &Text) -> hir::Expression {
     match *token.item() {
-        RawToken::Integer(int) => hir::Expression::int(int, token.span()),
+        RawToken::Number(number) => hir::Expression::number(number, token.span()),
         RawToken::Size(int, unit) => hir::Expression::size(int, unit, token.span()),
         RawToken::String(span) => hir::Expression::string(span, token.span()),
         RawToken::Variable(span) if span.slice(source) == "it" => {
@@ -24,8 +24,8 @@ pub fn baseline_parse_token_as_number(token: &Token, source: &Text) -> hir::Expr
         }
         RawToken::External(span) => hir::Expression::external_command(span, token.span()),
         RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
-        RawToken::Integer(int) => hir::Expression::int(int, token.span()),
-        RawToken::Size(int, unit) => hir::Expression::size(int, unit, token.span()),
+        RawToken::Number(number) => hir::Expression::number(number, token.span()),
+        RawToken::Size(number, unit) => hir::Expression::size(number, unit, token.span()),
         RawToken::Bare => hir::Expression::bare(token.span()),
         RawToken::String(span) => hir::Expression::string(span, token.span()),
     }
@@ -38,7 +38,7 @@ pub fn baseline_parse_token_as_string(token: &Token, source: &Text) -> hir::Expr
         }
         RawToken::External(span) => hir::Expression::external_command(span, token.span()),
         RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
-        RawToken::Integer(_) => hir::Expression::bare(token.span()),
+        RawToken::Number(_) => hir::Expression::bare(token.span()),
         RawToken::Size(_, _) => hir::Expression::bare(token.span()),
         RawToken::Bare => hir::Expression::bare(token.span()),
         RawToken::String(span) => hir::Expression::string(span, token.span()),
@@ -56,7 +56,7 @@ pub fn baseline_parse_token_as_path(
         }
         RawToken::External(span) => hir::Expression::external_command(span, token.span()),
         RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
-        RawToken::Integer(_) => hir::Expression::bare(token.span()),
+        RawToken::Number(_) => hir::Expression::bare(token.span()),
         RawToken::Size(_, _) => hir::Expression::bare(token.span()),
         RawToken::Bare => hir::Expression::file_path(
             expand_path(token.span().slice(source), context),

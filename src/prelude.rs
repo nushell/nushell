@@ -63,6 +63,7 @@ pub(crate) use crate::object::meta::{Tag, Tagged, TaggedItem};
 pub(crate) use crate::object::types::ExtractType;
 pub(crate) use crate::object::{Primitive, Value};
 pub(crate) use crate::parser::hir::SyntaxType;
+pub(crate) use crate::parser::parse::parser::Number;
 pub(crate) use crate::parser::registry::Signature;
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
@@ -74,6 +75,8 @@ pub(crate) use crate::Text;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{FutureExt, Stream, StreamExt};
 pub(crate) use futures_async_stream::async_stream_block;
+pub(crate) use num_traits::cast::{FromPrimitive, ToPrimitive};
+pub(crate) use rust_decimal::Decimal;
 #[allow(unused)]
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use std::collections::VecDeque;

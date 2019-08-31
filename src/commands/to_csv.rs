@@ -45,7 +45,7 @@ pub fn value_to_csv_value(v: &Value) -> Value {
 fn to_string_helper(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
     match v {
         Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
-        Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", *b as u64)),
+        Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", b)),
         Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
         Value::List(_) => return Ok(String::from("[list list]")),
         Value::Object(_) => return Ok(String::from("[object]")),

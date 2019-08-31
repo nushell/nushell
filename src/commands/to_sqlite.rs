@@ -73,7 +73,7 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
         Value::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
             Primitive::Int(i) => format!("{}", i),
-            Primitive::Float(f) => format!("{}", f.into_inner()),
+            Primitive::Decimal(f) => format!("{}", f),
             Primitive::Bytes(u) => format!("{}", u),
             Primitive::String(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::Boolean(true) => "1".into(),

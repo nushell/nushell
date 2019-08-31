@@ -26,13 +26,13 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
     match v {
         Value::Primitive(Primitive::Boolean(b)) => serde_yaml::Value::Bool(*b),
         Value::Primitive(Primitive::Bytes(b)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(*b as u64))
+            serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().unwrap()))
         }
         Value::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,
-        Value::Primitive(Primitive::Float(f)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(f.into_inner()))
+        Value::Primitive(Primitive::Decimal(f)) => {
+            serde_yaml::Value::Number(serde_yaml::Number::from(f.to_f64().unwrap()))
         }
         Value::Primitive(Primitive::Int(i)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(*i))

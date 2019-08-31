@@ -25,15 +25,18 @@ impl WholeStreamCommand for ToJSON {
 pub fn value_to_json_value(v: &Value) -> serde_json::Value {
     match v {
         Value::Primitive(Primitive::Boolean(b)) => serde_json::Value::Bool(*b),
-        Value::Primitive(Primitive::Bytes(b)) => {
-            serde_json::Value::Number(serde_json::Number::from(*b as u64))
-        }
+        Value::Primitive(Primitive::Bytes(b)) => serde_json::Value::Number(
+            serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
+        ),
         Value::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
         Value::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,
-        Value::Primitive(Primitive::Float(f)) => {
-            serde_json::Value::Number(serde_json::Number::from_f64(f.into_inner()).unwrap())
-        }
+        Value::Primitive(Primitive::Decimal(f)) => serde_json::Value::Number(
+            serde_json::Number::from_f64(
+                f.to_f64().expect("TODO: What about really big decimals?"),
+            )
+            .unwrap(),
+        ),
         Value::Primitive(Primitive::Int(i)) => {
             serde_json::Value::Number(serde_json::Number::from(*i))
         }

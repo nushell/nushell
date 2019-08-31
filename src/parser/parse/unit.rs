@@ -1,4 +1,5 @@
 use crate::object::base::Value;
+use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -24,8 +25,8 @@ impl Unit {
         }
     }
 
-    pub(crate) fn compute(&self, size: i64) -> Value {
-        Value::int(match self {
+    pub(crate) fn compute(&self, size: Number) -> Value {
+        Value::number(match self {
             Unit::B => size,
             Unit::KB => size * 1024,
             Unit::MB => size * 1024 * 1024,

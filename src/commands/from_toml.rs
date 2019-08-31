@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::base::OF64;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
@@ -29,7 +28,7 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> T
     match v {
         toml::Value::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
         toml::Value::Integer(n) => Value::Primitive(Primitive::Int(*n)).tagged(tag),
-        toml::Value::Float(n) => Value::Primitive(Primitive::Float(OF64::from(*n))).tagged(tag),
+        toml::Value::Float(n) => Value::Primitive(Primitive::from(*n)).tagged(tag),
         toml::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
         toml::Value::Array(a) => Value::List(
             a.iter()
