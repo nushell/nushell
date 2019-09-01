@@ -151,25 +151,31 @@ pub async fn post(
     let registry = registry.clone();
     let raw_args = raw_args.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
-        let login = encode(&format!("{}:{}", user.unwrap(), password.unwrap()));
+        let login = match (user, password) {
+            (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
+            (Some(user), _) => Some(encode(&format!("{}:", user))),
+            _ => None,
+        };
         let response = match body {
             Tagged {
                 item: Value::Primitive(Primitive::String(body_str)),
                 ..
             } => {
-                surf::post(location)
-                    .body_string(body_str.to_string())
-                    .set_header("Authorization", format!("Basic {}", login))
-                    .await
+                let mut s = surf::post(location).body_string(body_str.to_string());
+                if let Some(login) = login {
+                    s = s.set_header("Authorization", format!("Basic {}", login));
+                }
+                s.await
             }
             Tagged {
                 item: Value::Binary(b),
                 ..
             } => {
-                surf::post(location)
-                    .body_bytes(b)
-                    .set_header("Authorization", format!("Basic {}", login))
-                    .await
+                let mut s = surf::post(location).body_bytes(b);
+                if let Some(login) = login {
+                    s = s.set_header("Authorization", format!("Basic {}", login));
+                }
+                s.await
             }
             Tagged { item, tag } => {
                 if let Some(converter) = registry.get_command("to-json") {
@@ -211,10 +217,13 @@ pub async fn post(
                             }
                         }
                     }
-                    surf::post(location)
-                        .body_string(result_string)
-                        .set_header("Authorization", format!("Basic {}", login))
-                        .await
+
+                    let mut s = surf::post(location).body_string(result_string);
+
+                    if let Some(login) = login {
+                        s = s.set_header("Authorization", format!("Basic {}", login));
+                    }
+                    s.await
                 } else {
                     return Err(ShellError::labeled_error(
                         "Could not automatically convert table",
