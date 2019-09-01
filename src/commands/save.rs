@@ -101,8 +101,8 @@ fn save(
                 let command_name = format!("to-{}", extension.to_str().unwrap());
                 if let Some(converter) = registry.get_command(&command_name) {
                     let new_args = RawCommandArgs {
-                        host: host,
-                        shell_manager: shell_manager,
+                        host,
+                        shell_manager,
                         call_info: UnevaluatedCallInfo {
                             args: crate::parser::hir::Call {
                                 head: raw_args.call_info.args.head,

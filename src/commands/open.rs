@@ -113,7 +113,7 @@ fn run(
                             }
                         }
                         Ok(ReturnSuccess::Value(Tagged { item, .. })) => {
-                            yield Ok(ReturnSuccess::Value(Tagged { item: item, tag: contents_tag }));
+                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag }));
                         }
                         x => yield x,
                     }

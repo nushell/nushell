@@ -278,8 +278,8 @@ struct StructDeserializer<'a, 'de: 'a> {
 impl<'a, 'de: 'a> StructDeserializer<'a, 'de> {
     fn new(de: &'a mut ConfigDeserializer<'de>, fields: &'static [&'static str]) -> Self {
         StructDeserializer {
-            de: de,
-            fields: fields,
+            de,
+            fields,
         }
     }
 }
