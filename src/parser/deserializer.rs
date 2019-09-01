@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use log::trace;
-use serde::{de, forward_to_deserialize_any};
+use serde::de;
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
@@ -86,9 +86,25 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
         V::Value::extract(&value.val)
     }
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.pop();
+        trace!("Extracting {:?} for bool", value.val);
 
-    forward_to_deserialize_any! { bool }
-
+        match &value.val {
+            Tagged {
+                item: Value::Primitive(Primitive::Boolean(b)),
+                ..
+            } => visitor.visit_bool(*b),
+            Tagged {
+                item: Value::Primitive(Primitive::Nothing),
+                ..
+            } => visitor.visit_bool(false),
+            other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
+        }
+    }
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
