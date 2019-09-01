@@ -10,7 +10,7 @@ pub enum FlagKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Getters, new)]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct Flag {
     kind: FlagKind,
     name: Span,

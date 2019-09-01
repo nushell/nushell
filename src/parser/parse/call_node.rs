@@ -3,9 +3,9 @@ use getset::Getters;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters)]
 pub struct CallNode {
-    #[get = "crate"]
+    #[get = "pub(crate)"]
     head: Box<TokenNode>,
-    #[get = "crate"]
+    #[get = "pub(crate)"]
     children: Option<Vec<TokenNode>>,
 }
 

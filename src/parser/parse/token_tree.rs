@@ -177,7 +177,7 @@ impl TokenNode {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct DelimitedNode {
     delimiter: Delimiter,
     children: Vec<TokenNode>,
@@ -201,7 +201,7 @@ pub enum Delimiter {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct PathNode {
     head: Box<TokenNode>,
     tail: Vec<TokenNode>,

@@ -7,7 +7,7 @@ use std::fmt;
 #[derive(
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Getters, Serialize, Deserialize, new,
 )]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct ExternalCommand {
     name: Span,
 }
