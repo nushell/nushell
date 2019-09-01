@@ -26,8 +26,8 @@ impl WholeStreamCommand for ToYAML {
     }
 }
 
-pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
-    match v {
+pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, ShellError> {
+    Ok(match v.item() {
         Value::Primitive(Primitive::Boolean(b)) => serde_yaml::Value::Bool(*b),
         Value::Primitive(Primitive::Bytes(b)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().unwrap()))
@@ -38,15 +38,21 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
         Value::Primitive(Primitive::Decimal(f)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(f.to_f64().unwrap()))
         }
-        Value::Primitive(Primitive::Int(i)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(*i))
-        }
+        Value::Primitive(Primitive::Int(i)) => serde_yaml::Value::Number(serde_yaml::Number::from(
+            CoerceInto::<i64>::coerce_into(i.tagged(v.tag), "converting to YAML number")?,
+        )),
         Value::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_yaml::Value::String(s.display().to_string()),
 
         Value::List(l) => {
-            serde_yaml::Value::Sequence(l.iter().map(|x| value_to_yaml_value(x)).collect())
+            let mut out = vec![];
+
+            for value in l {
+                out.push(value_to_yaml_value(value)?);
+            }
+
+            serde_yaml::Value::Sequence(out)
         }
         Value::Block(_) => serde_yaml::Value::Null,
         Value::Binary(b) => serde_yaml::Value::Sequence(
@@ -57,11 +63,14 @@ pub fn value_to_yaml_value(v: &Value) -> serde_yaml::Value {
         Value::Object(o) => {
             let mut m = serde_yaml::Mapping::new();
             for (k, v) in o.entries.iter() {
-                m.insert(serde_yaml::Value::String(k.clone()), value_to_yaml_value(v));
+                m.insert(
+                    serde_yaml::Value::String(k.clone()),
+                    value_to_yaml_value(v)?,
+                );
             }
             serde_yaml::Value::Mapping(m)
         }
-    }
+    })
 }
 
 fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -71,7 +80,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     Ok(out
         .values
         .map(
-            move |a| match serde_yaml::to_string(&value_to_yaml_value(&a)) {
+            move |a| match serde_yaml::to_string(&value_to_yaml_value(&a)?) {
                 Ok(x) => ReturnSuccess::value(
                     Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                 ),

@@ -258,13 +258,13 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-
     use super::{Action, ReplaceAction, Str};
     use indexmap::IndexMap;
     use nu::{
         CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Span, Tag, Tagged,
         TaggedDictBuilder, TaggedItem, Value,
     };
+    use num_bigint::BigInt;
 
     impl Str {
         fn replace_with(&mut self, value: &str) {
@@ -600,7 +600,7 @@ mod tests {
             ReturnSuccess::Value(Tagged {
                 item: Value::Primitive(Primitive::Int(i)),
                 ..
-            }) => assert_eq!(*i, 10),
+            }) => assert_eq!(*i, BigInt::from(10)),
             _ => {}
         }
     }

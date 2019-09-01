@@ -54,9 +54,9 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) ->
     let tag = tag.into();
 
     match v {
-        serde_yaml::Value::Bool(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
+        serde_yaml::Value::Bool(b) => Value::boolean(*b).tagged(tag),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            Value::Primitive(Primitive::Int(n.as_i64().unwrap())).tagged(tag)
+            Value::number(n.as_i64().unwrap()).tagged(tag)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
             Value::Primitive(Primitive::from(n.as_f64().unwrap())).tagged(tag)

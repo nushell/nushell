@@ -5,8 +5,10 @@ use std::path::PathBuf;
 
 pub fn baseline_parse_single_token(token: &Token, source: &Text) -> hir::Expression {
     match *token.item() {
-        RawToken::Number(number) => hir::Expression::number(number, token.span()),
-        RawToken::Size(int, unit) => hir::Expression::size(int, unit, token.span()),
+        RawToken::Number(number) => hir::Expression::number(number.to_number(source), token.span()),
+        RawToken::Size(int, unit) => {
+            hir::Expression::size(int.to_number(source), unit, token.span())
+        }
         RawToken::String(span) => hir::Expression::string(span, token.span()),
         RawToken::Variable(span) if span.slice(source) == "it" => {
             hir::Expression::it_variable(span, token.span())
@@ -24,8 +26,10 @@ pub fn baseline_parse_token_as_number(token: &Token, source: &Text) -> hir::Expr
         }
         RawToken::External(span) => hir::Expression::external_command(span, token.span()),
         RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
-        RawToken::Number(number) => hir::Expression::number(number, token.span()),
-        RawToken::Size(number, unit) => hir::Expression::size(number, unit, token.span()),
+        RawToken::Number(number) => hir::Expression::number(number.to_number(source), token.span()),
+        RawToken::Size(number, unit) => {
+            hir::Expression::size(number.to_number(source), unit, token.span())
+        }
         RawToken::Bare => hir::Expression::bare(token.span()),
         RawToken::String(span) => hir::Expression::string(span, token.span()),
     }

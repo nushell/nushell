@@ -29,7 +29,7 @@ pub use crate::parser::hir::SyntaxType;
 pub use crate::plugin::{serve_plugin, Plugin};
 pub use crate::utils::{AbsoluteFile, AbsolutePath, RelativePath};
 pub use cli::cli;
-pub use errors::ShellError;
+pub use errors::{CoerceInto, ShellError};
 pub use num_traits::cast::ToPrimitive;
 pub use object::base::{Primitive, Value};
 pub use object::dict::{Dictionary, TaggedDictBuilder};

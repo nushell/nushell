@@ -1,4 +1,5 @@
 /target
+/scratch
 **/*.rs.bk
 history.txt
 tests/fixtures/nuplayground

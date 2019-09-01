@@ -75,7 +75,7 @@ impl Inc {
     }
 
     fn inc(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
-        match value.item {
+        match value.item() {
             Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).tagged(value.tag())),
             Value::Primitive(Primitive::Bytes(b)) => {
                 Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))

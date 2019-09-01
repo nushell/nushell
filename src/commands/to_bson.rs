@@ -28,12 +28,12 @@ impl WholeStreamCommand for ToBSON {
     }
 }
 
-pub fn value_to_bson_value(v: &Value) -> Bson {
-    match v {
+pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
+    Ok(match &v.item {
         Value::Primitive(Primitive::Boolean(b)) => Bson::Boolean(*b),
         // FIXME: What about really big decimals?
         Value::Primitive(Primitive::Bytes(decimal)) => Bson::FloatingPoint(
-            (*decimal)
+            (decimal)
                 .to_f64()
                 .expect("Unimplemented BUG: What about big decimals?"),
         ),
@@ -41,20 +41,26 @@ pub fn value_to_bson_value(v: &Value) -> Bson {
         Value::Primitive(Primitive::EndOfStream) => Bson::Null,
         Value::Primitive(Primitive::BeginningOfStream) => Bson::Null,
         Value::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
-        Value::Primitive(Primitive::Int(i)) => Bson::I64(*i),
+        Value::Primitive(Primitive::Int(i)) => {
+            Bson::I64(i.tagged(v.tag).coerce_into("converting to BSON")?)
+        }
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
-        Value::List(l) => Bson::Array(l.iter().map(|x| value_to_bson_value(x)).collect()),
+        Value::List(l) => Bson::Array(
+            l.iter()
+                .map(|x| value_to_bson_value(x))
+                .collect::<Result<_, _>>()?,
+        ),
         Value::Block(_) => Bson::Null,
         Value::Binary(b) => Bson::Binary(BinarySubtype::Generic, b.clone()),
-        Value::Object(o) => object_value_to_bson(o),
-    }
+        Value::Object(o) => object_value_to_bson(o)?,
+    })
 }
 
 // object_value_to_bson handles all Objects, even those that correspond to special
 // types (things like regex or javascript code).
-fn object_value_to_bson(o: &Dictionary) -> Bson {
+fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
     let mut it = o.entries.iter();
     if it.len() > 2 {
         return generic_object_value_to_bson(o);
@@ -67,7 +73,7 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
                 if r.is_err() || opts.is_err() {
                     generic_object_value_to_bson(o)
                 } else {
-                    Bson::RegExp(r.unwrap(), opts.unwrap())
+                    Ok(Bson::RegExp(r.unwrap(), opts.unwrap()))
                 }
             }
             _ => generic_object_value_to_bson(o),
@@ -80,8 +86,8 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
                     if js.is_err() || s.is_err() {
                         generic_object_value_to_bson(o)
                     } else {
-                        if let Bson::Document(doc) = object_value_to_bson(s.unwrap()) {
-                            Bson::JavaScriptCodeWithScope(js.unwrap(), doc)
+                        if let Bson::Document(doc) = object_value_to_bson(s.unwrap())? {
+                            Ok(Bson::JavaScriptCodeWithScope(js.unwrap(), doc))
                         } else {
                             generic_object_value_to_bson(o)
                         }
@@ -89,10 +95,10 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
                 }
                 None => {
                     let js: Result<String, _> = tagged_javascript_value.try_into();
-                    if js.is_err() {
-                        generic_object_value_to_bson(o)
-                    } else {
-                        Bson::JavaScriptCode(js.unwrap())
+
+                    match js {
+                        Err(_) => generic_object_value_to_bson(o),
+                        Ok(v) => Ok(Bson::JavaScriptCode(v)),
                     }
                 }
                 _ => generic_object_value_to_bson(o),
@@ -103,7 +109,7 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
             if ts.is_err() {
                 generic_object_value_to_bson(o)
             } else {
-                Bson::TimeStamp(ts.unwrap())
+                Ok(Bson::TimeStamp(ts.unwrap()))
             }
         }
         Some((binary_subtype, tagged_binary_subtype_value))
@@ -113,10 +119,10 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
                 Some((binary, tagged_bin_value)) if binary == "$binary" => {
                     let bst = get_binary_subtype(tagged_binary_subtype_value);
                     let bin: Result<Vec<u8>, _> = tagged_bin_value.try_into();
-                    if bst.is_none() || bin.is_err() {
-                        generic_object_value_to_bson(o)
-                    } else {
-                        Bson::Binary(bst.unwrap(), bin.unwrap())
+
+                    match bst {
+                        Err(_) => generic_object_value_to_bson(o),
+                        Ok(v) => Ok(Bson::Binary(v, bin.unwrap())),
                     }
                 }
                 _ => generic_object_value_to_bson(o),
@@ -131,7 +137,7 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
                 if obj_id.is_err() {
                     generic_object_value_to_bson(o)
                 } else {
-                    Bson::ObjectId(obj_id.unwrap())
+                    Ok(Bson::ObjectId(obj_id.unwrap()))
                 }
             }
         }
@@ -140,16 +146,16 @@ fn object_value_to_bson(o: &Dictionary) -> Bson {
             if sym.is_err() {
                 generic_object_value_to_bson(o)
             } else {
-                Bson::Symbol(sym.unwrap())
+                Ok(Bson::Symbol(sym.unwrap()))
             }
         }
         _ => generic_object_value_to_bson(o),
     }
 }
 
-fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Option<BinarySubtype> {
+fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Result<BinarySubtype, ShellError> {
     match tagged_value.item() {
-        Value::Primitive(Primitive::String(s)) => Some(match s.as_ref() {
+        Value::Primitive(Primitive::String(s)) => Ok(match s.as_ref() {
             "generic" => BinarySubtype::Generic,
             "function" => BinarySubtype::Function,
             "binary_old" => BinarySubtype::BinaryOld,
@@ -158,19 +164,25 @@ fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Option<BinarySubty
             "md5" => BinarySubtype::Md5,
             _ => unreachable!(),
         }),
-        Value::Primitive(Primitive::Int(i)) => Some(BinarySubtype::UserDefined(*i as u8)),
-        _ => None,
+        Value::Primitive(Primitive::Int(i)) => Ok(BinarySubtype::UserDefined(
+            i.tagged(tagged_value.tag)
+                .coerce_into("converting to BSON binary subtype")?,
+        )),
+        _ => Err(ShellError::type_error(
+            "bson binary",
+            tagged_value.tagged_type_name(),
+        )),
     }
 }
 
 // generic_object_value_bson handles any Object that does not
 // correspond to a special bson type (things like regex or javascript code).
-fn generic_object_value_to_bson(o: &Dictionary) -> Bson {
+fn generic_object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
     let mut doc = Document::new();
     for (k, v) in o.entries.iter() {
-        doc.insert(k.clone(), value_to_bson_value(v));
+        doc.insert(k.clone(), value_to_bson_value(v)?);
     }
-    Bson::Document(doc)
+    Ok(Bson::Document(doc))
 }
 
 fn shell_encode_document(
@@ -225,7 +237,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     Ok(out
         .values
         .map(
-            move |a| match bson_value_to_bytes(value_to_bson_value(&a), name_span) {
+            move |a| match bson_value_to_bytes(value_to_bson_value(&a)?, name_span) {
                 Ok(x) => ReturnSuccess::value(Value::Binary(x).simple_spanned(name_span)),
                 _ => Err(ShellError::labeled_error_with_secondary(
                     "Expected an object with BSON-compatible structure from pipeline",

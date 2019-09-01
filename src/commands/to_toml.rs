@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ranged;
 use crate::object::{Primitive, Value};
 use crate::prelude::*;
 
@@ -27,12 +26,10 @@ impl WholeStreamCommand for ToTOML {
     }
 }
 
-pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
-    Ok(match v {
+pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError> {
+    Ok(match v.item() {
         Value::Primitive(Primitive::Boolean(b)) => toml::Value::Boolean(*b),
-        Value::Primitive(Primitive::Bytes(b)) => {
-            toml::Value::Integer(ranged(b.to_i64(), "i64", b.tagged_unknown())?)
-        }
+        Value::Primitive(Primitive::Bytes(b)) => toml::Value::Integer(*b as i64),
         Value::Primitive(Primitive::Date(d)) => toml::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => {
             toml::Value::String("<End of Stream>".to_string())
@@ -41,9 +38,11 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
             toml::Value::String("<Beginning of Stream>".to_string())
         }
         Value::Primitive(Primitive::Decimal(f)) => {
-            toml::Value::Float(ranged(f.to_f64(), "f64", f.tagged_unknown())?)
+            toml::Value::Float(f.tagged(v.tag).coerce_into("converting to TOML float")?)
         }
-        Value::Primitive(Primitive::Int(i)) => toml::Value::Integer(*i),
+        Value::Primitive(Primitive::Int(i)) => {
+            toml::Value::Integer(i.tagged(v.tag).coerce_into("converting to TOML integer")?)
+        }
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),
         Value::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),

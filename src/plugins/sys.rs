@@ -20,7 +20,7 @@ async fn cpu(tag: Tag) -> Option<Tagged<Value>> {
     match futures::future::try_join(heim::cpu::logical_count(), heim::cpu::frequency()).await {
         Ok((num_cpu, cpu_speed)) => {
             let mut cpu_idx = TaggedDictBuilder::with_capacity(tag, 4);
-            cpu_idx.insert("cores", Primitive::Int(num_cpu as i64));
+            cpu_idx.insert("cores", Primitive::number(num_cpu));
 
             let current_speed =
                 (cpu_speed.current().get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0)

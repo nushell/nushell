@@ -1,4 +1,5 @@
 use crate::commands::WholeStreamCommand;
+use crate::errors::ExpectedRange;
 use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
@@ -28,22 +29,30 @@ impl WholeStreamCommand for FromBSON {
     }
 }
 
-fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value> {
+fn bson_array(input: &Vec<Bson>, tag: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
+    let mut out = vec![];
+
+    for value in input {
+        out.push(convert_bson_value_to_nu_value(value, tag)?);
+    }
+
+    Ok(out)
+}
+
+fn convert_bson_value_to_nu_value(
+    v: &Bson,
+    tag: impl Into<Tag>,
+) -> Result<Tagged<Value>, ShellError> {
     let tag = tag.into();
 
-    match v {
+    Ok(match v {
         Bson::FloatingPoint(n) => Value::Primitive(Primitive::from(*n)).tagged(tag),
         Bson::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
-        Bson::Array(a) => Value::List(
-            a.iter()
-                .map(|x| convert_bson_value_to_nu_value(x, tag))
-                .collect(),
-        )
-        .tagged(tag),
+        Bson::Array(a) => Value::List(bson_array(a, tag)?).tagged(tag),
         Bson::Document(doc) => {
             let mut collected = TaggedDictBuilder::new(tag);
             for (k, v) in doc.iter() {
-                collected.insert_tagged(k.clone(), convert_bson_value_to_nu_value(v, tag));
+                collected.insert_tagged(k.clone(), convert_bson_value_to_nu_value(v, tag)?);
             }
 
             collected.into_tagged_value()
@@ -62,11 +71,18 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             );
             collected.into_tagged_value()
         }
-        // TODO: Add Int32 to nushell?
-        Bson::I32(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
-        Bson::I64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
+        Bson::I32(n) => Value::number(n).tagged(tag),
+        Bson::I64(n) => Value::number(n).tagged(tag),
         Bson::Decimal128(n) => {
-            let decimal = Decimal::from_str(&format!("{}", n)).unwrap();
+            // TODO: this really isn't great, and we should update this to do a higher
+            // fidelity translation
+            let decimal = BigDecimal::from_str(&format!("{}", n)).map_err(|_| {
+                ShellError::range_error(
+                    ExpectedRange::BigDecimal,
+                    &n.tagged(tag),
+                    format!("converting BSON Decimal128 to BigDecimal"),
+                )
+            })?;
             Value::Primitive(Primitive::Decimal(decimal)).tagged(tag)
         }
         Bson::JavaScriptCode(js) => {
@@ -85,16 +101,13 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             );
             collected.insert_tagged(
                 "$scope".to_string(),
-                convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag),
+                convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag)?,
             );
             collected.into_tagged_value()
         }
         Bson::TimeStamp(ts) => {
             let mut collected = TaggedDictBuilder::new(tag);
-            collected.insert_tagged(
-                "$timestamp".to_string(),
-                Value::Primitive(Primitive::Int(*ts as i64)).tagged(tag),
-            );
+            collected.insert_tagged("$timestamp".to_string(), Value::number(ts).tagged(tag));
             collected.into_tagged_value()
         }
         Bson::Binary(bst, bytes) => {
@@ -102,7 +115,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             collected.insert_tagged(
                 "$binary_subtype".to_string(),
                 match bst {
-                    BinarySubtype::UserDefined(u) => Value::Primitive(Primitive::Int(*u as i64)),
+                    BinarySubtype::UserDefined(u) => Value::number(u),
                     _ => Value::Primitive(Primitive::String(binary_subtype_to_string(*bst))),
                 }
                 .tagged(tag),
@@ -130,7 +143,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Tagged<Value
             );
             collected.into_tagged_value()
         }
-    }
+    })
 }
 
 fn binary_subtype_to_string(bst: BinarySubtype) -> String {
@@ -179,7 +192,7 @@ pub fn from_bson_bytes_to_value(
     while let Ok(v) = decode_document(&mut b_reader) {
         docs.push(Bson::Document(v));
     }
-    Ok(convert_bson_value_to_nu_value(&Bson::Array(docs), tag))
+    Ok(convert_bson_value_to_nu_value(&Bson::Array(docs), tag).expect("FIXME: Don't commit like this"))
 }
 
 fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

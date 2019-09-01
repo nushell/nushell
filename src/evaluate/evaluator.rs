@@ -38,7 +38,7 @@ pub(crate) fn evaluate_baseline_expr(
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     match &expr.item {
-        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(*literal), source)),
+        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(literal), source)),
         RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.span())),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
@@ -104,7 +104,7 @@ pub(crate) fn evaluate_baseline_expr(
     }
 }
 
-fn evaluate_literal(literal: Tagged<hir::Literal>, source: &Text) -> Tagged<Value> {
+fn evaluate_literal(literal: Tagged<&hir::Literal>, source: &Text) -> Tagged<Value> {
     let result = match literal.item {
         hir::Literal::Number(int) => int.into(),
         hir::Literal::Size(int, unit) => unit.compute(int),

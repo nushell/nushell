@@ -85,12 +85,14 @@ impl ShellError {
     }
 
     pub(crate) fn range_error(
-        expected: impl Into<String>,
-        actual: Tagged<impl fmt::Debug>,
+        expected: impl Into<ExpectedRange>,
+        actual: &Tagged<impl fmt::Debug>,
+        operation: String,
     ) -> ShellError {
         ProximateShellError::RangeError {
             kind: expected.into(),
-            actual_kind: actual.map(|a| format!("{:?}", a)),
+            actual_kind: actual.copy_span(format!("{:?}", actual.item)),
+            operation,
         }
         .start()
     }
@@ -255,6 +257,7 @@ impl ShellError {
 
             ProximateShellError::RangeError {
                 kind,
+                operation,
                 actual_kind:
                     Tagged {
                         item,
@@ -262,8 +265,10 @@ impl ShellError {
                     },
             } => Diagnostic::new(Severity::Error, "Range Error").with_label(
                 Label::new_primary(span).with_message(format!(
-                    "Expected to covert {} to {}, but it was out of range",
-                    item, kind
+                    "Expected to convert {} to {} while {}, but it was out of range",
+                    item,
+                    kind.desc(),
+                    operation
                 )),
             ),
 
@@ -344,6 +349,45 @@ impl ShellError {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ExpectedRange {
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    F32,
+    F64,
+    BigInt,
+    BigDecimal,
+}
+
+impl ExpectedRange {
+    fn desc(&self) -> &'static str {
+        match self {
+            ExpectedRange::I8 => "an 8-bit signed integer",
+            ExpectedRange::I16 => "a 16-bit signed integer",
+            ExpectedRange::I32 => "a 32-bit signed integer",
+            ExpectedRange::I64 => "a 64-bit signed integer",
+            ExpectedRange::I128 => "a 128-bit signed integer",
+            ExpectedRange::U8 => "an 8-bit unsigned integer",
+            ExpectedRange::U16 => "a 16-bit unsigned integer",
+            ExpectedRange::U32 => "a 32-bit unsigned integer",
+            ExpectedRange::U64 => "a 64-bit unsigned integer",
+            ExpectedRange::U128 => "a 128-bit unsigned integer",
+            ExpectedRange::F32 => "a 32-bit float",
+            ExpectedRange::F64 => "a 64-bit float",
+            ExpectedRange::BigDecimal => "a decimal",
+            ExpectedRange::BigInt => "an integer",
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ProximateShellError {
     String(StringError),
     SyntaxError {
@@ -370,8 +414,9 @@ pub enum ProximateShellError {
         span: Span,
     },
     RangeError {
-        kind: String,
+        kind: ExpectedRange,
         actual_kind: Tagged<String>,
+        operation: String,
     },
     Diagnostic(ShellDiagnostic),
     CoerceError {
@@ -557,13 +602,94 @@ impl<T> ShellErrorUtils<Tagged<T>> for Option<Tagged<T>> {
     }
 }
 
-pub fn ranged<T>(
-    input: Option<T>,
-    expected: impl Into<String>,
-    actual: Tagged<impl fmt::Debug>,
-) -> Result<T, ShellError> {
-    match input {
-        Some(v) => Ok(v),
-        None => Err(ShellError::range_error(expected, actual)),
-    }
+pub trait CoerceInto<U> {
+    fn coerce_into(self, operation: impl Into<String>) -> Result<U, ShellError>;
 }
+
+trait ToExpectedRange {
+    fn to_expected_range() -> ExpectedRange;
+}
+
+macro_rules! ranged_int {
+    ($ty:tt -> $op:tt -> $variant:tt) => {
+        impl ToExpectedRange for $ty {
+            fn to_expected_range() -> ExpectedRange {
+                ExpectedRange::$variant
+            }
+        }
+
+        impl CoerceInto<$ty> for Tagged<BigInt> {
+            fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
+                match self.$op() {
+                    Some(v) => Ok(v),
+                    None => Err(ShellError::range_error(
+                        $ty::to_expected_range(),
+                        &self,
+                        operation.into(),
+                    )),
+                }
+            }
+        }
+
+        impl CoerceInto<$ty> for Tagged<&BigInt> {
+            fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
+                match self.$op() {
+                    Some(v) => Ok(v),
+                    None => Err(ShellError::range_error(
+                        $ty::to_expected_range(),
+                        &self,
+                        operation.into(),
+                    )),
+                }
+            }
+        }
+    };
+}
+
+ranged_int!(u8  -> to_u8  -> U8);
+ranged_int!(u16 -> to_u16 -> U16);
+ranged_int!(u32 -> to_u32 -> U32);
+ranged_int!(u64 -> to_u64 -> U64);
+ranged_int!(i8  -> to_i8  -> I8);
+ranged_int!(i16 -> to_i16 -> I16);
+ranged_int!(i32 -> to_i32 -> I32);
+ranged_int!(i64 -> to_i64 -> I64);
+
+macro_rules! ranged_decimal {
+    ($ty:tt -> $op:tt -> $variant:tt) => {
+        impl ToExpectedRange for $ty {
+            fn to_expected_range() -> ExpectedRange {
+                ExpectedRange::$variant
+            }
+        }
+
+        impl CoerceInto<$ty> for Tagged<BigDecimal> {
+            fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
+                match self.$op() {
+                    Some(v) => Ok(v),
+                    None => Err(ShellError::range_error(
+                        $ty::to_expected_range(),
+                        &self,
+                        operation.into(),
+                    )),
+                }
+            }
+        }
+
+        impl CoerceInto<$ty> for Tagged<&BigDecimal> {
+            fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
+                match self.$op() {
+                    Some(v) => Ok(v),
+                    None => Err(ShellError::range_error(
+                        $ty::to_expected_range(),
+                        &self,
+                        operation.into(),
+                    )),
+                }
+            }
+        }
+    };
+}
+
+ranged_decimal!(f32 -> to_f32 -> F32);
+ranged_decimal!(f64 -> to_f64 -> F64);

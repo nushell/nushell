@@ -5,6 +5,11 @@ use crate::prelude::*;
 
 pub struct First;
 
+#[derive(Deserialize)]
+pub struct FirstArgs {
+    amount: Tagged<u64>,
+}
+
 impl WholeStreamCommand for First {
     fn name(&self) -> &str {
         "first"
@@ -24,27 +29,13 @@ impl WholeStreamCommand for First {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        first(args, registry)
+        args.process(registry, first)?.run()
     }
 }
 
-fn first(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-
-    let amount = args.expect_nth(0)?.as_i64();
-
-    let amount = match amount {
-        Ok(o) => o,
-        Err(_) => {
-            return Err(ShellError::labeled_error(
-                "Value is not a number",
-                "expected integer",
-                args.expect_nth(0)?.span(),
-            ))
-        }
-    };
-
-    Ok(OutputStream::from_input(
-        args.input.values.take(amount as u64),
-    ))
+fn first(
+    FirstArgs { amount }: FirstArgs,
+    context: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    Ok(OutputStream::from_input(context.input.values.take(*amount)))
 }

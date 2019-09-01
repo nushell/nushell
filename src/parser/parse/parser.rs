@@ -70,11 +70,51 @@ fn trace_step<'a, T: Debug>(
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Number {
-    Int(i64),
-    Decimal(Decimal),
+    Int(BigInt),
+    Decimal(BigDecimal),
 }
+
+macro_rules! primitive_int {
+    ($($ty:ty)*) => {
+        $(
+            impl From<$ty> for Number {
+                fn from(int: $ty) -> Number {
+                    Number::Int(BigInt::zero() + int)
+                }
+            }
+
+            impl From<&$ty> for Number {
+                fn from(int: &$ty) -> Number {
+                    Number::Int(BigInt::zero() + *int)
+                }
+            }
+        )*
+    }
+}
+
+primitive_int!(i8 u8 i16 u16 i32 u32 i64 u64 i128 u128);
+
+macro_rules! primitive_decimal {
+    ($($ty:tt -> $from:tt),*) => {
+        $(
+            impl From<$ty> for Number {
+                fn from(decimal: $ty) -> Number {
+                    Number::Decimal(BigDecimal::$from(decimal).unwrap())
+                }
+            }
+
+            impl From<&$ty> for Number {
+                fn from(decimal: &$ty) -> Number {
+                    Number::Decimal(BigDecimal::$from(*decimal).unwrap())
+                }
+            }
+        )*
+    }
+}
+
+primitive_decimal!(f32 -> from_f32, f64 -> from_f64);
 
 impl std::ops::Mul for Number {
     type Output = Number;
@@ -82,8 +122,8 @@ impl std::ops::Mul for Number {
     fn mul(self, other: Number) -> Number {
         match (self, other) {
             (Number::Int(a), Number::Int(b)) => Number::Int(a * b),
-            (Number::Int(a), Number::Decimal(b)) => Number::Decimal(Decimal::from(a) * b),
-            (Number::Decimal(a), Number::Int(b)) => Number::Decimal(a * Decimal::from(b)),
+            (Number::Int(a), Number::Decimal(b)) => Number::Decimal(BigDecimal::from(a) * b),
+            (Number::Decimal(a), Number::Int(b)) => Number::Decimal(a * BigDecimal::from(b)),
             (Number::Decimal(a), Number::Decimal(b)) => Number::Decimal(a * b),
         }
     }
@@ -96,36 +136,18 @@ impl std::ops::Mul<u32> for Number {
     fn mul(self, other: u32) -> Number {
         match self {
             Number::Int(left) => Number::Int(left * (other as i64)),
-            Number::Decimal(left) => Number::Decimal(left * Decimal::from(other)),
+            Number::Decimal(left) => Number::Decimal(left * BigDecimal::from(other)),
         }
     }
 }
 
-impl Into<Number> for f32 {
-    fn into(self) -> Number {
-        Number::Decimal(Decimal::from_f32(self).unwrap())
-    }
-}
-
-impl Into<Number> for f64 {
-    fn into(self) -> Number {
-        Number::Decimal(Decimal::from_f64(self).unwrap())
-    }
-}
-
-impl Into<Number> for i64 {
-    fn into(self) -> Number {
-        Number::Int(self)
-    }
-}
-
-impl Into<Number> for Decimal {
+impl Into<Number> for BigDecimal {
     fn into(self) -> Number {
         Number::Decimal(self)
     }
 }
 
-pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<Number>> {
+pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
     let original = input;
     let start = input.offset;
     trace_step(input, "raw_decimal", move |input| {
@@ -137,28 +159,14 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<Number>> {
             Ok((input, dot)) => input,
 
             // it's just an integer
-            Err(_) => {
-                return Ok((
-                    input,
-                    Tagged::from_simple_spanned_item(
-                        Number::Int(int(head.fragment, neg)),
-                        (start, input.offset),
-                    ),
-                ))
-            }
+            Err(_) => return Ok((input, RawNumber::int((start, input.offset)))),
         };
 
         let (input, tail) = digit1(input)?;
 
         let end = input.offset;
 
-        let decimal = Decimal::from_str(&format!("{}.{}", head.fragment, tail.fragment))
-            .expect("BUG: Should have already ensured that the input is a valid decimal");
-
-        Ok((
-            input,
-            Tagged::from_simple_spanned_item(Number::Decimal(decimal), (start, end)),
-        ))
+        Ok((input, RawNumber::decimal((start, end))))
     })
 }
 
@@ -708,12 +716,12 @@ mod tests {
     fn test_integer() {
         assert_leaf! {
             parsers [ size ]
-            "123" -> 0..3 { Number(Number::Int(123)) }
+            "123" -> 0..3 { Number(RawNumber::int((0, 3)).item) }
         }
 
         assert_leaf! {
             parsers [ size ]
-            "-123" -> 0..4 { Number(Number::Int(-123)) }
+            "-123" -> 0..4 { Number(RawNumber::int((0, 4)).item) }
         }
     }
 
@@ -721,12 +729,12 @@ mod tests {
     fn test_size() {
         assert_leaf! {
             parsers [ size ]
-            "123MB" -> 0..5 { Size(Number::Int(123), Unit::MB) }
+            "123MB" -> 0..5 { Size(RawNumber::int((0, 3)).item, Unit::MB) }
         }
 
         assert_leaf! {
             parsers [ size ]
-            "10GB" -> 0..4 { Size(Number::Int(10), Unit::GB) }
+            "10GB" -> 0..4 { Size(RawNumber::int((0, 2)).item, Unit::GB) }
         }
     }
 

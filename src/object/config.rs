@@ -36,7 +36,8 @@ pub(crate) fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(
     let filename = location.join("config.toml");
     touch(&filename)?;
 
-    let contents = value_to_toml_value(&Value::Object(Dictionary::new(config.clone())))?;
+    let contents =
+        value_to_toml_value(&Value::Object(Dictionary::new(config.clone())).tagged_unknown())?;
 
     let contents = toml::to_string(&contents)?;
 

@@ -12,10 +12,10 @@ impl Sum {
     }
 
     fn sum(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
-        match value.item {
+        match value.item() {
             Value::Primitive(Primitive::Nothing) => Ok(()),
             Value::Primitive(Primitive::Int(i)) => {
-                match self.total {
+                match &self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Int(j)),
                         tag: Tag { span, .. },
@@ -26,7 +26,7 @@ impl Sum {
                         Ok(())
                     }
                     None => {
-                        self.total = Some(value);
+                        self.total = Some(value.clone());
                         Ok(())
                     }
                     _ => Err(ShellError::string(format!(

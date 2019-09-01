@@ -16,8 +16,8 @@ use std::time::SystemTime;
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
-    Int(i64),
-    Decimal(Decimal),
+    Int(BigInt),
+    Decimal(BigDecimal),
     Bytes(u64),
     String(String),
     Boolean(bool),
@@ -29,21 +29,15 @@ pub enum Primitive {
     EndOfStream,
 }
 
-impl From<i64> for Primitive {
-    fn from(int: i64) -> Primitive {
-        Primitive::Int(int)
-    }
-}
-
-impl From<Decimal> for Primitive {
-    fn from(decimal: Decimal) -> Primitive {
+impl From<BigDecimal> for Primitive {
+    fn from(decimal: BigDecimal) -> Primitive {
         Primitive::Decimal(decimal)
     }
 }
 
 impl From<f64> for Primitive {
     fn from(float: f64) -> Primitive {
-        Primitive::Decimal(Decimal::from_f64(float).unwrap())
+        Primitive::Decimal(BigDecimal::from_f64(float).unwrap())
     }
 }
 
@@ -193,6 +187,15 @@ impl Into<Value> for Number {
     }
 }
 
+impl Into<Value> for &Number {
+    fn into(self) -> Value {
+        match self {
+            Number::Int(int) => Value::int(int.clone()),
+            Number::Decimal(decimal) => Value::decimal(decimal.clone()),
+        }
+    }
+}
+
 pub fn debug_list(values: &Vec<Tagged<Value>>) -> ValuesDebug<'_> {
     ValuesDebug { values }
 }
@@ -251,7 +254,9 @@ impl std::convert::TryFrom<&Tagged<Value>> for i64 {
 
     fn try_from(value: &Tagged<Value>) -> Result<i64, ShellError> {
         match value.item() {
-            Value::Primitive(Primitive::Int(int)) => Ok(*int),
+            Value::Primitive(Primitive::Int(int)) => {
+                int.tagged(value.tag).coerce_into("converting to i64")
+            }
             v => Err(ShellError::type_error(
                 "Integer",
                 value.copy_span(v.type_name()),
@@ -598,18 +603,6 @@ impl Value {
         }
     }
 
-    pub(crate) fn as_i64(&self) -> Result<i64, ShellError> {
-        match self {
-            Value::Primitive(Primitive::Int(i)) => Ok(*i),
-            Value::Primitive(Primitive::Bytes(b)) => Ok(*b as i64),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected integer, got {:?}",
-                other
-            ))),
-        }
-    }
-
     pub(crate) fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
@@ -629,11 +622,11 @@ impl Value {
         Value::Primitive(Primitive::Bytes(s.into()))
     }
 
-    pub fn int(s: impl Into<i64>) -> Value {
+    pub fn int(s: impl Into<BigInt>) -> Value {
         Value::Primitive(Primitive::Int(s.into()))
     }
 
-    pub fn decimal(s: impl Into<Decimal>) -> Value {
+    pub fn decimal(s: impl Into<BigDecimal>) -> Value {
         Value::Primitive(Primitive::Decimal(s.into()))
     }
 
@@ -727,18 +720,24 @@ pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool
                     _ => false,
                 },
                 Value::Primitive(Primitive::Bytes(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < (*i2 as u64),
+                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
+                        BigInt::from(i) < *i2
+                    }
                     (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i > (*i2 as u64)
+                        BigInt::from(i) > *i2
                     }
                     (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i <= (*i2 as u64)
+                        BigInt::from(i) <= *i2
                     }
                     (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= (*i2 as u64)
+                        BigInt::from(i) >= *i2
                     }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == (*i2 as u64),
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != (*i2 as u64),
+                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
+                        BigInt::from(i) == *i2
+                    }
+                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
+                        BigInt::from(i) != *i2
+                    }
                     _ => false,
                 },
                 Value::Primitive(Primitive::Int(i)) => match (op, rhs) {
@@ -764,22 +763,22 @@ pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool
                     (Operator::Equal, Value::Primitive(Primitive::Decimal(i2))) => i == *i2,
                     (Operator::NotEqual, Value::Primitive(Primitive::Decimal(i2))) => i != *i2,
                     (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i < Decimal::from(*i2)
+                        i < BigDecimal::from(i2.clone())
                     }
                     (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i > Decimal::from(*i2)
+                        i > BigDecimal::from(i2.clone())
                     }
                     (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i <= Decimal::from(*i2)
+                        i <= BigDecimal::from(i2.clone())
                     }
                     (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= Decimal::from(*i2)
+                        i >= BigDecimal::from(i2.clone())
                     }
                     (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
-                        i == Decimal::from(*i2)
+                        i == BigDecimal::from(i2.clone())
                     }
                     (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i != Decimal::from(*i2)
+                        i != BigDecimal::from(i2.clone())
                     }
 
                     _ => false,
@@ -796,9 +795,8 @@ pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool
 }
 
 enum CompareValues {
-    Ints(i64, i64),
-    Decimals(Decimal, Decimal),
-    Bytes(u64, u64),
+    Ints(BigInt, BigInt),
+    Decimals(BigDecimal, BigDecimal),
     String(String, String),
 }
 
@@ -807,7 +805,6 @@ impl CompareValues {
         match self {
             CompareValues::Ints(left, right) => left.cmp(right),
             CompareValues::Decimals(left, right) => left.cmp(right),
-            CompareValues::Bytes(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
         }
     }
@@ -828,17 +825,21 @@ fn coerce_compare_primitive(
     use Primitive::*;
 
     Ok(match (left, right) {
-        (Int(left), Int(right)) => CompareValues::Ints(*left, *right),
-        (Int(left), Decimal(right)) => CompareValues::Decimals((*left).into(), *right),
-        (Int(left), Bytes(right)) => CompareValues::Bytes(*left as u64, *right),
-        (Decimal(left), Decimal(right)) => CompareValues::Decimals(*left, *right),
-        (Decimal(left), Int(right)) => CompareValues::Decimals(*left, (*right).into()),
-        (Decimal(left), Bytes(right)) => {
-            CompareValues::Decimals(*left, rust_decimal::Decimal::from(*right))
+        (Int(left), Int(right)) => CompareValues::Ints(left.clone(), right.clone()),
+        (Int(left), Decimal(right)) => {
+            CompareValues::Decimals(BigDecimal::zero() + left, right.clone())
         }
-        (Bytes(left), Int(right)) => CompareValues::Bytes(*left, *right as u64),
+        (Int(left), Bytes(right)) => CompareValues::Ints(left.clone(), BigInt::from(*right)),
+        (Decimal(left), Decimal(right)) => CompareValues::Decimals(left.clone(), right.clone()),
+        (Decimal(left), Int(right)) => {
+            CompareValues::Decimals(left.clone(), BigDecimal::zero() + right)
+        }
+        (Decimal(left), Bytes(right)) => {
+            CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
+        }
+        (Bytes(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
         (Bytes(left), Decimal(right)) => {
-            CompareValues::Decimals(rust_decimal::Decimal::from(*left), *right)
+            CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),

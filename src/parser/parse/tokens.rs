@@ -2,15 +2,45 @@ use crate::parser::parse::unit::*;
 use crate::prelude::*;
 use crate::{Span, Tagged, Text};
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RawToken {
-    Number(Number),
-    Size(Number, Unit),
+    Number(RawNumber),
+    Size(RawNumber, Unit),
     String(Span),
     Variable(Span),
     External(Span),
     Bare,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum RawNumber {
+    Int(Span),
+    Decimal(Span),
+}
+
+impl RawNumber {
+    pub fn int(span: impl Into<Span>) -> Tagged<RawNumber> {
+        let span = span.into();
+
+        RawNumber::Int(span).tagged(span)
+    }
+
+    pub fn decimal(span: impl Into<Span>) -> Tagged<RawNumber> {
+        let span = span.into();
+
+        RawNumber::Decimal(span).tagged(span)
+    }
+
+    pub(crate) fn to_number(self, source: &Text) -> Number {
+        match self {
+            RawNumber::Int(span) => Number::Int(BigInt::from_str(span.slice(source)).unwrap()),
+            RawNumber::Decimal(span) => {
+                Number::Decimal(BigDecimal::from_str(span.slice(source)).unwrap())
+            }
+        }
+    }
 }
 
 impl RawToken {
