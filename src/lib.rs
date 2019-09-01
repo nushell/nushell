@@ -1,4 +1,3 @@
-#![feature(crate_visibility_modifier)]
 #![feature(generators)]
 #![feature(specialization)]
 #![feature(proc_macro_hygiene)]

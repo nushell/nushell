@@ -97,7 +97,7 @@ impl CallInfo {
 }
 
 #[derive(Getters)]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
     pub shell_manager: ShellManager,
@@ -106,7 +106,7 @@ pub struct CommandArgs {
 }
 
 #[derive(Getters, Clone)]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct RawCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
     pub shell_manager: ShellManager,
@@ -367,7 +367,7 @@ impl EvaluatedFilterCommandArgs {
 }
 
 #[derive(Getters, new)]
-#[get = "crate"]
+#[get = "pub(crate)"]
 pub struct EvaluatedCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
     pub shell_manager: ShellManager,

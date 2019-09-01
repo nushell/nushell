@@ -38,11 +38,11 @@ pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -
 
 #[derive(Debug, Clone, Eq, PartialEq, Getters, Serialize, Deserialize, new)]
 pub struct Call {
-    #[get = "crate"]
+    #[get = "pub(crate)"]
     pub head: Box<Expression>,
-    #[get = "crate"]
+    #[get = "pub(crate)"]
     pub positional: Option<Vec<Expression>>,
-    #[get = "crate"]
+    #[get = "pub(crate)"]
     pub named: Option<NamedArguments>,
 }
 
