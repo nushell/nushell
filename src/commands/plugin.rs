@@ -207,6 +207,8 @@ pub fn filter_plugin(
                     }
                 };
 
+                let _ = child.wait();
+
                 result
             }
             _ => {
