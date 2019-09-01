@@ -93,6 +93,8 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
         Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
     };
 
+    let _ = child.wait();
+
     result
 }
 
