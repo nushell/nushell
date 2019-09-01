@@ -58,6 +58,12 @@ impl<'de> ConfigDeserializer<'de> {
 
         Ok(())
     }
+    
+    pub fn top(&mut self) -> &DeserializerItem {
+        let value = self.stack.last();
+        trace!("inspecting top value :: {:?}", value);
+        value.expect("Can't get top elemant of an empty stack")
+    }
 
     pub fn pop(&mut self) -> DeserializerItem {
         let value = self.stack.pop();
@@ -81,7 +87,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V::Value::extract(&value.val)
     }
 
-    forward_to_deserialize_any! { bool option }
+    forward_to_deserialize_any! { bool }
 
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -172,6 +178,19 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V: Visitor<'de>,
     {
         unimplemented!("deserialize_byte_buf")
+    }
+    
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.top();
+        let name = std::any::type_name::<V::Value>();
+        trace!("<Option> Extracting {:?} for Option<{}>", value, name);
+        match value.val.item() {
+            Value::Primitive(Primitive::Nothing) => visitor.visit_none(),
+            _ => visitor.visit_some(self),
+        }
     }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
