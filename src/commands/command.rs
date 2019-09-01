@@ -168,7 +168,7 @@ impl CommandArgs {
         Ok(RunnableArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
-                input: input,
+                input,
                 commands: registry.clone(),
                 shell_manager,
                 name: name_span,
@@ -201,7 +201,7 @@ impl CommandArgs {
         Ok(RunnableRawArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
-                input: input,
+                input,
                 commands: registry.clone(),
                 shell_manager,
                 name: name_span,

@@ -109,7 +109,7 @@ impl PerItemCommand for Enter {
                                                 })) => {
                                                     yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
                                                         Tagged {
-                                                            item: item,
+                                                            item,
                                                             tag: contents_tag,
                                                         })));
                                                 }

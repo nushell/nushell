@@ -140,7 +140,7 @@ impl ShellError {
         ProximateShellError::ArgumentError {
             command: command.into(),
             error: kind,
-            span: span,
+            span,
         }
         .start()
     }
