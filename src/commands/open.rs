@@ -63,10 +63,13 @@ fn run(
 
     let stream = async_stream_block! {
 
-        //FIXME: unwraps
+        let result = fetch(&full_path, &path_str, path_span).await;
 
-        let (file_extension, contents, contents_tag, span_source) =
-            fetch(&full_path, &path_str, path_span).await.unwrap();
+        if let Err(e) = result {
+            yield Err(e);
+            return;
+        }
+        let (file_extension, contents, contents_tag, span_source) = result.unwrap();
 
         let file_extension = if has_raw {
             None
