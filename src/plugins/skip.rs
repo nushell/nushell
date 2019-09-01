@@ -1,4 +1,3 @@
-use indexmap::IndexMap;
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
     SyntaxType, Tagged, Value,
@@ -15,13 +14,10 @@ impl Skip {
 
 impl Plugin for Skip {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature {
-            name: "skip".to_string(),
-            positional: vec![],
-            is_filter: true,
-            named: IndexMap::new(),
-            rest_positional: Some(SyntaxType::Number),
-        })
+       Ok(Signature::build("skip")
+            .desc("Skip a number of rows")
+            .rest(SyntaxType::Number)
+            .filter())
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {

@@ -6,20 +6,24 @@ use crate::prelude::*;
 pub struct ToTOML;
 
 impl WholeStreamCommand for ToTOML {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_toml(args, registry)
-    }
-
     fn name(&self) -> &str {
         "to-toml"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("to-toml")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert table into .toml text"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_toml(args, registry)
     }
 }
 

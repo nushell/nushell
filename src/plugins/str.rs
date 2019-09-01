@@ -124,7 +124,7 @@ impl Str {
         }
     }
 
-    fn usage(&self) -> &'static str {
+    pub fn usage() -> &'static str {
         "Usage: str field [--downcase|--upcase|--to-int|--replace|--find-replace]"
     }
 }
@@ -154,7 +154,7 @@ impl Str {
                 None => Err(ShellError::string(format!(
                     "{}: {}",
                     "str needs a field when applying it to a value in an object",
-                    self.usage()
+                    Str::usage()
                 ))),
             },
             x => Err(ShellError::string(format!(
@@ -168,6 +168,7 @@ impl Str {
 impl Plugin for Str {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("str")
+            .desc("Apply string function. Optional use the field of a table")
             .switch("downcase")
             .switch("upcase")
             .switch("to-int")
@@ -240,7 +241,7 @@ impl Plugin for Str {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, self.usage())))
+                return Err(ShellError::string(format!("{}: {}", reason, Str::usage())))
             }
             None => Ok(vec![]),
         }

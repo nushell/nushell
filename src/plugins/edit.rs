@@ -42,6 +42,7 @@ impl Edit {
 impl Plugin for Edit {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("edit")
+            .desc("Edit an existing field to have a new value.")
             .required("Field", SyntaxType::String)
             .required("Value", SyntaxType::String)
             .filter())

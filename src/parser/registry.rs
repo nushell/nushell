@@ -73,6 +73,8 @@ impl PositionalType {
 pub struct Signature {
     pub name: String,
     #[new(default)]
+    pub usage: String,
+    #[new(default)]
     pub positional: Vec<PositionalType>,
     #[new(value = "None")]
     pub rest_positional: Option<SyntaxType>,
@@ -85,6 +87,11 @@ pub struct Signature {
 impl Signature {
     pub fn build(name: impl Into<String>) -> Signature {
         Signature::new(name.into())
+    }
+
+    pub fn desc(mut self, usage: impl Into<String>) -> Signature {
+        self.usage = usage.into();
+        self
     }
 
     pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {

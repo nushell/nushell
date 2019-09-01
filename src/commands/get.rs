@@ -15,16 +15,20 @@ impl WholeStreamCommand for Get {
         "get"
     }
 
+    fn signature(&self) -> Signature {
+        Signature::build("get").rest(SyntaxType::Member)
+    }
+
+    fn usage(&self) -> &str {
+        "Open given cells as text."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, get)?.run()
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("get").rest(SyntaxType::Member)
     }
 }
 

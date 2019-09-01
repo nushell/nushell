@@ -25,6 +25,10 @@ impl PerItemCommand for Move {
             .named("file", SyntaxType::Any)
     }
 
+    fn usage(&self) -> &str {
+        "Move files or directories."
+    }
+
     fn run(
         &self,
         call_info: &CallInfo,

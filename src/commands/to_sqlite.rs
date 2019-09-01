@@ -8,14 +8,6 @@ use std::io::Read;
 pub struct ToSQLite;
 
 impl WholeStreamCommand for ToSQLite {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_sqlite(args, registry)
-    }
-
     fn name(&self) -> &str {
         "to-sqlite"
     }
@@ -23,11 +15,11 @@ impl WholeStreamCommand for ToSQLite {
     fn signature(&self) -> Signature {
         Signature::build("to-sqlite")
     }
-}
 
-pub struct ToDB;
+    fn usage(&self) -> &str {
+        "Convert table to sqlite .db binary data"
+    }
 
-impl WholeStreamCommand for ToDB {
     fn run(
         &self,
         args: CommandArgs,
@@ -35,13 +27,29 @@ impl WholeStreamCommand for ToDB {
     ) -> Result<OutputStream, ShellError> {
         to_sqlite(args, registry)
     }
+}
 
+pub struct ToDB;
+
+impl WholeStreamCommand for ToDB {
     fn name(&self) -> &str {
         "to-db"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("to-db")
+    }
+
+    fn usage(&self) -> &str {
+        "Convert table to db data"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_sqlite(args, registry)
     }
 }
 

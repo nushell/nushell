@@ -12,7 +12,12 @@ impl PerItemCommand for Where {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("where").required("condition", SyntaxType::Block)
+        Signature::build("where")
+            .required("condition", SyntaxType::Block)
+    }
+
+    fn usage(&self) -> &str {
+        "Filter table to match the condition."
     }
 
     fn run(

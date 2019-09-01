@@ -32,6 +32,10 @@ impl WholeStreamCommand for Config {
             .switch("path")
     }
 
+    fn usage(&self) -> &str {
+        "Configuration management."
+    }
+
     fn run(
         &self,
         args: CommandArgs,

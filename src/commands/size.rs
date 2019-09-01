@@ -6,20 +6,24 @@ use crate::prelude::*;
 pub struct Size;
 
 impl WholeStreamCommand for Size {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        size(args, registry)
-    }
-
     fn name(&self) -> &str {
         "size"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("size")
+    }
+
+    fn usage(&self) -> &str {
+        "Gather word count statistics on the text."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        size(args, registry)
     }
 }
 

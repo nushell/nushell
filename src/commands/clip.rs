@@ -18,16 +18,21 @@ pub mod clipboard {
         fn name(&self) -> &str {
             "clip"
         }
+
+        fn signature(&self) -> Signature {
+            Signature::build("clip")
+        }
+
+        fn usage(&self) -> &str {
+            "Copy the contents of the pipeline to the copy/paste buffer"
+        }
+
         fn run(
             &self,
             args: CommandArgs,
             registry: &CommandRegistry,
         ) -> Result<OutputStream, ShellError> {
             args.process(registry, clip)?.run()
-        }
-
-        fn signature(&self) -> Signature {
-            Signature::build("clip")
         }
     }
 

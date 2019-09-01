@@ -24,6 +24,10 @@ impl PerItemCommand for Remove {
             .switch("recursive")
     }
 
+    fn usage(&self) -> &str {
+        "Remove a file, (for removing directory append '--recursive')"
+    }
+
     fn run(
         &self,
         call_info: &CallInfo,

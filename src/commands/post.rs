@@ -27,6 +27,10 @@ impl PerItemCommand for Post {
             .switch("raw")
     }
 
+    fn usage(&self) -> &str {
+        "Post content to a url and retrieve data as a table if possible."
+    }
+
     fn run(
         &self,
         call_info: &CallInfo,

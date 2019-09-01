@@ -23,6 +23,10 @@ impl PerItemCommand for Open {
             .switch("raw")
     }
 
+    fn usage(&self) -> &str {
+        "Load a file into a cell, convert to table if possible (avoid by appending '--raw')"
+    }
+
     fn run(
         &self,
         call_info: &CallInfo,

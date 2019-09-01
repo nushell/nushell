@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct ToArray;
 
 impl WholeStreamCommand for ToArray {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        to_array(args, registry)
-    }
-
     fn name(&self) -> &str {
         "to-array"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("to-array")
+    }
+
+    fn usage(&self) -> &str {
+        "Collapse rows into a single list."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        to_array(args, registry)
     }
 }
 

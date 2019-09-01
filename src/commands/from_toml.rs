@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct FromTOML;
 
 impl WholeStreamCommand for FromTOML {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_toml(args, registry)
-    }
-
     fn name(&self) -> &str {
         "from-toml"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from-toml")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .toml and create table."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_toml(args, registry)
     }
 }
 

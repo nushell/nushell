@@ -7,20 +7,24 @@ use crate::commands::WholeStreamCommand;
 pub struct Previous;
 
 impl WholeStreamCommand for Previous {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        previous(args, registry)
-    }
-
     fn name(&self) -> &str {
         "p"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("p")
+    }
+
+    fn usage(&self) -> &str {
+        "Go to previous shell."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        previous(args, registry)
     }
 }
 

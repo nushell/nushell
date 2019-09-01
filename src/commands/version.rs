@@ -8,20 +8,24 @@ use indexmap::IndexMap;
 pub struct Version;
 
 impl WholeStreamCommand for Version {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        date(args, registry)
-    }
-
     fn name(&self) -> &str {
         "version"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("version")
+    }
+
+    fn usage(&self) -> &str {
+        "Display Nu version"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        date(args, registry)
     }
 }
 

@@ -10,20 +10,24 @@ pub struct SortByArgs {
 }
 
 impl WholeStreamCommand for SortBy {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, sort_by)?.run()
-    }
-
     fn name(&self) -> &str {
         "sort-by"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("sort-by").rest(SyntaxType::String)
+    }
+
+    fn usage(&self) -> &str {
+        "Sort by the given columns."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, sort_by)?.run()
     }
 }
 

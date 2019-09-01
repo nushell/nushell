@@ -12,16 +12,20 @@ impl WholeStreamCommand for Autoview {
         "autoview"
     }
 
+    fn signature(&self) -> Signature {
+        Signature::build("autoview")
+    }
+
+    fn usage(&self) -> &str {
+        "View the contents of the pipeline as a table or list."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         Ok(args.process_raw(registry, autoview)?.run())
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("autoview")
     }
 }
 

@@ -19,10 +19,10 @@ fn converts_structured_table_to_csv_text() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
             r#"
-                    importer,shipper,tariff_item,name,origin
-                    Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
-                    Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-                "#,
+                importer,shipper,tariff_item,name,origin
+                Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+                Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+            "#,
         )]);
 
         let actual = nu!(
@@ -49,10 +49,10 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
             r#"
-                    importer,shipper,tariff_item,name,origin
-                    Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
-                    Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-                "#,
+                importer,shipper,tariff_item,name,origin
+                Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+                Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+            "#,
         )]);
 
         let actual = nu!(
@@ -75,19 +75,19 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
 fn converts_from_csv_text_to_structured_table() {
     Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_amigos.txt",
+            "los_tres_caballeros.txt",
             r#"
-                    first_name,last_name,rusty_luck
-                    Andrés,Robalino,1
-                    Jonathan,Turner,1
-                    Yehuda,Katz,1
-                "#,
+                first_name,last_name,rusty_luck
+                Andrés,Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open los_tres_amigos.txt 
+                open los_tres_caballeros.txt 
                 | from-csv 
                 | get rusty_luck 
                 | str --to-int 
@@ -106,11 +106,11 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                    first_name,last_name,rusty_luck
-                    Andrés,Robalino,1
-                    Jonathan,Turner,1
-                    Yehuda,Katz,1
-                "#,
+                first_name,last_name,rusty_luck
+                Andrés,Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
         )]);
 
         let actual = nu!(
@@ -151,15 +151,15 @@ fn converts_from_json_text_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
-                    {
-                        "katz": [
-                            {"name":   "Yehuda", "rusty_luck": 1}, 
-                            {"name": "Jonathan", "rusty_luck": 1}, 
-                            {"name":   "Andres", "rusty_luck": 1},
-                            {"name":"GorbyPuff", "rusty_luck": 1}
-                        ]
-                    }
-                "#,
+                {
+                    "katz": [
+                        {"name":   "Yehuda", "rusty_luck": 1}, 
+                        {"name": "Jonathan", "rusty_luck": 1}, 
+                        {"name":   "Andres", "rusty_luck": 1},
+                        {"name":"GorbyPuff", "rusty_luck": 1}
+                    ]
+                }
+            "#,
         )]);
 
         let actual = nu!(
@@ -177,11 +177,11 @@ fn converts_from_json_text_recognizing_objects_independendtly_to_structured_tabl
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
-                    {"name":   "Yehuda", "rusty_luck": 1} 
-                    {"name": "Jonathan", "rusty_luck": 1} 
-                    {"name":   "Andres", "rusty_luck": 1}
-                    {"name":"GorbyPuff", "rusty_luck": 3}
-                "#,
+                {"name":   "Yehuda", "rusty_luck": 1} 
+                {"name": "Jonathan", "rusty_luck": 1} 
+                {"name":   "Andres", "rusty_luck": 1}
+                {"name":"GorbyPuff", "rusty_luck": 3}
+            "#,
         )]);
 
         let actual = nu!(
@@ -205,9 +205,9 @@ fn converts_structured_table_to_json_text() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "sample.txt",
             r#"
-                    JonAndrehudaTZ,3
-                    GorbyPuff,100
-                "#,
+                JonAndrehudaTZ,3
+                GorbyPuff,100
+            "#,
         )]);
 
         let actual = nu!(
@@ -245,10 +245,10 @@ fn converts_structured_table_to_tsv_text() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "tsv_text_sample.txt",
             r#"
-                    importer	shipper	tariff_item	name	origin
-                    Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
-                    Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
-                "#,
+                importer	shipper	tariff_item	name	origin
+                Plasticos Rival	Reverte	2509000000	Calcium carbonate	Spain
+                Tigre Ecuador	OMYA Andina	3824909999	Calcium carbonate	Colombia
+            "#,
         )]);
 
         let actual = nu!(
@@ -275,10 +275,10 @@ fn converts_structured_table_to_tsv_text_skipping_headers_after_conversion() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "tsv_text_sample.txt",
             r#"
-                    importer    shipper tariff_item name    origin
-                    Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
-                    Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
-                "#,
+                importer    shipper tariff_item name    origin
+                Plasticos Rival Reverte 2509000000  Calcium carbonate   Spain
+                Tigre Ecuador   OMYA Andina 3824909999  Calcium carbonate   Colombia
+            "#,
         )]);
 
         let actual = nu!(
@@ -303,11 +303,11 @@ fn converts_from_tsv_text_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                    first Name	Last Name	rusty_luck
-                    Andrés	Robalino	1
-                    Jonathan	Turner	1
-                    Yehuda	Katz	1
-                "#,
+                first Name	Last Name	rusty_luck
+                Andrés	Robalino	1
+                Jonathan	Turner	1
+                Yehuda	Katz	1
+            "#,
         )]);
 
         let actual = nu!(
@@ -332,11 +332,11 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                    first Name	Last Name	rusty_luck
-                    Andrés	Robalino	1
-                    Jonathan	Turner	1
-                    Yehuda	Katz	1
-                "#,
+                first Name	Last Name	rusty_luck
+                Andrés	Robalino	1
+                Jonathan	Turner	1
+                Yehuda	Katz	1
+            "#,
         )]);
 
         let actual = nu!(
@@ -359,14 +359,15 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
 fn can_convert_table_to_bson_and_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
-            r#"
-               open sample.bson
-               | to-bson
-               | from-bson
-               | get root
-               | nth 1
-               | get b
-               | echo $it"#
+        r#"
+            open sample.bson
+            | to-bson
+            | from-bson
+            | get root
+            | nth 1
+            | get b
+            | echo $it
+        "#
     ));
 
     assert_eq!(actual, "whel");
@@ -376,14 +377,15 @@ fn can_convert_table_to_bson_and_back_into_table() {
 fn can_convert_table_to_sqlite_and_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
-             r#"
-                 open sample.db
-                 | to-sqlite
-                 | from-sqlite
-                 | get table_values
-                 | nth 2
-                 | get x
-                 | echo $it"#
+        r#"
+            open sample.db
+            | to-sqlite
+            | from-sqlite
+            | get table_values
+            | nth 2
+            | get x
+            | echo $it
+        "#
     ));
 
     assert_eq!(actual, "hello");
@@ -393,12 +395,13 @@ fn can_convert_table_to_sqlite_and_back_into_table() {
 fn can_convert_table_to_toml_text_and_from_toml_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
-            r#"
-                open cargo_sample.toml
-                | to-toml
-                | from-toml
-                | get package.name
-                | echo $it"#
+        r#"
+            open cargo_sample.toml
+            | to-toml
+            | from-toml
+            | get package.name
+            | echo $it
+        "#
     ));
 
     assert_eq!(actual, "nu");

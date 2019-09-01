@@ -11,20 +11,24 @@ struct NthArgs {
 pub struct Nth;
 
 impl WholeStreamCommand for Nth {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        args.process(registry, nth)?.run()
-    }
-
     fn name(&self) -> &str {
         "nth"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("nth").required("amount", SyntaxType::Any)
+    }
+
+    fn usage(&self) -> &str {
+        "Return only the selected row"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        args.process(registry, nth)?.run()
     }
 }
 

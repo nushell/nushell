@@ -6,20 +6,24 @@ use crate::prelude::*;
 pub struct Shells;
 
 impl WholeStreamCommand for Shells {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        shells(args, registry)
-    }
-
     fn name(&self) -> &str {
         "shells"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("shells")
+    }
+
+    fn usage(&self) -> &str {
+        "Display the list of current shells."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        shells(args, registry)
     }
 }
 

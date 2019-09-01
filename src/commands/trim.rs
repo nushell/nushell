@@ -6,20 +6,24 @@ use crate::prelude::*;
 pub struct Trim;
 
 impl WholeStreamCommand for Trim {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        trim(args, registry)
-    }
-
     fn name(&self) -> &str {
         "trim"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("trim")
+    }
+
+    fn usage(&self) -> &str {
+        "Trim leading and following whitespace from text data."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        trim(args, registry)
     }
 }
 

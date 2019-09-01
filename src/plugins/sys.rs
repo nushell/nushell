@@ -309,7 +309,9 @@ async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
 
 impl Plugin for Sys {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("sys").filter())
+        Ok(Signature::build("sys")
+            .desc("View information about the current system.")
+            .filter())
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

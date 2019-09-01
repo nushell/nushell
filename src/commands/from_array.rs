@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct FromArray;
 
 impl WholeStreamCommand for FromArray {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_array(args, registry)
-    }
-
     fn name(&self) -> &str {
         "from-array"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from-array")
+    }
+
+    fn usage(&self) -> &str {
+        "Expand an array/list into rows"
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_array(args, registry)
     }
 }
 

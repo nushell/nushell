@@ -12,6 +12,18 @@ pub struct MkdirArgs {
 }
 
 impl PerItemCommand for Mkdir {
+    fn name(&self) -> &str {
+        "mkdir"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("mkdir").rest(SyntaxType::Path)
+    }
+
+    fn usage(&self) -> &str {
+        "Make directories, creates intermediary directories as required."
+    }
+
     fn run(
         &self,
         call_info: &CallInfo,
@@ -20,14 +32,6 @@ impl PerItemCommand for Mkdir {
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
         call_info.process(&raw_args.shell_manager, mkdir)?.run()
-    }
-
-    fn name(&self) -> &str {
-        "mkdir"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("mkdir").rest(SyntaxType::Path)
     }
 }
 

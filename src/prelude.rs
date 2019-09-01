@@ -68,6 +68,7 @@ pub(crate) use crate::parser::registry::Signature;
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
+pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::stream::{InputStream, OutputStream};
 pub(crate) use crate::traits::{HasSpan, ToDebug};
 pub(crate) use crate::Span;

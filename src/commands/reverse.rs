@@ -6,20 +6,24 @@ use crate::prelude::*;
 pub struct Reverse;
 
 impl WholeStreamCommand for Reverse {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        reverse(args, registry)
-    }
-
     fn name(&self) -> &str {
         "reverse"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("reverse")
+    }
+
+    fn usage(&self) -> &str {
+        "Reverses the table."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        reverse(args, registry)
     }
 }
 

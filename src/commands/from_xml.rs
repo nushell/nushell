@@ -5,20 +5,24 @@ use crate::prelude::*;
 pub struct FromXML;
 
 impl WholeStreamCommand for FromXML {
-    fn run(
-        &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
-    ) -> Result<OutputStream, ShellError> {
-        from_xml(args, registry)
-    }
-
     fn name(&self) -> &str {
         "from-xml"
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from-xml")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .xml and create table."
+    }
+
+    fn run(
+        &self,
+        args: CommandArgs,
+        registry: &CommandRegistry,
+    ) -> Result<OutputStream, ShellError> {
+        from_xml(args, registry)
     }
 }
 

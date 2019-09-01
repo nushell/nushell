@@ -12,15 +12,21 @@ impl WholeStreamCommand for VTable {
     fn name(&self) -> &str {
         "vtable"
     }
+
+    fn signature(&self) -> Signature {
+        Signature::build("vtable")
+    }
+
+    fn usage(&self) -> &str {
+        "View the contents of the pipeline as a vertical (rotated) table."
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, vtable)?.run()
-    }
-    fn signature(&self) -> Signature {
-        Signature::build("vtable")
     }
 }
 

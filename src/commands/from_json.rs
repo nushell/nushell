@@ -15,7 +15,12 @@ impl WholeStreamCommand for FromJSON {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-json").switch("objects")
+        Signature::build("from-json")
+            .switch("objects")
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .json and create table."
     }
 
     fn run(

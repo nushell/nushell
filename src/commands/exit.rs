@@ -6,20 +6,25 @@ use crate::prelude::*;
 pub struct Exit;
 
 impl WholeStreamCommand for Exit {
+    fn name(&self) -> &str {
+        "exit"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("exit")
+            .switch("now")
+    }
+
+    fn usage(&self) -> &str {
+        "Exit the current shell (or all shells)"
+    }
+
     fn run(
         &self,
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         exit(args, registry)
-    }
-
-    fn name(&self) -> &str {
-        "exit"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("exit").switch("now")
     }
 }
 
