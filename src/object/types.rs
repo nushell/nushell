@@ -15,19 +15,6 @@ impl<T> ExtractType for T {
         )))
     }
 }
-impl<T: ExtractType> ExtractType for Option<T> {
-    fn extract(value: &Tagged<Value>) -> Result<Option<T>, ShellError> {
-        let name = std::any::type_name::<T>();
-        trace!("<Option> Extracting {:?} for Option<{}>", value, name);
-
-        let result = match value.item() {
-            Value::Primitive(Primitive::Nothing) => None,
-            _ => Some(T::extract(value)?),
-        };
-
-        Ok(result)
-    }
-}
 
 impl<T: ExtractType> ExtractType for Tagged<T> {
     fn extract(value: &Tagged<Value>) -> Result<Tagged<T>, ShellError> {
