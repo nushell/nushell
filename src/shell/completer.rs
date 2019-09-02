@@ -72,9 +72,4 @@ impl NuCompleter {
 
         Ok((replace_pos, completions))
     }
-
-    // fn update(&self, line: &mut LineBuffer, start: usize, elected: &str) {
-    //     let end = line.pos();
-    //     line.replace(start..end, elected)
-    // }
 }

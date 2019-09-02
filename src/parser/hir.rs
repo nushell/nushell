@@ -92,7 +92,6 @@ pub enum RawExpression {
     FilePath(PathBuf),
     ExternalCommand(ExternalCommand),
 
-    #[allow(unused)]
     Boolean(bool),
 }
 

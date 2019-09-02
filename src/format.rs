@@ -7,8 +7,7 @@ pub(crate) mod vtable;
 use crate::prelude::*;
 
 pub(crate) use entries::EntriesView;
-#[allow(unused)]
-pub(crate) use generic::GenericView;
+
 pub(crate) use table::TableView;
 pub(crate) use vtable::VTableView;
 

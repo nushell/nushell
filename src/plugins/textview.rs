@@ -26,8 +26,7 @@ impl TextView {
 
 impl Plugin for TextView {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("textview")
-            .desc("Autoview of text data."))
+        Ok(Signature::build("textview").desc("Autoview of text data."))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
@@ -200,8 +199,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
             }
             let _ = cursor.show();
 
-            #[allow(unused)]
-            let screen = RawScreen::disable_raw_mode();
+            let _ = RawScreen::disable_raw_mode();
         }
     }
 

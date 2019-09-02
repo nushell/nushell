@@ -16,8 +16,7 @@ impl WholeStreamCommand for Last {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("last")
-            .required("amount", SyntaxType::Number)
+        Signature::build("last").required("amount", SyntaxType::Number)
     }
 
     fn usage(&self) -> &str {
@@ -30,7 +29,6 @@ impl WholeStreamCommand for Last {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, last)?.run()
-        // last(args, registry)
     }
 }
 

@@ -7,22 +7,21 @@ use std::io;
 pub trait Plugin {
     fn config(&mut self) -> Result<Signature, ShellError>;
 
-    #[allow(unused)]
-    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+    fn begin_filter(&mut self, _call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
-    #[allow(unused)]
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+
+    fn filter(&mut self, _input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
-    #[allow(unused)]
+
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
-    #[allow(unused)]
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {}
 
-    fn quit(&mut self){}
+    fn sink(&mut self, _call_info: CallInfo, _input: Vec<Tagged<Value>>) {}
+
+    fn quit(&mut self) {}
 }
 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {

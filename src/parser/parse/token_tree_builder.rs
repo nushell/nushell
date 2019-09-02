@@ -1,4 +1,3 @@
-#[allow(unused)]
 use crate::prelude::*;
 
 use crate::parser::parse::flag::{Flag, FlagKind};
@@ -17,12 +16,9 @@ pub struct TokenTreeBuilder {
     pos: usize,
 }
 
-#[allow(unused)]
-pub type CurriedNode<T> = Box<dyn FnOnce(&mut TokenTreeBuilder) -> T + 'static>;
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
 pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Tagged<CallNode> + 'static>;
 
-#[allow(unused)]
 impl TokenTreeBuilder {
     pub fn build(block: impl FnOnce(&mut Self) -> TokenNode) -> TokenNode {
         let mut builder = TokenTreeBuilder::new();
@@ -194,7 +190,7 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start_int, end_int) = b.consume(&int.to_string());
-            let (start_unit, end_unit) = b.consume(unit.as_str());
+            let (_, end_unit) = b.consume(unit.as_str());
             b.pos = end_unit;
 
             TokenTreeBuilder::spanned_size(

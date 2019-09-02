@@ -25,6 +25,7 @@ pub use crate::commands::command::{CallInfo, ReturnSuccess, ReturnValue};
 pub use crate::context::{SourceMap, SpanSource};
 pub use crate::env::host::BasicHost;
 pub use crate::parser::hir::SyntaxType;
+pub use crate::parser::parse::token_tree_builder::TokenTreeBuilder;
 pub use crate::plugin::{serve_plugin, Plugin};
 pub use crate::utils::{AbsoluteFile, AbsolutePath, RelativePath};
 pub use cli::cli;

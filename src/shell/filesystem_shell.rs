@@ -501,11 +501,6 @@ impl Shell for FilesystemShell {
     fn mkdir(
         &self,
         MkdirArgs { rest: directories }: MkdirArgs,
-        // RunnablePerItemContext {
-        //     name,
-        //     shell_manager,
-        //     ..
-        // }: &RunnablePerItemContext,
         name: Span,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
