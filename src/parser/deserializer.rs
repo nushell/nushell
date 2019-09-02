@@ -300,15 +300,15 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             self.stack
         );
 
-        if self.saw_root {
-            let value = self.pop();
-            let name = std::any::type_name::<V::Value>();
-            trace!("Extracting {:?} for {:?}", value.val, name);
-            V::Value::extract(&value.val)
-        } else {
+        if !self.saw_root {
             self.saw_root = true;
-            visitor.visit_seq(StructDeserializer::new(&mut self, fields))
+            return visitor.visit_seq(StructDeserializer::new(&mut self, fields));
         }
+
+        let value = self.pop();
+        let name = std::any::type_name::<V::Value>();
+        trace!("Extracting {:?} for {:?}", value.val, name);
+        V::Value::extract(&value.val)
     }
     fn deserialize_enum<V>(
         self,
