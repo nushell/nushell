@@ -37,8 +37,8 @@ impl NuCompleter {
             }
         }
 
-        let line_chars: Vec<_> = line.chars().collect();
-        let mut replace_pos = pos;
+        let line_chars: Vec<_> = line[..pos].chars().collect();
+        let mut replace_pos = line_chars.len();
         while replace_pos > 0 {
             if line_chars[replace_pos - 1] == ' ' {
                 break;
