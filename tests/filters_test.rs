@@ -508,3 +508,61 @@ fn can_get_reverse_first() {
 
     assert_eq!(actual, "utf16.ini");
 }
+
+#[test]
+fn embed() {
+    Playground::setup("embed_test", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name
+                Andrés,Robalino
+                Jonathan,Turner
+                Yehuda,Katz
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.txt 
+                | from-csv
+                | embed caballeros 
+                | get caballeros 
+                | nth 0
+                | get last_name
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "Robalino");
+    })
+}
+
+#[test]
+fn get() {
+    Playground::setup("get_test", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name
+                Andrés,Robalino
+                Jonathan,Turner
+                Yehuda,Katz
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.txt 
+                | from-csv 
+                | nth 1
+                | get last_name
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "Turner");
+    })
+}

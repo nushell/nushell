@@ -100,8 +100,9 @@ impl Dictionary {
     }
 }
 
+#[derive(Debug)]
 pub struct TaggedListBuilder {
-    tag: Tag,
+    pub tag: Tag,
     list: Vec<Tagged<Value>>,
 }
 

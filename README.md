@@ -234,6 +234,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | where condition | Filter table to match the condition |
 | inc (field) | Increment a value or version. Optional use the field of a table |
 | add field value | Add a new field to the table |
+| embed field | Embeds a new field to the table |
 | sum | Sum a column of values |
 | edit field value | Edit an existing field to have a new value |
 | reverse | Reverses the table. |
@@ -250,7 +251,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | to-toml | Convert table into .toml text |
 | to-yaml | Convert table into .yaml text |
 | to-bson | Convert table into .bson text |
-| to-csv  | Convert table into .csv text  |
+| to-csv | Convert table into .csv text |
 | to-bson | Convert table into .bson binary data |
 | to-tsv | Convert table into .tsv text |
 | to-sqlite | Convert table to sqlite .db binary data |
