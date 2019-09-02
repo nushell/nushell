@@ -80,11 +80,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let value = self.pop();
-        let name = std::any::type_name::<V::Value>();
-        trace!("<Deserialize any> Extracting {:?}", name);
-
-        V::Value::extract(&value.val)
+        unimplemented!("deserialize_any")
     }
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
