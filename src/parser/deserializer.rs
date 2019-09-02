@@ -1,11 +1,10 @@
 use crate::prelude::*;
 use log::trace;
-use serde::{de, forward_to_deserialize_any};
+use serde::de;
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
-    key: String,
-    struct_field: &'de str,
+    key_struct_field: Option<(String, &'de str)>,
     val: Tagged<Value>,
 }
 
@@ -26,6 +25,13 @@ impl<'de> ConfigDeserializer<'de> {
         }
     }
 
+    pub fn push_val(&mut self, val: Tagged<Value>) {
+        self.stack.push(DeserializerItem {
+            key_struct_field: None,
+            val,
+        });
+    }
+
     pub fn push(&mut self, name: &'static str) -> Result<(), ShellError> {
         let value: Option<Tagged<Value>> = if name == "rest" {
             let positional = self.call.args.slice_from(self.position);
@@ -44,14 +50,19 @@ impl<'de> ConfigDeserializer<'de> {
         trace!("pushing {:?}", value);
 
         self.stack.push(DeserializerItem {
-            key: name.to_string(),
-            struct_field: name,
+            key_struct_field: Some((name.to_string(), name)),
             val: value.unwrap_or_else(|| {
                 Value::nothing().tagged(Tag::unknown_origin(self.call.name_span))
             }),
         });
 
         Ok(())
+    }
+    
+    pub fn top(&mut self) -> &DeserializerItem {
+        let value = self.stack.last();
+        trace!("inspecting top value :: {:?}", value);
+        value.expect("Can't get top elemant of an empty stack")
     }
 
     pub fn pop(&mut self) -> DeserializerItem {
@@ -69,15 +80,27 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let value = self.pop();
-        let name = std::any::type_name::<V::Value>();
-        trace!("<Deserialize any> Extracting {:?}", name);
-
-        V::Value::extract(&value.val)
+        unimplemented!("deserialize_any")
     }
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.pop();
+        trace!("Extracting {:?} for bool", value.val);
 
-    forward_to_deserialize_any! { bool option seq }
-
+        match &value.val {
+            Tagged {
+                item: Value::Primitive(Primitive::Boolean(b)),
+                ..
+            } => visitor.visit_bool(*b),
+            Tagged {
+                item: Value::Primitive(Primitive::Nothing),
+                ..
+            } => visitor.visit_bool(false),
+            other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
+        }
+    }
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -168,6 +191,19 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     {
         unimplemented!("deserialize_byte_buf")
     }
+    
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.top();
+        let name = std::any::type_name::<V::Value>();
+        trace!("<Option> Extracting {:?} for Option<{}>", value, name);
+        match value.val.item() {
+            Value::Primitive(Primitive::Nothing) => visitor.visit_none(),
+            _ => visitor.visit_some(self),
+        }
+    }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -195,12 +231,41 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     {
         unimplemented!("deserialize_newtype_struct")
     }
-
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        unimplemented!("deserialize_tuple")
+        let value = self.pop();
+        trace!("<Vec> Extracting {:?} for vec", value.val);
+
+        match value.val.into_parts() {
+            (Value::List(items), _) => {
+                let de = SeqDeserializer::new(&mut self, items.into_iter());
+                visitor.visit_seq(de)
+            }
+            (other, tag) => Err(ShellError::type_error(
+                "Vec",
+                other.type_name().tagged(tag),
+            )),
+        }
+    }
+    fn deserialize_tuple<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.pop();
+        trace!("<Tuple> Extracting {:?} for tuple with {} elements", value.val, len);
+
+        match value.val.into_parts() {
+            (Value::List(items), _) => {
+                let de = SeqDeserializer::new(&mut self, items.into_iter());
+                visitor.visit_seq(de)
+            }
+            (other, tag) => Err(ShellError::type_error(
+                "Tuple",
+                other.type_name().tagged(tag),
+            )),
+        }
     }
     fn deserialize_tuple_struct<V>(
         self,
@@ -267,6 +332,42 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V: Visitor<'de>,
     {
         unimplemented!("deserialize_ignored_any")
+    }
+}
+
+struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> {
+    de: &'a mut ConfigDeserializer<'de>,
+    vals: I,
+}
+
+impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
+    fn new(de: &'a mut ConfigDeserializer<'de>, vals: I) -> Self {
+        SeqDeserializer {
+            de,
+            vals,
+        }
+    }
+}
+
+impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> de::SeqAccess<'de> for SeqDeserializer<'a, 'de, I> {
+    type Error = ShellError;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        let next = if let Some(next) = self.vals.next() {
+            next
+        } else {
+            return Ok(None);
+        };
+
+        self.de.push_val(next);
+        seed.deserialize(&mut *self.de).map(Some)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        return self.vals.size_hint().1;
     }
 }
 
