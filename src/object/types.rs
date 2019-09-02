@@ -1,4 +1,3 @@
-use crate::object::base as value;
 use crate::prelude::*;
 use log::trace;
 
@@ -103,18 +102,6 @@ impl ExtractType for String {
                 ..
             } => Ok(string.clone()),
             other => Err(ShellError::type_error("String", other.tagged_type_name())),
-        }
-    }
-}
-
-impl ExtractType for value::Block {
-    fn extract(value: &Tagged<Value>) -> Result<value::Block, ShellError> {
-        match value {
-            Tagged {
-                item: Value::Block(block),
-                ..
-            } => Ok(block.clone()),
-            other => Err(ShellError::type_error("Block", other.tagged_type_name())),
         }
     }
 }

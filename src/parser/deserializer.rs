@@ -306,6 +306,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         }
 
         let value = self.pop();
+
+        if name == "Block" {
+            let block = match value.val {
+                Tagged {
+                    item: Value::Block(block),
+                    ..
+                } => block,
+                other => return Err(ShellError::type_error("Block", other.tagged_type_name())),
+            };
+            let json = serde_json::to_string(&block)?;
+            let json_cursor = std::io::Cursor::new(json.into_bytes());
+            let mut json_de = serde_json::Deserializer::from_reader(json_cursor);
+            let r = json_de.deserialize_struct(name, fields, visitor)?;
+            return Ok(r);
+        }
+
         let name = std::any::type_name::<V::Value>();
         trace!("Extracting {:?} for {:?}", value.val, name);
         V::Value::extract(&value.val)
