@@ -105,6 +105,10 @@ name = "nu_plugin_sum"
 path = "src/plugins/sum.rs"
 
 [[bin]]
+name = "nu_plugin_embed"
+path = "src/plugins/embed.rs"
+
+[[bin]]
 name = "nu_plugin_add"
 path = "src/plugins/add.rs"
 
