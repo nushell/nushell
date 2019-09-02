@@ -4,8 +4,7 @@ use serde::{de, forward_to_deserialize_any};
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
-    key: String,
-    struct_field: &'de str,
+    key_struct_field: Option<(String, &'de str)>,
     val: Tagged<Value>,
 }
 
@@ -44,8 +43,7 @@ impl<'de> ConfigDeserializer<'de> {
         trace!("pushing {:?}", value);
 
         self.stack.push(DeserializerItem {
-            key: name.to_string(),
-            struct_field: name,
+            key_struct_field: Some((name.to_string(), name)),
             val: value.unwrap_or_else(|| {
                 Value::nothing().tagged(Tag::unknown_origin(self.call.name_span))
             }),
