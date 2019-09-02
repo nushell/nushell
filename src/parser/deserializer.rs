@@ -218,11 +218,23 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             )),
         }
     }
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        unimplemented!("deserialize_tuple")
+        let value = self.pop();
+        trace!("<Tuple> Extracting {:?} for tuple with {} elements", value.val, len);
+
+        match value.val.into_parts() {
+            (Value::List(items), _) => {
+                let de = SeqDeserializer::new(&mut self, items.into_iter());
+                visitor.visit_seq(de)
+            }
+            (other, tag) => Err(ShellError::type_error(
+                "Tuple",
+                other.type_name().tagged(tag),
+            )),
+        }
     }
     fn deserialize_tuple_struct<V>(
         self,
