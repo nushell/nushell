@@ -16,29 +16,6 @@ impl<T> ExtractType for T {
     }
 }
 
-impl<T: ExtractType> ExtractType for Vec<Tagged<T>> {
-    fn extract(value: &Tagged<Value>) -> Result<Self, ShellError> {
-        let name = std::any::type_name::<T>();
-        trace!("<Vec> Extracting {:?} for Vec<{}>", value, name);
-
-        match value.item() {
-            Value::List(items) => {
-                let mut out = vec![];
-
-                for item in items {
-                    out.push(T::extract(item)?.tagged(item.tag()));
-                }
-
-                Ok(out)
-            }
-            other => Err(ShellError::type_error(
-                "Vec",
-                other.type_name().tagged(value.tag()),
-            )),
-        }
-    }
-}
-
 impl<T: ExtractType, U: ExtractType> ExtractType for (T, U) {
     fn extract(value: &Tagged<Value>) -> Result<(T, U), ShellError> {
         let t_name = std::any::type_name::<T>();

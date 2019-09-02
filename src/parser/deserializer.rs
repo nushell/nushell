@@ -25,6 +25,13 @@ impl<'de> ConfigDeserializer<'de> {
         }
     }
 
+    pub fn push_val(&mut self, val: Tagged<Value>) {
+        self.stack.push(DeserializerItem {
+            key_struct_field: None,
+            val,
+        });
+    }
+
     pub fn push(&mut self, name: &'static str) -> Result<(), ShellError> {
         let value: Option<Tagged<Value>> = if name == "rest" {
             let positional = self.call.args.slice_from(self.position);
@@ -74,7 +81,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V::Value::extract(&value.val)
     }
 
-    forward_to_deserialize_any! { bool option seq }
+    forward_to_deserialize_any! { bool option }
 
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -193,7 +200,24 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     {
         unimplemented!("deserialize_newtype_struct")
     }
+    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let value = self.pop();
+        trace!("<Vec> Extracting {:?} for vec", value.val);
 
+        match value.val.into_parts() {
+            (Value::List(items), _) => {
+                let de = SeqDeserializer::new(&mut self, items.into_iter());
+                visitor.visit_seq(de)
+            }
+            (other, tag) => Err(ShellError::type_error(
+                "Vec",
+                other.type_name().tagged(tag),
+            )),
+        }
+    }
     fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -265,6 +289,42 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V: Visitor<'de>,
     {
         unimplemented!("deserialize_ignored_any")
+    }
+}
+
+struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> {
+    de: &'a mut ConfigDeserializer<'de>,
+    vals: I,
+}
+
+impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
+    fn new(de: &'a mut ConfigDeserializer<'de>, vals: I) -> Self {
+        SeqDeserializer {
+            de,
+            vals,
+        }
+    }
+}
+
+impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> de::SeqAccess<'de> for SeqDeserializer<'a, 'de, I> {
+    type Error = ShellError;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        let next = if let Some(next) = self.vals.next() {
+            next
+        } else {
+            return Ok(None);
+        };
+
+        self.de.push_val(next);
+        seed.deserialize(&mut *self.de).map(Some)
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        return self.vals.size_hint().1;
     }
 }
 
