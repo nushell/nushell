@@ -84,17 +84,6 @@ pub(crate) enum ClassifiedCommand {
     External(ExternalCommand),
 }
 
-impl ClassifiedCommand {
-    #[allow(unused)]
-    pub fn span(&self) -> Span {
-        match self {
-            ClassifiedCommand::Expr(token) => token.span(),
-            ClassifiedCommand::Internal(internal) => internal.name_span.into(),
-            ClassifiedCommand::External(external) => external.name_span.into(),
-        }
-    }
-}
-
 pub(crate) struct InternalCommand {
     pub(crate) command: Arc<Command>,
     pub(crate) name_span: Span,
@@ -199,7 +188,7 @@ impl InternalCommand {
 
 pub(crate) struct ExternalCommand {
     pub(crate) name: String,
-    #[allow(unused)]
+
     pub(crate) name_span: Span,
     pub(crate) args: Vec<Tagged<String>>,
 }

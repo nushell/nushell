@@ -148,10 +148,6 @@ impl CommandArgs {
         ))
     }
 
-    // pub fn name_span(&self) -> Span {
-    //     self.call_info.name_span
-    // }
-
     pub fn process<'de, T: Deserialize<'de>>(
         self,
         registry: &CommandRegistry,
@@ -235,11 +231,6 @@ pub struct RunnableContext {
 }
 
 impl RunnableContext {
-    #[allow(unused)]
-    pub fn cwd(&self) -> PathBuf {
-        PathBuf::from(self.shell_manager.path())
-    }
-
     pub fn expect_command(&self, name: &str) -> Arc<Command> {
         self.commands
             .get_command(name)
@@ -337,8 +328,6 @@ impl EvaluatedWholeStreamCommandArgs {
 #[get = "pub"]
 pub struct EvaluatedFilterCommandArgs {
     args: EvaluatedCommandArgs,
-    #[allow(unused)]
-    input: Tagged<Value>,
 }
 
 impl Deref for EvaluatedFilterCommandArgs {
@@ -353,7 +342,6 @@ impl EvaluatedFilterCommandArgs {
         host: Arc<Mutex<dyn Host>>,
         shell_manager: ShellManager,
         call_info: CallInfo,
-        input: Tagged<Value>,
     ) -> EvaluatedFilterCommandArgs {
         EvaluatedFilterCommandArgs {
             args: EvaluatedCommandArgs {
@@ -361,7 +349,6 @@ impl EvaluatedFilterCommandArgs {
                 shell_manager,
                 call_info,
             },
-            input,
         }
     }
 }
@@ -404,7 +391,6 @@ impl EvaluatedCommandArgs {
         }
     }
 
-    #[allow(unused)]
     pub fn has(&self, name: &str) -> bool {
         self.call_info.args.has(name)
     }
@@ -624,7 +610,6 @@ impl Command {
     }
 }
 
-#[allow(unused)]
 pub struct FnFilterCommand {
     name: String,
     func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
@@ -658,16 +643,13 @@ impl WholeStreamCommand for FnFilterCommand {
 
         let result = input.values.map(move |it| {
             let registry = registry.clone();
-            let call_info = match call_info
-                .clone()
-                .evaluate(&registry, &Scope::it_value(it.clone()))
-            {
+            let call_info = match call_info.clone().evaluate(&registry, &Scope::it_value(it)) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,
                 Ok(args) => args,
             };
 
             let args =
-                EvaluatedFilterCommandArgs::new(host.clone(), shell_manager.clone(), call_info, it);
+                EvaluatedFilterCommandArgs::new(host.clone(), shell_manager.clone(), call_info);
 
             match func(args) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,
@@ -688,15 +670,4 @@ pub fn whole_stream_command(command: impl WholeStreamCommand + 'static) -> Arc<C
 
 pub fn per_item_command(command: impl PerItemCommand + 'static) -> Arc<Command> {
     Arc::new(Command::PerItem(Arc::new(command)))
-}
-
-#[allow(unused)]
-pub fn filter(
-    name: &str,
-    func: fn(EvaluatedFilterCommandArgs) -> Result<OutputStream, ShellError>,
-) -> Arc<Command> {
-    Arc::new(Command::WholeStream(Arc::new(FnFilterCommand {
-        name: name.to_string(),
-        func,
-    })))
 }

@@ -9,7 +9,7 @@ use std::fmt;
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TokenNode {
     Token(Token),
-    #[allow(unused)]
+
     Call(Tagged<CallNode>),
     Delimited(Tagged<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
@@ -17,7 +17,7 @@ pub enum TokenNode {
     Flag(Tagged<Flag>),
     Member(Span),
     Whitespace(Span),
-    #[allow(unused)]
+
     Error(Tagged<Box<ShellError>>),
     Path(Tagged<PathNode>),
 }

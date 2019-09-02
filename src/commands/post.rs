@@ -63,7 +63,6 @@ fn run(
         file => file.clone(),
     };
     let path_str = path.as_string()?;
-    //let body_str = body.as_string()?;
     let path_span = path.span();
     let has_raw = call_info.args.has("raw");
     let user = call_info.args.get("user").map(|x| x.as_string().unwrap());

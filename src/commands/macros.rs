@@ -1,11 +1,4 @@
 #[doc(hidden)]
-#[allow(unused)]
-macro_rules! named_type {
-    ($name:ident) => {
-        $crate::parser::registry::NamedType::$($name)*
-    }
-}
-
 #[macro_export]
 macro_rules! command {
     (
@@ -356,39 +349,4 @@ macro_rules! command {
             }
         );
     };
-
-    // ($export:ident as $name:tt ( $args:ident, -- $param:ident : $kind:ident ) $body:block) => {
-    //     #[allow(non_camel_case_types)]
-    //     pub struct $export;
-
-    //     impl Command for $export {
-    //         fn run(&self, $args: CommandArgs) -> Result<OutputStream, ShellError> {
-    //             fn command($args: CommandArgs, $param: $kind) -> Result<OutputStream, ShellError> {
-    //                 $body
-    //             }
-
-    //             use std::convert::TryInto;
-
-    //             let param = $args.get(stringify!($param)).try_into()?;
-    //             command($args, param)
-    //         }
-
-    //         fn name(&self) -> &str {
-    //             stringify!($name)
-    //         }
-
-    //         fn config(&self) -> Signature {
-    //             let mut named: IndexMap<String, NamedType> = IndexMap::new();
-    //             named.insert(stringify!($param).to_string(), NamedType::$kind);
-
-    //             Signature {
-    //                 name: self.name().to_string(),
-    //                 mandatory_positional: vec![],
-    //                 optional_positional: vec![],
-    //                 rest_positional: false,
-    //                 named,
-    //             }
-    //         }
-    //     }
-    // };
 }

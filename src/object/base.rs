@@ -174,7 +174,7 @@ pub enum Value {
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
     List(Vec<Tagged<Value>>),
-    #[allow(unused)]
+
     Block(Block),
 }
 
@@ -313,16 +313,6 @@ pub enum Switch {
     Absent,
 }
 
-impl Switch {
-    #[allow(unused)]
-    pub fn is_present(&self) -> bool {
-        match self {
-            Switch::Present => true,
-            Switch::Absent => false,
-        }
-    }
-}
-
 impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
     type Error = ShellError;
 
@@ -391,14 +381,6 @@ impl Value {
                 }
                 None
             }
-            _ => None,
-        }
-    }
-
-    #[allow(unused)]
-    pub(crate) fn get_data_by_index(&self, idx: usize) -> Option<&Tagged<Value>> {
-        match self {
-            Value::List(l) => l.iter().nth(idx),
             _ => None,
         }
     }
@@ -539,7 +521,6 @@ impl Value {
         }
     }
 
-    #[allow(unused)]
     pub(crate) fn compare(
         &self,
         operator: &Operator,
@@ -569,24 +550,6 @@ impl Value {
             }
         }
     }
-
-    #[allow(unused)]
-    pub(crate) fn is_string(&self, expected: &str) -> bool {
-        match self {
-            Value::Primitive(Primitive::String(s)) if s == expected => true,
-            other => false,
-        }
-    }
-
-    // pub(crate) fn as_pair(&self) -> Result<(Tagged<Value>, Tagged<Value>), ShellError> {
-    //     match self {
-    //         Value::List(list) if list.len() == 2 => Ok((list[0].clone(), list[1].clone())),
-    //         other => Err(ShellError::string(format!(
-    //             "Expected pair, got {:?}",
-    //             other
-    //         ))),
-    //     }
-    // }
 
     pub(crate) fn as_string(&self) -> Result<String, ShellError> {
         match self {
@@ -647,7 +610,6 @@ impl Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
-    #[allow(unused)]
     pub fn date_from_str(s: &str) -> Result<Value, ShellError> {
         let date = DateTime::parse_from_rfc3339(s)
             .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
@@ -703,95 +665,6 @@ pub(crate) fn reject_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>)
     }
 
     out.into_tagged_value()
-}
-
-#[allow(unused)]
-pub(crate) fn find(obj: &Value, field: &str, op: &Operator, rhs: &Value) -> bool {
-    let descs = obj.data_descriptors();
-    match descs.iter().find(|d| *d == field) {
-        None => false,
-        Some(desc) => {
-            let v = obj.get_data(desc).borrow().clone();
-
-            match v {
-                Value::Primitive(Primitive::Boolean(b)) => match (op, rhs) {
-                    (Operator::Equal, Value::Primitive(Primitive::Boolean(b2))) => b == *b2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Boolean(b2))) => b != *b2,
-                    _ => false,
-                },
-                Value::Primitive(Primitive::Bytes(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
-                        BigInt::from(i) < *i2
-                    }
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        BigInt::from(i) > *i2
-                    }
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        BigInt::from(i) <= *i2
-                    }
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        BigInt::from(i) >= *i2
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
-                        BigInt::from(i) == *i2
-                    }
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        BigInt::from(i) != *i2
-                    }
-                    _ => false,
-                },
-                Value::Primitive(Primitive::Int(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => i < *i2,
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => i > *i2,
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => i <= *i2,
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= *i2
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => i == *i2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => i != *i2,
-                    _ => false,
-                },
-                Value::Primitive(Primitive::Decimal(i)) => match (op, rhs) {
-                    (Operator::LessThan, Value::Primitive(Primitive::Decimal(i2))) => i < *i2,
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Decimal(i2))) => i > *i2,
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Decimal(i2))) => {
-                        i <= *i2
-                    }
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Decimal(i2))) => {
-                        i >= *i2
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Decimal(i2))) => i == *i2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::Decimal(i2))) => i != *i2,
-                    (Operator::LessThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i < BigDecimal::from(i2.clone())
-                    }
-                    (Operator::GreaterThan, Value::Primitive(Primitive::Int(i2))) => {
-                        i > BigDecimal::from(i2.clone())
-                    }
-                    (Operator::LessThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i <= BigDecimal::from(i2.clone())
-                    }
-                    (Operator::GreaterThanOrEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i >= BigDecimal::from(i2.clone())
-                    }
-                    (Operator::Equal, Value::Primitive(Primitive::Int(i2))) => {
-                        i == BigDecimal::from(i2.clone())
-                    }
-                    (Operator::NotEqual, Value::Primitive(Primitive::Int(i2))) => {
-                        i != BigDecimal::from(i2.clone())
-                    }
-
-                    _ => false,
-                },
-                Value::Primitive(Primitive::String(s)) => match (op, rhs) {
-                    (Operator::Equal, Value::Primitive(Primitive::String(s2))) => s == *s2,
-                    (Operator::NotEqual, Value::Primitive(Primitive::String(s2))) => s != *s2,
-                    _ => false,
-                },
-                _ => false,
-            }
-        }
-    }
 }
 
 enum CompareValues {

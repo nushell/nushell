@@ -64,7 +64,6 @@ impl TreeView {
                 bold: true,
                 ..Style::default()
             };
-            //config.characters = UTF_CHARS_BOLD.into();
             config.indent = 4;
             config
         };
@@ -80,8 +79,7 @@ struct TreeViewer;
 
 impl Plugin for TreeViewer {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("tree")
-            .desc("View the contents of the pipeline as a tree."))
+        Ok(Signature::build("tree").desc("View the contents of the pipeline as a tree."))
     }
 
     fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {

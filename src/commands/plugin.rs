@@ -294,7 +294,6 @@ pub fn sink_plugin(
     args: CommandArgs,
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
-    //use subprocess::Exec;
     let args = args.evaluate_once(registry)?;
     let call_info = args.call_info.clone();
 

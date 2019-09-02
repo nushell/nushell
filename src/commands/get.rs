@@ -60,7 +60,6 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
         Some(v) => Ok(v.clone()),
         None => Ok(Value::nothing().tagged(obj.tag)),
     }
-    // Ok(current.clone())
 }
 
 pub fn get(

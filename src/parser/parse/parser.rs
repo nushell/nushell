@@ -678,6 +678,8 @@ mod tests {
     use crate::parser::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder};
     use pretty_assertions::assert_eq;
 
+    pub type CurriedNode<T> = Box<dyn FnOnce(&mut TokenTreeBuilder) -> T + 'static>;
+
     macro_rules! assert_leaf {
         (parsers [ $($name:tt)* ] $input:tt -> $left:tt .. $right:tt { $kind:tt $parens:tt } ) => {
             $(

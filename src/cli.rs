@@ -323,12 +323,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             LineResult::Break => {
                 break;
             }
-
-            LineResult::FatalError(_, err) => {
-                context.with_host(|host| {
-                    host.stdout(&format!("A surprising fatal error occurred.\n{:?}", err))
-                });
-            }
         }
         ctrlcbreak = false;
     }
@@ -344,9 +338,6 @@ enum LineResult {
     Error(String, ShellError),
     CtrlC,
     Break,
-
-    #[allow(unused)]
-    FatalError(String, ShellError),
 }
 
 async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
