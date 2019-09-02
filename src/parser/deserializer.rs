@@ -293,6 +293,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        fn visit<'de, T, V>(
+            val: T,
+            name: &'static str,
+            fields: &'static [&'static str],
+            visitor: V
+        ) -> Result<V::Value, ShellError>
+        where
+            T: serde::Serialize,
+            V: Visitor<'de>,
+        {
+            let json = serde_json::to_string(&val)?;
+            let json_cursor = std::io::Cursor::new(json.into_bytes());
+            let mut json_de = serde_json::Deserializer::from_reader(json_cursor);
+            let r = json_de.deserialize_struct(name, fields, visitor)?;
+            return Ok(r);
+        }
         trace!(
             "deserializing struct {:?} {:?} (stack={:?})",
             name,
@@ -315,11 +331,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 } => block,
                 other => return Err(ShellError::type_error("Block", other.tagged_type_name())),
             };
-            let json = serde_json::to_string(&block)?;
-            let json_cursor = std::io::Cursor::new(json.into_bytes());
-            let mut json_de = serde_json::Deserializer::from_reader(json_cursor);
-            let r = json_de.deserialize_struct(name, fields, visitor)?;
-            return Ok(r);
+            return visit(block, name, fields, visitor);
         }
 
         let name = std::any::type_name::<V::Value>();
