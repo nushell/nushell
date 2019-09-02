@@ -323,6 +323,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
         let value = self.pop();
 
+        let type_name = std::any::type_name::<V::Value>();
+        let tagged_val_name = std::any::type_name::<Tagged<Value>>();
+
+        if name == tagged_val_name {
+            return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
+        }
+
         if name == "Block" {
             let block = match value.val {
                 Tagged {
@@ -331,11 +338,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 } => block,
                 other => return Err(ShellError::type_error("Block", other.tagged_type_name())),
             };
-            return visit(block, name, fields, visitor);
+            return visit::<value::Block, _>(block, name, fields, visitor);
         }
 
-        let name = std::any::type_name::<V::Value>();
-        trace!("Extracting {:?} for {:?}", value.val, name);
+        trace!("Extracting {:?} for {:?}", value.val, type_name);
         V::Value::extract(&value.val)
     }
     fn deserialize_enum<V>(

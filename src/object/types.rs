@@ -24,14 +24,6 @@ impl<T: ExtractType> ExtractType for Tagged<T> {
     }
 }
 
-impl ExtractType for Value {
-    fn extract(value: &Tagged<Value>) -> Result<Value, ShellError> {
-        trace!("<Tagged> Extracting {:?} for Value", value);
-
-        Ok(value.item().clone())
-    }
-}
-
 impl ExtractType for bool {
     fn extract(value: &Tagged<Value>) -> Result<bool, ShellError> {
         trace!("Extracting {:?} for bool", value);
