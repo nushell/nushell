@@ -25,7 +25,9 @@ impl Unit {
         }
     }
 
-    pub(crate) fn compute(&self, size: Number) -> Value {
+    pub(crate) fn compute(&self, size: &Number) -> Value {
+        let size = size.clone();
+
         Value::number(match self {
             Unit::B => size,
             Unit::KB => size * 1024,

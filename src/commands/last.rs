@@ -5,6 +5,11 @@ use crate::prelude::*;
 
 pub struct Last;
 
+#[derive(Deserialize)]
+pub struct LastArgs {
+    amount: Tagged<u64>,
+}
+
 impl WholeStreamCommand for Last {
     fn name(&self) -> &str {
         "last"
@@ -24,37 +29,18 @@ impl WholeStreamCommand for Last {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        last(args, registry)
+        args.process(registry, last)?.run()
+        // last(args, registry)
     }
 }
 
-fn last(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-
-    let amount = args.expect_nth(0)?.as_i64();
-
-    let amount = match amount {
-        Ok(o) => o,
-        Err(_) => {
-            return Err(ShellError::labeled_error(
-                "Value is not a number",
-                "expected integer",
-                args.expect_nth(0)?.span(),
-            ))
-        }
-    };
-
-    if amount <= 0 {
-        return Err(ShellError::labeled_error(
-            "Value is too low",
-            "expected a positive integer",
-            args.expect_nth(0)?.span(),
-        ));
-    }
-
+fn last(
+    LastArgs { amount }: LastArgs,
+    context: RunnableContext,
+) -> Result<OutputStream, ShellError> {
     let stream = async_stream_block! {
-        let v: Vec<_> = args.input.into_vec().await;
-        let k = v.len() - (amount as usize);
+        let v: Vec<_> = context.input.into_vec().await;
+        let k = v.len() - (*amount as usize);
         for x in v[k..].iter() {
             let y: Tagged<Value> = x.clone();
             yield ReturnSuccess::value(y)

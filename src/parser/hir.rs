@@ -226,7 +226,7 @@ impl From<Tagged<Path>> for Expression {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),

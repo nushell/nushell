@@ -26,8 +26,8 @@ impl WholeStreamCommand for ToJSON {
     }
 }
 
-pub fn value_to_json_value(v: &Value) -> serde_json::Value {
-    match v {
+pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, ShellError> {
+    Ok(match v.item() {
         Value::Primitive(Primitive::Boolean(b)) => serde_json::Value::Bool(*b),
         Value::Primitive(Primitive::Bytes(b)) => serde_json::Value::Number(
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
@@ -41,16 +41,14 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
             )
             .unwrap(),
         ),
-        Value::Primitive(Primitive::Int(i)) => {
-            serde_json::Value::Number(serde_json::Number::from(*i))
-        }
+        Value::Primitive(Primitive::Int(i)) => serde_json::Value::Number(serde_json::Number::from(
+            CoerceInto::<i64>::coerce_into(i.tagged(v.tag), "converting to JSON number")?,
+        )),
         Value::Primitive(Primitive::Nothing) => serde_json::Value::Null,
         Value::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_json::Value::String(s.display().to_string()),
 
-        Value::List(l) => {
-            serde_json::Value::Array(l.iter().map(|x| value_to_json_value(x)).collect())
-        }
+        Value::List(l) => serde_json::Value::Array(json_list(l)?),
         Value::Block(_) => serde_json::Value::Null,
         Value::Binary(b) => serde_json::Value::Array(
             b.iter()
@@ -62,11 +60,21 @@ pub fn value_to_json_value(v: &Value) -> serde_json::Value {
         Value::Object(o) => {
             let mut m = serde_json::Map::new();
             for (k, v) in o.entries.iter() {
-                m.insert(k.clone(), value_to_json_value(v));
+                m.insert(k.clone(), value_to_json_value(v)?);
             }
             serde_json::Value::Object(m)
         }
+    })
+}
+
+fn json_list(input: &Vec<Tagged<Value>>) -> Result<Vec<serde_json::Value>, ShellError> {
+    let mut out = vec![];
+
+    for value in input {
+        out.push(value_to_json_value(value)?);
     }
+
+    Ok(out)
 }
 
 fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
@@ -77,7 +85,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     Ok(out
         .values
         .map(
-            move |a| match serde_json::to_string(&value_to_json_value(&a)) {
+            move |a| match serde_json::to_string(&value_to_json_value(&a)?) {
                 Ok(x) => ReturnSuccess::value(
                     Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                 ),

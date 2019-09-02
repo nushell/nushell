@@ -30,9 +30,9 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> T
     let tag = tag.into();
 
     match v {
-        toml::Value::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
-        toml::Value::Integer(n) => Value::Primitive(Primitive::Int(*n)).tagged(tag),
-        toml::Value::Float(n) => Value::Primitive(Primitive::from(*n)).tagged(tag),
+        toml::Value::Boolean(b) => Value::boolean(*b).tagged(tag),
+        toml::Value::Integer(n) => Value::number(n).tagged(tag),
+        toml::Value::Float(n) => Value::number(n).tagged(tag),
         toml::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
         toml::Value::Array(a) => Value::List(
             a.iter()

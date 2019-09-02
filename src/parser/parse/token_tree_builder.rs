@@ -3,10 +3,9 @@ use crate::prelude::*;
 
 use crate::parser::parse::flag::{Flag, FlagKind};
 use crate::parser::parse::operator::Operator;
-use crate::parser::parse::parser::Number;
 use crate::parser::parse::pipeline::{Pipeline, PipelineElement};
 use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, PathNode, TokenNode};
-use crate::parser::parse::tokens::{RawToken, Token};
+use crate::parser::parse::tokens::{RawNumber, RawToken};
 use crate::parser::parse::unit::Unit;
 use crate::parser::CallNode;
 use crate::Span;
@@ -160,35 +159,32 @@ impl TokenTreeBuilder {
         ))
     }
 
-    pub fn int(input: impl Into<i64>) -> CurriedToken {
+    pub fn int(input: impl Into<BigInt>) -> CurriedToken {
         let int = input.into();
 
         Box::new(move |b| {
             let (start, end) = b.consume(&int.to_string());
             b.pos = end;
 
-            TokenTreeBuilder::spanned_int(int, (start, end))
+            TokenTreeBuilder::spanned_number(RawNumber::Int((start, end).into()), (start, end))
         })
     }
 
-    pub fn spanned_number(input: impl Into<Number>, span: impl Into<Span>) -> TokenNode {
-        match input.into() {
-            Number::Int(int) => TokenTreeBuilder::spanned_int(int, span),
-            Number::Decimal(decimal) => TokenTreeBuilder::spanned_decimal(decimal, span),
-        }
+    pub fn decimal(input: impl Into<BigDecimal>) -> CurriedToken {
+        let decimal = input.into();
+
+        Box::new(move |b| {
+            let (start, end) = b.consume(&decimal.to_string());
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_number(RawNumber::Decimal((start, end).into()), (start, end))
+        })
     }
 
-    fn spanned_int(input: i64, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Token::from_simple_spanned_item(
-            RawToken::Number(Number::Int(input)),
-            span,
-        ))
-    }
-
-    fn spanned_decimal(input: Decimal, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Token::from_simple_spanned_item(
-            RawToken::Number(Number::Decimal(input)),
-            span,
+    pub fn spanned_number(input: impl Into<RawNumber>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Token(Tagged::from_simple_spanned_item(
+            RawToken::Number(input.into()),
+            span.into(),
         ))
     }
 
@@ -197,16 +193,19 @@ impl TokenTreeBuilder {
         let unit = unit.into();
 
         Box::new(move |b| {
-            let (start, _) = b.consume(&int.to_string());
-            let (_, end) = b.consume(unit.as_str());
-            b.pos = end;
+            let (start_int, end_int) = b.consume(&int.to_string());
+            let (start_unit, end_unit) = b.consume(unit.as_str());
+            b.pos = end_unit;
 
-            TokenTreeBuilder::spanned_size((int, unit), (start, end))
+            TokenTreeBuilder::spanned_size(
+                (RawNumber::Int((start_int, end_int).into()), unit),
+                (start_int, end_unit),
+            )
         })
     }
 
     pub fn spanned_size(
-        input: (impl Into<Number>, impl Into<Unit>),
+        input: (impl Into<RawNumber>, impl Into<Unit>),
         span: impl Into<Span>,
     ) -> TokenNode {
         let (int, unit) = (input.0.into(), input.1.into());

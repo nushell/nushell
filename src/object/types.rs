@@ -135,11 +135,25 @@ impl ExtractType for i64 {
     fn extract(value: &Tagged<Value>) -> Result<i64, ShellError> {
         trace!("Extracting {:?} for i64", value);
 
-        match value {
+        match &value {
             &Tagged {
                 item: Value::Primitive(Primitive::Int(int)),
                 ..
-            } => Ok(int),
+            } => Ok(int.tagged(value.tag).coerce_into("converting to i64")?),
+            other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
+        }
+    }
+}
+
+impl ExtractType for u64 {
+    fn extract(value: &Tagged<Value>) -> Result<u64, ShellError> {
+        trace!("Extracting {:?} for u64", value);
+
+        match &value {
+            &Tagged {
+                item: Value::Primitive(Primitive::Int(int)),
+                ..
+            } => Ok(int.tagged(value.tag).coerce_into("converting to u64")?),
             other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
         }
     }

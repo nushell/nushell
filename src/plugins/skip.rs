@@ -1,11 +1,12 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxType, Tagged, Value,
+    serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    Signature, SyntaxType, Tagged, TaggedItem, Value,
 };
 
 struct Skip {
     skip_amount: i64,
 }
+
 impl Skip {
     fn new() -> Skip {
         Skip { skip_amount: 0 }
@@ -25,9 +26,9 @@ impl Plugin for Skip {
                 match arg {
                     Tagged {
                         item: Value::Primitive(Primitive::Int(i)),
-                        ..
+                        tag,
                     } => {
-                        self.skip_amount = i;
+                        self.skip_amount = i.tagged(tag).coerce_into("converting for skip")?;
                     }
                     _ => {
                         return Err(ShellError::labeled_error(

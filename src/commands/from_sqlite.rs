@@ -100,7 +100,7 @@ fn convert_sqlite_row_to_nu_value(
 fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone) -> Tagged<Value> {
     match value {
         ValueRef::Null => Value::Primitive(Primitive::String(String::from(""))).tagged(tag),
-        ValueRef::Integer(i) => Value::Primitive(Primitive::Int(i)).tagged(tag),
+        ValueRef::Integer(i) => Value::number(i).tagged(tag),
         ValueRef::Real(f) => Value::number(f).tagged(tag),
         t @ ValueRef::Text(_) => {
             // this unwrap is safe because we know the ValueRef is Text.

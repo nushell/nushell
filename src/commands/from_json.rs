@@ -37,10 +37,10 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -
 
     match v {
         serde_hjson::Value::Null => Value::Primitive(Primitive::Nothing).tagged(tag),
-        serde_hjson::Value::Bool(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(tag),
-        serde_hjson::Value::F64(n) => Value::Primitive(Primitive::from(*n)).tagged(tag),
-        serde_hjson::Value::U64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
-        serde_hjson::Value::I64(n) => Value::Primitive(Primitive::Int(*n as i64)).tagged(tag),
+        serde_hjson::Value::Bool(b) => Value::boolean(*b).tagged(tag),
+        serde_hjson::Value::F64(n) => Value::number(n).tagged(tag),
+        serde_hjson::Value::U64(n) => Value::number(n).tagged(tag),
+        serde_hjson::Value::I64(n) => Value::number(n).tagged(tag),
         serde_hjson::Value::String(s) => {
             Value::Primitive(Primitive::String(String::from(s))).tagged(tag)
         }
