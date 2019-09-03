@@ -82,9 +82,30 @@ impl Shell for ValueShell {
     fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
 
-        match &args.nth(0) {
+        let target = args.nth(0);
+
+        match target {
             Some(value) => full_path.push(Path::new(&value.as_path()?)),
             _ => {}
+        }
+
+        let mut value_system = ValueStructure::new();
+        value_system.walk_decorate(&self.value)?;
+
+        if !value_system.exists(&full_path) {
+            if let Some(target) = target {
+                return Err(ShellError::labeled_error(
+                    "Can not list entries inside",
+                    "No such path exists",
+                    target.span(),
+                ));
+            }
+
+            return Err(ShellError::labeled_error(
+                "Can not list entries inside",
+                "No such path exists",
+                args.call_info.name_span,
+            ));
         }
 
         Ok(self
