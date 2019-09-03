@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use log::trace;
 use serde::de;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
@@ -342,7 +343,35 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         }
 
         trace!("Extracting {:?} for {:?}", value.val, type_name);
-        V::Value::extract(&value.val)
+
+        let tag = value.val.tag();
+        match value.val {
+            Tagged {
+                item: Value::Primitive(Primitive::Boolean(b)),
+                ..
+            } => visit::<Tagged<bool>, _>(b.tagged(tag), name, fields, visitor),
+            Tagged {
+                item: Value::Primitive(Primitive::Nothing),
+                ..
+            } => visit::<Tagged<bool>, _>(false.tagged(tag), name, fields, visitor),
+            Tagged {
+                item: Value::Primitive(Primitive::Path(p)),
+                ..
+            } => visit::<Tagged<PathBuf>, _>(p.clone().tagged(tag), name, fields, visitor),
+            Tagged {
+                item: Value::Primitive(Primitive::Int(int)),
+                ..
+            } => {
+                let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
+                visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
+            },
+            Tagged {
+                item: Value::Primitive(Primitive::String(string)),
+                ..
+            } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
+
+            other => return Err(ShellError::type_error(name, other.tagged_type_name())),
+        }
     }
     fn deserialize_enum<V>(
         self,
