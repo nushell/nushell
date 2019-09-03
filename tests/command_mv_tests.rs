@@ -28,7 +28,7 @@ fn overwrites_if_moving_to_existing_file() {
     Playground::setup("mv_test_2", |dirs, sandbox| {
         sandbox
             .with_files(vec![
-                EmptyFile("andres.txt"), 
+                EmptyFile("andres.txt"),
                 EmptyFile("jonathan.txt")
         ]);
 
