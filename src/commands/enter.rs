@@ -38,11 +38,22 @@ impl PerItemCommand for Enter {
                 let location = location.to_string();
                 let location_clone = location.to_string();
 
-                if registry.has(&location) {
-                    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                        Value::string(location_clone).tagged(Tag::unknown()),
-                    )))]
-                    .into())
+                if location.starts_with("help") {
+                    let spec = location.split(":").collect::<Vec<&str>>();
+
+                    let (_, command) = (spec[0], spec[1]);
+
+                    if registry.has(command) {
+                        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                            Value::string(command).tagged(Tag::unknown()),
+                        )))]
+                        .into())
+                    } else {
+                        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                            Value::nothing().tagged(Tag::unknown()),
+                        )))]
+                        .into())
+                    }
                 } else if PathBuf::from(location).is_dir() {
                     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
                         location_clone,
