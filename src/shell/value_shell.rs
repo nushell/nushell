@@ -8,7 +8,7 @@ use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
 use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct ValueShell {
@@ -23,9 +23,10 @@ impl ValueShell {
             value,
         }
     }
-    fn members(&self) -> VecDeque<Tagged<Value>> {
+
+    fn members_under(&self, path: &Path) -> VecDeque<Tagged<Value>> {
         let mut shell_entries = VecDeque::new();
-        let full_path = PathBuf::from(&self.path);
+        let full_path = path.to_path_buf();
         let mut viewed = self.value.clone();
         let sep_string = std::path::MAIN_SEPARATOR.to_string();
         let sep = OsStr::new(&sep_string);
@@ -54,7 +55,11 @@ impl ValueShell {
             }
         }
 
-        shell_entries
+        shell_entries    
+    }
+
+    fn members(&self) -> VecDeque<Tagged<Value>> {
+        self.members_under(Path::new("."))
     }
 }
 
@@ -74,9 +79,16 @@ impl Shell for ValueShell {
         dirs::home_dir()
     }
 
-    fn ls(&self, _args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+        let mut full_path = PathBuf::from(self.path());
+
+        match &args.nth(0) {
+            Some(value) => full_path.push(Path::new(&value.as_path()?)),
+            _ => {}
+        }
+
         Ok(self
-            .members()
+            .members_under(full_path.as_path())
             .map(|x| ReturnSuccess::value(x))
             .to_output_stream())
     }
