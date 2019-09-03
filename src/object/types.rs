@@ -1,32 +1,8 @@
-use crate::object::base as value;
 use crate::prelude::*;
 use log::trace;
 
 pub trait ExtractType: Sized {
     fn extract(value: &Tagged<Value>) -> Result<Self, ShellError>;
-}
-
-impl<T> ExtractType for T {
-    default fn extract(_value: &Tagged<Value>) -> Result<T, ShellError> {
-        let name = std::any::type_name::<T>();
-        Err(ShellError::unimplemented(format!(
-            "<T> ExtractType for {}",
-            name
-        )))
-    }
-}
-impl<T: ExtractType> ExtractType for Option<T> {
-    fn extract(value: &Tagged<Value>) -> Result<Option<T>, ShellError> {
-        let name = std::any::type_name::<T>();
-        trace!("<Option> Extracting {:?} for Option<{}>", value, name);
-
-        let result = match value.item() {
-            Value::Primitive(Primitive::Nothing) => None,
-            _ => Some(T::extract(value)?),
-        };
-
-        Ok(result)
-    }
 }
 
 impl<T: ExtractType> ExtractType for Tagged<T> {
@@ -35,14 +11,6 @@ impl<T: ExtractType> ExtractType for Tagged<T> {
         trace!("<Tagged> Extracting {:?} for Tagged<{}>", value, name);
 
         Ok(T::extract(value)?.tagged(value.tag()))
-    }
-}
-
-impl ExtractType for Value {
-    fn extract(value: &Tagged<Value>) -> Result<Value, ShellError> {
-        trace!("<Tagged> Extracting {:?} for Value", value);
-
-        Ok(value.item().clone())
     }
 }
 
@@ -116,18 +84,6 @@ impl ExtractType for String {
                 ..
             } => Ok(string.clone()),
             other => Err(ShellError::type_error("String", other.tagged_type_name())),
-        }
-    }
-}
-
-impl ExtractType for value::Block {
-    fn extract(value: &Tagged<Value>) -> Result<value::Block, ShellError> {
-        match value {
-            Tagged {
-                item: Value::Block(block),
-                ..
-            } => Ok(block.clone()),
-            other => Err(ShellError::type_error("Block", other.tagged_type_name())),
         }
     }
 }

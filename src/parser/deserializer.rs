@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use log::trace;
 use serde::de;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
@@ -293,6 +294,22 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        fn visit<'de, T, V>(
+            val: T,
+            name: &'static str,
+            fields: &'static [&'static str],
+            visitor: V
+        ) -> Result<V::Value, ShellError>
+        where
+            T: serde::Serialize,
+            V: Visitor<'de>,
+        {
+            let json = serde_json::to_string(&val)?;
+            let json_cursor = std::io::Cursor::new(json.into_bytes());
+            let mut json_de = serde_json::Deserializer::from_reader(json_cursor);
+            let r = json_de.deserialize_struct(name, fields, visitor)?;
+            return Ok(r);
+        }
         trace!(
             "deserializing struct {:?} {:?} (stack={:?})",
             name,
@@ -300,14 +317,60 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             self.stack
         );
 
-        if self.saw_root {
-            let value = self.pop();
-            let name = std::any::type_name::<V::Value>();
-            trace!("Extracting {:?} for {:?}", value.val, name);
-            V::Value::extract(&value.val)
-        } else {
+        if !self.saw_root {
             self.saw_root = true;
-            visitor.visit_seq(StructDeserializer::new(&mut self, fields))
+            return visitor.visit_seq(StructDeserializer::new(&mut self, fields));
+        }
+
+        let value = self.pop();
+
+        let type_name = std::any::type_name::<V::Value>();
+        let tagged_val_name = std::any::type_name::<Tagged<Value>>();
+
+        if name == tagged_val_name {
+            return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
+        }
+
+        if name == "Block" {
+            let block = match value.val {
+                Tagged {
+                    item: Value::Block(block),
+                    ..
+                } => block,
+                other => return Err(ShellError::type_error("Block", other.tagged_type_name())),
+            };
+            return visit::<value::Block, _>(block, name, fields, visitor);
+        }
+
+        trace!("Extracting {:?} for {:?}", value.val, type_name);
+
+        let tag = value.val.tag();
+        match value.val {
+            Tagged {
+                item: Value::Primitive(Primitive::Boolean(b)),
+                ..
+            } => visit::<Tagged<bool>, _>(b.tagged(tag), name, fields, visitor),
+            Tagged {
+                item: Value::Primitive(Primitive::Nothing),
+                ..
+            } => visit::<Tagged<bool>, _>(false.tagged(tag), name, fields, visitor),
+            Tagged {
+                item: Value::Primitive(Primitive::Path(p)),
+                ..
+            } => visit::<Tagged<PathBuf>, _>(p.clone().tagged(tag), name, fields, visitor),
+            Tagged {
+                item: Value::Primitive(Primitive::Int(int)),
+                ..
+            } => {
+                let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
+                visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
+            },
+            Tagged {
+                item: Value::Primitive(Primitive::String(string)),
+                ..
+            } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
+
+            other => return Err(ShellError::type_error(name, other.tagged_type_name())),
         }
     }
     fn deserialize_enum<V>(
