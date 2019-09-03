@@ -451,10 +451,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             LineResult::Success(line.clone())
         }
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => {
-            println!("CTRL-D");
-            LineResult::Break
-        }
+        Err(ReadlineError::Eof) => LineResult::Break,
         Err(err) => {
             println!("Error: {:?}", err);
             LineResult::Break
