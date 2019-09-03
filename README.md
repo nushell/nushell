@@ -28,7 +28,7 @@ To build Nu, you will need to use the **nightly** version of the compiler.
 Required dependencies:
 
 * libssl (only needed on Linux)
-  * on Debian/Ubuntu: `apt install libssl-dev`
+  * on Debian/Ubuntu: `apt install libssl-dev pkg-config`
 
 Optional dependencies:
 
