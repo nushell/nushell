@@ -5,16 +5,6 @@ pub trait ExtractType: Sized {
     fn extract(value: &Tagged<Value>) -> Result<Self, ShellError>;
 }
 
-impl<T> ExtractType for T {
-    default fn extract(_value: &Tagged<Value>) -> Result<T, ShellError> {
-        let name = std::any::type_name::<T>();
-        Err(ShellError::unimplemented(format!(
-            "<T> ExtractType for {}",
-            name
-        )))
-    }
-}
-
 impl<T: ExtractType> ExtractType for Tagged<T> {
     fn extract(value: &Tagged<Value>) -> Result<Tagged<T>, ShellError> {
         let name = std::any::type_name::<T>();

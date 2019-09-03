@@ -1,5 +1,4 @@
 #![feature(generators)]
-#![feature(specialization)]
 #![feature(proc_macro_hygiene)]
 
 #[macro_use]
