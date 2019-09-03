@@ -104,7 +104,7 @@ fn deep_copies_with_recursive_flag() {
         let yehudas_expected_copied_dir = expected_dir.join("contributors").join("yehuda");
 
         nu!(
-            cwd: dirs.test(), 
+            cwd: dirs.test(),
             "cp originals expected --recursive"
         );
 

@@ -73,7 +73,7 @@ fn upcases() {
             cwd: dirs.test(),
             "open sample.toml | str package.name --upcase | get package.name | echo $it"
         );
-    
+
         assert_eq!(actual, "NUSHELL");
     })
 }
@@ -83,11 +83,11 @@ fn converts_to_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open caco3_plastics.csv 
-            | first 1 
-            | str tariff_item --to-int 
-            | where tariff_item == 2509000000 
-            | get tariff_item 
+            open caco3_plastics.csv
+            | first 1
+            | str tariff_item --to-int
+            | where tariff_item == 2509000000
+            | get tariff_item
             | echo $it
         "#
     ));
@@ -110,9 +110,9 @@ fn replaces() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open sample.toml 
-                | str package.name --replace wykittenshell  
-                | get package.name 
+                open sample.toml
+                | str package.name --replace wykittenshell
+                | get package.name
                 | echo $it
             "#
         ));
@@ -136,9 +136,9 @@ fn find_and_replaces() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open sample.toml 
-                | str fortune.teller.phone --find-replace KATZ "5289" 
-                | get fortune.teller.phone 
+                open sample.toml
+                | str fortune.teller.phone --find-replace KATZ "5289"
+                | get fortune.teller.phone
                 | echo $it
             "#
         ));
@@ -162,9 +162,9 @@ fn find_and_replaces_without_passing_field() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open sample.toml 
-                | get fortune.teller.phone 
-                | str --find-replace KATZ "5289" 
+                open sample.toml
+                | get fortune.teller.phone
+                | str --find-replace KATZ "5289"
                 | echo $it
             "#
         ));

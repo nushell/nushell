@@ -58,7 +58,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         Ok(())
     }
-    
+
     pub fn top(&mut self) -> &DeserializerItem {
         let value = self.stack.last();
         trace!("inspecting top value :: {:?}", value);
@@ -191,7 +191,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     {
         unimplemented!("deserialize_byte_buf")
     }
-    
+
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
