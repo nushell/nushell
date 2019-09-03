@@ -6,11 +6,11 @@ use helpers as h;
 fn pipeline_helper() {
     let actual = h::pipeline(
         r#"
-            open los_tres_amigos.txt 
-            | from-csv 
-            | get rusty_luck 
-            | str --to-int 
-            | sum 
+            open los_tres_amigos.txt
+            | from-csv
+            | get rusty_luck
+            | str --to-int
+            | sum
             | echo "$it"
         "#);
 
@@ -30,7 +30,7 @@ fn external_num() {
 #[test]
 fn external_has_correct_quotes() {
     let actual = nu!(
-        cwd: ".", 
+        cwd: ".",
         r#"echo "hello world""#
     );
 
@@ -44,9 +44,9 @@ fn add_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open cargo_sample.toml 
-            | add dev-dependencies.newdep "1" 
-            | get dev-dependencies.newdep 
+            open cargo_sample.toml
+            | add dev-dependencies.newdep "1"
+            | get dev-dependencies.newdep
             | echo $it
         "#
     ));
@@ -59,9 +59,9 @@ fn edit_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open cargo_sample.toml 
-            | edit dev-dependencies.pretty_assertions "7" 
-            | get dev-dependencies.pretty_assertions 
+            open cargo_sample.toml
+            | edit dev-dependencies.pretty_assertions "7"
+            | get dev-dependencies.pretty_assertions
             | echo $it
         "#
     ));

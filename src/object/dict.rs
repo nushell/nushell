@@ -146,7 +146,7 @@ impl TaggedDictBuilder {
             dict: IndexMap::default(),
         }
     }
-    
+
     pub fn with_capacity(tag: impl Into<Tag>, n: usize) -> TaggedDictBuilder {
         TaggedDictBuilder {
             tag: tag.into(),

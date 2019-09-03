@@ -16,13 +16,13 @@ fn ls_lists_regular_files() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                ls 
-                | get name 
-                | lines 
-                | split-column "." 
-                | get Column2 
-                | str --to-int 
-                | sum 
+                ls
+                | get name
+                | lines
+                | split-column "."
+                | get Column2
+                | str --to-int
+                | sum
                 | echo $it
             "#
         ));
@@ -45,13 +45,13 @@ fn ls_lists_regular_files_using_asterisk_wildcard() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                ls *.txt 
-                | get name 
-                | lines 
-                | split-column "." 
-                | get Column2 
-                | str --to-int 
-                | sum 
+                ls *.txt
+                | get name
+                | lines
+                | split-column "."
+                | get Column2
+                | str --to-int
+                | sum
                 | echo $it
             "#
         ));
@@ -74,13 +74,13 @@ fn ls_lists_regular_files_using_question_mark_wildcard() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                ls *.??.txt 
-                | get name 
-                | lines 
-                | split-column "." 
-                | get Column2 
-                | str --to-int 
-                | sum 
+                ls *.??.txt
+                | get name
+                | lines
+                | split-column "."
+                | get Column2
+                | str --to-int
+                | sum
                 | echo $it
             "#
         ));

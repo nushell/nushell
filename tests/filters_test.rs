@@ -28,13 +28,13 @@ fn converts_structured_table_to_csv_text() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open csv_text_sample.txt 
-                | lines 
-                | split-column "," a b c d origin  
-                | last 1 
-                | to-csv 
-                | lines 
-                | nth 1 
+                open csv_text_sample.txt
+                | lines
+                | split-column "," a b c d origin
+                | last 1
+                | to-csv
+                | lines
+                | nth 1
                 | echo "$it"
             "#
         ));
@@ -58,11 +58,11 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open csv_text_sample.txt 
-                | lines 
-                | split-column "," a b c d origin  
-                | last 1 
-                | to-csv --headerless 
+                open csv_text_sample.txt
+                | lines
+                | split-column "," a b c d origin
+                | last 1
+                | to-csv --headerless
                 | echo "$it"
             "#
         ));
@@ -87,11 +87,11 @@ fn converts_from_csv_text_to_structured_table() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open los_tres_caballeros.txt 
-                | from-csv 
-                | get rusty_luck 
-                | str --to-int 
-                | sum 
+                open los_tres_caballeros.txt
+                | from-csv
+                | get rusty_luck
+                | str --to-int
+                | sum
                 | echo $it
             "#
         ));
@@ -116,11 +116,11 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open los_tres_amigos.txt 
-                | from-csv --headerless 
-                | get Column3 
-                | str --to-int 
-                | sum 
+                open los_tres_amigos.txt
+                | from-csv --headerless
+                | get Column3
+                | str --to-int
+                | sum
                 | echo $it
             "#
         ));
@@ -134,10 +134,10 @@ fn can_convert_table_to_json_text_and_from_json_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open sgml_description.json 
-            | to-json 
-            | from-json 
-            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee 
+            open sgml_description.json
+            | to-json
+            | from-json
+            | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
             | echo $it
         "#
     ));
@@ -153,8 +153,8 @@ fn converts_from_json_text_to_structured_table() {
             r#"
                 {
                     "katz": [
-                        {"name":   "Yehuda", "rusty_luck": 1}, 
-                        {"name": "Jonathan", "rusty_luck": 1}, 
+                        {"name":   "Yehuda", "rusty_luck": 1},
+                        {"name": "Jonathan", "rusty_luck": 1},
                         {"name":   "Andres", "rusty_luck": 1},
                         {"name":"GorbyPuff", "rusty_luck": 1}
                     ]
@@ -177,8 +177,8 @@ fn converts_from_json_text_recognizing_objects_independendtly_to_structured_tabl
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
-                {"name":   "Yehuda", "rusty_luck": 1} 
-                {"name": "Jonathan", "rusty_luck": 1} 
+                {"name":   "Yehuda", "rusty_luck": 1}
+                {"name": "Jonathan", "rusty_luck": 1}
                 {"name":   "Andres", "rusty_luck": 1}
                 {"name":"GorbyPuff", "rusty_luck": 3}
             "#,
@@ -187,10 +187,10 @@ fn converts_from_json_text_recognizing_objects_independendtly_to_structured_tabl
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open katz.txt 
-                | from-json --objects 
-                | where name == "GorbyPuff" 
-                | get rusty_luck 
+                open katz.txt
+                | from-json --objects
+                | where name == "GorbyPuff"
+                | get rusty_luck
                 | echo $it
             "#
         ));
@@ -213,14 +213,14 @@ fn converts_structured_table_to_json_text() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open sample.txt 
-                | lines 
-                | split-column "," name luck 
-                | pick name 
-                | to-json 
-                | nth 0 
-                | from-json 
-                | get name 
+                open sample.txt
+                | lines
+                | split-column "," name luck
+                | pick name
+                | to-json
+                | nth 0
+                | from-json
+                | get name
                 | echo $it
             "#
         ));
@@ -254,13 +254,13 @@ fn converts_structured_table_to_tsv_text() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open tsv_text_sample.txt 
-                | lines 
-                | split-column "\t" a b c d origin  
-                | last 1 
+                open tsv_text_sample.txt
+                | lines
+                | split-column "\t" a b c d origin
+                | last 1
                 | to-tsv
-                | lines 
-                | nth 1 
+                | lines
+                | nth 1
                 | echo "$it"
             "#
         ));
@@ -284,11 +284,11 @@ fn converts_structured_table_to_tsv_text_skipping_headers_after_conversion() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open tsv_text_sample.txt 
-                | lines 
-                | split-column "\t" a b c d origin  
-                | last 1 
-                | to-tsv --headerless 
+                open tsv_text_sample.txt
+                | lines
+                | split-column "\t" a b c d origin
+                | last 1
+                | to-tsv --headerless
                 | echo "$it"
             "#
         ));
@@ -313,11 +313,11 @@ fn converts_from_tsv_text_to_structured_table() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open los_tres_amigos.txt 
-                | from-tsv 
-                | get rusty_luck 
-                | str --to-int 
-                | sum 
+                open los_tres_amigos.txt
+                | from-tsv
+                | get rusty_luck
+                | str --to-int
+                | sum
                 | echo $it
             "#
         ));
@@ -412,10 +412,10 @@ fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open appveyor.yml 
-            | to-yaml 
-            | from-yaml 
-            | get environment.global.PROJECT_NAME 
+            open appveyor.yml
+            | to-yaml
+            | from-yaml
+            | get environment.global.PROJECT_NAME
             | echo $it
         "#
     ));
@@ -428,16 +428,16 @@ fn can_sort_by_column() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open cargo_sample.toml --raw 
-            | lines 
-            | skip 1 
-            | first 4 
-            | split-column "=" 
-            | sort-by Column1 
-            | skip 1 
-            | first 1 
-            | get Column1 
-            | trim 
+            open cargo_sample.toml --raw
+            | lines
+            | skip 1
+            | first 4
+            | split-column "="
+            | sort-by Column1
+            | skip 1
+            | first 1
+            | get Column1
+            | trim
             | echo $it
         "#
     ));
@@ -450,13 +450,13 @@ fn can_split_by_column() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open cargo_sample.toml --raw 
-            | lines 
-            | skip 1 
-            | first 1 
-            | split-column "=" 
-            | get Column1 
-            | trim 
+            open cargo_sample.toml --raw
+            | lines
+            | skip 1
+            | first 1
+            | split-column "="
+            | get Column1
+            | trim
             | echo $it
         "#
     ));
@@ -469,9 +469,9 @@ fn can_sum() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
-            open sgml_description.json 
-            | get glossary.GlossDiv.GlossList.GlossEntry.Sections 
-            | sum 
+            open sgml_description.json
+            | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+            | sum
             | echo $it
         "#
     ));
@@ -525,10 +525,10 @@ fn embed() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open los_tres_caballeros.txt 
+                open los_tres_caballeros.txt
                 | from-csv
-                | embed caballeros 
-                | get caballeros 
+                | embed caballeros
+                | get caballeros
                 | nth 0
                 | get last_name
                 | echo $it
@@ -555,8 +555,8 @@ fn get() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open los_tres_caballeros.txt 
-                | from-csv 
+                open los_tres_caballeros.txt
+                | from-csv
                 | nth 1
                 | get last_name
                 | echo $it
