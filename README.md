@@ -213,7 +213,8 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | ps | View current processes |
 | sys | View information about the current system |
 | which filename | Finds a program file. |
-| open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
+| open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
+| fetch url | Fetch contents from a url and retrieve data as a table if possible |
 | post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
 | exit (--now) | Exit the current shell (or all shells) |
@@ -255,7 +256,6 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | to-bson | Convert table into .bson binary data |
 | to-tsv | Convert table into .tsv text |
 | to-sqlite | Convert table to sqlite .db binary data |
-| reverse | Reverse the rows of a table |
 
 ## Filters on text (unstructured data)
 | command | description |
