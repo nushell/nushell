@@ -6,6 +6,7 @@ use crate::commands::rm::RemoveArgs;
 use crate::context::SourceMap;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
+use crate::utils::ValueStructure;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -102,6 +103,17 @@ impl Shell for ValueShell {
                 cwd.to_string_lossy().to_string()
             }
         };
+
+        let mut value_system = ValueStructure::new();
+        value_system.walk_decorate(&self.value)?;
+
+        if !value_system.exists(&PathBuf::from(&path)) {
+            return Err(ShellError::labeled_error(
+                "Can not change to path inside",
+                "No such path exists",
+                args.call_info.name_span,
+            ));
+        }
 
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::change_cwd(path));

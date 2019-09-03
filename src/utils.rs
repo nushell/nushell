@@ -1,7 +1,9 @@
 use crate::errors::ShellError;
+use crate::object::meta::Tagged;
+use crate::object::Value;
 use std::fmt;
 use std::ops::Div;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 pub struct AbsoluteFile {
     inner: PathBuf,
@@ -129,23 +131,131 @@ impl fmt::Display for RelativePath {
     }
 }
 
+pub enum TaggedValueIter<'a> {
+    Empty,
+    List(indexmap::map::Iter<'a, String, Tagged<Value>>),
+}
+
+impl<'a> Iterator for TaggedValueIter<'a> {
+    type Item = (&'a String, &'a Tagged<Value>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            TaggedValueIter::Empty => None,
+            TaggedValueIter::List(iter) => iter.next(),
+        }
+    }
+}
+
+impl Tagged<Value> {
+    fn is_dir(&self) -> bool {
+        match self.item() {
+            Value::Object(_) | Value::List(_) => true,
+            _ => false,
+        }
+    }
+
+    fn entries(&self) -> TaggedValueIter<'_> {
+        match self.item() {
+            Value::Object(o) => {
+                let iter = o.entries.iter();
+                TaggedValueIter::List(iter)
+            }
+            _ => TaggedValueIter::Empty,
+        }
+    }
+}
+
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct ValueResource {
+    pub at: usize,
+    pub loc: PathBuf,
+}
+
+impl ValueResource {}
+
+pub struct ValueStructure {
+    pub resources: Vec<ValueResource>,
+}
+
+impl ValueStructure {
+    pub fn new() -> ValueStructure {
+        ValueStructure {
+            resources: Vec::<ValueResource>::new(),
+        }
+    }
+
+    pub fn exists(&self, path: &Path) -> bool {
+        if path == Path::new("/") {
+            return true;
+        }
+
+        let path = if path.starts_with("/") {
+            match path.strip_prefix("/") {
+                Ok(p) => p,
+                Err(_) => path,
+            }
+        } else {
+            path
+        };
+
+        let comps: Vec<_> = path.components().map(Component::as_os_str).collect();
+
+        let mut is_there = true;
+
+        for (at, fragment) in comps.iter().enumerate() {
+            is_there = is_there
+                && self
+                    .resources
+                    .iter()
+                    .any(|resource| at == resource.at && *fragment == resource.loc.as_os_str());
+        }
+
+        is_there
+    }
+
+    pub fn walk_decorate(&mut self, start: &Tagged<Value>) -> Result<(), ShellError> {
+        self.resources = Vec::<ValueResource>::new();
+        self.build(start, 0)?;
+        self.resources.sort();
+
+        Ok(())
+    }
+
+    fn build(&mut self, src: &Tagged<Value>, lvl: usize) -> Result<(), ShellError> {
+        for entry in src.entries() {
+            let value = entry.1;
+            let path = entry.0;
+
+            self.resources.push(ValueResource {
+                at: lvl,
+                loc: PathBuf::from(path),
+            });
+
+            if value.is_dir() {
+                self.build(value, lvl + 1)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Res {
-    pub loc: PathBuf,
     pub at: usize,
+    pub loc: PathBuf,
 }
 
 impl Res {}
 
 pub struct FileStructure {
-    root: PathBuf,
     pub resources: Vec<Res>,
 }
 
 impl FileStructure {
     pub fn new() -> FileStructure {
         FileStructure {
-            root: PathBuf::new(),
             resources: Vec::<Res>::new(),
         }
     }
@@ -156,10 +266,6 @@ impl FileStructure {
 
     pub fn contains_files(&self) -> bool {
         self.resources.len() > 0
-    }
-
-    pub fn set_root(&mut self, path: &Path) {
-        self.root = path.to_path_buf();
     }
 
     pub fn paths_applying_with<F>(
@@ -177,7 +283,6 @@ impl FileStructure {
     }
 
     pub fn walk_decorate(&mut self, start_path: &Path) -> Result<(), ShellError> {
-        self.set_root(&dunce::canonicalize(start_path)?);
         self.resources = Vec::<Res>::new();
         self.build(start_path, 0)?;
         self.resources.sort();
@@ -189,7 +294,7 @@ impl FileStructure {
         let source = dunce::canonicalize(src)?;
 
         if source.is_dir() {
-            for entry in std::fs::read_dir(&source)? {
+            for entry in std::fs::read_dir(src)? {
                 let entry = entry?;
                 let path = entry.path();
 
@@ -215,9 +320,10 @@ impl FileStructure {
 
 #[cfg(test)]
 mod tests {
+    use super::{FileStructure, Res, ValueResource, ValueStructure};
+    use crate::object::meta::{Tag, Tagged};
+    use crate::object::{TaggedDictBuilder, Value};
     use pretty_assertions::assert_eq;
-
-    use super::{FileStructure, Res};
     use std::path::PathBuf;
 
     fn fixtures() -> PathBuf {
@@ -232,11 +338,95 @@ mod tests {
         }
     }
 
+    fn structured_sample_record(key: &str, value: &str) -> Tagged<Value> {
+        let mut record = TaggedDictBuilder::new(Tag::unknown());
+        record.insert(key.clone(), Value::string(value));
+        record.into_tagged_value()
+    }
+
+    fn sample_nushell_source_code() -> Tagged<Value> {
+        /*
+            src
+             commands
+              plugins => "sys.rs"
+             tests
+              helpers => "mod.rs"
+        */
+
+        let mut src = TaggedDictBuilder::new(Tag::unknown());
+        let mut record = TaggedDictBuilder::new(Tag::unknown());
+
+        record.insert_tagged("commands", structured_sample_record("plugins", "sys.rs"));
+        record.insert_tagged("tests", structured_sample_record("helpers", "mod.rs"));
+        src.insert_tagged("src", record.into_tagged_value());
+
+        src.into_tagged_value()
+    }
+
     #[test]
-    fn prepares_and_decorates_source_files_for_copying() {
+    fn prepares_and_decorates_value_filesystemlike_sources() {
+        let mut res = ValueStructure::new();
+
+        res.walk_decorate(&sample_nushell_source_code())
+            .expect("Can not decorate values traversal.");
+
+        assert_eq!(
+            res.resources,
+            vec![
+                ValueResource {
+                    loc: PathBuf::from("src"),
+                    at: 0,
+                },
+                ValueResource {
+                    loc: PathBuf::from("commands"),
+                    at: 1,
+                },
+                ValueResource {
+                    loc: PathBuf::from("tests"),
+                    at: 1,
+                },
+                ValueResource {
+                    loc: PathBuf::from("helpers"),
+                    at: 2,
+                },
+                ValueResource {
+                    loc: PathBuf::from("plugins"),
+                    at: 2,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn recognizes_if_path_exists_in_value_filesystemlike_sources() {
+        let mut res = ValueStructure::new();
+
+        res.walk_decorate(&sample_nushell_source_code())
+            .expect("Can not decorate values traversal.");
+
+        assert!(res.exists(&PathBuf::from("/")));
+
+        assert!(res.exists(&PathBuf::from("src/commands/plugins")));
+        assert!(res.exists(&PathBuf::from("src/commands")));
+        assert!(res.exists(&PathBuf::from("src/tests")));
+        assert!(res.exists(&PathBuf::from("src/tests/helpers")));
+        assert!(res.exists(&PathBuf::from("src")));
+
+        assert!(res.exists(&PathBuf::from("/src/commands/plugins")));
+        assert!(res.exists(&PathBuf::from("/src/commands")));
+        assert!(res.exists(&PathBuf::from("/src/tests")));
+        assert!(res.exists(&PathBuf::from("/src/tests/helpers")));
+        assert!(res.exists(&PathBuf::from("/src")));
+
+        assert!(!res.exists(&PathBuf::from("/not_valid")));
+        assert!(!res.exists(&PathBuf::from("/src/not_valid")));
+    }
+
+    #[test]
+    fn prepares_and_decorates_filesystem_source_files() {
         let mut res = FileStructure::new();
 
-        res.walk_decorate(fixtures().as_path())
+        res.walk_decorate(&fixtures())
             .expect("Can not decorate files traversal.");
 
         assert_eq!(
