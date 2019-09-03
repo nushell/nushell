@@ -82,7 +82,9 @@ impl Shell for ValueShell {
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let path = match args.nth(0) {
+        let destination = args.nth(0);
+
+        let path = match destination {
             None => "/".to_string(),
             Some(v) => {
                 let target = v.as_path()?;
@@ -108,6 +110,14 @@ impl Shell for ValueShell {
         value_system.walk_decorate(&self.value)?;
 
         if !value_system.exists(&PathBuf::from(&path)) {
+            if let Some(destination) = destination {
+                return Err(ShellError::labeled_error(
+                    "Can not change to path inside",
+                    "No such path exists",
+                    destination.span(),
+                ));
+            }
+
             return Err(ShellError::labeled_error(
                 "Can not change to path inside",
                 "No such path exists",
