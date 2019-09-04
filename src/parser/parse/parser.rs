@@ -552,7 +552,7 @@ pub fn node(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "pipeline", |input| {
         let start = input.offset;
-        let (input, head) = opt(tuple((raw_call, opt(space1))))(input)?;
+        let (input, head) = opt(tuple((opt(space1), raw_call, opt(space1))))(input)?;
         let (input, items) = trace_step(
             input,
             "many0",
@@ -582,7 +582,11 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 fn make_call_list(
-    head: Option<(Tagged<CallNode>, Option<NomSpan>)>,
+    head: Option<(
+        Option<NomSpan>,
+        Tagged<CallNode>,
+        Option<NomSpan>
+    )>,
     items: Vec<(
         NomSpan,
         Option<NomSpan>,
@@ -593,7 +597,12 @@ fn make_call_list(
     let mut out = vec![];
 
     if let Some(head) = head {
-        let el = PipelineElement::new(None, None, head.0, head.1.map(Span::from));
+        let el = PipelineElement::new(
+            None,
+            head.0.map(Span::from),
+            head.1,
+            head.2.map(Span::from));
+
         out.push(el);
     }
 
