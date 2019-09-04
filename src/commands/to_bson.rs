@@ -236,21 +236,41 @@ fn bson_value_to_bytes(bson: Bson, span: Span) -> Result<Vec<u8>, ShellError> {
 fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
-    let out = args.input;
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
-    Ok(out
-        .values
-        .map(
-            move |a| match bson_value_to_bytes(value_to_bson_value(&a)?, name_span) {
-                Ok(x) => ReturnSuccess::value(Value::Binary(x).simple_spanned(name_span)),
-                _ => Err(ShellError::labeled_error_with_secondary(
+        let to_process_input = if input.len() > 1 {
+            let tag = input[0].tag;
+            vec![Tagged { item: Value::List(input), tag } ]
+        } else if input.len() == 1 {
+            input
+        } else {
+            vec![]
+        };
+
+        for value in to_process_input {
+            match value_to_bson_value(&value) {
+                Ok(bson_value) => {
+                    match bson_value_to_bytes(bson_value, name_span) {
+                        Ok(x) => yield ReturnSuccess::value(
+                            Value::Binary(x).simple_spanned(name_span),
+                        ),
+                        _ => yield Err(ShellError::labeled_error_with_secondary(
+                            "Expected an object with BSON-compatible structure.span() from pipeline",
+                            "requires BSON-compatible input",
+                            name_span,
+                            "originates from here".to_string(),
+                            value.span(),
+                        )),
+                    }
+                }
+                _ => yield Err(ShellError::labeled_error(
                     "Expected an object with BSON-compatible structure from pipeline",
-                    "requires BSON-compatible input: Must be Array or Object",
-                    name_span,
-                    format!("{} originates from here", a.item.type_name()),
-                    a.span(),
-                )),
-            },
-        )
-        .to_output_stream())
+                    "requires BSON-compatible input",
+                    name_span))
+            }
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

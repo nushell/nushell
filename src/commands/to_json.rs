@@ -80,23 +80,41 @@ fn json_list(input: &Vec<Tagged<Value>>) -> Result<Vec<serde_json::Value>, Shell
 fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
-    let out = args.input;
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
-    Ok(out
-        .values
-        .map(
-            move |a| match serde_json::to_string(&value_to_json_value(&a)?) {
-                Ok(x) => ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
-                ),
-                _ => Err(ShellError::labeled_error_with_secondary(
+        let to_process_input = if input.len() > 1 {
+            let tag = input[0].tag;
+            vec![Tagged { item: Value::List(input), tag } ]
+        } else if input.len() == 1 {
+            input
+        } else {
+            vec![]
+        };
+
+        for value in to_process_input {
+            match value_to_json_value(&value) {
+                Ok(json_value) => {
+                    match serde_json::to_string(&json_value) {
+                        Ok(x) => yield ReturnSuccess::value(
+                            Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+                        ),
+                        _ => yield Err(ShellError::labeled_error_with_secondary(
+                            "Expected an object with JSON-compatible structure.span() from pipeline",
+                            "requires JSON-compatible input",
+                            name_span,
+                            "originates from here".to_string(),
+                            value.span(),
+                        )),
+                    }
+                }
+                _ => yield Err(ShellError::labeled_error(
                     "Expected an object with JSON-compatible structure from pipeline",
                     "requires JSON-compatible input",
-                    name_span,
-                    format!("{} originates from here", a.item.type_name()),
-                    a.span(),
-                )),
-            },
-        )
-        .to_output_stream())
+                    name_span))
+            }
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }
