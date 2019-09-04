@@ -100,7 +100,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected an object with JSON-compatible structure.span() from pipeline",
+                            "Expected a table with JSON-compatible structure.span() from pipeline",
                             "requires JSON-compatible input",
                             name_span,
                             "originates from here".to_string(),
@@ -109,7 +109,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
-                    "Expected an object with JSON-compatible structure from pipeline",
+                    "Expected a table with JSON-compatible structure from pipeline",
                     "requires JSON-compatible input",
                     name_span))
             }

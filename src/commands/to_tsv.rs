@@ -51,8 +51,8 @@ fn to_string_helper(v: &Value) -> Result<String, ShellError> {
         Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", b)),
         Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
-        Value::List(_) => return Ok(String::from("[list list]")),
-        Value::Object(_) => return Ok(String::from("[object]")),
+        Value::List(_) => return Ok(String::from("[table]")),
+        Value::Object(_) => return Ok(String::from("[row]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
         _ => Err(ShellError::string("Unexpected value")),
     }
@@ -152,7 +152,7 @@ fn to_tsv(
                  }
                  _ => {
                      yield Err(ShellError::labeled_error_with_secondary(
-                         "Expected an object with TSV-compatible structure.span() from pipeline",
+                         "Expected a table with TSV-compatible structure.span() from pipeline",
                          "requires TSV-compatible input",
                          name_span,
                          "originates from here".to_string(),

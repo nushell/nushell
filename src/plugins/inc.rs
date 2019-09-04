@@ -102,7 +102,7 @@ impl Inc {
                     }
                 }
                 None => Err(ShellError::string(
-                    "inc needs a field when incrementing a value in an object",
+                    "inc needs a field when incrementing a column in a table",
                 )),
             },
             x => Err(ShellError::string(format!(
@@ -116,7 +116,7 @@ impl Inc {
 impl Plugin for Inc {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("inc")
-            .desc("Increment a value or version. Optional use the field of a table.")
+            .desc("Increment a value or version. Optionally use the column of a table.")
             .switch("major")
             .switch("minor")
             .switch("patch")

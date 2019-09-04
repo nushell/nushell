@@ -187,7 +187,7 @@ fn sqlite_input_stream_to_bytes(
             other => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("Expected object, found {:?}", other),
+                    format!("Expected row, found {:?}", other),
                 ))
             }
         }
@@ -207,7 +207,7 @@ fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             Ok(out) => yield ReturnSuccess::value(out),
             _ => {
                 yield Err(ShellError::labeled_error(
-                    "Expected an object with SQLite-compatible structure.span() from pipeline",
+                    "Expected a table with SQLite-compatible structure.span() from pipeline",
                     "requires SQLite-compatible input",
                     name_span,
                 ))

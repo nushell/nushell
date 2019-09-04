@@ -29,7 +29,7 @@ impl Add {
                     }
                 },
                 None => Err(ShellError::string(
-                    "add needs a field when adding a value to an object",
+                    "add needs a column name when adding a value to a table",
                 )),
             },
             x => Err(ShellError::string(format!(
@@ -46,7 +46,8 @@ impl Plugin for Add {
             .desc("Add a new field to the table.")
             .required("Field", SyntaxType::String)
             .required("Value", SyntaxType::String)
-            .rest(SyntaxType::String).filter())
+            .rest(SyntaxType::String)
+            .filter())
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

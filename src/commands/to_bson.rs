@@ -256,7 +256,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             Value::Binary(x).simple_spanned(name_span),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected an object with BSON-compatible structure.span() from pipeline",
+                            "Expected a table with BSON-compatible structure.span() from pipeline",
                             "requires BSON-compatible input",
                             name_span,
                             "originates from here".to_string(),
@@ -265,7 +265,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
-                    "Expected an object with BSON-compatible structure from pipeline",
+                    "Expected a table with BSON-compatible structure from pipeline",
                     "requires BSON-compatible input",
                     name_span))
             }
