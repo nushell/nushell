@@ -67,7 +67,7 @@ fn save_can_write_out_csv() {
     })
 }
 
-// This text is more tricky since we are checking for binary output. The output rendered in ASCII is (roughly):
+// This test is more tricky since we are checking for binary output. The output rendered in ASCII is (roughly):
 // �authors+0Yehuda Katz <wycats@gmail.com>descriptionA shell for the GitHub eraedition2018licenseISCnamenuversion0.2.0
 // It is not valid utf-8, so this is just an approximation.
 #[test]
