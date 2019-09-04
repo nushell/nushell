@@ -552,11 +552,11 @@ pub fn node(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "pipeline", |input| {
         let start = input.offset;
-        let (input, head) = opt(tuple((raw_call, opt(space1), opt(tag("|")))))(input)?;
+        let (input, head) = opt(tuple((raw_call, opt(space1))))(input)?;
         let (input, items) = trace_step(
             input,
             "many0",
-            many0(tuple((opt(space1), raw_call, opt(space1), opt(tag("|"))))),
+            many0(tuple((tag("|"), opt(space1), raw_call, opt(space1)))),
         )?;
 
         let (input, tail) = opt(space1)(input)?;
@@ -582,28 +582,28 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 fn make_call_list(
-    head: Option<(Tagged<CallNode>, Option<NomSpan>, Option<NomSpan>)>,
+    head: Option<(Tagged<CallNode>, Option<NomSpan>)>,
     items: Vec<(
+        NomSpan,
         Option<NomSpan>,
         Tagged<CallNode>,
-        Option<NomSpan>,
         Option<NomSpan>,
     )>,
 ) -> Vec<PipelineElement> {
     let mut out = vec![];
 
     if let Some(head) = head {
-        let el = PipelineElement::new(None, head.0, head.1.map(Span::from), head.2.map(Span::from));
+        let el = PipelineElement::new(None, None, head.0, head.1.map(Span::from));
         out.push(el);
     }
 
-    for (ws1, call, ws2, pipe) in items {
+    for (pipe, ws1, call, ws2) in items {
         let el = PipelineElement::new(
+            Some(pipe).map(Span::from),
             ws1.map(Span::from),
             call,
-            ws2.map(Span::from),
-            pipe.map(Span::from),
-        );
+            ws2.map(Span::from));
+
         out.push(el);
     }
 

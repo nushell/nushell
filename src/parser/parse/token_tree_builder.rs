@@ -47,32 +47,31 @@ impl TokenTreeBuilder {
                 .next()
                 .expect("A pipeline must contain at least one element");
 
+            let pipe = None;
             let pre_span = pre.map(|pre| b.consume(&pre));
             let call = call(b);
             let post_span = post.map(|post| b.consume(&post));
-            let pipe = input.peek().map(|_| Span::from(b.consume("|")));
+
             out.push(PipelineElement::new(
+                pipe,
                 pre_span.map(Span::from),
                 call,
-                post_span.map(Span::from),
-                pipe,
-            ));
+                post_span.map(Span::from)));
 
             loop {
                 match input.next() {
                     None => break,
                     Some((pre, call, post)) => {
+                        let pipe = Some(Span::from(b.consume("|")));
                         let pre_span = pre.map(|pre| b.consume(&pre));
                         let call = call(b);
                         let post_span = post.map(|post| b.consume(&post));
 
-                        let pipe = input.peek().map(|_| Span::from(b.consume("|")));
-
                         out.push(PipelineElement::new(
+                            pipe,
                             pre_span.map(Span::from),
                             call,
                             post_span.map(Span::from),
-                            pipe,
                         ));
                     }
                 }
