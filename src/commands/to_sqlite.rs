@@ -27,6 +27,10 @@ impl WholeStreamCommand for ToSQLite {
     ) -> Result<OutputStream, ShellError> {
         to_sqlite(args, registry)
     }
+
+    fn is_binary(&self) -> bool {
+        true
+    }
 }
 
 pub struct ToDB;
@@ -50,6 +54,10 @@ impl WholeStreamCommand for ToDB {
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         to_sqlite(args, registry)
+    }
+
+    fn is_binary(&self) -> bool {
+        true
     }
 }
 
