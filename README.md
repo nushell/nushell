@@ -90,7 +90,7 @@ The second container is a bit smaller, if size is important to you.
 
 # Philosophy
 
-Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a list of objects, where each object represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
+Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
 
 ## Pipelines
 
@@ -104,17 +104,18 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 
 ```
 /home/jonathan/Source/nushell(master)> ls | where type == "Directory" | autoview
---------+-----------+----------+--------+--------------+----------------
- name   | type      | readonly | size   | accessed     | modified
---------+-----------+----------+--------+--------------+----------------
- target | Directory |          | 4.1 KB | 19 hours ago | 19 hours ago
- images | Directory |          | 4.1 KB | 2 weeks ago  | a week ago
- tests  | Directory |          | 4.1 KB | 2 weeks ago  | 18 minutes ago
- docs   | Directory |          | 4.1 KB | a week ago   | a week ago
- .git   | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
- src    | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
- .cargo | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago
---------+-----------+----------+--------+--------------+----------------
+━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
+ #  │ name      │ type      │ readonly │ size   │ accessed     │ modified 
+────┼───────────┼───────────┼──────────┼────────┼──────────────┼────────────────
+  0 │ .azure    │ Directory │          │ 4.1 KB │ 2 months ago │ a day ago 
+  1 │ target    │ Directory │          │ 4.1 KB │ 3 days ago   │ 3 days ago 
+  2 │ images    │ Directory │          │ 4.1 KB │ 2 months ago │ 2 weeks ago 
+  3 │ tests     │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago 
+  4 │ tmp       │ Directory │          │ 4.1 KB │ 2 weeks ago  │ 2 weeks ago 
+  5 │ src       │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago 
+  6 │ assets    │ Directory │          │ 4.1 KB │ a month ago  │ a month ago 
+  7 │ docs      │ Directory │          │ 4.1 KB │ 2 months ago │ 2 months ago
+━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━  
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
@@ -126,15 +127,16 @@ Because most of the time you'll want to see the output of a pipeline, `autoview`
 Being able to use the same commands and compose them differently is an important philosophy in Nu. For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
 
 ```text
-C:\Code\nushell(master)> ps | where cpu > 0
------------------- +-----+-------+-------+----------
- name              | cmd | cpu   | pid   | status
------------------- +-----+-------+-------+----------
- msedge.exe        |  -  | 0.77  | 26472 | Runnable
- nu.exe            |  -  | 7.83  | 15473 | Runnable
- SearchIndexer.exe |  -  | 82.17 | 23476 | Runnable
- BlueJeans.exe     |  -  | 4.54  | 10000 | Runnable
--------------------+-----+-------+-------+----------
+/home/jonathan/Source/nushell(master)> ps | where cpu > 0
+━━━┯━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━
+ # │ pid   │ name            │ status   │ cpu 
+───┼───────┼─────────────────┼──────────┼──────────
+ 0 │   992 │ chrome          │ Sleeping │ 6.988768 
+ 1 │  4240 │ chrome          │ Sleeping │ 5.645982 
+ 2 │ 13973 │ qemu-system-x86 │ Sleeping │ 4.996551 
+ 3 │ 15746 │ nu              │ Sleeping │ 84.59905 
+━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━
+
 ```
 
 ## Opening files
@@ -143,22 +145,22 @@ Nu can load file and URL contents as raw text or as structured data (if it recog
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
------------------+------------------+-----------------
- dependencies    | dev-dependencies | package
------------------+------------------+-----------------
- [object Object] | [object Object]  | [object Object]
------------------+------------------+-----------------
+━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
+ bin              │ dependencies   │ dev-dependencies 
+──────────────────┼────────────────┼──────────────────
+ [table: 12 rows] │ [table: 1 row] │ [table: 1 row]   
+━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━
 ```
 
 We can pipeline this into a command that gets the contents of one of the columns:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
--------------+----------------------------+---------+---------+------+---------
- authors     | description                | edition | license | name | version
--------------+----------------------------+---------+---------+------+---------
- [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.2.0
--------------+----------------------------+---------+---------+------+---------
+━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
+ authors         │ description                │ edition │ license │ name │ version 
+─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
+ [table: 3 rows] │ A shell for the GitHub era │ 2018    │ ISC     │ nu   │ 0.2.0
+━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
 ```
 
 Finally, we can use commands outside of Nu once we have the data we want:
@@ -180,7 +182,7 @@ Finally, to get a list of all the current shells, you can use the `shells` comma
 
 ## Plugins
 
-Nu supports plugins that offer additional functionality to the shell and follow the same object model that built-in commands use. This allows you to extend nu for your needs.
+Nu supports plugins that offer additional functionality to the shell and follow the same structured data model that built-in commands use. This allows you to extend nu for your needs.
 
 There are a few examples in the `plugins` directory.
 
@@ -196,7 +198,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 * Nu's workflow and tools should have the usability in day-to-day experience of using a shell in 2019 (and beyond).
 
-* Nu views data as both structured and unstructured. It is an object shell like PowerShell.
+* Nu views data as both structured and unstructured. It is a structured shell like PowerShell.
 
 * Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
@@ -233,18 +235,18 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | get column-or-column-path | Open column and get data from the corresponding cells |
 | sort-by ...columns | Sort by the given columns |
 | where condition | Filter table to match the condition |
-| inc (field) | Increment a value or version. Optional use the field of a table |
-| add field value | Add a new field to the table |
-| embed field | Embeds a new field to the table |
+| inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
+| add column-or-column-path value | Add a new column to the table |
+| embed column | Creates a new table of one column with the given name, and places the current table inside of it |
 | sum | Sum a column of values |
-| edit field value | Edit an existing field to have a new value |
+| edit column-or-column-path value | Edit an existing column to have a new value |
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
 | skip-while condition | Skips rows while the condition matches. |
 | first amount | Show only the first number of rows |
 | last amount | Show only the last number of rows |
 | nth row-number | Return only the selected row |
-| str (field) | Apply string function. Optional use the field of a table |
+| str (column) | Apply string function. Optionally use the column of a table |
 | tags | Read the tags (metadata) for values |
 | to-json | Convert table into .json text |
 | to-toml | Convert table into .toml text |
@@ -269,7 +271,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
 | size | Gather word count statistics on the text |
-| split-column sep ...fields | Split row contents across multiple columns via the separator |
+| split-column sep ...column-names | Split row contents across multiple columns via the separator, optionally give the columns names |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
 | {external-command} $it | Run external command with given arguments, replacing $it with each row text |

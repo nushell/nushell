@@ -238,7 +238,7 @@ impl ExternalCommand {
                         if let Some(span) = span {
                             return Err(ShellError::labeled_error(
                                 "External $it needs string data",
-                                "given object instead of string data",
+                                "given row instead of string data",
                                 span,
                             ));
                         } else {
@@ -293,7 +293,7 @@ impl ExternalCommand {
                             }
                             return Err(ShellError::labeled_error(
                                 "External $it needs string data",
-                                "given object instead of string data",
+                                "given row instead of string data",
                                 span,
                             ));
                         }

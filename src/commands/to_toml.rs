@@ -95,7 +95,7 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected an object with TOML-compatible structure.span() from pipeline",
+                            "Expected a table with TOML-compatible structure.span() from pipeline",
                             "requires TOML-compatible input",
                             name_span,
                             "originates from here".to_string(),
@@ -104,7 +104,7 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
-                    "Expected an object with TOML-compatible structure from pipeline",
+                    "Expected a table with TOML-compatible structure from pipeline",
                     "requires TOML-compatible input",
                     name_span))
             }

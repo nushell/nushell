@@ -504,11 +504,11 @@ impl Value {
                     .map(|e| e.source(&b.source).to_string()),
                 "; ",
             ),
-            Value::Object(_) => format!("[{}]", self.type_name()),
+            Value::Object(_) => format!("[table: 1 row]"),
             Value::List(l) => format!(
-                "[{} {}]",
+                "[table: {} {}]",
                 l.len(),
-                if l.len() == 1 { "item" } else { "items" }
+                if l.len() == 1 { "row" } else { "rows" }
             ),
             Value::Binary(_) => format!("<binary>"),
         }

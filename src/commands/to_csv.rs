@@ -153,7 +153,7 @@ fn to_csv(
                  }
                  _ => {
                      yield Err(ShellError::labeled_error_with_secondary(
-                         "Expected an object with CSV-compatible structure.span() from pipeline",
+                         "Expected a table with CSV-compatible structure.span() from pipeline",
                          "requires CSV-compatible input",
                          name_span,
                          "originates from here".to_string(),

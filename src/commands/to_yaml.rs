@@ -96,7 +96,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected an object with YAML-compatible structure.span() from pipeline",
+                            "Expected a table with YAML-compatible structure.span() from pipeline",
                             "requires YAML-compatible input",
                             name_span,
                             "originates from here".to_string(),
@@ -105,7 +105,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
-                    "Expected an object with YAML-compatible structure from pipeline",
+                    "Expected a table with YAML-compatible structure from pipeline",
                     "requires YAML-compatible input",
                     name_span))
             }

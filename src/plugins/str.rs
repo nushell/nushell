@@ -153,7 +153,7 @@ impl Str {
                 }
                 None => Err(ShellError::string(format!(
                     "{}: {}",
-                    "str needs a field when applying it to a value in an object",
+                    "str needs a column when applied to a value in a row",
                     Str::usage()
                 ))),
             },
