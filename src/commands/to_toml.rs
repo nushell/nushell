@@ -75,23 +75,41 @@ fn collect_values(input: &Vec<Tagged<Value>>) -> Result<Vec<toml::Value>, ShellE
 fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
-    let out = args.input;
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
-    Ok(out
-        .values
-        .map(move |a| match toml::to_string(&value_to_toml_value(&a)?) {
-            Ok(val) => {
-                return ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(val)).simple_spanned(name_span),
-                )
+        let to_process_input = if input.len() > 1 {
+            let tag = input[0].tag;
+            vec![Tagged { item: Value::List(input), tag } ]
+        } else if input.len() == 1 {
+            input
+        } else {
+            vec![]
+        };
+
+        for value in to_process_input {
+            match value_to_toml_value(&value) {
+                Ok(toml_value) => {
+                    match toml::to_string(&toml_value) {
+                        Ok(x) => yield ReturnSuccess::value(
+                            Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+                        ),
+                        _ => yield Err(ShellError::labeled_error_with_secondary(
+                            "Expected an object with TOML-compatible structure.span() from pipeline",
+                            "requires TOML-compatible input",
+                            name_span,
+                            "originates from here".to_string(),
+                            value.span(),
+                        )),
+                    }
+                }
+                _ => yield Err(ShellError::labeled_error(
+                    "Expected an object with TOML-compatible structure from pipeline",
+                    "requires TOML-compatible input",
+                    name_span))
             }
-            _ => Err(ShellError::labeled_error_with_secondary(
-                "Expected an object with TOML-compatible structure from pipeline",
-                "requires TOML-compatible input",
-                name_span,
-                format!("{} originates from here", a.item.type_name()),
-                a.span(),
-            )),
-        })
-        .to_output_stream())
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

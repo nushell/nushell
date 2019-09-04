@@ -201,19 +201,19 @@ fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
     let stream = async_stream_block! {
-        let values: Vec<_> = args.input.into_vec().await;
-        match sqlite_input_stream_to_bytes(values) {
-            Ok(out) => {
-                yield ReturnSuccess::value(out)
-            }
-            Err(_) => {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+
+        match sqlite_input_stream_to_bytes(input) {
+            Ok(out) => yield ReturnSuccess::value(out),
+            _ => {
                 yield Err(ShellError::labeled_error(
-                    "Expected an object with SQLite-compatible structure from pipeline",
+                    "Expected an object with SQLite-compatible structure.span() from pipeline",
                     "requires SQLite-compatible input",
                     name_span,
-                    ))
-            }
-        };
+                ))
+            },
+        }
     };
+
     Ok(stream.to_output_stream())
 }

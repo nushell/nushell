@@ -76,22 +76,41 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
 fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_span = args.name_span();
-    let out = args.input;
-    Ok(out
-        .values
-        .map(
-            move |a| match serde_yaml::to_string(&value_to_yaml_value(&a)?) {
-                Ok(x) => ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
-                ),
-                _ => Err(ShellError::labeled_error_with_secondary(
+    let stream = async_stream_block! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+
+        let to_process_input = if input.len() > 1 {
+            let tag = input[0].tag;
+            vec![Tagged { item: Value::List(input), tag } ]
+        } else if input.len() == 1 {
+            input
+        } else {
+            vec![]
+        };
+
+        for value in to_process_input {
+            match value_to_yaml_value(&value) {
+                Ok(yaml_value) => {
+                    match serde_yaml::to_string(&yaml_value) {
+                        Ok(x) => yield ReturnSuccess::value(
+                            Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+                        ),
+                        _ => yield Err(ShellError::labeled_error_with_secondary(
+                            "Expected an object with YAML-compatible structure.span() from pipeline",
+                            "requires YAML-compatible input",
+                            name_span,
+                            "originates from here".to_string(),
+                            value.span(),
+                        )),
+                    }
+                }
+                _ => yield Err(ShellError::labeled_error(
                     "Expected an object with YAML-compatible structure from pipeline",
                     "requires YAML-compatible input",
-                    name_span,
-                    format!("{} originates from here", a.item.type_name()),
-                    a.span(),
-                )),
-            },
-        )
-        .to_output_stream())
+                    name_span))
+            }
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

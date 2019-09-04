@@ -218,8 +218,8 @@ fn converts_structured_table_to_json_text() {
                 | split-column "," name luck
                 | pick name
                 | to-json
-                | nth 0
                 | from-json
+                | nth 0
                 | get name
                 | echo $it
             "#

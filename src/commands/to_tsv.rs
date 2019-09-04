@@ -16,8 +16,7 @@ impl WholeStreamCommand for ToTSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-tsv")
-            .switch("headerless")
+        Signature::build("to-tsv").switch("headerless")
     }
 
     fn usage(&self) -> &str {
@@ -47,7 +46,7 @@ pub fn value_to_tsv_value(v: &Value) -> Value {
     }
 }
 
-fn to_string_helper(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
+fn to_string_helper(v: &Value) -> Result<String, ShellError> {
     match v {
         Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", b)),
@@ -55,11 +54,23 @@ fn to_string_helper(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
         Value::List(_) => return Ok(String::from("[list list]")),
         Value::Object(_) => return Ok(String::from("[object]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => return Err("Bad input".into()),
+        _ => Err(ShellError::string("Unexpected value")),
     }
 }
 
-pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
+fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
+    let mut ret = vec![];
+    for value in values {
+        for desc in value.data_descriptors() {
+            if !ret.contains(&desc) {
+                ret.push(desc);
+            }
+        }
+    }
+    ret
+}
+
+pub fn to_string(v: &Value) -> Result<String, ShellError> {
     match v {
         Value::Object(o) => {
             let mut wtr = WriterBuilder::new().delimiter(b'\t').from_writer(vec![]);
@@ -74,7 +85,39 @@ pub fn to_string(v: &Value) -> Result<String, Box<dyn std::error::Error>> {
             wtr.write_record(fields).expect("can not write.");
             wtr.write_record(values).expect("can not write.");
 
-            return Ok(String::from_utf8(wtr.into_inner()?)?);
+            return Ok(String::from_utf8(
+                wtr.into_inner()
+                    .map_err(|_| ShellError::string("Could not convert record"))?,
+            )
+            .map_err(|_| ShellError::string("Could not convert record"))?);
+        }
+        Value::List(list) => {
+            let mut wtr = WriterBuilder::new().delimiter(b'\t').from_writer(vec![]);
+
+            let merged_descriptors = merge_descriptors(&list);
+            wtr.write_record(&merged_descriptors)
+                .expect("can not write.");
+
+            for l in list {
+                let mut row = vec![];
+                for desc in &merged_descriptors {
+                    match l.item.get_data_by_key(&desc) {
+                        Some(s) => {
+                            row.push(to_string_helper(s)?);
+                        }
+                        None => {
+                            row.push(String::new());
+                        }
+                    }
+                }
+                wtr.write_record(&row).expect("can not write");
+            }
+
+            return Ok(String::from_utf8(
+                wtr.into_inner()
+                    .map_err(|_| ShellError::string("Could not convert record"))?,
+            )
+            .map_err(|_| ShellError::string("Could not convert record"))?);
         }
         _ => return to_string_helper(&v),
     }
@@ -85,29 +128,40 @@ fn to_tsv(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let name_span = name;
-    let out = input;
+    let stream = async_stream_block! {
+         let input: Vec<Tagged<Value>> = input.values.collect().await;
 
-    Ok(out
-        .values
-        .map(move |a| match to_string(&value_to_tsv_value(&a.item)) {
-            Ok(x) => {
-                let converted = if headerless {
-                    x.lines().skip(1).collect()
-                } else {
-                    x
-                };
+         let to_process_input = if input.len() > 1 {
+             let tag = input[0].tag;
+             vec![Tagged { item: Value::List(input), tag } ]
+         } else if input.len() == 1 {
+             input
+         } else {
+             vec![]
+         };
 
-                ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(converted)).simple_spanned(name_span),
-                )
-            }
-            _ => Err(ShellError::labeled_error_with_secondary(
-                "Expected an object with TSV-compatible structure from pipeline",
-                "requires TSV-compatible input",
-                name_span,
-                format!("{} originates from here", a.item.type_name()),
-                a.span(),
-            )),
-        })
-        .to_output_stream())
+         for value in to_process_input {
+             match to_string(&value_to_tsv_value(&value.item)) {
+                 Ok(x) => {
+                     let converted = if headerless {
+                         x.lines().skip(1).collect()
+                     } else {
+                         x
+                     };
+                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).simple_spanned(name_span))
+                 }
+                 _ => {
+                     yield Err(ShellError::labeled_error_with_secondary(
+                         "Expected an object with TSV-compatible structure.span() from pipeline",
+                         "requires TSV-compatible input",
+                         name_span,
+                         "originates from here".to_string(),
+                         value.span(),
+                     ))
+                 }
+             }
+         }
+    };
+
+    Ok(stream.to_output_stream())
 }
