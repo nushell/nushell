@@ -147,6 +147,10 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
 fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> String {
     let mut styled = String::new();
 
+    if let Some(_) = pipeline_element.pipe {
+        styled.push_str(&Color::Purple.paint("|"));
+    }
+
     if let Some(ws) = pipeline_element.pre_ws {
         styled.push_str(&Color::White.normal().paint(ws.slice(line)));
     }
@@ -166,10 +170,6 @@ fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> Str
 
     if let Some(ws) = pipeline_element.post_ws {
         styled.push_str(&Color::White.normal().paint(ws.slice(line)));
-    }
-
-    if let Some(_) = pipeline_element.post_pipe {
-        styled.push_str(&Color::Purple.paint("|"));
     }
 
     styled.to_string()

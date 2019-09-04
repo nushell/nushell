@@ -11,9 +11,9 @@ pub struct Pipeline {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
 pub struct PipelineElement {
+    pub pipe: Option<Span>,
     pub pre_ws: Option<Span>,
     #[get = "pub(crate)"]
     call: Tagged<CallNode>,
     pub post_ws: Option<Span>,
-    pub post_pipe: Option<Span>,
 }
