@@ -307,6 +307,14 @@ pub fn file_contents(full_path: impl AsRef<Path>) -> String {
     contents
 }
 
+pub fn file_contents_binary(full_path: impl AsRef<Path>) -> Vec<u8> {
+    let mut file = std::fs::File::open(full_path.as_ref()).expect("can not open file");
+    let mut contents = Vec::new();
+    file.read_to_end(&mut contents)
+        .expect("can not read file");
+    contents
+}
+
 pub fn line_ending() -> String {
     #[cfg(windows)]
     {
