@@ -26,6 +26,10 @@ impl WholeStreamCommand for ToBSON {
     ) -> Result<OutputStream, ShellError> {
         to_bson(args, registry)
     }
+
+    fn is_binary(&self) -> bool {
+        true
+    }
 }
 
 pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {

@@ -6,6 +6,80 @@ use std::path::{Path, PathBuf};
 
 pub struct Save;
 
+macro_rules! process_string {
+    ($input:ident, $name_span:ident) => {{
+        let mut result_string = String::new();
+        for res in $input {
+            match res {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    ..
+                } => {
+                    result_string.push_str(&s);
+                }
+                _ => {
+                    yield core::task::Poll::Ready(Err(ShellError::labeled_error(
+                        "Save could not successfully save",
+                        "unexpected data during save",
+                        $name_span,
+                    )));
+                }
+            }
+        }
+        Ok(result_string.into_bytes())
+    }};
+}
+
+macro_rules! process_string_return_success {
+    ($result_vec:ident, $name_span:ident) => {{
+        let mut result_string = String::new();
+        for res in $result_vec {
+            match res {
+                Ok(ReturnSuccess::Value(Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    ..
+                })) => {
+                    result_string.push_str(&s);
+                }
+                _ => {
+                    yield core::task::Poll::Ready(Err(ShellError::labeled_error(
+                        "Save could not successfully save",
+                        "unexpected data during text save",
+                        $name_span,
+                    )));
+                }
+            }
+        }
+        Ok(result_string.into_bytes())
+    }};
+}
+
+macro_rules! process_binary_return_success {
+    ($result_vec:ident, $name_span:ident) => {{
+        let mut result_binary: Vec<u8> = Vec::new();
+        for res in $result_vec {
+            match res {
+                Ok(ReturnSuccess::Value(Tagged {
+                    item: Value::Binary(b),
+                    ..
+                })) => {
+                    for u in b.into_iter() {
+                        result_binary.push(u);
+                    }
+                }
+                _ => {
+                    yield core::task::Poll::Ready(Err(ShellError::labeled_error(
+                        "Save could not successfully save",
+                        "unexpected data during binary save",
+                        $name_span,
+                    )));
+                }
+            }
+        }
+        Ok(result_binary)
+    }};
+}
+
 #[derive(Deserialize)]
 pub struct SaveArgs {
     path: Option<Tagged<PathBuf>>,
@@ -96,7 +170,7 @@ fn save(
             }
         }
 
-        let content = if !save_raw {
+        let content : Result<Vec<u8>, ShellError> = if !save_raw {
             if let Some(extension) = full_path.extension() {
                 let command_name = format!("to-{}", extension.to_str().unwrap());
                 if let Some(converter) = registry.get_command(&command_name) {
@@ -116,60 +190,19 @@ fn save(
                     };
                     let mut result = converter.run(new_args.with_input(input), &registry);
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
-                    let mut result_string = String::new();
-                    for res in result_vec {
-                        match res {
-                            Ok(ReturnSuccess::Value(Tagged { item: Value::Primitive(Primitive::String(s)), .. })) => {
-                                result_string.push_str(&s);
-                            }
-                            _ => {
-                                yield Err(ShellError::labeled_error(
-                                    "Save could not successfully save",
-                                    "unexpected data during save",
-                                    name_span,
-                                ));
-                            },
-                        }
+                    if converter.is_binary() {
+                        process_binary_return_success!(result_vec, name_span)
+                    } else {
+                        process_string_return_success!(result_vec, name_span)
                     }
-                    Ok(result_string)
                 } else {
-                    let mut result_string = String::new();
-                    for res in input {
-                        match res {
-                            Tagged { item: Value::Primitive(Primitive::String(s)), .. } => {
-                                result_string.push_str(&s);
-                            }
-                            _ => {
-                                yield Err(ShellError::labeled_error(
-                                    "Save could not successfully save",
-                                    "unexpected data during save",
-                                    name_span,
-                                ));
-                            },
-                        }
-                    }
-                    Ok(result_string)
+                    process_string!(input, name_span)
                 }
             } else {
-                let mut result_string = String::new();
-                for res in input {
-                    match res {
-                        Tagged { item: Value::Primitive(Primitive::String(s)), .. } => {
-                            result_string.push_str(&s);
-                        }
-                        _ => {
-                            yield Err(ShellError::labeled_error(
-                                "Save could not successfully save",
-                                "unexpected data during save",
-                                name_span,
-                            ));
-                        },
-                    }
-                }
-                Ok(result_string)
+                process_string!(input, name_span)
             }
         } else {
-            string_from(&input)
+            Ok(string_from(&input).into_bytes())
         };
 
         match content {
@@ -185,7 +218,7 @@ fn save(
     Ok(OutputStream::new(stream))
 }
 
-fn string_from(input: &Vec<Tagged<Value>>) -> Result<String, ShellError> {
+fn string_from(input: &Vec<Tagged<Value>>) -> String {
     let mut save_data = String::new();
 
     if input.len() > 0 {
@@ -202,5 +235,5 @@ fn string_from(input: &Vec<Tagged<Value>>) -> Result<String, ShellError> {
         }
     }
 
-    Ok(save_data)
+    save_data
 }

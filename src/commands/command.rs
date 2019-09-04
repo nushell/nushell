@@ -496,6 +496,10 @@ pub trait WholeStreamCommand: Send + Sync {
         args: CommandArgs,
         registry: &registry::CommandRegistry,
     ) -> Result<OutputStream, ShellError>;
+
+    fn is_binary(&self) -> bool {
+        false
+    }
 }
 
 pub trait PerItemCommand: Send + Sync {
@@ -521,6 +525,10 @@ pub trait PerItemCommand: Send + Sync {
         raw_args: &RawCommandArgs,
         input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError>;
+
+    fn is_binary(&self) -> bool {
+        false
+    }
 }
 
 pub enum Command {
@@ -606,6 +614,13 @@ impl Command {
                 Ok(o) => o,
                 Err(e) => OutputStream::one(Err(e)),
             }
+        }
+    }
+
+    pub fn is_binary(&self) -> bool {
+        match self {
+            Command::WholeStream(command) => command.is_binary(),
+            Command::PerItem(command) => command.is_binary(),
         }
     }
 }
