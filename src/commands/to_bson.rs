@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Dictionary, Primitive, Value};
+use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use std::convert::TryInto;
@@ -51,14 +51,14 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
-        Value::List(l) => Bson::Array(
+        Value::Table(l) => Bson::Array(
             l.iter()
                 .map(|x| value_to_bson_value(x))
                 .collect::<Result<_, _>>()?,
         ),
         Value::Block(_) => Bson::Null,
         Value::Binary(b) => Bson::Binary(BinarySubtype::Generic, b.clone()),
-        Value::Object(o) => object_value_to_bson(o)?,
+        Value::Row(o) => object_value_to_bson(o)?,
     })
 }
 
@@ -241,7 +241,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag;
-            vec![Tagged { item: Value::List(input), tag } ]
+            vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
         } else {

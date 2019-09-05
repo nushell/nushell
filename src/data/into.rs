@@ -1,4 +1,4 @@
-use crate::object::{Primitive, Value};
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 
 impl From<Primitive> for Value {

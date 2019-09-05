@@ -74,7 +74,7 @@ impl Plugin for Embed {
         root.insert_tagged(
             self.field.as_ref().unwrap(),
             Tagged {
-                item: Value::List(self.values.clone()),
+                item: Value::Table(self.values.clone()),
                 tag: Tag::unknown(),
             },
         );

@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::{Dictionary, Value};
+use crate::data::{Dictionary, Value};
 use crate::prelude::*;
 use chrono::{DateTime, Local, Utc};
 
@@ -17,9 +17,7 @@ impl WholeStreamCommand for Date {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("date")
-            .switch("utc")
-            .switch("local")
+        Signature::build("date").switch("utc").switch("local")
     }
 
     fn usage(&self) -> &str {
@@ -72,7 +70,7 @@ where
         Tagged::from_simple_spanned_item(Value::string(format!("{}", tz)), span),
     );
 
-    Tagged::from_simple_spanned_item(Value::Object(Dictionary::from(indexmap)), span)
+    Tagged::from_simple_spanned_item(Value::Row(Dictionary::from(indexmap)), span)
 }
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

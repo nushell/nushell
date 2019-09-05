@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use csv::ReaderBuilder;
 
@@ -16,8 +16,7 @@ impl WholeStreamCommand for FromCSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-csv")
-            .switch("headerless")
+        Signature::build("from-csv").switch("headerless")
     }
 
     fn usage(&self) -> &str {
@@ -78,7 +77,7 @@ pub fn from_csv_string_to_value(
         }
     }
 
-    Ok(Tagged::from_item(Value::List(rows), tag))
+    Ok(Tagged::from_item(Value::Table(rows), tag))
 }
 
 fn from_csv(
@@ -116,7 +115,7 @@ fn from_csv(
 
         match from_csv_string_to_value(concat_string, skip_headers, name_span) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

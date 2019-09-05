@@ -1,5 +1,5 @@
+use crate::data::Value;
 use crate::format::{EntriesView, RenderView, TableView};
-use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 
@@ -13,7 +13,7 @@ impl RenderView for GenericView<'_> {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         match self.value {
             Value::Primitive(p) => Ok(host.stdout(&p.format(None))),
-            Value::List(l) => {
+            Value::Table(l) => {
                 let view = TableView::from_list(l);
 
                 if let Some(view) = view {
@@ -23,7 +23,7 @@ impl RenderView for GenericView<'_> {
                 Ok(())
             }
 
-            o @ Value::Object(_) => {
+            o @ Value::Row(_) => {
                 let view = EntriesView::from_value(o);
                 view.render_view(host)?;
                 Ok(())

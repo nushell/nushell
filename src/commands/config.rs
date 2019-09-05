@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::{config, Value};
+use crate::data::{config, Value};
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{self};
 use std::iter::FromIterator;
@@ -55,7 +55,7 @@ pub fn config(
     }: ConfigArgs,
     RunnableContext { name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let mut result = crate::object::config::config(name)?;
+    let mut result = crate::data::config::config(name)?;
 
     if let Some(v) = get {
         let key = v.to_string();
@@ -74,7 +74,7 @@ pub fn config(
         config::write_config(&result)?;
 
         return Ok(stream![Tagged::from_simple_spanned_item(
-            Value::Object(result.into()),
+            Value::Row(result.into()),
             value.span()
         )]
         .from_input_stream());
@@ -90,7 +90,7 @@ pub fn config(
         config::write_config(&result)?;
 
         return Ok(stream![Tagged::from_simple_spanned_item(
-            Value::Object(result.into()),
+            Value::Row(result.into()),
             span
         )]
         .from_input_stream());
@@ -123,9 +123,9 @@ pub fn config(
             )));
         }
 
-        let obj = VecDeque::from_iter(vec![Value::Object(result.into()).simple_spanned(v.span())]);
+        let obj = VecDeque::from_iter(vec![Value::Row(result.into()).simple_spanned(v.span())]);
         return Ok(obj.from_input_stream());
     }
 
-    return Ok(vec![Value::Object(result.into()).simple_spanned(name)].into());
+    return Ok(vec![Value::Row(result.into()).simple_spanned(name)].into());
 }

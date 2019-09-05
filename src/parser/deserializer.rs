@@ -37,7 +37,7 @@ impl<'de> ConfigDeserializer<'de> {
         let value: Option<Tagged<Value>> = if name == "rest" {
             let positional = self.call.args.slice_from(self.position);
             self.position += positional.len();
-            Some(Value::List(positional).tagged_unknown()) // TODO: correct span
+            Some(Value::Table(positional).tagged_unknown()) // TODO: correct span
         } else {
             if self.call.args.has(name) {
                 self.call.args.get(name).map(|x| x.clone())
@@ -240,14 +240,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         trace!("<Vec> Extracting {:?} for vec", value.val);
 
         match value.val.into_parts() {
-            (Value::List(items), _) => {
+            (Value::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
-            (other, tag) => Err(ShellError::type_error(
-                "Vec",
-                other.type_name().tagged(tag),
-            )),
+            (other, tag) => Err(ShellError::type_error("Vec", other.type_name().tagged(tag))),
         }
     }
     fn deserialize_tuple<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -255,10 +252,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = self.pop();
-        trace!("<Tuple> Extracting {:?} for tuple with {} elements", value.val, len);
+        trace!(
+            "<Tuple> Extracting {:?} for tuple with {} elements",
+            value.val,
+            len
+        );
 
         match value.val.into_parts() {
-            (Value::List(items), _) => {
+            (Value::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
@@ -298,7 +299,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             val: T,
             name: &'static str,
             fields: &'static [&'static str],
-            visitor: V
+            visitor: V,
         ) -> Result<V::Value, ShellError>
         where
             T: serde::Serialize,
@@ -364,7 +365,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             } => {
                 let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
                 visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
-            },
+            }
             Tagged {
                 item: Value::Primitive(Primitive::String(string)),
                 ..
@@ -398,21 +399,20 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     }
 }
 
-struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> {
+struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> {
     de: &'a mut ConfigDeserializer<'de>,
     vals: I,
 }
 
-impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
+impl<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
     fn new(de: &'a mut ConfigDeserializer<'de>, vals: I) -> Self {
-        SeqDeserializer {
-            de,
-            vals,
-        }
+        SeqDeserializer { de, vals }
     }
 }
 
-impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> de::SeqAccess<'de> for SeqDeserializer<'a, 'de, I> {
+impl<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> de::SeqAccess<'de>
+    for SeqDeserializer<'a, 'de, I>
+{
     type Error = ShellError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -441,10 +441,7 @@ struct StructDeserializer<'a, 'de: 'a> {
 
 impl<'a, 'de: 'a> StructDeserializer<'a, 'de> {
     fn new(de: &'a mut ConfigDeserializer<'de>, fields: &'static [&'static str]) -> Self {
-        StructDeserializer {
-            de,
-            fields,
-        }
+        StructDeserializer { de, fields }
     }
 }
 

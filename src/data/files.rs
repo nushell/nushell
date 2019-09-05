@@ -1,5 +1,5 @@
+use crate::data::{TaggedDictBuilder, Value};
 use crate::errors::ShellError;
-use crate::object::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 #[derive(Debug)]

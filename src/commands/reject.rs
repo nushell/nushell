@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::base::reject_fields;
+use crate::data::base::reject_fields;
 use crate::prelude::*;
 
 #[derive(Deserialize)]

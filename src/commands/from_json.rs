@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromJSON;
@@ -15,8 +15,7 @@ impl WholeStreamCommand for FromJSON {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-json")
-            .switch("objects")
+        Signature::build("from-json").switch("objects")
     }
 
     fn usage(&self) -> &str {
@@ -44,7 +43,7 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -
         serde_hjson::Value::String(s) => {
             Value::Primitive(Primitive::String(String::from(s))).tagged(tag)
         }
-        serde_hjson::Value::Array(a) => Value::List(
+        serde_hjson::Value::Array(a) => Value::Table(
             a.iter()
                 .map(|x| convert_json_value_to_nu_value(x, tag))
                 .collect(),
@@ -126,7 +125,7 @@ fn from_json(
             match from_json_string_to_value(concat_string, name_span) {
                 Ok(x) =>
                     match x {
-                        Tagged { item: Value::List(list), .. } => {
+                        Tagged { item: Value::Table(list), .. } => {
                             for l in list {
                                 yield ReturnSuccess::value(l);
                             }

@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, Value};
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 use csv::WriterBuilder;
 
@@ -39,8 +39,8 @@ pub fn value_to_csv_value(v: &Value) -> Value {
         Value::Primitive(Primitive::Boolean(b)) => Value::Primitive(Primitive::Boolean(b.clone())),
         Value::Primitive(Primitive::Bytes(b)) => Value::Primitive(Primitive::Bytes(b.clone())),
         Value::Primitive(Primitive::Date(d)) => Value::Primitive(Primitive::Date(d.clone())),
-        Value::Object(o) => Value::Object(o.clone()),
-        Value::List(l) => Value::List(l.clone()),
+        Value::Row(o) => Value::Row(o.clone()),
+        Value::Table(l) => Value::Table(l.clone()),
         Value::Block(_) => Value::Primitive(Primitive::Nothing),
         _ => Value::Primitive(Primitive::Nothing),
     }
@@ -51,8 +51,8 @@ fn to_string_helper(v: &Value) -> Result<String, ShellError> {
         Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", b)),
         Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
-        Value::List(_) => return Ok(String::from("[list list]")),
-        Value::Object(_) => return Ok(String::from("[object]")),
+        Value::Table(_) => return Ok(String::from("[list list]")),
+        Value::Row(_) => return Ok(String::from("[object]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
         _ => return Err(ShellError::string("Unexpected value")),
     }
@@ -72,7 +72,7 @@ fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
 
 pub fn to_string(v: &Value) -> Result<String, ShellError> {
     match v {
-        Value::Object(o) => {
+        Value::Row(o) => {
             let mut wtr = WriterBuilder::new().from_writer(vec![]);
             let mut fields: VecDeque<String> = VecDeque::new();
             let mut values: VecDeque<String> = VecDeque::new();
@@ -92,7 +92,7 @@ pub fn to_string(v: &Value) -> Result<String, ShellError> {
             )
             .map_err(|_| ShellError::string("Could not convert record"))?);
         }
-        Value::List(list) => {
+        Value::Table(list) => {
             let mut wtr = WriterBuilder::new().from_writer(vec![]);
 
             let merged_descriptors = merge_descriptors(&list);
@@ -134,7 +134,7 @@ fn to_csv(
 
          let to_process_input = if input.len() > 1 {
              let tag = input[0].tag;
-             vec![Tagged { item: Value::List(input), tag } ]
+             vec![Tagged { item: Value::Table(input), tag } ]
          } else if input.len() == 1 {
              input
          } else {

@@ -1,6 +1,6 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::errors::ShellError;
-use crate::object::Value;
+use crate::data::Value;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 

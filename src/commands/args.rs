@@ -1,4 +1,4 @@
-use crate::object::Value;
+use crate::data::Value;
 
 #[derive(Debug)]
 pub enum LogLevel {}

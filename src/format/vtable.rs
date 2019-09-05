@@ -1,5 +1,5 @@
+use crate::data::Value;
 use crate::format::RenderView;
-use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 

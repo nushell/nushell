@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::Value;
+use crate::data::Value;
 use crate::prelude::*;
 
 pub struct Get;
@@ -73,7 +73,7 @@ pub fn get(
             for field in &fields {
                 match get_member(field, &item) {
                     Ok(Tagged {
-                        item: Value::List(l),
+                        item: Value::Table(l),
                         ..
                     }) => {
                         for item in l {

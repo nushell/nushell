@@ -1,4 +1,4 @@
-use crate::object::base::Value;
+use crate::data::base::Value;
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

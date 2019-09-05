@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, Value};
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 
 pub struct ToTOML;
@@ -47,12 +47,12 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
         Value::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
 
-        Value::List(l) => toml::Value::Array(collect_values(l)?),
+        Value::Table(l) => toml::Value::Array(collect_values(l)?),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
         Value::Binary(b) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
         }
-        Value::Object(o) => {
+        Value::Row(o) => {
             let mut m = toml::map::Map::new();
             for (k, v) in o.entries.iter() {
                 m.insert(k.clone(), value_to_toml_value(v)?);
@@ -80,7 +80,7 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag;
-            vec![Tagged { item: Value::List(input), tag } ]
+            vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
         } else {

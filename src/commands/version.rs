@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::{Dictionary, Value};
+use crate::data::{Dictionary, Value};
 use crate::parser::registry::Signature;
 use crate::prelude::*;
 use indexmap::IndexMap;
@@ -39,6 +39,6 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
         Tagged::from_simple_spanned_item(Value::string(clap::crate_version!()), span),
     );
 
-    let value = Tagged::from_simple_spanned_item(Value::Object(Dictionary::from(indexmap)), span);
+    let value = Tagged::from_simple_spanned_item(Value::Row(Dictionary::from(indexmap)), span);
     Ok(OutputStream::one(value))
 }

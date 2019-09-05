@@ -1,5 +1,5 @@
+use crate::data::Value;
 use crate::format::RenderView;
-use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 use textwrap::fill;
@@ -45,7 +45,7 @@ impl TableView {
         for (idx, value) in values.iter().enumerate() {
             let mut row: Vec<(String, &'static str)> = match value {
                 Tagged {
-                    item: Value::Object(..),
+                    item: Value::Row(..),
                     ..
                 } => headers
                     .iter()

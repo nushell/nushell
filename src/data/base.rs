@@ -1,7 +1,7 @@
 use crate::context::CommandRegistry;
+use crate::data::TaggedDictBuilder;
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::object::TaggedDictBuilder;
 use crate::parser::{hir, Operator};
 use crate::prelude::*;
 use crate::Text;
@@ -170,10 +170,10 @@ impl Block {
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize)]
 pub enum Value {
     Primitive(Primitive),
-    Object(crate::object::Dictionary),
+    Row(crate::data::Dictionary),
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
-    List(Vec<Tagged<Value>>),
+    Table(Vec<Tagged<Value>>),
 
     Block(Block),
 }
@@ -220,8 +220,8 @@ impl fmt::Debug for ValueDebug<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value.item() {
             Value::Primitive(p) => p.debug(f),
-            Value::Object(o) => o.debug(f),
-            Value::List(l) => debug_list(l).fmt(f),
+            Value::Row(o) => o.debug(f),
+            Value::Table(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
             Value::Binary(_) => write!(f, "[[binary]]"),
         }
@@ -293,12 +293,12 @@ impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
     }
 }
 
-impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::object::Dictionary {
+impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::data::Dictionary {
     type Error = ShellError;
 
-    fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::object::Dictionary, ShellError> {
+    fn try_from(value: &'a Tagged<Value>) -> Result<&'a crate::data::Dictionary, ShellError> {
         match value.item() {
-            Value::Object(d) => Ok(d),
+            Value::Row(d) => Ok(d),
             v => Err(ShellError::type_error(
                 "Dictionary",
                 value.copy_span(v.type_name()),
@@ -340,8 +340,8 @@ impl Value {
     pub(crate) fn type_name(&self) -> String {
         match self {
             Value::Primitive(p) => p.type_name(),
-            Value::Object(_) => format!("object"),
-            Value::List(_) => format!("list"),
+            Value::Row(_) => format!("object"),
+            Value::Table(_) => format!("list"),
             Value::Block(_) => format!("block"),
             Value::Binary(_) => format!("binary"),
         }
@@ -351,26 +351,26 @@ impl Value {
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
-            Value::Object(o) => o
+            Value::Row(o) => o
                 .entries
                 .keys()
                 .into_iter()
                 .map(|x| x.to_string())
                 .collect(),
             Value::Block(_) => vec![],
-            Value::List(_) => vec![],
+            Value::Table(_) => vec![],
             Value::Binary(_) => vec![],
         }
     }
 
     pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self {
-            Value::Object(o) => o.get_data_by_key(name),
-            Value::List(l) => {
+            Value::Row(o) => o.get_data_by_key(name),
+            Value::Table(l) => {
                 for item in l {
                     match item {
                         Tagged {
-                            item: Value::Object(o),
+                            item: Value::Row(o),
                             ..
                         } => match o.get_data_by_key(name) {
                             Some(v) => return Some(v),
@@ -407,7 +407,7 @@ impl Value {
 
         let split_path: Vec<_> = path.split(".").collect();
 
-        if let Value::Object(ref mut o) = new_obj {
+        if let Value::Row(ref mut o) = new_obj {
             let mut current = o;
 
             if split_path.len() == 1 {
@@ -423,7 +423,7 @@ impl Value {
                     Some(next) => {
                         if idx == (split_path.len() - 2) {
                             match &mut next.item {
-                                Value::Object(o) => {
+                                Value::Row(o) => {
                                     o.entries.insert(
                                         split_path[idx + 1].to_string(),
                                         Tagged::from_item(new_value, tag),
@@ -435,7 +435,7 @@ impl Value {
                             return Some(Tagged::from_item(new_obj, tag));
                         } else {
                             match next.item {
-                                Value::Object(ref mut o) => {
+                                Value::Row(ref mut o) => {
                                     current = o;
                                 }
                                 _ => return None,
@@ -460,7 +460,7 @@ impl Value {
 
         let split_path: Vec<_> = path.split(".").collect();
 
-        if let Value::Object(ref mut o) = new_obj {
+        if let Value::Row(ref mut o) = new_obj {
             let mut current = o;
             for idx in 0..split_path.len() {
                 match current.entries.get_mut(split_path[idx]) {
@@ -470,7 +470,7 @@ impl Value {
                             return Some(Tagged::from_item(new_obj, tag));
                         } else {
                             match next.item {
-                                Value::Object(ref mut o) => {
+                                Value::Row(ref mut o) => {
                                     current = o;
                                 }
                                 _ => return None,
@@ -488,9 +488,9 @@ impl Value {
     pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
         match self {
             p @ Value::Primitive(_) => MaybeOwned::Borrowed(p),
-            Value::Object(o) => o.get_data(desc),
+            Value::Row(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::List(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Table(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Binary(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
@@ -504,8 +504,8 @@ impl Value {
                     .map(|e| e.source(&b.source).to_string()),
                 "; ",
             ),
-            Value::Object(_) => format!("[table: 1 row]"),
-            Value::List(l) => format!(
+            Value::Row(_) => format!("[table: 1 row]"),
+            Value::Table(l) => format!(
                 "[table: {} {}]",
                 l.len(),
                 if l.len() == 1 { "row" } else { "rows" }

@@ -1,5 +1,5 @@
 use crate::commands::command::Command;
-use crate::object::{TaggedDictBuilder, TaggedListBuilder, Value};
+use crate::data::{TaggedDictBuilder, TaggedListBuilder, Value};
 use crate::parser::registry::{NamedType, PositionalType, Signature};
 use crate::prelude::*;
 use std::ops::Deref;
@@ -32,7 +32,10 @@ fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Tagged
 
     spec.insert("name", Value::string(name));
     spec.insert("type", Value::string(ty));
-    spec.insert("required", Value::string(if required { "yes" } else { "no" }));
+    spec.insert(
+        "required",
+        Value::string(if required { "yes" } else { "no" }),
+    );
 
     spec.into_tagged_value()
 }
@@ -43,8 +46,8 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
 
     for arg in signature.positional.iter() {
         let is_required = match arg {
-            PositionalType::Mandatory(_,_) => true,
-            PositionalType::Optional(_,_) => false,
+            PositionalType::Mandatory(_, _) => true,
+            PositionalType::Optional(_, _) => false,
         };
 
         sig.insert_tagged(for_spec(arg.name(), "argument", is_required, tag));

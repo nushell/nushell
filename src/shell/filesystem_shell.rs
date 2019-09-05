@@ -4,7 +4,7 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::context::SourceMap;
-use crate::object::dir_entry_dict;
+use crate::data::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;

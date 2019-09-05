@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ExpectedRange;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
 use std::str::FromStr;
@@ -48,7 +48,7 @@ fn convert_bson_value_to_nu_value(
     Ok(match v {
         Bson::FloatingPoint(n) => Value::Primitive(Primitive::from(*n)).tagged(tag),
         Bson::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
-        Bson::Array(a) => Value::List(bson_array(a, tag)?).tagged(tag),
+        Bson::Array(a) => Value::Table(bson_array(a, tag)?).tagged(tag),
         Bson::Document(doc) => {
             let mut collected = TaggedDictBuilder::new(tag);
             for (k, v) in doc.iter() {

@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, Value};
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 
 pub struct ToYAML;
@@ -45,7 +45,7 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
         Value::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_yaml::Value::String(s.display().to_string()),
 
-        Value::List(l) => {
+        Value::Table(l) => {
             let mut out = vec![];
 
             for value in l {
@@ -60,7 +60,7 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
                 .collect(),
         ),
-        Value::Object(o) => {
+        Value::Row(o) => {
             let mut m = serde_yaml::Mapping::new();
             for (k, v) in o.entries.iter() {
                 m.insert(
@@ -81,7 +81,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag;
-            vec![Tagged { item: Value::List(input), tag } ]
+            vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
         } else {

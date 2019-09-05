@@ -43,7 +43,7 @@ impl ValueShell {
         }
         match viewed {
             Tagged {
-                item: Value::List(l),
+                item: Value::Table(l),
                 ..
             } => {
                 for item in l {
@@ -55,7 +55,7 @@ impl ValueShell {
             }
         }
 
-        shell_entries    
+        shell_entries
     }
 
     fn members(&self) -> VecDeque<Tagged<Value>> {

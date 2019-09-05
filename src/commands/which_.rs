@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::object::Value;
+use crate::data::Value;
 use crate::prelude::*;
 
 use crate::commands::WholeStreamCommand;

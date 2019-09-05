@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::{TaggedDictBuilder, Value};
+use crate::data::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct Tags;
