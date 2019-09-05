@@ -17,14 +17,14 @@ impl TreeView {
             Value::Primitive(p) => {
                 let _ = builder.add_empty_child(p.format(None));
             }
-            Value::Object(o) => {
+            Value::Row(o) => {
                 for (k, v) in o.entries.iter() {
                     builder = builder.begin_child(k.clone());
                     Self::from_value_helper(v, builder);
                     builder = builder.end_child();
                 }
             }
-            Value::List(l) => {
+            Value::Table(l) => {
                 for elem in l.iter() {
                     Self::from_value_helper(elem, builder);
                 }

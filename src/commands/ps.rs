@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::TaggedDictBuilder;
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use std::time::Duration;
 use std::usize;

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::errors::ShellError;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use rusqlite::{types::ValueRef, Connection, Row, NO_PARAMS};
 use std::io::Write;
@@ -76,11 +76,11 @@ pub fn convert_sqlite_file_to_nu_value(
             "table_name".to_string(),
             Value::Primitive(Primitive::String(table_name)).tagged(tag.clone()),
         );
-        meta_dict.insert_tagged("table_values", Value::List(out).tagged(tag.clone()));
+        meta_dict.insert_tagged("table_values", Value::Table(out).tagged(tag.clone()));
         meta_out.push(meta_dict.into_tagged_value());
     }
     let tag = tag.into();
-    Ok(Value::List(meta_out).tagged(tag))
+    Ok(Value::Table(meta_out).tagged(tag))
 }
 
 fn convert_sqlite_row_to_nu_value(
@@ -140,7 +140,7 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                 Value::Binary(vb) =>
                     match from_sqlite_bytes_to_value(vb, span) {
                         Ok(x) => match x {
-                            Tagged { item: Value::List(list), .. } => {
+                            Tagged { item: Value::Table(list), .. } => {
                                 for l in list {
                                     yield ReturnSuccess::value(l);
                                 }

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
-use crate::object::TaggedDictBuilder;
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 
 pub struct Shells;

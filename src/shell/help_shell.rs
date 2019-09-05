@@ -4,7 +4,7 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::context::SourceMap;
-use crate::object::{TaggedDictBuilder, command_dict};
+use crate::data::{command_dict, TaggedDictBuilder};
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use std::ffi::OsStr;
@@ -26,13 +26,16 @@ impl HelpShell {
             let value = command_dict(registry.get_command(&cmd).unwrap(), Tag::unknown());
 
             spec.insert("name", cmd);
-            spec.insert("description", value.get_data_by_key("usage").unwrap().as_string().unwrap());
+            spec.insert(
+                "description",
+                value.get_data_by_key("usage").unwrap().as_string().unwrap(),
+            );
             spec.insert_tagged("details", value);
 
             specs.push(spec.into_tagged_value());
         }
 
-        cmds.insert("help", Value::List(specs));
+        cmds.insert("help", Value::Table(specs));
 
         Ok(HelpShell {
             path: "/help".to_string(),
@@ -47,8 +50,10 @@ impl HelpShell {
         let mut sh = HelpShell::index(&registry)?;
 
         if let Tagged {
-            item: Value::Primitive(Primitive::String(name)), ..
-        } = cmd {
+            item: Value::Primitive(Primitive::String(name)),
+            ..
+        } = cmd
+        {
             sh.set_path(format!("/help/{:}/details", name));
         }
 
@@ -76,7 +81,7 @@ impl HelpShell {
         }
         match viewed {
             Tagged {
-                item: Value::List(l),
+                item: Value::Table(l),
                 ..
             } => {
                 for item in l {

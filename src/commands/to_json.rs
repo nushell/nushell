@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, Value};
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 
 pub struct ToJSON;
@@ -48,7 +48,7 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
         Value::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_json::Value::String(s.display().to_string()),
 
-        Value::List(l) => serde_json::Value::Array(json_list(l)?),
+        Value::Table(l) => serde_json::Value::Array(json_list(l)?),
         Value::Block(_) => serde_json::Value::Null,
         Value::Binary(b) => serde_json::Value::Array(
             b.iter()
@@ -57,7 +57,7 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
                 })
                 .collect(),
         ),
-        Value::Object(o) => {
+        Value::Row(o) => {
             let mut m = serde_json::Map::new();
             for (k, v) in o.entries.iter() {
                 m.insert(k.clone(), value_to_json_value(v)?);
@@ -85,7 +85,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag;
-            vec![Tagged { item: Value::List(input), tag } ]
+            vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
         } else {

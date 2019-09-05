@@ -135,7 +135,7 @@ impl Str {
             Value::Primitive(Primitive::String(ref s)) => {
                 Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
             }
-            Value::Object(_) => match self.field {
+            Value::Row(_) => match self.field {
                 Some(ref f) => {
                     let replacement = match value.item.get_data_by_path(value.tag(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()))?,
@@ -479,7 +479,7 @@ mod tests {
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Tagged {
-                item: Value::Object(o),
+                item: Value::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
@@ -527,7 +527,7 @@ mod tests {
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Tagged {
-                item: Value::Object(o),
+                item: Value::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
@@ -575,7 +575,7 @@ mod tests {
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Tagged {
-                item: Value::Object(o),
+                item: Value::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("Nu_birthday")).borrow(),
@@ -624,7 +624,7 @@ mod tests {
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Tagged {
-                item: Value::Object(o),
+                item: Value::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("rustconf")).borrow(),
@@ -679,7 +679,7 @@ mod tests {
 
         match output[0].as_ref().unwrap() {
             ReturnSuccess::Value(Tagged {
-                item: Value::Object(o),
+                item: Value::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("staff")).borrow(),

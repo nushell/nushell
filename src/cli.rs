@@ -7,9 +7,9 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
+use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
 use crate::git::current_branch;
-use crate::object::Value;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
@@ -265,7 +265,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             context.shell_manager.clone(),
         )));
 
-        let edit_mode = crate::object::config::config(Span::unknown())?
+        let edit_mode = crate::data::config::config(Span::unknown())?
             .get("edit_mode")
             .map(|s| match s.as_string().unwrap().as_ref() {
                 "vi" => EditMode::Vi,

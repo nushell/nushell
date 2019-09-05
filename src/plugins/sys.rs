@@ -119,7 +119,7 @@ async fn host(tag: Tag) -> Tagged<Value> {
             user_vec.push(Tagged::from_item(Value::string(user.username()), tag));
         }
     }
-    let user_list = Value::List(user_vec);
+    let user_list = Value::Table(user_vec);
     dict.insert("users", user_list);
 
     dict.into_tagged_value()
@@ -163,7 +163,7 @@ async fn disks(tag: Tag) -> Option<Value> {
     }
 
     if !output.is_empty() {
-        Some(Value::List(output))
+        Some(Value::Table(output))
     } else {
         None
     }
@@ -205,7 +205,7 @@ async fn battery(tag: Tag) -> Option<Value> {
     }
 
     if !output.is_empty() {
-        Some(Value::List(output))
+        Some(Value::Table(output))
     } else {
         None
     }
@@ -248,7 +248,7 @@ async fn temp(tag: Tag) -> Option<Value> {
     }
 
     if !output.is_empty() {
-        Some(Value::List(output))
+        Some(Value::Table(output))
     } else {
         None
     }
@@ -273,7 +273,7 @@ async fn net(tag: Tag) -> Option<Value> {
         }
     }
     if !output.is_empty() {
-        Some(Value::List(output))
+        Some(Value::Table(output))
     } else {
         None
     }

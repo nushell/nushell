@@ -1,7 +1,7 @@
 use crate::commands::from_toml::convert_toml_value_to_nu_value;
 use crate::commands::to_toml::value_to_toml_value;
+use crate::data::{Dictionary, Value};
 use crate::errors::ShellError;
-use crate::object::{Dictionary, Value};
 use crate::prelude::*;
 use app_dirs::*;
 use indexmap::IndexMap;
@@ -37,7 +37,7 @@ pub(crate) fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(
     touch(&filename)?;
 
     let contents =
-        value_to_toml_value(&Value::Object(Dictionary::new(config.clone())).tagged_unknown())?;
+        value_to_toml_value(&Value::Row(Dictionary::new(config.clone())).tagged_unknown())?;
 
     let contents = toml::to_string(&contents)?;
 
@@ -67,7 +67,7 @@ pub(crate) fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Va
     let value = convert_toml_value_to_nu_value(&parsed, Tag::unknown_origin(span));
     let tag = value.tag();
     match value.item {
-        Value::Object(Dictionary { entries }) => Ok(entries),
+        Value::Row(Dictionary { entries }) => Ok(entries),
         other => Err(ShellError::type_error(
             "Dictionary",
             other.type_name().tagged(tag),

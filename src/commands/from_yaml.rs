@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromYAML;
@@ -62,7 +62,7 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) ->
             Value::Primitive(Primitive::from(n.as_f64().unwrap())).tagged(tag)
         }
         serde_yaml::Value::String(s) => Value::string(s).tagged(tag),
-        serde_yaml::Value::Sequence(a) => Value::List(
+        serde_yaml::Value::Sequence(a) => Value::Table(
             a.iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, tag))
                 .collect(),
@@ -127,7 +127,7 @@ fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
         match from_yaml_string_to_value(concat_string, span) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

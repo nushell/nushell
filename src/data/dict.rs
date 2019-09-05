@@ -1,5 +1,5 @@
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
-use crate::object::{Primitive, Value};
 use derive_new::new;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -64,7 +64,7 @@ impl PartialOrd<Value> for Dictionary {
 impl PartialEq<Value> for Dictionary {
     fn eq(&self, other: &Value) -> bool {
         match other {
-            Value::Object(d) => self == d,
+            Value::Row(d) => self == d,
             _ => false,
         }
     }
@@ -123,7 +123,7 @@ impl TaggedListBuilder {
     }
 
     pub fn into_tagged_value(self) -> Tagged<Value> {
-        Value::List(self.list).tagged(self.tag)
+        Value::Table(self.list).tagged(self.tag)
     }
 }
 
@@ -163,7 +163,7 @@ impl TaggedDictBuilder {
     }
 
     pub fn into_tagged_value(self) -> Tagged<Value> {
-        self.into_tagged_dict().map(Value::Object)
+        self.into_tagged_dict().map(Value::Row)
     }
 
     pub fn into_tagged_dict(self) -> Tagged<Dictionary> {

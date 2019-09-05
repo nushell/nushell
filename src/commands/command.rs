@@ -1,7 +1,7 @@
 use crate::context::{SourceMap, SpanSource};
 use crate::errors::ShellError;
 use crate::evaluate::Scope;
-use crate::object::Value;
+use crate::data::Value;
 use crate::parser::hir;
 use crate::parser::{registry, ConfigDeserializer};
 use crate::prelude::*;

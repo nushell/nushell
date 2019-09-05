@@ -18,7 +18,7 @@ impl Add {
     fn add(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
-            (obj @ Value::Object(_), Some(v)) => match &self.field {
+            (obj @ Value::Row(_), Some(v)) => match &self.field {
                 Some(f) => match obj.insert_data_at_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {

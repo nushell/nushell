@@ -1,5 +1,5 @@
+use crate::data::base::Block;
 use crate::errors::Description;
-use crate::object::base::Block;
 use crate::parser::{
     hir::{self, Expression, RawExpression},
     CommandRegistry, Text,
@@ -66,7 +66,7 @@ pub(crate) fn evaluate_baseline_expr(
                 exprs.push(expr);
             }
 
-            Ok(Value::List(exprs).tagged(Tag::unknown_origin(expr.span())))
+            Ok(Value::Table(exprs).tagged(Tag::unknown_origin(expr.span())))
         }
         RawExpression::Block(block) => Ok(Tagged::from_simple_spanned_item(
             Value::Block(Block::new(block.clone(), source.clone(), expr.span())),

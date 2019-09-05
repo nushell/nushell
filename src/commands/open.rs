@@ -1,7 +1,7 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
+use crate::data::Value;
 use crate::errors::ShellError;
-use crate::object::Value;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
@@ -107,7 +107,7 @@ fn run(
                 let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                 for res in result_vec {
                     match res {
-                        Ok(ReturnSuccess::Value(Tagged { item: Value::List(list), ..})) => {
+                        Ok(ReturnSuccess::Value(Tagged { item: Value::Table(list), ..})) => {
                             for l in list {
                                 yield Ok(ReturnSuccess::Value(l));
                             }

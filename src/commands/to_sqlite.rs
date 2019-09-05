@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Dictionary, Primitive, Value};
+use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 use hex::encode;
 use rusqlite::{Connection, NO_PARAMS};
@@ -71,7 +71,7 @@ fn comma_concat(acc: String, current: String) -> String {
 
 fn get_columns(rows: &Vec<Tagged<Value>>) -> Result<String, std::io::Error> {
     match &rows[0].item {
-        Value::Object(d) => Ok(d
+        Value::Row(d) => Ok(d
             .entries
             .iter()
             .map(|(k, _v)| k.clone())
@@ -107,7 +107,7 @@ fn get_insert_values(rows: Vec<Tagged<Value>>) -> Result<String, std::io::Error>
     let values: Result<Vec<_>, _> = rows
         .into_iter()
         .map(|value| match value.item {
-            Value::Object(d) => Ok(format!(
+            Value::Row(d) => Ok(format!(
                 "({})",
                 d.entries
                     .iter()
@@ -139,7 +139,7 @@ fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::E
     };
     let (columns, insert_values) = match table.entries.get("table_values") {
         Some(Tagged {
-            item: Value::List(l),
+            item: Value::Table(l),
             ..
         }) => (get_columns(l), get_insert_values(l.to_vec())),
         _ => {
@@ -169,7 +169,7 @@ fn sqlite_input_stream_to_bytes(
     let tag = values[0].tag.clone();
     for value in values.into_iter() {
         match value.item() {
-            Value::Object(d) => {
+            Value::Row(d) => {
                 let (create, insert) = generate_statements(d.to_owned())?;
                 match conn
                     .execute(&create, NO_PARAMS)

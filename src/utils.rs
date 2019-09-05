@@ -1,6 +1,6 @@
+use crate::data::meta::Tagged;
+use crate::data::Value;
 use crate::errors::ShellError;
-use crate::object::meta::Tagged;
-use crate::object::Value;
 use std::fmt;
 use std::ops::Div;
 use std::path::{Component, Path, PathBuf};
@@ -150,14 +150,14 @@ impl<'a> Iterator for TaggedValueIter<'a> {
 impl Tagged<Value> {
     fn is_dir(&self) -> bool {
         match self.item() {
-            Value::Object(_) | Value::List(_) => true,
+            Value::Row(_) | Value::Table(_) => true,
             _ => false,
         }
     }
 
     fn entries(&self) -> TaggedValueIter<'_> {
         match self.item() {
-            Value::Object(o) => {
+            Value::Row(o) => {
                 let iter = o.entries.iter();
                 TaggedValueIter::List(iter)
             }
@@ -321,8 +321,8 @@ impl FileStructure {
 #[cfg(test)]
 mod tests {
     use super::{FileStructure, Res, ValueResource, ValueStructure};
-    use crate::object::meta::{Tag, Tagged};
-    use crate::object::{TaggedDictBuilder, Value};
+    use crate::data::meta::{Tag, Tagged};
+    use crate::data::{TaggedDictBuilder, Value};
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 

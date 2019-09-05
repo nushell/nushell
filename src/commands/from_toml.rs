@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromTOML;
@@ -34,7 +34,7 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> T
         toml::Value::Integer(n) => Value::number(n).tagged(tag),
         toml::Value::Float(n) => Value::number(n).tagged(tag),
         toml::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
-        toml::Value::Array(a) => Value::List(
+        toml::Value::Array(a) => Value::Table(
             a.iter()
                 .map(|x| convert_toml_value_to_nu_value(x, tag))
                 .collect(),
@@ -98,7 +98,7 @@ pub fn from_toml(
 
         match from_toml_string_to_value(concat_string, span) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

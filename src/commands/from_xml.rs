@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromXML;
@@ -55,7 +55,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             .collect();
 
         let mut collected = TaggedDictBuilder::new(tag);
-        collected.insert(name.clone(), Value::List(children_values));
+        collected.insert(name.clone(), Value::Table(children_values));
 
         collected.into_tagged_value()
     } else if n.is_comment() {
@@ -113,7 +113,7 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         match from_xml_string_to_value(concat_string, span) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }
