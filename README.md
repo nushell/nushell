@@ -88,6 +88,12 @@ $ docker run -it nushell/nu
 
 The second container is a bit smaller, if size is important to you.
 
+## Packaging status
+
+### Fedora
+
+[COPR repo](https://copr.fedorainfracloud.org/coprs/atim/nushell/): `sudo dnf copr enable atim/nushell -y && sudo dnf install nushell -y`
+
 # Philosophy
 
 Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
