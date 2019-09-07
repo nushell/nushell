@@ -1,9 +1,7 @@
 use crate::commands::WholeStreamCommand;
-// use crate::data::{Dictionary, Value};
 use crate::errors::ShellError;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
-// use indexmap::IndexMap;
 
 pub struct PWD;
 
