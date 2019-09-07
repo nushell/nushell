@@ -117,6 +117,10 @@ impl Shell for HelpShell {
         self.path.clone()
     }
 
+    fn pwd(&self, _: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+        Ok(OutputStream::empty())
+    }
+
     fn set_path(&mut self, path: String) {
         let _ = std::env::set_current_dir(&path);
         self.path = path.clone();
