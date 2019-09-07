@@ -236,6 +236,10 @@ impl RunnableContext {
             .get_command(name)
             .expect(&format!("Expected command {}", name))
     }
+
+    pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+        self.commands.get_command(name)
+    }
 }
 
 pub struct RunnablePerItemArgs<T> {
