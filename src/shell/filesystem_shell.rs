@@ -125,7 +125,6 @@ impl Shell for FilesystemShell {
                         }
                         Ok(o) => o,
                     };
-
                     for entry in entries {
                         let entry = entry?;
                         let filepath = entry.path();
