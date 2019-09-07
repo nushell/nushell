@@ -342,7 +342,19 @@ impl ExternalCommand {
 
         match stream_next {
             StreamNext::Last => {
-                popen.wait()?;
+                let _ = popen.detach();
+                loop {
+                    match popen.poll() {
+                        None => {
+                            let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
+                        }
+                        _ => {
+                            let _ = popen.terminate();
+                            break;
+                        }
+                    }
+                }
+                println!("");
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
