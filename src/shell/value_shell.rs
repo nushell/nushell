@@ -199,6 +199,18 @@ impl Shell for ValueShell {
         self.path.clone()
     }
 
+    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+        let path = PathBuf::from(&self.path());
+
+        let mut stream = VecDeque::new();
+        stream.push_back(ReturnSuccess::value(
+            Value::Primitive(Primitive::String(path.to_string_lossy().to_string()))
+                .simple_spanned(args.call_info.name_span),
+        ));
+
+        Ok(stream.into())
+    }
+
     fn set_path(&mut self, path: String) {
         let _ = std::env::set_current_dir(&path);
         self.path = path.clone();

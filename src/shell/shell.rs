@@ -20,6 +20,7 @@ pub trait Shell: std::fmt::Debug {
     fn mv(&self, args: MoveArgs, name: Span, path: &str) -> Result<OutputStream, ShellError>;
     fn rm(&self, args: RemoveArgs, name: Span, path: &str) -> Result<OutputStream, ShellError>;
     fn path(&self) -> String;
+    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn set_path(&mut self, path: String);
 
     fn complete(

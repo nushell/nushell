@@ -946,6 +946,28 @@ impl Shell for FilesystemShell {
         self.path.clone()
     }
 
+    fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+        let path = PathBuf::from(self.path());
+        let p = match dunce::canonicalize(path.as_path()) {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(ShellError::labeled_error(
+                    "unable to show current directory",
+                    "pwd command failed",
+                    args.call_info.name_span,
+                ));
+            }
+        };
+
+        let mut stream = VecDeque::new();
+        stream.push_back(ReturnSuccess::value(
+            Value::Primitive(Primitive::String(p.to_string_lossy().to_string()))
+                .simple_spanned(args.call_info.name_span),
+        ));
+
+        Ok(stream.into())
+    }
+
     fn set_path(&mut self, path: String) {
         let pathbuf = PathBuf::from(&path);
         let path = match dunce::canonicalize(pathbuf.as_path()) {

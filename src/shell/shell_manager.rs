@@ -62,6 +62,12 @@ impl ShellManager {
         self.shells.lock().unwrap()[self.current_shell].path()
     }
 
+    pub fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+        let env = self.shells.lock().unwrap();
+
+        env[self.current_shell].pwd(args)
+    }
+
     pub fn set_path(&mut self, path: String) {
         self.shells.lock().unwrap()[self.current_shell].set_path(path)
     }
