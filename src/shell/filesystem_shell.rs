@@ -106,8 +106,7 @@ impl Shell for FilesystemShell {
         if entries.len() == 1 {
             if let Ok(entry) = &entries[0] {
                 if entry.is_dir() {
-                    let entries = std::fs::read_dir(&full_path);
-
+                    let entries = std::fs::read_dir(&entry);
                     let entries = match entries {
                         Err(e) => {
                             if let Some(s) = args.nth(0) {
@@ -126,6 +125,7 @@ impl Shell for FilesystemShell {
                         }
                         Ok(o) => o,
                     };
+
                     for entry in entries {
                         let entry = entry?;
                         let filepath = entry.path();
