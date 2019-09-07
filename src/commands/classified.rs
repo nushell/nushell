@@ -222,7 +222,7 @@ impl ExternalCommand {
 
         #[cfg(windows)]
         {
-            process = Exec::shell(&self.name);
+            process = Exec::cmd(&self.name);
 
             if arg_string.contains("$it") {
                 let mut first = true;
