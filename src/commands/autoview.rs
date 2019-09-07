@@ -43,17 +43,36 @@ pub fn autoview(
                 ..
             } = input[0usize]
             {
-                let binary = context.expect_command("binaryview");
-                let result = binary.run(raw.with_input(input), &context.commands);
-                result.collect::<Vec<_>>().await;
+                let binary = context.get_command("binaryview");
+                if let Some(binary) = binary {
+                    let result = binary.run(raw.with_input(input), &context.commands);
+                    result.collect::<Vec<_>>().await;
+                } else {
+                    for i in input {
+                        match i.item {
+                            Value::Binary(b) => {
+                                use pretty_hex::*;
+                                println!("{:?}", b.hex_dump());
+                            }
+                            _ => {}
+                        }
+                    }
+                };
             } else if is_single_text_value(&input) {
-                let text = context.expect_command("textview");
-                let result = text.run(raw.with_input(input), &context.commands);
-                result.collect::<Vec<_>>().await;
-            } else if equal_shapes(&input) {
-                let table = context.expect_command("table");
-                let result = table.run(raw.with_input(input), &context.commands);
-                result.collect::<Vec<_>>().await;
+                let text = context.get_command("textview");
+                if let Some(text) = text {
+                    let result = text.run(raw.with_input(input), &context.commands);
+                    result.collect::<Vec<_>>().await;
+                } else {
+                    for i in input {
+                        match i.item {
+                            Value::Primitive(Primitive::String(s)) => {
+                                println!("{}", s);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
             } else {
                 let table = context.expect_command("table");
                 let result = table.run(raw.with_input(input), &context.commands);
@@ -61,25 +80,6 @@ pub fn autoview(
             }
         }
     }))
-}
-
-fn equal_shapes(input: &Vec<Tagged<Value>>) -> bool {
-    let mut items = input.iter();
-
-    let item = match items.next() {
-        Some(item) => item,
-        None => return false,
-    };
-
-    let desc = item.data_descriptors();
-
-    for item in items {
-        if desc != item.data_descriptors() {
-            return false;
-        }
-    }
-
-    true
 }
 
 fn is_single_text_value(input: &Vec<Tagged<Value>>) -> bool {
