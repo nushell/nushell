@@ -12,9 +12,13 @@ fn pipeline_helper() {
             | str --to-int
             | sum
             | echo "$it"
-        "#);
+        "#,
+    );
 
-    assert_eq!(actual, r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo "$it""#);
+    assert_eq!(
+        actual,
+        r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo "$it""#
+    );
 }
 
 #[test]
@@ -34,9 +38,7 @@ fn external_has_correct_quotes() {
         r#"echo "hello world""#
     );
 
-    let actual = h::normalize_string(&actual);
-
-    assert_eq!(actual, r#""hello world""#);
+    assert_eq!(actual, r#"hello world"#);
 }
 
 #[test]

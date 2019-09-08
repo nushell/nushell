@@ -35,7 +35,7 @@ fn converts_structured_table_to_csv_text() {
                 | to-csv
                 | lines
                 | nth 1
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -63,7 +63,7 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
                 | split-column "," a b c d origin
                 | last 1
                 | to-csv --headerless
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -261,7 +261,7 @@ fn converts_structured_table_to_tsv_text() {
                 | to-tsv
                 | lines
                 | nth 1
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -289,7 +289,7 @@ fn converts_structured_table_to_tsv_text_skipping_headers_after_conversion() {
                 | split-column "\t" a b c d origin
                 | last 1
                 | to-tsv --headerless
-                | echo "$it"
+                | echo $it
             "#
         ));
 
