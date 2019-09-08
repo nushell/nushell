@@ -9,15 +9,6 @@ version: 2.1
 
 commands:
 
-  check_token:
-    description: Check that QUAY_TOKEN is provided in environment
-    steps:
-      - run: 
-          if [[ -z "${QUAY_TOKEN}" ]]; then
-            echo "QUAY_TOKEN is undefined. Add to CircleCI environment to continue."
-            exit 1;
-          fi
-
   pull_cache:
     description: Pulls Quay.io docker images usable for our cache
     steps:
@@ -46,7 +37,6 @@ workflows:
               ignore: 
                 - master
           before_build:
-            - check_token
             - pull_cache
           after_build:
             - run:
@@ -76,7 +66,6 @@ workflows:
             tags:
               only: /^v.*/
           before_build:
-            - check_token
             - pull_cache
           after_build:
             - run:
@@ -90,7 +79,6 @@ workflows:
                    echo "Version for Docker tag is ${DOCKER_TAG}"
                    docker tag quay.io/nushell/nu-base:latest quay.io/nushell/nu-base:${DOCKER_TAG}
                    docker tag quay.io/nushell/nu:latest quay.io/nushell/nu:${DOCKER_TAG}
-                   docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
                    docker push quay.io/nushell/nu-base
                    docker push quay.io/nushell/nu
 
@@ -105,9 +93,8 @@ workflows:
           registry: quay.io
           tag: devel
           dockerfile: docker/Dockerfile.nu-base
-          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest --build-arg RELEASE=true
           before_build:
-            - check_token
             - pull_cache
           filters:
             branches:
@@ -120,6 +107,5 @@ workflows:
             - run:
                 name: Publish Development Docker Tags
                 command: |
-                   docker login -u="nushell+circleci" -p="${QUAY_TOKEN}" quay.io
                    docker push quay.io/nushell/nu-base:devel
                    docker push quay.io/nushell/nu:devel
