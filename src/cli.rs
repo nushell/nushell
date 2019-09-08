@@ -163,7 +163,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            whole_stream_command(PS),
             whole_stream_command(PWD),
             whole_stream_command(LS),
             whole_stream_command(CD),
