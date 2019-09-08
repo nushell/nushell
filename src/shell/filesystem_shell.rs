@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 
 pub struct FilesystemShell {
     pub(crate) path: String,
+    last_path: String,
     completer: NuCompleter,
     hinter: HistoryHinter,
 }
@@ -29,6 +30,7 @@ impl Clone for FilesystemShell {
     fn clone(&self) -> Self {
         FilesystemShell {
             path: self.path.clone(),
+            last_path: self.path.clone(),
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands: self.completer.commands.clone(),
@@ -44,6 +46,7 @@ impl FilesystemShell {
 
         Ok(FilesystemShell {
             path: path.to_string_lossy().to_string(),
+            last_path: path.to_string_lossy().to_string(),
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands,
@@ -56,8 +59,10 @@ impl FilesystemShell {
         path: String,
         commands: CommandRegistry,
     ) -> Result<FilesystemShell, std::io::Error> {
+        let last_path = path.clone();
         Ok(FilesystemShell {
             path,
+            last_path,
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands,
@@ -182,14 +187,29 @@ impl Shell for FilesystemShell {
             Some(v) => {
                 let target = v.as_path()?;
                 let path = PathBuf::from(self.path());
-                match dunce::canonicalize(path.join(target).as_path()) {
+                match dunce::canonicalize(path.join(&target).as_path()) {
                     Ok(p) => p,
                     Err(_) => {
-                        return Err(ShellError::labeled_error(
+                        let error = Err(ShellError::labeled_error(
                             "Can not change to directory",
                             "directory not found",
                             v.span().clone(),
                         ));
+
+                        if let Some(t) = target.to_str() {
+                            if t == "-" {
+                                match dunce::canonicalize(PathBuf::from(self.last_path.clone()).as_path()) {
+                                    Ok(p) => p,
+                                    Err(_) => {
+                                        return error;
+                                    }
+                                }
+                            } else {
+                                return error;
+                            }
+                        } else {
+                            return error;
+                        }
                     }
                 }
             }
@@ -959,6 +979,7 @@ impl Shell for FilesystemShell {
                 pathbuf
             }
         };
+        self.last_path = self.path.clone();
         self.path = path.to_string_lossy().to_string();
     }
 
