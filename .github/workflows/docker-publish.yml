@@ -1,0 +1,80 @@
+name: Publish consumable Docker images
+
+on:
+  push:
+    tags: ['*.*.*']
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch:
+        - x86_64-unknown-linux-musl
+        - x86_64-unknown-linux-gnu
+    steps:
+    - uses: actions/checkout@v1
+    - run: cargo install cross
+    - name: compile for specific target
+      env: { arch: '${{ matrix.arch }}' }
+      run: |
+        cross build --target ${{ matrix.arch }} --release
+        # leave only the executable file
+        rm -rd target/${{ matrix.arch }}/release/{*/*,*.d,*.rlib,.fingerprint}
+        find . -empty -delete
+    - uses: actions/upload-artifact@master
+      with:
+        name: ${{ matrix.arch }}
+        path: target/${{ matrix.arch }}/release
+
+  docker:
+    name: Build and publish docker images
+    needs: compile
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        base-image: [debian, 'debian:stable-slim', alpine]
+        include:
+        - { tag: alpine, base-image: alpine,               arch: x86_64-unknown-linux-musl }
+        - { tag: slim,   base-image: 'debian:stable-slim', arch: x86_64-unknown-linux-gnu  }
+        - { tag: debian, base-image: debian,               arch: x86_64-unknown-linux-gnu  }
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/download-artifact@master
+      with: { name: '${{ matrix.arch }}', path: target/release }
+    - name: Build and publish exact version
+      run: |
+        REGISTRY=${REGISTRY,,}; export TAG=${GITHUB_REF##*/}-${{ matrix.tag }};
+
+        echo ${{ secrets.DOCKER_REGISTRY }} | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+        docker-compose --file docker/docker-compose.package.yml build
+        docker-compose --file docker/docker-compose.package.yml push              # exact version
+      env:
+        BASE_IMAGE: ${{ matrix.base-image }}
+        REGISTRY: docker.pkg.github.com/${{ github.repository }}
+
+    #region semantics tagging
+    - name: Retag and push without suffixing version
+      run: |
+        VERSION=${GITHUB_REF##*/}
+        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${{ matrix.tag }}
+        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%%.*}-${{ matrix.tag }}
+        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%.*}-${{ matrix.tag }}
+        docker push ${REGISTRY,,}/nu:${VERSION%.*}-${{ matrix.tag }}              # latest patch
+        docker push ${REGISTRY,,}/nu:${VERSION%%.*}-${{ matrix.tag }}             # latest features
+        docker push ${REGISTRY,,}/nu:${{ matrix.tag }}                            # latest version
+      env: { REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' }
+    - name: Retag and push debian as latest
+      if: matrix.tag == 'debian'
+      run: |
+        VERSION=${GITHUB_REF##*/}
+        docker tag ${REGISTRY,,}/nu:${{ matrix.tag }} ${REGISTRY,,}/nu:latest
+        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%.*}
+        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%%.*}
+        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION}
+        docker push ${REGISTRY,,}/nu:${VERSION}       # exact version
+        docker push ${REGISTRY,,}/nu:${VERSION%%.*}   # latest features
+        docker push ${REGISTRY,,}/nu:${VERSION%.*}    # latest patch
+        docker push ${REGISTRY,,}/nu:latest           # latest version
+      env: { REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' }
+    #endregion semantics tagging
