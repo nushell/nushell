@@ -38,9 +38,7 @@ fn external_has_correct_quotes() {
         r#"echo "hello world""#
     );
 
-    let actual = h::normalize_string(&actual);
-
-    assert_eq!(actual, r#""hello world""#);
+    assert_eq!(actual, r#"hello world"#);
 }
 
 #[test]

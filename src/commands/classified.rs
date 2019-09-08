@@ -220,111 +220,60 @@ impl ExternalCommand {
 
         let mut process;
 
-        #[cfg(windows)]
-        {
-            process = Exec::shell(&self.name);
+        process = Exec::cmd(&self.name);
 
-            if arg_string.contains("$it") {
-                let mut first = true;
+        if arg_string.contains("$it") {
+            let mut first = true;
 
-                for i in &inputs {
-                    if i.as_string().is_err() {
-                        let mut span = None;
-                        for arg in &self.args {
-                            if arg.item.contains("$it") {
-                                span = Some(arg.span());
-                            }
-                        }
-                        if let Some(span) = span {
-                            return Err(ShellError::labeled_error(
-                                "External $it needs string data",
-                                "given row instead of string data",
-                                span,
-                            ));
-                        } else {
-                            return Err(ShellError::string("Error: $it needs string data"));
-                        }
-                    }
-                    if !first {
-                        process = process.arg("&&");
-                        process = process.arg(&self.name);
-                    } else {
-                        first = false;
-                    }
-
+            for i in &inputs {
+                if i.as_string().is_err() {
+                    let mut span = None;
                     for arg in &self.args {
-                        if arg.chars().all(|c| c.is_whitespace()) {
-                            continue;
+                        if arg.item.contains("$it") {
+                            span = Some(arg.span());
                         }
-
-                        process = process.arg(&arg.replace("$it", &i.as_string()?));
+                    }
+                    if let Some(span) = span {
+                        return Err(ShellError::labeled_error(
+                            "External $it needs string data",
+                            "given row instead of string data",
+                            span,
+                        ));
+                    } else {
+                        return Err(ShellError::string("Error: $it needs string data"));
                     }
                 }
-            } else {
+                if !first {
+                    process = process.arg("&&");
+                    process = process.arg(&self.name);
+                } else {
+                    first = false;
+                }
+
                 for arg in &self.args {
-                    let arg_chars: Vec<_> = arg.chars().collect();
-                    if arg_chars.len() > 1
-                        && arg_chars[0] == '"'
-                        && arg_chars[arg_chars.len() - 1] == '"'
-                    {
-                        // quoted string
-                        let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
-                        process = process.arg(new_arg);
-                    } else {
-                        process = process.arg(arg.item.clone());
+                    if arg.chars().all(|c| c.is_whitespace()) {
+                        continue;
                     }
+
+                    process = process.arg(&arg.replace("$it", &i.as_string()?));
+                }
+            }
+        } else {
+            for arg in &self.args {
+                let arg_chars: Vec<_> = arg.chars().collect();
+                if arg_chars.len() > 1
+                    && arg_chars[0] == '"'
+                    && arg_chars[arg_chars.len() - 1] == '"'
+                {
+                    // quoted string
+                    let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
+                    process = process.arg(new_arg);
+                } else {
+                    process = process.arg(arg.item.clone());
                 }
             }
         }
-        #[cfg(not(windows))]
-        {
-            let mut new_arg_string = self.name.to_string();
 
-            if arg_string.contains("$it") {
-                let mut first = true;
-                for i in &inputs {
-                    let i = match i.as_string() {
-                        Err(_err) => {
-                            let mut span = name_span;
-                            for arg in &self.args {
-                                if arg.item.contains("$it") {
-                                    span = arg.span();
-                                }
-                            }
-                            return Err(ShellError::labeled_error(
-                                "External $it needs string data",
-                                "given row instead of string data",
-                                span,
-                            ));
-                        }
-                        Ok(val) => val,
-                    };
-
-                    if !first {
-                        new_arg_string.push_str("&&");
-                        new_arg_string.push_str(&self.name);
-                    } else {
-                        first = false;
-                    }
-
-                    for arg in &self.args {
-                        if arg.chars().all(|c| c.is_whitespace()) {
-                            continue;
-                        }
-
-                        new_arg_string.push_str(" ");
-                        new_arg_string.push_str(&arg.replace("$it", &i));
-                    }
-                }
-            } else {
-                for arg in &self.args {
-                    new_arg_string.push_str(" ");
-                    new_arg_string.push_str(&arg);
-                }
-            }
-
-            process = Exec::shell(new_arg_string);
-        }
         process = process.cwd(context.shell_manager.path());
 
         let mut process = match stream_next {
