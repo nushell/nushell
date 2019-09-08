@@ -3,4 +3,4 @@ FROM ${base}
 
 ARG artifact
 COPY ${artifact} /bin/
-ENTRYPOINT ["nu"]
+ENTRYPOINT ["/bin/nu"]
