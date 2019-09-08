@@ -185,20 +185,26 @@ impl Shell for FilesystemShell {
             },
             Some(v) => {
                 let target = v.as_path()?;
+                let path = PathBuf::from(self.path());
 
-                if PathBuf::from("-") == target {
-                    PathBuf::from(&self.last_path)
-                } else {
-                    let path = PathBuf::from(self.path());
+                match dunce::canonicalize(path.join(&target)) {
+                    Ok(p) => p,
+                    Err(_) => {
+                        let error = Err(ShellError::labeled_error(
+                            "Can not change to directory",
+                            "directory not found",
+                            v.span().clone(),
+                        ));
 
-                    match dunce::canonicalize(path.join(&target)) {
-                        Ok(p) => p,
-                        Err(_) => {
-                            return Err(ShellError::labeled_error(
-                                "Can not change to directory",
-                                "directory not found",
-                                v.span().clone(),
-                            ))
+                        if PathBuf::from("-") == target {
+                            match dunce::canonicalize(PathBuf::from(&self.last_path)) {
+                                Ok(p) => p,
+                                Err(_) => {
+                                    return error;
+                                }
+                            }
+                        } else {
+                            return error;
                         }
                     }
                 }

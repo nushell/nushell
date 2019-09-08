@@ -31,7 +31,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
         );
 
         assert_eq!(PathBuf::from(actual), dirs.formats());
-    }) 
+    })
 }
 
 #[test]
@@ -118,6 +118,24 @@ fn filesystem_change_to_a_directory_containing_spaces() {
 }
 
 #[test]
+fn filesytem_change_from_current_directory_to_dash_directory() {
+    Playground::setup("cd_test_8", |dirs, sandbox| {
+        sandbox.mkdir("-");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd -
+                pwd | echo $it
+            "#
+        );
+
+        assert_eq!(PathBuf::from(actual), dirs.test().join("-"));
+    })
+}
+
+
+#[test]
 fn filesystem_directory_not_found() {
     let actual = nu_error!(
     	cwd: "tests/fixtures",
@@ -193,7 +211,7 @@ fn valuesystem_change_from_current_path_using_absolute_path() {
         );
 
         assert_eq!(PathBuf::from(actual), PathBuf::from("/dependencies"));
-    }) 
+    })
 }
 
 #[test]
