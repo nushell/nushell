@@ -8,3 +8,4 @@ services:
       dockerfile: docker/Package.Dockerfile
       args:
         base: ${BASE_IMAGE}
+        artifact: ${NU_BINS}

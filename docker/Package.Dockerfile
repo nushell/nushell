@@ -1,5 +1,6 @@
+ARG artifact
 ARG base
 FROM ${base}
 
-COPY target/release/nu* /bin/
+COPY ${artifact} /bin/
 ENTRYPOINT ["nu"]

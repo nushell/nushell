@@ -33,11 +33,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        base-image: [debian, 'debian:stable-slim', alpine]
+        base-image: [debian, 'debian:stable-slim', alpine, 'busybox:glibc', 'busybox:musl']
         include:
-        - { tag: alpine, base-image: alpine,               arch: x86_64-unknown-linux-musl }
-        - { tag: slim,   base-image: 'debian:stable-slim', arch: x86_64-unknown-linux-gnu  }
-        - { tag: debian, base-image: debian,               arch: x86_64-unknown-linux-gnu  }
+        - { tag: alpine,        base-image: alpine,               arch: x86_64-unknown-linux-musl, plugin: true  }
+        - { tag: slim,          base-image: 'debian:stable-slim', arch: x86_64-unknown-linux-gnu,  plugin: true  }
+        - { tag: debian,        base-image: debian,               arch: x86_64-unknown-linux-gnu,  plugin: true  }
+        - { tag: glibc-busybox, base-image: 'busybox:glibc',      arch: x86_64-unknown-linux-gnu,  plugin: false }
+        - { tag: musl-busybox,  base-image: 'busybox:musl',       arch: x86_64-unknown-linux-musl, plugin: false }
     steps:
     - uses: actions/checkout@v1
     - uses: actions/download-artifact@master
@@ -45,6 +47,7 @@ jobs:
     - name: Build and publish exact version
       run: |
         REGISTRY=${REGISTRY,,}; export TAG=${GITHUB_REF##*/}-${{ matrix.tag }};
+        export NU_BINS=target/release/$( [ ${{ matrix.plugin }} ] && nu* || nu )
 
         echo ${{ secrets.DOCKER_REGISTRY }} | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
         docker-compose --file docker/docker-compose.package.yml build
