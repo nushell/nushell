@@ -40,6 +40,8 @@ jobs:
         - { tag: debian,        base-image: debian,               arch: x86_64-unknown-linux-gnu,  plugin: true  }
         - { tag: glibc-busybox, base-image: 'busybox:glibc',      arch: x86_64-unknown-linux-gnu,  plugin: false }
         - { tag: musl-busybox,  base-image: 'busybox:musl',       arch: x86_64-unknown-linux-musl, plugin: false }
+        - { tag: glibc,         base-image: scratch,              arch: x86_64-unknown-linux-gnu,  plugin: false }
+        - { tag: musl,          base-image: scratch,              arch: x86_64-unknown-linux-musl, plugin: false }
     steps:
     - uses: actions/checkout@v1
     - uses: actions/download-artifact@master
