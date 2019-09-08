@@ -10,11 +10,15 @@ version: 2.1
 commands:
 
   pull_cache:
-    description: Pulls Quay.io docker images usable for our cache
+    description: Pulls Quay.io docker images (latest) for our cache
+    parameters:
+      tag:
+        type: string
+        default: "devel"
     steps:
-      - run: docker pull quay.io/nushell/nu:latest
-      - run: docker pull quay.io/nushell/nu-base:latest
-
+      - run: echo "Tag is << parameters.tag >>"
+      - run: docker pull quay.io/nushell/nu:<< parameters.tag >>
+      - run: docker pull quay.io/nushell/nu-base:<< parameters.tag >>
 
 orbs:
   # https://circleci.com/orbs/registry/orb/circleci/docker
@@ -31,7 +35,7 @@ workflows:
           image: nushell/nu-base
           tag: latest
           dockerfile: docker/Dockerfile.nu-base
-          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:devel
           filters:
             branches:
               ignore: 
@@ -53,20 +57,21 @@ workflows:
   build_with_deploy:
     jobs:
 
-        # Deploy versioned and latest images on tags (releases) only.
+        # Deploy versioned and latest images on tags (releases) only - builds --release.
       - docker/publish:
           image: nushell/nu-base
           registry: quay.io
           tag: latest
           dockerfile: docker/Dockerfile.nu-base
-          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest --build-arg RELEASE=true
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /^v.*/
           before_build:
-            - pull_cache
+            - run: docker pull quay.io/nushell/nu:latest
+            - run: docker pull quay.io/nushell/nu-base:latest
           after_build:
             - run:
                 name: Build Multistage (smaller) container
@@ -83,7 +88,7 @@ workflows:
                    docker push quay.io/nushell/nu
 
 
-  # publish devel to Docker Hub on merge to master
+  # publish devel to Docker Hub on merge to master (doesn't build --release)
   build_with_deploy_devel:
     jobs:
 
@@ -93,7 +98,7 @@ workflows:
           registry: quay.io
           tag: devel
           dockerfile: docker/Dockerfile.nu-base
-          extra_build_args: --cache-from=quay.io/nushell/nu-base:latest,quay.io/nushell/nu:latest --build-arg RELEASE=true
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:devel
           before_build:
             - pull_cache
           filters:
@@ -109,3 +114,36 @@ workflows:
                 command: |
                    docker push quay.io/nushell/nu-base:devel
                    docker push quay.io/nushell/nu:devel
+
+  nightly:
+    jobs:
+      - docker/publish:
+          image: nushell/nu-base
+          registry: quay.io
+          tag: nightly
+          dockerfile: docker/Dockerfile.nu-base
+          extra_build_args: --cache-from=quay.io/nushell/nu-base:nightly --build-arg RELEASE=true
+          filters:
+            branches:
+              only: master
+          before_build:
+            - run: docker pull quay.io/nushell/nu:nightly
+            - run: docker pull quay.io/nushell/nu-base:nightly
+          after_build:
+            - run:
+                name: Build Multistage (smaller) container
+                command: |
+                  docker build -f docker/Dockerfile -t quay.io/nushell/nu:nightly .
+            - run:
+                name: Publish Nightly Nushell Containers
+                command: |
+                   docker push quay.io/nushell/nu-base:nightly
+                   docker push quay.io/nushell/nu:nightly
+
+    triggers:
+      - schedule:
+          cron: "0 22 * * *"
+          filters:
+            branches:
+              only:
+                - master
