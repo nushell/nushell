@@ -1,6 +1,6 @@
 mod helpers;
 
-use helpers::Playground;
+use helpers::{Playground, Stub::*};
 use std::path::PathBuf;
 
 #[test]
@@ -54,8 +54,25 @@ fn filesystem_switch_back_to_previous_working_directory() {
 }
 
 #[test]
+fn filesytem_change_from_current_directory_using_relative_path_and_dash() {
+    Playground::setup("cd_test_4", |dirs, sandbox| {
+        sandbox.within("odin").mkdir("-"); //
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd odin/-
+                pwd | echo $it
+            "#
+        );
+
+        assert_eq!(PathBuf::from(actual), dirs.test().join("odin").join("-"));
+    })
+}
+
+#[test]
 fn filesystem_change_current_directory_to_parent_directory() {
-    Playground::setup("cd_test_4", |dirs, _| {
+    Playground::setup("cd_test_5", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
@@ -70,7 +87,7 @@ fn filesystem_change_current_directory_to_parent_directory() {
 
 #[test]
 fn file_system_change_to_home_directory() {
-    Playground::setup("cd_test_5", |dirs, _| {
+    Playground::setup("cd_test_6", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
@@ -85,7 +102,7 @@ fn file_system_change_to_home_directory() {
 
 #[test]
 fn filesystem_change_to_a_directory_containing_spaces() {
-    Playground::setup("cd_test_6", |dirs, sandbox| {
+    Playground::setup("cd_test_7", |dirs, sandbox| {
         sandbox.mkdir("robalino turner katz");
 
         let actual = nu!(
