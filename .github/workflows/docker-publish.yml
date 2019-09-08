@@ -51,7 +51,7 @@ jobs:
     - name: Build and publish exact version
       run: |
         REGISTRY=${REGISTRY,,}; export TAG=${GITHUB_REF##*/}-${{ matrix.tag }};
-        export NU_BINS=target/release/$( [ ${{ matrix.plugin }} ] && nu* || nu )
+        export NU_BINS=target/release/$( [ ${{ matrix.plugin }} = true ] && echo nu* || echo nu )
 
         echo ${{ secrets.DOCKER_REGISTRY }} | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
         docker-compose --file docker/docker-compose.package.yml build
