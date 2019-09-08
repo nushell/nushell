@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 pub struct FilesystemShell {
     pub(crate) path: String,
-    last_path: String,
+    pub(crate) last_path: String,
     completer: NuCompleter,
     hinter: HistoryHinter,
 }
@@ -185,29 +185,20 @@ impl Shell for FilesystemShell {
             },
             Some(v) => {
                 let target = v.as_path()?;
-                let path = PathBuf::from(self.path());
-                match dunce::canonicalize(path.join(&target).as_path()) {
-                    Ok(p) => p,
-                    Err(_) => {
-                        let error = Err(ShellError::labeled_error(
-                            "Can not change to directory",
-                            "directory not found",
-                            v.span().clone(),
-                        ));
 
-                        if let Some(t) = target.to_str() {
-                            if t == "-" {
-                                match dunce::canonicalize(PathBuf::from(self.last_path.clone()).as_path()) {
-                                    Ok(p) => p,
-                                    Err(_) => {
-                                        return error;
-                                    }
-                                }
-                            } else {
-                                return error;
-                            }
-                        } else {
-                            return error;
+                if PathBuf::from("-") == target {
+                    PathBuf::from(&self.last_path)
+                } else {
+                    let path = PathBuf::from(self.path());
+
+                    match dunce::canonicalize(path.join(&target)) {
+                        Ok(p) => p,
+                        Err(_) => {
+                            return Err(ShellError::labeled_error(
+                                "Can not change to directory",
+                                "directory not found",
+                                v.span().clone(),
+                            ))
                         }
                     }
                 }
@@ -215,23 +206,12 @@ impl Shell for FilesystemShell {
         };
 
         let mut stream = VecDeque::new();
-        match std::env::set_current_dir(&path) {
-            Ok(_) => {}
-            Err(_) => {
-                if let Some(directory) = args.nth(0) {
-                    return Err(ShellError::labeled_error(
-                        "Can not change to directory",
-                        "directory not found",
-                        directory.span(),
-                    ));
-                } else {
-                    return Err(ShellError::string("Can not change to directory"));
-                }
-            }
-        }
-        stream.push_back(ReturnSuccess::change_cwd(
+
+        stream.push_back(
+            ReturnSuccess::change_cwd(
             path.to_string_lossy().to_string(),
         ));
+
         Ok(stream.into())
     }
 
