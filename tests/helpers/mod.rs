@@ -227,8 +227,14 @@ impl Playground {
                 playground_root.join(topic).display()
             ));
 
+        let root = 
+            dunce::canonicalize(playground_root).expect(&format!(
+                "Couldn't canonicalize tests root path {}",
+                playground_root.display()
+            ));
+
         let dirs = Dirs {
-            root: PathBuf::from(playground_root),
+            root,
             test,
             fixtures,
         };
