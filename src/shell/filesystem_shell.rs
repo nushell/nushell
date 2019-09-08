@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 pub struct FilesystemShell {
     pub(crate) path: String,
-    last_path: String,
+    pub(crate) last_path: String,
     completer: NuCompleter,
     hinter: HistoryHinter,
 }
@@ -211,7 +211,7 @@ impl Shell for FilesystemShell {
             ReturnSuccess::change_cwd(
             path.to_string_lossy().to_string(),
         ));
-        
+
         Ok(stream.into())
     }
 
