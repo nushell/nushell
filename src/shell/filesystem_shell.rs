@@ -172,49 +172,10 @@ impl Shell for FilesystemShell {
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let path = match args.nth(0) {
-            None => match dirs::home_dir() {
-                Some(o) => o,
-                _ => {
-                    return Err(ShellError::labeled_error(
-                        "Can not change to home directory",
-                        "can not go to home",
-                        args.call_info.name_span,
-                    ))
-                }
-            },
-            Some(v) => {
-                let target = v.as_path()?;
-                let path = PathBuf::from(self.path());
-
-                match dunce::canonicalize(path.join(&target)) {
-                    Ok(p) => p,
-                    Err(_) => {
-                        let error = Err(ShellError::labeled_error(
-                            "Can not change to directory",
-                            "directory not found",
-                            v.span().clone(),
-                        ));
-
-                        if PathBuf::from("-") == target {
-                            match dunce::canonicalize(PathBuf::from(&self.last_path)) {
-                                Ok(p) => p,
-                                Err(_) => {
-                                    return error;
-                                }
-                            }
-                        } else {
-                            return error;
-                        }
-                    }
-                }
-            }
-        };
+        let path = cd_path(args, &self.path, &self.last_path)?;
 
         let mut stream = VecDeque::new();
-
-        stream.push_back(
-            ReturnSuccess::change_cwd(
+        stream.push_back(ReturnSuccess::change_cwd(
             path.to_string_lossy().to_string(),
         ));
 
@@ -1001,5 +962,45 @@ impl Shell for FilesystemShell {
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
+    }
+}
+
+fn cd_path(
+    args: EvaluatedWholeStreamCommandArgs,
+    path: &String,
+    last_path: &String,
+) -> Result<PathBuf, ShellError> {
+    match args.nth(0) {
+        // If we don't have any arguments, attempt changing to the users home directory.
+        None => match dirs::home_dir() {
+            Some(o) => Ok(o),
+            None => Err(ShellError::labeled_error(
+                "Can not change to home directory",
+                "can not go to home",
+                args.call_info.name_span,
+            )),
+        },
+        Some(v) => {
+            let target = v.as_path()?;
+
+            match dunce::canonicalize(PathBuf::from(path).join(&target)) {
+                Ok(p) => return Ok(p),
+                Err(_) => {
+                    // If we cannot canonicalize a path and the argument is a "-" we attempt to
+                    // change to the last directory.
+                    if PathBuf::from("-") == target {
+                        match dunce::canonicalize(PathBuf::from(last_path)) {
+                            Ok(p) => return Ok(p),
+                            Err(_) => {}
+                        }
+                    }
+                    Err(ShellError::labeled_error(
+                        "Can not change to directory",
+                        "directory not found",
+                        v.span().clone(),
+                    ))
+                }
+            }
+        }
     }
 }
