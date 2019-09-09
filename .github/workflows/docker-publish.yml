@@ -33,7 +33,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        base-image: [debian, 'debian:stable-slim', alpine, 'busybox:glibc', 'busybox:musl']
+        tag:
+        - alpine
+        - slim
+        - debian
+        - glibc-busybox
+        - musl-busybox
+        - musl-distroless
+        - glibc-distroless
+        - glibc
+        - musl
         include:
         - { tag: alpine,           base-image: alpine,                     arch: x86_64-unknown-linux-musl, plugin: true  }
         - { tag: slim,             base-image: 'debian:stable-slim',       arch: x86_64-unknown-linux-gnu,  plugin: true  }

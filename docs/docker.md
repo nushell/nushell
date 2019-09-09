@@ -2,7 +2,7 @@
 
 | tag                | base image           | plugins | package manager | libs & bins                                                      | size        |
 | ------------------ | -------------------- | ------- | --------------- | ---------------------------------------------------------------- | ----------- |
-| `latest`,`debian`  | `debian:latest`      | yes     | apt             | **a lot**, including _glibc_                                     | ~(48+62) MB |
+| `latest`, `debian` | `debian:latest`      | yes     | apt             | **a lot**, including _glibc_                                     | ~(48+62) MB |
 | `slim`             | `debian:stable-slim` | yes     | apt             | all `nu:debian` image but exclude [this list][.slimify-excludes] | ~(26+62) MB |
 | `alpine`           | `alpine:latest`      | yes     | apk             | all `nu:musl-busybox` image + libcrypto, libssl, libtls, libz    | ~(3+61) MB  |
 | `musl-busybox`     | `busybox:musl`       | no      | —               | GNU utils + _musl_                                               | ~(1+16) MB  |
