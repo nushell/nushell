@@ -116,6 +116,13 @@ workflows:
                    docker push quay.io/nushell/nu:devel
 
   nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
     jobs:
       - docker/publish:
           image: nushell/nu-base
@@ -123,9 +130,6 @@ workflows:
           tag: nightly
           dockerfile: docker/Dockerfile.nu-base
           extra_build_args: --cache-from=quay.io/nushell/nu-base:nightly --build-arg RELEASE=true
-          filters:
-            branches:
-              only: master
           before_build:
             - run: docker pull quay.io/nushell/nu:nightly
             - run: docker pull quay.io/nushell/nu-base:nightly
@@ -139,11 +143,3 @@ workflows:
                 command: |
                    docker push quay.io/nushell/nu-base:nightly
                    docker push quay.io/nushell/nu:nightly
-
-    triggers:
-      - schedule:
-          cron: "0 22 * * *"
-          filters:
-            branches:
-              only:
-                - master
