@@ -10,16 +10,24 @@ use crate::utils::ValueStructure;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ValueShell {
     pub(crate) path: String,
+    pub(crate) last_path: String,
     pub(crate) value: Tagged<Value>,
+}
+
+impl std::fmt::Debug for ValueShell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ValueShell @ {}", self.path)
+    }
 }
 
 impl ValueShell {
     pub fn new(value: Tagged<Value>) -> ValueShell {
         ValueShell {
             path: "/".to_string(),
+            last_path: "/".to_string(),
             value,
         }
     }
@@ -76,7 +84,7 @@ impl Shell for ValueShell {
     }
 
     fn homedir(&self) -> Option<PathBuf> {
-        dirs::home_dir()
+        Some(PathBuf::from("/"))
     }
 
     fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
@@ -126,6 +134,8 @@ impl Shell for ValueShell {
 
                 if target == PathBuf::from("..") {
                     cwd.pop();
+                } else if target == PathBuf::from("-") {
+                    cwd = PathBuf::from(&self.last_path);
                 } else {
                     match target.to_str() {
                         Some(target) => match target.chars().nth(0) {
@@ -200,19 +210,16 @@ impl Shell for ValueShell {
     }
 
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let path = PathBuf::from(&self.path());
-
         let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(
-            Value::Primitive(Primitive::String(path.to_string_lossy().to_string()))
-                .simple_spanned(args.call_info.name_span),
-        ));
-
+        stream.push_back(ReturnSuccess::value(Tagged::from_item(
+            Value::string(self.path()),
+            args.call_info.name_span,
+        )));
         Ok(stream.into())
     }
 
     fn set_path(&mut self, path: String) {
-        let _ = std::env::set_current_dir(&path);
+        self.last_path = self.path.clone();
         self.path = path.clone();
     }
 

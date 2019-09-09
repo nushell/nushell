@@ -1,4 +1,4 @@
-FROM rust:1.37-slim
+FROM ubuntu:16.04
 
 # docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
 # docker run -it nushell/nu-base
@@ -7,12 +7,20 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y libssl-dev \
     libxcb-composite0-dev \
     libx11-dev \
-    pkg-config
+    pkg-config \
+    curl
 
-RUN USER=root cargo new --bin /code
-
+ARG RELEASE=false
 WORKDIR /code
-ADD . /code
-RUN cargo build --release && cargo run --release
-RUN cp target/release/nu /usr/local/bin
+COPY ./rust-toolchain ./rust-toolchain
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain `cat rust-toolchain`
+ENV PATH=/root/.cargo/bin:$PATH
+COPY . /code
+RUN echo "##vso[task.prependpath]/root/.cargo/bin" && \
+    rustc -Vv && \
+    if $RELEASE; then cargo build --release && cargo run --release; \
+                   cp target/release/nu /usr/local/bin; \   
+                 else cargo build; \
+                   cp target/debug/nu /usr/local/bin; fi;
 ENTRYPOINT ["nu"]
+CMD ["-l", "info"]
