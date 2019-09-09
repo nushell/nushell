@@ -5,7 +5,7 @@ services:
     image: ${REGISTRY}/nu:${TAG}
     build:
       context: ..
-      dockerfile: docker/Package.Dockerfile
+      dockerfile: docker/Package${PATCH}.Dockerfile
       args:
         base: ${BASE_IMAGE}
         artifact: ${NU_BINS}

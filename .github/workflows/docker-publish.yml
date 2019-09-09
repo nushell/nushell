@@ -47,10 +47,10 @@ jobs:
         - { tag: alpine,           base-image: alpine,                     arch: x86_64-unknown-linux-musl, plugin: true  }
         - { tag: slim,             base-image: 'debian:stable-slim',       arch: x86_64-unknown-linux-gnu,  plugin: true  }
         - { tag: debian,           base-image: debian,                     arch: x86_64-unknown-linux-gnu,  plugin: true  }
-        - { tag: glibc-busybox,    base-image: 'busybox:glibc',            arch: x86_64-unknown-linux-gnu,  plugin: false }
+        - { tag: glibc-busybox,    base-image: 'busybox:glibc',            arch: x86_64-unknown-linux-gnu,  plugin: false, use-patch: true }
         - { tag: musl-busybox,     base-image: 'busybox:musl',             arch: x86_64-unknown-linux-musl, plugin: false }
         - { tag: musl-distroless,  base-image: 'gcr.io/distroless/static', arch: x86_64-unknown-linux-musl, plugin: false }
-        - { tag: glibc-distroless, base-image: 'gcr.io/distroless/base',   arch: x86_64-unknown-linux-gnu,  plugin: false }
+        - { tag: glibc-distroless, base-image: 'gcr.io/distroless/base',   arch: x86_64-unknown-linux-gnu,  plugin: false, use-patch: true }
         - { tag: glibc,            base-image: scratch,                    arch: x86_64-unknown-linux-gnu,  plugin: false }
         - { tag: musl,             base-image: scratch,                    arch: x86_64-unknown-linux-musl, plugin: false }
     steps:
@@ -61,6 +61,7 @@ jobs:
       run: |
         REGISTRY=${REGISTRY,,}; export TAG=${GITHUB_REF##*/}-${{ matrix.tag }};
         export NU_BINS=target/release/$( [ ${{ matrix.plugin }} = true ] && echo nu* || echo nu )
+        export PATCH=$([ ${{ matrix.use-patch }} = true ] && echo .patch || echo '')
         chmod +x $NU_BINS
 
         echo ${{ secrets.DOCKER_REGISTRY }} | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
