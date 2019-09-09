@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
+use crate::traits::ToDebug;
 use crate::{Span, Tagged, Text};
 use derive_new::new;
 use enum_utils::FromStr;
@@ -22,6 +23,12 @@ pub enum TokenNode {
     Path(Tagged<PathNode>),
 }
 
+impl ToDebug for TokenNode {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+        write!(f, "{:?}", self.old_debug(&Text::from(source)))
+    }
+}
+
 pub struct DebugTokenNode<'a> {
     node: &'a TokenNode,
     source: &'a Text,
@@ -34,11 +41,11 @@ impl fmt::Debug for DebugTokenNode<'_> {
             TokenNode::Call(s) => {
                 write!(f, "(")?;
 
-                write!(f, "{:?}", s.head().debug(self.source))?;
+                write!(f, "{}", s.head().debug(self.source))?;
 
                 if let Some(children) = s.children() {
                     for child in children {
-                        write!(f, "{:?}", child.debug(self.source))?;
+                        write!(f, "{}", child.debug(self.source))?;
                     }
                 }
 
@@ -57,7 +64,7 @@ impl fmt::Debug for DebugTokenNode<'_> {
                 )?;
 
                 for child in d.children() {
-                    write!(f, "{:?}", child.debug(self.source))?;
+                    write!(f, "{:?}", child.old_debug(self.source))?;
                 }
 
                 write!(
@@ -70,7 +77,7 @@ impl fmt::Debug for DebugTokenNode<'_> {
                     }
                 )
             }
-            TokenNode::Pipeline(_) => write!(f, "<todo:pipeline>"),
+            TokenNode::Pipeline(pipeline) => write!(f, "{}", pipeline.debug(self.source)),
             TokenNode::Error(s) => write!(f, "<error> for {:?}", s.span().slice(self.source)),
             rest => write!(f, "{}", rest.span().slice(self.source)),
         }
@@ -115,7 +122,7 @@ impl TokenNode {
         .to_string()
     }
 
-    pub fn debug<'a>(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
+    pub fn old_debug<'a>(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
         DebugTokenNode { node: self, source }
     }
 
@@ -140,7 +147,7 @@ impl TokenNode {
     pub fn is_external(&self) -> bool {
         match self {
             TokenNode::Token(Tagged {
-                item: RawToken::External(..),
+                item: RawToken::ExternalCommand(..),
                 ..
             }) => true,
             _ => false,
@@ -150,7 +157,7 @@ impl TokenNode {
     pub fn expect_external(&self) -> Span {
         match self {
             TokenNode::Token(Tagged {
-                item: RawToken::External(span),
+                item: RawToken::ExternalCommand(span),
                 ..
             }) => *span,
             _ => panic!("Only call expect_external if you checked is_external first"),

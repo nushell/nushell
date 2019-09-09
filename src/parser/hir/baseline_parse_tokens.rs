@@ -33,7 +33,6 @@ pub fn baseline_parse_tokens(
     Ok(exprs)
 }
 
-
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SyntaxType {
     Any,
@@ -62,7 +61,7 @@ impl std::fmt::Display for SyntaxType {
             SyntaxType::Path => write!(f, "Path"),
             SyntaxType::Binary => write!(f, "Binary"),
             SyntaxType::Block => write!(f, "Block"),
-            SyntaxType::Boolean => write!(f, "Boolean")
+            SyntaxType::Boolean => write!(f, "Boolean"),
         }
     }
 }
@@ -81,7 +80,7 @@ pub fn baseline_parse_next_expr(
 
     match (syntax_type, next) {
         (SyntaxType::Path, TokenNode::Token(token)) => {
-            return Ok(baseline_parse_token_as_path(token, context, source))
+            return baseline_parse_token_as_path(token, context, source)
         }
 
         (SyntaxType::Path, token) => {
@@ -92,7 +91,7 @@ pub fn baseline_parse_next_expr(
         }
 
         (SyntaxType::String, TokenNode::Token(token)) => {
-            return Ok(baseline_parse_token_as_string(token, source));
+            return baseline_parse_token_as_string(token, source);
         }
 
         (SyntaxType::String, token) => {
@@ -103,7 +102,7 @@ pub fn baseline_parse_next_expr(
         }
 
         (SyntaxType::Number, TokenNode::Token(token)) => {
-            return Ok(baseline_parse_token_as_number(token, source));
+            return Ok(baseline_parse_token_as_number(token, source)?);
         }
 
         (SyntaxType::Number, token) => {
@@ -115,7 +114,7 @@ pub fn baseline_parse_next_expr(
 
         // TODO: More legit member processing
         (SyntaxType::Member, TokenNode::Token(token)) => {
-            return Ok(baseline_parse_token_as_string(token, source));
+            return baseline_parse_token_as_string(token, source);
         }
 
         (SyntaxType::Member, token) => {
@@ -245,7 +244,7 @@ pub fn baseline_parse_semantic_token(
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     match token {
-        TokenNode::Token(token) => Ok(baseline_parse_single_token(token, source)),
+        TokenNode::Token(token) => baseline_parse_single_token(token, source),
         TokenNode::Call(_call) => unimplemented!(),
         TokenNode::Delimited(delimited) => baseline_parse_delimited(delimited, context, source),
         TokenNode::Pipeline(_pipeline) => unimplemented!(),
@@ -315,7 +314,8 @@ pub fn baseline_parse_path(
                 RawToken::Number(_)
                 | RawToken::Size(..)
                 | RawToken::Variable(_)
-                | RawToken::External(_) => {
+                | RawToken::ExternalCommand(_)
+                | RawToken::ExternalWord => {
                     return Err(ShellError::type_error(
                         "String",
                         token.type_name().simple_spanned(part),

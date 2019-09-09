@@ -1,5 +1,7 @@
 use crate::parser::TokenNode;
+use crate::traits::ToDebug;
 use getset::Getters;
+use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters)]
 pub struct CallNode {
@@ -22,5 +24,19 @@ impl CallNode {
                 children: Some(children),
             }
         }
+    }
+}
+
+impl ToDebug for CallNode {
+    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+        write!(f, "{}", self.head.debug(source))?;
+
+        if let Some(children) = &self.children {
+            for child in children {
+                write!(f, "{}", child.debug(source))?
+            }
+        }
+
+        Ok(())
     }
 }

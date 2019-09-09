@@ -136,9 +136,13 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),
         TokenNode::Token(Tagged {
-            item: RawToken::External(..),
+            item: RawToken::ExternalCommand(..),
             ..
         }) => Color::Cyan.bold().paint(token_node.span().slice(line)),
+        TokenNode::Token(Tagged {
+            item: RawToken::ExternalWord,
+            ..
+        }) => Color::Black.bold().paint(token_node.span().slice(line)),
     };
 
     styled.to_string()

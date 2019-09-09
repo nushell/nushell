@@ -38,6 +38,7 @@ pub enum ArgumentError {
     MissingMandatoryFlag(String),
     MissingMandatoryPositional(String),
     MissingValueForName(String),
+    InvalidExternalWord,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
@@ -136,6 +137,16 @@ impl ShellError {
         .start()
     }
 
+    pub(crate) fn invalid_external_word(span: Span) -> ShellError {
+        ProximateShellError::ArgumentError {
+            command: "Invalid argument to Nu command (did you mean to call an external command?)"
+                .into(),
+            error: ArgumentError::InvalidExternalWord,
+            span,
+        }
+        .start()
+    }
+
     pub(crate) fn parse_error(
         error: nom::Err<(nom5_locate::LocatedSpan<&str>, nom::error::ErrorKind)>,
     ) -> ShellError {
@@ -190,6 +201,10 @@ impl ShellError {
                 error,
                 span,
             } => match error {
+                ArgumentError::InvalidExternalWord => Diagnostic::new(
+                    Severity::Error,
+                    format!("Invalid bare word for Nu command (did you intend to invoke an external command?)"))
+                .with_label(Label::new_primary(span)),
                 ArgumentError::MissingMandatoryFlag(name) => Diagnostic::new(
                     Severity::Error,
                     format!(

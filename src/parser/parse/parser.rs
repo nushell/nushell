@@ -236,9 +236,31 @@ pub fn bare(input: NomSpan) -> IResult<NomSpan, TokenNode> {
         let start = input.offset;
         let (input, _) = take_while1(is_start_bare_char)(input)?;
         let (input, _) = take_while(is_bare_char)(input)?;
+
+        let next_char = &input.fragment.chars().nth(0);
+
+        if let Some(next_char) = next_char {
+            if is_external_word_char(*next_char) {
+                return Err(nom::Err::Error(nom::error::make_error(
+                    input,
+                    nom::error::ErrorKind::TakeWhile1,
+                )));
+            }
+        }
+
         let end = input.offset;
 
         Ok((input, TokenTreeBuilder::spanned_bare((start, end))))
+    })
+}
+
+pub fn external_word(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    trace_step(input, "bare", move |input| {
+        let start = input.offset;
+        let (input, _) = take_while1(is_external_word_char)(input)?;
+        let end = input.offset;
+
+        Ok((input, TokenTreeBuilder::spanned_external_word((start, end))))
     })
 }
 
@@ -364,8 +386,17 @@ pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
 pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "leaf", move |input| {
-        let (input, node) =
-            alt((size, string, operator, flag, shorthand, var, external, bare))(input)?;
+        let (input, node) = alt((
+            size,
+            string,
+            operator,
+            flag,
+            shorthand,
+            var,
+            external,
+            bare,
+            external_word,
+        ))(input)?;
 
         Ok((input, node))
     })
@@ -582,26 +613,13 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 fn make_call_list(
-    head: Option<(
-        Option<NomSpan>,
-        Tagged<CallNode>,
-        Option<NomSpan>
-    )>,
-    items: Vec<(
-        NomSpan,
-        Option<NomSpan>,
-        Tagged<CallNode>,
-        Option<NomSpan>,
-    )>,
+    head: Option<(Option<NomSpan>, Tagged<CallNode>, Option<NomSpan>)>,
+    items: Vec<(NomSpan, Option<NomSpan>, Tagged<CallNode>, Option<NomSpan>)>,
 ) -> Vec<PipelineElement> {
     let mut out = vec![];
 
     if let Some(head) = head {
-        let el = PipelineElement::new(
-            None,
-            head.0.map(Span::from),
-            head.1,
-            head.2.map(Span::from));
+        let el = PipelineElement::new(None, head.0.map(Span::from), head.1, head.2.map(Span::from));
 
         out.push(el);
     }
@@ -611,7 +629,8 @@ fn make_call_list(
             Some(pipe).map(Span::from),
             ws1.map(Span::from),
             call,
-            ws2.map(Span::from));
+            ws2.map(Span::from),
+        );
 
         out.push(el);
     }
@@ -628,40 +647,39 @@ fn int<T>(frag: &str, neg: Option<T>) -> i64 {
     }
 }
 
+fn is_external_word_char(c: char) -> bool {
+    match c {
+        ';' | '|' | '#' | '-' | '"' | '\'' | '$' | '(' | ')' | '[' | ']' | '{' | '}' | '`' => false,
+        other if other.is_whitespace() => false,
+        _ => true,
+    }
+}
+
 fn is_start_bare_char(c: char) -> bool {
     match c {
+        '+' => false,
         _ if c.is_alphabetic() => true,
-        _ if c.is_numeric() => true,
         '.' => true,
         '\\' => true,
         '/' => true,
         '_' => true,
         '-' => true,
-        '@' => true,
-        '*' => true,
-        '?' => true,
         '~' => true,
-        '+' => true,
         _ => false,
     }
 }
 
 fn is_bare_char(c: char) -> bool {
     match c {
+        '+' => false,
         _ if c.is_alphanumeric() => true,
-        ':' => true,
         '.' => true,
         '\\' => true,
         '/' => true,
         '_' => true,
         '-' => true,
-        '@' => true,
-        '*' => true,
-        '?' => true,
         '=' => true,
         '~' => true,
-        '+' => true,
-        '%' => true,
         _ => false,
     }
 }
@@ -722,6 +740,44 @@ mod tests {
                 );
             )*
         }
+    }
+
+    macro_rules! equal_tokens {
+        ($source:tt -> $tokens:expr) => {
+            let result = apply(pipeline, "pipeline", $source);
+            let (expected_tree, expected_source) = TokenTreeBuilder::build($tokens);
+
+            if result != expected_tree {
+                let debug_result = format!("{}", result.debug($source));
+                let debug_expected = format!("{}", expected_tree.debug(&expected_source));
+
+                if debug_result == debug_expected {
+                    assert_eq!(
+                        result, expected_tree,
+                        "NOTE: actual and expected had equivalent debug serializations, source={:?}, debug_expected={:?}",
+                        $source,
+                        debug_expected
+                    )
+                } else {
+                    assert_eq!(debug_result, debug_expected)
+                }
+            }
+
+            // apply(pipeline, "pipeline", r#"cargo +nightly run"#),
+            // build_token(b::pipeline(vec![(
+            //     None,
+            //     b::call(
+            //         b::bare("cargo"),
+            //         vec![
+            //             b::sp(),
+            //             b::external_word("+nightly"),
+            //             b::sp(),
+            //             b::bare("run")
+            //         ]
+            //     ),
+            //     None
+            // )]))
+        };
     }
 
     #[test]
@@ -854,7 +910,7 @@ mod tests {
     fn test_external() {
         assert_leaf! {
             parsers [ external ]
-            "^ls" -> 0..3 { External(span(1, 3)) }
+            "^ls" -> 0..3 { ExternalCommand(span(1, 3)) }
         }
     }
 
@@ -1059,6 +1115,46 @@ mod tests {
     }
 
     #[test]
+    fn test_external_word() {
+        let _ = pretty_env_logger::try_init();
+
+        equal_tokens!(
+            "cargo +nightly run" ->
+            b::pipeline(vec![(
+                None,
+                b::call(
+                    b::bare("cargo"),
+                    vec![
+                        b::sp(),
+                        b::external_word("+nightly"),
+                        b::sp(),
+                        b::bare("run")
+                    ]
+                ),
+                None
+            )])
+        );
+
+        equal_tokens!(
+            "rm foo%bar" ->
+            b::pipeline(vec![(
+                None,
+                b::call(b::bare("rm"), vec![b::sp(), b::external_word("foo%bar"),]),
+                None
+            )])
+        );
+
+        equal_tokens!(
+            "rm foo%bar" ->
+            b::pipeline(vec![(
+                None,
+                b::call(b::bare("rm"), vec![b::sp(), b::external_word("foo%bar"),]),
+                None
+            )])
+        );
+    }
+
+    #[test]
     fn test_smoke_pipeline() {
         let _ = pretty_env_logger::try_init();
 
@@ -1178,7 +1274,6 @@ mod tests {
     }
 
     fn build_token(block: CurriedToken) -> TokenNode {
-        let mut builder = TokenTreeBuilder::new();
-        block(&mut builder)
+        TokenTreeBuilder::build(block).0
     }
 }

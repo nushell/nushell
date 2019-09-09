@@ -83,6 +83,7 @@ impl ToDebug for Call {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum RawExpression {
     Literal(Literal),
+    ExternalWord,
     Synthetic(Synthetic),
     Variable(Variable),
     Binary(Box<Binary>),
@@ -113,6 +114,7 @@ impl RawExpression {
         match self {
             RawExpression::Literal(literal) => literal.type_name(),
             RawExpression::Synthetic(synthetic) => synthetic.type_name(),
+            RawExpression::ExternalWord => "externalword",
             RawExpression::FilePath(..) => "filepath",
             RawExpression::Variable(..) => "variable",
             RawExpression::List(..) => "list",
@@ -189,6 +191,7 @@ impl ToDebug for Expression {
         match self.item() {
             RawExpression::Literal(l) => l.tagged(self.span()).fmt_debug(f, source),
             RawExpression::FilePath(p) => write!(f, "{}", p.display()),
+            RawExpression::ExternalWord => write!(f, "{}", self.span().slice(source)),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
@@ -225,6 +228,11 @@ impl From<Tagged<Path>> for Expression {
     }
 }
 
+/// Literals are expressions that are:
+///
+/// 1. Copy
+/// 2. Can be evaluated without additional context
+/// 3. Evaluation cannot produce an error
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Literal {
     Number(Number),
