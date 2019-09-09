@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{config, Value};
+use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{self};
 use std::iter::FromIterator;
