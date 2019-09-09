@@ -328,7 +328,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let type_name = std::any::type_name::<V::Value>();
         let tagged_val_name = std::any::type_name::<Tagged<Value>>();
 
-        if name == tagged_val_name {
+        if type_name == tagged_val_name {
             return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
         }
 
