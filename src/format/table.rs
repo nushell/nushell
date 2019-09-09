@@ -16,6 +16,11 @@ pub struct TableView {
     entries: Vec<Vec<(String, &'static str)>>,
 }
 
+enum TableMode {
+    Light,
+    Normal,
+}
+
 impl TableView {
     fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
         let mut ret = vec![];
@@ -198,15 +203,36 @@ impl RenderView for TableView {
         }
 
         let mut table = Table::new();
-        table.set_format(
-            FormatBuilder::new()
-                .column_separator('│')
-                .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
-                .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
-                .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
-                .padding(1, 1)
-                .build(),
-        );
+
+        let table_mode = crate::data::config::config(Span::unknown())?
+            .get("table_mode")
+            .map(|s| match s.as_string().unwrap().as_ref() {
+                "light" => TableMode::Light,
+                _ => TableMode::Normal,
+            })
+            .unwrap_or(TableMode::Normal);
+
+        match table_mode {
+            TableMode::Light => {
+                table.set_format(
+                    FormatBuilder::new()
+                        .separator(LinePosition::Title, LineSeparator::new('─', '─', ' ', ' '))
+                        .padding(1, 1)
+                        .build(),
+                );
+            }
+            _ => {
+                table.set_format(
+                    FormatBuilder::new()
+                        .column_separator('│')
+                        .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
+                        .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
+                        .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
+                        .padding(1, 1)
+                        .build(),
+                );
+            }
+        }
 
         let header: Vec<Cell> = self
             .headers
