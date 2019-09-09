@@ -8,7 +8,7 @@
 | `musl-busybox`     | `busybox:musl`       | no      | —               | GNU utils + _musl_                                               | ~(1+16) MB  |
 | `glibc-busybox`    | `busybox:glibc`      | no      | —               | GNU utils + _glibc_                                              | ~(3+17) MB  |
 | `musl-distroless`  | `distroless/static`  | no      | —               | see [here][distroless/base]                                      | ~(2+16) MB  |
-| `glibc-distroless` | `distroless/base`    | no      | —               | `distroless/static` with _glibc_                                 | ~(17+17) MB |
+| `glibc-distroless` | `distroless/cc`      | no      | —               | `distroless/static` with _glibc_                                 | ~(17+17) MB |
 | `glibc`            | `scratch`            | no      | —               | **only `nu` binary-executable** which depend on glibc runtime    | ~17 MB      |
 | `musl`             | `scratch`            | no      | —               | **only `nu` binary-executable** statically linked to musl        | ~16 MB      |
 
