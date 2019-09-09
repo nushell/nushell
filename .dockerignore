@@ -1,6 +1,0 @@
-*
-!target/debug/*
-!target/release/*
-!dist/*
-!LICENSE
-!*.md
