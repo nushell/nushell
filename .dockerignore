@@ -1,6 +1,6 @@
 *
-!target/debug/nu*
-!target/release/nu*
+!target/debug/*
+!target/release/*
 !dist/*
 !LICENSE
 !*.md
