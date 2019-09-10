@@ -63,7 +63,7 @@ fn save_can_write_out_csv() {
         );
 
         let actual = h::file_contents(expected_file);
-        assert!(actual.contains("[list list],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
+        assert!(actual.contains("[Table],A shell for the GitHub era,2018,ISC,nu,0.2.0"));
     })
 }
 
