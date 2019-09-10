@@ -37,6 +37,9 @@ pub fn value_to_tsv_value(v: &Value) -> Value {
         Value::Primitive(Primitive::String(s)) => Value::Primitive(Primitive::String(s.clone())),
         Value::Primitive(Primitive::Nothing) => Value::Primitive(Primitive::Nothing),
         Value::Primitive(Primitive::Boolean(b)) => Value::Primitive(Primitive::Boolean(b.clone())),
+        Value::Primitive(Primitive::Decimal(f)) => Value::Primitive(Primitive::Decimal(f.clone())),
+        Value::Primitive(Primitive::Int(i)) => Value::Primitive(Primitive::Int(i.clone())),
+        Value::Primitive(Primitive::Path(x)) => Value::Primitive(Primitive::Path(x.clone())),
         Value::Primitive(Primitive::Bytes(b)) => Value::Primitive(Primitive::Bytes(b.clone())),
         Value::Primitive(Primitive::Date(d)) => Value::Primitive(Primitive::Date(d.clone())),
         Value::Row(o) => Value::Row(o.clone()),
@@ -51,10 +54,13 @@ fn to_string_helper(v: &Value) -> Result<String, ShellError> {
         Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", b)),
         Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
+        Value::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
+        Value::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
+        Value::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
         Value::Table(_) => return Ok(String::from("[table]")),
         Value::Row(_) => return Ok(String::from("[row]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => Err(ShellError::string("Unexpected value")),
+        _ => return Err(ShellError::string("Unexpected value")),
     }
 }
 
