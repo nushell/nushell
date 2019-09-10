@@ -10,7 +10,7 @@ impl WholeStreamCommand for LS {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ls").optional("path", SyntaxType::Path)
+        Signature::build("ls").optional("path", SyntaxType::Pattern)
     }
 
     fn usage(&self) -> &str {
