@@ -1,0 +1,18 @@
+Source: nu
+Section: shells
+Priority: optional
+Maintainer: Jan Koprowski <jan.koprowski@gmail.com>
+Build-Depends: debhelper (>= 10)
+Standards-Version: 4.1.2
+Homepage: https://github.com/nushell/nushell
+Vcs-Git: https://github.com/nushell/nushell.git
+Vcs-Browser: https://github.com/nushell/nushell
+
+Package: nu
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A modern shell for the GitHub era
+ The goal of this project is to take the Unix
+ philosophy of shells, where pipes connect simple
+ commands together, and bring it to the modern
+ style of development.

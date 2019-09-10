@@ -1,0 +1,23 @@
+FROM ubuntu:18.04
+
+# docker build -f docker/Dockerfile.bionic .
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update && apt-get install -y libssl-dev \
+    libxcb-composite0-dev \
+    libx11-dev \
+    pkg-config \
+    curl \
+    devscripts \
+    debhelper
+
+WORKDIR /code
+COPY ./rust-toolchain ./rust-toolchain
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain `cat rust-toolchain`
+ENV PATH=/root/.cargo/bin:$PATH
+COPY . /code
+RUN rustc -Vv && cargo build --release
+RUN debuild -b -us -uc -i
+RUN dpkg -i ../nu_0.2.0-1_amd64.deb
+RUN chsh -s /usr/bin/nu
+RUN echo 'ls | get name | echo $it' | /usr/bin/nu
