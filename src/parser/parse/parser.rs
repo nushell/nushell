@@ -231,6 +231,29 @@ pub fn external(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     })
 }
 
+pub fn pattern(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    trace_step(input, "bare", move |input| {
+        let start = input.offset;
+        let (input, _) = take_while1(is_start_glob_char)(input)?;
+        let (input, _) = take_while(is_glob_char)(input)?;
+
+        let next_char = &input.fragment.chars().nth(0);
+
+        if let Some(next_char) = next_char {
+            if is_external_word_char(*next_char) {
+                return Err(nom::Err::Error(nom::error::make_error(
+                    input,
+                    nom::error::ErrorKind::TakeWhile1,
+                )));
+            }
+        }
+
+        let end = input.offset;
+
+        Ok((input, TokenTreeBuilder::spanned_pattern((start, end))))
+    })
+}
+
 pub fn bare(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     trace_step(input, "bare", move |input| {
         let start = input.offset;
@@ -240,7 +263,7 @@ pub fn bare(input: NomSpan) -> IResult<NomSpan, TokenNode> {
         let next_char = &input.fragment.chars().nth(0);
 
         if let Some(next_char) = next_char {
-            if is_external_word_char(*next_char) {
+            if is_external_word_char(*next_char) || *next_char == '*' {
                 return Err(nom::Err::Error(nom::error::make_error(
                     input,
                     nom::error::ErrorKind::TakeWhile1,
@@ -395,6 +418,7 @@ pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
             var,
             external,
             bare,
+            pattern,
             external_word,
         ))(input)?;
 
@@ -655,6 +679,14 @@ fn is_external_word_char(c: char) -> bool {
     }
 }
 
+fn is_start_glob_char(c: char) -> bool {
+    is_start_bare_char(c) || c == '*'
+}
+
+fn is_glob_char(c: char) -> bool {
+    is_bare_char(c) || c == '*'
+}
+
 fn is_start_bare_char(c: char) -> bool {
     match c {
         '+' => false,
@@ -680,6 +712,7 @@ fn is_bare_char(c: char) -> bool {
         '-' => true,
         '=' => true,
         '~' => true,
+        ':' => true,
         _ => false,
     }
 }

@@ -17,7 +17,7 @@ use crate::evaluate::Scope;
 
 pub(crate) use self::baseline_parse::{
     baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
-    baseline_parse_token_as_string,
+    baseline_parse_token_as_pattern, baseline_parse_token_as_string,
 };
 pub(crate) use self::baseline_parse_tokens::{baseline_parse_next_expr, TokensIterator};
 pub(crate) use self::binary::Binary;
@@ -90,6 +90,7 @@ pub enum RawExpression {
     Block(Vec<Expression>),
     List(Vec<Expression>),
     Path(Box<Path>),
+
     FilePath(PathBuf),
     ExternalCommand(ExternalCommand),
 
@@ -162,6 +163,10 @@ impl Expression {
 
     pub(crate) fn bare(span: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
+    }
+
+    pub(crate) fn pattern(tag: impl Into<Tag>) -> Expression {
+        RawExpression::Literal(Literal::GlobPattern).tagged(tag.into())
     }
 
     pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
@@ -238,6 +243,7 @@ pub enum Literal {
     Number(Number),
     Size(Number, Unit),
     String(Span),
+    GlobPattern,
     Bare,
 }
 
@@ -247,6 +253,7 @@ impl ToDebug for Tagged<&Literal> {
             Literal::Number(number) => write!(f, "{:?}", *number),
             Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
             Literal::String(span) => write!(f, "{}", span.slice(source)),
+            Literal::GlobPattern => write!(f, "{}", self.span().slice(source)),
             Literal::Bare => write!(f, "{}", self.span().slice(source)),
         }
     }
@@ -259,6 +266,7 @@ impl Literal {
             Literal::Size(..) => "size",
             Literal::String(..) => "string",
             Literal::Bare => "string",
+            Literal::GlobPattern => "pattern",
         }
     }
 }

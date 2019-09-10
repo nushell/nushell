@@ -114,6 +114,7 @@ fn evaluate_literal(literal: Tagged<&hir::Literal>, source: &Text) -> Tagged<Val
         hir::Literal::Number(int) => int.into(),
         hir::Literal::Size(int, unit) => unit.compute(int),
         hir::Literal::String(span) => Value::string(span.slice(source)),
+        hir::Literal::GlobPattern => Value::pattern(literal.span().slice(source)),
         hir::Literal::Bare => Value::string(literal.span().slice(source)),
     };
 

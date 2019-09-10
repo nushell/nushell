@@ -42,6 +42,7 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
             CoerceInto::<i64>::coerce_into(i.tagged(v.tag), "converting to YAML number")?,
         )),
         Value::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
+        Value::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
         Value::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => serde_yaml::Value::String(s.display().to_string()),
 

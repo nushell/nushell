@@ -124,6 +124,10 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
             ..
         }) => Color::Purple.bold().paint(token_node.span().slice(line)),
         TokenNode::Token(Tagged {
+            item: RawToken::GlobPattern,
+            ..
+        }) => Color::Cyan.normal().paint(token_node.span().slice(line)),
+        TokenNode::Token(Tagged {
             item: RawToken::String(..),
             ..
         }) => Color::Green.normal().paint(token_node.span().slice(line)),

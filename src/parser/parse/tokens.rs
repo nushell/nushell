@@ -12,6 +12,7 @@ pub enum RawToken {
     Variable(Span),
     ExternalCommand(Span),
     ExternalWord,
+    GlobPattern,
     Bare,
 }
 
@@ -53,6 +54,7 @@ impl RawToken {
             RawToken::Variable(_) => "Variable",
             RawToken::ExternalCommand(_) => "ExternalCommand",
             RawToken::ExternalWord => "ExternalWord",
+            RawToken::GlobPattern => "GlobPattern",
             RawToken::Bare => "String",
         }
     }

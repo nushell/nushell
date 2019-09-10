@@ -152,6 +152,24 @@ impl TokenTreeBuilder {
         ))
     }
 
+    pub fn pattern(input: impl Into<String>) -> CurriedToken {
+        let input = input.into();
+
+        Box::new(move |b| {
+            let (start, end) = b.consume(&input);
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_pattern((start, end))
+        })
+    }
+
+    pub fn spanned_pattern(input: impl Into<Span>) -> TokenNode {
+        TokenNode::Token(Tagged::from_simple_spanned_item(
+            RawToken::Bare,
+            input.into(),
+        ))
+    }
+
     pub fn external_word(input: impl Into<String>) -> CurriedToken {
         let input = input.into();
 

@@ -4,7 +4,7 @@ use crate::parser::{
     hir,
     hir::{
         baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
-        baseline_parse_token_as_string,
+        baseline_parse_token_as_pattern, baseline_parse_token_as_string,
     },
     DelimitedNode, Delimiter, PathNode, RawToken, TokenNode,
 };
@@ -43,6 +43,7 @@ pub enum SyntaxType {
     Variable,
     Number,
     Path,
+    Pattern,
     Binary,
     Block,
     Boolean,
@@ -59,6 +60,7 @@ impl std::fmt::Display for SyntaxType {
             SyntaxType::Variable => write!(f, "Variable"),
             SyntaxType::Number => write!(f, "Number"),
             SyntaxType::Path => write!(f, "Path"),
+            SyntaxType::Pattern => write!(f, "Pattern"),
             SyntaxType::Binary => write!(f, "Binary"),
             SyntaxType::Block => write!(f, "Block"),
             SyntaxType::Boolean => write!(f, "Boolean"),
@@ -84,6 +86,17 @@ pub fn baseline_parse_next_expr(
         }
 
         (SyntaxType::Path, token) => {
+            return Err(ShellError::type_error(
+                "Path",
+                token.type_name().simple_spanned(token.span()),
+            ))
+        }
+
+        (SyntaxType::Pattern, TokenNode::Token(token)) => {
+            return baseline_parse_token_as_pattern(token, context, source)
+        }
+
+        (SyntaxType::Pattern, token) => {
             return Err(ShellError::type_error(
                 "Path",
                 token.type_name().simple_spanned(token.span()),
@@ -315,6 +328,7 @@ pub fn baseline_parse_path(
                 | RawToken::Size(..)
                 | RawToken::Variable(_)
                 | RawToken::ExternalCommand(_)
+                | RawToken::GlobPattern
                 | RawToken::ExternalWord => {
                     return Err(ShellError::type_error(
                         "String",
