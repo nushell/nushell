@@ -127,7 +127,7 @@ pub fn config(
         let path = config::default_path_for(&configuration)?;
 
         return Ok(stream![Tagged::from_simple_spanned_item(
-            Value::string(path.to_string_lossy()),
+            Value::Primitive(Primitive::Path(path)),
             span
         )]
         .from_input_stream());
