@@ -21,7 +21,7 @@ impl PerItemCommand for Cpy {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .required("src", SyntaxType::Path)
+            .required("src", SyntaxType::Pattern)
             .required("dst", SyntaxType::Path)
             .named("file", SyntaxType::Any)
             .switch("recursive")

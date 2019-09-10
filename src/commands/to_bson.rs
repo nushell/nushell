@@ -50,6 +50,7 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
         }
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
+        Value::Primitive(Primitive::Pattern(p)) => Bson::String(p.clone()),
         Value::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
         Value::Table(l) => Bson::Array(
             l.iter()

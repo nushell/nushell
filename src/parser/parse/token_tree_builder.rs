@@ -14,15 +14,19 @@ use derive_new::new;
 pub struct TokenTreeBuilder {
     #[new(default)]
     pos: usize,
+
+    #[new(default)]
+    output: String,
 }
 
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
 pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Tagged<CallNode> + 'static>;
 
 impl TokenTreeBuilder {
-    pub fn build(block: impl FnOnce(&mut Self) -> TokenNode) -> TokenNode {
+    pub fn build(block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
         let mut builder = TokenTreeBuilder::new();
-        block(&mut builder)
+        let node = block(&mut builder);
+        (node, builder.output)
     }
 
     pub fn pipeline(input: Vec<(Option<&str>, CurriedCall, Option<&str>)>) -> CurriedToken {
@@ -56,7 +60,8 @@ impl TokenTreeBuilder {
                 pipe,
                 pre_span.map(Span::from),
                 call,
-                post_span.map(Span::from)));
+                post_span.map(Span::from),
+            ));
 
             loop {
                 match input.next() {
@@ -147,9 +152,45 @@ impl TokenTreeBuilder {
         ))
     }
 
+    pub fn pattern(input: impl Into<String>) -> CurriedToken {
+        let input = input.into();
+
+        Box::new(move |b| {
+            let (start, end) = b.consume(&input);
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_pattern((start, end))
+        })
+    }
+
+    pub fn spanned_pattern(input: impl Into<Span>) -> TokenNode {
+        TokenNode::Token(Tagged::from_simple_spanned_item(
+            RawToken::Bare,
+            input.into(),
+        ))
+    }
+
+    pub fn external_word(input: impl Into<String>) -> CurriedToken {
+        let input = input.into();
+
+        Box::new(move |b| {
+            let (start, end) = b.consume(&input);
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_external_word((start, end))
+        })
+    }
+
+    pub fn spanned_external_word(input: impl Into<Span>) -> TokenNode {
+        TokenNode::Token(Tagged::from_simple_spanned_item(
+            RawToken::ExternalWord,
+            input.into(),
+        ))
+    }
+
     pub fn spanned_external(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
         TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::External(input.into()),
+            RawToken::ExternalCommand(input.into()),
             span.into(),
         ))
     }
@@ -422,6 +463,7 @@ impl TokenTreeBuilder {
     fn consume(&mut self, input: &str) -> (usize, usize) {
         let start = self.pos;
         self.pos += input.len();
+        self.output.push_str(input);
         (start, self.pos)
     }
 }

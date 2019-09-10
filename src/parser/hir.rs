@@ -17,7 +17,7 @@ use crate::evaluate::Scope;
 
 pub(crate) use self::baseline_parse::{
     baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
-    baseline_parse_token_as_string,
+    baseline_parse_token_as_pattern, baseline_parse_token_as_string,
 };
 pub(crate) use self::baseline_parse_tokens::{baseline_parse_next_expr, TokensIterator};
 pub(crate) use self::binary::Binary;
@@ -83,12 +83,14 @@ impl ToDebug for Call {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum RawExpression {
     Literal(Literal),
+    ExternalWord,
     Synthetic(Synthetic),
     Variable(Variable),
     Binary(Box<Binary>),
     Block(Vec<Expression>),
     List(Vec<Expression>),
     Path(Box<Path>),
+
     FilePath(PathBuf),
     ExternalCommand(ExternalCommand),
 
@@ -113,6 +115,7 @@ impl RawExpression {
         match self {
             RawExpression::Literal(literal) => literal.type_name(),
             RawExpression::Synthetic(synthetic) => synthetic.type_name(),
+            RawExpression::ExternalWord => "externalword",
             RawExpression::FilePath(..) => "filepath",
             RawExpression::Variable(..) => "variable",
             RawExpression::List(..) => "list",
@@ -162,6 +165,10 @@ impl Expression {
         Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
     }
 
+    pub(crate) fn pattern(tag: impl Into<Tag>) -> Expression {
+        RawExpression::Literal(Literal::GlobPattern).tagged(tag.into())
+    }
+
     pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         Tagged::from_simple_spanned_item(
             RawExpression::Variable(Variable::Other(inner.into())),
@@ -189,6 +196,7 @@ impl ToDebug for Expression {
         match self.item() {
             RawExpression::Literal(l) => l.tagged(self.span()).fmt_debug(f, source),
             RawExpression::FilePath(p) => write!(f, "{}", p.display()),
+            RawExpression::ExternalWord => write!(f, "{}", self.span().slice(source)),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
@@ -225,11 +233,17 @@ impl From<Tagged<Path>> for Expression {
     }
 }
 
+/// Literals are expressions that are:
+///
+/// 1. Copy
+/// 2. Can be evaluated without additional context
+/// 3. Evaluation cannot produce an error
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),
     String(Span),
+    GlobPattern,
     Bare,
 }
 
@@ -239,6 +253,7 @@ impl ToDebug for Tagged<&Literal> {
             Literal::Number(number) => write!(f, "{:?}", *number),
             Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
             Literal::String(span) => write!(f, "{}", span.slice(source)),
+            Literal::GlobPattern => write!(f, "{}", self.span().slice(source)),
             Literal::Bare => write!(f, "{}", self.span().slice(source)),
         }
     }
@@ -251,6 +266,7 @@ impl Literal {
             Literal::Size(..) => "size",
             Literal::String(..) => "string",
             Literal::Bare => "string",
+            Literal::GlobPattern => "pattern",
         }
     }
 }

@@ -20,6 +20,7 @@ pub enum Primitive {
     Decimal(BigDecimal),
     Bytes(u64),
     String(String),
+    Pattern(String),
     Boolean(bool),
     Date(DateTime<Utc>),
     Path(PathBuf),
@@ -53,6 +54,7 @@ impl Primitive {
             Int(_) => "int",
             Decimal(_) => "decimal",
             Bytes(_) => "bytes",
+            Pattern(_) => "pattern",
             String(_) => "string",
             Boolean(_) => "boolean",
             Date(_) => "date",
@@ -71,6 +73,7 @@ impl Primitive {
             Path(path) => write!(f, "{}", path.display()),
             Decimal(decimal) => write!(f, "{}", decimal),
             Bytes(bytes) => write!(f, "{}", bytes),
+            Pattern(string) => write!(f, "{:?}", string),
             String(string) => write!(f, "{:?}", string),
             Boolean(boolean) => write!(f, "{}", boolean),
             Date(date) => write!(f, "{}", date),
@@ -108,6 +111,7 @@ impl Primitive {
             }
             Primitive::Int(i) => format!("{}", i),
             Primitive::Decimal(decimal) => format!("{}", decimal),
+            Primitive::Pattern(s) => format!("{}", s),
             Primitive::String(s) => format!("{}", s),
             Primitive::Boolean(b) => match (b, field_name) {
                 (true, None) => format!("Yes"),
@@ -575,6 +579,10 @@ impl Value {
     }
 
     pub fn string(s: impl Into<String>) -> Value {
+        Value::Primitive(Primitive::String(s.into()))
+    }
+
+    pub fn pattern(s: impl Into<String>) -> Value {
         Value::Primitive(Primitive::String(s.into()))
     }
 

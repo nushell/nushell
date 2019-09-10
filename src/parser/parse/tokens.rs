@@ -10,7 +10,9 @@ pub enum RawToken {
     Size(RawNumber, Unit),
     String(Span),
     Variable(Span),
-    External(Span),
+    ExternalCommand(Span),
+    ExternalWord,
+    GlobPattern,
     Bare,
 }
 
@@ -50,7 +52,9 @@ impl RawToken {
             RawToken::Size(..) => "Size",
             RawToken::String(_) => "String",
             RawToken::Variable(_) => "Variable",
-            RawToken::External(_) => "External",
+            RawToken::ExternalCommand(_) => "ExternalCommand",
+            RawToken::ExternalWord => "ExternalWord",
+            RawToken::GlobPattern => "GlobPattern",
             RawToken::Bare => "String",
         }
     }

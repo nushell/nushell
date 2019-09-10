@@ -1,5 +1,5 @@
 use crate::data::base::Block;
-use crate::errors::Description;
+use crate::errors::{ArgumentError, Description};
 use crate::parser::{
     hir::{self, Expression, RawExpression},
     CommandRegistry, Text,
@@ -39,6 +39,11 @@ pub(crate) fn evaluate_baseline_expr(
 ) -> Result<Tagged<Value>, ShellError> {
     match &expr.item {
         RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(literal), source)),
+        RawExpression::ExternalWord => Err(ShellError::argument_error(
+            "Invalid external word",
+            ArgumentError::InvalidExternalWord,
+            expr.span(),
+        )),
         RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.span())),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
@@ -109,6 +114,7 @@ fn evaluate_literal(literal: Tagged<&hir::Literal>, source: &Text) -> Tagged<Val
         hir::Literal::Number(int) => int.into(),
         hir::Literal::Size(int, unit) => unit.compute(int),
         hir::Literal::String(span) => Value::string(span.slice(source)),
+        hir::Literal::GlobPattern => Value::pattern(literal.span().slice(source)),
         hir::Literal::Bare => Value::string(literal.span().slice(source)),
     };
 

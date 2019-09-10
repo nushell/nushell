@@ -44,6 +44,7 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
             toml::Value::Integer(i.tagged(v.tag).coerce_into("converting to TOML integer")?)
         }
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),
+        Value::Primitive(Primitive::Pattern(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
 
