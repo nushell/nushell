@@ -4,6 +4,7 @@ use glob::glob;
 pub use std::path::Path;
 pub use std::path::PathBuf;
 
+use app_dirs::{get_app_root, AppDataType};
 use getset::Getters;
 use std::io::Read;
 use tempfile::{tempdir, TempDir};
@@ -177,6 +178,10 @@ impl Dirs {
     pub fn formats(&self) -> PathBuf {
         PathBuf::from(self.fixtures.join("formats"))
     }
+
+    pub fn config_path(&self) -> PathBuf {
+        get_app_root(AppDataType::UserConfig, &nu::APP_INFO).unwrap()
+    }
 }
 
 impl Playground {
@@ -227,11 +232,10 @@ impl Playground {
                 playground_root.join(topic).display()
             ));
 
-        let root = 
-            dunce::canonicalize(playground_root).expect(&format!(
-                "Couldn't canonicalize tests root path {}",
-                playground_root.display()
-            ));
+        let root = dunce::canonicalize(playground_root).expect(&format!(
+            "Couldn't canonicalize tests root path {}",
+            playground_root.display()
+        ));
 
         let dirs = Dirs {
             root,
@@ -329,6 +333,14 @@ pub fn line_ending() -> String {
     #[cfg(not(windows))]
     {
         String::from("\n")
+    }
+}
+
+pub fn delete_file_at(full_path: impl AsRef<Path>) {
+    let full_path = full_path.as_ref();
+
+    if full_path.exists() {
+        std::fs::remove_file(full_path).expect("can not delete file");
     }
 }
 
