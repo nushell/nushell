@@ -328,7 +328,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let type_name = std::any::type_name::<V::Value>();
         let tagged_val_name = std::any::type_name::<Tagged<Value>>();
 
-        if name == tagged_val_name {
+        if type_name == tagged_val_name {
             return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
         }
 
@@ -465,5 +465,29 @@ impl<'a, 'de: 'a> de::SeqAccess<'de> for StructDeserializer<'a, 'de> {
 
     fn size_hint(&self) -> Option<usize> {
         return Some(self.fields.len());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::any::type_name;
+    #[test]
+    fn check_type_name_properties() {
+        // This ensures that certain properties for the
+        // std::any::type_name function hold, that
+        // this code relies on. The type_name docs explicitly
+        // mention that the actual format of the output
+        // is unspecified and change is likely.
+        // This test makes sure that such change is detected
+        // by this test failing, and not things silently breaking.
+        // Specifically, we rely on this behaviour further above
+        // in the file to special case Tagged<Value> parsing.
+        let tuple = type_name::<()>();
+        let tagged_tuple = type_name::<Tagged<()>>();
+        let tagged_value = type_name::<Tagged<Value>>();
+        assert!(tuple != tagged_tuple);
+        assert!(tuple != tagged_value);
+        assert!(tagged_tuple != tagged_value);
     }
 }

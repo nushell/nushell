@@ -1,16 +1,17 @@
-use crate::prelude::*;
-
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{config, Value};
+use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{self};
+use crate::prelude::*;
 use std::iter::FromIterator;
+use std::path::PathBuf;
 
 pub struct Config;
 
 #[derive(Deserialize)]
 pub struct ConfigArgs {
+    load: Option<Tagged<PathBuf>>,
     set: Option<(Tagged<String>, Tagged<Value>)>,
     get: Option<Tagged<String>>,
     clear: Tagged<bool>,
@@ -25,6 +26,7 @@ impl WholeStreamCommand for Config {
 
     fn signature(&self) -> Signature {
         Signature::build("config")
+            .named("load", SyntaxType::Path)
             .named("set", SyntaxType::Any)
             .named("get", SyntaxType::Any)
             .named("remove", SyntaxType::Any)
@@ -47,6 +49,7 @@ impl WholeStreamCommand for Config {
 
 pub fn config(
     ConfigArgs {
+        load,
         set,
         get,
         clear,
@@ -55,7 +58,15 @@ pub fn config(
     }: ConfigArgs,
     RunnableContext { name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let mut result = crate::data::config::config(name)?;
+    let name_span = name;
+
+    let configuration = if let Some(supplied) = load {
+        Some(supplied.item().clone())
+    } else {
+        None
+    };
+
+    let mut result = crate::data::config::read(name_span, &configuration)?;
 
     if let Some(v) = get {
         let key = v.to_string();
@@ -63,15 +74,27 @@ pub fn config(
             .get(&key)
             .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
 
-        return Ok(
-            stream![value.clone()].into(), // futures::stream::once(futures::future::ready(ReturnSuccess::Value(value.clone()))).into(),
-        );
+        let mut results = VecDeque::new();
+
+        match value {
+            Tagged {
+                item: Value::Table(list),
+                ..
+            } => {
+                for l in list {
+                    results.push_back(ReturnSuccess::value(l.clone()));
+                }
+            }
+            x => results.push_back(ReturnSuccess::value(x.clone())),
+        }
+
+        return Ok(results.to_output_stream());
     }
 
     if let Some((key, value)) = set {
         result.insert(key.to_string(), value.clone());
 
-        config::write_config(&result)?;
+        config::write(&result, &configuration)?;
 
         return Ok(stream![Tagged::from_simple_spanned_item(
             Value::Row(result.into()),
@@ -87,7 +110,7 @@ pub fn config(
     {
         result.clear();
 
-        config::write_config(&result)?;
+        config::write(&result, &configuration)?;
 
         return Ok(stream![Tagged::from_simple_spanned_item(
             Value::Row(result.into()),
@@ -101,7 +124,7 @@ pub fn config(
         tag: Tag { span, .. },
     } = path
     {
-        let path = config::config_path()?;
+        let path = config::default_path_for(&configuration)?;
 
         return Ok(stream![Tagged::from_simple_spanned_item(
             Value::Primitive(Primitive::Path(path)),
@@ -115,7 +138,7 @@ pub fn config(
 
         if result.contains_key(&key) {
             result.swap_remove(&key);
-            config::write_config(&result)?;
+            config::write(&result, &configuration)?;
         } else {
             return Err(ShellError::string(&format!(
                 "{} does not exist in config",

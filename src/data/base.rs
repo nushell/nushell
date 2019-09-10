@@ -558,6 +558,7 @@ impl Value {
             Value::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",
