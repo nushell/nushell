@@ -11,52 +11,60 @@ use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-const APP_INFO: AppInfo = AppInfo {
-    name: "nu",
-    author: "nu shell developers",
-};
-
 #[derive(Deserialize, Serialize)]
 struct Config {
     #[serde(flatten)]
     extra: IndexMap<String, Tagged<Value>>,
 }
 
-pub(crate) fn config_path() -> Result<PathBuf, ShellError> {
-    let location = app_root(AppDataType::UserConfig, &APP_INFO)
-        .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
+pub const APP_INFO: AppInfo = AppInfo {
+    name: "nu",
+    author: "nu shell developers",
+};
 
-    Ok(location.join("config.toml"))
+pub fn config_path() -> Result<PathBuf, ShellError> {
+    let path = app_root(AppDataType::UserConfig, &APP_INFO)
+        .map_err(|err| ShellError::string(&format!("Couldn't open config path:\n{}", err)))?;
+
+    Ok(path)
 }
 
-pub(crate) fn write_config(config: &IndexMap<String, Tagged<Value>>) -> Result<(), ShellError> {
-    let location = app_root(AppDataType::UserConfig, &APP_INFO)
-        .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
-
-    let filename = location.join("config.toml");
-    touch(&filename)?;
-
-    let contents =
-        value_to_toml_value(&Value::Row(Dictionary::new(config.clone())).tagged_unknown())?;
-
-    let contents = toml::to_string(&contents)?;
-
-    fs::write(&filename, &contents)?;
-
-    Ok(())
+pub fn default_path() -> Result<PathBuf, ShellError> {
+    default_path_for(&None)
 }
 
-pub(crate) fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
-    let span = span.into();
+pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
+    let filename = &mut config_path()?;
+    let filename = match file {
+        None => {
+            filename.push("config.toml");
+            filename
+        }
+        Some(file) => {
+            filename.push(file);
+            filename
+        }
+    };
 
-    let location = app_root(AppDataType::UserConfig, &APP_INFO)
-        .map_err(|err| ShellError::string(&format!("Couldn't open config file:\n{}", err)))?;
+    Ok(filename.clone())
+}
 
-    let filename = location.join("config.toml");
+pub fn read(
+    span: impl Into<Span>,
+    at: &Option<PathBuf>,
+) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
+    let filename = default_path()?;
+
+    let filename = match at {
+        None => filename,
+        Some(ref file) => file.clone(),
+    };
+
     touch(&filename)?;
 
     trace!("config file = {}", filename.display());
 
+    let span = span.into();
     let contents = fs::read_to_string(filename)
         .map(|v| v.simple_spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
@@ -73,6 +81,34 @@ pub(crate) fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Va
             other.type_name().tagged(tag),
         )),
     }
+}
+
+pub(crate) fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
+    read(span, &None)
+}
+
+pub fn write(
+    config: &IndexMap<String, Tagged<Value>>,
+    at: &Option<PathBuf>,
+) -> Result<(), ShellError> {
+    let filename = &mut default_path()?;
+    let filename = match at {
+        None => filename,
+        Some(file) => {
+            filename.pop();
+            filename.push(file);
+            filename
+        }
+    };
+
+    let contents =
+        value_to_toml_value(&Value::Row(Dictionary::new(config.clone())).tagged_unknown())?;
+
+    let contents = toml::to_string(&contents)?;
+
+    fs::write(&filename, &contents)?;
+
+    Ok(())
 }
 
 // A simple implementation of `% touch path` (ignores existing files)

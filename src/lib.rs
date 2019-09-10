@@ -28,6 +28,7 @@ pub use crate::parser::parse::token_tree_builder::TokenTreeBuilder;
 pub use crate::plugin::{serve_plugin, Plugin};
 pub use crate::utils::{AbsoluteFile, AbsolutePath, RelativePath};
 pub use cli::cli;
+pub use data::config::{APP_INFO, config_path};
 pub use data::base::{Primitive, Value};
 pub use data::dict::{Dictionary, TaggedDictBuilder};
 pub use data::meta::{Span, Tag, Tagged, TaggedItem};
