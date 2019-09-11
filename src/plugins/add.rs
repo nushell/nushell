@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxType, Tagged, Value,
+    SyntaxShape, Tagged, Value,
 };
 
 struct Add {
@@ -44,9 +44,9 @@ impl Plugin for Add {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("add")
             .desc("Add a new field to the table.")
-            .required("Field", SyntaxType::String)
-            .required("Value", SyntaxType::String)
-            .rest(SyntaxType::String)
+            .required("Field", SyntaxShape::String)
+            .required("Value", SyntaxShape::String)
+            .rest(SyntaxShape::String)
             .filter())
     }
 

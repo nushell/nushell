@@ -190,44 +190,40 @@ fn generic_object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
     Ok(Bson::Document(doc))
 }
 
-fn shell_encode_document(
-    writer: &mut Vec<u8>,
-    doc: Document,
-    span: Span,
-) -> Result<(), ShellError> {
+fn shell_encode_document(writer: &mut Vec<u8>, doc: Document, tag: Tag) -> Result<(), ShellError> {
     match encode_document(writer, &doc) {
         Err(e) => Err(ShellError::labeled_error(
             format!("Failed to encode document due to: {:?}", e),
             "requires BSON-compatible document",
-            span,
+            tag,
         )),
         _ => Ok(()),
     }
 }
 
-fn bson_value_to_bytes(bson: Bson, span: Span) -> Result<Vec<u8>, ShellError> {
+fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
     let mut out = Vec::new();
     match bson {
         Bson::Array(a) => {
             for v in a.into_iter() {
                 match v {
-                    Bson::Document(d) => shell_encode_document(&mut out, d, span)?,
+                    Bson::Document(d) => shell_encode_document(&mut out, d, tag)?,
                     _ => {
                         return Err(ShellError::labeled_error(
                             format!("All top level values must be Documents, got {:?}", v),
                             "requires BSON-compatible document",
-                            span,
+                            tag,
                         ))
                     }
                 }
             }
         }
-        Bson::Document(d) => shell_encode_document(&mut out, d, span)?,
+        Bson::Document(d) => shell_encode_document(&mut out, d, tag)?,
         _ => {
             return Err(ShellError::labeled_error(
                 format!("All top level values must be Documents, got {:?}", bson),
                 "requires BSON-compatible document",
-                span,
+                tag,
             ))
         }
     }
@@ -236,7 +232,7 @@ fn bson_value_to_bytes(bson: Bson, span: Span) -> Result<Vec<u8>, ShellError> {
 
 fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_span = args.name_span();
+    let name_tag = args.name_tag();
     let stream = async_stream_block! {
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
@@ -252,23 +248,23 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         for value in to_process_input {
             match value_to_bson_value(&value) {
                 Ok(bson_value) => {
-                    match bson_value_to_bytes(bson_value, name_span) {
+                    match bson_value_to_bytes(bson_value, name_tag) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Binary(x).simple_spanned(name_span),
+                            Value::Binary(x).tagged(name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with BSON-compatible structure.span() from pipeline",
+                            "Expected a table with BSON-compatible structure.tag() from pipeline",
                             "requires BSON-compatible input",
-                            name_span,
+                            name_tag,
                             "originates from here".to_string(),
-                            value.span(),
+                            value.tag(),
                         )),
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with BSON-compatible structure from pipeline",
                     "requires BSON-compatible input",
-                    name_span))
+                    name_tag))
             }
         }
     };

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{TaggedDictBuilder, Value};
+use crate::errors::ShellError;
 use crate::prelude::*;
 
 pub struct Size;
@@ -29,7 +29,7 @@ impl WholeStreamCommand for Size {
 
 fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
-    let span = args.call_info.name_span;
+    let tag = args.call_info.name_tag;
     Ok(input
         .values
         .map(move |v| match v.item {
@@ -37,9 +37,9 @@ fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                span,
+                tag,
                 "value originates from here",
-                v.span(),
+                v.tag(),
             )),
         })
         .to_output_stream())
@@ -71,7 +71,7 @@ fn count(contents: &str, tag: impl Into<Tag>) -> Tagged<Value> {
     }
 
     let mut dict = TaggedDictBuilder::new(tag);
-    //TODO: add back in name when we have it in the span
+    //TODO: add back in name when we have it in the tag
     //dict.insert("name", Value::string(name));
     dict.insert("lines", Value::int(lines));
     dict.insert("words", Value::int(words));

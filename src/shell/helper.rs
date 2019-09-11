@@ -66,7 +66,7 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let tokens = crate::parser::pipeline(nom_input(line));
+        let tokens = crate::parser::pipeline(nom_input(line, uuid::Uuid::nil()));
 
         match tokens {
             Err(_) => Cow::Borrowed(line),
@@ -106,47 +106,47 @@ impl Highlighter for Helper {
 
 fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
     let styled = match token_node {
-        TokenNode::Call(..) => Color::Cyan.bold().paint(token_node.span().slice(line)),
-        TokenNode::Whitespace(..) => Color::White.normal().paint(token_node.span().slice(line)),
-        TokenNode::Flag(..) => Color::Black.bold().paint(token_node.span().slice(line)),
-        TokenNode::Member(..) => Color::Yellow.bold().paint(token_node.span().slice(line)),
-        TokenNode::Path(..) => Color::Green.bold().paint(token_node.span().slice(line)),
-        TokenNode::Error(..) => Color::Red.bold().paint(token_node.span().slice(line)),
-        TokenNode::Delimited(..) => Color::White.paint(token_node.span().slice(line)),
-        TokenNode::Operator(..) => Color::White.normal().paint(token_node.span().slice(line)),
-        TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.span().slice(line)),
+        TokenNode::Call(..) => Color::Cyan.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Whitespace(..) => Color::White.normal().paint(token_node.tag().slice(line)),
+        TokenNode::Flag(..) => Color::Black.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Member(..) => Color::Yellow.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Path(..) => Color::Green.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Error(..) => Color::Red.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Delimited(..) => Color::White.paint(token_node.tag().slice(line)),
+        TokenNode::Operator(..) => Color::White.normal().paint(token_node.tag().slice(line)),
+        TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::Number(..),
             ..
-        }) => Color::Purple.bold().paint(token_node.span().slice(line)),
+        }) => Color::Purple.bold().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::Size(..),
             ..
-        }) => Color::Purple.bold().paint(token_node.span().slice(line)),
+        }) => Color::Purple.bold().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::GlobPattern,
             ..
-        }) => Color::Cyan.normal().paint(token_node.span().slice(line)),
+        }) => Color::Cyan.normal().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::String(..),
             ..
-        }) => Color::Green.normal().paint(token_node.span().slice(line)),
+        }) => Color::Green.normal().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::Variable(..),
             ..
-        }) => Color::Yellow.bold().paint(token_node.span().slice(line)),
+        }) => Color::Yellow.bold().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::Bare,
             ..
-        }) => Color::Green.normal().paint(token_node.span().slice(line)),
+        }) => Color::Green.normal().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::ExternalCommand(..),
             ..
-        }) => Color::Cyan.bold().paint(token_node.span().slice(line)),
+        }) => Color::Cyan.bold().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::ExternalWord,
             ..
-        }) => Color::Black.bold().paint(token_node.span().slice(line)),
+        }) => Color::Black.bold().paint(token_node.tag().slice(line)),
     };
 
     styled.to_string()
@@ -166,7 +166,7 @@ fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> Str
     styled.push_str(
         &Color::Cyan
             .bold()
-            .paint(pipeline_element.call().head().span().slice(line))
+            .paint(pipeline_element.call().head().tag().slice(line))
             .to_string(),
     );
 

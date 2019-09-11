@@ -2,14 +2,13 @@ use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
 use crate::data::Value;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
+use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
 use mime::Mime;
 use std::path::PathBuf;
 use std::str::FromStr;
 use surf::mime;
-use uuid::Uuid;
 pub struct Fetch;
 
 impl PerItemCommand for Fetch {
@@ -19,7 +18,7 @@ impl PerItemCommand for Fetch {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxType::Path)
+            .required("path", SyntaxShape::Path)
             .switch("raw")
     }
 
@@ -52,14 +51,14 @@ fn run(
     };
     let path_buf = path.as_path()?;
     let path_str = path_buf.display().to_string();
-    let path_span = path.span();
+    let path_tag = path.tag();
     let has_raw = call_info.args.has("raw");
     let registry = registry.clone();
     let raw_args = raw_args.clone();
 
     let stream = async_stream_block! {
 
-        let result = fetch(&path_str, path_span).await;
+        let result = fetch(&path_str, path_tag).await;
 
         if let Err(e) = result {
             yield Err(e);
@@ -99,7 +98,7 @@ fn run(
                         },
                         source: raw_args.call_info.source,
                         source_map: raw_args.call_info.source_map,
-                        name_span: raw_args.call_info.name_span,
+                        name_tag: raw_args.call_info.name_tag,
                     }
                 };
                 let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
@@ -130,13 +129,13 @@ fn run(
 
 pub async fn fetch(
     location: &str,
-    span: Span,
+    tag: Tag,
 ) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
     if let Err(_) = url::Url::parse(location) {
         return Err(ShellError::labeled_error(
             "Incomplete or incorrect url",
             "expected a full url",
-            span,
+            tag,
         ));
     }
 
@@ -152,13 +151,10 @@ pub async fn fetch(
                             ShellError::labeled_error(
                                 "Could not load text from remote url",
                                 "could not load",
-                                span,
+                                tag,
                             )
                         })?),
-                        Tag {
-                            span,
-                            origin: Some(Uuid::new_v4()),
-                        },
+                        tag,
                         SpanSource::Url(location.to_string()),
                     )),
                     (mime::APPLICATION, mime::JSON) => Ok((
@@ -167,13 +163,10 @@ pub async fn fetch(
                             ShellError::labeled_error(
                                 "Could not load text from remote url",
                                 "could not load",
-                                span,
+                                tag,
                             )
                         })?),
-                        Tag {
-                            span,
-                            origin: Some(Uuid::new_v4()),
-                        },
+                        tag,
                         SpanSource::Url(location.to_string()),
                     )),
                     (mime::APPLICATION, mime::OCTET_STREAM) => {
@@ -181,16 +174,13 @@ pub async fn fetch(
                             ShellError::labeled_error(
                                 "Could not load binary file",
                                 "could not load",
-                                span,
+                                tag,
                             )
                         })?;
                         Ok((
                             None,
                             Value::Binary(buf),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         ))
                     }
@@ -200,13 +190,10 @@ pub async fn fetch(
                             ShellError::labeled_error(
                                 "Could not load svg from remote url",
                                 "could not load",
-                                span,
+                                tag,
                             )
                         })?),
-                        Tag {
-                            span,
-                            origin: Some(Uuid::new_v4()),
-                        },
+                        tag,
                         SpanSource::Url(location.to_string()),
                     )),
                     (mime::IMAGE, image_ty) => {
@@ -214,16 +201,13 @@ pub async fn fetch(
                             ShellError::labeled_error(
                                 "Could not load image file",
                                 "could not load",
-                                span,
+                                tag,
                             )
                         })?;
                         Ok((
                             Some(image_ty.to_string()),
                             Value::Binary(buf),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         ))
                     }
@@ -233,13 +217,10 @@ pub async fn fetch(
                             ShellError::labeled_error(
                                 "Could not load text from remote url",
                                 "could not load",
-                                span,
+                                tag,
                             )
                         })?),
-                        Tag {
-                            span,
-                            origin: Some(Uuid::new_v4()),
-                        },
+                        tag,
                         SpanSource::Url(location.to_string()),
                     )),
                     (mime::TEXT, mime::PLAIN) => {
@@ -260,23 +241,17 @@ pub async fn fetch(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    span,
+                                    tag,
                                 )
                             })?),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         ))
                     }
                     (ty, sub_ty) => Ok((
                         None,
                         Value::string(format!("Not yet supported MIME type: {} {}", ty, sub_ty)),
-                        Tag {
-                            span,
-                            origin: Some(Uuid::new_v4()),
-                        },
+                        tag,
                         SpanSource::Url(location.to_string()),
                     )),
                 }
@@ -284,10 +259,7 @@ pub async fn fetch(
             None => Ok((
                 None,
                 Value::string(format!("No content type found")),
-                Tag {
-                    span,
-                    origin: Some(Uuid::new_v4()),
-                },
+                tag,
                 SpanSource::Url(location.to_string()),
             )),
         },
@@ -295,7 +267,7 @@ pub async fn fetch(
             return Err(ShellError::labeled_error(
                 "URL could not be opened",
                 "url not found",
-                span,
+                tag,
             ));
         }
     }
