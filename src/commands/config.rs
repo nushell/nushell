@@ -137,7 +137,7 @@ pub fn config(
         let key = v.to_string();
 
         if result.contains_key(&key) {
-            result.remove(&key);
+            result.swap_remove(&key);
             config::write(&result, &configuration)?;
         } else {
             return Err(ShellError::string(&format!(
