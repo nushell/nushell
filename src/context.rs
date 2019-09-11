@@ -120,13 +120,13 @@ impl Context {
     pub(crate) fn run_command<'a>(
         &mut self,
         command: Arc<Command>,
-        name_span: Span,
+        name_tag: Tag,
         source_map: SourceMap,
         args: hir::Call,
         source: &Text,
         input: InputStream,
     ) -> OutputStream {
-        let command_args = self.command_args(args, input, source, source_map, name_span);
+        let command_args = self.command_args(args, input, source, source_map, name_tag);
         command.run(command_args, self.registry())
     }
 
@@ -135,13 +135,13 @@ impl Context {
         args: hir::Call,
         source: &Text,
         source_map: SourceMap,
-        name_span: Span,
+        name_tag: Tag,
     ) -> UnevaluatedCallInfo {
         UnevaluatedCallInfo {
             args,
             source: source.clone(),
             source_map,
-            name_span,
+            name_tag,
         }
     }
 
@@ -151,12 +151,12 @@ impl Context {
         input: InputStream,
         source: &Text,
         source_map: SourceMap,
-        name_span: Span,
+        name_tag: Tag,
     ) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),
             shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info(args, source, source_map, name_span),
+            call_info: self.call_info(args, source, source_map, name_tag),
             input,
         }
     }

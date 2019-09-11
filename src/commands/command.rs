@@ -18,7 +18,7 @@ pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub source: Text,
     pub source_map: SourceMap,
-    pub name_span: Span,
+    pub name_tag: Tag,
 }
 
 impl ToDebug for UnevaluatedCallInfo {
@@ -38,7 +38,7 @@ impl UnevaluatedCallInfo {
         Ok(CallInfo {
             args,
             source_map: self.source_map,
-            name_span: self.name_span,
+            name_tag: self.name_tag,
         })
     }
 
@@ -74,7 +74,7 @@ impl UnevaluatedCallInfo {
 pub struct CallInfo {
     pub args: registry::EvaluatedArgs,
     pub source_map: SourceMap,
-    pub name_span: Span,
+    pub name_tag: Tag,
 }
 
 impl CallInfo {
@@ -89,7 +89,7 @@ impl CallInfo {
             args: T::deserialize(&mut deserializer)?,
             context: RunnablePerItemContext {
                 shell_manager: shell_manager.clone(),
-                name: self.name_span,
+                name: self.name_tag,
             },
             callback,
         })
@@ -158,7 +158,7 @@ impl CommandArgs {
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
-        let name_span = args.call_info.name_span;
+        let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
 
         Ok(RunnableArgs {
@@ -167,7 +167,7 @@ impl CommandArgs {
                 input,
                 commands: registry.clone(),
                 shell_manager,
-                name: name_span,
+                name: name_tag,
                 source_map,
                 host,
             },
@@ -191,7 +191,7 @@ impl CommandArgs {
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
-        let name_span = args.call_info.name_span;
+        let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
 
         Ok(RunnableRawArgs {
@@ -200,7 +200,7 @@ impl CommandArgs {
                 input,
                 commands: registry.clone(),
                 shell_manager,
-                name: name_span,
+                name: name_tag,
                 source_map,
                 host,
             },
@@ -212,7 +212,7 @@ impl CommandArgs {
 
 pub struct RunnablePerItemContext {
     pub shell_manager: ShellManager,
-    pub name: Span,
+    pub name: Tag,
 }
 
 impl RunnablePerItemContext {
@@ -227,7 +227,7 @@ pub struct RunnableContext {
     pub host: Arc<Mutex<dyn Host>>,
     pub commands: CommandRegistry,
     pub source_map: SourceMap,
-    pub name: Span,
+    pub name: Tag,
 }
 
 impl RunnableContext {
@@ -311,8 +311,8 @@ impl EvaluatedWholeStreamCommandArgs {
         }
     }
 
-    pub fn name_span(&self) -> Span {
-        self.args.call_info.name_span
+    pub fn name_tag(&self) -> Tag {
+        self.args.call_info.name_tag
     }
 
     pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
@@ -470,12 +470,6 @@ impl ReturnSuccess {
 
     pub fn action(input: CommandAction) -> ReturnValue {
         Ok(ReturnSuccess::Action(input))
-    }
-
-    pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
-        Ok(ReturnSuccess::Value(Tagged::from_simple_spanned_item(
-            input, span,
-        )))
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
-use crate::errors::ShellError;
 use crate::data::{command_dict, TaggedDictBuilder};
+use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
 
@@ -13,7 +13,7 @@ impl PerItemCommand for Help {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("help").rest(SyntaxType::Any)
+        Signature::build("help").rest(SyntaxShape::Any)
     }
 
     fn usage(&self) -> &str {
@@ -27,11 +27,11 @@ impl PerItemCommand for Help {
         _raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        let span = call_info.name_span;
+        let tag = call_info.name_tag;
 
         if call_info.args.len() == 0 {
             return Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                Tagged::from_simple_spanned_item(Value::nothing(), span),
+                Value::nothing().tagged(tag),
             )))]
             .into());
         }

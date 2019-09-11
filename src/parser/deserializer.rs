@@ -37,7 +37,7 @@ impl<'de> ConfigDeserializer<'de> {
         let value: Option<Tagged<Value>> = if name == "rest" {
             let positional = self.call.args.slice_from(self.position);
             self.position += positional.len();
-            Some(Value::Table(positional).tagged_unknown()) // TODO: correct span
+            Some(Value::Table(positional).tagged_unknown()) // TODO: correct tag
         } else {
             if self.call.args.has(name) {
                 self.call.args.get(name).map(|x| x.clone())
@@ -52,9 +52,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         self.stack.push(DeserializerItem {
             key_struct_field: Some((name.to_string(), name)),
-            val: value.unwrap_or_else(|| {
-                Value::nothing().tagged(Tag::unknown_origin(self.call.name_span))
-            }),
+            val: value.unwrap_or_else(|| Value::nothing().tagged(self.call.name_tag)),
         });
 
         Ok(())

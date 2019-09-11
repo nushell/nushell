@@ -204,7 +204,7 @@ impl RenderView for TableView {
 
         let mut table = Table::new();
 
-        let table_mode = crate::data::config::config(Span::unknown())?
+        let table_mode = crate::data::config::config(Tag::unknown())?
             .get("table_mode")
             .map(|s| match s.as_string().unwrap().as_ref() {
                 "light" => TableMode::Light,

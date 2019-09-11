@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ExpectedRange;
 use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::errors::ExpectedRange;
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
 use std::str::FromStr;
@@ -198,7 +198,7 @@ pub fn from_bson_bytes_to_value(
 
 fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
+    let tag = args.name_tag();
     let input = args.input;
 
     let stream = async_stream_block! {
@@ -208,24 +208,24 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             let value_tag = value.tag();
             match value.item {
                 Value::Binary(vb) =>
-                    match from_bson_bytes_to_value(vb, span) {
+                    match from_bson_bytes_to_value(vb, tag) {
                         Ok(x) => yield ReturnSuccess::value(x),
                         Err(_) => {
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could not parse as BSON",
                                 "input cannot be parsed as BSON",
-                                span,
+                                tag,
                                 "value originates from here",
-                                value_tag.span,
+                                value_tag,
                             ))
                         }
                     }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    tag,
                     "value originates from here",
-                    value_tag.span,
+                    value_tag,
                 )),
 
             }

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::TaggedDictBuilder;
+use crate::errors::ShellError;
 use crate::prelude::*;
 
 pub struct Shells;
@@ -29,10 +29,10 @@ impl WholeStreamCommand for Shells {
 
 fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let mut shells_out = VecDeque::new();
-    let span = args.call_info.name_span;
+    let tag = args.call_info.name_tag;
 
     for (index, shell) in args.shell_manager.shells.lock().unwrap().iter().enumerate() {
-        let mut dict = TaggedDictBuilder::new(Tag::unknown_origin(span));
+        let mut dict = TaggedDictBuilder::new(tag);
 
         if index == args.shell_manager.current_shell {
             dict.insert(" ", "X".to_string());

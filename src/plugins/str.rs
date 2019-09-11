@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxType, Tagged, Value,
+    SyntaxShape, Tagged, Value,
 };
 use regex::Regex;
 
@@ -174,7 +174,7 @@ impl Plugin for Str {
             .switch("to-int")
             .switch("replace")
             .switch("find-replace")
-            .rest(SyntaxType::Member)
+            .rest(SyntaxShape::Member)
             .filter())
     }
 
@@ -261,7 +261,7 @@ mod tests {
     use super::{Action, ReplaceAction, Str};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Span, Tag, Tagged,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Tag, Tagged,
         TaggedDictBuilder, TaggedItem, Value,
     };
     use num_bigint::BigInt;
@@ -277,6 +277,7 @@ mod tests {
     }
 
     struct CallStub {
+        origin: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
@@ -284,6 +285,7 @@ mod tests {
     impl CallStub {
         fn new() -> CallStub {
             CallStub {
+                origin: uuid::Uuid::nil(),
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
@@ -292,14 +294,14 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::boolean(true).simple_spanned(Span::unknown()),
+                Value::boolean(true).tagged(Tag::unknown()),
             );
             self
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             self.positionals
-                .push(Value::string(name.to_string()).simple_spanned(Span::unknown()));
+                .push(Value::string(name.to_string()).tagged(Tag::unknown()));
             self
         }
 
@@ -307,7 +309,7 @@ mod tests {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
                 source_map: SourceMap::new(),
-                name_span: Span::unknown(),
+                name_tag: Tag::unknown_span(self.origin),
             }
         }
     }

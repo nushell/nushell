@@ -266,7 +266,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             context.shell_manager.clone(),
         )));
 
-        let edit_mode = crate::data::config::config(Span::unknown())?
+        let edit_mode = crate::data::config::config(Tag::unknown())?
             .get("edit_mode")
             .map(|s| match s.as_string().unwrap().as_ref() {
                 "vi" => EditMode::Vi,
@@ -344,7 +344,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
-            let result = match crate::parser::parse(&line) {
+            let result = match crate::parser::parse(&line, uuid::Uuid::nil()) {
                 Err(err) => {
                     return LineResult::Error(line.clone(), err);
                 }
@@ -366,7 +366,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     .commands
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         command: whole_stream_command(autoview::Autoview),
-                        name_span: Span::unknown(),
+                        name_tag: Tag::unknown(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,
@@ -486,10 +486,10 @@ fn classify_command(
     match call {
         // If the command starts with `^`, treat it as an external command no matter what
         call if call.head().is_external() => {
-            let name_span = call.head().expect_external();
-            let name = name_span.slice(source);
+            let name_tag = call.head().expect_external();
+            let name = name_tag.slice(source);
 
-            Ok(external_command(call, source, name.tagged(name_span)))
+            Ok(external_command(call, source, name.tagged(name_tag)))
         }
 
         // Otherwise, if the command is a bare word, we'll need to triage it
@@ -511,19 +511,19 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
-                        name_span: head.span().clone(),
+                        name_tag: head.tag(),
                         args,
                     }))
                 }
 
                 // otherwise, it's an external command
-                false => Ok(external_command(call, source, name.tagged(head.span()))),
+                false => Ok(external_command(call, source, name.tagged(head.tag()))),
             }
         }
 
         // If the command is something else (like a number or a variable), that is currently unsupported.
         // We might support `$somevar` as a curried command in the future.
-        call => Err(ShellError::invalid_command(call.head().span())),
+        call => Err(ShellError::invalid_command(call.head().tag())),
     }
 }
 
@@ -540,10 +540,7 @@ fn external_command(
             .iter()
             .filter_map(|i| match i {
                 TokenNode::Whitespace(_) => None,
-                other => Some(Tagged::from_simple_spanned_item(
-                    other.as_external_arg(source),
-                    other.span(),
-                )),
+                other => Some(other.as_external_arg(source).tagged(other.tag())),
             })
             .collect(),
         None => vec![],
@@ -553,7 +550,7 @@ fn external_command(
 
     ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
-        name_span: tag.span,
+        name_tag: tag,
         args: arg_list_strings,
     })
 }
