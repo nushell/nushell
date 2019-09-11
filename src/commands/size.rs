@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{TaggedDictBuilder, Value};
+use crate::errors::ShellError;
 use crate::prelude::*;
 
 pub struct Size;

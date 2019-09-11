@@ -1,7 +1,7 @@
 mod helpers;
 
-use helpers as h;
 use h::{Playground, Stub::*};
+use helpers as h;
 
 #[test]
 fn can_only_apply_one() {
@@ -39,10 +39,9 @@ fn acts_without_passing_field() {
 #[test]
 fn downcases() {
     Playground::setup("plugin_str_test_2", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [dependency]
                     name = "LIGHT"
                 "#,
@@ -60,10 +59,9 @@ fn downcases() {
 #[test]
 fn upcases() {
     Playground::setup("plugin_str_test_3", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     name = "nushell"
                 "#,
@@ -98,10 +96,9 @@ fn converts_to_int() {
 #[test]
 fn replaces() {
     Playground::setup("plugin_str_test_4", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     name = "nushell"
                 "#,
@@ -124,10 +121,9 @@ fn replaces() {
 #[test]
 fn find_and_replaces() {
     Playground::setup("plugin_str_test_5", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [fortune.teller]
                     phone = "1-800-KATZ"
                 "#,
@@ -150,10 +146,9 @@ fn find_and_replaces() {
 #[test]
 fn find_and_replaces_without_passing_field() {
     Playground::setup("plugin_str_test_6", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
+        sandbox.with_files(vec![FileWithContent(
             "sample.toml",
-                r#"
+            r#"
                     [fortune.teller]
                     phone = "1-800-KATZ"
                 "#,

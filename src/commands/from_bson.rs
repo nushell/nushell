@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ExpectedRange;
 use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::errors::ExpectedRange;
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
 use std::str::FromStr;

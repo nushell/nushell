@@ -12,8 +12,7 @@ impl PerItemCommand for Where {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("where")
-            .required("condition", SyntaxType::Block)
+        Signature::build("where").required("condition", SyntaxType::Block)
     }
 
     fn usage(&self) -> &str {
@@ -43,9 +42,7 @@ impl PerItemCommand for Where {
                             VecDeque::new()
                         }
                     }
-                    Err(e) => {
-                        return Err(e)
-                    }
+                    Err(e) => return Err(e),
                 }
             }
             Tagged { tag, .. } => {

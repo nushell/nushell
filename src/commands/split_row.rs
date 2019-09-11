@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{Primitive, Value};
+use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
 
@@ -17,8 +17,7 @@ impl WholeStreamCommand for SplitRow {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-row")
-            .required("separator", SyntaxType::Any)
+        Signature::build("split-row").required("separator", SyntaxType::Any)
     }
 
     fn usage(&self) -> &str {

@@ -16,8 +16,7 @@ impl WholeStreamCommand for First {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("first")
-            .required("amount", SyntaxType::Literal)
+        Signature::build("first").required("amount", SyntaxType::Literal)
     }
 
     fn usage(&self) -> &str {

@@ -31,7 +31,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
         );
 
         assert_eq!(PathBuf::from(actual), dirs.formats());
-    }) 
+    })
 }
 
 #[test]
@@ -113,29 +113,30 @@ fn filesystem_change_to_a_directory_containing_spaces() {
             "#
         );
 
-        assert_eq!(PathBuf::from(actual), dirs.test().join("robalino turner katz"));
+        assert_eq!(
+            PathBuf::from(actual),
+            dirs.test().join("robalino turner katz")
+        );
     })
 }
 
 #[test]
 fn filesystem_directory_not_found() {
     let actual = nu_error!(
-    	cwd: "tests/fixtures",
-    	"cd dir_that_does_not_exist"
+        cwd: "tests/fixtures",
+        "cd dir_that_does_not_exist"
     );
 
     assert!(actual.contains("dir_that_does_not_exist"));
     assert!(actual.contains("directory not found"));
 }
 
-
 #[test]
 fn valuesystem_change_from_current_path_using_relative_path() {
     Playground::setup("cd_test_8", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [[bin]]
                     path = "src/plugins/turner.rs"
 
@@ -144,7 +145,7 @@ fn valuesystem_change_from_current_path_using_relative_path() {
 
                     [[bin]]
                     path = "src/plugins/katz.rs"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -164,10 +165,9 @@ fn valuesystem_change_from_current_path_using_relative_path() {
 #[test]
 fn valuesystem_change_from_current_path_using_absolute_path() {
     Playground::setup("cd_test_9", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [dependencies]
                     turner-ts = "0.1.1"
                     robalino-tkd = "0.0.1"
@@ -178,7 +178,7 @@ fn valuesystem_change_from_current_path_using_absolute_path() {
 
                     [[bin]]
                     path = "src/plugins/bbq.rs"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -193,16 +193,15 @@ fn valuesystem_change_from_current_path_using_absolute_path() {
         );
 
         assert_eq!(PathBuf::from(actual), PathBuf::from("/dependencies"));
-    }) 
+    })
 }
 
 #[test]
 fn valuesystem_switch_back_to_previous_working_path() {
     Playground::setup("cd_test_10", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [dependencies]
                     turner-ts = "0.1.1"
                     robalino-tkd = "0.0.1"
@@ -214,7 +213,7 @@ fn valuesystem_switch_back_to_previous_working_path() {
 
                     [[bin]]
                     path = "src/plugins/bbq.rs"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -267,7 +266,6 @@ fn valuesystem_change_from_current_path_using_relative_path_and_dash() {
     })
 }
 
-
 #[test]
 fn valuesystem_change_current_path_to_parent_path() {
     Playground::setup("cd_test_12", |dirs, sandbox| {
@@ -298,13 +296,12 @@ fn valuesystem_change_current_path_to_parent_path() {
 #[test]
 fn valuesystem_change_to_home_directory() {
     Playground::setup("cd_test_13", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [paquete]
                     el = "pollo loco"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -325,13 +322,12 @@ fn valuesystem_change_to_home_directory() {
 #[test]
 fn valuesystem_change_to_a_path_containing_spaces() {
     Playground::setup("cd_test_14", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     ["pa que te"]
                     el = "pollo loco"
-                "#
+                "#,
         )]);
 
         let actual = nu!(

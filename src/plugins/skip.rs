@@ -15,7 +15,7 @@ impl Skip {
 
 impl Plugin for Skip {
     fn config(&mut self) -> Result<Signature, ShellError> {
-       Ok(Signature::build("skip")
+        Ok(Signature::build("skip")
             .desc("Skip a number of rows")
             .rest(SyntaxType::Number)
             .filter())
