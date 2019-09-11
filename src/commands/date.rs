@@ -1,5 +1,5 @@
-use crate::data::{Dictionary, Value};
 use crate::errors::ShellError;
+use crate::data::{Dictionary, Value};
 use crate::prelude::*;
 use chrono::{DateTime, Local, Utc};
 
@@ -33,40 +33,58 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag) -> Tagged<Value>
+pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, span: Span) -> Tagged<Value>
 where
     T::Offset: Display,
 {
     let mut indexmap = IndexMap::new();
 
-    indexmap.insert("year".to_string(), Value::int(dt.year()).tagged(tag));
-    indexmap.insert("month".to_string(), Value::int(dt.month()).tagged(tag));
-    indexmap.insert("day".to_string(), Value::int(dt.day()).tagged(tag));
-    indexmap.insert("hour".to_string(), Value::int(dt.hour()).tagged(tag));
-    indexmap.insert("minute".to_string(), Value::int(dt.minute()).tagged(tag));
-    indexmap.insert("second".to_string(), Value::int(dt.second()).tagged(tag));
+    indexmap.insert(
+        "year".to_string(),
+        Tagged::from_simple_spanned_item(Value::int(dt.year()), span),
+    );
+    indexmap.insert(
+        "month".to_string(),
+        Tagged::from_simple_spanned_item(Value::int(dt.month()), span),
+    );
+    indexmap.insert(
+        "day".to_string(),
+        Tagged::from_simple_spanned_item(Value::int(dt.day()), span),
+    );
+    indexmap.insert(
+        "hour".to_string(),
+        Tagged::from_simple_spanned_item(Value::int(dt.hour()), span),
+    );
+    indexmap.insert(
+        "minute".to_string(),
+        Tagged::from_simple_spanned_item(Value::int(dt.minute()), span),
+    );
+    indexmap.insert(
+        "second".to_string(),
+        Tagged::from_simple_spanned_item(Value::int(dt.second()), span),
+    );
 
     let tz = dt.offset();
     indexmap.insert(
         "timezone".to_string(),
-        Value::string(format!("{}", tz)).tagged(tag),
+        Tagged::from_simple_spanned_item(Value::string(format!("{}", tz)), span),
     );
 
-    Value::Row(Dictionary::from(indexmap)).tagged(tag)
+    Tagged::from_simple_spanned_item(Value::Row(Dictionary::from(indexmap)), span)
 }
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
 
     let mut date_out = VecDeque::new();
-    let tag = args.call_info.name_tag;
+    let span = args.call_info.name_span;
 
     let value = if args.has("utc") {
         let utc: DateTime<Utc> = Utc::now();
-        date_to_value(utc, tag)
+        date_to_value(utc, span)
     } else {
         let local: DateTime<Local> = Local::now();
-        date_to_value(local, tag)
+        date_to_value(local, span)
     };
 
     date_out.push_back(value);

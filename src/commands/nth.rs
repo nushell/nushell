@@ -16,7 +16,7 @@ impl WholeStreamCommand for Nth {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nth").required("amount", SyntaxShape::Any)
+        Signature::build("nth").required("amount", SyntaxType::Any)
     }
 
     fn usage(&self) -> &str {

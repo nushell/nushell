@@ -126,11 +126,7 @@ impl Shell for HelpShell {
         self.path = path.clone();
     }
 
-    fn ls(
-        &self,
-        _pattern: Option<Tagged<PathBuf>>,
-        _command_tag: Tag,
-    ) -> Result<OutputStream, ShellError> {
+    fn ls(&self, _args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         Ok(self
             .commands()
             .map(|x| ReturnSuccess::value(x))
@@ -165,19 +161,24 @@ impl Shell for HelpShell {
         Ok(stream.into())
     }
 
-    fn cp(&self, _args: CopyArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn cp(&self, _args: CopyArgs, _name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 
-    fn mv(&self, _args: MoveArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn mv(&self, _args: MoveArgs, _name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 
-    fn mkdir(&self, _args: MkdirArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn mkdir(
+        &self,
+        _args: MkdirArgs,
+        _name: Span,
+        _path: &str,
+    ) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 
-    fn rm(&self, _args: RemoveArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
+    fn rm(&self, _args: RemoveArgs, _name: Span, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 

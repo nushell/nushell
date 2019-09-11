@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Dictionary, Value};
 use crate::errors::ShellError;
+use crate::data::{Dictionary, Value};
 use crate::parser::registry::Signature;
 use crate::prelude::*;
 use indexmap::IndexMap;
@@ -31,14 +31,14 @@ impl WholeStreamCommand for Version {
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let tag = args.call_info.name_tag;
+    let span = args.call_info.name_span;
 
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "version".to_string(),
-        Value::string(clap::crate_version!()).tagged(tag),
+        Tagged::from_simple_spanned_item(Value::string(clap::crate_version!()), span),
     );
 
-    let value = Value::Row(Dictionary::from(indexmap)).tagged(tag);
+    let value = Tagged::from_simple_spanned_item(Value::Row(Dictionary::from(indexmap)), span);
     Ok(OutputStream::one(value))
 }

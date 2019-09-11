@@ -83,7 +83,7 @@ pub fn from_xml_string_to_value(
 
 fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
+    let span = args.name_span();
     let input = args.input;
 
     let stream = async_stream_block! {
@@ -103,15 +103,15 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    span,
                     "value originates from here",
-                    value_tag,
+                    value_tag.span,
                 )),
 
             }
         }
 
-        match from_xml_string_to_value(concat_string, tag) {
+        match from_xml_string_to_value(concat_string, span) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
@@ -124,9 +124,9 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as XML",
                     "input cannot be parsed as XML",
-                    tag,
+                    span,
                     "value originates from here",
-                    last_tag,
+                    last_tag.span,
                 ))
             } ,
         }

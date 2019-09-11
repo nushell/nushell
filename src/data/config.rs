@@ -50,7 +50,7 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
 }
 
 pub fn read(
-    tag: impl Into<Tag>,
+    span: impl Into<Span>,
     at: &Option<PathBuf>,
 ) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
     let filename = default_path()?;
@@ -64,15 +64,15 @@ pub fn read(
 
     trace!("config file = {}", filename.display());
 
-    let tag = tag.into();
+    let span = span.into();
     let contents = fs::read_to_string(filename)
-        .map(|v| v.tagged(tag))
+        .map(|v| v.simple_spanned(span))
         .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
 
     let parsed: toml::Value = toml::from_str(&contents)
         .map_err(|err| ShellError::string(&format!("Couldn't parse config file:\n{}", err)))?;
 
-    let value = convert_toml_value_to_nu_value(&parsed, tag);
+    let value = convert_toml_value_to_nu_value(&parsed, Tag::unknown_origin(span));
     let tag = value.tag();
     match value.item {
         Value::Row(Dictionary { entries }) => Ok(entries),
@@ -83,8 +83,8 @@ pub fn read(
     }
 }
 
-pub(crate) fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
-    read(tag, &None)
+pub(crate) fn config(span: impl Into<Span>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
+    read(span, &None)
 }
 
 pub fn write(

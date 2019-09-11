@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{TaggedDictBuilder, Value};
 use crate::errors::ShellError;
+use crate::data::{TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct Tags;
@@ -36,7 +36,7 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
             let mut tags = TaggedDictBuilder::new(v.tag());
             {
                 let origin = v.origin();
-                let span = v.tag().span;
+                let span = v.span();
                 let mut dict = TaggedDictBuilder::new(v.tag());
                 dict.insert("start", Value::int(span.start as i64));
                 dict.insert("end", Value::int(span.end as i64));

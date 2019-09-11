@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, Value};
 use crate::errors::ShellError;
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 use log::trace;
 
@@ -32,7 +32,7 @@ impl WholeStreamCommand for Lines {
 
 fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
+    let span = args.name_span();
     let input = args.input;
 
     let input: InputStream = trace_stream!(target: "nu::trace_stream::lines", "input" = input);
@@ -58,9 +58,9 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    span,
                     "value originates from here",
-                    v.tag(),
+                    v.span(),
                 )));
                 result
             }

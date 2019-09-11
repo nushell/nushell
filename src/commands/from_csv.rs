@@ -86,7 +86,7 @@ fn from_csv(
     }: FromCSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_tag = name;
+    let name_span = name;
 
     let stream = async_stream_block! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
@@ -105,15 +105,15 @@ fn from_csv(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name_tag,
+                    name_span,
                     "value originates from here",
-                    value_tag,
+                    value_tag.span,
                 )),
 
             }
         }
 
-        match from_csv_string_to_value(concat_string, skip_headers, name_tag) {
+        match from_csv_string_to_value(concat_string, skip_headers, name_span) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
@@ -126,9 +126,9 @@ fn from_csv(
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as CSV",
                     "input cannot be parsed as CSV",
-                    name_tag,
+                    name_span,
                     "value originates from here",
-                    last_tag,
+                    last_tag.span,
                 ))
             } ,
         }

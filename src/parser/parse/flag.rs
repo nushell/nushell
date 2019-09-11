@@ -1,4 +1,4 @@
-use crate::Tag;
+use crate::Span;
 use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -13,5 +13,5 @@ pub enum FlagKind {
 #[get = "pub(crate)"]
 pub struct Flag {
     kind: FlagKind,
-    name: Tag,
+    name: Span,
 }

@@ -1,5 +1,5 @@
-use crate::data::Value;
 use crate::errors::ShellError;
+use crate::data::Value;
 use crate::prelude::*;
 
 use crate::commands::WholeStreamCommand;
@@ -13,7 +13,8 @@ impl WholeStreamCommand for Which {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("which").required("name", SyntaxShape::Any)
+        Signature::build("which")
+            .required("name", SyntaxType::Any)
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +34,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
 
     let mut which_out = VecDeque::new();
-    let tag = args.call_info.name_tag;
+    let span = args.call_info.name_span;
 
     if let Some(v) = &args.call_info.args.positional {
         if v.len() > 0 {
@@ -52,7 +53,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     return Err(ShellError::labeled_error(
                         "Expected a filename to find",
                         "needs a filename",
-                        *tag,
+                        tag.span,
                     ));
                 }
             }
@@ -60,14 +61,14 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             return Err(ShellError::labeled_error(
                 "Expected a binary to find",
                 "needs application name",
-                tag,
+                span,
             ));
         }
     } else {
         return Err(ShellError::labeled_error(
             "Expected a binary to find",
             "needs application name",
-            tag,
+            span,
         ));
     }
 

@@ -5,7 +5,6 @@ use derive_new::new;
 use getset::Getters;
 use serde::Deserialize;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
@@ -14,21 +13,19 @@ pub struct Tagged<T> {
     pub item: T,
 }
 
-impl<T> HasTag for Tagged<T> {
-    fn tag(&self) -> Tag {
-        self.tag
-    }
-}
-
-impl AsRef<Path> for Tagged<PathBuf> {
-    fn as_ref(&self) -> &Path {
-        self.item.as_ref()
+impl<T> HasSpan for Tagged<T> {
+    fn span(&self) -> Span {
+        self.tag.span
     }
 }
 
 pub trait TaggedItem: Sized {
     fn tagged(self, tag: impl Into<Tag>) -> Tagged<Self> {
         Tagged::from_item(self, tag.into())
+    }
+
+    fn simple_spanned(self, span: impl Into<Span>) -> Tagged<Self> {
+        Tagged::from_simple_spanned_item(self, span.into())
     }
 
     // For now, this is a temporary facility. In many cases, there are other useful spans that we
@@ -56,8 +53,14 @@ impl<T> std::ops::Deref for Tagged<T> {
 }
 
 impl<T> Tagged<T> {
-    pub fn with_tag(self, tag: impl Into<Tag>) -> Tagged<T> {
-        Tagged::from_item(self.item, tag)
+    pub fn spanned(self, span: impl Into<Span>) -> Tagged<T> {
+        Tagged::from_item(
+            self.item,
+            Tag {
+                span: span.into(),
+                origin: None,
+            },
+        )
     }
 
     pub fn from_item(item: T, tag: impl Into<Tag>) -> Tagged<T> {
@@ -67,26 +70,41 @@ impl<T> Tagged<T> {
         }
     }
 
+    pub fn from_simple_spanned_item(item: T, span: impl Into<Span>) -> Tagged<T> {
+        Tagged::from_item(
+            item,
+            Tag {
+                span: span.into(),
+                origin: None,
+            },
+        )
+    }
+
     pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Tagged<U> {
         let tag = self.tag();
 
         let mapped = input(self.item);
-        Tagged::from_item(mapped, tag)
+        Tagged::from_item(mapped, tag.clone())
     }
 
-    pub(crate) fn copy_tag<U>(&self, output: U) -> Tagged<U> {
-        Tagged::from_item(output, self.tag())
+    pub(crate) fn copy_span<U>(&self, output: U) -> Tagged<U> {
+        let span = self.span();
+
+        Tagged::from_simple_spanned_item(output, span)
     }
 
     pub fn source(&self, source: &Text) -> Text {
-        Text::from(self.tag().slice(source))
+        Text::from(self.span().slice(source))
+    }
+
+    pub fn span(&self) -> Span {
+        self.tag.span
     }
 
     pub fn tag(&self) -> Tag {
         self.tag
     }
 
-    // TODO: This should not be optional
     pub fn origin(&self) -> Option<uuid::Uuid> {
         self.tag.origin
     }
@@ -108,14 +126,20 @@ impl<T> Tagged<T> {
     }
 }
 
-impl From<&Tag> for Tag {
-    fn from(input: &Tag) -> Tag {
+impl<T> From<&Tagged<T>> for Span {
+    fn from(input: &Tagged<T>) -> Span {
+        input.span()
+    }
+}
+
+impl From<&Span> for Span {
+    fn from(input: &Span) -> Span {
         *input
     }
 }
 
-impl From<nom_locate::LocatedSpanEx<&str, Uuid>> for Span {
-    fn from(input: nom_locate::LocatedSpanEx<&str, Uuid>) -> Span {
+impl From<nom5_locate::LocatedSpan<&str>> for Span {
+    fn from(input: nom5_locate::LocatedSpan<&str>) -> Span {
         Span {
             start: input.offset,
             end: input.offset + input.fragment.len(),
@@ -123,18 +147,8 @@ impl From<nom_locate::LocatedSpanEx<&str, Uuid>> for Span {
     }
 }
 
-impl<T>
-    From<(
-        nom_locate::LocatedSpanEx<T, Uuid>,
-        nom_locate::LocatedSpanEx<T, Uuid>,
-    )> for Span
-{
-    fn from(
-        input: (
-            nom_locate::LocatedSpanEx<T, Uuid>,
-            nom_locate::LocatedSpanEx<T, Uuid>,
-        ),
-    ) -> Span {
+impl<T> From<(nom5_locate::LocatedSpan<T>, nom5_locate::LocatedSpan<T>)> for Span {
+    fn from(input: (nom5_locate::LocatedSpan<T>, nom5_locate::LocatedSpan<T>)) -> Span {
         Span {
             start: input.0.offset,
             end: input.1.offset,
@@ -183,36 +197,6 @@ impl From<&Span> for Tag {
     }
 }
 
-impl From<(usize, usize, Uuid)> for Tag {
-    fn from((start, end, origin): (usize, usize, Uuid)) -> Self {
-        Tag {
-            origin: Some(origin),
-            span: Span { start, end },
-        }
-    }
-}
-
-impl From<(usize, usize, Option<Uuid>)> for Tag {
-    fn from((start, end, origin): (usize, usize, Option<Uuid>)) -> Self {
-        Tag {
-            origin,
-            span: Span { start, end },
-        }
-    }
-}
-
-impl From<nom_locate::LocatedSpanEx<&str, Uuid>> for Tag {
-    fn from(input: nom_locate::LocatedSpanEx<&str, Uuid>) -> Tag {
-        Tag {
-            origin: Some(input.extra),
-            span: Span {
-                start: input.offset,
-                end: input.offset + input.fragment.len(),
-            },
-        }
-    }
-}
-
 impl From<Tag> for Span {
     fn from(tag: Tag) -> Self {
         tag.span
@@ -230,35 +214,11 @@ impl Tag {
         Tag { origin: None, span }
     }
 
-    pub fn unknown_span(origin: Uuid) -> Tag {
-        Tag {
-            origin: Some(origin),
-            span: Span::unknown(),
-        }
-    }
-
     pub fn unknown() -> Tag {
         Tag {
             origin: None,
             span: Span::unknown(),
         }
-    }
-
-    pub fn until(&self, other: impl Into<Tag>) -> Tag {
-        let other = other.into();
-        debug_assert!(self.origin == other.origin, "Can only merge two tags with the same origin");
-
-        Tag {
-            span: Span {
-                start: self.span.start,
-                end: other.span.end
-            },
-            origin: self.origin
-        }
-    }
-
-    pub fn slice<'a>(&self, source: &'a str) -> &'a str {
-        self.span.slice(source)
     }
 }
 
@@ -322,35 +282,5 @@ impl language_reporting::ReportingSpan for Span {
 
     fn end(&self) -> usize {
         self.end
-    }
-}
-
-impl language_reporting::ReportingSpan for Tag {
-    fn with_start(&self, start: usize) -> Self {
-        Tag {
-            span: Span {
-                start,
-                end: self.span.end,
-            },
-            origin: self.origin,
-        }
-    }
-
-    fn with_end(&self, end: usize) -> Self {
-        Tag {
-            span: Span {
-                start: self.span.start,
-                end,
-            },
-            origin: self.origin,
-        }
-    }
-
-    fn start(&self) -> usize {
-        self.span.start
-    }
-
-    fn end(&self) -> usize {
-        self.span.end
     }
 }

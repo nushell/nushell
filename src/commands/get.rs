@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Value;
 use crate::errors::ShellError;
+use crate::data::Value;
 use crate::prelude::*;
 
 pub struct Get;
@@ -16,7 +16,7 @@ impl WholeStreamCommand for Get {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("get").rest(SyntaxShape::Member)
+        Signature::build("get").rest(SyntaxType::Member)
     }
 
     fn usage(&self) -> &str {
@@ -47,7 +47,7 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
                             return Err(ShellError::labeled_error(
                                 "Unknown column",
                                 "table missing column",
-                                path.tag(),
+                                path.span(),
                             ));
                         }
                     }

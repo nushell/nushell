@@ -200,7 +200,7 @@ fn sqlite_input_stream_to_bytes(
 
 fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_tag = args.name_tag();
+    let name_span = args.name_span();
     let stream = async_stream_block! {
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
@@ -208,9 +208,9 @@ fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             Ok(out) => yield ReturnSuccess::value(out),
             _ => {
                 yield Err(ShellError::labeled_error(
-                    "Expected a table with SQLite-compatible structure.tag() from pipeline",
+                    "Expected a table with SQLite-compatible structure.span() from pipeline",
                     "requires SQLite-compatible input",
-                    name_tag,
+                    name_span,
                 ))
             },
         }

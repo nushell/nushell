@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tag, Tagged, TaggedDictBuilder, Value,
+    SyntaxType, Tag, Tagged, TaggedDictBuilder, Value,
 };
 
 struct Embed {
@@ -37,8 +37,8 @@ impl Plugin for Embed {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("embed")
             .desc("Embeds a new field to the table.")
-            .required("Field", SyntaxShape::String)
-            .rest(SyntaxShape::String)
+            .required("Field", SyntaxType::String)
+            .rest(SyntaxType::String)
             .filter())
     }
 

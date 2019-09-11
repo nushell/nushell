@@ -72,7 +72,7 @@ fn from_json(
     FromJSONArgs { objects }: FromJSONArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_tag = name;
+    let name_span = name;
 
     let stream = async_stream_block! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
@@ -91,9 +91,9 @@ fn from_json(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name_tag,
+                    name_span,
                     "value originates from here",
-                    value_tag,
+                    value_tag.span,
                 )),
 
             }
@@ -106,7 +106,7 @@ fn from_json(
                     continue;
                 }
 
-                match from_json_string_to_value(json_str.to_string(), name_tag) {
+                match from_json_string_to_value(json_str.to_string(), name_span) {
                     Ok(x) =>
                         yield ReturnSuccess::value(x),
                     Err(_) => {
@@ -114,15 +114,15 @@ fn from_json(
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could nnot parse as JSON",
                                 "input cannot be parsed as JSON",
-                                name_tag,
+                                name_span,
                                 "value originates from here",
-                                last_tag))
+                                last_tag.span))
                         }
                     }
                 }
             }
         } else {
-            match from_json_string_to_value(concat_string, name_tag) {
+            match from_json_string_to_value(concat_string, name_span) {
                 Ok(x) =>
                     match x {
                         Tagged { item: Value::Table(list), .. } => {
@@ -137,9 +137,9 @@ fn from_json(
                         yield Err(ShellError::labeled_error_with_secondary(
                             "Could not parse as JSON",
                             "input cannot be parsed as JSON",
-                            name_tag,
+                            name_span,
                             "value originates from here",
-                            last_tag))
+                            last_tag.span))
                     }
                 }
             }

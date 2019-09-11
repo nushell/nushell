@@ -1,6 +1,7 @@
 use crate::parser::hir::Expression;
 use crate::parser::Flag;
 use crate::prelude::*;
+use crate::Span;
 use derive_new::new;
 use indexmap::IndexMap;
 use log::trace;
@@ -10,7 +11,7 @@ use std::fmt;
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum NamedValue {
     AbsentSwitch,
-    PresentSwitch(Tag),
+    PresentSwitch(Span),
     AbsentValue,
     Value(Expression),
 }
@@ -26,7 +27,7 @@ impl ToDebug for NamedArguments {
         for (name, value) in &self.named {
             match value {
                 NamedValue::AbsentSwitch => continue,
-                NamedValue::PresentSwitch(tag) => write!(f, " --{}", tag.slice(source))?,
+                NamedValue::PresentSwitch(span) => write!(f, " --{}", span.slice(source))?,
                 NamedValue::AbsentValue => continue,
                 NamedValue::Value(expr) => write!(f, " --{} {}", name, expr.debug(source))?,
             }
