@@ -1,6 +1,6 @@
 use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxShape;
+use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 use std::path::PathBuf;
@@ -21,9 +21,9 @@ impl PerItemCommand for Cpy {
 
     fn signature(&self) -> Signature {
         Signature::build("cp")
-            .required("src", SyntaxShape::Pattern)
-            .required("dst", SyntaxShape::Path)
-            .named("file", SyntaxShape::Any)
+            .required("src", SyntaxType::Pattern)
+            .required("dst", SyntaxType::Path)
+            .named("file", SyntaxType::Any)
             .switch("recursive")
     }
 

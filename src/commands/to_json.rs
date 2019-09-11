@@ -80,7 +80,7 @@ fn json_list(input: &Vec<Tagged<Value>>) -> Result<Vec<serde_json::Value>, Shell
 
 fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_tag = args.name_tag();
+    let name_span = args.name_span();
     let stream = async_stream_block! {
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
@@ -98,21 +98,21 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 Ok(json_value) => {
                     match serde_json::to_string(&json_value) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Primitive(Primitive::String(x)).tagged(name_tag),
+                            Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with JSON-compatible structure.tag() from pipeline",
+                            "Expected a table with JSON-compatible structure.span() from pipeline",
                             "requires JSON-compatible input",
-                            name_tag,
+                            name_span,
                             "originates from here".to_string(),
-                            value.tag(),
+                            value.span(),
                         )),
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with JSON-compatible structure from pipeline",
                     "requires JSON-compatible input",
-                    name_tag))
+                    name_span))
             }
         }
     };

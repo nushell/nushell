@@ -1,7 +1,7 @@
 use crate::errors::ShellError;
 use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged, Text};
+use crate::{Span, Tagged, Text};
 use derive_new::new;
 use enum_utils::FromStr;
 use getset::Getters;
@@ -16,8 +16,8 @@ pub enum TokenNode {
     Pipeline(Tagged<Pipeline>),
     Operator(Tagged<Operator>),
     Flag(Tagged<Flag>),
-    Member(Tag),
-    Whitespace(Tag),
+    Member(Span),
+    Whitespace(Span),
 
     Error(Tagged<Box<ShellError>>),
     Path(Tagged<PathNode>),
@@ -78,31 +78,31 @@ impl fmt::Debug for DebugTokenNode<'_> {
                 )
             }
             TokenNode::Pipeline(pipeline) => write!(f, "{}", pipeline.debug(self.source)),
-            TokenNode::Error(s) => write!(f, "<error> for {:?}", s.tag().slice(self.source)),
-            rest => write!(f, "{}", rest.tag().slice(self.source)),
+            TokenNode::Error(s) => write!(f, "<error> for {:?}", s.span().slice(self.source)),
+            rest => write!(f, "{}", rest.span().slice(self.source)),
         }
     }
 }
 
-impl From<&TokenNode> for Tag {
-    fn from(token: &TokenNode) -> Tag {
-        token.tag()
+impl From<&TokenNode> for Span {
+    fn from(token: &TokenNode) -> Span {
+        token.span()
     }
 }
 
 impl TokenNode {
-    pub fn tag(&self) -> Tag {
+    pub fn span(&self) -> Span {
         match self {
-            TokenNode::Token(t) => t.tag(),
-            TokenNode::Call(s) => s.tag(),
-            TokenNode::Delimited(s) => s.tag(),
-            TokenNode::Pipeline(s) => s.tag(),
-            TokenNode::Operator(s) => s.tag(),
-            TokenNode::Flag(s) => s.tag(),
+            TokenNode::Token(t) => t.span(),
+            TokenNode::Call(s) => s.span(),
+            TokenNode::Delimited(s) => s.span(),
+            TokenNode::Pipeline(s) => s.span(),
+            TokenNode::Operator(s) => s.span(),
+            TokenNode::Flag(s) => s.span(),
             TokenNode::Member(s) => *s,
             TokenNode::Whitespace(s) => *s,
-            TokenNode::Error(s) => s.tag(),
-            TokenNode::Path(s) => s.tag(),
+            TokenNode::Error(s) => s.span(),
+            TokenNode::Path(s) => s.span(),
         }
     }
 
@@ -127,11 +127,11 @@ impl TokenNode {
     }
 
     pub fn as_external_arg(&self, source: &Text) -> String {
-        self.tag().slice(source).to_string()
+        self.span().slice(source).to_string()
     }
 
     pub fn source<'a>(&self, source: &'a Text) -> &'a str {
-        self.tag().slice(source)
+        self.span().slice(source)
     }
 
     pub fn is_bare(&self) -> bool {
@@ -154,12 +154,12 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_external(&self) -> Tag {
+    pub fn expect_external(&self) -> Span {
         match self {
             TokenNode::Token(Tagged {
-                item: RawToken::ExternalCommand(tag),
+                item: RawToken::ExternalCommand(span),
                 ..
-            }) => *tag,
+            }) => *span,
             _ => panic!("Only call expect_external if you checked is_external first"),
         }
     }

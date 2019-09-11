@@ -7,7 +7,7 @@ use crate::parser::{
     Flag, RawToken, TokenNode,
 };
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged, TaggedItem, Text};
+use crate::{Span, Tag, Tagged, Text};
 use log::trace;
 
 pub fn parse_command(
@@ -33,7 +33,7 @@ pub fn parse_command(
             .collect()
     });
 
-    match parse_command_tail(&config, context, children, source, call.tag())? {
+    match parse_command_tail(&config, context, children, source, call.span())? {
         None => Ok(hir::Call::new(Box::new(head), None, None)),
         Some((positional, named)) => Ok(hir::Call::new(Box::new(head), positional, named)),
     }
@@ -49,9 +49,12 @@ fn parse_command_head(head: &TokenNode) -> Result<hir::Expression, ShellError> {
         ) => Ok(spanned.map(|_| hir::RawExpression::Literal(hir::Literal::Bare))),
 
         TokenNode::Token(Tagged {
-            item: RawToken::String(inner_tag),
-            tag,
-        }) => Ok(hir::RawExpression::Literal(hir::Literal::String(*inner_tag)).tagged(*tag)),
+            item: RawToken::String(inner_span),
+            tag: Tag { span, origin: None },
+        }) => Ok(Tagged::from_simple_spanned_item(
+            hir::RawExpression::Literal(hir::Literal::String(*inner_span)),
+            *span,
+        )),
 
         other => Err(ShellError::unexpected(&format!(
             "command head -> {:?}",
@@ -65,7 +68,7 @@ fn parse_command_tail(
     context: &Context,
     tail: Option<Vec<TokenNode>>,
     source: &Text,
-    command_tag: Tag,
+    command_span: Span,
 ) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
     let tail = &mut match &tail {
         None => hir::TokensIterator::new(&[]),
@@ -86,7 +89,7 @@ fn parse_command_tail(
                 named.insert_switch(name, flag);
             }
             NamedType::Mandatory(syntax_type) => {
-                match extract_mandatory(config, name, tail, source, command_tag) {
+                match extract_mandatory(config, name, tail, source, command_span) {
                     Err(err) => return Err(err), // produce a correct diagnostic
                     Ok((pos, flag)) => {
                         tail.move_to(pos);
@@ -95,7 +98,7 @@ fn parse_command_tail(
                             return Err(ShellError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.tag(),
+                                flag.span(),
                             ));
                         }
 
@@ -116,7 +119,7 @@ fn parse_command_tail(
                         return Err(ShellError::argument_error(
                             config.name.clone(),
                             ArgumentError::MissingValueForName(name.to_string()),
-                            flag.tag(),
+                            flag.span(),
                         ));
                     }
 
@@ -147,7 +150,7 @@ fn parse_command_tail(
                     return Err(ShellError::argument_error(
                         config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
-                        command_tag,
+                        command_span,
                     ));
                 }
             }
@@ -205,7 +208,7 @@ fn extract_mandatory(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-    tag: Tag,
+    span: Span,
 ) -> Result<(usize, Tagged<Flag>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
@@ -213,7 +216,7 @@ fn extract_mandatory(
         None => Err(ShellError::argument_error(
             config.name.clone(),
             ArgumentError::MissingMandatoryFlag(name.to_string()),
-            tag,
+            span,
         )),
 
         Some((pos, flag)) => {

@@ -10,19 +10,19 @@ pub fn baseline_parse_single_token(
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     Ok(match *token.item() {
-        RawToken::Number(number) => hir::Expression::number(number.to_number(source), token.tag()),
+        RawToken::Number(number) => hir::Expression::number(number.to_number(source), token.span()),
         RawToken::Size(int, unit) => {
-            hir::Expression::size(int.to_number(source), unit, token.tag())
+            hir::Expression::size(int.to_number(source), unit, token.span())
         }
-        RawToken::String(tag) => hir::Expression::string(tag, token.tag()),
-        RawToken::Variable(tag) if tag.slice(source) == "it" => {
-            hir::Expression::it_variable(tag, token.tag())
+        RawToken::String(span) => hir::Expression::string(span, token.span()),
+        RawToken::Variable(span) if span.slice(source) == "it" => {
+            hir::Expression::it_variable(span, token.span())
         }
-        RawToken::Variable(tag) => hir::Expression::variable(tag, token.tag()),
-        RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token.tag()),
-        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.tag())),
-        RawToken::GlobPattern => hir::Expression::pattern(token.tag()),
-        RawToken::Bare => hir::Expression::bare(token.tag()),
+        RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
+        RawToken::ExternalCommand(span) => hir::Expression::external_command(span, token.span()),
+        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.span())),
+        RawToken::GlobPattern => hir::Expression::pattern(token.span()),
+        RawToken::Bare => hir::Expression::bare(token.span()),
     })
 }
 
@@ -31,24 +31,24 @@ pub fn baseline_parse_token_as_number(
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     Ok(match *token.item() {
-        RawToken::Variable(tag) if tag.slice(source) == "it" => {
-            hir::Expression::it_variable(tag, token.tag())
+        RawToken::Variable(span) if span.slice(source) == "it" => {
+            hir::Expression::it_variable(span, token.span())
         }
-        RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token.tag()),
-        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.tag())),
-        RawToken::Variable(tag) => hir::Expression::variable(tag, token.tag()),
-        RawToken::Number(number) => hir::Expression::number(number.to_number(source), token.tag()),
+        RawToken::ExternalCommand(span) => hir::Expression::external_command(span, token.span()),
+        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.span())),
+        RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
+        RawToken::Number(number) => hir::Expression::number(number.to_number(source), token.span()),
         RawToken::Size(number, unit) => {
-            hir::Expression::size(number.to_number(source), unit, token.tag())
+            hir::Expression::size(number.to_number(source), unit, token.span())
         }
-        RawToken::Bare => hir::Expression::bare(token.tag()),
+        RawToken::Bare => hir::Expression::bare(token.span()),
         RawToken::GlobPattern => {
             return Err(ShellError::type_error(
                 "Number",
                 "glob pattern".to_string().tagged(token.tag()),
             ))
         }
-        RawToken::String(tag) => hir::Expression::string(tag, token.tag()),
+        RawToken::String(span) => hir::Expression::string(span, token.span()),
     })
 }
 
@@ -57,22 +57,22 @@ pub fn baseline_parse_token_as_string(
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     Ok(match *token.item() {
-        RawToken::Variable(tag) if tag.slice(source) == "it" => {
-            hir::Expression::it_variable(tag, token.tag())
+        RawToken::Variable(span) if span.slice(source) == "it" => {
+            hir::Expression::it_variable(span, token.span())
         }
-        RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token.tag()),
-        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.tag())),
-        RawToken::Variable(tag) => hir::Expression::variable(tag, token.tag()),
-        RawToken::Number(_) => hir::Expression::bare(token.tag()),
-        RawToken::Size(_, _) => hir::Expression::bare(token.tag()),
-        RawToken::Bare => hir::Expression::bare(token.tag()),
+        RawToken::ExternalCommand(span) => hir::Expression::external_command(span, token.span()),
+        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.span())),
+        RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
+        RawToken::Number(_) => hir::Expression::bare(token.span()),
+        RawToken::Size(_, _) => hir::Expression::bare(token.span()),
+        RawToken::Bare => hir::Expression::bare(token.span()),
         RawToken::GlobPattern => {
             return Err(ShellError::type_error(
                 "String",
                 "glob pattern".tagged(token.tag()),
             ))
         }
-        RawToken::String(tag) => hir::Expression::string(tag, token.tag()),
+        RawToken::String(span) => hir::Expression::string(span, token.span()),
     })
 }
 
@@ -82,25 +82,26 @@ pub fn baseline_parse_token_as_path(
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     Ok(match *token.item() {
-        RawToken::Variable(tag) if tag.slice(source) == "it" => {
-            hir::Expression::it_variable(tag, token.tag())
+        RawToken::Variable(span) if span.slice(source) == "it" => {
+            hir::Expression::it_variable(span, token.span())
         }
-        RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token.tag()),
-        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.tag())),
-        RawToken::Variable(tag) => hir::Expression::variable(tag, token.tag()),
-        RawToken::Number(_) => hir::Expression::bare(token.tag()),
-        RawToken::Size(_, _) => hir::Expression::bare(token.tag()),
-        RawToken::Bare => {
-            hir::Expression::file_path(expand_path(token.tag().slice(source), context), token.tag())
-        }
+        RawToken::ExternalCommand(span) => hir::Expression::external_command(span, token.span()),
+        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.span())),
+        RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
+        RawToken::Number(_) => hir::Expression::bare(token.span()),
+        RawToken::Size(_, _) => hir::Expression::bare(token.span()),
+        RawToken::Bare => hir::Expression::file_path(
+            expand_path(token.span().slice(source), context),
+            token.span(),
+        ),
         RawToken::GlobPattern => {
             return Err(ShellError::type_error(
                 "Path",
                 "glob pattern".tagged(token.tag()),
             ))
         }
-        RawToken::String(tag) => {
-            hir::Expression::file_path(expand_path(tag.slice(source), context), token.tag())
+        RawToken::String(span) => {
+            hir::Expression::file_path(expand_path(span.slice(source), context), token.span())
         }
     })
 }
@@ -111,24 +112,25 @@ pub fn baseline_parse_token_as_pattern(
     source: &Text,
 ) -> Result<hir::Expression, ShellError> {
     Ok(match *token.item() {
-        RawToken::Variable(tag) if tag.slice(source) == "it" => {
-            hir::Expression::it_variable(tag, token.tag())
+        RawToken::Variable(span) if span.slice(source) == "it" => {
+            hir::Expression::it_variable(span, token.span())
         }
         RawToken::ExternalCommand(_) => {
             return Err(ShellError::syntax_error(
                 "Invalid external command".to_string().tagged(token.tag()),
             ))
         }
-        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.tag())),
-        RawToken::Variable(tag) => hir::Expression::variable(tag, token.tag()),
-        RawToken::Number(_) => hir::Expression::bare(token.tag()),
-        RawToken::Size(_, _) => hir::Expression::bare(token.tag()),
-        RawToken::GlobPattern => hir::Expression::pattern(token.tag()),
-        RawToken::Bare => {
-            hir::Expression::file_path(expand_path(token.tag().slice(source), context), token.tag())
-        }
-        RawToken::String(tag) => {
-            hir::Expression::file_path(expand_path(tag.slice(source), context), token.tag())
+        RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token.span())),
+        RawToken::Variable(span) => hir::Expression::variable(span, token.span()),
+        RawToken::Number(_) => hir::Expression::bare(token.span()),
+        RawToken::Size(_, _) => hir::Expression::bare(token.span()),
+        RawToken::GlobPattern => hir::Expression::pattern(token.span()),
+        RawToken::Bare => hir::Expression::file_path(
+            expand_path(token.span().slice(source), context),
+            token.span(),
+        ),
+        RawToken::String(span) => {
+            hir::Expression::file_path(expand_path(span.slice(source), context), token.span())
         }
     })
 }

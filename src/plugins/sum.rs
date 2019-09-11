@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tagged, TaggedItem, Value,
+    Tag, Tagged, Value,
 };
 
 struct Sum {
@@ -18,10 +18,11 @@ impl Sum {
                 match &self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Int(j)),
-                        tag,
+                        tag: Tag { span, .. },
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Value::int(i + j).tagged(*tag));
+                        self.total =
+                            Some(Tagged::from_simple_spanned_item(Value::int(i + j), span));
                         Ok(())
                     }
                     None => {
@@ -37,10 +38,11 @@ impl Sum {
                 match self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Bytes(j)),
-                        tag,
+                        tag: Tag { span, .. },
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Value::bytes(b + j).tagged(tag));
+                        self.total =
+                            Some(Tagged::from_simple_spanned_item(Value::bytes(b + j), span));
                         Ok(())
                     }
                     None => {

@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, Value,
+    SyntaxType, Tagged, Value,
 };
 
 struct Edit {
@@ -43,8 +43,8 @@ impl Plugin for Edit {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("edit")
             .desc("Edit an existing column to have a new value.")
-            .required("Field", SyntaxShape::String)
-            .required("Value", SyntaxShape::String)
+            .required("Field", SyntaxType::String)
+            .required("Value", SyntaxType::String)
             .filter())
     }
 

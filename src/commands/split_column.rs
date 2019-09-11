@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::errors::ShellError;
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use log::trace;
 
@@ -21,9 +21,9 @@ impl WholeStreamCommand for SplitColumn {
 
     fn signature(&self) -> Signature {
         Signature::build("split-column")
-            .required("separator", SyntaxShape::Any)
+            .required("separator", SyntaxType::Any)
             .switch("collapse-empty")
-            .rest(SyntaxShape::Member)
+            .rest(SyntaxType::Member)
     }
 
     fn usage(&self) -> &str {
@@ -40,11 +40,7 @@ impl WholeStreamCommand for SplitColumn {
 }
 
 fn split_column(
-    SplitColumnArgs {
-        separator,
-        rest,
-        collapse_empty,
-    }: SplitColumnArgs,
+    SplitColumnArgs { separator, rest, collapse_empty}: SplitColumnArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(input
@@ -96,7 +92,7 @@ fn split_column(
                 "requires string input",
                 name,
                 "value originates from here",
-                v.tag(),
+                v.span(),
             )),
         })
         .to_output_stream())

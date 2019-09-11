@@ -12,8 +12,8 @@ impl<T: ToDebug> fmt::Display for Debuggable<'_, T> {
     }
 }
 
-pub trait HasTag {
-    fn tag(&self) -> Tag;
+pub trait HasSpan {
+    fn span(&self) -> Span;
 }
 
 pub trait ToDebug: Sized {

@@ -40,7 +40,7 @@ async fn ps(tag: Tag) -> Vec<Tagged<Value>> {
     let mut output = vec![];
     while let Some(res) = processes.next().await {
         if let Ok((process, usage)) = res {
-            let mut dict = TaggedDictBuilder::new(tag);
+            let mut dict = TaggedDictBuilder::new(Tag::unknown_origin(tag.span));
             dict.insert("pid", Value::int(process.pid()));
             if let Ok(name) = process.name().await {
                 dict.insert("name", Value::string(name));
@@ -64,7 +64,7 @@ impl Plugin for Ps {
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(block_on(ps(Tag::unknown_origin(callinfo.name_tag)))
+        Ok(block_on(ps(Tag::unknown_origin(callinfo.name_span)))
             .into_iter()
             .map(ReturnSuccess::value)
             .collect())

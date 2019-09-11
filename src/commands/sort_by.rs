@@ -15,7 +15,7 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by").rest(SyntaxShape::String)
+        Signature::build("sort-by").rest(SyntaxType::String)
     }
 
     fn usage(&self) -> &str {

@@ -16,7 +16,7 @@ impl WholeStreamCommand for SkipWhile {
 
     fn signature(&self) -> Signature {
         Signature::build("skip-while")
-            .required("condition", SyntaxShape::Block)
+            .required("condition", SyntaxType::Block)
             .filter()
     }
 

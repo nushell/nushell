@@ -14,7 +14,7 @@ impl PerItemCommand for Enter {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("enter").required("location", SyntaxShape::Block)
+        Signature::build("enter").required("location", SyntaxType::Block)
     }
 
     fn usage(&self) -> &str {
@@ -70,7 +70,7 @@ impl PerItemCommand for Enter {
                             crate::commands::open::fetch(
                                 &full_path,
                                 &location_clone,
-                                Tag::unknown(),
+                                Span::unknown(),
                             )
                             .await.unwrap();
 
@@ -103,7 +103,7 @@ impl PerItemCommand for Enter {
                                                 },
                                                 source: raw_args.call_info.source,
                                                 source_map: raw_args.call_info.source_map,
-                                                name_tag: raw_args.call_info.name_tag,
+                                                name_span: raw_args.call_info.name_span,
                                             },
                                         };
                                         let mut result = converter.run(

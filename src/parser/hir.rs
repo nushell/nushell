@@ -25,7 +25,7 @@ pub(crate) use self::external_command::ExternalCommand;
 pub(crate) use self::named::NamedArguments;
 pub(crate) use self::path::Path;
 
-pub use self::baseline_parse_tokens::SyntaxShape;
+pub use self::baseline_parse_tokens::SyntaxType;
 
 pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -> Path {
     Path::new(
@@ -131,57 +131,72 @@ impl RawExpression {
 pub type Expression = Tagged<RawExpression>;
 
 impl Expression {
-    pub(crate) fn number(i: impl Into<Number>, tag: impl Into<Tag>) -> Expression {
-        RawExpression::Literal(Literal::Number(i.into())).tagged(tag.into())
+    pub(crate) fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Number(i.into())), span)
     }
 
     pub(crate) fn size(
         i: impl Into<Number>,
         unit: impl Into<Unit>,
-        tag: impl Into<Tag>,
+        span: impl Into<Span>,
     ) -> Expression {
-        RawExpression::Literal(Literal::Size(i.into(), unit.into())).tagged(tag.into())
+        Tagged::from_simple_spanned_item(
+            RawExpression::Literal(Literal::Size(i.into(), unit.into())),
+            span,
+        )
     }
 
     pub(crate) fn synthetic_string(s: impl Into<String>) -> Expression {
         RawExpression::Synthetic(Synthetic::String(s.into())).tagged_unknown()
     }
 
-    pub(crate) fn string(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
-        RawExpression::Literal(Literal::String(inner.into())).tagged(outer.into())
+    pub(crate) fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(
+            RawExpression::Literal(Literal::String(inner.into())),
+            outer.into(),
+        )
     }
 
-    pub(crate) fn file_path(path: impl Into<PathBuf>, outer: impl Into<Tag>) -> Expression {
-        RawExpression::FilePath(path.into()).tagged(outer)
+    pub(crate) fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(RawExpression::FilePath(path.into()), outer.into())
     }
 
-    pub(crate) fn bare(tag: impl Into<Tag>) -> Expression {
-        RawExpression::Literal(Literal::Bare).tagged(tag)
+    pub(crate) fn bare(span: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(RawExpression::Literal(Literal::Bare), span.into())
     }
 
     pub(crate) fn pattern(tag: impl Into<Tag>) -> Expression {
         RawExpression::Literal(Literal::GlobPattern).tagged(tag.into())
     }
 
-    pub(crate) fn variable(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
-        RawExpression::Variable(Variable::Other(inner.into())).tagged(outer)
+    pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(
+            RawExpression::Variable(Variable::Other(inner.into())),
+            outer.into(),
+        )
     }
 
-    pub(crate) fn external_command(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
-        RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).tagged(outer)
+    pub(crate) fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(
+            RawExpression::ExternalCommand(ExternalCommand::new(inner.into())),
+            outer.into(),
+        )
     }
 
-    pub(crate) fn it_variable(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
-        RawExpression::Variable(Variable::It(inner.into())).tagged(outer)
+    pub(crate) fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+        Tagged::from_simple_spanned_item(
+            RawExpression::Variable(Variable::It(inner.into())),
+            outer.into(),
+        )
     }
 }
 
 impl ToDebug for Expression {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         match self.item() {
-            RawExpression::Literal(l) => l.tagged(self.tag()).fmt_debug(f, source),
+            RawExpression::Literal(l) => l.tagged(self.span()).fmt_debug(f, source),
             RawExpression::FilePath(p) => write!(f, "{}", p.display()),
-            RawExpression::ExternalWord => write!(f, "{}", self.tag().slice(source)),
+            RawExpression::ExternalWord => write!(f, "{}", self.span().slice(source)),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
@@ -227,7 +242,7 @@ impl From<Tagged<Path>> for Expression {
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),
-    String(Tag),
+    String(Span),
     GlobPattern,
     Bare,
 }
@@ -237,9 +252,9 @@ impl ToDebug for Tagged<&Literal> {
         match self.item() {
             Literal::Number(number) => write!(f, "{:?}", *number),
             Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
-            Literal::String(tag) => write!(f, "{}", tag.slice(source)),
-            Literal::GlobPattern => write!(f, "{}", self.tag().slice(source)),
-            Literal::Bare => write!(f, "{}", self.tag().slice(source)),
+            Literal::String(span) => write!(f, "{}", span.slice(source)),
+            Literal::GlobPattern => write!(f, "{}", self.span().slice(source)),
+            Literal::Bare => write!(f, "{}", self.span().slice(source)),
         }
     }
 }
@@ -258,6 +273,6 @@ impl Literal {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Variable {
-    It(Tag),
-    Other(Tag),
+    It(Span),
+    Other(Span),
 }

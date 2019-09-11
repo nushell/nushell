@@ -38,13 +38,13 @@ pub(crate) fn evaluate_baseline_expr(
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     match &expr.item {
-        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_tag(literal), source)),
+        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_span(literal), source)),
         RawExpression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word",
             ArgumentError::InvalidExternalWord,
-            expr.tag(),
+            expr.span(),
         )),
-        RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.tag())),
+        RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.span())),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
         RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),
@@ -53,10 +53,13 @@ pub(crate) fn evaluate_baseline_expr(
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
 
             match left.compare(binary.op(), &*right) {
-                Ok(result) => Ok(Value::boolean(result).tagged(expr.tag())),
+                Ok(result) => Ok(Tagged::from_simple_spanned_item(
+                    Value::boolean(result),
+                    expr.span(),
+                )),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
-                    binary.left().copy_tag(left_type),
-                    binary.right().copy_tag(right_type),
+                    binary.left().copy_span(left_type),
+                    binary.right().copy_span(right_type),
                 )),
             }
         }
@@ -68,14 +71,12 @@ pub(crate) fn evaluate_baseline_expr(
                 exprs.push(expr);
             }
 
-            Ok(Value::Table(exprs).tagged(expr.tag()))
+            Ok(Value::Table(exprs).tagged(Tag::unknown_origin(expr.span())))
         }
-        RawExpression::Block(block) => {
-            Ok(
-                Value::Block(Block::new(block.clone(), source.clone(), expr.tag()))
-                    .tagged(expr.tag()),
-            )
-        }
+        RawExpression::Block(block) => Ok(Tagged::from_simple_spanned_item(
+            Value::Block(Block::new(block.clone(), source.clone(), expr.span())),
+            expr.span(),
+        )),
         RawExpression::Path(path) => {
             let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;
             let mut item = value;
@@ -91,12 +92,18 @@ pub(crate) fn evaluate_baseline_expr(
                         ))
                     }
                     Some(next) => {
-                        item = next.clone().item.tagged(expr.tag());
+                        item = Tagged::from_simple_spanned_item(
+                            next.clone().item,
+                            (expr.span().start, name.span().end),
+                        )
                     }
                 };
             }
 
-            Ok(item.item().clone().tagged(expr.tag()))
+            Ok(Tagged::from_simple_spanned_item(
+                item.item().clone(),
+                expr.span(),
+            ))
         }
         RawExpression::Boolean(_boolean) => unimplemented!(),
     }
@@ -106,9 +113,9 @@ fn evaluate_literal(literal: Tagged<&hir::Literal>, source: &Text) -> Tagged<Val
     let result = match literal.item {
         hir::Literal::Number(int) => int.into(),
         hir::Literal::Size(int, unit) => unit.compute(int),
-        hir::Literal::String(tag) => Value::string(tag.slice(source)),
-        hir::Literal::GlobPattern => Value::pattern(literal.tag().slice(source)),
-        hir::Literal::Bare => Value::string(literal.tag().slice(source)),
+        hir::Literal::String(span) => Value::string(span.slice(source)),
+        hir::Literal::GlobPattern => Value::pattern(literal.span().slice(source)),
+        hir::Literal::Bare => Value::string(literal.span().slice(source)),
     };
 
     literal.map(|_| result)
@@ -120,12 +127,12 @@ fn evaluate_reference(
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     match name {
-        hir::Variable::It(tag) => Ok(scope.it.item.clone().tagged(*tag)),
-        hir::Variable::Other(tag) => Ok(scope
+        hir::Variable::It(span) => Ok(scope.it.item.clone().simple_spanned(span)),
+        hir::Variable::Other(span) => Ok(scope
             .vars
-            .get(tag.slice(source))
+            .get(span.slice(source))
             .map(|v| v.clone())
-            .unwrap_or_else(|| Value::nothing().tagged(*tag))),
+            .unwrap_or_else(|| Value::nothing().simple_spanned(span))),
     }
 }
 
@@ -135,6 +142,6 @@ fn evaluate_external(
     _source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     Err(ShellError::syntax_error(
-        "Unexpected external command".tagged(*external.name()),
+        "Unexpected external command".tagged(external.name()),
     ))
 }

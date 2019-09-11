@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{config, Value};
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxShape;
+use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{self};
 use crate::prelude::*;
 use std::iter::FromIterator;
@@ -26,10 +26,10 @@ impl WholeStreamCommand for Config {
 
     fn signature(&self) -> Signature {
         Signature::build("config")
-            .named("load", SyntaxShape::Path)
-            .named("set", SyntaxShape::Any)
-            .named("get", SyntaxShape::Any)
-            .named("remove", SyntaxShape::Any)
+            .named("load", SyntaxType::Path)
+            .named("set", SyntaxType::Any)
+            .named("get", SyntaxType::Any)
+            .named("remove", SyntaxType::Any)
             .switch("clear")
             .switch("path")
     }
@@ -96,21 +96,41 @@ pub fn config(
 
         config::write(&result, &configuration)?;
 
-        return Ok(stream![Value::Row(result.into()).tagged(value.tag())].from_input_stream());
+        return Ok(stream![Tagged::from_simple_spanned_item(
+            Value::Row(result.into()),
+            value.span()
+        )]
+        .from_input_stream());
     }
 
-    if let Tagged { item: true, tag } = clear {
+    if let Tagged {
+        item: true,
+        tag: Tag { span, .. },
+    } = clear
+    {
         result.clear();
 
         config::write(&result, &configuration)?;
 
-        return Ok(stream![Value::Row(result.into()).tagged(tag)].from_input_stream());
+        return Ok(stream![Tagged::from_simple_spanned_item(
+            Value::Row(result.into()),
+            span
+        )]
+        .from_input_stream());
     }
 
-    if let Tagged { item: true, tag } = path {
+    if let Tagged {
+        item: true,
+        tag: Tag { span, .. },
+    } = path
+    {
         let path = config::default_path_for(&configuration)?;
 
-        return Ok(stream![Value::Primitive(Primitive::Path(path)).tagged(tag)].from_input_stream());
+        return Ok(stream![Tagged::from_simple_spanned_item(
+            Value::Primitive(Primitive::Path(path)),
+            span
+        )]
+        .from_input_stream());
     }
 
     if let Some(v) = remove {
@@ -126,9 +146,9 @@ pub fn config(
             )));
         }
 
-        let obj = VecDeque::from_iter(vec![Value::Row(result.into()).tagged(v.tag())]);
+        let obj = VecDeque::from_iter(vec![Value::Row(result.into()).simple_spanned(v.span())]);
         return Ok(obj.from_input_stream());
     }
 
-    return Ok(vec![Value::Row(result.into()).tagged(name)].into());
+    return Ok(vec![Value::Row(result.into()).simple_spanned(name)].into());
 }

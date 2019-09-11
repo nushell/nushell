@@ -1,7 +1,7 @@
 // TODO: Temporary redirect
 pub(crate) use crate::context::CommandRegistry;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::parser::{hir, hir::SyntaxShape, parse_command, CallNode};
+use crate::parser::{hir, hir::SyntaxType, parse_command, CallNode};
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
@@ -12,35 +12,35 @@ use std::fmt;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NamedType {
     Switch,
-    Mandatory(SyntaxShape),
-    Optional(SyntaxShape),
+    Mandatory(SyntaxType),
+    Optional(SyntaxType),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
-    Mandatory(String, SyntaxShape),
-    Optional(String, SyntaxShape),
+    Mandatory(String, SyntaxType),
+    Optional(String, SyntaxType),
 }
 
 impl PositionalType {
-    pub fn mandatory(name: &str, ty: SyntaxShape) -> PositionalType {
+    pub fn mandatory(name: &str, ty: SyntaxType) -> PositionalType {
         PositionalType::Mandatory(name.to_string(), ty)
     }
 
     pub fn mandatory_any(name: &str) -> PositionalType {
-        PositionalType::Mandatory(name.to_string(), SyntaxShape::Any)
+        PositionalType::Mandatory(name.to_string(), SyntaxType::Any)
     }
 
     pub fn mandatory_block(name: &str) -> PositionalType {
-        PositionalType::Mandatory(name.to_string(), SyntaxShape::Block)
+        PositionalType::Mandatory(name.to_string(), SyntaxType::Block)
     }
 
-    pub fn optional(name: &str, ty: SyntaxShape) -> PositionalType {
+    pub fn optional(name: &str, ty: SyntaxType) -> PositionalType {
         PositionalType::Optional(name.to_string(), ty)
     }
 
     pub fn optional_any(name: &str) -> PositionalType {
-        PositionalType::Optional(name.to_string(), SyntaxShape::Any)
+        PositionalType::Optional(name.to_string(), SyntaxType::Any)
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -50,7 +50,7 @@ impl PositionalType {
         }
     }
 
-    pub(crate) fn syntax_type(&self) -> SyntaxShape {
+    pub(crate) fn syntax_type(&self) -> SyntaxType {
         match *self {
             PositionalType::Mandatory(_, t) => t,
             PositionalType::Optional(_, t) => t,
@@ -66,7 +66,7 @@ pub struct Signature {
     #[new(default)]
     pub positional: Vec<PositionalType>,
     #[new(value = "None")]
-    pub rest_positional: Option<SyntaxShape>,
+    pub rest_positional: Option<SyntaxType>,
     #[new(default)]
     pub named: IndexMap<String, NamedType>,
     #[new(value = "false")]
@@ -83,21 +83,21 @@ impl Signature {
         self
     }
 
-    pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxShape>) -> Signature {
+    pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {
         self.positional
             .push(PositionalType::Mandatory(name.into(), ty.into()));
 
         self
     }
 
-    pub fn optional(mut self, name: impl Into<String>, ty: impl Into<SyntaxShape>) -> Signature {
+    pub fn optional(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {
         self.positional
             .push(PositionalType::Optional(name.into(), ty.into()));
 
         self
     }
 
-    pub fn named(mut self, name: impl Into<String>, ty: impl Into<SyntaxShape>) -> Signature {
+    pub fn named(mut self, name: impl Into<String>, ty: impl Into<SyntaxType>) -> Signature {
         self.named
             .insert(name.into(), NamedType::Optional(ty.into()));
 
@@ -107,7 +107,7 @@ impl Signature {
     pub fn required_named(
         mut self,
         name: impl Into<String>,
-        ty: impl Into<SyntaxShape>,
+        ty: impl Into<SyntaxType>,
     ) -> Signature {
         self.named
             .insert(name.into(), NamedType::Mandatory(ty.into()));
@@ -126,7 +126,7 @@ impl Signature {
         self
     }
 
-    pub fn rest(mut self, ty: SyntaxShape) -> Signature {
+    pub fn rest(mut self, ty: SyntaxType) -> Signature {
         self.rest_positional = Some(ty);
         self
     }
@@ -312,10 +312,10 @@ pub(crate) fn evaluate_args(
 
             for (name, value) in n.named.iter() {
                 match value {
-                    hir::named::NamedValue::PresentSwitch(tag) => {
+                    hir::named::NamedValue::PresentSwitch(span) => {
                         results.insert(
                             name.clone(),
-                            Value::boolean(true).tagged(*tag),
+                            Tagged::from_simple_spanned_item(Value::boolean(true), *span),
                         );
                     }
                     hir::named::NamedValue::Value(expr) => {

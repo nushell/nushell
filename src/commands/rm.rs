@@ -1,6 +1,6 @@
 use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxShape;
+use crate::parser::hir::SyntaxType;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 use std::path::PathBuf;
@@ -20,7 +20,7 @@ impl PerItemCommand for Remove {
 
     fn signature(&self) -> Signature {
         Signature::build("rm")
-            .required("path", SyntaxShape::Pattern)
+            .required("path", SyntaxType::Path)
             .switch("recursive")
     }
 

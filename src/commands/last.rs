@@ -16,7 +16,7 @@ impl WholeStreamCommand for Last {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("last").required("amount", SyntaxShape::Number)
+        Signature::build("last").required("amount", SyntaxType::Number)
     }
 
     fn usage(&self) -> &str {

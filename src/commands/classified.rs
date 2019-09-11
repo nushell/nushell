@@ -86,7 +86,7 @@ pub(crate) enum ClassifiedCommand {
 
 pub(crate) struct InternalCommand {
     pub(crate) command: Arc<Command>,
-    pub(crate) name_tag: Tag,
+    pub(crate) name_span: Span,
     pub(crate) args: hir::Call,
 }
 
@@ -108,7 +108,7 @@ impl InternalCommand {
 
         let result = context.run_command(
             self.command,
-            self.name_tag.clone(),
+            self.name_span.clone(),
             context.source_map.clone(),
             self.args,
             &source,
@@ -133,18 +133,21 @@ impl InternalCommand {
                         match value {
                             Tagged {
                                 item: Value::Primitive(Primitive::String(cmd)),
-                                tag,
+                                ..
                             } => {
                                 context.shell_manager.insert_at_current(Box::new(
                                     HelpShell::for_command(
-                                        Value::string(cmd).tagged(tag),
-                                        &context.registry(),
+                                        Tagged::from_simple_spanned_item(
+                                            Value::string(cmd),
+                                            Span::unknown(),
+                                        ),
+                                        &context.registry().clone(),
                                     )?,
                                 ));
                             }
                             _ => {
                                 context.shell_manager.insert_at_current(Box::new(
-                                    HelpShell::index(&context.registry())?,
+                                    HelpShell::index(&context.registry().clone())?,
                                 ));
                             }
                         }
@@ -186,7 +189,7 @@ impl InternalCommand {
 pub(crate) struct ExternalCommand {
     pub(crate) name: String,
 
-    pub(crate) name_tag: Tag,
+    pub(crate) name_span: Span,
     pub(crate) args: Vec<Tagged<String>>,
 }
 
@@ -205,7 +208,7 @@ impl ExternalCommand {
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
         let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
-        let name_tag = self.name_tag.clone();
+        let name_span = self.name_span.clone();
 
         trace!(target: "nu::run::external", "-> {}", self.name);
         trace!(target: "nu::run::external", "inputs = {:?}", inputs);
@@ -224,17 +227,17 @@ impl ExternalCommand {
 
             for i in &inputs {
                 if i.as_string().is_err() {
-                    let mut tag = None;
+                    let mut span = None;
                     for arg in &self.args {
                         if arg.item.contains("$it") {
-                            tag = Some(arg.tag());
+                            span = Some(arg.span());
                         }
                     }
-                    if let Some(tag) = tag {
+                    if let Some(span) = span {
                         return Err(ShellError::labeled_error(
                             "External $it needs string data",
                             "given row instead of string data",
-                            tag,
+                            span,
                         ));
                     } else {
                         return Err(ShellError::string("Error: $it needs string data"));
@@ -311,7 +314,9 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(name_tag));
+                let stream = stream.map(move |line| {
+                    Tagged::from_simple_spanned_item(Value::string(line.unwrap()), name_span)
+                });
                 Ok(ClassifiedInputStream::from_input_stream(
                     stream.boxed() as BoxStream<'static, Tagged<Value>>
                 ))
