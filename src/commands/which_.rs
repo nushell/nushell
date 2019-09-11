@@ -1,5 +1,5 @@
-use crate::errors::ShellError;
 use crate::data::Value;
+use crate::errors::ShellError;
 use crate::prelude::*;
 
 use crate::commands::WholeStreamCommand;
@@ -13,8 +13,7 @@ impl WholeStreamCommand for Which {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("which")
-            .required("name", SyntaxType::Any)
+        Signature::build("which").required("name", SyntaxType::Any)
     }
 
     fn usage(&self) -> &str {

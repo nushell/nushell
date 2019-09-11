@@ -7,25 +7,23 @@ use std::path::PathBuf;
 
 #[test]
 fn has_default_configuration_file() {
-	let expected = "config.toml";
+    let expected = "config.toml";
 
     Playground::setup("config_test_1", |dirs, _| {
-
         nu!(cwd: dirs.root(), "config");
 
         assert_eq!(
-        	dirs.config_path().join(expected),
-        	nu::config_path().unwrap().join(expected)
+            dirs.config_path().join(expected),
+            nu::config_path().unwrap().join(expected)
         );
     })
 }
 
 #[test]
 fn shows_path_of_configuration_file() {
-	let expected = "config.toml";
+    let expected = "config.toml";
 
     Playground::setup("config_test_2", |dirs, _| {
-
         let actual = nu!(
             cwd: dirs.test(),
             "config --path | echo $it"
@@ -38,14 +36,13 @@ fn shows_path_of_configuration_file() {
 #[test]
 fn use_different_configuration() {
     Playground::setup("config_test_3", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "test_3.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "test_3.toml",
+            r#"
                     caballero_1 = "Andrés N. Robalino"
                     caballero_2 = "Jonathan Turner"
                     caballero_3 = "Yehuda katz"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -57,20 +54,19 @@ fn use_different_configuration() {
         assert_eq!(actual, "Andrés N. Robalino");
     });
 
-	h::delete_file_at(nu::config_path().unwrap().join("test_3.toml"));
+    h::delete_file_at(nu::config_path().unwrap().join("test_3.toml"));
 }
 
 #[test]
 fn sets_configuration_value() {
     Playground::setup("config_test_4", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "test_4.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "test_4.toml",
+            r#"
                     caballero_1 = "Andrés N. Robalino"
                     caballero_2 = "Jonathan Turner"
                     caballero_3 = "Yehuda katz"
-                "#
+                "#,
         )]);
 
         nu!(
@@ -79,27 +75,26 @@ fn sets_configuration_value() {
         );
 
         let actual = nu!(
-        	cwd: dirs.root(),
-        	r#"open "{}/test_4.toml" | get caballero_4 | echo $it"#,
-        	dirs.config_path()
+            cwd: dirs.root(),
+            r#"open "{}/test_4.toml" | get caballero_4 | echo $it"#,
+            dirs.config_path()
         );
 
         assert_eq!(actual, "jonas");
     });
 
-	h::delete_file_at(nu::config_path().unwrap().join("test_4.toml"));
+    h::delete_file_at(nu::config_path().unwrap().join("test_4.toml"));
 }
 
 #[test]
 fn removes_configuration_value() {
     Playground::setup("config_test_5", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "test_5.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "test_5.toml",
+            r#"
                     caballeros = [1, 1, 1]
                     podershell = [1, 1, 1]
-                "#
+                "#,
         )]);
 
         nu!(
@@ -108,13 +103,13 @@ fn removes_configuration_value() {
         );
 
         let actual = nu_error!(
-        	cwd: dirs.root(),
-        	r#"open "{}/test_5.toml" | get podershell | echo $it"#,
-        	dirs.config_path()
+            cwd: dirs.root(),
+            r#"open "{}/test_5.toml" | get podershell | echo $it"#,
+            dirs.config_path()
         );
 
         assert!(actual.contains("table missing column"));
     });
 
-	h::delete_file_at(nu::config_path().unwrap().join("test_5.toml"));
+    h::delete_file_at(nu::config_path().unwrap().join("test_5.toml"));
 }

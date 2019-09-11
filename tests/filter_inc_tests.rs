@@ -15,13 +15,12 @@ fn can_only_apply_one() {
 #[test]
 fn by_one_with_field_passed() {
     Playground::setup("plugin_inc_test_1", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     edition = "2018"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -36,13 +35,12 @@ fn by_one_with_field_passed() {
 #[test]
 fn by_one_with_no_field_passed() {
     Playground::setup("plugin_inc_test_2", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     contributors = "2"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -57,13 +55,12 @@ fn by_one_with_no_field_passed() {
 #[test]
 fn semversion_major_inc() {
     Playground::setup("plugin_inc_test_3", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     version = "0.1.3"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -78,13 +75,12 @@ fn semversion_major_inc() {
 #[test]
 fn semversion_minor_inc() {
     Playground::setup("plugin_inc_test_4", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     version = "0.1.3"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -99,13 +95,12 @@ fn semversion_minor_inc() {
 #[test]
 fn semversion_patch_inc() {
     Playground::setup("plugin_inc_test_5", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     version = "0.1.3"
-                "#
+                "#,
         )]);
 
         let actual = nu!(
@@ -120,13 +115,12 @@ fn semversion_patch_inc() {
 #[test]
 fn semversion_without_passing_field() {
     Playground::setup("plugin_inc_test_6", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![FileWithContent(
-                "sample.toml",
-                r#"
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
                     [package]
                     version = "0.1.3"
-                "#
+                "#,
         )]);
 
         let actual = nu!(

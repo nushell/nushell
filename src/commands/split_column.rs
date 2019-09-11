@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
 
@@ -40,7 +40,11 @@ impl WholeStreamCommand for SplitColumn {
 }
 
 fn split_column(
-    SplitColumnArgs { separator, rest, collapse_empty}: SplitColumnArgs,
+    SplitColumnArgs {
+        separator,
+        rest,
+        collapse_empty,
+    }: SplitColumnArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(input

@@ -1,7 +1,7 @@
 use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
-use crate::errors::ShellError;
 use crate::data::{command_dict, TaggedDictBuilder};
+use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
 

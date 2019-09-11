@@ -1,7 +1,7 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
-use crate::errors::ShellError;
 use crate::data::Value;
+use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::Signature;
 use crate::prelude::*;

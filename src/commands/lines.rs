@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::data::{Primitive, Value};
+use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
 

@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
-use crate::errors::ShellError;
 use crate::data::base::select_fields;
+use crate::errors::ShellError;
 use crate::prelude::*;
 
 #[derive(Deserialize)]
