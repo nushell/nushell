@@ -315,7 +315,7 @@ impl Plugin for Sys {
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(block_on(sysinfo(Tag::unknown_origin(callinfo.name_tag)))
+        Ok(block_on(sysinfo(callinfo.name_tag))
             .into_iter()
             .map(ReturnSuccess::value)
             .collect())
