@@ -138,15 +138,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
-        #[cfg(windows)]
-        {
-            pattern.push(std::path::Path::new("nu_plugin_[a-z]*.[a-z]*"));
-        }
-
-        #[cfg(not(windows))]
-        {
-            pattern.push(std::path::Path::new("nu_plugin_[a-z]*"));
-        }
+        pattern.push(std::path::Path::new("nu_plugin_[a-z]*"));
 
         match glob::glob_with(&pattern.to_string_lossy(), opts) {
             Err(_) => {}
@@ -167,15 +159,26 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                         }
                     };
 
-                    let is_valid_name = bin_name
-                        .chars()
-                        .all(|c| c.is_ascii_alphabetic() || c == '_');
+                    let is_valid_name = {
+                        #[cfg(windows)]
+                        {
+                            bin_name
+                                .chars()
+                                .all(|c| c.is_ascii_alphabetic() || c == '_' || c == '.')
+                        }
+
+                        #[cfg(not(windows))]
+                        {
+                            bin_name
+                                .chars()
+                                .all(|c| c.is_ascii_alphabetic() || c == '_')
+                        }
+                    };
 
                     let is_executable = {
                         #[cfg(windows)]
                         {
-                            bin.ends_with(std::path::Path::new(".exe"))
-                                || bin.ends_with(std::path::Path::new(".bat"))
+                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
                         }
 
                         #[cfg(not(windows))]
