@@ -4,6 +4,119 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
+fn first_gets_first_rows_by_amount() {
+    Playground::setup("first_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.1.txt"),
+            EmptyFile("tres.1.txt"),
+            EmptyFile("amigos.1.txt"),
+            EmptyFile("arepas.1.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | get name
+                | first 2
+                | split-column "."
+                | get Column2
+                | str --to-int
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    })
+}
+
+#[test]
+fn first_requires_an_amount() {
+    Playground::setup("first_test_2", |dirs, _| {
+        let actual = nu_error!(
+            cwd: dirs.test(), "ls | first"
+        );
+
+        assert!(actual.contains("requires amount parameter"));
+    })
+}
+
+#[test]
+fn get() {
+    Playground::setup("get_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                nu_party_venue = "zion"
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get nu_party_venue
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "zion");
+    })
+}
+
+#[test]
+fn get_more_than_one_member() {
+    Playground::setup("get_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [[fortune_tellers]]
+                name = "Andrés N. Robalino"
+                arepas = 1
+                broken_builds = 0
+
+                [[fortune_tellers]]
+                name = "Jonathan Turner"
+                arepas = 1
+                broken_builds = 1
+
+                [[fortune_tellers]]
+                name = "Yehuda Katz"
+                arepas = 1
+                broken_builds = 1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get fortune_tellers
+                | get arepas broken_builds
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "5");
+    })
+}
+
+#[test]
+fn get_requires_at_least_one_member() {
+    Playground::setup("first_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("andres.txt")]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(), "ls | get"
+        );
+
+        assert!(actual.contains("requires member parameter"));
+    })
+}
+
+#[test]
 fn lines() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(

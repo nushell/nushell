@@ -7,6 +7,7 @@ pub struct Get;
 
 #[derive(Deserialize)]
 pub struct GetArgs {
+    member: Tagged<String>,
     rest: Vec<Tagged<String>>,
 }
 
@@ -16,7 +17,9 @@ impl WholeStreamCommand for Get {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("get").rest(SyntaxType::Member)
+        Signature::build("get")
+            .required("member", SyntaxType::Member)
+            .rest(SyntaxType::Member)
     }
 
     fn usage(&self) -> &str {
@@ -63,13 +66,24 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
 }
 
 pub fn get(
-    GetArgs { rest: fields }: GetArgs,
+    GetArgs {
+        member: member,
+        rest: fields,
+    }: GetArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = input
         .values
         .map(move |item| {
             let mut result = VecDeque::new();
+
+            let member = vec![member.clone()];
+
+            let fields = vec![&member, &fields]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<&Tagged<String>>>();
+
             for field in &fields {
                 match get_member(field, &item) {
                     Ok(Tagged {
