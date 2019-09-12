@@ -6,8 +6,6 @@ FROM ubuntu:16.04
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y libssl-dev \
     libxcb-composite0-dev \
-    libx11-dev \
-    libssl-dev \
     pkg-config \
     curl
 
