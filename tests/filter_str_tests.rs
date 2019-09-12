@@ -10,9 +10,7 @@ fn can_only_apply_one() {
         "open caco3_plastics.csv | first 1 | str origin --downcase --upcase"
     );
 
-    assert!(
-        actual.contains("Usage: str field [--downcase|--upcase|--to-int")
-    );
+    assert!(actual.contains("Usage: str field [--downcase|--upcase|--to-int"));
 }
 
 #[test]

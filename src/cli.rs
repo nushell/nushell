@@ -122,7 +122,6 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
         path.push("release");
-
         search_paths.push(path);
     }
 
@@ -137,9 +136,17 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     };
 
     for path in search_paths() {
-        let pattern = path.join("nu_plugin_[a-z][a-z]*").clone();
+        let mut pattern = path.to_path_buf();
 
-        trace!("Trying {:?}", pattern.display());
+        #[cfg(windows)]
+        {
+            pattern.push(std::path::Path::new("nu_plugin_[a-z]*.[a-z]*"));
+        }
+
+        #[cfg(not(windows))]
+        {
+            pattern.push(std::path::Path::new("nu_plugin_[a-z]*"));
+        }
 
         match glob::glob_with(&pattern.to_string_lossy(), opts) {
             Err(_) => {}
@@ -149,9 +156,16 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                         continue;
                     }
 
-                    trace!("Found {:?}", bin.display());
-
-                    let bin_name = bin.file_name().unwrap().to_string_lossy();
+                    let bin_name = {
+                        if let Some(name) = bin.file_name() {
+                            match name.to_str() {
+                                Some(raw) => raw,
+                                None => continue,
+                            }
+                        } else {
+                            continue;
+                        }
+                    };
 
                     let is_valid_name = bin_name
                         .chars()
@@ -160,7 +174,8 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     let is_executable = {
                         #[cfg(windows)]
                         {
-                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                            bin.ends_with(std::path::Path::new(".exe"))
+                                || bin.ends_with(std::path::Path::new(".bat"))
                         }
 
                         #[cfg(not(windows))]
@@ -170,6 +185,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                     };
 
                     if is_valid_name && is_executable {
+                        trace!("Trying {:?}", bin.display());
                         load_plugin(&bin, context)?;
                     }
                 }
