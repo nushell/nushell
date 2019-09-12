@@ -85,7 +85,6 @@ fn get_columns(rows: &Vec<Tagged<Value>>) -> Result<String, std::io::Error> {
 
 fn nu_value_to_sqlite_string(v: Value) -> String {
     match v {
-        Value::Binary(u) => format!("x'{}'", encode(u)),
         Value::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
             Primitive::Int(i) => format!("{}", i),
@@ -97,6 +96,7 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
             Primitive::Boolean(_) => "0".into(),
             Primitive::Date(d) => format!("'{}'", d),
             Primitive::Path(p) => format!("'{}'", p.display().to_string().replace("'", "''")),
+            Primitive::Binary(u) => format!("x'{}'", encode(u)),
             Primitive::BeginningOfStream => "NULL".into(),
             Primitive::EndOfStream => "NULL".into(),
         },
@@ -195,7 +195,7 @@ fn sqlite_input_stream_to_bytes(
     }
     let mut out = Vec::new();
     tempfile.read_to_end(&mut out)?;
-    Ok(Value::Binary(out).tagged(tag))
+    Ok(Value::binary(out).tagged(tag))
 }
 
 fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

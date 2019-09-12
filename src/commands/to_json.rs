@@ -51,7 +51,7 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
 
         Value::Table(l) => serde_json::Value::Array(json_list(l)?),
         Value::Block(_) => serde_json::Value::Null,
-        Value::Binary(b) => serde_json::Value::Array(
+        Value::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()
                 .map(|x| {
                     serde_json::Value::Number(serde_json::Number::from_f64(*x as f64).unwrap())

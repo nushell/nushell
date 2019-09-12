@@ -60,7 +60,7 @@ macro_rules! process_binary_return_success {
         for res in $result_vec {
             match res {
                 Ok(ReturnSuccess::Value(Tagged {
-                    item: Value::Binary(b),
+                    item: Value::Primitive(Primitive::Binary(b)),
                     ..
                 })) => {
                     for u in b.into_iter() {

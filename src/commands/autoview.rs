@@ -39,7 +39,7 @@ pub fn autoview(
 
         if input.len() > 0 {
             if let Tagged {
-                item: Value::Binary(_),
+                item: Value::Primitive(Primitive::Binary(_)),
                 ..
             } = input[0usize]
             {
@@ -50,7 +50,7 @@ pub fn autoview(
                 } else {
                     for i in input {
                         match i.item {
-                            Value::Binary(b) => {
+                            Value::Primitive(Primitive::Binary(b)) => {
                                 use pretty_hex::*;
                                 println!("{:?}", b.hex_dump());
                             }

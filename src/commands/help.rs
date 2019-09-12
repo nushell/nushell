@@ -1,8 +1,7 @@
-use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
 use crate::data::{command_dict, TaggedDictBuilder};
 use crate::errors::ShellError;
-use crate::parser::registry;
+use crate::parser::registry::{self, NamedType, PositionalType};
 use crate::prelude::*;
 
 pub struct Help;
@@ -29,44 +28,104 @@ impl PerItemCommand for Help {
     ) -> Result<OutputStream, ShellError> {
         let span = call_info.name_span;
 
-        if call_info.args.len() == 0 {
-            return Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                Tagged::from_simple_spanned_item(Value::nothing(), span),
-            )))]
-            .into());
-        }
-
-        match call_info.args.expect_nth(0)? {
-            Tagged {
+        match call_info.args.nth(0) {
+            Some(Tagged {
                 item: Value::Primitive(Primitive::String(document)),
                 tag,
-            } => {
+            }) => {
+                let mut help = VecDeque::new();
                 if document == "commands" {
-                    let mut specs = VecDeque::new();
-
-                    for cmd in registry.names() {
-                        let mut spec = TaggedDictBuilder::new(tag.clone());
+                    let mut sorted_names = registry.names();
+                    sorted_names.sort();
+                    for cmd in sorted_names {
+                        let mut short_desc = TaggedDictBuilder::new(tag.clone());
                         let value = command_dict(registry.get_command(&cmd).unwrap(), tag.clone());
 
-                        spec.insert("name", cmd);
-                        spec.insert(
+                        short_desc.insert("name", cmd);
+                        short_desc.insert(
                             "description",
                             value.get_data_by_key("usage").unwrap().as_string().unwrap(),
                         );
-                        spec.insert_tagged("details", value);
 
-                        specs.push_back(ReturnSuccess::value(spec.into_tagged_value()));
+                        help.push_back(ReturnSuccess::value(short_desc.into_tagged_value()));
                     }
+                } else {
+                    if let Some(command) = registry.get_command(document) {
+                        let mut long_desc = String::new();
 
-                    return Ok(specs.to_output_stream());
+                        long_desc.push_str(&command.usage());
+                        long_desc.push_str("\n");
+
+                        let signature = command.signature();
+
+                        let mut one_liner = String::new();
+                        one_liner.push_str(&signature.name);
+                        one_liner.push_str(" ");
+                        if signature.named.len() > 0 {
+                            one_liner.push_str("{flags} ");
+                        }
+
+                        for positional in signature.positional {
+                            match positional {
+                                PositionalType::Mandatory(name, _m) => {
+                                    one_liner.push_str(&format!("<{}> ", name));
+                                }
+                                PositionalType::Optional(name, _o) => {
+                                    one_liner.push_str(&format!("({}) ", name));
+                                }
+                            }
+                        }
+
+                        if signature.rest_positional.is_some() {
+                            one_liner.push_str(" ...args");
+                        }
+                        long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
+
+                        if signature.named.len() > 0 {
+                            long_desc.push_str("\nflags:\n");
+                            for (flag, ty) in signature.named {
+                                match ty {
+                                    NamedType::Switch => {
+                                        long_desc.push_str(&format!("  --{}\n", flag));
+                                    }
+                                    NamedType::Mandatory(m) => {
+                                        long_desc.push_str(&format!(
+                                            "  --{} <{}> (required parameter)\n",
+                                            flag, m
+                                        ));
+                                    }
+                                    NamedType::Optional(o) => {
+                                        long_desc.push_str(&format!("  --{} <{}>\n", flag, o));
+                                    }
+                                }
+                            }
+                        }
+
+                        help.push_back(ReturnSuccess::value(
+                            Value::string(long_desc).tagged(tag.clone()),
+                        ));
+                    }
                 }
 
-                Ok(OutputStream::empty())
+                Ok(help.to_output_stream())
             }
-            x => Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                x.clone(),
-            )))]
-            .into()),
+            _ => {
+                let msg = r#"Welcome to Nushell.
+
+Here are some tips to help you get started.
+  * help commands - list all available commands
+  * help <command name> - display help about a particular command
+
+You can also learn more at http://book.nushell.sh"#;
+
+                let mut output_stream = VecDeque::new();
+
+                output_stream.push_back(ReturnSuccess::value(
+                    Value::string(msg).simple_spanned(span),
+                ));
+
+                Ok(output_stream.to_output_stream())
+            }
         }
     }
 }
