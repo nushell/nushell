@@ -207,8 +207,7 @@ impl Shell for FilesystemShell {
 
         let mut stream = VecDeque::new();
 
-        stream.push_back(
-            ReturnSuccess::change_cwd(
+        stream.push_back(ReturnSuccess::change_cwd(
             path.to_string_lossy().to_string(),
         ));
 

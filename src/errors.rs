@@ -555,16 +555,6 @@ impl std::convert::From<serde_json::Error> for ShellError {
     }
 }
 
-impl std::convert::From<regex::Error> for ShellError {
-    fn from(input: regex::Error) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{:?}", input),
-            error: Value::nothing(),
-        })
-        .start()
-    }
-}
-
 impl std::convert::From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
         ProximateShellError::String(StringError {

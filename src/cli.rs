@@ -15,7 +15,6 @@ use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
 
 use log::{debug, trace};
-use regex::Regex;
 use rustyline::error::ReadlineError;
 use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
 use std::env;
@@ -98,38 +97,12 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     result
 }
 
-fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
-    let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$")?;
-    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.(exe|bat)$")?;
+fn search_paths() -> Vec<std::path::PathBuf> {
+    let mut search_paths = Vec::new();
 
-    trace!("Looking for plugins in {:?}", path);
-
-    match std::fs::read_dir(path) {
-        Ok(p) => {
-            for entry in p {
-                let entry = entry?;
-                let filename = entry.file_name();
-                let f_name = filename.to_string_lossy();
-
-                if re_bin.is_match(&f_name) || re_exe.is_match(&f_name) {
-                    let mut load_path = path.clone();
-                    trace!("Found {:?}", f_name);
-                    load_path.push(f_name.to_string());
-                    load_plugin(&load_path, context)?;
-                }
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     match env::var_os("PATH") {
         Some(paths) => {
-            for path in env::split_paths(&paths) {
-                let _ = load_plugins_in_dir(&path, context);
-            }
+            search_paths = env::split_paths(&paths).collect::<Vec<_>>();
         }
         None => println!("PATH is not defined in the environment."),
     }
@@ -140,7 +113,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
         path.push("debug");
-        let _ = load_plugins_in_dir(&path, context);
+        search_paths.push(path);
     }
 
     #[cfg(not(debug_assertions))]
@@ -149,8 +122,78 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
         path.push("release");
+        search_paths.push(path);
+    }
 
-        let _ = load_plugins_in_dir(&path, context);
+    search_paths
+}
+
+fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
+    let opts = glob::MatchOptions {
+        case_sensitive: false,
+        require_literal_separator: false,
+        require_literal_leading_dot: false,
+    };
+
+    for path in search_paths() {
+        let mut pattern = path.to_path_buf();
+
+        pattern.push(std::path::Path::new("nu_plugin_[a-z]*"));
+
+        match glob::glob_with(&pattern.to_string_lossy(), opts) {
+            Err(_) => {}
+            Ok(binaries) => {
+                for bin in binaries.filter_map(Result::ok) {
+                    if !bin.is_file() {
+                        continue;
+                    }
+
+                    let bin_name = {
+                        if let Some(name) = bin.file_name() {
+                            match name.to_str() {
+                                Some(raw) => raw,
+                                None => continue,
+                            }
+                        } else {
+                            continue;
+                        }
+                    };
+
+                    let is_valid_name = {
+                        #[cfg(windows)]
+                        {
+                            bin_name
+                                .chars()
+                                .all(|c| c.is_ascii_alphabetic() || c == '_' || c == '.')
+                        }
+
+                        #[cfg(not(windows))]
+                        {
+                            bin_name
+                                .chars()
+                                .all(|c| c.is_ascii_alphabetic() || c == '_')
+                        }
+                    };
+
+                    let is_executable = {
+                        #[cfg(windows)]
+                        {
+                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                        }
+
+                        #[cfg(not(windows))]
+                        {
+                            true
+                        }
+                    };
+
+                    if is_valid_name && is_executable {
+                        trace!("Trying {:?}", bin.display());
+                        load_plugin(&bin, context)?;
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

@@ -101,20 +101,6 @@ impl PerItemCommand for Help {
                             }
                         }
 
-                        // pub struct Signature {
-                        //     pub name: String,
-                        //     #[new(default)]
-                        //     pub usage: String,
-                        //     #[new(default)]
-                        //     pub positional: Vec<PositionalType>,
-                        //     #[new(value = "None")]
-                        //     pub rest_positional: Option<SyntaxType>,
-                        //     #[new(default)]
-                        //     pub named: IndexMap<String, NamedType>,
-                        //     #[new(value = "false")]
-                        //     pub is_filter: bool,
-                        // }
-
                         help.push_back(ReturnSuccess::value(
                             Value::string(long_desc).tagged(tag.clone()),
                         ));
@@ -125,9 +111,11 @@ impl PerItemCommand for Help {
             }
             _ => {
                 let msg = r#"Welcome to Nushell.
+
 Here are some tips to help you get started.
-* help commands - list all available commands
-* help <command name> - display help about a particular command
+  * help commands - list all available commands
+  * help <command name> - display help about a particular command
+
 You can also learn more at http://book.nushell.sh"#;
 
                 let mut output_stream = VecDeque::new();
