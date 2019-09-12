@@ -67,7 +67,7 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
 
 pub fn get(
     GetArgs {
-        member: member,
+        member,
         rest: fields,
     }: GetArgs,
     RunnableContext { input, .. }: RunnableContext,
