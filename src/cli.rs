@@ -113,7 +113,10 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
         path.push("debug");
-        search_paths.push(path);
+
+        if path.exists() {
+            search_paths.push(path);
+        }
     }
 
     #[cfg(not(debug_assertions))]
@@ -122,9 +125,15 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
         path.push("release");
-        search_paths.push(path);
+
+        if path.exists() {
+            search_paths.push(path);
+        }
     }
 
+    // permit Nu finding and picking up development plugins
+    // if there are any first.
+    search_paths.reverse();
     search_paths
 }
 
