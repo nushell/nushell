@@ -186,7 +186,7 @@ pub async fn fetch(
                         })?;
                         Ok((
                             None,
-                            Value::Binary(buf),
+                            Value::Primitive(Primitive::Binary(buf)),
                             Tag {
                                 span,
                                 origin: Some(Uuid::new_v4()),
@@ -219,7 +219,7 @@ pub async fn fetch(
                         })?;
                         Ok((
                             Some(image_ty.to_string()),
-                            Value::Binary(buf),
+                            Value::Primitive(Primitive::Binary(buf)),
                             Tag {
                                 span,
                                 origin: Some(Uuid::new_v4()),

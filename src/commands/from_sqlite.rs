@@ -106,7 +106,7 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone
             // this unwrap is safe because we know the ValueRef is Text.
             Value::Primitive(Primitive::String(t.as_str().unwrap().to_string())).tagged(tag)
         }
-        ValueRef::Blob(u) => Value::Binary(u.to_owned()).tagged(tag),
+        ValueRef::Blob(u) => Value::binary(u.to_owned()).tagged(tag),
     }
 }
 
@@ -137,7 +137,7 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
         for value in values {
             let value_tag = value.tag();
             match value.item {
-                Value::Binary(vb) =>
+                Value::Primitive(Primitive::Binary(vb)) =>
                     match from_sqlite_bytes_to_value(vb, span) {
                         Ok(x) => match x {
                             Tagged { item: Value::Table(list), .. } => {

@@ -1,6 +1,6 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
-use crate::errors::ShellError;
 use crate::data::Value;
+use crate::errors::ShellError;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -60,7 +60,7 @@ macro_rules! process_binary_return_success {
         for res in $result_vec {
             match res {
                 Ok(ReturnSuccess::Value(Tagged {
-                    item: Value::Binary(b),
+                    item: Value::Primitive(Primitive::Binary(b)),
                     ..
                 })) => {
                     for u in b.into_iter() {

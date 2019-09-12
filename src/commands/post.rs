@@ -1,7 +1,7 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
-use crate::errors::ShellError;
 use crate::data::Value;
+use crate::errors::ShellError;
 use crate::parser::hir::SyntaxType;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
@@ -167,7 +167,7 @@ pub async fn post(
                 s.await
             }
             Tagged {
-                item: Value::Binary(b),
+                item: Value::Primitive(Primitive::Binary(b)),
                 ..
             } => {
                 let mut s = surf::post(location).body_bytes(b);
@@ -277,7 +277,7 @@ pub async fn post(
                             })?;
                             Ok((
                                 None,
-                                Value::Binary(buf),
+                                Value::Primitive(Primitive::Binary(buf)),
                                 Tag {
                                     span,
                                     origin: Some(Uuid::new_v4()),
@@ -295,7 +295,7 @@ pub async fn post(
                             })?;
                             Ok((
                                 Some(image_ty.to_string()),
-                                Value::Binary(buf),
+                                Value::Primitive(Primitive::Binary(buf)),
                                 Tag {
                                     span,
                                     origin: Some(Uuid::new_v4()),

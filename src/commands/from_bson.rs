@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ExpectedRange;
 use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::errors::ExpectedRange;
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
 use std::str::FromStr;
@@ -122,7 +122,7 @@ fn convert_bson_value_to_nu_value(
             );
             collected.insert_tagged(
                 "$binary".to_string(),
-                Value::Binary(bytes.to_owned()).tagged(tag),
+                Value::Primitive(Primitive::Binary(bytes.to_owned())).tagged(tag),
             );
             collected.into_tagged_value()
         }
@@ -207,7 +207,7 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         for value in values {
             let value_tag = value.tag();
             match value.item {
-                Value::Binary(vb) =>
+                Value::Primitive(Primitive::Binary(vb)) =>
                     match from_bson_bytes_to_value(vb, span) {
                         Ok(x) => yield ReturnSuccess::value(x),
                         Err(_) => {

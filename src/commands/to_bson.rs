@@ -58,7 +58,7 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
                 .collect::<Result<_, _>>()?,
         ),
         Value::Block(_) => Bson::Null,
-        Value::Binary(b) => Bson::Binary(BinarySubtype::Generic, b.clone()),
+        Value::Primitive(Primitive::Binary(b)) => Bson::Binary(BinarySubtype::Generic, b.clone()),
         Value::Row(o) => object_value_to_bson(o)?,
     })
 }
@@ -254,7 +254,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 Ok(bson_value) => {
                     match bson_value_to_bytes(bson_value, name_span) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Binary(x).simple_spanned(name_span),
+                            Value::Primitive(Primitive::Binary(x)).simple_spanned(name_span),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with BSON-compatible structure.span() from pipeline",

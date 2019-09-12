@@ -56,7 +56,7 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
             serde_yaml::Value::Sequence(out)
         }
         Value::Block(_) => serde_yaml::Value::Null,
-        Value::Binary(b) => serde_yaml::Value::Sequence(
+        Value::Primitive(Primitive::Binary(b)) => serde_yaml::Value::Sequence(
             b.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
                 .collect(),

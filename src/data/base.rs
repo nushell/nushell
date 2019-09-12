@@ -24,6 +24,8 @@ pub enum Primitive {
     Boolean(bool),
     Date(DateTime<Utc>),
     Path(PathBuf),
+    #[serde(with = "serde_bytes")]
+    Binary(Vec<u8>),
 
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
@@ -58,6 +60,7 @@ impl Primitive {
             String(_) => "string",
             Boolean(_) => "boolean",
             Date(_) => "date",
+            Binary(_) => "binary",
         }
         .to_string()
     }
@@ -77,6 +80,7 @@ impl Primitive {
             String(string) => write!(f, "{:?}", string),
             Boolean(boolean) => write!(f, "{}", boolean),
             Date(date) => write!(f, "{}", date),
+            Binary(binary) => write!(f, "{:?}", binary),
         }
     }
 
@@ -121,6 +125,7 @@ impl Primitive {
                 (true, Some(_)) => format!("Yes"),
                 (false, Some(_)) => format!("No"),
             },
+            Primitive::Binary(_) => format!("<binary>"),
             Primitive::Date(d) => format!("{}", d.humanize()),
         }
     }
@@ -175,8 +180,6 @@ impl Block {
 pub enum Value {
     Primitive(Primitive),
     Row(crate::data::Dictionary),
-    #[serde(with = "serde_bytes")]
-    Binary(Vec<u8>),
     Table(Vec<Tagged<Value>>),
 
     Block(Block),
@@ -227,7 +230,6 @@ impl fmt::Debug for ValueDebug<'_> {
             Value::Row(o) => o.debug(f),
             Value::Table(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
-            Value::Binary(_) => write!(f, "[[binary]]"),
         }
     }
 }
@@ -288,7 +290,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
 
     fn try_from(value: &Tagged<Value>) -> Result<Vec<u8>, ShellError> {
         match value.item() {
-            Value::Binary(b) => Ok(b.clone()),
+            Value::Primitive(Primitive::Binary(b)) => Ok(b.clone()),
             v => Err(ShellError::type_error(
                 "Binary",
                 value.copy_span(v.type_name()),
@@ -347,7 +349,6 @@ impl Value {
             Value::Row(_) => format!("object"),
             Value::Table(_) => format!("list"),
             Value::Block(_) => format!("block"),
-            Value::Binary(_) => format!("binary"),
         }
     }
 
@@ -363,7 +364,6 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::Table(_) => vec![],
-            Value::Binary(_) => vec![],
         }
     }
 
@@ -495,7 +495,6 @@ impl Value {
             Value::Row(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Table(_) => MaybeOwned::Owned(Value::nothing()),
-            Value::Binary(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -514,7 +513,6 @@ impl Value {
                 l.len(),
                 if l.len() == 1 { "row" } else { "rows" }
             ),
-            Value::Binary(_) => format!("<binary>"),
         }
     }
 
@@ -600,6 +598,10 @@ impl Value {
 
     pub fn decimal(s: impl Into<BigDecimal>) -> Value {
         Value::Primitive(Primitive::Decimal(s.into()))
+    }
+
+    pub fn binary(binary: Vec<u8>) -> Value {
+        Value::Primitive(Primitive::Binary(binary))
     }
 
     pub fn number(s: impl Into<Number>) -> Value {

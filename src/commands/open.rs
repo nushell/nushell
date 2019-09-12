@@ -171,7 +171,7 @@ pub async fn fetch(
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        Value::Binary(bytes),
+                                        Value::Primitive(Primitive::Binary(bytes)),
                                         Tag {
                                             span,
                                             origin: Some(Uuid::new_v4()),
@@ -182,7 +182,7 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    Value::Binary(bytes),
+                                    Value::Primitive(Primitive::Binary(bytes)),
                                     Tag {
                                         span,
                                         origin: Some(Uuid::new_v4()),
@@ -209,7 +209,7 @@ pub async fn fetch(
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        Value::Binary(bytes),
+                                        Value::Primitive(Primitive::Binary(bytes)),
                                         Tag {
                                             span,
                                             origin: Some(Uuid::new_v4()),
@@ -220,7 +220,7 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    Value::Binary(bytes),
+                                    Value::Primitive(Primitive::Binary(bytes)),
                                     Tag {
                                         span,
                                         origin: Some(Uuid::new_v4()),
@@ -231,7 +231,7 @@ pub async fn fetch(
                         }
                         _ => Ok((
                             None,
-                            Value::Binary(bytes),
+                            Value::Primitive(Primitive::Binary(bytes)),
                             Tag {
                                 span,
                                 origin: Some(Uuid::new_v4()),
