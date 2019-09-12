@@ -52,6 +52,11 @@ workflows:
                 command: |
                    DOCKER_TAG=$(docker run quay.io/nushell/nu --version | cut -d' ' -f2)
                    echo "Version that would be used for Docker tag is v${DOCKER_TAG}"
+            - run:
+                name: Test Executable
+                command: |
+                   docker run --rm quay.io/nushell/nu-base --help
+                   docker run --rm quay.io/nushell/nu --help
 
   # workflow publishes to Docker Hub, with each job having different triggers
   build_with_deploy:
@@ -77,6 +82,11 @@ workflows:
                 name: Build Multistage (smaller) container
                 command: |
                   docker build -f docker/Dockerfile -t quay.io/nushell/nu .
+            - run:
+                name: Test Executable
+                command: |
+                   docker run --rm quay.io/nushell/nu --help
+                   docker run --rm quay.io/nushell/nu-base --help
             - run:
                 name: Publish Docker Tag with Nushell Version
                 command: |
@@ -110,6 +120,11 @@ workflows:
                 command: |
                   docker build --build-arg FROMTAG=devel -f docker/Dockerfile -t quay.io/nushell/nu:devel .
             - run:
+                name: Test Executable
+                command: |
+                   docker run --rm quay.io/nushell/nu:devel --help
+                   docker run --rm quay.io/nushell/nu-base:devel --help
+            - run:
                 name: Publish Development Docker Tags
                 command: |
                    docker push quay.io/nushell/nu-base:devel
@@ -138,6 +153,11 @@ workflows:
                 name: Build Multistage (smaller) container
                 command: |
                   docker build -f docker/Dockerfile -t quay.io/nushell/nu:nightly .
+            - run:
+                name: Test Executable
+                command: |
+                   docker run --rm quay.io/nushell/nu:nightly --help
+                   docker run --rm quay.io/nushell/nu-base:nightly --help
             - run:
                 name: Publish Nightly Nushell Containers
                 command: |
