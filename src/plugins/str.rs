@@ -2,20 +2,12 @@ use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
     SyntaxType, Tagged, Value,
 };
-use regex::Regex;
 
 #[derive(Debug, Eq, PartialEq)]
 enum Action {
     Downcase,
     Upcase,
     ToInteger,
-    Replace(ReplaceAction),
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum ReplaceAction {
-    Direct,
-    FindAndReplace,
 }
 
 struct Str {
@@ -45,39 +37,10 @@ impl Str {
                     Err(_) => Value::string(input),
                 },
             },
-            Some(Action::Replace(ref mode)) => match mode {
-                ReplaceAction::Direct => Value::string(self.first_param()),
-                ReplaceAction::FindAndReplace => {
-                    let regex = Regex::new(self.first_param());
-
-                    match regex {
-                        Ok(re) => Value::string(re.replace(input, self.second_param()).to_owned()),
-                        Err(_) => Value::string(input),
-                    }
-                }
-            },
             None => Value::string(input),
         };
 
         Ok(applied)
-    }
-
-    fn did_supply_field(&self) -> bool {
-        self.field.is_some()
-    }
-
-    fn first_param(&self) -> &str {
-        let idx = if self.did_supply_field() { 1 } else { 0 };
-        self.get_param(idx)
-    }
-
-    fn second_param(&self) -> &str {
-        let idx = if self.did_supply_field() { 2 } else { 1 };
-        self.get_param(idx)
-    }
-
-    fn get_param(&self, idx: usize) -> &str {
-        self.params.as_ref().unwrap().get(idx).unwrap().as_str()
     }
 
     fn for_field(&mut self, field: &str) {
@@ -90,14 +53,6 @@ impl Str {
 
     fn log_error(&mut self, message: &str) {
         self.error = Some(message.to_string());
-    }
-
-    fn for_replace(&mut self, mode: ReplaceAction) {
-        if self.permit() {
-            self.action = Some(Action::Replace(mode));
-        } else {
-            self.log_error("can only apply one");
-        }
     }
 
     fn for_to_int(&mut self) {
@@ -125,7 +80,7 @@ impl Str {
     }
 
     pub fn usage() -> &'static str {
-        "Usage: str field [--downcase|--upcase|--to-int|--replace|--find-replace]"
+        "Usage: str field [--downcase|--upcase|--to-int]"
     }
 }
 
@@ -172,8 +127,6 @@ impl Plugin for Str {
             .switch("downcase")
             .switch("upcase")
             .switch("to-int")
-            .switch("replace")
-            .switch("find-replace")
             .rest(SyntaxType::Member)
             .filter())
     }
@@ -190,12 +143,6 @@ impl Plugin for Str {
         if args.has("to-int") {
             self.for_to_int();
         }
-        if args.has("replace") {
-            self.for_replace(ReplaceAction::Direct);
-        }
-        if args.has("find-replace") {
-            self.for_replace(ReplaceAction::FindAndReplace);
-        }
 
         if let Some(possible_field) = args.nth(0) {
             match possible_field {
@@ -203,16 +150,6 @@ impl Plugin for Str {
                     item: Value::Primitive(Primitive::String(s)),
                     ..
                 } => match self.action {
-                    Some(Action::Replace(ReplaceAction::Direct)) => {
-                        if args.len() == 2 {
-                            self.for_field(&s);
-                        }
-                    }
-                    Some(Action::Replace(ReplaceAction::FindAndReplace)) => {
-                        if args.len() == 3 {
-                            self.for_field(&s);
-                        }
-                    }
                     Some(Action::Downcase)
                     | Some(Action::Upcase)
                     | Some(Action::ToInteger)
@@ -258,23 +195,13 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{Action, ReplaceAction, Str};
+    use super::{Action, Str};
     use indexmap::IndexMap;
     use nu::{
         CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Span, Tag, Tagged,
         TaggedDictBuilder, TaggedItem, Value,
     };
     use num_bigint::BigInt;
-
-    impl Str {
-        fn replace_with(&mut self, value: &str) {
-            self.params.as_mut().unwrap().push(value.to_string());
-        }
-
-        fn find_with(&mut self, search: &str) {
-            self.params.as_mut().unwrap().push(search.to_string());
-        }
-    }
 
     struct CallStub {
         positionals: Vec<Tagged<Value>>,
@@ -328,7 +255,7 @@ mod tests {
 
         let configured = plugin.config().unwrap();
 
-        for action_flag in &["downcase", "upcase", "to-int", "replace", "find-replace"] {
+        for action_flag in &["downcase", "upcase", "to-int"] {
             assert!(configured.named.get(*action_flag).is_some());
         }
     }
@@ -362,33 +289,6 @@ mod tests {
             .is_ok());
         assert_eq!(plugin.action.unwrap(), Action::ToInteger);
     }
-
-    #[test]
-    fn str_plugin_accepts_replace() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("replace").create())
-            .is_ok());
-        assert_eq!(
-            plugin.action.unwrap(),
-            Action::Replace(ReplaceAction::Direct)
-        );
-    }
-
-    #[test]
-    fn str_plugin_accepts_find_replace() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("find-replace").create())
-            .is_ok());
-        assert_eq!(
-            plugin.action.unwrap(),
-            Action::Replace(ReplaceAction::FindAndReplace)
-        );
-    }
-
     #[test]
     fn str_plugin_accepts_field() {
         let mut plugin = Str::new();
@@ -439,26 +339,6 @@ mod tests {
         let mut strutils = Str::new();
         strutils.for_to_int();
         assert_eq!(strutils.apply("9999").unwrap(), Value::int(9999 as i64));
-    }
-
-    #[test]
-    fn str_replace() {
-        let mut strutils = Str::new();
-        strutils.for_replace(ReplaceAction::Direct);
-        strutils.replace_with("robalino");
-        assert_eq!(strutils.apply("andres").unwrap(), Value::string("robalino"));
-    }
-
-    #[test]
-    fn str_find_replace() {
-        let mut strutils = Str::new();
-        strutils.for_replace(ReplaceAction::FindAndReplace);
-        strutils.find_with(r"kittens");
-        strutils.replace_with("jotandrehuda");
-        assert_eq!(
-            strutils.apply("wykittens").unwrap(),
-            Value::string("wyjotandrehuda")
-        );
     }
 
     #[test]
@@ -601,116 +481,6 @@ mod tests {
                 item: Value::Primitive(Primitive::Int(i)),
                 ..
             }) => assert_eq!(*i, BigInt::from(10)),
-            _ => {}
-        }
-    }
-
-    #[test]
-    fn str_plugin_applies_replace_with_field() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_parameter("rustconf")
-                    .with_parameter("22nd August 2019")
-                    .with_long_flag("replace")
-                    .create()
-            )
-            .is_ok());
-
-        let subject = structured_sample_record("rustconf", "1st January 1970");
-        let output = plugin.filter(subject).unwrap();
-
-        match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
-                ..
-            }) => assert_eq!(
-                *o.get_data(&String::from("rustconf")).borrow(),
-                Value::string(String::from("22nd August 2019"))
-            ),
-            _ => {}
-        }
-    }
-
-    #[test]
-    fn str_plugin_applies_replace_without_field() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_parameter("22nd August 2019")
-                    .with_long_flag("replace")
-                    .create()
-            )
-            .is_ok());
-
-        let subject = unstructured_sample_record("1st January 1970");
-        let output = plugin.filter(subject).unwrap();
-
-        match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
-                ..
-            }) => assert_eq!(*s, String::from("22nd August 2019")),
-            _ => {}
-        }
-    }
-
-    #[test]
-    fn str_plugin_applies_find_replace_with_field() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_parameter("staff")
-                    .with_parameter("kittens")
-                    .with_parameter("jotandrehuda")
-                    .with_long_flag("find-replace")
-                    .create()
-            )
-            .is_ok());
-
-        let subject = structured_sample_record("staff", "wykittens");
-        let output = plugin.filter(subject).unwrap();
-
-        match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
-                ..
-            }) => assert_eq!(
-                *o.get_data(&String::from("staff")).borrow(),
-                Value::string(String::from("wyjotandrehuda"))
-            ),
-            _ => {}
-        }
-    }
-
-    #[test]
-    fn str_plugin_applies_find_replace_without_field() {
-        let mut plugin = Str::new();
-
-        assert!(plugin
-            .begin_filter(
-                CallStub::new()
-                    .with_parameter("kittens")
-                    .with_parameter("jotandrehuda")
-                    .with_long_flag("find-replace")
-                    .create()
-            )
-            .is_ok());
-
-        let subject = unstructured_sample_record("wykittens");
-        let output = plugin.filter(subject).unwrap();
-
-        match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
-                ..
-            }) => assert_eq!(*s, String::from("wyjotandrehuda")),
             _ => {}
         }
     }
