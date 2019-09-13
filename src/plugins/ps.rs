@@ -64,7 +64,7 @@ impl Plugin for Ps {
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(block_on(ps(Tag::unknown_origin(callinfo.name_span)))
+        Ok(block_on(ps(callinfo.name_tag))
             .into_iter()
             .map(ReturnSuccess::value)
             .collect())
