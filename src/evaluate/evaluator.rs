@@ -45,7 +45,9 @@ pub(crate) fn evaluate_baseline_expr(
             expr.span(),
         )),
         RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.span())),
-        RawExpression::Synthetic(hir::Synthetic::String(s)) => Ok(Value::string(s).tagged_unknown()),
+        RawExpression::Synthetic(hir::Synthetic::String(s)) => {
+            Ok(Value::string(s).tagged_unknown())
+        }
         RawExpression::Variable(var) => evaluate_reference(var, scope, source),
         RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),
         RawExpression::Binary(binary) => {
