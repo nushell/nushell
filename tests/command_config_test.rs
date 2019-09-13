@@ -108,7 +108,7 @@ fn removes_configuration_value() {
             dirs.config_path()
         );
 
-        assert!(actual.contains("table missing column"));
+        assert!(actual.contains("did you mean"));
     });
 
     h::delete_file_at(nu::config_path().unwrap().join("test_5.toml"));
