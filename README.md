@@ -15,7 +15,13 @@ This project has reached a minimum-viable product level of quality. While contri
 
 Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
-There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
+# Learning more
+
+There are a few good resources to learn about Nu. First, there is a [book](https://book.nushell.sh) about Nu, currently in progress. The book focuses on using Nu and its core concepts.
+
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-handbook/tree/master/en).
+
+We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
 
 # Installation
 
