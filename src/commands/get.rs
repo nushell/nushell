@@ -47,9 +47,20 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
                     match obj.get_data_by_key(&path.item) {
                         Some(v) => return Ok(v.clone()),
                         None => {
+                            let possibilities = obj.data_descriptors();
+
+                            let mut possible_matches: Vec<_> = possibilities
+                                .iter()
+                                .map(|x| {
+                                    (natural::distance::levenshtein_distance(x, &path.item), x)
+                                })
+                                .collect();
+
+                            possible_matches.sort();
+
                             return Err(ShellError::labeled_error(
                                 "Unknown column",
-                                "table missing column",
+                                format!("did you mean '{}'?", possible_matches[0].1),
                                 path.span(),
                             ));
                         }
