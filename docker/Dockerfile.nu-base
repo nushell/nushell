@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 # docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
 # docker run -it nushell/nu-base
