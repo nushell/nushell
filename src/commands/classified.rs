@@ -307,10 +307,12 @@ impl ExternalCommand {
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
+                let _ = popen.detach();
                 let stdout = popen.stdout.take().unwrap();
                 Ok(ClassifiedInputStream::from_stdout(stdout))
             }
             StreamNext::Internal => {
+                let _ = popen.detach();
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
