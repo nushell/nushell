@@ -127,8 +127,6 @@ impl Plugin for Str {
             .switch("downcase")
             .switch("upcase")
             .switch("to-int")
-            .switch("replace")
-            .switch("find-replace")
             .rest(SyntaxShape::Member)
             .filter())
     }
