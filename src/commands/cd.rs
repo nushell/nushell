@@ -10,7 +10,7 @@ impl WholeStreamCommand for CD {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cd").optional("directory", SyntaxType::Path)
+        Signature::build("cd").optional("directory", SyntaxShape::Path)
     }
 
     fn usage(&self) -> &str {

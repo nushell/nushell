@@ -34,7 +34,7 @@ fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
         .values
         .map(move |v| {
             let string = String::extract(&v)?;
-            ReturnSuccess::value(Value::string(string.trim()).simple_spanned(v.span()))
+            ReturnSuccess::value(Value::string(string.trim()).tagged(v.tag()))
         })
         .to_output_stream())
 }

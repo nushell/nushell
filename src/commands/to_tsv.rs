@@ -133,7 +133,7 @@ fn to_tsv(
     ToTSVArgs { headerless }: ToTSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = name;
+    let name_tag = name;
     let stream = async_stream_block! {
          let input: Vec<Tagged<Value>> = input.values.collect().await;
 
@@ -154,15 +154,15 @@ fn to_tsv(
                      } else {
                          x
                      };
-                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).simple_spanned(name_span))
+                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).tagged(name_tag))
                  }
                  _ => {
                      yield Err(ShellError::labeled_error_with_secondary(
-                         "Expected a table with TSV-compatible structure.span() from pipeline",
+                         "Expected a table with TSV-compatible structure.tag() from pipeline",
                          "requires TSV-compatible input",
-                         name_span,
+                         name_tag,
                          "originates from here".to_string(),
-                         value.span(),
+                         value.tag(),
                      ))
                  }
              }

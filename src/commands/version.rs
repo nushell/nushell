@@ -31,14 +31,14 @@ impl WholeStreamCommand for Version {
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let span = args.call_info.name_span;
+    let tag = args.call_info.name_tag;
 
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "version".to_string(),
-        Tagged::from_simple_spanned_item(Value::string(clap::crate_version!()), span),
+        Value::string(clap::crate_version!()).tagged(tag),
     );
 
-    let value = Tagged::from_simple_spanned_item(Value::Row(Dictionary::from(indexmap)), span);
+    let value = Value::Row(Dictionary::from(indexmap)).tagged(tag);
     Ok(OutputStream::one(value))
 }

@@ -21,9 +21,9 @@ impl WholeStreamCommand for SplitColumn {
 
     fn signature(&self) -> Signature {
         Signature::build("split-column")
-            .required("separator", SyntaxType::Any)
+            .required("separator", SyntaxShape::Any)
             .switch("collapse-empty")
-            .rest(SyntaxType::Member)
+            .rest(SyntaxShape::Member)
     }
 
     fn usage(&self) -> &str {
@@ -96,7 +96,7 @@ fn split_column(
                 "requires string input",
                 name,
                 "value originates from here",
-                v.span(),
+                v.tag(),
             )),
         })
         .to_output_stream())

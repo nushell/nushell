@@ -1,6 +1,6 @@
 use crate::commands::PerItemCommand;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
+use crate::parser::hir::SyntaxShape;
 use crate::parser::registry;
 use crate::prelude::*;
 
@@ -12,7 +12,7 @@ impl PerItemCommand for Where {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("where").required("condition", SyntaxType::Block)
+        Signature::build("where").required("condition", SyntaxShape::Block)
     }
 
     fn usage(&self) -> &str {
@@ -49,7 +49,7 @@ impl PerItemCommand for Where {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",
                     "where needs a condition",
-                    tag.span,
+                    *tag,
                 ))
             }
         };

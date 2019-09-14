@@ -75,7 +75,7 @@ fn collect_values(input: &Vec<Tagged<Value>>) -> Result<Vec<toml::Value>, ShellE
 
 fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_span = args.name_span();
+    let name_tag = args.name_tag();
     let stream = async_stream_block! {
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
@@ -93,21 +93,21 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 Ok(toml_value) => {
                     match toml::to_string(&toml_value) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Primitive(Primitive::String(x)).simple_spanned(name_span),
+                            Value::Primitive(Primitive::String(x)).tagged(name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with TOML-compatible structure.span() from pipeline",
+                            "Expected a table with TOML-compatible structure.tag() from pipeline",
                             "requires TOML-compatible input",
-                            name_span,
+                            name_tag,
                             "originates from here".to_string(),
-                            value.span(),
+                            value.tag(),
                         )),
                     }
                 }
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with TOML-compatible structure from pipeline",
                     "requires TOML-compatible input",
-                    name_span))
+                    name_tag))
             }
         }
     };

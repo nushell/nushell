@@ -204,7 +204,7 @@ pub struct Operation {
 pub struct Block {
     pub(crate) expressions: Vec<hir::Expression>,
     pub(crate) source: Text,
-    pub(crate) span: Span,
+    pub(crate) tag: Tag,
 }
 
 impl Block {
@@ -212,7 +212,7 @@ impl Block {
         let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
-            return Ok(Value::nothing().simple_spanned(self.span));
+            return Ok(Value::nothing().tagged(self.tag));
         }
 
         let mut last = None;
@@ -303,7 +303,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Block {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
                 "Block",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -319,7 +319,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for i64 {
             }
             v => Err(ShellError::type_error(
                 "Integer",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -333,7 +333,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for String {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             v => Err(ShellError::type_error(
                 "String",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -347,7 +347,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
             Value::Primitive(Primitive::Binary(b)) => Ok(b.clone()),
             v => Err(ShellError::type_error(
                 "Binary",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -361,7 +361,7 @@ impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::data::Dictionar
             Value::Row(d) => Ok(d),
             v => Err(ShellError::type_error(
                 "Dictionary",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -383,7 +383,7 @@ impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
                 Value::Primitive(Primitive::Boolean(true)) => Ok(Switch::Present),
                 v => Err(ShellError::type_error(
                     "Boolean",
-                    value.copy_span(v.type_name()),
+                    value.copy_tag(v.type_name()),
                 )),
             },
         }
@@ -695,7 +695,7 @@ impl Tagged<Value> {
             Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
             other => Err(ShellError::type_error(
                 "Path",
-                other.type_name().tagged(self.span()),
+                other.type_name().tagged(self.tag()),
             )),
         }
     }

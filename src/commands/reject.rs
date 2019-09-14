@@ -16,7 +16,7 @@ impl WholeStreamCommand for Reject {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("reject").rest(SyntaxType::Member)
+        Signature::build("reject").rest(SyntaxShape::Member)
     }
 
     fn usage(&self) -> &str {
