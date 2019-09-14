@@ -2,7 +2,7 @@ use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
 use crate::data::Value;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
+use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
 use base64::encode;
@@ -10,7 +10,7 @@ use mime::Mime;
 use std::path::PathBuf;
 use std::str::FromStr;
 use surf::mime;
-use uuid::Uuid;
+
 pub struct Post;
 
 impl PerItemCommand for Post {
@@ -20,10 +20,10 @@ impl PerItemCommand for Post {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxType::Any)
-            .required("body", SyntaxType::Any)
-            .named("user", SyntaxType::Any)
-            .named("password", SyntaxType::Any)
+            .required("path", SyntaxShape::Any)
+            .required("body", SyntaxShape::Any)
+            .named("user", SyntaxShape::Any)
+            .named("password", SyntaxShape::Any)
             .switch("raw")
     }
 
@@ -63,7 +63,7 @@ fn run(
         file => file.clone(),
     };
     let path_str = path.as_string()?;
-    let path_span = path.span();
+    let path_span = path.tag();
     let has_raw = call_info.args.has("raw");
     let user = call_info.args.get("user").map(|x| x.as_string().unwrap());
     let password = call_info
@@ -109,7 +109,7 @@ fn run(
                         },
                         source: raw_args.call_info.source,
                         source_map: raw_args.call_info.source_map,
-                        name_span: raw_args.call_info.name_span,
+                        name_tag: raw_args.call_info.name_tag,
                     }
                 };
                 let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
@@ -143,7 +143,7 @@ pub async fn post(
     body: &Tagged<Value>,
     user: Option<String>,
     password: Option<String>,
-    span: Span,
+    tag: Tag,
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
 ) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
@@ -189,7 +189,7 @@ pub async fn post(
                             },
                             source: raw_args.call_info.source,
                             source_map: raw_args.call_info.source_map,
-                            name_span: raw_args.call_info.name_span,
+                            name_tag: raw_args.call_info.name_tag,
                         },
                     };
                     let mut result = converter.run(
@@ -211,7 +211,7 @@ pub async fn post(
                                 return Err(ShellError::labeled_error(
                                     "Save could not successfully save",
                                     "unexpected data during save",
-                                    span,
+                                    *tag,
                                 ));
                             }
                         }
@@ -227,7 +227,7 @@ pub async fn post(
                     return Err(ShellError::labeled_error(
                         "Could not automatically convert table",
                         "needs manual conversion",
-                        tag.span,
+                        *tag,
                     ));
                 }
             }
@@ -243,13 +243,10 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    span,
+                                    tag,
                                 )
                             })?),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
@@ -258,13 +255,10 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    span,
+                                    tag,
                                 )
                             })?),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
@@ -272,16 +266,13 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load binary file",
                                     "could not load",
-                                    span,
+                                    tag,
                                 )
                             })?;
                             Ok((
                                 None,
-                                Value::Primitive(Primitive::Binary(buf)),
-                                Tag {
-                                    span,
-                                    origin: Some(Uuid::new_v4()),
-                                },
+                                Value::binary(buf),
+                                tag,
                                 SpanSource::Url(location.to_string()),
                             ))
                         }
@@ -290,16 +281,13 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load image file",
                                     "could not load",
-                                    span,
+                                    tag,
                                 )
                             })?;
                             Ok((
                                 Some(image_ty.to_string()),
-                                Value::Primitive(Primitive::Binary(buf)),
-                                Tag {
-                                    span,
-                                    origin: Some(Uuid::new_v4()),
-                                },
+                                Value::binary(buf),
+                                tag,
                                 SpanSource::Url(location.to_string()),
                             ))
                         }
@@ -309,13 +297,10 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    span,
+                                    tag,
                                 )
                             })?),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         )),
                         (mime::TEXT, mime::PLAIN) => {
@@ -336,13 +321,10 @@ pub async fn post(
                                     ShellError::labeled_error(
                                         "Could not load text from remote url",
                                         "could not load",
-                                        span,
+                                        tag,
                                     )
                                 })?),
-                                Tag {
-                                    span,
-                                    origin: Some(Uuid::new_v4()),
-                                },
+                                tag,
                                 SpanSource::Url(location.to_string()),
                             ))
                         }
@@ -352,10 +334,7 @@ pub async fn post(
                                 "Not yet supported MIME type: {} {}",
                                 ty, sub_ty
                             )),
-                            Tag {
-                                span,
-                                origin: Some(Uuid::new_v4()),
-                            },
+                            tag,
                             SpanSource::Url(location.to_string()),
                         )),
                     }
@@ -363,10 +342,7 @@ pub async fn post(
                 None => Ok((
                     None,
                     Value::string(format!("No content type found")),
-                    Tag {
-                        span,
-                        origin: Some(Uuid::new_v4()),
-                    },
+                    tag,
                     SpanSource::Url(location.to_string()),
                 )),
             },
@@ -374,7 +350,7 @@ pub async fn post(
                 return Err(ShellError::labeled_error(
                     "URL could not be opened",
                     "url not found",
-                    span,
+                    tag,
                 ));
             }
         }
@@ -382,7 +358,7 @@ pub async fn post(
         Err(ShellError::labeled_error(
             "Expected a url",
             "needs a url",
-            span,
+            tag,
         ))
     }
 }

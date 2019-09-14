@@ -8,7 +8,7 @@ use crate::parser::{
     },
     DelimitedNode, Delimiter, PathNode, RawToken, TokenNode,
 };
-use crate::{Span, Tag, Tagged, TaggedItem, Text};
+use crate::{Tag, Tagged, TaggedItem, Text};
 use derive_new::new;
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ pub fn baseline_parse_tokens(
     token_nodes: &mut TokensIterator<'_>,
     context: &Context,
     source: &Text,
-    syntax_type: SyntaxType,
+    syntax_type: SyntaxShape,
 ) -> Result<Vec<hir::Expression>, ShellError> {
     let mut exprs: Vec<hir::Expression> = vec![];
 
@@ -34,7 +34,7 @@ pub fn baseline_parse_tokens(
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum SyntaxType {
+pub enum SyntaxShape {
     Any,
     List,
     Literal,
@@ -49,21 +49,21 @@ pub enum SyntaxType {
     Boolean,
 }
 
-impl std::fmt::Display for SyntaxType {
+impl std::fmt::Display for SyntaxShape {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            SyntaxType::Any => write!(f, "Any"),
-            SyntaxType::List => write!(f, "List"),
-            SyntaxType::Literal => write!(f, "Literal"),
-            SyntaxType::String => write!(f, "String"),
-            SyntaxType::Member => write!(f, "Member"),
-            SyntaxType::Variable => write!(f, "Variable"),
-            SyntaxType::Number => write!(f, "Number"),
-            SyntaxType::Path => write!(f, "Path"),
-            SyntaxType::Pattern => write!(f, "Pattern"),
-            SyntaxType::Binary => write!(f, "Binary"),
-            SyntaxType::Block => write!(f, "Block"),
-            SyntaxType::Boolean => write!(f, "Boolean"),
+            SyntaxShape::Any => write!(f, "Any"),
+            SyntaxShape::List => write!(f, "List"),
+            SyntaxShape::Literal => write!(f, "Literal"),
+            SyntaxShape::String => write!(f, "String"),
+            SyntaxShape::Member => write!(f, "Member"),
+            SyntaxShape::Variable => write!(f, "Variable"),
+            SyntaxShape::Number => write!(f, "Number"),
+            SyntaxShape::Path => write!(f, "Path"),
+            SyntaxShape::Pattern => write!(f, "Pattern"),
+            SyntaxShape::Binary => write!(f, "Binary"),
+            SyntaxShape::Block => write!(f, "Block"),
+            SyntaxShape::Boolean => write!(f, "Boolean"),
         }
     }
 }
@@ -72,7 +72,7 @@ pub fn baseline_parse_next_expr(
     tokens: &mut TokensIterator,
     context: &Context,
     source: &Text,
-    syntax_type: SyntaxType,
+    syntax_type: SyntaxShape,
 ) -> Result<hir::Expression, ShellError> {
     let next = tokens
         .next()
@@ -81,69 +81,69 @@ pub fn baseline_parse_next_expr(
     trace!(target: "nu::parser::parse_one_expr", "syntax_type={:?}, token={:?}", syntax_type, next);
 
     match (syntax_type, next) {
-        (SyntaxType::Path, TokenNode::Token(token)) => {
+        (SyntaxShape::Path, TokenNode::Token(token)) => {
             return baseline_parse_token_as_path(token, context, source)
         }
 
-        (SyntaxType::Path, token) => {
+        (SyntaxShape::Path, token) => {
             return Err(ShellError::type_error(
                 "Path",
-                token.type_name().simple_spanned(token.span()),
+                token.type_name().tagged(token.tag()),
             ))
         }
 
-        (SyntaxType::Pattern, TokenNode::Token(token)) => {
+        (SyntaxShape::Pattern, TokenNode::Token(token)) => {
             return baseline_parse_token_as_pattern(token, context, source)
         }
 
-        (SyntaxType::Pattern, token) => {
+        (SyntaxShape::Pattern, token) => {
             return Err(ShellError::type_error(
                 "Path",
-                token.type_name().simple_spanned(token.span()),
+                token.type_name().tagged(token.tag()),
             ))
         }
 
-        (SyntaxType::String, TokenNode::Token(token)) => {
+        (SyntaxShape::String, TokenNode::Token(token)) => {
             return baseline_parse_token_as_string(token, source);
         }
 
-        (SyntaxType::String, token) => {
+        (SyntaxShape::String, token) => {
             return Err(ShellError::type_error(
                 "String",
-                token.type_name().simple_spanned(token.span()),
+                token.type_name().tagged(token.tag()),
             ))
         }
 
-        (SyntaxType::Number, TokenNode::Token(token)) => {
+        (SyntaxShape::Number, TokenNode::Token(token)) => {
             return Ok(baseline_parse_token_as_number(token, source)?);
         }
 
-        (SyntaxType::Number, token) => {
+        (SyntaxShape::Number, token) => {
             return Err(ShellError::type_error(
                 "Numeric",
-                token.type_name().simple_spanned(token.span()),
+                token.type_name().tagged(token.tag()),
             ))
         }
 
         // TODO: More legit member processing
-        (SyntaxType::Member, TokenNode::Token(token)) => {
+        (SyntaxShape::Member, TokenNode::Token(token)) => {
             return baseline_parse_token_as_string(token, source);
         }
 
-        (SyntaxType::Member, token) => {
+        (SyntaxShape::Member, token) => {
             return Err(ShellError::type_error(
                 "member",
-                token.type_name().simple_spanned(token.span()),
+                token.type_name().tagged(token.tag()),
             ))
         }
 
-        (SyntaxType::Any, _) => {}
-        (SyntaxType::List, _) => {}
-        (SyntaxType::Literal, _) => {}
-        (SyntaxType::Variable, _) => {}
-        (SyntaxType::Binary, _) => {}
-        (SyntaxType::Block, _) => {}
-        (SyntaxType::Boolean, _) => {}
+        (SyntaxShape::Any, _) => {}
+        (SyntaxShape::List, _) => {}
+        (SyntaxShape::Literal, _) => {}
+        (SyntaxShape::Variable, _) => {}
+        (SyntaxShape::Binary, _) => {}
+        (SyntaxShape::Block, _) => {}
+        (SyntaxShape::Boolean, _) => {}
     };
 
     let first = baseline_parse_semantic_token(next, context, source)?;
@@ -162,7 +162,7 @@ pub fn baseline_parse_next_expr(
             return Err(ShellError::labeled_error(
                 "Expected something after an operator",
                 "operator",
-                op.span(),
+                op.tag(),
             ))
         }
         Some(token) => baseline_parse_semantic_token(token, context, source)?,
@@ -171,75 +171,66 @@ pub fn baseline_parse_next_expr(
     // We definitely have a binary expression here -- let's see if we should coerce it into a block
 
     match syntax_type {
-        SyntaxType::Any => {
-            let span = (first.span().start, second.span().end);
+        SyntaxShape::Any => {
+            let tag = first.tag().until(second.tag());
             let binary = hir::Binary::new(first, op, second);
             let binary = hir::RawExpression::Binary(Box::new(binary));
-            let binary = Tagged::from_simple_spanned_item(binary, span);
+            let binary = binary.tagged(tag);
 
             Ok(binary)
         }
 
-        SyntaxType::Block => {
-            let span = (first.span().start, second.span().end);
+        SyntaxShape::Block => {
+            let tag = first.tag().until(second.tag());
 
             let path: Tagged<hir::RawExpression> = match first {
                 Tagged {
                     item: hir::RawExpression::Literal(hir::Literal::Bare),
-                    tag: Tag { span, .. },
+                    tag,
                 } => {
-                    let string =
-                        Tagged::from_simple_spanned_item(span.slice(source).to_string(), span);
+                    let string = tag.slice(source).to_string().tagged(tag);
                     let path = hir::Path::new(
-                        Tagged::from_simple_spanned_item(
-                            // TODO: Deal with synthetic nodes that have no representation at all in source
-                            hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
-                            (0, 0),
-                        ),
+                        // TODO: Deal with synthetic nodes that have no representation at all in source
+                        hir::RawExpression::Variable(hir::Variable::It(Tag::unknown()))
+                            .tagged(Tag::unknown()),
                         vec![string],
                     );
                     let path = hir::RawExpression::Path(Box::new(path));
-                    Tagged::from_simple_spanned_item(path, first.span())
+                    path.tagged(first.tag())
                 }
                 Tagged {
                     item: hir::RawExpression::Literal(hir::Literal::String(inner)),
-                    tag: Tag { span, .. },
+                    tag,
                 } => {
-                    let string =
-                        Tagged::from_simple_spanned_item(inner.slice(source).to_string(), span);
+                    let string = inner.slice(source).to_string().tagged(tag);
                     let path = hir::Path::new(
-                        Tagged::from_simple_spanned_item(
-                            // TODO: Deal with synthetic nodes that have no representation at all in source
-                            hir::RawExpression::Variable(hir::Variable::It(Span::from((0, 0)))),
-                            (0, 0),
-                        ),
+                        // TODO: Deal with synthetic nodes that have no representation at all in source
+                        hir::RawExpression::Variable(hir::Variable::It(Tag::unknown()))
+                            .tagged_unknown(),
                         vec![string],
                     );
                     let path = hir::RawExpression::Path(Box::new(path));
-                    Tagged::from_simple_spanned_item(path, first.span())
+                    path.tagged(first.tag())
                 }
                 Tagged {
                     item: hir::RawExpression::Variable(..),
                     ..
                 } => first,
-                Tagged {
-                    tag: Tag { span, .. },
-                    item,
-                } => {
+                Tagged { tag, item } => {
                     return Err(ShellError::labeled_error(
                         "The first part of an un-braced block must be a column name",
                         item.type_name(),
-                        span,
+                        tag,
                     ))
                 }
             };
 
             let binary = hir::Binary::new(path, op, second);
             let binary = hir::RawExpression::Binary(Box::new(binary));
-            let binary = Tagged::from_simple_spanned_item(binary, span);
+            let binary = binary.tagged(tag);
 
             let block = hir::RawExpression::Block(vec![binary]);
-            let block = Tagged::from_simple_spanned_item(block, span);
+            let block = block.tagged(tag);
 
             Ok(block)
         }
@@ -265,11 +256,11 @@ pub fn baseline_parse_semantic_token(
             "Unexpected operator".tagged(op.tag),
         )),
         TokenNode::Flag(flag) => Err(ShellError::syntax_error("Unexpected flag".tagged(flag.tag))),
-        TokenNode::Member(span) => Err(ShellError::syntax_error(
-            "BUG: Top-level member".tagged(span),
+        TokenNode::Member(tag) => Err(ShellError::syntax_error(
+            "BUG: Top-level member".tagged(*tag),
         )),
-        TokenNode::Whitespace(span) => Err(ShellError::syntax_error(
-            "BUG: Whitespace found during parse".tagged(span),
+        TokenNode::Whitespace(tag) => Err(ShellError::syntax_error(
+            "BUG: Whitespace found during parse".tagged(*tag),
         )),
         TokenNode::Error(error) => Err(*error.item.clone()),
         TokenNode::Path(path) => baseline_parse_path(path, context, source),
@@ -288,11 +279,11 @@ pub fn baseline_parse_delimited(
                 &mut TokensIterator::new(children),
                 context,
                 source,
-                SyntaxType::Any,
+                SyntaxShape::Any,
             )?;
 
             let expr = hir::RawExpression::Block(exprs);
-            Ok(Tagged::from_simple_spanned_item(expr, token.span()))
+            Ok(expr.tagged(token.tag()))
         }
         Delimiter::Paren => unimplemented!(),
         Delimiter::Square => {
@@ -301,11 +292,11 @@ pub fn baseline_parse_delimited(
                 &mut TokensIterator::new(children),
                 context,
                 source,
-                SyntaxType::Any,
+                SyntaxShape::Any,
             )?;
 
             let expr = hir::RawExpression::List(exprs);
-            Ok(expr.tagged(Tag::unknown_origin(token.span())))
+            Ok(expr.tagged(token.tag()))
         }
     }
 }
@@ -322,8 +313,8 @@ pub fn baseline_parse_path(
     for part in token.tail() {
         let string = match part {
             TokenNode::Token(token) => match token.item() {
-                RawToken::Bare => token.span().slice(source),
-                RawToken::String(span) => span.slice(source),
+                RawToken::Bare => token.tag().slice(source),
+                RawToken::String(tag) => tag.slice(source),
                 RawToken::Number(_)
                 | RawToken::Size(..)
                 | RawToken::Variable(_)
@@ -332,26 +323,26 @@ pub fn baseline_parse_path(
                 | RawToken::ExternalWord => {
                     return Err(ShellError::type_error(
                         "String",
-                        token.type_name().simple_spanned(part),
+                        token.type_name().tagged(part.tag()),
                     ))
                 }
             },
 
-            TokenNode::Member(span) => span.slice(source),
+            TokenNode::Member(tag) => tag.slice(source),
 
             // TODO: Make this impossible
             other => {
                 return Err(ShellError::syntax_error(
-                    format!("{} in path", other.type_name()).tagged(other.span()),
+                    format!("{} in path", other.type_name()).tagged(other.tag()),
                 ))
             }
         }
         .to_string();
 
-        tail.push(string.simple_spanned(part));
+        tail.push(string.tagged(part.tag()));
     }
 
-    Ok(hir::path(head, tail).simple_spanned(token).into())
+    Ok(hir::path(head, tail).tagged(token.tag()).into())
 }
 
 #[derive(Debug, new)]

@@ -12,7 +12,7 @@ impl PerItemCommand for Echo {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("echo").rest(SyntaxType::Any)
+        Signature::build("echo").rest(SyntaxShape::Any)
     }
 
     fn usage(&self) -> &str {
@@ -35,7 +35,7 @@ fn run(
     _registry: &CommandRegistry,
     _raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let name = call_info.name_span;
+    let name = call_info.name_tag;
 
     let mut output = String::new();
 
@@ -57,7 +57,7 @@ fn run(
                     return Err(ShellError::labeled_error(
                         "Expect a string from pipeline",
                         "not a string-compatible value",
-                        i.span(),
+                        i.tag(),
                     ));
                 }
             }
@@ -65,7 +65,7 @@ fn run(
     }
 
     let stream = VecDeque::from(vec![Ok(ReturnSuccess::Value(
-        Value::string(output).simple_spanned(name),
+        Value::string(output).tagged(name),
     ))]);
 
     Ok(stream.to_output_stream())

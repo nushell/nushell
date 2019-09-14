@@ -7,8 +7,8 @@ use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, PathNode, Token
 use crate::parser::parse::tokens::{RawNumber, RawToken};
 use crate::parser::parse::unit::Unit;
 use crate::parser::CallNode;
-use crate::Span;
 use derive_new::new;
+use uuid::Uuid;
 
 #[derive(new)]
 pub struct TokenTreeBuilder {
@@ -17,14 +17,16 @@ pub struct TokenTreeBuilder {
 
     #[new(default)]
     output: String,
+
+    origin: Uuid,
 }
 
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
 pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Tagged<CallNode> + 'static>;
 
 impl TokenTreeBuilder {
-    pub fn build(block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
-        let mut builder = TokenTreeBuilder::new();
+    pub fn build(origin: Uuid, block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
+        let mut builder = TokenTreeBuilder::new(origin);
         let node = block(&mut builder);
         (node, builder.output)
     }
@@ -52,50 +54,37 @@ impl TokenTreeBuilder {
                 .expect("A pipeline must contain at least one element");
 
             let pipe = None;
-            let pre_span = pre.map(|pre| b.consume(&pre));
+            let pre_tag = pre.map(|pre| b.consume_tag(&pre));
             let call = call(b);
-            let post_span = post.map(|post| b.consume(&post));
+            let post_tag = post.map(|post| b.consume_tag(&post));
 
-            out.push(PipelineElement::new(
-                pipe,
-                pre_span.map(Span::from),
-                call,
-                post_span.map(Span::from),
-            ));
+            out.push(PipelineElement::new(pipe, pre_tag, call, post_tag));
 
             loop {
                 match input.next() {
                     None => break,
                     Some((pre, call, post)) => {
-                        let pipe = Some(Span::from(b.consume("|")));
-                        let pre_span = pre.map(|pre| b.consume(&pre));
+                        let pipe = Some(b.consume_tag("|"));
+                        let pre_span = pre.map(|pre| b.consume_tag(&pre));
                         let call = call(b);
-                        let post_span = post.map(|post| b.consume(&post));
+                        let post_span = post.map(|post| b.consume_tag(&post));
 
-                        out.push(PipelineElement::new(
-                            pipe,
-                            pre_span.map(Span::from),
-                            call,
-                            post_span.map(Span::from),
-                        ));
+                        out.push(PipelineElement::new(pipe, pre_span, call, post_span));
                     }
                 }
             }
 
             let end = b.pos;
 
-            TokenTreeBuilder::spanned_pipeline((out, None), (start, end))
+            TokenTreeBuilder::tagged_pipeline((out, None), (start, end, b.origin))
         })
     }
 
-    pub fn spanned_pipeline(
-        input: (Vec<PipelineElement>, Option<Span>),
-        span: impl Into<Span>,
+    pub fn tagged_pipeline(
+        input: (Vec<PipelineElement>, Option<Tag>),
+        tag: impl Into<Tag>,
     ) -> TokenNode {
-        TokenNode::Pipeline(Tagged::from_simple_spanned_item(
-            Pipeline::new(input.0, input.1.into()),
-            span,
-        ))
+        TokenNode::Pipeline(Pipeline::new(input.0, input.1.into()).tagged(tag.into()))
     }
 
     pub fn op(input: impl Into<Operator>) -> CurriedToken {
@@ -106,12 +95,12 @@ impl TokenTreeBuilder {
 
             b.pos = end;
 
-            TokenTreeBuilder::spanned_op(input, (start, end))
+            TokenTreeBuilder::tagged_op(input, (start, end, b.origin))
         })
     }
 
-    pub fn spanned_op(input: impl Into<Operator>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Operator(Tagged::from_simple_spanned_item(input.into(), span.into()))
+    pub fn tagged_op(input: impl Into<Operator>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Operator(input.into().tagged(tag.into()))
     }
 
     pub fn string(input: impl Into<String>) -> CurriedToken {
@@ -123,15 +112,15 @@ impl TokenTreeBuilder {
             let (_, end) = b.consume("\"");
             b.pos = end;
 
-            TokenTreeBuilder::spanned_string((inner_start, inner_end), (start, end))
+            TokenTreeBuilder::tagged_string(
+                (inner_start, inner_end, b.origin),
+                (start, end, b.origin),
+            )
         })
     }
 
-    pub fn spanned_string(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::String(input.into()),
-            span.into(),
-        ))
+    pub fn tagged_string(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::String(input.into()).tagged(tag.into()))
     }
 
     pub fn bare(input: impl Into<String>) -> CurriedToken {
@@ -141,15 +130,12 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            TokenTreeBuilder::spanned_bare((start, end))
+            TokenTreeBuilder::tagged_bare((start, end, b.origin))
         })
     }
 
-    pub fn spanned_bare(input: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::Bare,
-            input.into(),
-        ))
+    pub fn tagged_bare(tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::Bare.tagged(tag.into()))
     }
 
     pub fn pattern(input: impl Into<String>) -> CurriedToken {
@@ -159,15 +145,12 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            TokenTreeBuilder::spanned_pattern((start, end))
+            TokenTreeBuilder::tagged_pattern((start, end, b.origin))
         })
     }
 
-    pub fn spanned_pattern(input: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::Bare,
-            input.into(),
-        ))
+    pub fn tagged_pattern(input: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::GlobPattern.tagged(input.into()))
     }
 
     pub fn external_word(input: impl Into<String>) -> CurriedToken {
@@ -177,22 +160,16 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            TokenTreeBuilder::spanned_external_word((start, end))
+            TokenTreeBuilder::tagged_external_word((start, end, b.origin))
         })
     }
 
-    pub fn spanned_external_word(input: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::ExternalWord,
-            input.into(),
-        ))
+    pub fn tagged_external_word(input: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::ExternalWord.tagged(input.into()))
     }
 
-    pub fn spanned_external(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::ExternalCommand(input.into()),
-            span.into(),
-        ))
+    pub fn tagged_external(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::ExternalCommand(input.into()).tagged(tag.into()))
     }
 
     pub fn int(input: impl Into<BigInt>) -> CurriedToken {
@@ -202,7 +179,10 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&int.to_string());
             b.pos = end;
 
-            TokenTreeBuilder::spanned_number(RawNumber::Int((start, end).into()), (start, end))
+            TokenTreeBuilder::tagged_number(
+                RawNumber::Int((start, end, b.origin).into()),
+                (start, end, b.origin),
+            )
         })
     }
 
@@ -213,15 +193,15 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&decimal.to_string());
             b.pos = end;
 
-            TokenTreeBuilder::spanned_number(RawNumber::Decimal((start, end).into()), (start, end))
+            TokenTreeBuilder::tagged_number(
+                RawNumber::Decimal((start, end, b.origin).into()),
+                (start, end, b.origin),
+            )
         })
     }
 
-    pub fn spanned_number(input: impl Into<RawNumber>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::Number(input.into()),
-            span.into(),
-        ))
+    pub fn tagged_number(input: impl Into<RawNumber>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::Number(input.into()).tagged(tag.into()))
     }
 
     pub fn size(int: impl Into<i64>, unit: impl Into<Unit>) -> CurriedToken {
@@ -233,23 +213,20 @@ impl TokenTreeBuilder {
             let (_, end_unit) = b.consume(unit.as_str());
             b.pos = end_unit;
 
-            TokenTreeBuilder::spanned_size(
-                (RawNumber::Int((start_int, end_int).into()), unit),
-                (start_int, end_unit),
+            TokenTreeBuilder::tagged_size(
+                (RawNumber::Int((start_int, end_int, b.origin).into()), unit),
+                (start_int, end_unit, b.origin),
             )
         })
     }
 
-    pub fn spanned_size(
+    pub fn tagged_size(
         input: (impl Into<RawNumber>, impl Into<Unit>),
-        span: impl Into<Span>,
+        tag: impl Into<Tag>,
     ) -> TokenNode {
         let (int, unit) = (input.0.into(), input.1.into());
 
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::Size(int, unit),
-            span,
-        ))
+        TokenNode::Token(RawToken::Size(int, unit).tagged(tag.into()))
     }
 
     pub fn path(head: CurriedToken, tail: Vec<CurriedToken>) -> CurriedToken {
@@ -267,15 +244,12 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::spanned_path((head, output), (start, end))
+            TokenTreeBuilder::tagged_path((head, output), (start, end, b.origin))
         })
     }
 
-    pub fn spanned_path(input: (TokenNode, Vec<TokenNode>), span: impl Into<Span>) -> TokenNode {
-        TokenNode::Path(Tagged::from_simple_spanned_item(
-            PathNode::new(Box::new(input.0), input.1),
-            span,
-        ))
+    pub fn tagged_path(input: (TokenNode, Vec<TokenNode>), tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Path(PathNode::new(Box::new(input.0), input.1).tagged(tag.into()))
     }
 
     pub fn var(input: impl Into<String>) -> CurriedToken {
@@ -285,15 +259,12 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("$");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::spanned_var((inner_start, end), (start, end))
+            TokenTreeBuilder::tagged_var((inner_start, end, b.origin), (start, end, b.origin))
         })
     }
 
-    pub fn spanned_var(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(Tagged::from_simple_spanned_item(
-            RawToken::Variable(input.into()),
-            span.into(),
-        ))
+    pub fn tagged_var(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Token(RawToken::Variable(input.into()).tagged(tag.into()))
     }
 
     pub fn flag(input: impl Into<String>) -> CurriedToken {
@@ -303,15 +274,12 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("--");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::spanned_flag((inner_start, end), (start, end))
+            TokenTreeBuilder::tagged_flag((inner_start, end, b.origin), (start, end, b.origin))
         })
     }
 
-    pub fn spanned_flag(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Flag(Tagged::from_simple_spanned_item(
-            Flag::new(FlagKind::Longhand, input.into()),
-            span.into(),
-        ))
+    pub fn tagged_flag(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Flag(Flag::new(FlagKind::Longhand, input.into()).tagged(tag.into()))
     }
 
     pub fn shorthand(input: impl Into<String>) -> CurriedToken {
@@ -321,15 +289,12 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("-");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::spanned_shorthand((inner_start, end), (start, end))
+            TokenTreeBuilder::tagged_shorthand((inner_start, end, b.origin), (start, end, b.origin))
         })
     }
 
-    pub fn spanned_shorthand(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Flag(Tagged::from_simple_spanned_item(
-            Flag::new(FlagKind::Shorthand, input.into()),
-            span.into(),
-        ))
+    pub fn tagged_shorthand(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Flag(Flag::new(FlagKind::Shorthand, input.into()).tagged(tag.into()))
     }
 
     pub fn member(input: impl Into<String>) -> CurriedToken {
@@ -337,12 +302,12 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            TokenTreeBuilder::spanned_member((start, end))
+            TokenTreeBuilder::tagged_member((start, end, b.origin))
         })
     }
 
-    pub fn spanned_member(span: impl Into<Span>) -> TokenNode {
-        TokenNode::Member(span.into())
+    pub fn tagged_member(tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Member(tag.into())
     }
 
     pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedCall {
@@ -358,11 +323,11 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::spanned_call(nodes, (start, end))
+            TokenTreeBuilder::tagged_call(nodes, (start, end, b.origin))
         })
     }
 
-    pub fn spanned_call(input: Vec<TokenNode>, span: impl Into<Span>) -> Tagged<CallNode> {
+    pub fn tagged_call(input: Vec<TokenNode>, tag: impl Into<Tag>) -> Tagged<CallNode> {
         if input.len() == 0 {
             panic!("BUG: spanned call (TODO)")
         }
@@ -372,7 +337,7 @@ impl TokenTreeBuilder {
         let head = input.next().unwrap();
         let tail = input.collect();
 
-        Tagged::from_simple_spanned_item(CallNode::new(Box::new(head), tail), span)
+        CallNode::new(Box::new(head), tail).tagged(tag.into())
     }
 
     pub fn parens(input: Vec<CurriedToken>) -> CurriedToken {
@@ -385,15 +350,12 @@ impl TokenTreeBuilder {
 
             let (_, end) = b.consume(")");
 
-            TokenTreeBuilder::spanned_parens(output, (start, end))
+            TokenTreeBuilder::tagged_parens(output, (start, end, b.origin))
         })
     }
 
-    pub fn spanned_parens(input: impl Into<Vec<TokenNode>>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Delimited(Tagged::from_simple_spanned_item(
-            DelimitedNode::new(Delimiter::Paren, input.into()),
-            span,
-        ))
+    pub fn tagged_parens(input: impl Into<Vec<TokenNode>>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Delimited(DelimitedNode::new(Delimiter::Paren, input.into()).tagged(tag.into()))
     }
 
     pub fn square(input: Vec<CurriedToken>) -> CurriedToken {
@@ -406,15 +368,12 @@ impl TokenTreeBuilder {
 
             let (_, end) = b.consume("]");
 
-            TokenTreeBuilder::spanned_square(output, (start, end))
+            TokenTreeBuilder::tagged_square(output, (start, end, b.origin))
         })
     }
 
-    pub fn spanned_square(input: impl Into<Vec<TokenNode>>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Delimited(Tagged::from_simple_spanned_item(
-            DelimitedNode::new(Delimiter::Square, input.into()),
-            span,
-        ))
+    pub fn tagged_square(input: impl Into<Vec<TokenNode>>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Delimited(DelimitedNode::new(Delimiter::Square, input.into()).tagged(tag.into()))
     }
 
     pub fn braced(input: Vec<CurriedToken>) -> CurriedToken {
@@ -427,21 +386,18 @@ impl TokenTreeBuilder {
 
             let (_, end) = b.consume(" }");
 
-            TokenTreeBuilder::spanned_brace(output, (start, end))
+            TokenTreeBuilder::tagged_brace(output, (start, end, b.origin))
         })
     }
 
-    pub fn spanned_brace(input: impl Into<Vec<TokenNode>>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Delimited(Tagged::from_simple_spanned_item(
-            DelimitedNode::new(Delimiter::Brace, input.into()),
-            span,
-        ))
+    pub fn tagged_brace(input: impl Into<Vec<TokenNode>>, tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Delimited(DelimitedNode::new(Delimiter::Brace, input.into()).tagged(tag.into()))
     }
 
     pub fn sp() -> CurriedToken {
         Box::new(|b| {
             let (start, end) = b.consume(" ");
-            TokenNode::Whitespace(Span::from((start, end)))
+            TokenNode::Whitespace(Tag::from((start, end, b.origin)))
         })
     }
 
@@ -450,14 +406,12 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            TokenTreeBuilder::spanned_ws((start, end))
+            TokenTreeBuilder::tagged_ws((start, end, b.origin))
         })
     }
 
-    pub fn spanned_ws(span: impl Into<Span>) -> TokenNode {
-        let span = span.into();
-
-        TokenNode::Whitespace(span.into())
+    pub fn tagged_ws(tag: impl Into<Tag>) -> TokenNode {
+        TokenNode::Whitespace(tag.into())
     }
 
     fn consume(&mut self, input: &str) -> (usize, usize) {
@@ -465,5 +419,12 @@ impl TokenTreeBuilder {
         self.pos += input.len();
         self.output.push_str(input);
         (start, self.pos)
+    }
+
+    fn consume_tag(&mut self, input: &str) -> Tag {
+        let start = self.pos;
+        self.pos += input.len();
+        self.output.push_str(input);
+        (start, self.pos, self.origin).into()
     }
 }

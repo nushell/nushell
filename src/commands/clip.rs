@@ -51,7 +51,7 @@ pub mod clipboard {
         Ok(OutputStream::from(stream))
     }
 
-    async fn inner_clip(input: Vec<Tagged<Value>>, name: Span) -> OutputStream {
+    async fn inner_clip(input: Vec<Tagged<Value>>, name: Tag) -> OutputStream {
         let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
         let mut new_copy_data = String::new();
 

@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxType, Tagged, TaggedItem, Value,
+    SyntaxShape, Tagged, TaggedItem, Value,
 };
 
 enum Action {
@@ -120,7 +120,7 @@ impl Plugin for Inc {
             .switch("major")
             .switch("minor")
             .switch("patch")
-            .rest(SyntaxType::String)
+            .rest(SyntaxShape::String)
             .filter())
     }
 
@@ -181,18 +181,20 @@ mod tests {
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Span, Tag, Tagged,
-        TaggedDictBuilder, TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Tag, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
     };
 
     struct CallStub {
+        origin: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
 
     impl CallStub {
-        fn new() -> CallStub {
+        fn new(origin: uuid::Uuid) -> CallStub {
             CallStub {
+                origin,
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
@@ -201,14 +203,14 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::boolean(true).simple_spanned(Span::unknown()),
+                Value::boolean(true).tagged(Tag::unknown()),
             );
             self
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             self.positionals
-                .push(Value::string(name.to_string()).simple_spanned(Span::unknown()));
+                .push(Value::string(name.to_string()).tagged(Tag::unknown_span(self.origin)));
             self
         }
 
@@ -216,7 +218,7 @@ mod tests {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
                 source_map: SourceMap::new(),
-                name_span: Span::unknown(),
+                name_tag: Tag::unknown_span(self.origin),
             }
         }
     }
@@ -243,7 +245,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("major").create())
+            .begin_filter(CallStub::new(test_uuid()).with_long_flag("major").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -253,7 +255,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("minor").create())
+            .begin_filter(CallStub::new(test_uuid()).with_long_flag("minor").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -263,7 +265,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_long_flag("patch").create())
+            .begin_filter(CallStub::new(test_uuid()).with_long_flag("patch").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -274,7 +276,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new()
+                CallStub::new(test_uuid())
                     .with_long_flag("major")
                     .with_long_flag("minor")
                     .create(),
@@ -288,7 +290,11 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new().with_parameter("package.version").create())
+            .begin_filter(
+                CallStub::new(test_uuid())
+                    .with_parameter("package.version")
+                    .create()
+            )
             .is_ok());
 
         assert_eq!(plugin.field, Some("package.version".to_string()));
@@ -321,7 +327,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new()
+                CallStub::new(test_uuid())
                     .with_long_flag("major")
                     .with_parameter("version")
                     .create()
@@ -349,7 +355,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new()
+                CallStub::new(test_uuid())
                     .with_long_flag("minor")
                     .with_parameter("version")
                     .create()
@@ -378,7 +384,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new()
+                CallStub::new(test_uuid())
                     .with_long_flag("patch")
                     .with_parameter(&field)
                     .create()
@@ -398,5 +404,9 @@ mod tests {
             ),
             _ => {}
         }
+    }
+
+    fn test_uuid() -> uuid::Uuid {
+        uuid::Uuid::nil()
     }
 }

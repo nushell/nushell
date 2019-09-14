@@ -18,8 +18,8 @@ impl WholeStreamCommand for Get {
 
     fn signature(&self) -> Signature {
         Signature::build("get")
-            .required("member", SyntaxType::Member)
-            .rest(SyntaxType::Member)
+            .rest(SyntaxShape::Member)
+            .rest(SyntaxShape::Member)
     }
 
     fn usage(&self) -> &str {
@@ -60,8 +60,8 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
 
                             return Err(ShellError::labeled_error(
                                 "Unknown column",
-                                format!("did you mean '{}'?", possible_matches[0].1),
-                                path.span(),
+                                "table missing column",
+                                path.tag(),
                             ));
                         }
                     }

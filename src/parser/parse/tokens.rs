@@ -1,6 +1,6 @@
 use crate::parser::parse::unit::*;
 use crate::prelude::*;
-use crate::{Span, Tagged, Text};
+use crate::{Tagged, Text};
 use std::fmt;
 use std::str::FromStr;
 
@@ -8,9 +8,9 @@ use std::str::FromStr;
 pub enum RawToken {
     Number(RawNumber),
     Size(RawNumber, Unit),
-    String(Span),
-    Variable(Span),
-    ExternalCommand(Span),
+    String(Tag),
+    Variable(Tag),
+    ExternalCommand(Tag),
     ExternalWord,
     GlobPattern,
     Bare,
@@ -18,28 +18,28 @@ pub enum RawToken {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RawNumber {
-    Int(Span),
-    Decimal(Span),
+    Int(Tag),
+    Decimal(Tag),
 }
 
 impl RawNumber {
-    pub fn int(span: impl Into<Span>) -> Tagged<RawNumber> {
-        let span = span.into();
+    pub fn int(tag: impl Into<Tag>) -> Tagged<RawNumber> {
+        let tag = tag.into();
 
-        RawNumber::Int(span).tagged(span)
+        RawNumber::Int(tag).tagged(tag)
     }
 
-    pub fn decimal(span: impl Into<Span>) -> Tagged<RawNumber> {
-        let span = span.into();
+    pub fn decimal(tag: impl Into<Tag>) -> Tagged<RawNumber> {
+        let tag = tag.into();
 
-        RawNumber::Decimal(span).tagged(span)
+        RawNumber::Decimal(tag).tagged(tag)
     }
 
     pub(crate) fn to_number(self, source: &Text) -> Number {
         match self {
-            RawNumber::Int(span) => Number::Int(BigInt::from_str(span.slice(source)).unwrap()),
-            RawNumber::Decimal(span) => {
-                Number::Decimal(BigDecimal::from_str(span.slice(source)).unwrap())
+            RawNumber::Int(tag) => Number::Int(BigInt::from_str(tag.slice(source)).unwrap()),
+            RawNumber::Decimal(tag) => {
+                Number::Decimal(BigDecimal::from_str(tag.slice(source)).unwrap())
             }
         }
     }
@@ -78,6 +78,6 @@ pub struct DebugToken<'a> {
 
 impl fmt::Debug for DebugToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.node.span().slice(self.source))
+        write!(f, "{}", self.node.tag().slice(self.source))
     }
 }

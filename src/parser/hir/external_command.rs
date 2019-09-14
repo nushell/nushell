@@ -9,7 +9,7 @@ use std::fmt;
 )]
 #[get = "pub(crate)"]
 pub struct ExternalCommand {
-    name: Span,
+    name: Tag,
 }
 
 impl ToDebug for ExternalCommand {

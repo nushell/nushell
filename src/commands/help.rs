@@ -12,7 +12,7 @@ impl PerItemCommand for Help {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("help").rest(SyntaxType::Any)
+        Signature::build("help").rest(SyntaxShape::Any)
     }
 
     fn usage(&self) -> &str {
@@ -26,13 +26,20 @@ impl PerItemCommand for Help {
         _raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        let span = call_info.name_span;
+        let tag = call_info.name_tag;
 
-        match call_info.args.nth(0) {
-            Some(Tagged {
+        if call_info.args.len() == 0 {
+            return Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                Value::nothing().tagged(tag),
+            )))]
+            .into());
+        }
+
+        match call_info.args.expect_nth(0)? {
+            Tagged {
                 item: Value::Primitive(Primitive::String(document)),
                 tag,
-            }) => {
+            } => {
                 let mut help = VecDeque::new();
                 if document == "commands" {
                     let mut sorted_names = registry.names();
@@ -120,9 +127,7 @@ You can also learn more at http://book.nushell.sh"#;
 
                 let mut output_stream = VecDeque::new();
 
-                output_stream.push_back(ReturnSuccess::value(
-                    Value::string(msg).simple_spanned(span),
-                ));
+                output_stream.push_back(ReturnSuccess::value(Value::string(msg).tagged(tag)));
 
                 Ok(output_stream.to_output_stream())
             }
