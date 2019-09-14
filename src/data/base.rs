@@ -13,10 +13,64 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+mod serde_bigint {
+    use num_traits::cast::FromPrimitive;
+    use num_traits::cast::ToPrimitive;
+
+    pub fn serialize<S>(big_int: &super::BigInt, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(
+            &big_int
+                .to_i64()
+                .ok_or(serde::ser::Error::custom("expected a i64-sized bignum"))?,
+            serializer,
+        )
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<super::BigInt, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let x: i64 = serde::Deserialize::deserialize(deserializer)?;
+        Ok(super::BigInt::from_i64(x)
+            .ok_or(serde::de::Error::custom("expected a i64-sized bignum"))?)
+    }
+}
+
+mod serde_bigdecimal {
+    use num_traits::cast::FromPrimitive;
+    use num_traits::cast::ToPrimitive;
+
+    pub fn serialize<S>(big_decimal: &super::BigDecimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(
+            &big_decimal
+                .to_f64()
+                .ok_or(serde::ser::Error::custom("expected a f64-sized bignum"))?,
+            serializer,
+        )
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<super::BigDecimal, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let x: f64 = serde::Deserialize::deserialize(deserializer)?;
+        Ok(super::BigDecimal::from_f64(x)
+            .ok_or(serde::de::Error::custom("expected a f64-sized bigdecimal"))?)
+    }
+}
+
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
+    #[serde(with = "serde_bigint")]
     Int(BigInt),
+    #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     Bytes(u64),
     String(String),
