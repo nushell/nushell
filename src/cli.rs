@@ -59,6 +59,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
             trace!("processing response ({} bytes)", count);
+            trace!("response: {}", input);
 
             let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
