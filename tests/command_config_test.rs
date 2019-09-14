@@ -108,6 +108,7 @@ fn removes_configuration_value() {
             dirs.config_path()
         );
 
+        println!("{}", actual);
         assert!(actual.contains("did you mean"));
     });
 
