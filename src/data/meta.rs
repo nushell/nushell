@@ -246,14 +246,17 @@ impl Tag {
 
     pub fn until(&self, other: impl Into<Tag>) -> Tag {
         let other = other.into();
-        debug_assert!(self.origin == other.origin, "Can only merge two tags with the same origin");
+        debug_assert!(
+            self.origin == other.origin,
+            "Can only merge two tags with the same origin"
+        );
 
         Tag {
             span: Span {
                 start: self.span.start,
-                end: other.span.end
+                end: other.span.end,
             },
-            origin: self.origin
+            origin: self.origin,
         }
     }
 
