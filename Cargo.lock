@@ -1556,7 +1556,7 @@ dependencies = [
  "rawkey 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "roxmltree 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustyline 5.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustyline 5.0.2 (git+https://github.com/kkawakam/rustyline)",
  "semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.100 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde-hjson 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2196,7 +2196,7 @@ dependencies = [
 [[package]]
 name = "rustyline"
 version = "5.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/kkawakam/rustyline#5e68e972810133a7343b75db30addc98aea63ba0"
 dependencies = [
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3216,7 +3216,7 @@ dependencies = [
 "checksum rustc-demangle 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)" = "a7f4dccf6f4891ebcc0c39f9b6eb1a83b9bf5d747cb439ec6fba4f3b977038af"
 "checksum rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)" = "dcf128d1287d2ea9d80910b5f1120d0b8eede3fbf1abe91c40d39ea7d51e6fda"
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
-"checksum rustyline 5.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f8ee0838a6594169a1c5f4bb9af0fe692cc99691941710a8cc6576395ede804e"
+"checksum rustyline 5.0.2 (git+https://github.com/kkawakam/rustyline)" = "<none>"
 "checksum ryu 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c92464b447c0ee8c4fb3824ecc8383b81717b9f1e74ba2e72540aef7b9f82997"
 "checksum safemem 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e133ccc4f4d1cd4f89cc8a7ff618287d56dc7f638b8e38fc32c5fdcadc339dd5"
 "checksum same-file 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "585e8ddcedc187886a30fa705c47985c3fa88d06624095856b36ca0b82ff4421"

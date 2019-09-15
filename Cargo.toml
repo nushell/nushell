@@ -85,12 +85,12 @@ ptree = {version = "0.2", optional = true }
 image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"], optional = true }
 
 [features]
+default = ["textview", "sys", "ps"]
 raw-key = ["rawkey", "neso"]
 textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
-all = ["raw-key", "textview", "binaryview", "sys", "ps", "clipboard", "ptree"]
 
 [dependencies.rusqlite]
 version = "0.20.0"

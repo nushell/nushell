@@ -94,8 +94,49 @@ impl Shell for FilesystemShell {
             _ => {}
         }
 
-        let entries: Vec<_> = match glob::glob(&full_path.to_string_lossy()) {
-            Ok(files) => files.collect(),
+        let mut shell_entries = VecDeque::new();
+
+        //If it's not a glob, try to display the contents of the entry if it's a directory
+        let lossy_path = full_path.to_string_lossy();
+        if !lossy_path.contains("*") && !lossy_path.contains("?") {
+            let entry = Path::new(&full_path);
+            if entry.is_dir() {
+                let entries = std::fs::read_dir(&entry);
+                let entries = match entries {
+                    Err(e) => {
+                        if let Some(s) = pattern {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                s.tag(),
+                            ));
+                        } else {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                command_tag,
+                            ));
+                        }
+                    }
+                    Ok(o) => o,
+                };
+                for entry in entries {
+                    let entry = entry?;
+                    let filepath = entry.path();
+                    let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                        fname
+                    } else {
+                        Path::new(&filepath)
+                    };
+                    let value = dir_entry_dict(filename, &entry.metadata()?, command_tag)?;
+                    shell_entries.push_back(ReturnSuccess::value(value))
+                }
+                return Ok(shell_entries.to_output_stream());
+            }
+        }
+
+        let entries = match glob::glob(&full_path.to_string_lossy()) {
+            Ok(files) => files,
             Err(_) => {
                 if let Some(source) = pattern {
                     return Err(ShellError::labeled_error(
@@ -108,47 +149,6 @@ impl Shell for FilesystemShell {
                 }
             }
         };
-
-        let mut shell_entries = VecDeque::new();
-
-        // If this is a single entry, try to display the contents of the entry if it's a directory
-        if entries.len() == 1 {
-            if let Ok(entry) = &entries[0] {
-                if entry.is_dir() {
-                    let entries = std::fs::read_dir(&entry);
-                    let entries = match entries {
-                        Err(e) => {
-                            if let Some(s) = pattern {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    s.tag(),
-                                ));
-                            } else {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    command_tag,
-                                ));
-                            }
-                        }
-                        Ok(o) => o,
-                    };
-                    for entry in entries {
-                        let entry = entry?;
-                        let filepath = entry.path();
-                        let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                            fname
-                        } else {
-                            Path::new(&filepath)
-                        };
-                        let value = dir_entry_dict(filename, &entry.metadata()?, command_tag)?;
-                        shell_entries.push_back(ReturnSuccess::value(value))
-                    }
-                    return Ok(shell_entries.to_output_stream());
-                }
-            }
-        }
 
         // Enumerate the entries from the glob and add each
         for entry in entries {
