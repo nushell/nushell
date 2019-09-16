@@ -10,6 +10,7 @@ use crate::context::Context;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
 use crate::git::current_branch;
+use crate::histsearch;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
@@ -333,6 +334,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         rl.set_edit_mode(edit_mode);
 
+        // Register Ctrl-r for history fuzzy search
+        // rustyline doesn't support custom commands, so we override Ctrl-D (EOF)
+        rl.bind_sequence(rustyline::KeyPress::Ctrl('R'), rustyline::Cmd::EndOfFile);
+        // Redefine Ctrl-D to same command as Ctrl-C
+        rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
+
         let readline = rl.readline(&format!(
             "{}{}> ",
             cwd,
@@ -345,6 +352,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
+            }
+
+            LineResult::SearchHist => {
+                let hist = std::fs::read_to_string("history.txt").expect("Cannot open history.txt");
+                let lines = hist.lines().rev().collect();
+                histsearch::select_from_list(&lines);
             }
 
             LineResult::CtrlC => {
@@ -390,6 +403,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
 enum LineResult {
     Success(String),
+    SearchHist,
     Error(String, ShellError),
     CtrlC,
     Break,
@@ -517,7 +531,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             LineResult::Success(line.clone())
         }
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => LineResult::Break,
+        Err(ReadlineError::Eof) => LineResult::SearchHist, // Override LineResult::Break
         Err(err) => {
             println!("Error: {:?}", err);
             LineResult::Break

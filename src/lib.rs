@@ -13,6 +13,7 @@ mod errors;
 mod evaluate;
 mod format;
 mod git;
+mod histsearch;
 mod parser;
 mod plugin;
 mod shell;

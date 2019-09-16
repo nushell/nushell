@@ -3,7 +3,7 @@ use crossterm::{cursor, terminal, ClearType, InputEvent, KeyEvent, RawScreen};
 use std::io::Write;
 use sublime_fuzzy::best_match;
 
-fn select_from_list(lines: &Vec<&str>) {
+pub fn select_from_list(lines: &Vec<&str>) {
     const MAX_RESULTS: usize = 5;
     #[derive(PartialEq)]
     enum State {
@@ -162,10 +162,4 @@ fn paint_selection_list(lines: &Vec<&str>, selected: usize) {
     let _ = std::io::stdout().flush();
     // Clear additional lines from previous selection
     terminal().clear(ClearType::FromCursorDown).unwrap();
-}
-
-fn main() {
-    let hist = std::fs::read_to_string("history.txt").expect("Cannot open history.txt");
-    let lines = hist.lines().rev().collect();
-    select_from_list(&lines);
 }
