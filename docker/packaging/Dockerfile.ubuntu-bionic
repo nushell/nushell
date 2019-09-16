@@ -1,0 +1,17 @@
+# docker build -f docker/packaging/Dockerfile.ubuntu-bionic .
+
+ARG FROMTAG=latest
+FROM quay.io/nushell/nu-base:${FROMTAG}
+
+RUN apt-get update && apt-get install -y \
+    devscripts \
+    debhelper
+
+COPY debian /code/debian
+
+RUN rustc -Vv && cargo build --release && \
+    cp README.md debian/README.Debian && \
+    debuild -b -us -uc -i && \
+    dpkg -i ../nu_0.2.0-1_amd64.deb && \
+    chsh -s /usr/bin/nu && \
+    echo 'ls | get name | echo $it' | /usr/bin/nu
