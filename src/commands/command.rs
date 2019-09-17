@@ -41,33 +41,6 @@ impl UnevaluatedCallInfo {
             name_tag: self.name_tag,
         })
     }
-
-    pub fn has_it_or_block(&self) -> bool {
-        use hir::RawExpression;
-        use hir::Variable;
-
-        if let Some(positional) = &self.args.positional() {
-            for pos in positional {
-                match pos {
-                    Tagged {
-                        item: RawExpression::Variable(Variable::It(_)),
-                        ..
-                    } => {
-                        return true;
-                    }
-                    Tagged {
-                        item: RawExpression::Block(_),
-                        ..
-                    } => {
-                        return true;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        false
-    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -556,13 +529,20 @@ impl Command {
         }
     }
 
-    pub fn run(&self, args: CommandArgs, registry: &registry::CommandRegistry) -> OutputStream {
+    pub fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+        is_first_command: bool,
+    ) -> OutputStream {
         match self {
             Command::WholeStream(command) => match command.run(args, registry) {
                 Ok(stream) => stream,
                 Err(err) => OutputStream::one(Err(err)),
             },
-            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
+            Command::PerItem(command) => {
+                self.run_helper(command.clone(), args, registry.clone(), is_first_command)
+            }
         }
     }
 
@@ -571,6 +551,7 @@ impl Command {
         command: Arc<dyn PerItemCommand>,
         args: CommandArgs,
         registry: CommandRegistry,
+        is_first_command: bool,
     ) -> OutputStream {
         let raw_args = RawCommandArgs {
             host: args.host,
@@ -578,7 +559,7 @@ impl Command {
             call_info: args.call_info,
         };
 
-        if raw_args.call_info.has_it_or_block() {
+        if !is_first_command {
             let out = args
                 .input
                 .values
@@ -603,7 +584,6 @@ impl Command {
                 .call_info
                 .evaluate(&registry, &Scope::it_value(nothing.clone()))
                 .unwrap();
-            // We don't have an $it or block, so just execute what we have
 
             match command
                 .run(&call_info, &registry, &raw_args, nothing)

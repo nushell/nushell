@@ -101,7 +101,7 @@ fn run(
                         name_tag: raw_args.call_info.name_tag,
                     }
                 };
-                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
+                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry, false);
                 let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                 for res in result_vec {
                     match res {

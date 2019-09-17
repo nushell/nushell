@@ -96,6 +96,7 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
         source: Text,
+        is_first_command: bool,
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
             trace!(target: "nu::run::internal", "->");
@@ -113,6 +114,7 @@ impl InternalCommand {
             self.args,
             &source,
             objects,
+            is_first_command,
         );
 
         let result = trace_out_stream!(target: "nu::trace_stream::internal", source: &source, "output" = result);
