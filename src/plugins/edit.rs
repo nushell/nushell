@@ -1,10 +1,12 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature, SyntaxShape,
+    Tagged, Value,
 };
 
+pub type ColumnPath = Vec<Tagged<String>>;
+
 struct Edit {
-    field: Option<String>,
+    field: Option<ColumnPath>,
     value: Option<Value>,
 }
 impl Edit {
@@ -19,7 +21,7 @@ impl Edit {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
             (obj @ Value::Row(_), Some(v)) => match &self.field {
-                Some(f) => match obj.replace_data_at_path(value_tag, &f, v) {
+                Some(f) => match obj.replace_data_at_column_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
                         return Err(ShellError::string(
@@ -43,7 +45,7 @@ impl Plugin for Edit {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("edit")
             .desc("Edit an existing column to have a new value.")
-            .required("Field", SyntaxShape::String)
+            .required("Field", SyntaxShape::ColumnPath)
             .required("Value", SyntaxShape::String)
             .filter())
     }
@@ -51,11 +53,11 @@ impl Plugin for Edit {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
+                table @ Tagged {
+                    item: Value::Table(_),
                     ..
                 } => {
-                    self.field = Some(s.clone());
+                    self.field = Some(table.as_column_path()?.item);
                 }
                 _ => {
                     return Err(ShellError::string(format!(

@@ -1,3 +1,4 @@
+use crate::parser::hir::TokensIterator;
 use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::parser::parse::tokens::RawToken;
@@ -77,16 +78,12 @@ impl Highlighter for Helper {
                     Ok(v) => v,
                 };
 
-                let Pipeline { parts, post_ws } = pipeline;
+                let Pipeline { parts } = pipeline;
                 let mut iter = parts.into_iter();
 
                 loop {
                     match iter.next() {
                         None => {
-                            if let Some(ws) = post_ws {
-                                out.push_str(ws.slice(line));
-                            }
-
                             return Cow::Owned(out);
                         }
                         Some(token) => {
@@ -107,13 +104,12 @@ impl Highlighter for Helper {
 fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
     let styled = match token_node {
         TokenNode::Call(..) => Color::Cyan.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Nodes(..) => Color::Green.bold().paint(token_node.tag().slice(line)),
         TokenNode::Whitespace(..) => Color::White.normal().paint(token_node.tag().slice(line)),
         TokenNode::Flag(..) => Color::Black.bold().paint(token_node.tag().slice(line)),
         TokenNode::Member(..) => Color::Yellow.bold().paint(token_node.tag().slice(line)),
-        TokenNode::Path(..) => Color::Green.bold().paint(token_node.tag().slice(line)),
         TokenNode::Error(..) => Color::Red.bold().paint(token_node.tag().slice(line)),
         TokenNode::Delimited(..) => Color::White.paint(token_node.tag().slice(line)),
-        TokenNode::Operator(..) => Color::White.normal().paint(token_node.tag().slice(line)),
         TokenNode::Pipeline(..) => Color::Blue.normal().paint(token_node.tag().slice(line)),
         TokenNode::Token(Tagged {
             item: RawToken::Number(..),
@@ -147,6 +143,10 @@ fn paint_token_node(token_node: &TokenNode, line: &str) -> String {
             item: RawToken::ExternalWord,
             ..
         }) => Color::Black.bold().paint(token_node.tag().slice(line)),
+        TokenNode::Token(Tagged {
+            item: RawToken::Operator(..),
+            ..
+        }) => Color::Black.bold().paint(token_node.tag().slice(line)),
     };
 
     styled.to_string()
@@ -159,25 +159,19 @@ fn paint_pipeline_element(pipeline_element: &PipelineElement, line: &str) -> Str
         styled.push_str(&Color::Purple.paint("|"));
     }
 
-    if let Some(ws) = pipeline_element.pre_ws {
-        styled.push_str(&Color::White.normal().paint(ws.slice(line)));
-    }
+    let mut tokens =
+        TokensIterator::new(&pipeline_element.tokens, pipeline_element.tokens.tag, false);
+    let head = tokens.next();
 
-    styled.push_str(
-        &Color::Cyan
-            .bold()
-            .paint(pipeline_element.call().head().tag().slice(line))
-            .to_string(),
-    );
-
-    if let Some(children) = pipeline_element.call().children() {
-        for child in children {
-            styled.push_str(&paint_token_node(child, line));
+    match head {
+        None => return styled,
+        Some(head) => {
+            styled.push_str(&Color::Cyan.bold().paint(head.tag().slice(line)).to_string())
         }
     }
 
-    if let Some(ws) = pipeline_element.post_ws {
-        styled.push_str(&Color::White.normal().paint(ws.slice(line)));
+    for token in tokens {
+        styled.push_str(&paint_token_node(token, line));
     }
 
     styled.to_string()

@@ -14,24 +14,54 @@ use nom::combinator::*;
 use nom::multi::*;
 use nom::sequence::*;
 
+use derive_new::new;
 use log::trace;
 use nom::dbg;
 use nom::*;
 use nom::{AsBytes, FindSubstring, IResult, InputLength, InputTake, Slice};
 use nom_locate::{position, LocatedSpanEx};
+use nom_tracable::{tracable_parser, HasTracableInfo, TracableInfo};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
 use uuid::Uuid;
 
-pub type NomSpan<'a> = LocatedSpanEx<&'a str, Uuid>;
+pub type NomSpan<'a> = LocatedSpanEx<&'a str, TracableContext>;
+
+#[derive(Debug, Clone, Copy, PartialEq, new)]
+pub struct TracableContext {
+    pub(crate) origin: Uuid,
+    pub(crate) info: TracableInfo,
+}
+
+impl HasTracableInfo for TracableContext {
+    fn get_tracable_info(&self) -> TracableInfo {
+        self.info
+    }
+
+    fn set_tracable_info(mut self, info: TracableInfo) -> Self {
+        TracableContext {
+            origin: self.origin,
+            info,
+        }
+    }
+}
+
+impl std::ops::Deref for TracableContext {
+    type Target = TracableInfo;
+
+    fn deref(&self) -> &TracableInfo {
+        &self.info
+    }
+}
 
 pub fn nom_input(s: &str, anchor: Uuid) -> NomSpan<'_> {
-    LocatedSpanEx::new_extra(s, anchor)
+    LocatedSpanEx::new_extra(s, TracableContext::new(anchor, TracableInfo::new()))
 }
 
 macro_rules! operator {
     ($name:tt : $token:tt ) => {
+        #[tracable_parser]
         pub fn $name(input: NomSpan) -> IResult<NomSpan, TokenNode> {
             let start = input.offset;
             let (input, tag) = tag(stringify!($token))(input)?;
@@ -51,30 +81,21 @@ operator! { gte: >= }
 operator! { lte: <= }
 operator! { eq:  == }
 operator! { neq: != }
-
-fn trace_step<'a, T: Debug>(
-    input: NomSpan<'a>,
-    name: &str,
-    block: impl FnOnce(NomSpan<'a>) -> IResult<NomSpan<'a>, T>,
-) -> IResult<NomSpan<'a>, T> {
-    trace!(target: "nu::lite_parse", "+ before {} @ {:?}", name, input);
-    match block(input) {
-        Ok((input, result)) => {
-            trace!(target: "nu::lite_parse", "after {} @ {:?} -> {:?}", name, input, result);
-            Ok((input, result))
-        }
-
-        Err(e) => {
-            trace!(target: "nu::lite_parse", "- failed {} :: {:?}", name, e);
-            Err(e)
-        }
-    }
-}
+operator! { dot: . }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Number {
     Int(BigInt),
     Decimal(BigDecimal),
+}
+
+impl std::fmt::Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Number::Int(int) => write!(f, "{}", int),
+            Number::Decimal(decimal) => write!(f, "{}", decimal),
+        }
+    }
 }
 
 macro_rules! primitive_int {
@@ -148,540 +169,479 @@ impl Into<Number> for BigDecimal {
     }
 }
 
+#[tracable_parser]
+pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    let (input, number) = raw_number(input)?;
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_number(number.item, number.tag),
+    ))
+}
+
+#[tracable_parser]
 pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
     let anchoral = input;
     let start = input.offset;
-    trace_step(input, "raw_decimal", move |input| {
-        let (input, neg) = opt(tag("-"))(input)?;
-        let (input, head) = digit1(input)?;
-        let dot: IResult<NomSpan, NomSpan, (NomSpan, nom::error::ErrorKind)> = tag(".")(input);
+    let (input, neg) = opt(tag("-"))(input)?;
+    let (input, head) = digit1(input)?;
 
-        let input = match dot {
-            Ok((input, dot)) => input,
+    match input.fragment.chars().next() {
+        None => return Ok((input, RawNumber::int((start, input.offset, input.extra)))),
+        Some('.') => (),
+        Some(other) if other.is_whitespace() => {
+            return Ok((input, RawNumber::int((start, input.offset, input.extra))))
+        }
+        _ => {
+            return Err(nom::Err::Error(nom::error::make_error(
+                input,
+                nom::error::ErrorKind::Tag,
+            )))
+        }
+    }
 
-            // it's just an integer
-            Err(_) => return Ok((input, RawNumber::int((start, input.offset, input.extra)))),
-        };
+    let dot: IResult<NomSpan, NomSpan, (NomSpan, nom::error::ErrorKind)> = tag(".")(input);
 
-        let (input, tail) = digit1(input)?;
+    let input = match dot {
+        Ok((input, dot)) => input,
 
-        let end = input.offset;
+        // it's just an integer
+        Err(_) => return Ok((input, RawNumber::int((start, input.offset, input.extra)))),
+    };
 
-        Ok((input, RawNumber::decimal((start, end, input.extra))))
-    })
+    let (input, tail) = digit1(input)?;
+
+    let end = input.offset;
+
+    let next = input.fragment.chars().next();
+
+    if let Some(next) = next {
+        if !next.is_whitespace() {
+            return Err(nom::Err::Error(nom::error::make_error(
+                input,
+                nom::error::ErrorKind::Tag,
+            )));
+        }
+    }
+
+    Ok((input, RawNumber::decimal((start, end, input.extra))))
 }
 
+#[tracable_parser]
 pub fn operator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "operator", |input| {
-        let (input, operator) = alt((gte, lte, neq, gt, lt, eq))(input)?;
+    let (input, operator) = alt((gte, lte, neq, gt, lt, eq))(input)?;
 
-        Ok((input, operator))
-    })
+    Ok((input, operator))
 }
 
+#[tracable_parser]
 pub fn dq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "dq_string", |input| {
-        let start = input.offset;
-        let (input, _) = char('"')(input)?;
-        let start1 = input.offset;
-        let (input, _) = many0(none_of("\""))(input)?;
-        let end1 = input.offset;
-        let (input, _) = char('"')(input)?;
-        let end = input.offset;
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_string((start1, end1, input.extra), (start, end, input.extra)),
-        ))
-    })
+    let start = input.offset;
+    let (input, _) = char('"')(input)?;
+    let start1 = input.offset;
+    let (input, _) = many0(none_of("\""))(input)?;
+    let end1 = input.offset;
+    let (input, _) = char('"')(input)?;
+    let end = input.offset;
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_string((start1, end1, input.extra), (start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn sq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "sq_string", move |input| {
-        let start = input.offset;
-        let (input, _) = char('\'')(input)?;
-        let start1 = input.offset;
-        let (input, _) = many0(none_of("\'"))(input)?;
-        let end1 = input.offset;
-        let (input, _) = char('\'')(input)?;
-        let end = input.offset;
+    let start = input.offset;
+    let (input, _) = char('\'')(input)?;
+    let start1 = input.offset;
+    let (input, _) = many0(none_of("\'"))(input)?;
+    let end1 = input.offset;
+    let (input, _) = char('\'')(input)?;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_string((start1, end1, input.extra), (start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_string((start1, end1, input.extra), (start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "string", move |input| {
-        alt((sq_string, dq_string))(input)
-    })
+    alt((sq_string, dq_string))(input)
 }
 
+#[tracable_parser]
 pub fn external(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "external", move |input| {
-        let start = input.offset;
-        let (input, _) = tag("^")(input)?;
-        let (input, bare) = take_while(is_bare_char)(input)?;
-        let end = input.offset;
+    let start = input.offset;
+    let (input, _) = tag("^")(input)?;
+    let (input, bare) = take_while(is_bare_char)(input)?;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_external(bare, (start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_external_command(bare, (start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn pattern(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "bare", move |input| {
-        let start = input.offset;
-        let (input, _) = take_while1(is_start_glob_char)(input)?;
-        let (input, _) = take_while(is_glob_char)(input)?;
+    let start = input.offset;
+    let (input, _) = take_while1(is_start_glob_char)(input)?;
+    let (input, _) = take_while(is_glob_char)(input)?;
 
-        let next_char = &input.fragment.chars().nth(0);
+    let next_char = &input.fragment.chars().nth(0);
 
-        if let Some(next_char) = next_char {
-            if is_external_word_char(*next_char) {
-                return Err(nom::Err::Error(nom::error::make_error(
-                    input,
-                    nom::error::ErrorKind::TakeWhile1,
-                )));
-            }
+    if let Some(next_char) = next_char {
+        if is_external_word_char(*next_char) {
+            return Err(nom::Err::Error(nom::error::make_error(
+                input,
+                nom::error::ErrorKind::TakeWhile1,
+            )));
         }
+    }
 
-        let end = input.offset;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_pattern((start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_pattern((start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn bare(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "bare", move |input| {
-        let start = input.offset;
-        let (input, _) = take_while1(is_start_bare_char)(input)?;
-        let (input, _) = take_while(is_bare_char)(input)?;
+    let start = input.offset;
+    let (input, _) = take_while1(is_start_bare_char)(input)?;
+    let (input, last) = take_while(is_bare_char)(input)?;
 
-        let next_char = &input.fragment.chars().nth(0);
+    let next_char = &input.fragment.chars().nth(0);
+    let prev_char = last.fragment.chars().nth(0);
 
-        if let Some(next_char) = next_char {
-            if is_external_word_char(*next_char) || is_glob_specific_char(*next_char) {
-                return Err(nom::Err::Error(nom::error::make_error(
-                    input,
-                    nom::error::ErrorKind::TakeWhile1,
-                )));
-            }
+    // if let (Some(prev), Some(next)) = (prev_char, next_char) {
+    //     if prev == '.' && is_member_start(*next) {
+    //         return Err(nom::Err::Error(nom::error::make_error(
+    //             input,
+    //             nom::error::ErrorKind::TakeWhile1,
+    //         )));
+    //     }
+    // }
+
+    if let Some(next_char) = next_char {
+        if is_external_word_char(*next_char) || is_glob_specific_char(*next_char) {
+            return Err(nom::Err::Error(nom::error::make_error(
+                input,
+                nom::error::ErrorKind::TakeWhile1,
+            )));
         }
+    }
 
-        let end = input.offset;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_bare((start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_bare((start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn external_word(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "bare", move |input| {
-        let start = input.offset;
-        let (input, _) = take_while1(is_external_word_char)(input)?;
-        let end = input.offset;
+    let start = input.offset;
+    let (input, _) = take_while1(is_external_word_char)(input)?;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_external_word((start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_external_word((start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn var(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "var", move |input| {
-        let start = input.offset;
-        let (input, _) = tag("$")(input)?;
-        let (input, bare) = member(input)?;
-        let end = input.offset;
+    let start = input.offset;
+    let (input, _) = tag("$")(input)?;
+    let (input, bare) = ident(input)?;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_var(bare.tag(), (start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_var(bare, (start, end, input.extra)),
+    ))
 }
 
-pub fn member(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "identifier", move |input| {
-        let start = input.offset;
-        let (input, _) = take_while1(is_id_start)(input)?;
-        let (input, _) = take_while(is_id_continue)(input)?;
+#[tracable_parser]
+pub fn ident(input: NomSpan) -> IResult<NomSpan, Tag> {
+    let start = input.offset;
+    let (input, _) = take_while1(is_start_bare_char)(input)?;
+    let (input, _) = take_while(is_bare_char)(input)?;
+    let end = input.offset;
 
-        let end = input.offset;
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_member((start, end, input.extra)),
-        ))
-    })
+    Ok((input, Tag::from((start, end, input.extra.origin))))
 }
 
+#[tracable_parser]
 pub fn flag(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "flag", move |input| {
-        let start = input.offset;
-        let (input, _) = tag("--")(input)?;
-        let (input, bare) = bare(input)?;
-        let end = input.offset;
+    let start = input.offset;
+    let (input, _) = tag("--")(input)?;
+    let (input, bare) = bare(input)?;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_flag(bare.tag(), (start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_flag(bare.tag(), (start, end, input.extra)),
+    ))
 }
 
+#[tracable_parser]
 pub fn shorthand(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "shorthand", move |input| {
-        let start = input.offset;
-        let (input, _) = tag("-")(input)?;
-        let (input, bare) = bare(input)?;
-        let end = input.offset;
+    let start = input.offset;
+    let (input, _) = tag("-")(input)?;
+    let (input, bare) = bare(input)?;
+    let end = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_shorthand(bare.tag(), (start, end, input.extra)),
-        ))
-    })
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_shorthand(bare.tag(), (start, end, input.extra)),
+    ))
 }
 
-pub fn raw_unit(input: NomSpan) -> IResult<NomSpan, Tagged<Unit>> {
-    trace_step(input, "raw_unit", move |input| {
-        let start = input.offset;
-        let (input, unit) = alt((
-            tag("B"),
-            tag("b"),
-            tag("KB"),
-            tag("kb"),
-            tag("Kb"),
-            tag("K"),
-            tag("k"),
-            tag("MB"),
-            tag("mb"),
-            tag("Mb"),
-            tag("GB"),
-            tag("gb"),
-            tag("Gb"),
-            tag("TB"),
-            tag("tb"),
-            tag("Tb"),
-            tag("PB"),
-            tag("pb"),
-            tag("Pb"),
-        ))(input)?;
-        let end = input.offset;
-
-        Ok((
-            input,
-            Unit::from(unit.fragment).tagged((start, end, input.extra)),
-        ))
-    })
-}
-
-pub fn size(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "size", move |input| {
-        let mut is_size = false;
-        let start = input.offset;
-        let (input, number) = raw_number(input)?;
-        if let Ok((input, Some(size))) = opt(raw_unit)(input) {
-            let end = input.offset;
-
-            // Check to make sure there is no trailing parseable characters
-            if let Ok((input, Some(extra))) = opt(bare)(input) {
-                return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
-            }
-
-            Ok((
-                input,
-                TokenTreeBuilder::tagged_size((number.item, *size), (start, end, input.extra)),
-            ))
-        } else {
-            let end = input.offset;
-
-            // Check to make sure there is no trailing parseable characters
-            if let Ok((input, Some(extra))) = opt(bare)(input) {
-                return Err(nom::Err::Error((input, nom::error::ErrorKind::Char)));
-            }
-
-            Ok((
-                input,
-                TokenTreeBuilder::tagged_number(number.item, number.tag),
-            ))
-        }
-    })
-}
-
+#[tracable_parser]
 pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "leaf", move |input| {
-        let (input, node) = alt((
-            size,
-            string,
-            operator,
-            flag,
-            shorthand,
-            var,
-            external,
-            bare,
-            pattern,
-            external_word,
-        ))(input)?;
+    let (input, node) = alt((number, string, operator, flag, shorthand, var, external))(input)?;
 
-        Ok((input, node))
-    })
+    Ok((input, node))
 }
 
-pub fn token_list(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
-    trace_step(input, "token_list", move |input| {
-        let (input, first) = node(input)?;
-        let (input, list) = many0(pair(space1, node))(input)?;
+#[tracable_parser]
+pub fn token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
+    let start = input.offset;
+    let (input, first) = node(input)?;
 
-        Ok((input, make_token_list(None, first, list, None)))
-    })
+    let (input, mut list) = many0(pair(alt((whitespace, dot)), node))(input)?;
+
+    let end = input.offset;
+
+    Ok((
+        input,
+        make_token_list(first, list, None).tagged((start, end, input.extra.origin)),
+    ))
 }
 
-pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
-    trace_step(input, "spaced_token_list", move |input| {
-        let (input, sp_left) = opt(space1)(input)?;
-        let (input, first) = node(input)?;
-        let (input, list) = many0(pair(space1, node))(input)?;
-        let (input, sp_right) = opt(space1)(input)?;
+#[tracable_parser]
+pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
+    let start = input.offset;
+    let (input, pre_ws) = opt(whitespace)(input)?;
+    let (input, items) = token_list(input)?;
+    let (input, post_ws) = opt(whitespace)(input)?;
+    let end = input.offset;
 
-        Ok((input, make_token_list(sp_left, first, list, sp_right)))
-    })
+    let mut out = vec![];
+
+    out.extend(pre_ws);
+    out.extend(items.item);
+    out.extend(post_ws);
+
+    Ok((input, out.tagged((start, end, input.extra.origin))))
 }
 
 fn make_token_list(
-    sp_left: Option<NomSpan>,
-    first: TokenNode,
-    list: Vec<(NomSpan, TokenNode)>,
-    sp_right: Option<NomSpan>,
+    first: Vec<TokenNode>,
+    list: Vec<(TokenNode, Vec<TokenNode>)>,
+    sp_right: Option<TokenNode>,
 ) -> Vec<TokenNode> {
     let mut nodes = vec![];
 
-    if let Some(sp_left) = sp_left {
-        nodes.push(TokenNode::Whitespace(Tag::from(sp_left)));
-    }
+    nodes.extend(first);
 
-    nodes.push(first);
-
-    for (ws, token) in list {
-        nodes.push(TokenNode::Whitespace(Tag::from(ws)));
-        nodes.push(token);
+    for (left, right) in list {
+        nodes.push(left);
+        nodes.extend(right);
     }
 
     if let Some(sp_right) = sp_right {
-        nodes.push(TokenNode::Whitespace(Tag::from(sp_right)));
+        nodes.push(sp_right);
     }
 
     nodes
 }
 
+#[tracable_parser]
 pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "whitespace", move |input| {
-        let left = input.offset;
-        let (input, ws1) = space1(input)?;
-        let right = input.offset;
+    let left = input.offset;
+    let (input, ws1) = space1(input)?;
+    let right = input.offset;
 
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_ws((left, right, input.extra)),
-        ))
-    })
-}
-
-pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "delimited_paren", move |input| {
-        let left = input.offset;
-        let (input, _) = char('(')(input)?;
-        let (input, ws1) = opt(whitespace)(input)?;
-        let (input, inner_items) = opt(token_list)(input)?;
-        let (input, ws2) = opt(whitespace)(input)?;
-        let (input, _) = char(')')(input)?;
-        let right = input.offset;
-
-        let mut items = vec![];
-
-        if let Some(space) = ws1 {
-            items.push(space);
-        }
-
-        if let Some(inner_items) = inner_items {
-            items.extend(inner_items);
-        }
-
-        if let Some(space) = ws2 {
-            items.push(space);
-        }
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_parens(items, (left, right, input.extra)),
-        ))
-    })
-}
-
-pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "delimited_paren", move |input| {
-        let left = input.offset;
-        let (input, _) = char('[')(input)?;
-        let (input, ws1) = opt(whitespace)(input)?;
-        let (input, inner_items) = opt(token_list)(input)?;
-        let (input, ws2) = opt(whitespace)(input)?;
-        let (input, _) = char(']')(input)?;
-        let right = input.offset;
-
-        let mut items = vec![];
-
-        if let Some(space) = ws1 {
-            items.push(space);
-        }
-
-        if let Some(inner_items) = inner_items {
-            items.extend(inner_items);
-        }
-
-        if let Some(space) = ws2 {
-            items.push(space);
-        }
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_square(items, (left, right, input.extra)),
-        ))
-    })
-}
-
-pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "delimited_brace", move |input| {
-        let left = input.offset;
-        let (input, _) = char('{')(input)?;
-        let (input, _) = opt(space1)(input)?;
-        let (input, items) = opt(token_list)(input)?;
-        let (input, _) = opt(space1)(input)?;
-        let (input, _) = char('}')(input)?;
-        let right = input.offset;
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_brace(
-                items.unwrap_or_else(|| vec![]),
-                (left, right, input.extra),
-            ),
-        ))
-    })
-}
-
-pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Tagged<CallNode>> {
-    trace_step(input, "raw_call", move |input| {
-        let left = input.offset;
-        let (input, items) = token_list(input)?;
-        let right = input.offset;
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_call(items, (left, right, input.extra)),
-        ))
-    })
-}
-
-pub fn path(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "path", move |input| {
-        let left = input.offset;
-        let (input, head) = node1(input)?;
-        let (input, _) = tag(".")(input)?;
-        let (input, tail) = separated_list(tag("."), alt((member, string)))(input)?;
-        let right = input.offset;
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_path((head, tail), (left, right, input.extra)),
-        ))
-    })
-}
-
-pub fn node1(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "node1", alt((leaf, delimited_paren)))
-}
-
-pub fn node(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(
+    Ok((
         input,
-        "node",
-        alt((
-            path,
-            leaf,
-            delimited_paren,
-            delimited_brace,
-            delimited_square,
-        )),
-    )
+        TokenTreeBuilder::tagged_ws((left, right, input.extra)),
+    ))
 }
 
+pub fn delimited(input: NomSpan, delimiter: Delimiter) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
+    let left = input.offset;
+    let (input, _) = char(delimiter.open())(input)?;
+    let (input, inner_items) = opt(spaced_token_list)(input)?;
+    let (input, _) = char(delimiter.close())(input)?;
+    let right = input.offset;
+
+    let mut items = vec![];
+
+    if let Some(inner_items) = inner_items {
+        items.extend(inner_items.item);
+    }
+
+    Ok((input, items.tagged((left, right, input.extra.origin))))
+}
+
+#[tracable_parser]
+pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    let (input, tokens) = delimited(input, Delimiter::Paren)?;
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_parens(tokens.item, tokens.tag),
+    ))
+}
+
+#[tracable_parser]
+pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    let (input, tokens) = delimited(input, Delimiter::Square)?;
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_square(tokens.item, tokens.tag),
+    ))
+}
+
+#[tracable_parser]
+pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    let (input, tokens) = delimited(input, Delimiter::Brace)?;
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_brace(tokens.item, tokens.tag),
+    ))
+}
+
+#[tracable_parser]
+pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Tagged<CallNode>> {
+    let left = input.offset;
+    let (input, items) = token_list(input)?;
+    let right = input.offset;
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_call(items.item, (left, right, input.extra)),
+    ))
+}
+
+#[tracable_parser]
+pub fn bare_path(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+    let (input, head) = alt((bare, dot))(input)?;
+
+    let (input, tail) = many0(alt((bare, dot, string)))(input)?;
+
+    let next_char = &input.fragment.chars().nth(0);
+
+    if is_boundary(*next_char) {
+        let mut result = vec![head];
+        result.extend(tail);
+
+        Ok((input, result))
+    } else {
+        Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Many0,
+        )))
+    }
+}
+
+#[tracable_parser]
+pub fn pattern_path(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+    let (input, head) = alt((pattern, dot))(input)?;
+
+    let (input, tail) = many0(alt((pattern, dot, string)))(input)?;
+
+    let next_char = &input.fragment.chars().nth(0);
+
+    if is_boundary(*next_char) {
+        let mut result = vec![head];
+        result.extend(tail);
+
+        Ok((input, result))
+    } else {
+        Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Many0,
+        )))
+    }
+}
+
+#[tracable_parser]
+pub fn node1(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    alt((leaf, bare, pattern, external_word, delimited_paren))(input)
+}
+
+#[tracable_parser]
+pub fn node(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+    alt((
+        to_list(leaf),
+        bare_path,
+        pattern_path,
+        to_list(external_word),
+        to_list(delimited_paren),
+        to_list(delimited_brace),
+        to_list(delimited_square),
+    ))(input)
+}
+
+fn to_list(
+    parser: impl Fn(NomSpan) -> IResult<NomSpan, TokenNode>,
+) -> impl Fn(NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+    move |input| {
+        let (input, next) = parser(input)?;
+
+        Ok((input, vec![next]))
+    }
+}
+
+#[tracable_parser]
+pub fn nodes(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+    let (input, tokens) = token_list(input)?;
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_token_list(tokens.item, tokens.tag),
+    ))
+}
+
+#[tracable_parser]
 pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    trace_step(input, "pipeline", |input| {
-        let start = input.offset;
-        let (input, head) = opt(tuple((opt(space1), raw_call, opt(space1))))(input)?;
-        let (input, items) = trace_step(
+    let start = input.offset;
+    let (input, head) = spaced_token_list(input)?;
+    let (input, items) = many0(tuple((tag("|"), spaced_token_list)))(input)?;
+
+    if input.input_len() != 0 {
+        return Err(Err::Error(error_position!(
             input,
-            "many0",
-            many0(tuple((tag("|"), opt(space1), raw_call, opt(space1)))),
-        )?;
-
-        let (input, tail) = opt(space1)(input)?;
-        let (input, newline) = opt(multispace1)(input)?;
-
-        if input.input_len() != 0 {
-            return Err(Err::Error(error_position!(
-                input,
-                nom::error::ErrorKind::Eof
-            )));
-        }
-
-        let end = input.offset;
-
-        Ok((
-            input,
-            TokenTreeBuilder::tagged_pipeline(
-                (make_call_list(head, items), tail.map(Tag::from)),
-                (start, end, input.extra),
-            ),
-        ))
-    })
-}
-
-fn make_call_list(
-    head: Option<(Option<NomSpan>, Tagged<CallNode>, Option<NomSpan>)>,
-    items: Vec<(NomSpan, Option<NomSpan>, Tagged<CallNode>, Option<NomSpan>)>,
-) -> Vec<PipelineElement> {
-    let mut out = vec![];
-
-    if let Some(head) = head {
-        let el = PipelineElement::new(None, head.0.map(Tag::from), head.1, head.2.map(Tag::from));
-
-        out.push(el);
+            nom::error::ErrorKind::Eof
+        )));
     }
 
-    for (pipe, ws1, call, ws2) in items {
-        let el = PipelineElement::new(
-            Some(pipe).map(Tag::from),
-            ws1.map(Tag::from),
-            call,
-            ws2.map(Tag::from),
-        );
+    let end = input.offset;
 
-        out.push(el);
-    }
+    let head_tag = head.tag();
+    let mut all_items: Vec<Tagged<PipelineElement>> =
+        vec![PipelineElement::new(None, head).tagged(head_tag)];
 
-    out
+    all_items.extend(items.into_iter().map(|(pipe, items)| {
+        let items_tag = items.tag();
+        PipelineElement::new(Some(Tag::from(pipe)), items).tagged(Tag::from(pipe).until(items_tag))
+    }));
+
+    Ok((
+        input,
+        TokenTreeBuilder::tagged_pipeline(all_items, (start, end, input.extra)),
+    ))
 }
 
 fn int<T>(frag: &str, neg: Option<T>) -> i64 {
@@ -693,9 +653,19 @@ fn int<T>(frag: &str, neg: Option<T>) -> i64 {
     }
 }
 
+fn is_boundary(c: Option<char>) -> bool {
+    match c {
+        None => true,
+        Some(')') | Some(']') | Some('}') => true,
+        Some(c) if c.is_whitespace() => true,
+        _ => false,
+    }
+}
+
 fn is_external_word_char(c: char) -> bool {
     match c {
-        ';' | '|' | '#' | '-' | '"' | '\'' | '$' | '(' | ')' | '[' | ']' | '{' | '}' | '`' => false,
+        ';' | '|' | '#' | '-' | '"' | '\'' | '$' | '(' | ')' | '[' | ']' | '{' | '}' | '`'
+        | '.' => false,
         other if other.is_whitespace() => false,
         _ => true,
     }
@@ -717,8 +687,7 @@ fn is_glob_char(c: char) -> bool {
 fn is_start_bare_char(c: char) -> bool {
     match c {
         '+' => false,
-        _ if c.is_alphabetic() => true,
-        '.' => true,
+        _ if c.is_alphanumeric() => true,
         '\\' => true,
         '/' => true,
         '_' => true,
@@ -732,7 +701,6 @@ fn is_bare_char(c: char) -> bool {
     match c {
         '+' => false,
         _ if c.is_alphanumeric() => true,
-        '.' => true,
         '\\' => true,
         '/' => true,
         '_' => true,
@@ -759,6 +727,16 @@ fn is_id_continue(c: char) -> bool {
         }
 }
 
+fn is_member_start(c: char) -> bool {
+    match c {
+        '"' | '\'' => true,
+        '1'..='9' => true,
+
+        other if is_id_start(other) => true,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -767,41 +745,6 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     pub type CurriedNode<T> = Box<dyn FnOnce(&mut TokenTreeBuilder) -> T + 'static>;
-
-    macro_rules! assert_leaf {
-        (parsers [ $($name:tt)* ] $input:tt -> $left:tt .. $right:tt { $kind:tt $parens:tt } ) => {
-            $(
-                assert_eq!(
-                    apply($name, stringify!($name), $input),
-                    token(RawToken::$kind $parens, $left, $right)
-                );
-            )*
-
-            assert_eq!(
-                apply(leaf, "leaf", $input),
-                token(RawToken::$kind $parens, $left, $right)
-            );
-
-            assert_eq!(
-                apply(leaf, "leaf", $input),
-                token(RawToken::$kind $parens, $left, $right)
-            );
-
-            assert_eq!(
-                apply(node, "node", $input),
-                token(RawToken::$kind $parens, $left, $right)
-            );
-        };
-
-        (parsers [ $($name:tt)* ] $input:tt -> $left:tt .. $right:tt { $kind:tt } ) => {
-            $(
-                assert_eq!(
-                    apply($name, stringify!($name), $input),
-                    token(RawToken::$kind, $left, $right)
-                );
-            )*
-        }
-    }
 
     macro_rules! equal_tokens {
         ($source:tt -> $tokens:expr) => {
@@ -823,53 +766,50 @@ mod tests {
                     assert_eq!(debug_result, debug_expected)
                 }
             }
-
-            // apply(pipeline, "pipeline", r#"cargo +nightly run"#),
-            // build_token(b::pipeline(vec![(
-            //     None,
-            //     b::call(
-            //         b::bare("cargo"),
-            //         vec![
-            //             b::sp(),
-            //             b::external_word("+nightly"),
-            //             b::sp(),
-            //             b::bare("run")
-            //         ]
-            //     ),
-            //     None
-            // )]))
         };
+
+        (<$parser:tt> $source:tt -> $tokens:expr) => {
+            let result = apply($parser, stringify!($parser), $source);
+            let (expected_tree, expected_source) = TokenTreeBuilder::build(uuid::Uuid::nil(), $tokens);
+
+            if result != expected_tree {
+                let debug_result = format!("{}", result.debug($source));
+                let debug_expected = format!("{}", expected_tree.debug(&expected_source));
+
+                if debug_result == debug_expected {
+                    assert_eq!(
+                        result, expected_tree,
+                        "NOTE: actual and expected had equivalent debug serializations, source={:?}, debug_expected={:?}",
+                        $source,
+                        debug_expected
+                    )
+                } else {
+                    assert_eq!(debug_result, debug_expected)
+                }
+            }
+        };
+
     }
 
     #[test]
     fn test_integer() {
-        assert_leaf! {
-            parsers [ size ]
-            "123" -> 0..3 { Number(RawNumber::int((0, 3, test_uuid())).item) }
+        equal_tokens! {
+            <nodes>
+            "123" -> b::token_list(vec![b::int(123)])
         }
 
-        assert_leaf! {
-            parsers [ size ]
-            "-123" -> 0..4 { Number(RawNumber::int((0, 4, test_uuid())).item) }
-        }
-    }
-
-    #[test]
-    fn test_size() {
-        assert_leaf! {
-            parsers [ size ]
-            "123MB" -> 0..5 { Size(RawNumber::int((0, 3, test_uuid())).item, Unit::MB) }
-        }
-
-        assert_leaf! {
-            parsers [ size ]
-            "10GB" -> 0..4 { Size(RawNumber::int((0, 2, test_uuid())).item, Unit::GB) }
+        equal_tokens! {
+            <nodes>
+            "-123" -> b::token_list(vec![b::int(-123)])
         }
     }
 
     #[test]
     fn test_operator() {
-        assert_eq!(apply(node, "node", ">"), build_token(b::op(">")));
+        equal_tokens! {
+            <nodes>
+            ">" -> b::token_list(vec![b::op(">")])
+        }
 
         // assert_leaf! {
         //     parsers [ operator ]
@@ -899,37 +839,50 @@ mod tests {
 
     #[test]
     fn test_string() {
-        assert_leaf! {
-            parsers [ string dq_string ]
-            r#""hello world""# -> 0..13 { String(tag(1, 12)) }
+        equal_tokens! {
+            <nodes>
+            r#""hello world""# -> b::token_list(vec![b::string("hello world")])
         }
 
-        assert_leaf! {
-            parsers [ string sq_string ]
-            r"'hello world'" -> 0..13 { String(tag(1, 12)) }
+        equal_tokens! {
+            <nodes>
+            r#"'hello world'"# -> b::token_list(vec![b::string("hello world")])
         }
     }
 
     #[test]
     fn test_bare() {
-        assert_leaf! {
-            parsers [ bare ]
-            "hello" -> 0..5 { Bare }
+        equal_tokens! {
+            <nodes>
+            "hello" -> b::token_list(vec![b::bare("hello")])
+        }
+    }
+
+    #[test]
+    fn test_simple_path() {
+        equal_tokens! {
+            <nodes>
+            "450MB" -> b::token_list(vec![b::bare("450MB")])
         }
 
-        assert_leaf! {
-            parsers [ bare ]
-            "chrome.exe" -> 0..10 { Bare }
+        equal_tokens! {
+            <nodes>
+            "chrome.exe" -> b::token_list(vec![b::bare("chrome"), b::op(Operator::Dot), b::bare("exe")])
         }
 
-        assert_leaf! {
-            parsers [ bare ]
-            r"C:\windows\system.dll" -> 0..21 { Bare }
+        equal_tokens! {
+            <nodes>
+            ".azure" -> b::token_list(vec![b::op(Operator::Dot), b::bare("azure")])
         }
 
-        assert_leaf! {
-            parsers [ bare ]
-            r"C:\Code\-testing\my_tests.js" -> 0..28 { Bare }
+        equal_tokens! {
+            <nodes>
+            r"C:\windows\system.dll" -> b::token_list(vec![b::bare(r"C:\windows\system"), b::op(Operator::Dot), b::bare("dll")])
+        }
+
+        equal_tokens! {
+            <nodes>
+            r"C:\Code\-testing\my_tests.js" -> b::token_list(vec![b::bare(r"C:\Code\-testing\my_tests"), b::op(Operator::Dot), b::bare("js")])
         }
     }
 
@@ -956,223 +909,170 @@ mod tests {
 
     #[test]
     fn test_variable() {
-        assert_leaf! {
-            parsers [ var ]
-            "$it" -> 0..3 { Variable(tag(1, 3)) }
+        equal_tokens! {
+            <nodes>
+            "$it" -> b::token_list(vec![b::var("it")])
         }
 
-        assert_leaf! {
-            parsers [ var ]
-            "$name" -> 0..5 { Variable(tag(1, 5)) }
+        equal_tokens! {
+            <nodes>
+            "$name" -> b::token_list(vec![b::var("name")])
         }
     }
 
     #[test]
     fn test_external() {
-        assert_leaf! {
-            parsers [ external ]
-            "^ls" -> 0..3 { ExternalCommand(tag(1, 3)) }
+        equal_tokens! {
+            <nodes>
+            "^ls" -> b::token_list(vec![b::external_command("ls")])
+        }
+    }
+
+    #[test]
+    fn test_dot_prefixed_name() {
+        equal_tokens! {
+            <nodes>
+            ".azure" -> b::token_list(vec![b::op("."), b::bare("azure")])
         }
     }
 
     #[test]
     fn test_delimited_paren() {
-        assert_eq!(
-            apply(node, "node", "(abc)"),
-            build_token(b::parens(vec![b::bare("abc")]))
-        );
+        equal_tokens! {
+            <nodes>
+            "(abc)" -> b::token_list(vec![b::parens(vec![b::bare("abc")])])
+        }
 
-        assert_eq!(
-            apply(node, "node", "(  abc  )"),
-            build_token(b::parens(vec![b::ws("  "), b::bare("abc"), b::ws("  ")]))
-        );
+        equal_tokens! {
+            <nodes>
+            "(  abc  )" -> b::token_list(vec![b::parens(vec![b::ws("  "), b::bare("abc"), b::ws("  ")])])
+        }
 
-        assert_eq!(
-            apply(node, "node", "(  abc def )"),
-            build_token(b::parens(vec![
-                b::ws("  "),
-                b::bare("abc"),
-                b::sp(),
-                b::bare("def"),
-                b::sp()
-            ]))
-        );
+        equal_tokens! {
+            <nodes>
+            "(  abc def )" -> b::token_list(vec![b::parens(vec![b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" ")])])
+        }
 
-        assert_eq!(
-            apply(node, "node", "(  abc def 123 456GB )"),
-            build_token(b::parens(vec![
-                b::ws("  "),
-                b::bare("abc"),
-                b::sp(),
-                b::bare("def"),
-                b::sp(),
-                b::int(123),
-                b::sp(),
-                b::size(456, "GB"),
-                b::sp()
-            ]))
-        );
+        equal_tokens! {
+            <nodes>
+            "(  abc def 123 456GB )" -> b::token_list(vec![b::parens(vec![
+                b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" "), b::int(123), b::ws(" "), b::bare("456GB"), b::ws(" ")
+            ])])
+        }
     }
 
     #[test]
     fn test_delimited_square() {
-        assert_eq!(
-            apply(node, "node", "[abc]"),
-            build_token(b::square(vec![b::bare("abc")]))
-        );
+        equal_tokens! {
+            <nodes>
+            "[abc]" -> b::token_list(vec![b::square(vec![b::bare("abc")])])
+        }
 
-        assert_eq!(
-            apply(node, "node", "[  abc  ]"),
-            build_token(b::square(vec![b::ws("  "), b::bare("abc"), b::ws("  ")]))
-        );
+        equal_tokens! {
+            <nodes>
+            "[  abc  ]" -> b::token_list(vec![b::square(vec![b::ws("  "), b::bare("abc"), b::ws("  ")])])
+        }
 
-        assert_eq!(
-            apply(node, "node", "[  abc def ]"),
-            build_token(b::square(vec![
-                b::ws("  "),
-                b::bare("abc"),
-                b::sp(),
-                b::bare("def"),
-                b::sp()
-            ]))
-        );
+        equal_tokens! {
+            <nodes>
+            "[  abc def ]" -> b::token_list(vec![b::square(vec![b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" ")])])
+        }
 
-        assert_eq!(
-            apply(node, "node", "[  abc def 123 456GB ]"),
-            build_token(b::square(vec![
-                b::ws("  "),
-                b::bare("abc"),
-                b::sp(),
-                b::bare("def"),
-                b::sp(),
-                b::int(123),
-                b::sp(),
-                b::size(456, "GB"),
-                b::sp()
-            ]))
-        );
+        equal_tokens! {
+            <nodes>
+            "[  abc def 123 456GB ]" -> b::token_list(vec![b::square(vec![
+                b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" "), b::int(123), b::ws(" "), b::bare("456GB"), b::ws(" ")
+            ])])
+        }
     }
 
     #[test]
     fn test_path() {
         let _ = pretty_env_logger::try_init();
-        assert_eq!(
-            apply(node, "node", "$it.print"),
-            build_token(b::path(b::var("it"), vec![b::member("print")]))
-        );
 
-        assert_eq!(
-            apply(node, "node", "$head.part1.part2"),
-            build_token(b::path(
-                b::var("head"),
-                vec![b::member("part1"), b::member("part2")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "$it.print" -> b::token_list(vec![b::var("it"), b::op("."), b::bare("print")])
+        }
 
-        assert_eq!(
-            apply(node, "node", "( hello ).world"),
-            build_token(b::path(
-                b::parens(vec![b::sp(), b::bare("hello"), b::sp()]),
-                vec![b::member("world")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "$head.part1.part2" -> b::token_list(vec![b::var("head"), b::op("."), b::bare("part1"), b::op("."), b::bare("part2")])
+        }
 
-        assert_eq!(
-            apply(node, "node", "( hello ).\"world\""),
-            build_token(b::path(
-                b::parens(vec![b::sp(), b::bare("hello"), b::sp()],),
-                vec![b::string("world")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "( hello ).world" -> b::token_list(vec![b::parens(vec![b::sp(), b::bare("hello"), b::sp()]), b::op("."), b::bare("world")])
+        }
+
+        equal_tokens! {
+            <nodes>
+            r#"( hello )."world""# -> b::token_list(vec![b::parens(vec![b::sp(), b::bare("hello"), b::sp()]), b::op("."), b::string("world")])
+        }
     }
 
     #[test]
     fn test_nested_path() {
-        assert_eq!(
-            apply(
-                node,
-                "node",
-                "( $it.is.\"great news\".right yep $yep ).\"world\""
-            ),
-            build_token(b::path(
-                b::parens(vec![
-                    b::sp(),
-                    b::path(
+        equal_tokens! {
+            <nodes>
+            r#"( $it.is."great news".right yep $yep )."world""# -> b::token_list(
+                vec![
+                    b::parens(vec![
+                        b::sp(),
                         b::var("it"),
-                        vec![b::member("is"), b::string("great news"), b::member("right")]
-                    ),
-                    b::sp(),
-                    b::bare("yep"),
-                    b::sp(),
-                    b::var("yep"),
-                    b::sp()
-                ]),
-                vec![b::string("world")]
-            ))
-        )
+                        b::op("."),
+                        b::bare("is"),
+                        b::op("."),
+                        b::string("great news"),
+                        b::op("."),
+                        b::bare("right"),
+                        b::sp(),
+                        b::bare("yep"),
+                        b::sp(),
+                        b::var("yep"),
+                        b::sp()
+                    ]),
+                    b::op("."), b::string("world")]
+            )
+        }
     }
 
     #[test]
     fn test_smoke_single_command() {
-        assert_eq!(
-            apply(raw_call, "raw_call", "git add ."),
-            build(b::call(
-                b::bare("git"),
-                vec![b::sp(), b::bare("add"), b::sp(), b::bare(".")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "git add ." -> b::token_list(vec![b::bare("git"), b::sp(), b::bare("add"), b::sp(), b::op(".")])
+        }
 
-        assert_eq!(
-            apply(raw_call, "raw_call", "open Cargo.toml"),
-            build(b::call(
-                b::bare("open"),
-                vec![b::sp(), b::bare("Cargo.toml")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "open Cargo.toml" -> b::token_list(vec![b::bare("open"), b::sp(), b::bare("Cargo"), b::op("."), b::bare("toml")])
+        }
 
-        assert_eq!(
-            apply(raw_call, "raw_call", "select package.version"),
-            build(b::call(
-                b::bare("select"),
-                vec![b::sp(), b::bare("package.version")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "select package.version" -> b::token_list(vec![b::bare("select"), b::sp(), b::bare("package"), b::op("."), b::bare("version")])
+        }
 
-        assert_eq!(
-            apply(raw_call, "raw_call", "echo $it"),
-            build(b::call(b::bare("echo"), vec![b::sp(), b::var("it")]))
-        );
+        equal_tokens! {
+            <nodes>
+            "echo $it" -> b::token_list(vec![b::bare("echo"), b::sp(), b::var("it")])
+        }
 
-        assert_eq!(
-            apply(raw_call, "raw_call", "open Cargo.toml --raw"),
-            build(b::call(
-                b::bare("open"),
-                vec![b::sp(), b::bare("Cargo.toml"), b::sp(), b::flag("raw")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "open Cargo.toml --raw" -> b::token_list(vec![b::bare("open"), b::sp(), b::bare("Cargo"), b::op("."), b::bare("toml"), b::sp(), b::flag("raw")])
+        }
 
-        assert_eq!(
-            apply(raw_call, "raw_call", "open Cargo.toml -r"),
-            build(b::call(
-                b::bare("open"),
-                vec![b::sp(), b::bare("Cargo.toml"), b::sp(), b::shorthand("r")]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "open Cargo.toml -r" -> b::token_list(vec![b::bare("open"), b::sp(), b::bare("Cargo"), b::op("."), b::bare("toml"), b::sp(), b::shorthand("r")])
+        }
 
-        assert_eq!(
-            apply(raw_call, "raw_call", "config --set tabs 2"),
-            build(b::call(
-                b::bare("config"),
-                vec![
-                    b::sp(),
-                    b::flag("set"),
-                    b::sp(),
-                    b::bare("tabs"),
-                    b::sp(),
-                    b::int(2)
-                ]
-            ))
-        );
+        equal_tokens! {
+            <nodes>
+            "config --set tabs 2" -> b::token_list(vec![b::bare("config"), b::sp(), b::flag("set"), b::sp(), b::bare("tabs"), b::sp(), b::int(2)])
+        }
     }
 
     #[test]
@@ -1181,120 +1081,159 @@ mod tests {
 
         equal_tokens!(
             "cargo +nightly run" ->
-            b::pipeline(vec![(
-                None,
-                b::call(
-                    b::bare("cargo"),
-                    vec![
-                        b::sp(),
-                        b::external_word("+nightly"),
-                        b::sp(),
-                        b::bare("run")
-                    ]
-                ),
-                None
-            )])
+            b::pipeline(vec![vec![
+                b::bare("cargo"),
+                b::sp(),
+                b::external_word("+nightly"),
+                b::sp(),
+                b::bare("run")
+            ]])
         );
 
         equal_tokens!(
             "rm foo%bar" ->
-            b::pipeline(vec![(
-                None,
-                b::call(b::bare("rm"), vec![b::sp(), b::external_word("foo%bar"),]),
-                None
-            )])
+            b::pipeline(vec![vec![
+                b::bare("rm"), b::sp(), b::external_word("foo%bar")
+            ]])
         );
 
         equal_tokens!(
             "rm foo%bar" ->
-            b::pipeline(vec![(
-                None,
-                b::call(b::bare("rm"), vec![b::sp(), b::external_word("foo%bar"),]),
-                None
-            )])
+            b::pipeline(vec![vec![
+                b::bare("rm"), b::sp(), b::external_word("foo%bar"),
+            ]])
         );
     }
 
     #[test]
-    fn test_smoke_pipeline() {
+    fn test_pipeline() {
         let _ = pretty_env_logger::try_init();
 
-        assert_eq!(
-            apply(
-                pipeline,
-                "pipeline",
-                r#"git branch --merged | split-row "`n" | where $it != "* master""#
-            ),
-            build_token(b::pipeline(vec![
-                (
-                    None,
-                    b::call(
-                        b::bare("git"),
-                        vec![b::sp(), b::bare("branch"), b::sp(), b::flag("merged")]
-                    ),
-                    Some(" ")
-                ),
-                (
-                    Some(" "),
-                    b::call(b::bare("split-row"), vec![b::sp(), b::string("`n")]),
-                    Some(" ")
-                ),
-                (
-                    Some(" "),
-                    b::call(
-                        b::bare("where"),
-                        vec![
-                            b::sp(),
-                            b::var("it"),
-                            b::sp(),
-                            b::op("!="),
-                            b::sp(),
-                            b::string("* master")
-                        ]
-                    ),
-                    None
-                )
-            ]))
-        );
-
-        assert_eq!(
-            apply(pipeline, "pipeline", "ls | where { $it.size > 100 }"),
-            build_token(b::pipeline(vec![
-                (None, b::call(b::bare("ls"), vec![]), Some(" ")),
-                (
-                    Some(" "),
-                    b::call(
-                        b::bare("where"),
-                        vec![
-                            b::sp(),
-                            b::braced(vec![
-                                b::path(b::var("it"), vec![b::member("size")]),
-                                b::sp(),
-                                b::op(">"),
-                                b::sp(),
-                                b::int(100)
-                            ])
-                        ]
-                    ),
-                    None
-                )
-            ]))
-        )
+        equal_tokens! {
+            "sys | echo" -> b::pipeline(vec![
+                vec![
+                    b::bare("sys"), b::sp()
+                ],
+                vec![
+                    b::sp(), b::bare("echo")
+                ]
+            ])
+        }
     }
 
-    fn apply<T>(
-        f: impl Fn(NomSpan) -> Result<(NomSpan, T), nom::Err<(NomSpan, nom::error::ErrorKind)>>,
+    #[test]
+    fn test_patterns() {
+        equal_tokens! {
+            <pipeline>
+            "cp ../formats/*" -> b::pipeline(vec![vec![b::bare("cp"), b::ws(" "), b::op("."), b::op("."), b::pattern("/formats/*")]])
+        }
+
+        equal_tokens! {
+            <pipeline>
+            "cp * /dev/null" -> b::pipeline(vec![vec![b::bare("cp"), b::ws(" "), b::pattern("*"), b::ws(" "), b::bare("/dev/null")]])
+        }
+    }
+
+    // #[test]
+    // fn test_pseudo_paths() {
+    //     let _ = pretty_env_logger::try_init();
+
+    //     equal_tokens!(
+    //         r#"sys | where cpu."max ghz" > 1"# ->
+    //         b::pipeline(vec![
+    //             (None, b::call(b::bare("sys"), vec![]), Some(" ")),
+    //             (
+    //                 Some(" "),
+    //                 b::call(
+    //                     b::bare("where"),
+    //                     vec![
+    //                         b::sp(),
+    //                         b::path(b::bare("cpu"), vec![b::string("max ghz")]),
+    //                         b::sp(),
+    //                         b::op(">"),
+    //                         b::sp(),
+    //                         b::int(1)
+    //                     ]
+    //                 ),
+    //                 None
+    //             )
+    //         ])
+    //     );
+    // }
+
+    // #[test]
+    // fn test_smoke_pipeline() {
+    //     let _ = pretty_env_logger::try_init();
+
+    //     assert_eq!(
+    //         apply(
+    //             pipeline,
+    //             "pipeline",
+    //             r#"git branch --merged | split-row "`n" | where $it != "* master""#
+    //         ),
+    //         build_token(b::pipeline(vec![
+    //             (
+    //                 None,
+    //                 b::call(
+    //                     b::bare("git"),
+    //                     vec![b::sp(), b::bare("branch"), b::sp(), b::flag("merged")]
+    //                 ),
+    //                 Some(" ")
+    //             ),
+    //             (
+    //                 Some(" "),
+    //                 b::call(b::bare("split-row"), vec![b::sp(), b::string("`n")]),
+    //                 Some(" ")
+    //             ),
+    //             (
+    //                 Some(" "),
+    //                 b::call(
+    //                     b::bare("where"),
+    //                     vec![
+    //                         b::sp(),
+    //                         b::var("it"),
+    //                         b::sp(),
+    //                         b::op("!="),
+    //                         b::sp(),
+    //                         b::string("* master")
+    //                     ]
+    //                 ),
+    //                 None
+    //             )
+    //         ]))
+    //     );
+
+    //     assert_eq!(
+    //         apply(pipeline, "pipeline", "ls | where { $it.size > 100 }"),
+    //         build_token(b::pipeline(vec![
+    //             (None, b::call(b::bare("ls"), vec![]), Some(" ")),
+    //             (
+    //                 Some(" "),
+    //                 b::call(
+    //                     b::bare("where"),
+    //                     vec![
+    //                         b::sp(),
+    //                         b::braced(vec![
+    //                             b::path(b::var("it"), vec![b::member("size")]),
+    //                             b::sp(),
+    //                             b::op(">"),
+    //                             b::sp(),
+    //                             b::int(100)
+    //                         ])
+    //                     ]
+    //                 ),
+    //                 None
+    //             )
+    //         ]))
+    //     )
+    // }
+
+    fn apply(
+        f: impl Fn(NomSpan) -> Result<(NomSpan, TokenNode), nom::Err<(NomSpan, nom::error::ErrorKind)>>,
         desc: &str,
         string: &str,
-    ) -> T {
-        match f(NomSpan::new_extra(string, uuid::Uuid::nil())) {
-            Ok(v) => v.1,
-            Err(other) => {
-                println!("{:?}", other);
-                println!("for {} @ {}", string, desc);
-                panic!("No dice");
-            }
-        }
+    ) -> TokenNode {
+        f(nom_input(string, uuid::Uuid::nil())).unwrap().1
     }
 
     fn tag(left: usize, right: usize) -> Tag {
@@ -1310,17 +1249,6 @@ mod tests {
         let node = DelimitedNode::new(*delimiter, children);
         let spanned = node.tagged((left, right, delimiter.tag.anchor));
         TokenNode::Delimited(spanned)
-    }
-
-    fn path(head: TokenNode, tail: Vec<Token>, left: usize, right: usize) -> TokenNode {
-        let tag = head.tag();
-
-        let node = PathNode::new(
-            Box::new(head),
-            tail.into_iter().map(TokenNode::Token).collect(),
-        );
-        let spanned = node.tagged((left, right, tag.anchor));
-        TokenNode::Path(spanned)
     }
 
     fn token(token: RawToken, left: usize, right: usize) -> TokenNode {

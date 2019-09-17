@@ -16,6 +16,12 @@ pub struct Binary {
     right: Expression,
 }
 
+impl fmt::Display for Binary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {})", self.op.as_str(), self.left, self.right)
+    }
+}
+
 impl ToDebug for Binary {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         write!(f, "{}", self.left.debug(source))?;

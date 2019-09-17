@@ -14,8 +14,10 @@ pub enum SemVerAction {
     Patch,
 }
 
+pub type ColumnPath = Vec<Tagged<String>>;
+
 struct Inc {
-    field: Option<String>,
+    field: Option<ColumnPath>,
     error: Option<String>,
     action: Option<Action>,
 }
@@ -85,16 +87,17 @@ impl Inc {
             }
             Value::Row(_) => match self.field {
                 Some(ref f) => {
-                    let replacement = match value.item.get_data_by_path(value.tag(), f) {
+                    let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
                         Some(result) => self.inc(result.map(|x| x.clone()))?,
                         None => {
                             return Err(ShellError::string("inc could not find field to replace"))
                         }
                     };
-                    match value
-                        .item
-                        .replace_data_at_path(value.tag(), f, replacement.item.clone())
-                    {
+                    match value.item.replace_data_at_column_path(
+                        value.tag(),
+                        f,
+                        replacement.item.clone(),
+                    ) {
                         Some(v) => return Ok(v),
                         None => {
                             return Err(ShellError::string("inc could not find field to replace"))
@@ -120,7 +123,7 @@ impl Plugin for Inc {
             .switch("major")
             .switch("minor")
             .switch("patch")
-            .rest(SyntaxShape::String)
+            .rest(SyntaxShape::ColumnPath)
             .filter())
     }
 
@@ -138,11 +141,11 @@ impl Plugin for Inc {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    Tagged {
-                        item: Value::Primitive(Primitive::String(s)),
+                    table @ Tagged {
+                        item: Value::Table(_),
                         ..
                     } => {
-                        self.field = Some(s);
+                        self.field = Some(table.as_column_path()?.item);
                     }
                     _ => {
                         return Err(ShellError::string(format!(
@@ -209,8 +212,13 @@ mod tests {
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
+            let fields: Vec<Tagged<Value>> = name
+                .split(".")
+                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown_span(self.anchor)))
+                .collect();
+
             self.positionals
-                .push(Value::string(name.to_string()).tagged(Tag::unknown_span(self.anchor)));
+                .push(Value::Table(fields).tagged(Tag::unknown_span(self.anchor)));
             self
         }
 
@@ -297,7 +305,12 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(plugin.field, Some("package.version".to_string()));
+        assert_eq!(
+            plugin
+                .field
+                .map(|f| f.into_iter().map(|f| f.item).collect()),
+            Some(vec!["package".to_string(), "version".to_string()])
+        );
     }
 
     #[test]

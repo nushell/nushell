@@ -1,4 +1,5 @@
 use crate::parser::parse::unit::*;
+use crate::parser::Operator;
 use crate::prelude::*;
 use crate::{Tagged, Text};
 use std::fmt;
@@ -7,6 +8,7 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RawToken {
     Number(RawNumber),
+    Operator(Operator),
     Size(RawNumber, Unit),
     String(Tag),
     Variable(Tag),
@@ -49,12 +51,13 @@ impl RawToken {
     pub fn type_name(&self) -> &'static str {
         match self {
             RawToken::Number(_) => "Number",
+            RawToken::Operator(..) => "operator",
             RawToken::Size(..) => "Size",
             RawToken::String(_) => "String",
-            RawToken::Variable(_) => "Variable",
-            RawToken::ExternalCommand(_) => "ExternalCommand",
-            RawToken::ExternalWord => "ExternalWord",
-            RawToken::GlobPattern => "GlobPattern",
+            RawToken::Variable(_) => "variable",
+            RawToken::ExternalCommand(_) => "external command",
+            RawToken::ExternalWord => "external word",
+            RawToken::GlobPattern => "glob pattern",
             RawToken::Bare => "String",
         }
     }

@@ -1,4 +1,3 @@
-use crate::commands::autoview;
 use crate::commands::classified::{
     ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
     StreamNext,
@@ -13,7 +12,12 @@ pub(crate) use crate::errors::ShellError;
 use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 use crate::git::current_branch;
 use crate::parser::registry::Signature;
-use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
+use crate::parser::{
+    hir,
+    hir::syntax_shape::{CommandHeadShape, CommandSignature, ExpandSyntax},
+    hir::{expand_external_tokens::expand_external_tokens, tokens_iterator::TokensIterator},
+    parse_command_tail, Pipeline, PipelineElement, TokenNode,
+};
 use crate::prelude::*;
 
 use log::{debug, trace};
@@ -25,6 +29,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -75,7 +80,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         let name = params.name.clone();
                         let fname = fname.to_string();
 
-                        if context.has_command(&name) {
+                        if let Some(_) = context.get_command(&name) {
                             trace!("plugin {:?} already loaded.", &name);
                         } else {
                             if params.is_filter {
@@ -428,21 +433,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            LineResult::Error(mut line, err) => {
+            LineResult::Error(line, err) => {
                 rl.add_history_entry(line.clone());
-                let diag = err.to_diagnostic();
+
                 context.with_host(|host| {
-                    let writer = host.err_termcolor();
-                    line.push_str(" ");
-                    let files = crate::parser::Files::new(line);
-                    let _ = std::panic::catch_unwind(move || {
-                        let _ = language_reporting::emit(
-                            &mut writer.lock(),
-                            &files,
-                            &diag,
-                            &language_reporting::DefaultConfig,
-                        );
-                    });
+                    print_err(err, host, &Text::from(line));
                 })
             }
 
@@ -459,6 +454,14 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn chomp_newline(s: &str) -> &str {
+    if s.ends_with('\n') {
+        &s[..s.len() - 1]
+    } else {
+        s
+    }
+}
+
 enum LineResult {
     Success(String),
     Error(String, ShellError),
@@ -471,9 +474,11 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
-            let result = match crate::parser::parse(&line, uuid::Uuid::nil()) {
+            let line = chomp_newline(line);
+
+            let result = match crate::parser::parse(&line, uuid::Uuid::new_v4()) {
                 Err(err) => {
-                    return LineResult::Error(line.clone(), err);
+                    return LineResult::Error(line.to_string(), err);
                 }
 
                 Ok(val) => val,
@@ -484,7 +489,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             let mut pipeline = match classify_pipeline(&result, ctx, &Text::from(line)) {
                 Ok(pipeline) => pipeline,
-                Err(err) => return LineResult::Error(line.clone(), err),
+                Err(err) => return LineResult::Error(line.to_string(), err),
             };
 
             match pipeline.commands.last() {
@@ -492,7 +497,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 _ => pipeline
                     .commands
                     .push(ClassifiedCommand::Internal(InternalCommand {
-                        command: whole_stream_command(autoview::Autoview),
+                        name: "autoview".to_string(),
                         name_tag: Tag::unknown(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
@@ -514,16 +519,24 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 input = match (item, next) {
                     (None, _) => break,
 
+                    (Some(ClassifiedCommand::Dynamic(_)), _)
+                    | (_, Some(ClassifiedCommand::Dynamic(_))) => {
+                        return LineResult::Error(
+                            line.to_string(),
+                            ShellError::unimplemented("Dynamic commands"),
+                        )
+                    }
+
                     (Some(ClassifiedCommand::Expr(_)), _) => {
                         return LineResult::Error(
-                            line.clone(),
+                            line.to_string(),
                             ShellError::unimplemented("Expression-only commands"),
                         )
                     }
 
                     (_, Some(ClassifiedCommand::Expr(_))) => {
                         return LineResult::Error(
-                            line.clone(),
+                            line.to_string(),
                             ShellError::unimplemented("Expression-only commands"),
                         )
                     }
@@ -536,7 +549,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         .await
                     {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.clone(), err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
@@ -545,7 +558,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             .await
                         {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
@@ -555,7 +568,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             .await
                         {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
@@ -564,20 +577,20 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input, StreamNext::External).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.clone(), err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::External(left)), Some(_)) => {
                         match left.run(ctx, input, StreamNext::Internal).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
                 };
@@ -585,7 +598,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 is_first_command = false;
             }
 
-            LineResult::Success(line.clone())
+            LineResult::Success(line.to_string())
         }
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => LineResult::Break,
@@ -616,80 +629,91 @@ fn classify_pipeline(
 }
 
 fn classify_command(
-    command: &PipelineElement,
+    command: &Tagged<PipelineElement>,
     context: &Context,
     source: &Text,
 ) -> Result<ClassifiedCommand, ShellError> {
-    let call = command.call();
+    let mut iterator = TokensIterator::new(&command.tokens.item, command.tag, true);
 
-    match call {
+    let head = CommandHeadShape
+        .expand_syntax(&mut iterator, &context.expand_context(source, command.tag))?;
+
+    match &head {
+        CommandSignature::Expression(_) => Err(ShellError::syntax_error(
+            "Unexpected expression in command position".tagged(command.tag),
+        )),
+
         // If the command starts with `^`, treat it as an external command no matter what
-        call if call.head().is_external() => {
-            let name_tag = call.head().expect_external();
-            let name = name_tag.slice(source);
+        CommandSignature::External(name) => {
+            let name_str = name.slice(source);
 
-            Ok(external_command(call, source, name.tagged(name_tag)))
+            external_command(&mut iterator, source, name_str.tagged(name))
         }
 
-        // Otherwise, if the command is a bare word, we'll need to triage it
-        call if call.head().is_bare() => {
-            let head = call.head();
-            let name = head.source(source);
+        CommandSignature::LiteralExternal { outer, inner } => {
+            let name_str = inner.slice(source);
 
-            match context.has_command(name) {
-                // if the command is in the registry, it's an internal command
-                true => {
-                    let command = context.get_command(name);
-                    let config = command.signature();
-
-                    trace!(target: "nu::build_pipeline", "classifying {:?}", config);
-
-                    let args: hir::Call = config.parse_args(call, &context, source)?;
-
-                    trace!(target: "nu::build_pipeline", "args :: {}", args.debug(source));
-
-                    Ok(ClassifiedCommand::Internal(InternalCommand {
-                        command,
-                        name_tag: head.tag(),
-                        args,
-                    }))
-                }
-
-                // otherwise, it's an external command
-                false => Ok(external_command(call, source, name.tagged(head.tag()))),
-            }
+            external_command(&mut iterator, source, name_str.tagged(outer))
         }
 
-        // If the command is something else (like a number or a variable), that is currently unsupported.
-        // We might support `$somevar` as a curried command in the future.
-        call => Err(ShellError::invalid_command(call.head().tag())),
+        CommandSignature::Internal(command) => {
+            let tail = parse_command_tail(
+                &command.signature(),
+                &context.expand_context(source, command.tag),
+                &mut iterator,
+                command.tag,
+            )?;
+
+            let (positional, named) = match tail {
+                None => (None, None),
+                Some((positional, named)) => (positional, named),
+            };
+
+            let call = hir::Call {
+                head: Box::new(head.to_expression()),
+                positional,
+                named,
+            };
+
+            Ok(ClassifiedCommand::Internal(InternalCommand::new(
+                command.name().to_string(),
+                command.tag,
+                call,
+            )))
+        }
     }
 }
 
 // Classify this command as an external command, which doesn't give special meaning
 // to nu syntactic constructs, and passes all arguments to the external command as
 // strings.
-fn external_command(
-    call: &Tagged<CallNode>,
+pub(crate) fn external_command(
+    tokens: &mut TokensIterator,
     source: &Text,
     name: Tagged<&str>,
-) -> ClassifiedCommand {
-    let arg_list_strings: Vec<Tagged<String>> = match call.children() {
-        Some(args) => args
-            .iter()
-            .filter_map(|i| match i {
-                TokenNode::Whitespace(_) => None,
-                other => Some(other.as_external_arg(source).tagged(other.tag())),
-            })
-            .collect(),
-        None => vec![],
-    };
+) -> Result<ClassifiedCommand, ShellError> {
+    let arg_list_strings = expand_external_tokens(tokens, source)?;
 
-    let (name, tag) = name.into_parts();
-
-    ClassifiedCommand::External(ExternalCommand {
+    Ok(ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
-        name_tag: tag,
+        name_tag: name.tag(),
         args: arg_list_strings,
-    })
+    }))
+}
+
+pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
+    let diag = err.to_diagnostic();
+
+    let writer = host.err_termcolor();
+    let mut source = source.to_string();
+    source.push_str(" ");
+    let files = crate::parser::Files::new(source);
+    let _ = std::panic::catch_unwind(move || {
+        let _ = language_reporting::emit(
+            &mut writer.lock(),
+            &files,
+            &diag,
+            &language_reporting::DefaultConfig,
+        );
+    });
 }

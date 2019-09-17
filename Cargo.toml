@@ -55,6 +55,7 @@ surf = "1.0.2"
 url = "2.1.0"
 roxmltree = "0.7.0"
 nom_locate = "1.0.0"
+nom-tracable = "0.4.0"
 enum-utils = "0.1.1"
 unicode-xid = "0.2.0"
 serde_ini = "0.2.0"
@@ -95,6 +96,8 @@ textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
+trace = ["nom-tracable/trace"]
+all = ["raw-key", "textview", "binaryview", "sys", "ps", "clipboard", "ptree"]
 
 [dependencies.rusqlite]
 version = "0.20.0"

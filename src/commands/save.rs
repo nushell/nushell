@@ -143,15 +143,16 @@ fn save(
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(
-                                "Save requires a filepath",
+                                "Save requires a filepath (1)",
                                 "needs path",
                                 name_tag,
                             ));
                         }
                     },
                     None => {
+                        eprintln!("{:?} {:?}", anchor, source_map);
                         yield Err(ShellError::labeled_error(
-                            "Save requires a filepath",
+                            "Save requires a filepath (2)",
                             "needs path",
                             name_tag,
                         ));
@@ -159,7 +160,7 @@ fn save(
                 }
             } else {
                 yield Err(ShellError::labeled_error(
-                    "Save requires a filepath",
+                    "Save requires a filepath (3)",
                     "needs path",
                     name_tag,
                 ));

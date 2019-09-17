@@ -8,6 +8,7 @@ use crate::Text;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
@@ -217,6 +218,14 @@ impl Block {
 
         let mut last = None;
 
+        trace!(
+            "EXPRS = {:?}",
+            self.expressions
+                .iter()
+                .map(|e| format!("{}", e))
+                .collect::<Vec<_>>()
+        );
+
         for expr in self.expressions.iter() {
             last = Some(evaluate_baseline_expr(
                 &expr,
@@ -394,13 +403,34 @@ impl Tagged<Value> {
     pub(crate) fn debug(&self) -> ValueDebug<'_> {
         ValueDebug { value: self }
     }
+
+    pub fn as_column_path(&self) -> Result<Tagged<Vec<Tagged<String>>>, ShellError> {
+        let mut out: Vec<Tagged<String>> = vec![];
+
+        match &self.item {
+            Value::Table(table) => {
+                for item in table {
+                    out.push(item.as_string()?.tagged(item.tag));
+                }
+            }
+
+            other => {
+                return Err(ShellError::type_error(
+                    "column name",
+                    other.type_name().tagged(self.tag),
+                ))
+            }
+        }
+
+        Ok(out.tagged(self.tag))
+    }
 }
 
 impl Value {
     pub(crate) fn type_name(&self) -> String {
         match self {
             Value::Primitive(p) => p.type_name(),
-            Value::Row(_) => format!("object"),
+            Value::Row(_) => format!("row"),
             Value::Table(_) => format!("list"),
             Value::Block(_) => format!("block"),
         }
@@ -441,6 +471,22 @@ impl Value {
             }
             _ => None,
         }
+    }
+
+    pub fn get_data_by_column_path(
+        &self,
+        tag: Tag,
+        path: &Vec<Tagged<String>>,
+    ) -> Option<Tagged<&Value>> {
+        let mut current = self;
+        for p in path {
+            match current.get_data_by_key(p) {
+                Some(v) => current = v,
+                None => return None,
+            }
+        }
+
+        Some(Tagged::from_item(current, tag))
     }
 
     pub fn get_data_by_path(&self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
@@ -508,6 +554,58 @@ impl Value {
         None
     }
 
+    pub fn insert_data_at_column_path(
+        &self,
+        tag: Tag,
+        split_path: &Vec<Tagged<String>>,
+        new_value: Value,
+    ) -> Option<Tagged<Value>> {
+        let mut new_obj = self.clone();
+
+        if let Value::Row(ref mut o) = new_obj {
+            let mut current = o;
+
+            if split_path.len() == 1 {
+                // Special case for inserting at the top level
+                current.entries.insert(
+                    split_path[0].item.clone(),
+                    Tagged::from_item(new_value, tag),
+                );
+                return Some(Tagged::from_item(new_obj, tag));
+            }
+
+            for idx in 0..split_path.len() {
+                match current.entries.get_mut(&split_path[idx].item) {
+                    Some(next) => {
+                        if idx == (split_path.len() - 2) {
+                            match &mut next.item {
+                                Value::Row(o) => {
+                                    o.entries.insert(
+                                        split_path[idx + 1].to_string(),
+                                        Tagged::from_item(new_value, tag),
+                                    );
+                                }
+                                _ => {}
+                            }
+
+                            return Some(Tagged::from_item(new_obj, tag));
+                        } else {
+                            match next.item {
+                                Value::Row(ref mut o) => {
+                                    current = o;
+                                }
+                                _ => return None,
+                            }
+                        }
+                    }
+                    _ => return None,
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn replace_data_at_path(
         &self,
         tag: Tag,
@@ -522,6 +620,39 @@ impl Value {
             let mut current = o;
             for idx in 0..split_path.len() {
                 match current.entries.get_mut(split_path[idx]) {
+                    Some(next) => {
+                        if idx == (split_path.len() - 1) {
+                            *next = Tagged::from_item(replaced_value, tag);
+                            return Some(Tagged::from_item(new_obj, tag));
+                        } else {
+                            match next.item {
+                                Value::Row(ref mut o) => {
+                                    current = o;
+                                }
+                                _ => return None,
+                            }
+                        }
+                    }
+                    _ => return None,
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn replace_data_at_column_path(
+        &self,
+        tag: Tag,
+        split_path: &Vec<Tagged<String>>,
+        replaced_value: Value,
+    ) -> Option<Tagged<Value>> {
+        let mut new_obj = self.clone();
+
+        if let Value::Row(ref mut o) = new_obj {
+            let mut current = o;
+            for idx in 0..split_path.len() {
+                match current.entries.get_mut(&split_path[idx].item) {
                     Some(next) => {
                         if idx == (split_path.len() - 1) {
                             *next = Tagged::from_item(replaced_value, tag);

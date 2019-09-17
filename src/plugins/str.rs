@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, Value,
+    SyntaxShape, Tagged, TaggedItem, Value,
 };
 
 #[derive(Debug, Eq, PartialEq)]
@@ -10,8 +10,10 @@ enum Action {
     ToInteger,
 }
 
+pub type ColumnPath = Vec<Tagged<String>>;
+
 struct Str {
-    field: Option<String>,
+    field: Option<ColumnPath>,
     params: Option<Vec<String>>,
     error: Option<String>,
     action: Option<Action>,
@@ -43,8 +45,8 @@ impl Str {
         Ok(applied)
     }
 
-    fn for_field(&mut self, field: &str) {
-        self.field = Some(String::from(field));
+    fn for_field(&mut self, column_path: ColumnPath) {
+        self.field = Some(column_path);
     }
 
     fn permit(&mut self) -> bool {
@@ -92,14 +94,15 @@ impl Str {
             }
             Value::Row(_) => match self.field {
                 Some(ref f) => {
-                    let replacement = match value.item.get_data_by_path(value.tag(), f) {
+                    let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()))?,
                         None => return Ok(Tagged::from_item(Value::nothing(), value.tag)),
                     };
-                    match value
-                        .item
-                        .replace_data_at_path(value.tag(), f, replacement.item.clone())
-                    {
+                    match value.item.replace_data_at_column_path(
+                        value.tag(),
+                        f,
+                        replacement.item.clone(),
+                    ) {
                         Some(v) => return Ok(v),
                         None => {
                             return Err(ShellError::string("str could not find field to replace"))
@@ -127,7 +130,7 @@ impl Plugin for Str {
             .switch("downcase")
             .switch("upcase")
             .switch("to-int")
-            .rest(SyntaxShape::Member)
+            .rest(SyntaxShape::ColumnPath)
             .filter())
     }
 
@@ -148,15 +151,21 @@ impl Plugin for Str {
             match possible_field {
                 Tagged {
                     item: Value::Primitive(Primitive::String(s)),
-                    ..
+                    tag,
                 } => match self.action {
                     Some(Action::Downcase)
                     | Some(Action::Upcase)
                     | Some(Action::ToInteger)
                     | None => {
-                        self.for_field(&s);
+                        self.for_field(vec![s.clone().tagged(tag)]);
                     }
                 },
+                table @ Tagged {
+                    item: Value::Table(_),
+                    ..
+                } => {
+                    self.field = Some(table.as_column_path()?.item);
+                }
                 _ => {
                     return Err(ShellError::string(format!(
                         "Unrecognized type in params: {:?}",
@@ -227,8 +236,13 @@ mod tests {
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
+            let fields: Vec<Tagged<Value>> = name
+                .split(".")
+                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown_span(self.anchor)))
+                .collect();
+
             self.positionals
-                .push(Value::string(name.to_string()).tagged(Tag::unknown()));
+                .push(Value::Table(fields).tagged(Tag::unknown_span(self.anchor)));
             self
         }
 
@@ -303,7 +317,12 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(plugin.field, Some("package.description".to_string()));
+        assert_eq!(
+            plugin
+                .field
+                .map(|f| f.into_iter().map(|f| f.item).collect()),
+            Some(vec!["package".to_string(), "description".to_string()])
+        )
     }
 
     #[test]

@@ -15,7 +15,7 @@ impl PerItemCommand for Enter {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("enter").required("location", SyntaxShape::Block)
+        Signature::build("enter").required("location", SyntaxShape::Path)
     }
 
     fn usage(&self) -> &str {
@@ -33,14 +33,14 @@ impl PerItemCommand for Enter {
         let raw_args = raw_args.clone();
         match call_info.args.expect_nth(0)? {
             Tagged {
-                item: Value::Primitive(Primitive::String(location)),
+                item: Value::Primitive(Primitive::Path(location)),
                 ..
             } => {
-                let location = location.to_string();
-                let location_clone = location.to_string();
+                let location_string = location.display().to_string();
+                let location_clone = location_string.clone();
 
                 if location.starts_with("help") {
-                    let spec = location.split(":").collect::<Vec<&str>>();
+                    let spec = location_string.split(":").collect::<Vec<&str>>();
 
                     let (_, command) = (spec[0], spec[1]);
 
