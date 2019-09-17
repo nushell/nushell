@@ -340,24 +340,45 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         // Redefine Ctrl-D to same command as Ctrl-C
         rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
 
-        let readline = rl.readline(&format!(
+        let prompt = &format!(
             "{}{}> ",
             cwd,
             match current_branch() {
                 Some(s) => format!("({})", s),
                 None => "".to_string(),
             }
-        ));
+        );
+        let mut initial_command = Some(String::new());
+        let mut readline = Err(ReadlineError::Eof);
+        while let Some(ref cmd) = initial_command {
+            readline = rl.readline_with_initial(prompt, (&cmd, ""));
+            if let Err(ReadlineError::Eof) = &readline {
+                // Fuzzy search in history
+                let hist = std::fs::read_to_string("history.txt").expect("Cannot open history.txt");
+                let lines = hist.lines().rev().collect();
+                let selection = histsearch::select_from_list(&lines); // Clears last line with prompt
+                match selection {
+                    histsearch::SelectionResult::Selected(line) => {
+                        println!("{}{}", &prompt, &line); // TODO: colorize prompt
+                        readline = Ok(line.clone());
+                        initial_command = None;
+                    }
+                    histsearch::SelectionResult::Edit(line) => {
+                        initial_command = Some(line);
+                    }
+                    histsearch::SelectionResult::NoSelection => {
+                        readline = Ok("".to_string());
+                        initial_command = None;
+                    }
+                }
+            } else {
+                initial_command = None;
+            }
+        }
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
-            }
-
-            LineResult::SearchHist => {
-                let hist = std::fs::read_to_string("history.txt").expect("Cannot open history.txt");
-                let lines = hist.lines().rev().collect();
-                histsearch::select_from_list(&lines);
             }
 
             LineResult::CtrlC => {
@@ -403,7 +424,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
 enum LineResult {
     Success(String),
-    SearchHist,
     Error(String, ShellError),
     CtrlC,
     Break,
@@ -531,7 +551,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             LineResult::Success(line.clone())
         }
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => LineResult::SearchHist, // Override LineResult::Break
+        Err(ReadlineError::Eof) => LineResult::Break,
         Err(err) => {
             println!("Error: {:?}", err);
             LineResult::Break

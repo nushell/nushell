@@ -3,7 +3,13 @@ use crossterm::{cursor, terminal, ClearType, InputEvent, KeyEvent, RawScreen};
 use std::io::Write;
 use sublime_fuzzy::best_match;
 
-pub fn select_from_list(lines: &Vec<&str>) {
+pub enum SelectionResult {
+    Selected(String),
+    Edit(String),
+    NoSelection,
+}
+
+pub fn select_from_list(lines: &Vec<&str>) -> SelectionResult {
     const MAX_RESULTS: usize = 5;
     #[derive(PartialEq)]
     enum State {
@@ -70,7 +76,7 @@ pub fn select_from_list(lines: &Vec<&str>) {
             cursor.move_up(selected_lines.len() as u16);
         }
         let (_x, y) = cursor.pos();
-        let _ = cursor.goto(0, y);
+        let _ = cursor.goto(0, y - 1);
         let _ = cursor.show();
 
         let _ = RawScreen::disable_raw_mode();
@@ -79,13 +85,9 @@ pub fn select_from_list(lines: &Vec<&str>) {
     terminal.clear(ClearType::FromCursorDown).unwrap();
 
     match state {
-        State::Selected(idx) => {
-            print!("{}", lines[idx]);
-        }
-        State::Edit(idx) => {
-            print!("{}", lines[idx]);
-        }
-        _ => {}
+        State::Selected(idx) => SelectionResult::Selected(lines[idx].to_string()),
+        State::Edit(idx) => SelectionResult::Edit(lines[idx].to_string()),
+        _ => SelectionResult::NoSelection,
     }
 }
 
