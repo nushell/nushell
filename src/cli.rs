@@ -432,6 +432,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             let mut input = ClassifiedInputStream::new();
 
             let mut iter = pipeline.commands.into_iter().peekable();
+            let mut is_first_command = true;
 
             loop {
                 let item: Option<ClassifiedCommand> = iter.next();
@@ -457,20 +458,29 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, Text::from(line)).await {
+                    ) => match left
+                        .run(ctx, input, Text::from(line), is_first_command)
+                        .await
+                    {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input, Text::from(line)).await {
+                        match left
+                            .run(ctx, input, Text::from(line), is_first_command)
+                            .await
+                        {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left.run(ctx, input, Text::from(line)).await {
+                        match left
+                            .run(ctx, input, Text::from(line), is_first_command)
+                            .await
+                        {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
@@ -497,7 +507,9 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
-                }
+                };
+
+                is_first_command = false;
             }
 
             LineResult::Success(line.clone())

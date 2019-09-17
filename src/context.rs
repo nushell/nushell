@@ -125,9 +125,10 @@ impl Context {
         args: hir::Call,
         source: &Text,
         input: InputStream,
+        is_first_command: bool,
     ) -> OutputStream {
         let command_args = self.command_args(args, input, source, source_map, name_tag);
-        command.run(command_args, self.registry())
+        command.run(command_args, self.registry(), is_first_command)
     }
 
     fn call_info(

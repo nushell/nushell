@@ -109,6 +109,7 @@ impl PerItemCommand for Enter {
                                         let mut result = converter.run(
                                             new_args.with_input(vec![tagged_contents]),
                                             &registry,
+                                            false
                                         );
                                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                                             result.drain_vec().await;

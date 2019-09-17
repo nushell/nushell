@@ -188,7 +188,7 @@ fn save(
                             name_tag: raw_args.call_info.name_tag,
                         }
                     };
-                    let mut result = converter.run(new_args.with_input(input), &registry);
+                    let mut result = converter.run(new_args.with_input(input), &registry, false);
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                     if converter.is_binary() {
                         process_binary_return_success!(result_vec, name_tag)
