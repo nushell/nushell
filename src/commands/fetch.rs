@@ -53,7 +53,7 @@ fn run(
     };
     let path_buf = path.as_path()?;
     let path_str = path_buf.display().to_string();
-    let path_span = path.span();
+    let path_span = path.tag.span;
     let has_raw = call_info.args.has("raw");
     let registry = registry.clone();
     let raw_args = raw_args.clone();

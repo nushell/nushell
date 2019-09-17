@@ -1,11 +1,13 @@
 pub(crate) mod baseline_parse;
-pub(crate) mod baseline_parse_tokens;
 pub(crate) mod binary;
+pub(crate) mod expand_external_tokens;
 pub(crate) mod external_command;
 pub(crate) mod named;
 pub(crate) mod path;
+pub(crate) mod syntax_shape;
+pub(crate) mod tokens_iterator;
 
-use crate::parser::{registry, Unit};
+use crate::parser::{registry, Operator, Unit};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
@@ -14,27 +16,18 @@ use std::fmt;
 use std::path::PathBuf;
 
 use crate::evaluate::Scope;
+use crate::parser::parse::tokens::RawNumber;
+use crate::traits::ToDebug;
 
-pub(crate) use self::baseline_parse::{
-    baseline_parse_single_token, baseline_parse_token_as_number, baseline_parse_token_as_path,
-    baseline_parse_token_as_pattern, baseline_parse_token_as_string,
-};
-pub(crate) use self::baseline_parse_tokens::{baseline_parse_next_expr, TokensIterator};
 pub(crate) use self::binary::Binary;
 pub(crate) use self::external_command::ExternalCommand;
 pub(crate) use self::named::NamedArguments;
 pub(crate) use self::path::Path;
+pub(crate) use self::syntax_shape::ExpandContext;
+pub(crate) use self::tokens_iterator::debug::debug_tokens;
+pub(crate) use self::tokens_iterator::TokensIterator;
 
-pub use self::baseline_parse_tokens::SyntaxShape;
-
-pub fn path(head: impl Into<Expression>, tail: Vec<Tagged<impl Into<String>>>) -> Path {
-    Path::new(
-        head.into(),
-        tail.into_iter()
-            .map(|item| item.map(|string| string.into()))
-            .collect(),
-    )
-}
+pub use self::syntax_shape::SyntaxShape;
 
 #[derive(Debug, Clone, Eq, PartialEq, Getters, Serialize, Deserialize, new)]
 pub struct Call {
@@ -93,6 +86,7 @@ pub enum RawExpression {
 
     FilePath(PathBuf),
     ExternalCommand(ExternalCommand),
+    Command(Tag),
 
     Boolean(bool),
 }
@@ -115,13 +109,14 @@ impl RawExpression {
         match self {
             RawExpression::Literal(literal) => literal.type_name(),
             RawExpression::Synthetic(synthetic) => synthetic.type_name(),
-            RawExpression::ExternalWord => "externalword",
-            RawExpression::FilePath(..) => "filepath",
+            RawExpression::Command(..) => "command",
+            RawExpression::ExternalWord => "external word",
+            RawExpression::FilePath(..) => "file path",
             RawExpression::Variable(..) => "variable",
             RawExpression::List(..) => "list",
             RawExpression::Binary(..) => "binary",
             RawExpression::Block(..) => "block",
-            RawExpression::Path(..) => "path",
+            RawExpression::Path(..) => "variable path",
             RawExpression::Boolean(..) => "boolean",
             RawExpression::ExternalCommand(..) => "external",
         }
@@ -129,6 +124,39 @@ impl RawExpression {
 }
 
 pub type Expression = Tagged<RawExpression>;
+
+impl std::fmt::Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let span = self.tag.span;
+
+        match &self.item {
+            RawExpression::Literal(literal) => write!(f, "{}", literal.tagged(self.tag)),
+            RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{}", s),
+            RawExpression::Command(_) => write!(f, "Command{{ {}..{} }}", span.start(), span.end()),
+            RawExpression::ExternalWord => {
+                write!(f, "ExternalWord{{ {}..{} }}", span.start(), span.end())
+            }
+            RawExpression::FilePath(file) => write!(f, "Path{{ {} }}", file.display()),
+            RawExpression::Variable(variable) => write!(f, "{}", variable),
+            RawExpression::List(list) => f
+                .debug_list()
+                .entries(list.iter().map(|e| format!("{}", e)))
+                .finish(),
+            RawExpression::Binary(binary) => write!(f, "{}", binary),
+            RawExpression::Block(items) => {
+                write!(f, "Block")?;
+                f.debug_set()
+                    .entries(items.iter().map(|i| format!("{}", i)))
+                    .finish()
+            }
+            RawExpression::Path(path) => write!(f, "{}", path),
+            RawExpression::Boolean(b) => write!(f, "${}", b),
+            RawExpression::ExternalCommand(..) => {
+                write!(f, "ExternalComment{{ {}..{} }}", span.start(), span.end())
+            }
+        }
+    }
+}
 
 impl Expression {
     pub(crate) fn number(i: impl Into<Number>, tag: impl Into<Tag>) -> Expression {
@@ -151,8 +179,48 @@ impl Expression {
         RawExpression::Literal(Literal::String(inner.into())).tagged(outer.into())
     }
 
+    pub(crate) fn path(
+        head: Expression,
+        tail: Vec<Tagged<impl Into<String>>>,
+        tag: impl Into<Tag>,
+    ) -> Expression {
+        let tail = tail.into_iter().map(|t| t.map(|s| s.into())).collect();
+        RawExpression::Path(Box::new(Path::new(head, tail))).tagged(tag.into())
+    }
+
+    pub(crate) fn dot_member(head: Expression, next: Tagged<impl Into<String>>) -> Expression {
+        let Tagged { item, tag } = head;
+        let new_tag = head.tag.until(next.tag);
+
+        match item {
+            RawExpression::Path(path) => {
+                let (head, mut tail) = path.parts();
+
+                tail.push(next.map(|i| i.into()));
+                Expression::path(head, tail, new_tag)
+            }
+
+            other => Expression::path(other.tagged(tag), vec![next], new_tag),
+        }
+    }
+
+    pub(crate) fn infix(
+        left: Expression,
+        op: Tagged<impl Into<Operator>>,
+        right: Expression,
+    ) -> Expression {
+        let new_tag = left.tag.until(right.tag);
+
+        RawExpression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
+            .tagged(new_tag)
+    }
+
     pub(crate) fn file_path(path: impl Into<PathBuf>, outer: impl Into<Tag>) -> Expression {
         RawExpression::FilePath(path.into()).tagged(outer)
+    }
+
+    pub(crate) fn list(list: Vec<Expression>, tag: impl Into<Tag>) -> Expression {
+        RawExpression::List(list).tagged(tag)
     }
 
     pub(crate) fn bare(tag: impl Into<Tag>) -> Expression {
@@ -182,6 +250,7 @@ impl ToDebug for Expression {
             RawExpression::Literal(l) => l.tagged(self.tag()).fmt_debug(f, source),
             RawExpression::FilePath(p) => write!(f, "{}", p.display()),
             RawExpression::ExternalWord => write!(f, "{}", self.tag().slice(source)),
+            RawExpression::Command(tag) => write!(f, "{}", tag.slice(source)),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
             RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
@@ -232,6 +301,26 @@ pub enum Literal {
     Bare,
 }
 
+impl std::fmt::Display for Tagged<Literal> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", Tagged::new(self.tag, &self.item))
+    }
+}
+
+impl std::fmt::Display for Tagged<&Literal> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let span = self.tag.span;
+
+        match &self.item {
+            Literal::Number(number) => write!(f, "{}", number),
+            Literal::Size(number, unit) => write!(f, "{}{}", number, unit.as_str()),
+            Literal::String(_) => write!(f, "String{{ {}..{} }}", span.start(), span.end()),
+            Literal::GlobPattern => write!(f, "Glob{{ {}..{} }}", span.start(), span.end()),
+            Literal::Bare => write!(f, "Bare{{ {}..{} }}", span.start(), span.end()),
+        }
+    }
+}
+
 impl ToDebug for Tagged<&Literal> {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         match self.item() {
@@ -260,4 +349,13 @@ impl Literal {
 pub enum Variable {
     It(Tag),
     Other(Tag),
+}
+
+impl std::fmt::Display for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Variable::It(_) => write!(f, "$it"),
+            Variable::Other(tag) => write!(f, "${{ {}..{} }}", tag.span.start(), tag.span.end()),
+        }
+    }
 }

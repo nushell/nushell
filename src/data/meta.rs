@@ -1,4 +1,5 @@
 use crate::context::{AnchorLocation, SourceMap};
+use crate::parser::parse::parser::TracableContext;
 use crate::prelude::*;
 use crate::Text;
 use derive_new::new;
@@ -119,10 +120,7 @@ impl From<&Tag> for Tag {
 
 impl From<nom_locate::LocatedSpanEx<&str, Uuid>> for Span {
     fn from(input: nom_locate::LocatedSpanEx<&str, Uuid>) -> Span {
-        Span {
-            start: input.offset,
-            end: input.offset + input.fragment.len(),
-        }
+        Span::new(input.offset, input.offset + input.fragment.len())
     }
 }
 
@@ -147,10 +145,7 @@ impl<T>
 
 impl From<(usize, usize)> for Span {
     fn from(input: (usize, usize)) -> Span {
-        Span {
-            start: input.0,
-            end: input.1,
-        }
+        Span::new(input.0, input.1)
     }
 }
 
@@ -164,7 +159,7 @@ impl From<&std::ops::Range<usize>> for Span {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters,
+    Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters, new,
 )]
 pub struct Tag {
     pub anchor: Uuid,
@@ -189,11 +184,20 @@ impl From<&Span> for Tag {
     }
 }
 
+impl From<(usize, usize, TracableContext)> for Tag {
+    fn from((start, end, context): (usize, usize, TracableContext)) -> Self {
+        Tag {
+            anchor: context.origin,
+            span: Span::new(start, end),
+        }
+    }
+}
+
 impl From<(usize, usize, Uuid)> for Tag {
     fn from((start, end, anchor): (usize, usize, Uuid)) -> Self {
         Tag {
             anchor,
-            span: Span { start, end },
+            span: Span::new(start, end),
         }
     }
 }
@@ -201,24 +205,17 @@ impl From<(usize, usize, Uuid)> for Tag {
 impl From<(usize, usize, Option<Uuid>)> for Tag {
     fn from((start, end, anchor): (usize, usize, Option<Uuid>)) -> Self {
         Tag {
-            anchor: if let Some(uuid) = anchor {
-                uuid
-            } else {
-                uuid::Uuid::nil()
-            },
-            span: Span { start, end },
+            anchor: anchor.unwrap_or(uuid::Uuid::nil()),
+            span: Span::new(start, end),
         }
     }
 }
 
-impl From<nom_locate::LocatedSpanEx<&str, Uuid>> for Tag {
-    fn from(input: nom_locate::LocatedSpanEx<&str, Uuid>) -> Tag {
+impl From<nom_locate::LocatedSpanEx<&str, TracableContext>> for Tag {
+    fn from(input: nom_locate::LocatedSpanEx<&str, TracableContext>) -> Tag {
         Tag {
-            anchor: input.extra,
-            span: Span {
-                start: input.offset,
-                end: input.offset + input.fragment.len(),
-            },
+            anchor: input.extra.origin,
+            span: Span::new(input.offset, input.offset + input.fragment.len()),
         }
     }
 }
@@ -265,10 +262,7 @@ impl Tag {
         );
 
         Tag {
-            span: Span {
-                start: self.span.start,
-                end: other.span.end,
-            },
+            span: Span::new(self.span.start, other.span.end),
             anchor: self.anchor,
         }
     }
@@ -276,18 +270,46 @@ impl Tag {
     pub fn slice<'a>(&self, source: &'a str) -> &'a str {
         self.span.slice(source)
     }
+
+    pub fn string<'a>(&self, source: &'a str) -> String {
+        self.span.slice(source).to_string()
+    }
+
+    pub fn tagged_slice<'a>(&self, source: &'a str) -> Tagged<&'a str> {
+        self.span.slice(source).tagged(self)
+    }
+
+    pub fn tagged_string<'a>(&self, source: &'a str) -> Tagged<String> {
+        self.span.slice(source).to_string().tagged(self)
+    }
+}
+
+pub fn tag_for_tagged_list(mut iter: impl Iterator<Item = Tag>) -> Tag {
+    let first = iter.next();
+
+    let first = match first {
+        None => return Tag::unknown(),
+        Some(first) => first,
+    };
+
+    let last = iter.last();
+
+    match last {
+        None => first,
+        Some(last) => first.until(last),
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Span {
-    pub(crate) start: usize,
-    pub(crate) end: usize,
+    start: usize,
+    end: usize,
 }
 
 impl From<Option<Span>> for Span {
     fn from(input: Option<Span>) -> Span {
         match input {
-            None => Span { start: 0, end: 0 },
+            None => Span::new(0, 0),
             Some(span) => span,
         }
     }
@@ -295,7 +317,18 @@ impl From<Option<Span>> for Span {
 
 impl Span {
     pub fn unknown() -> Span {
-        Span { start: 0, end: 0 }
+        Span::new(0, 0)
+    }
+
+    pub fn new(start: usize, end: usize) -> Span {
+        assert!(
+            end >= start,
+            "Can't create a Span whose end < start, start={}, end={}",
+            start,
+            end
+        );
+
+        Span { start, end }
     }
 
     /*
@@ -308,6 +341,14 @@ impl Span {
     }
     */
 
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    pub fn end(&self) -> usize {
+        self.end
+    }
+
     pub fn is_unknown(&self) -> bool {
         self.start == 0 && self.end == 0
     }
@@ -319,17 +360,11 @@ impl Span {
 
 impl language_reporting::ReportingSpan for Span {
     fn with_start(&self, start: usize) -> Self {
-        Span {
-            start,
-            end: self.end,
-        }
+        Span::new(start, self.end)
     }
 
     fn with_end(&self, end: usize) -> Self {
-        Span {
-            start: self.start,
-            end,
-        }
+        Span::new(self.start, end)
     }
 
     fn start(&self) -> usize {
@@ -344,20 +379,14 @@ impl language_reporting::ReportingSpan for Span {
 impl language_reporting::ReportingSpan for Tag {
     fn with_start(&self, start: usize) -> Self {
         Tag {
-            span: Span {
-                start,
-                end: self.span.end,
-            },
+            span: Span::new(start, self.span.end),
             anchor: self.anchor,
         }
     }
 
     fn with_end(&self, end: usize) -> Self {
         Tag {
-            span: Span {
-                start: self.span.start,
-                end,
-            },
+            span: Span::new(self.span.start, end),
             anchor: self.anchor,
         }
     }

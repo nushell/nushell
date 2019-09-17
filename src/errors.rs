@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+use crate::parser::parse::parser::TracableContext;
 use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
@@ -62,6 +63,14 @@ impl ShellError {
         .start()
     }
 
+    pub(crate) fn unexpected_eof(expected: impl Into<String>, tag: Tag) -> ShellError {
+        ProximateShellError::UnexpectedEof {
+            expected: expected.into(),
+            tag,
+        }
+        .start()
+    }
+
     pub(crate) fn range_error(
         expected: impl Into<ExpectedRange>,
         actual: &Tagged<impl fmt::Debug>,
@@ -82,6 +91,7 @@ impl ShellError {
         .start()
     }
 
+    #[allow(unused)]
     pub(crate) fn invalid_command(problem: impl Into<Tag>) -> ShellError {
         ProximateShellError::InvalidCommand {
             command: problem.into(),
@@ -133,7 +143,7 @@ impl ShellError {
 
     pub(crate) fn parse_error(
         error: nom::Err<(
-            nom_locate::LocatedSpanEx<&str, uuid::Uuid>,
+            nom_locate::LocatedSpanEx<&str, TracableContext>,
             nom::error::ErrorKind,
         )>,
     ) -> ShellError {
@@ -235,7 +245,6 @@ impl ShellError {
                 Label::new_primary(tag)
                     .with_message(format!("Expected {}, found {}", expected, actual)),
             ),
-
             ProximateShellError::TypeError {
                 expected,
                 actual:
@@ -245,6 +254,11 @@ impl ShellError {
                     },
             } => Diagnostic::new(Severity::Error, "Type Error")
                 .with_label(Label::new_primary(tag).with_message(expected)),
+
+            ProximateShellError::UnexpectedEof {
+                expected, tag
+            } => Diagnostic::new(Severity::Error, format!("Unexpected end of input"))
+                .with_label(Label::new_primary(tag).with_message(format!("Expected {}", expected))),
 
             ProximateShellError::RangeError {
                 kind,
@@ -267,10 +281,10 @@ impl ShellError {
                 problem:
                     Tagged {
                         tag,
-                        ..
+                        item
                     },
             } => Diagnostic::new(Severity::Error, "Syntax Error")
-                .with_label(Label::new_primary(tag).with_message("Unexpected external command")),
+                .with_label(Label::new_primary(tag).with_message(item)),
 
             ProximateShellError::MissingProperty { subpath, expr } => {
                 let subpath = subpath.into_label();
@@ -340,6 +354,10 @@ impl ShellError {
     pub(crate) fn unexpected(title: impl Into<String>) -> ShellError {
         ShellError::string(&format!("Unexpected: {}", title.into()))
     }
+
+    pub(crate) fn unreachable(title: impl Into<String>) -> ShellError {
+        ShellError::string(&format!("BUG: Unreachable: {}", title.into()))
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
@@ -386,6 +404,10 @@ pub enum ProximateShellError {
     String(StringError),
     SyntaxError {
         problem: Tagged<String>,
+    },
+    UnexpectedEof {
+        expected: String,
+        tag: Tag,
     },
     InvalidCommand {
         command: Tag,
@@ -473,6 +495,7 @@ impl std::fmt::Display for ShellError {
             ProximateShellError::MissingValue { .. } => write!(f, "MissingValue"),
             ProximateShellError::InvalidCommand { .. } => write!(f, "InvalidCommand"),
             ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
+            ProximateShellError::UnexpectedEof { .. } => write!(f, "UnexpectedEof"),
             ProximateShellError::RangeError { .. } => write!(f, "RangeError"),
             ProximateShellError::SyntaxError { .. } => write!(f, "SyntaxError"),
             ProximateShellError::MissingProperty { .. } => write!(f, "MissingProperty"),

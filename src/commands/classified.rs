@@ -1,12 +1,11 @@
-use crate::commands::Command;
 use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
+use derive_new::new;
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use log::{log_enabled, trace};
 use std::io::{Error, ErrorKind};
-use std::sync::Arc;
 use subprocess::Exec;
 
 /// A simple `Codec` implementation that splits up data into lines.
@@ -77,16 +76,25 @@ pub(crate) struct ClassifiedPipeline {
     pub(crate) commands: Vec<ClassifiedCommand>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
     Internal(InternalCommand),
+    #[allow(unused)]
+    Dynamic(hir::Call),
     External(ExternalCommand),
 }
 
+#[derive(new, Debug, Eq, PartialEq)]
 pub(crate) struct InternalCommand {
-    pub(crate) command: Arc<Command>,
+    pub(crate) name: String,
     pub(crate) name_tag: Tag,
+    pub(crate) args: hir::Call,
+}
+
+#[derive(new, Debug, Eq, PartialEq)]
+pub(crate) struct DynamicCommand {
     pub(crate) args: hir::Call,
 }
 
@@ -100,15 +108,17 @@ impl InternalCommand {
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
             trace!(target: "nu::run::internal", "->");
-            trace!(target: "nu::run::internal", "{}", self.command.name());
+            trace!(target: "nu::run::internal", "{}", self.name);
             trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
         let objects: InputStream =
             trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
+        let command = context.expect_command(&self.name);
+
         let result = context.run_command(
-            self.command,
+            command,
             self.name_tag.clone(),
             context.source_map.clone(),
             self.args,
@@ -185,6 +195,7 @@ impl InternalCommand {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) struct ExternalCommand {
     pub(crate) name: String,
 
@@ -192,6 +203,7 @@ pub(crate) struct ExternalCommand {
     pub(crate) args: Vec<Tagged<String>>,
 }
 
+#[derive(Debug)]
 pub(crate) enum StreamNext {
     Last,
     External,
@@ -220,6 +232,8 @@ impl ExternalCommand {
         let mut process;
 
         process = Exec::cmd(&self.name);
+
+        trace!(target: "nu::run::external", "command = {:?}", process);
 
         if arg_string.contains("$it") {
             let mut first = true;
@@ -275,6 +289,8 @@ impl ExternalCommand {
 
         process = process.cwd(context.shell_manager.path());
 
+        trace!(target: "nu::run::external", "cwd = {:?}", context.shell_manager.path());
+
         let mut process = match stream_next {
             StreamNext::Last => process,
             StreamNext::External | StreamNext::Internal => {
@@ -282,11 +298,18 @@ impl ExternalCommand {
             }
         };
 
+        trace!(target: "nu::run::external", "set up stdout pipe");
+
         if let Some(stdin) = stdin {
             process = process.stdin(stdin);
         }
 
-        let mut popen = process.popen()?;
+        trace!(target: "nu::run::external", "set up stdin pipe");
+        trace!(target: "nu::run::external", "built process {:?}", process);
+
+        let mut popen = process.popen().unwrap();
+
+        trace!(target: "nu::run::external", "next = {:?}", stream_next);
 
         match stream_next {
             StreamNext::Last => {

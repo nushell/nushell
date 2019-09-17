@@ -507,6 +507,15 @@ pub enum Command {
     PerItem(Arc<dyn PerItemCommand>),
 }
 
+impl std::fmt::Debug for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Command::WholeStream(command) => write!(f, "WholeStream({})", command.name()),
+            Command::PerItem(command) => write!(f, "PerItem({})", command.name()),
+        }
+    }
+}
+
 impl Command {
     pub fn name(&self) -> &str {
         match self {
