@@ -22,7 +22,7 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn file_id(&self, tag: Self::Span) -> Self::FileId {
-        tag.origin.unwrap()
+        tag.origin
     }
 
     fn file_name(&self, _file: Self::FileId) -> FileName {

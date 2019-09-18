@@ -219,7 +219,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
     let value_origin = value.origin();
     match value.item {
         Value::Primitive(Primitive::String(ref s)) => {
-            let source = value_origin.and_then(|x| source_map.get(&x));
+            let source = source_map.get(&value_origin);
 
             if let Some(source) = source {
                 let extension: Option<String> = match source {

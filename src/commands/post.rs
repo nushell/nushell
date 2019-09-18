@@ -85,10 +85,10 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if let Some(uuid) = contents_tag.origin {
+        if contents_tag.origin != uuid::Uuid::nil() {
             // If we have loaded something, track its source
             yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                uuid,
+                contents_tag.origin,
                 span_source,
             ));
         }

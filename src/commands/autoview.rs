@@ -113,10 +113,7 @@ fn is_single_origined_text_value(input: &Vec<Tagged<Value>>) -> bool {
 
     if let Tagged {
         item: Value::Primitive(Primitive::String(_)),
-        tag: Tag {
-            origin: Some(origin),
-            ..
-        },
+        tag: Tag { origin, .. },
     } = input[0]
     {
         origin != uuid::Uuid::nil()
