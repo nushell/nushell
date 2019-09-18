@@ -9,8 +9,8 @@ use crate::commands::whole_stream_command;
 use crate::context::Context;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
+use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 use crate::git::current_branch;
-use crate::histsearch;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
 use crate::prelude::*;
@@ -354,19 +354,18 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             readline = rl.readline_with_initial(prompt, (&cmd, ""));
             if let Err(ReadlineError::Eof) = &readline {
                 // Fuzzy search in history
-                let hist = std::fs::read_to_string("history.txt").expect("Cannot open history.txt");
-                let lines = hist.lines().rev().collect();
-                let selection = histsearch::select_from_list(&lines); // Clears last line with prompt
+                let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
+                let selection = interactive_fuzzy_search(&lines, 5); // Clears last line with prompt
                 match selection {
-                    histsearch::SelectionResult::Selected(line) => {
+                    SelectionResult::Selected(line) => {
                         println!("{}{}", &prompt, &line); // TODO: colorize prompt
                         readline = Ok(line.clone());
                         initial_command = None;
                     }
-                    histsearch::SelectionResult::Edit(line) => {
+                    SelectionResult::Edit(line) => {
                         initial_command = Some(line);
                     }
-                    histsearch::SelectionResult::NoSelection => {
+                    SelectionResult::NoSelection => {
                         readline = Ok("".to_string());
                         initial_command = None;
                     }

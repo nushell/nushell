@@ -9,8 +9,7 @@ pub enum SelectionResult {
     NoSelection,
 }
 
-pub fn select_from_list(lines: &Vec<&str>) -> SelectionResult {
-    const MAX_RESULTS: usize = 5;
+pub fn interactive_fuzzy_search(lines: &Vec<&str>, max_results: usize) -> SelectionResult {
     #[derive(PartialEq)]
     enum State {
         Selecting,
@@ -30,7 +29,7 @@ pub fn select_from_list(lines: &Vec<&str>) -> SelectionResult {
         let mut sync_stdin = input.read_sync();
 
         while state == State::Selecting {
-            let search_result = search(&searchinput, &lines, MAX_RESULTS);
+            let search_result = fuzzy_search(&searchinput, &lines, max_results);
             let selected_lines: Vec<&str> = search_result
                 .iter()
                 .map(|item| &item.highlighted_text as &str)
@@ -96,8 +95,8 @@ struct Match {
     text_idx: usize,
 }
 
-fn search(input: &String, lines: &Vec<&str>, max_results: usize) -> Vec<Match> {
-    if input.is_empty() {
+fn fuzzy_search(searchstr: &str, lines: &Vec<&str>, max_results: usize) -> Vec<Match> {
+    if searchstr.is_empty() {
         return lines
             .iter()
             .take(max_results)
@@ -112,7 +111,7 @@ fn search(input: &String, lines: &Vec<&str>, max_results: usize) -> Vec<Match> {
     let mut matches = lines
         .iter()
         .enumerate()
-        .map(|(idx, line)| (idx, best_match(&input, line)))
+        .map(|(idx, line)| (idx, best_match(&searchstr, line)))
         .filter(|(_i, m)| m.is_some())
         .map(|(i, m)| (i, m.unwrap()))
         .collect::<Vec<_>>();
