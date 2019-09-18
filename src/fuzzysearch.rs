@@ -1,4 +1,4 @@
-use ansi_term::Colour;
+use ansi_term::{ANSIString, ANSIStrings, Colour, Style};
 use crossterm::{cursor, terminal, ClearType, InputEvent, KeyEvent, RawScreen};
 use std::io::Write;
 use sublime_fuzzy::best_match;
@@ -29,9 +29,8 @@ pub fn interactive_fuzzy_search(lines: &Vec<&str>, max_results: usize) -> Select
         let mut sync_stdin = input.read_sync();
 
         while state == State::Selecting {
-            let mut search_result = fuzzy_search(&searchinput, &lines, max_results);
-            let selected_lines: Vec<String> =
-                search_result.iter().map(|item| highlight(&item)).collect();
+            let mut selected_lines = fuzzy_search(&searchinput, &lines, max_results);
+            let num_lines = selected_lines.len();
             paint_selection_list(&selected_lines, selected);
             if let Some(ev) = sync_stdin.next() {
                 match ev {
@@ -50,10 +49,18 @@ pub fn interactive_fuzzy_search(lines: &Vec<&str>, max_results: usize) -> Select
                             }
                         }
                         KeyEvent::Char('\n') => {
-                            state = State::Selected(search_result.remove(selected).text);
+                            state = if selected_lines.len() > 0 {
+                                State::Selected(selected_lines.remove(selected).text)
+                            } else {
+                                State::Edit("".to_string())
+                            };
                         }
                         KeyEvent::Char('\t') | KeyEvent::Right => {
-                            state = State::Edit(search_result.remove(selected).text);
+                            state = if selected_lines.len() > 0 {
+                                State::Edit(selected_lines.remove(selected).text)
+                            } else {
+                                State::Edit("".to_string())
+                            };
                         }
                         KeyEvent::Char(ch) => {
                             searchinput.push(ch);
@@ -70,16 +77,16 @@ pub fn interactive_fuzzy_search(lines: &Vec<&str>, max_results: usize) -> Select
                     _ => {}
                 }
             }
-            cursor.move_up(selected_lines.len() as u16);
+            if num_lines > 0 {
+                cursor.move_up(num_lines as u16);
+            }
         }
         let (_x, y) = cursor.pos();
         let _ = cursor.goto(0, y - 1);
         let _ = cursor.show();
-
         let _ = RawScreen::disable_raw_mode();
     }
-    let terminal = terminal();
-    terminal.clear(ClearType::FromCursorDown).unwrap();
+    terminal().clear(ClearType::FromCursorDown).unwrap();
 
     match state {
         State::Selected(line) => SelectionResult::Selected(line),
@@ -125,33 +132,39 @@ pub fn fuzzy_search(searchstr: &str, lines: &Vec<&str>, max_results: usize) -> V
     results
 }
 
-fn highlight(textmatch: &Match) -> String {
-    let hlcol = Colour::Cyan;
+fn highlight(textmatch: &Match, normal: Style, highlighted: Style) -> Vec<ANSIString> {
     let text = &textmatch.text;
-    let mut outstr = String::with_capacity(text.len());
+    let mut ansi_strings = vec![];
     let mut idx = 0;
     for (match_idx, len) in &textmatch.char_matches {
-        outstr.push_str(&text[idx..*match_idx]);
+        ansi_strings.push(normal.paint(&text[idx..*match_idx]));
         idx = match_idx + len;
-        outstr.push_str(&format!("{}", hlcol.paint(&text[*match_idx..idx])));
+        ansi_strings.push(highlighted.paint(&text[*match_idx..idx]));
     }
     if idx < text.len() {
-        outstr.push_str(&text[idx..text.len()]);
+        ansi_strings.push(normal.paint(&text[idx..text.len()]));
     }
-    outstr
+    ansi_strings
 }
 
-fn paint_selection_list(lines: &Vec<String>, selected: usize) {
-    let dimmed = Colour::White.dimmed();
+fn paint_selection_list(lines: &Vec<Match>, selected: usize) {
+    let terminal = terminal();
+    let size = terminal.terminal_size();
+    let width = size.0 as usize;
     let cursor = cursor();
     let (_x, y) = cursor.pos();
     for (i, line) in lines.iter().enumerate() {
         let _ = cursor.goto(0, y + (i as u16));
-        if selected == i {
-            println!("{}", line);
+        let (style, highlighted) = if selected == i {
+            (Colour::White.normal(), Colour::Cyan.normal())
         } else {
-            println!("{}", dimmed.paint(line));
+            (Colour::White.dimmed(), Colour::Cyan.normal())
+        };
+        let mut ansi_strings = highlight(line, style, highlighted);
+        for _ in line.text.len()..width {
+            ansi_strings.push(style.paint(' '.to_string()));
         }
+        println!("{}", ANSIStrings(&ansi_strings));
     }
     let _ = cursor.goto(0, y + (lines.len() as u16));
     print!(
@@ -161,7 +174,7 @@ fn paint_selection_list(lines: &Vec<String>, selected: usize) {
 
     let _ = std::io::stdout().flush();
     // Clear additional lines from previous selection
-    terminal().clear(ClearType::FromCursorDown).unwrap();
+    terminal.clear(ClearType::FromCursorDown).unwrap();
 }
 
 #[test]
