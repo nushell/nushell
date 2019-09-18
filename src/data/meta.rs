@@ -86,6 +86,10 @@ impl<T> Tagged<T> {
         self.tag
     }
 
+    pub fn span(&self) -> Span {
+        self.tag.span
+    }
+
     // TODO: This should not be optional
     pub fn origin(&self) -> Option<uuid::Uuid> {
         self.tag.origin

@@ -110,6 +110,7 @@ fn is_single_origined_text_value(input: &Vec<Tagged<Value>>) -> bool {
     if input.len() != 1 {
         return false;
     }
+
     if let Tagged {
         item: Value::Primitive(Primitive::String(_)),
         tag: Tag {
