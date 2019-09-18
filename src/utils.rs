@@ -33,7 +33,13 @@ impl AbsoluteFile {
     }
 
     pub fn dir(&self) -> AbsolutePath {
-        AbsolutePath::new(self.inner.parent().unwrap())
+        match self.inner.parent() {
+            Some(x) => AbsolutePath::new(x),
+            None => panic!(
+                "AbsoluteFile: broken invariant, not an absolute path :: {}",
+                self.inner.display()
+            ),
+        }
     }
 }
 

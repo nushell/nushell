@@ -322,9 +322,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         let edit_mode = crate::data::config::config(Tag::unknown())?
             .get("edit_mode")
-            .map(|s| match s.as_string().unwrap().as_ref() {
-                "vi" => EditMode::Vi,
-                "emacs" => EditMode::Emacs,
+            .map(|s| match s.item {
+                Value::Primitive(Primitive::String(ref s)) if s == "vi" => EditMode::Vi,
+
                 _ => EditMode::Emacs,
             })
             .unwrap_or(EditMode::Emacs);
@@ -563,10 +563,9 @@ fn classify_command(
             let head = call.head();
             let name = head.source(source);
 
-            match context.has_command(name) {
+            match context.get_command(name) {
                 // if the command is in the registry, it's an internal command
-                true => {
-                    let command = context.get_command(name);
+                Some(command) => {
                     let config = command.signature();
 
                     trace!(target: "nu::build_pipeline", "classifying {:?}", config);
@@ -583,7 +582,7 @@ fn classify_command(
                 }
 
                 // otherwise, it's an external command
-                false => Ok(external_command(call, source, name.tagged(head.tag()))),
+                None => Ok(external_command(call, source, name.tagged(head.tag()))),
             }
         }
 

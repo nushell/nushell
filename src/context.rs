@@ -47,25 +47,33 @@ impl CommandRegistry {
         }
     }
 
+    // NOTE: we choose to ignore poisons, since there aren't invariants which could be lost in a
+    // panic
+    fn lock_registry(&self) -> std::sync::MutexGuard<IndexMap<String, Arc<Command>>> {
+        self.registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.lock_registry();
 
         registry.get(name).map(|c| c.clone())
     }
 
     pub(crate) fn has(&self, name: &str) -> bool {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.lock_registry();
 
         registry.contains_key(name)
     }
 
     fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
-        let mut registry = self.registry.lock().unwrap();
+        let mut registry = self.lock_registry();
         registry.insert(name.into(), command);
     }
 
     pub(crate) fn names(&self) -> Vec<String> {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.lock_registry();
         registry.keys().cloned().collect()
     }
 }
@@ -94,7 +102,8 @@ impl Context {
     }
 
     pub(crate) fn with_host(&mut self, block: impl FnOnce(&mut dyn Host)) {
-        let mut host = self.host.lock().unwrap();
+        // as with the registry, we don't have any invariants that could be lost in a panic
+        let mut host = self.host.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
         block(&mut *host)
     }
@@ -109,12 +118,8 @@ impl Context {
         self.source_map.insert(uuid, span_source);
     }
 
-    pub(crate) fn has_command(&self, name: &str) -> bool {
-        self.registry.has(name)
-    }
-
-    pub(crate) fn get_command(&self, name: &str) -> Arc<Command> {
-        self.registry.get_command(name).unwrap()
+    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+        self.registry.get_command(name)
     }
 
     pub(crate) fn run_command<'a>(
