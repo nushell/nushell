@@ -1,11 +1,13 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
+use crate::data::meta::Span;
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 pub struct Open;
 
 impl PerItemCommand for Open {
@@ -52,7 +54,7 @@ fn run(
     };
     let path_buf = path.as_path()?;
     let path_str = path_buf.display().to_string();
-    let path_span = path.tag();
+    let path_span = path.span();
     let has_raw = call_info.args.has("raw");
     let registry = registry.clone();
     let raw_args = raw_args.clone();
@@ -75,10 +77,10 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if let Some(uuid) = contents_tag.origin {
+        if contents_tag.origin != uuid::Uuid::nil() {
             // If we have loaded something, track its source
             yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                uuid,
+                contents_tag.origin,
                 span_source,
             ));
         }
@@ -131,7 +133,7 @@ fn run(
 pub async fn fetch(
     cwd: &PathBuf,
     location: &str,
-    tag: Tag,
+    span: Span,
 ) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
     let mut cwd = cwd.clone();
 
@@ -143,7 +145,10 @@ pub async fn fetch(
                     cwd.extension()
                         .map(|name| name.to_string_lossy().to_string()),
                     Value::string(s),
-                    tag,
+                    Tag {
+                        span,
+                        origin: Uuid::new_v4(),
+                    },
                     SpanSource::File(cwd.to_string_lossy().to_string()),
                 )),
                 Err(_) => {
@@ -159,13 +164,19 @@ pub async fn fetch(
                                         cwd.extension()
                                             .map(|name| name.to_string_lossy().to_string()),
                                         Value::string(s),
-                                        tag,
+                                        Tag {
+                                            span,
+                                            origin: Uuid::new_v4(),
+                                        },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
                                     Err(_) => Ok((
                                         None,
                                         Value::binary(bytes),
-                                        tag,
+                                        Tag {
+                                            span,
+                                            origin: Uuid::new_v4(),
+                                        },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
                                 }
@@ -173,7 +184,10 @@ pub async fn fetch(
                                 Ok((
                                     None,
                                     Value::binary(bytes),
-                                    tag,
+                                    Tag {
+                                        span,
+                                        origin: Uuid::new_v4(),
+                                    },
                                     SpanSource::File(cwd.to_string_lossy().to_string()),
                                 ))
                             }
@@ -188,13 +202,19 @@ pub async fn fetch(
                                         cwd.extension()
                                             .map(|name| name.to_string_lossy().to_string()),
                                         Value::string(s),
-                                        tag,
+                                        Tag {
+                                            span,
+                                            origin: Uuid::new_v4(),
+                                        },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
                                     Err(_) => Ok((
                                         None,
                                         Value::binary(bytes),
-                                        tag,
+                                        Tag {
+                                            span,
+                                            origin: Uuid::new_v4(),
+                                        },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
                                 }
@@ -202,7 +222,10 @@ pub async fn fetch(
                                 Ok((
                                     None,
                                     Value::binary(bytes),
-                                    tag,
+                                    Tag {
+                                        span,
+                                        origin: Uuid::new_v4(),
+                                    },
                                     SpanSource::File(cwd.to_string_lossy().to_string()),
                                 ))
                             }
@@ -210,7 +233,10 @@ pub async fn fetch(
                         _ => Ok((
                             None,
                             Value::binary(bytes),
-                            tag,
+                            Tag {
+                                span,
+                                origin: Uuid::new_v4(),
+                            },
                             SpanSource::File(cwd.to_string_lossy().to_string()),
                         )),
                     }
@@ -220,7 +246,7 @@ pub async fn fetch(
                 return Err(ShellError::labeled_error(
                     "File could not be opened",
                     "file not found",
-                    tag,
+                    span,
                 ));
             }
         }
@@ -228,7 +254,7 @@ pub async fn fetch(
         return Err(ShellError::labeled_error(
             "File could not be opened",
             "file not found",
-            tag,
+            span,
         ));
     }
 }

@@ -136,7 +136,7 @@ fn save(
             // If there is no filename, check the metadata for the origin filename
             if input.len() > 0 {
                 let origin = input[0].origin();
-                match origin.and_then(|x| source_map.get(&x)) {
+                match source_map.get(&origin) {
                     Some(path) => match path {
                         SpanSource::File(file) => {
                             full_path.push(Path::new(file));

@@ -24,7 +24,7 @@ impl Plugin for BinaryView {
             let value_origin = v.origin();
             match v.item {
                 Value::Primitive(Primitive::Binary(b)) => {
-                    let source = value_origin.and_then(|x| call_info.source_map.get(&x));
+                    let source = call_info.source_map.get(&value_origin);
                     let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}
