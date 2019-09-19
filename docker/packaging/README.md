@@ -6,15 +6,40 @@ This directory contains docker images used for creating packages for different d
 
 Start with:
 
-`docker build -f docker/packaging/Dockerfile.ubuntu-bionic .`
+```bash
+$ docker build -f docker/packaging/Dockerfile.ubuntu-bionic -t nushell/package:ubuntu-bionic .
+```
 
-after building the image please run container
+after building the image please run container:
 
-`docker run -d --name nushell <image-id>`
- 
+```bash
+$ docker run -td --rm --name nushell_package_ubuntu_bionic nushell/package:ubuntu-bionic
+``` 
+
 and copy deb package from inside:
 
-`docker cp nushell:/nu_0.2.0-1_amd64.deb .`
+```bash
+$ docker cp nushell_package_ubuntu_bionic:/nu_0.2.0-1_amd64.deb .
+```
+
+or shell inside, and test install:
+
+```bash
+$ docker exec -it nushell_package_ubuntu_bionic bash
+$ dpkg -i /nu_0.2.0-1_amd64.deb
+
+(Reading database ... 25656 files and directories currently installed.)
+Preparing to unpack /nu_0.2.0-1_amd64.deb ...
+Unpacking nu (0.2.0-1) over (0.2.0-1) ...
+Setting up nu (0.2.0-1) ...
+```
+
+When you are finished, exit and stop the container. It will be removed since we
+used `--rm`.
+
+```bash
+$ docker stop nushell_package_ubuntu_bionic
+```
 
 ## What should be done
 
