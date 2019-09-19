@@ -130,7 +130,7 @@ impl InternalCommand {
                     CommandAction::AddSpanSource(uuid, span_source) => {
                         context.add_span_source(uuid, span_source);
                     }
-                    CommandAction::Exit => std::process::exit(0),
+                    CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
                     CommandAction::EnterHelpShell(value) => {
                         match value {
                             Tagged {
@@ -170,7 +170,7 @@ impl InternalCommand {
                     CommandAction::LeaveShell => {
                         context.shell_manager.remove_at_current();
                         if context.shell_manager.is_empty() {
-                            std::process::exit(0);
+                            std::process::exit(0); // TODO: save history.txt
                         }
                     }
                 },

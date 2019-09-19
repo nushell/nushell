@@ -399,6 +399,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
             LineResult::CtrlC => {
                 if ctrlcbreak {
+                    let _ = rl.save_history(&History::path());
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
