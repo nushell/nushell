@@ -424,6 +424,22 @@ fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
 }
 
 #[test]
+fn can_encode_and_decode_urlencoding() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+            r#"
+                open sample.url
+                | to-url
+                | from-url
+                | get cheese
+                | echo $it
+            "#
+    ));
+
+    assert_eq!(actual, "comté");
+}
+
+#[test]
 fn can_sort_by_column() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
