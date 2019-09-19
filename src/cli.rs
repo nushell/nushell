@@ -336,6 +336,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         // Register Ctrl-r for history fuzzy search
         // rustyline doesn't support custom commands, so we override Ctrl-D (EOF)
+        #[cfg(not(windows))] // https://github.com/nushell/nushell/issues/689
         rl.bind_sequence(rustyline::KeyPress::Ctrl('R'), rustyline::Cmd::EndOfFile);
         // Redefine Ctrl-D to same command as Ctrl-C
         rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
