@@ -10,7 +10,7 @@ Start with:
 
 after building the image please run container
 
-`docker run -d --name nushell $(docker images -q -a | head -n+1)`
+`docker run -d --name nushell <image-id>`
  
 and copy deb package from inside:
 
