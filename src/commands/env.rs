@@ -1,3 +1,4 @@
+use crate::data::config;
 use crate::data::{Dictionary, Value};
 use crate::errors::ShellError;
 use crate::prelude::*;
@@ -40,6 +41,9 @@ pub fn get_environment(tag: Tag) -> Result<Tagged<Value>, Box<dyn std::error::Er
     if let Some(home) = dirs::home_dir() {
         indexmap.insert("home".to_string(), Value::path(home).tagged(tag));
     }
+
+    let config = config::default_path()?;
+    indexmap.insert("config".to_string(), Value::path(config).tagged(tag));
 
     let temp = std::env::temp_dir();
     indexmap.insert("temp".to_string(), Value::path(temp).tagged(tag));
