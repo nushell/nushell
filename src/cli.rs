@@ -7,6 +7,7 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
+use crate::data::config;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
 use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
@@ -22,6 +23,7 @@ use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug)]
@@ -210,6 +212,20 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     Ok(())
 }
 
+struct History;
+
+impl History {
+    pub fn path() -> PathBuf {
+        const FNAME: &str = "history.txt";
+        config::user_data()
+            .map(|mut p| {
+                p.push(FNAME);
+                p
+            })
+            .unwrap_or(PathBuf::from(FNAME))
+    }
+}
+
 pub async fn cli() -> Result<(), Box<dyn Error>> {
     let mut context = Context::basic()?;
 
@@ -302,7 +318,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     }
 
     // we are ok if history does not exist
-    let _ = rl.load_history("history.txt");
+    let _ = rl.load_history(&History::path());
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
     let cc = ctrl_c.clone();
@@ -323,7 +339,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             context.shell_manager.clone(),
         )));
 
-        let edit_mode = crate::data::config::config(Tag::unknown())?
+        let edit_mode = config::config(Tag::unknown())?
             .get("edit_mode")
             .map(|s| match s.as_string().unwrap().as_ref() {
                 "vi" => EditMode::Vi,
@@ -417,7 +433,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history("history.txt");
+    let _ = rl.save_history(&History::path());
 
     Ok(())
 }

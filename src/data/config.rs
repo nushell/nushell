@@ -23,10 +23,7 @@ pub const APP_INFO: AppInfo = AppInfo {
 };
 
 pub fn config_path() -> Result<PathBuf, ShellError> {
-    let path = app_root(AppDataType::UserConfig, &APP_INFO)
-        .map_err(|err| ShellError::string(&format!("Couldn't open config path:\n{}", err)))?;
-
-    Ok(path)
+    app_path(AppDataType::UserConfig, "config")
 }
 
 pub fn default_path() -> Result<PathBuf, ShellError> {
@@ -47,6 +44,17 @@ pub fn default_path_for(file: &Option<PathBuf>) -> Result<PathBuf, ShellError> {
     };
 
     Ok(filename.clone())
+}
+
+pub fn user_data() -> Result<PathBuf, ShellError> {
+    app_path(AppDataType::UserData, "user data")
+}
+
+pub fn app_path(app_data_type: AppDataType, display: &str) -> Result<PathBuf, ShellError> {
+    let path = app_root(app_data_type, &APP_INFO)
+        .map_err(|err| ShellError::string(&format!("Couldn't open {} path:\n{}", display, err)))?;
+
+    Ok(path)
 }
 
 pub fn read(
