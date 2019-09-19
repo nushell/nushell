@@ -212,7 +212,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     Ok(())
 }
 
-struct History;
+pub struct History;
 
 impl History {
     pub fn path() -> PathBuf {
