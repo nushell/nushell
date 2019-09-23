@@ -53,11 +53,6 @@ You can also install Nu with all the bells and whistles:
 cargo +nightly install nu --all-features
 ```
 
-The following optional features are currently supported:
-
-* **raw-key** - direct keyboard input, which creates a smoother experience in viewing text and binaries
-* **clipboard** - integration with the native clipboard via the `clip` command
-
 ## Docker
 
 If you want to pull a pre-built container, you can browse tags for the [nushell organization](https://quay.io/organization/nushell)
