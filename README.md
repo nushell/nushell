@@ -269,6 +269,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | to-bson | Convert table into .bson binary data |
 | to-tsv | Convert table into .tsv text |
 | to-sqlite | Convert table to sqlite .db binary data |
+| to-url | Convert table to a urlencoded string |
 
 ## Filters on text (unstructured data)
 | command | description |
@@ -280,6 +281,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-sqlite | Parse binary data as sqlite .db and create table |
 | from-toml | Parse text as .toml and create table |
 | from-tsv  | Parse text as .tsv and create table  |
+| from-url | Parse urlencoded string and create a table |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
