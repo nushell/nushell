@@ -92,7 +92,10 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                     }
                     Err(e) => Err(e),
                 },
-                Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
+                Err(e) => {
+                    trace!("incompatible plugin {:?}", input);
+                    Err(ShellError::string(format!("Error: {:?}", e)))
+                }
             }
         }
         Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
@@ -204,7 +207,9 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
 
                     if is_valid_name && is_executable {
                         trace!("Trying {:?}", bin.display());
-                        load_plugin(&bin, context)?;
+
+                        // we are ok if this plugin load fails
+                        let _ = load_plugin(&bin, context);
                     }
                 }
             }
