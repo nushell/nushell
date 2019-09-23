@@ -7,7 +7,7 @@
 
 A modern shell for the GitHub era
 
-![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
+![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
 
 # Status
 
