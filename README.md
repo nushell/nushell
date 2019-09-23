@@ -19,7 +19,7 @@ Nu comes with a set of built-in commands (listed below). If a command is unknown
 
 There are a few good resources to learn about Nu. First, there is a [book](https://book.nushell.sh) about Nu, currently in progress. The book focuses on using Nu and its core concepts.
 
-If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-handbook/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
 We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
 
