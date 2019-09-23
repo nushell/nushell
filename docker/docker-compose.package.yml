@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  nushell:
+    image: ${REGISTRY}/nu:${TAG}
+    build:
+      context: ..
+      dockerfile: docker/Package${PATCH}.Dockerfile
+      args:
+        base: ${BASE_IMAGE}
+        artifact: ${NU_BINS}
