@@ -72,21 +72,23 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
                         trace!("processing {:?}", params);
 
-                        if params.is_filter {
-                            let fname = fname.to_string();
-                            let name = params.name.clone();
-                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
-                                name, fname, params,
-                            ))]);
-                            Ok(())
+                        let name = params.name.clone();
+                        let fname = fname.to_string();
+
+                        if context.has_command(&name) {
+                            trace!("plugin {:?} already loaded.", &name);
                         } else {
-                            let fname = fname.to_string();
-                            let name = params.name.clone();
-                            context.add_commands(vec![whole_stream_command(PluginSink::new(
-                                name, fname, params,
-                            ))]);
-                            Ok(())
+                            if params.is_filter {
+                                context.add_commands(vec![whole_stream_command(
+                                    PluginCommand::new(name, fname, params),
+                                )]);
+                            } else {
+                                context.add_commands(vec![whole_stream_command(PluginSink::new(
+                                    name, fname, params,
+                                ))]);
+                            };
                         }
+                        Ok(())
                     }
                     Err(e) => Err(e),
                 },
