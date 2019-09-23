@@ -50,7 +50,7 @@ cargo +nightly install nu
 You can also install Nu with all the bells and whistles:
 
 ```
-cargo +nightly install nu --features raw-key,clipboard
+cargo +nightly install nu --all-features
 ```
 
 The following optional features are currently supported:
