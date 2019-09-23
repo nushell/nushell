@@ -18,7 +18,7 @@ pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub source: Text,
     pub source_map: SourceMap,
-    pub name_span: Span,
+    pub name_tag: Tag,
 }
 
 impl ToDebug for UnevaluatedCallInfo {
@@ -38,35 +38,8 @@ impl UnevaluatedCallInfo {
         Ok(CallInfo {
             args,
             source_map: self.source_map,
-            name_span: self.name_span,
+            name_tag: self.name_tag,
         })
-    }
-
-    pub fn has_it_or_block(&self) -> bool {
-        use hir::RawExpression;
-        use hir::Variable;
-
-        if let Some(positional) = &self.args.positional() {
-            for pos in positional {
-                match pos {
-                    Tagged {
-                        item: RawExpression::Variable(Variable::It(_)),
-                        ..
-                    } => {
-                        return true;
-                    }
-                    Tagged {
-                        item: RawExpression::Block(_),
-                        ..
-                    } => {
-                        return true;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        false
     }
 }
 
@@ -74,7 +47,7 @@ impl UnevaluatedCallInfo {
 pub struct CallInfo {
     pub args: registry::EvaluatedArgs,
     pub source_map: SourceMap,
-    pub name_span: Span,
+    pub name_tag: Tag,
 }
 
 impl CallInfo {
@@ -89,7 +62,7 @@ impl CallInfo {
             args: T::deserialize(&mut deserializer)?,
             context: RunnablePerItemContext {
                 shell_manager: shell_manager.clone(),
-                name: self.name_span,
+                name: self.name_tag,
             },
             callback,
         })
@@ -158,7 +131,7 @@ impl CommandArgs {
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
-        let name_span = args.call_info.name_span;
+        let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
 
         Ok(RunnableArgs {
@@ -167,7 +140,7 @@ impl CommandArgs {
                 input,
                 commands: registry.clone(),
                 shell_manager,
-                name: name_span,
+                name: name_tag,
                 source_map,
                 host,
             },
@@ -191,7 +164,7 @@ impl CommandArgs {
         let host = self.host.clone();
         let args = self.evaluate_once(registry)?;
         let (input, args) = args.split();
-        let name_span = args.call_info.name_span;
+        let name_tag = args.call_info.name_tag;
         let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
 
         Ok(RunnableRawArgs {
@@ -200,7 +173,7 @@ impl CommandArgs {
                 input,
                 commands: registry.clone(),
                 shell_manager,
-                name: name_span,
+                name: name_tag,
                 source_map,
                 host,
             },
@@ -212,7 +185,7 @@ impl CommandArgs {
 
 pub struct RunnablePerItemContext {
     pub shell_manager: ShellManager,
-    pub name: Span,
+    pub name: Tag,
 }
 
 impl RunnablePerItemContext {
@@ -227,7 +200,7 @@ pub struct RunnableContext {
     pub host: Arc<Mutex<dyn Host>>,
     pub commands: CommandRegistry,
     pub source_map: SourceMap,
-    pub name: Span,
+    pub name: Tag,
 }
 
 impl RunnableContext {
@@ -311,8 +284,8 @@ impl EvaluatedWholeStreamCommandArgs {
         }
     }
 
-    pub fn name_span(&self) -> Span {
-        self.args.call_info.name_span
+    pub fn name_tag(&self) -> Tag {
+        self.args.call_info.name_tag
     }
 
     pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
@@ -471,12 +444,6 @@ impl ReturnSuccess {
     pub fn action(input: CommandAction) -> ReturnValue {
         Ok(ReturnSuccess::Action(input))
     }
-
-    pub fn spanned_value(input: Value, span: Span) -> ReturnValue {
-        Ok(ReturnSuccess::Value(Tagged::from_simple_spanned_item(
-            input, span,
-        )))
-    }
 }
 
 pub trait WholeStreamCommand: Send + Sync {
@@ -562,13 +529,20 @@ impl Command {
         }
     }
 
-    pub fn run(&self, args: CommandArgs, registry: &registry::CommandRegistry) -> OutputStream {
+    pub fn run(
+        &self,
+        args: CommandArgs,
+        registry: &registry::CommandRegistry,
+        is_first_command: bool,
+    ) -> OutputStream {
         match self {
             Command::WholeStream(command) => match command.run(args, registry) {
                 Ok(stream) => stream,
                 Err(err) => OutputStream::one(Err(err)),
             },
-            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
+            Command::PerItem(command) => {
+                self.run_helper(command.clone(), args, registry.clone(), is_first_command)
+            }
         }
     }
 
@@ -577,6 +551,7 @@ impl Command {
         command: Arc<dyn PerItemCommand>,
         args: CommandArgs,
         registry: CommandRegistry,
+        is_first_command: bool,
     ) -> OutputStream {
         let raw_args = RawCommandArgs {
             host: args.host,
@@ -584,7 +559,7 @@ impl Command {
             call_info: args.call_info,
         };
 
-        if raw_args.call_info.has_it_or_block() {
+        if !is_first_command {
             let out = args
                 .input
                 .values
@@ -609,7 +584,6 @@ impl Command {
                 .call_info
                 .evaluate(&registry, &Scope::it_value(nothing.clone()))
                 .unwrap();
-            // We don't have an $it or block, so just execute what we have
 
             match command
                 .run(&call_info, &registry, &raw_args, nothing)

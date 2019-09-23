@@ -7,8 +7,10 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
+use crate::data::config;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
+use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 use crate::git::current_branch;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
@@ -21,6 +23,7 @@ use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Debug)]
@@ -59,6 +62,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
             trace!("processing response ({} bytes)", count);
+            trace!("response: {}", input);
 
             let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
@@ -208,6 +212,20 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     Ok(())
 }
 
+pub struct History;
+
+impl History {
+    pub fn path() -> PathBuf {
+        const FNAME: &str = "history.txt";
+        config::user_data()
+            .map(|mut p| {
+                p.push(FNAME);
+                p
+            })
+            .unwrap_or(PathBuf::from(FNAME))
+    }
+}
+
 pub async fn cli() -> Result<(), Box<dyn Error>> {
     let mut context = Context::basic()?;
 
@@ -239,11 +257,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(ToDB),
             whole_stream_command(ToTOML),
             whole_stream_command(ToTSV),
+            whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
             whole_stream_command(SortBy),
             whole_stream_command(Tags),
             whole_stream_command(First),
             whole_stream_command(Last),
+            whole_stream_command(Env),
             whole_stream_command(FromCSV),
             whole_stream_command(FromTSV),
             whole_stream_command(FromINI),
@@ -252,6 +272,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromDB),
             whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
+            whole_stream_command(FromURL),
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),
@@ -269,13 +290,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             per_item_command(Help),
             whole_stream_command(Exit),
             whole_stream_command(Autoview),
+            whole_stream_command(Pivot),
             per_item_command(Cpy),
             whole_stream_command(Date),
             per_item_command(Mkdir),
             per_item_command(Move),
             whole_stream_command(Save),
             whole_stream_command(Table),
-            whole_stream_command(VTable),
             whole_stream_command(Version),
             whole_stream_command(Which),
         ]);
@@ -298,7 +319,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     }
 
     // we are ok if history does not exist
-    let _ = rl.load_history("history.txt");
+    let _ = rl.load_history(&History::path());
 
     let ctrl_c = Arc::new(AtomicBool::new(false));
     let cc = ctrl_c.clone();
@@ -319,7 +340,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             context.shell_manager.clone(),
         )));
 
-        let edit_mode = crate::data::config::config(Span::unknown())?
+        let edit_mode = config::config(Tag::unknown())?
             .get("edit_mode")
             .map(|s| match s.as_string().unwrap().as_ref() {
                 "vi" => EditMode::Vi,
@@ -330,14 +351,47 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         rl.set_edit_mode(edit_mode);
 
-        let readline = rl.readline(&format!(
+        // Register Ctrl-r for history fuzzy search
+        // rustyline doesn't support custom commands, so we override Ctrl-D (EOF)
+        #[cfg(not(windows))] // https://github.com/nushell/nushell/issues/689
+        rl.bind_sequence(rustyline::KeyPress::Ctrl('R'), rustyline::Cmd::EndOfFile);
+        // Redefine Ctrl-D to same command as Ctrl-C
+        rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
+
+        let prompt = &format!(
             "{}{}> ",
             cwd,
             match current_branch() {
                 Some(s) => format!("({})", s),
                 None => "".to_string(),
             }
-        ));
+        );
+        let mut initial_command = Some(String::new());
+        let mut readline = Err(ReadlineError::Eof);
+        while let Some(ref cmd) = initial_command {
+            readline = rl.readline_with_initial(prompt, (&cmd, ""));
+            if let Err(ReadlineError::Eof) = &readline {
+                // Fuzzy search in history
+                let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
+                let selection = interactive_fuzzy_search(&lines, 5); // Clears last line with prompt
+                match selection {
+                    SelectionResult::Selected(line) => {
+                        println!("{}{}", &prompt, &line); // TODO: colorize prompt
+                        readline = Ok(line.clone());
+                        initial_command = None;
+                    }
+                    SelectionResult::Edit(line) => {
+                        initial_command = Some(line);
+                    }
+                    SelectionResult::NoSelection => {
+                        readline = Ok("".to_string());
+                        initial_command = None;
+                    }
+                }
+            } else {
+                initial_command = None;
+            }
+        }
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
@@ -346,6 +400,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
             LineResult::CtrlC => {
                 if ctrlcbreak {
+                    let _ = rl.save_history(&History::path());
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -380,7 +435,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history("history.txt");
+    let _ = rl.save_history(&History::path());
 
     Ok(())
 }
@@ -397,7 +452,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
-            let result = match crate::parser::parse(&line) {
+            let result = match crate::parser::parse(&line, uuid::Uuid::nil()) {
                 Err(err) => {
                     return LineResult::Error(line.clone(), err);
                 }
@@ -419,7 +474,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     .commands
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         command: whole_stream_command(autoview::Autoview),
-                        name_span: Span::unknown(),
+                        name_tag: Tag::unknown(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,
@@ -431,6 +486,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             let mut input = ClassifiedInputStream::new();
 
             let mut iter = pipeline.commands.into_iter().peekable();
+            let mut is_first_command = true;
 
             loop {
                 let item: Option<ClassifiedCommand> = iter.next();
@@ -456,20 +512,29 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, Text::from(line)).await {
+                    ) => match left
+                        .run(ctx, input, Text::from(line), is_first_command)
+                        .await
+                    {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input, Text::from(line)).await {
+                        match left
+                            .run(ctx, input, Text::from(line), is_first_command)
+                            .await
+                        {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left.run(ctx, input, Text::from(line)).await {
+                        match left
+                            .run(ctx, input, Text::from(line), is_first_command)
+                            .await
+                        {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
@@ -496,7 +561,9 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
-                }
+                };
+
+                is_first_command = false;
             }
 
             LineResult::Success(line.clone())
@@ -539,10 +606,10 @@ fn classify_command(
     match call {
         // If the command starts with `^`, treat it as an external command no matter what
         call if call.head().is_external() => {
-            let name_span = call.head().expect_external();
-            let name = name_span.slice(source);
+            let name_tag = call.head().expect_external();
+            let name = name_tag.slice(source);
 
-            Ok(external_command(call, source, name.tagged(name_span)))
+            Ok(external_command(call, source, name.tagged(name_tag)))
         }
 
         // Otherwise, if the command is a bare word, we'll need to triage it
@@ -564,19 +631,19 @@ fn classify_command(
 
                     Ok(ClassifiedCommand::Internal(InternalCommand {
                         command,
-                        name_span: head.span().clone(),
+                        name_tag: head.tag(),
                         args,
                     }))
                 }
 
                 // otherwise, it's an external command
-                false => Ok(external_command(call, source, name.tagged(head.span()))),
+                false => Ok(external_command(call, source, name.tagged(head.tag()))),
             }
         }
 
         // If the command is something else (like a number or a variable), that is currently unsupported.
         // We might support `$somevar` as a curried command in the future.
-        call => Err(ShellError::invalid_command(call.head().span())),
+        call => Err(ShellError::invalid_command(call.head().tag())),
     }
 }
 
@@ -593,10 +660,7 @@ fn external_command(
             .iter()
             .filter_map(|i| match i {
                 TokenNode::Whitespace(_) => None,
-                other => Some(Tagged::from_simple_spanned_item(
-                    other.as_external_arg(source),
-                    other.span(),
-                )),
+                other => Some(other.as_external_arg(source).tagged(other.tag())),
             })
             .collect(),
         None => vec![],
@@ -606,7 +670,7 @@ fn external_command(
 
     ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
-        name_span: tag.span,
+        name_tag: tag,
         args: arg_list_strings,
     })
 }

@@ -36,13 +36,13 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
             let mut tags = TaggedDictBuilder::new(v.tag());
             {
                 let origin = v.origin();
-                let span = v.span();
+                let span = v.tag().span;
                 let mut dict = TaggedDictBuilder::new(v.tag());
                 dict.insert("start", Value::int(span.start as i64));
                 dict.insert("end", Value::int(span.end as i64));
                 tags.insert_tagged("span", dict.into_tagged_value());
 
-                match origin.and_then(|x| source_map.get(&x)) {
+                match source_map.get(&origin) {
                     Some(SpanSource::File(source)) => {
                         tags.insert("origin", Value::string(source));
                     }

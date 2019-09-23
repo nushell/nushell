@@ -1,6 +1,7 @@
 use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
 use crate::commands::UnevaluatedCallInfo;
+use crate::data::meta::Span;
 use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
@@ -14,7 +15,7 @@ impl PerItemCommand for Enter {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("enter").required("location", SyntaxType::Block)
+        Signature::build("enter").required("location", SyntaxShape::Block)
     }
 
     fn usage(&self) -> &str {
@@ -74,10 +75,10 @@ impl PerItemCommand for Enter {
                             )
                             .await.unwrap();
 
-                        if let Some(uuid) = contents_tag.origin {
+                        if contents_tag.origin != uuid::Uuid::nil() {
                             // If we have loaded something, track its source
                             yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                                uuid,
+                                contents_tag.origin,
                                 span_source,
                             ));
                         }
@@ -103,12 +104,13 @@ impl PerItemCommand for Enter {
                                                 },
                                                 source: raw_args.call_info.source,
                                                 source_map: raw_args.call_info.source_map,
-                                                name_span: raw_args.call_info.name_span,
+                                                name_tag: raw_args.call_info.name_tag,
                                             },
                                         };
                                         let mut result = converter.run(
                                             new_args.with_input(vec![tagged_contents]),
                                             &registry,
+                                            false
                                         );
                                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                                             result.drain_vec().await;

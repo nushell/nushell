@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, SyntaxType, Tagged, TaggedItem, Value,
+    Signature, SyntaxShape, Tagged, TaggedItem, Value,
 };
 
 struct Skip {
@@ -17,7 +17,7 @@ impl Plugin for Skip {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("skip")
             .desc("Skip a number of rows")
-            .rest(SyntaxType::Number)
+            .rest(SyntaxShape::Number)
             .filter())
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
@@ -34,7 +34,7 @@ impl Plugin for Skip {
                         return Err(ShellError::labeled_error(
                             "Unrecognized type in params",
                             "expected an integer",
-                            arg.span(),
+                            arg.tag(),
                         ))
                     }
                 }

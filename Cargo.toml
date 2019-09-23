@@ -14,7 +14,7 @@ documentation = "https://book.nushell.sh"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = { git = "https://github.com/kkawakam/rustyline" }
+rustyline = "5.0.3"
 chrono = { version = "0.4.9", features = ["serde"] }
 derive-new = "0.5.8"
 prettytable-rs = "0.8.0"
@@ -53,7 +53,7 @@ ctrlc = "3.1.3"
 surf = "1.0.2"
 url = "2.1.0"
 roxmltree = "0.7.0"
-nom5_locate = "0.1.1"
+nom_locate = "1.0.0"
 enum-utils = "0.1.1"
 unicode-xid = "0.2.0"
 serde_ini = "0.2.0"
@@ -72,6 +72,8 @@ pin-utils = "0.1.0-alpha.4"
 num-bigint = { version = "0.2.3", features = ["serde"] }
 bigdecimal = { version = "0.1.0", features = ["serde"] }
 natural = "0.3.0"
+serde_urlencoded = "0.6.1"
+sublime_fuzzy = "0.5"
 
 neso = { version = "0.5.0", optional = true }
 crossterm = { version = "0.10.2", optional = true }
@@ -85,12 +87,12 @@ ptree = {version = "0.2", optional = true }
 image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"], optional = true }
 
 [features]
+default = ["textview", "sys", "ps"]
 raw-key = ["rawkey", "neso"]
 textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
-all = ["raw-key", "textview", "binaryview", "sys", "ps", "clipboard", "ptree"]
 
 [dependencies.rusqlite]
 version = "0.20.0"

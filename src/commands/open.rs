@@ -1,8 +1,9 @@
 use crate::commands::UnevaluatedCallInfo;
 use crate::context::SpanSource;
+use crate::data::meta::Span;
 use crate::data::Value;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
+use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,7 @@ impl PerItemCommand for Open {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxType::Path)
+            .required("path", SyntaxShape::Path)
             .switch("raw")
     }
 
@@ -76,10 +77,10 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if let Some(uuid) = contents_tag.origin {
+        if contents_tag.origin != uuid::Uuid::nil() {
             // If we have loaded something, track its source
             yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                uuid,
+                contents_tag.origin,
                 span_source,
             ));
         }
@@ -100,10 +101,10 @@ fn run(
                         },
                         source: raw_args.call_info.source,
                         source_map: raw_args.call_info.source_map,
-                        name_span: raw_args.call_info.name_span,
+                        name_tag: raw_args.call_info.name_tag,
                     }
                 };
-                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
+                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry, false);
                 let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                 for res in result_vec {
                     match res {
@@ -146,7 +147,7 @@ pub async fn fetch(
                     Value::string(s),
                     Tag {
                         span,
-                        origin: Some(Uuid::new_v4()),
+                        origin: Uuid::new_v4(),
                     },
                     SpanSource::File(cwd.to_string_lossy().to_string()),
                 )),
@@ -165,16 +166,16 @@ pub async fn fetch(
                                         Value::string(s),
                                         Tag {
                                             span,
-                                            origin: Some(Uuid::new_v4()),
+                                            origin: Uuid::new_v4(),
                                         },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        Value::Primitive(Primitive::Binary(bytes)),
+                                        Value::binary(bytes),
                                         Tag {
                                             span,
-                                            origin: Some(Uuid::new_v4()),
+                                            origin: Uuid::new_v4(),
                                         },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
@@ -182,10 +183,10 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    Value::Primitive(Primitive::Binary(bytes)),
+                                    Value::binary(bytes),
                                     Tag {
                                         span,
-                                        origin: Some(Uuid::new_v4()),
+                                        origin: Uuid::new_v4(),
                                     },
                                     SpanSource::File(cwd.to_string_lossy().to_string()),
                                 ))
@@ -203,16 +204,16 @@ pub async fn fetch(
                                         Value::string(s),
                                         Tag {
                                             span,
-                                            origin: Some(Uuid::new_v4()),
+                                            origin: Uuid::new_v4(),
                                         },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        Value::Primitive(Primitive::Binary(bytes)),
+                                        Value::binary(bytes),
                                         Tag {
                                             span,
-                                            origin: Some(Uuid::new_v4()),
+                                            origin: Uuid::new_v4(),
                                         },
                                         SpanSource::File(cwd.to_string_lossy().to_string()),
                                     )),
@@ -220,10 +221,10 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    Value::Primitive(Primitive::Binary(bytes)),
+                                    Value::binary(bytes),
                                     Tag {
                                         span,
-                                        origin: Some(Uuid::new_v4()),
+                                        origin: Uuid::new_v4(),
                                     },
                                     SpanSource::File(cwd.to_string_lossy().to_string()),
                                 ))
@@ -231,10 +232,10 @@ pub async fn fetch(
                         }
                         _ => Ok((
                             None,
-                            Value::Primitive(Primitive::Binary(bytes)),
+                            Value::binary(bytes),
                             Tag {
                                 span,
-                                origin: Some(Uuid::new_v4()),
+                                origin: Uuid::new_v4(),
                             },
                             SpanSource::File(cwd.to_string_lossy().to_string()),
                         )),

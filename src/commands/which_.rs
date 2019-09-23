@@ -13,7 +13,7 @@ impl WholeStreamCommand for Which {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("which").required("name", SyntaxType::Any)
+        Signature::build("which").required("name", SyntaxShape::Any)
     }
 
     fn usage(&self) -> &str {
@@ -33,7 +33,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
 
     let mut which_out = VecDeque::new();
-    let span = args.call_info.name_span;
+    let tag = args.call_info.name_tag;
 
     if let Some(v) = &args.call_info.args.positional {
         if v.len() > 0 {
@@ -52,7 +52,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     return Err(ShellError::labeled_error(
                         "Expected a filename to find",
                         "needs a filename",
-                        tag.span,
+                        *tag,
                     ));
                 }
             }
@@ -60,14 +60,14 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             return Err(ShellError::labeled_error(
                 "Expected a binary to find",
                 "needs application name",
-                span,
+                tag,
             ));
         }
     } else {
         return Err(ShellError::labeled_error(
             "Expected a binary to find",
             "needs application name",
-            span,
+            tag,
         ));
     }
 

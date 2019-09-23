@@ -45,7 +45,7 @@ pub fn autoview(
             {
                 let binary = context.get_command("binaryview");
                 if let Some(binary) = binary {
-                    let result = binary.run(raw.with_input(input), &context.commands);
+                    let result = binary.run(raw.with_input(input), &context.commands, false);
                     result.collect::<Vec<_>>().await;
                 } else {
                     for i in input {
@@ -61,7 +61,7 @@ pub fn autoview(
             } else if is_single_origined_text_value(&input) {
                 let text = context.get_command("textview");
                 if let Some(text) = text {
-                    let result = text.run(raw.with_input(input), &context.commands);
+                    let result = text.run(raw.with_input(input), &context.commands, false);
                     result.collect::<Vec<_>>().await;
                 } else {
                     for i in input {
@@ -84,7 +84,7 @@ pub fn autoview(
                 }
             } else {
                 let table = context.expect_command("table");
-                let result = table.run(raw.with_input(input), &context.commands);
+                let result = table.run(raw.with_input(input), &context.commands, false);
                 result.collect::<Vec<_>>().await;
             }
         }
@@ -110,14 +110,13 @@ fn is_single_origined_text_value(input: &Vec<Tagged<Value>>) -> bool {
     if input.len() != 1 {
         return false;
     }
+
     if let Tagged {
         item: Value::Primitive(Primitive::String(_)),
-        tag: Tag {
-            origin: Some(_), ..
-        },
+        tag: Tag { origin, .. },
     } = input[0]
     {
-        true
+        origin != uuid::Uuid::nil()
     } else {
         false
     }

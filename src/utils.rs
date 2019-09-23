@@ -465,6 +465,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("sample.url"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sgml_description.json"),
                     at: 0
                 },

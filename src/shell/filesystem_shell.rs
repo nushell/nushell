@@ -81,74 +81,74 @@ impl Shell for FilesystemShell {
         dirs::home_dir()
     }
 
-    fn ls(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    fn ls(
+        &self,
+        pattern: Option<Tagged<PathBuf>>,
+        command_tag: Tag,
+    ) -> Result<OutputStream, ShellError> {
         let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
 
-        match &args.nth(0) {
-            Some(value) => full_path.push(Path::new(&value.as_path()?)),
+        match &pattern {
+            Some(value) => full_path.push((*value).as_ref()),
             _ => {}
         }
 
-        let entries: Vec<_> = match glob::glob(&full_path.to_string_lossy()) {
-            Ok(files) => files.collect(),
+        let mut shell_entries = VecDeque::new();
+
+        //If it's not a glob, try to display the contents of the entry if it's a directory
+        let lossy_path = full_path.to_string_lossy();
+        if !lossy_path.contains("*") && !lossy_path.contains("?") {
+            let entry = Path::new(&full_path);
+            if entry.is_dir() {
+                let entries = std::fs::read_dir(&entry);
+                let entries = match entries {
+                    Err(e) => {
+                        if let Some(s) = pattern {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                s.tag(),
+                            ));
+                        } else {
+                            return Err(ShellError::labeled_error(
+                                e.to_string(),
+                                e.to_string(),
+                                command_tag,
+                            ));
+                        }
+                    }
+                    Ok(o) => o,
+                };
+                for entry in entries {
+                    let entry = entry?;
+                    let filepath = entry.path();
+                    let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                        fname
+                    } else {
+                        Path::new(&filepath)
+                    };
+                    let value = dir_entry_dict(filename, &entry.metadata()?, command_tag)?;
+                    shell_entries.push_back(ReturnSuccess::value(value))
+                }
+                return Ok(shell_entries.to_output_stream());
+            }
+        }
+
+        let entries = match glob::glob(&full_path.to_string_lossy()) {
+            Ok(files) => files,
             Err(_) => {
-                if let Some(source) = args.nth(0) {
+                if let Some(source) = pattern {
                     return Err(ShellError::labeled_error(
                         "Invalid pattern",
                         "Invalid pattern",
-                        source.span(),
+                        source.tag(),
                     ));
                 } else {
                     return Err(ShellError::string("Invalid pattern."));
                 }
             }
         };
-
-        let mut shell_entries = VecDeque::new();
-
-        // If this is a single entry, try to display the contents of the entry if it's a directory
-        if entries.len() == 1 {
-            if let Ok(entry) = &entries[0] {
-                if entry.is_dir() {
-                    let entries = std::fs::read_dir(&entry);
-                    let entries = match entries {
-                        Err(e) => {
-                            if let Some(s) = args.nth(0) {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    s.span(),
-                                ));
-                            } else {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    args.name_span(),
-                                ));
-                            }
-                        }
-                        Ok(o) => o,
-                    };
-                    for entry in entries {
-                        let entry = entry?;
-                        let filepath = entry.path();
-                        let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                            fname
-                        } else {
-                            Path::new(&filepath)
-                        };
-                        let value = dir_entry_dict(
-                            filename,
-                            &entry.metadata()?,
-                            Tag::unknown_origin(args.call_info.name_span),
-                        )?;
-                        shell_entries.push_back(ReturnSuccess::value(value))
-                    }
-                    return Ok(shell_entries.to_output_stream());
-                }
-            }
-        }
 
         // Enumerate the entries from the glob and add each
         for entry in entries {
@@ -159,11 +159,7 @@ impl Shell for FilesystemShell {
                     Path::new(&entry)
                 };
                 let metadata = std::fs::metadata(&entry)?;
-                let value = dir_entry_dict(
-                    filename,
-                    &metadata,
-                    Tag::unknown_origin(args.call_info.name_span),
-                )?;
+                let value = dir_entry_dict(filename, &metadata, command_tag)?;
                 shell_entries.push_back(ReturnSuccess::value(value))
             }
         }
@@ -179,7 +175,7 @@ impl Shell for FilesystemShell {
                     return Err(ShellError::labeled_error(
                         "Can not change to home directory",
                         "can not go to home",
-                        args.call_info.name_span,
+                        args.call_info.name_tag,
                     ))
                 }
             },
@@ -197,7 +193,7 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 "Can not change to directory",
                                 "directory not found",
-                                v.span().clone(),
+                                v.tag().clone(),
                             ))
                         }
                     }
@@ -221,10 +217,10 @@ impl Shell for FilesystemShell {
             dst,
             recursive,
         }: CopyArgs,
-        name: Span,
+        name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
-        let name_span = name;
+        let name_tag = name;
 
         let mut source = PathBuf::from(path);
         let mut destination = PathBuf::from(path);
@@ -279,7 +275,7 @@ impl Shell for FilesystemShell {
                                     return Err(ShellError::labeled_error(
                                         e.to_string(),
                                         e.to_string(),
-                                        name_span,
+                                        name_tag,
                                     ));
                                 }
                                 Ok(o) => o,
@@ -295,7 +291,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    name_span,
+                                    name_tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -331,7 +327,7 @@ impl Shell for FilesystemShell {
                                             return Err(ShellError::labeled_error(
                                                 e.to_string(),
                                                 e.to_string(),
-                                                name_span,
+                                                name_tag,
                                             ));
                                         }
                                         Ok(o) => o,
@@ -345,7 +341,7 @@ impl Shell for FilesystemShell {
                                         return Err(ShellError::labeled_error(
                                             e.to_string(),
                                             e.to_string(),
-                                            name_span,
+                                            name_tag,
                                         ));
                                     }
                                     Ok(o) => o,
@@ -359,7 +355,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     "Copy aborted. Not a valid path",
                                     "Copy aborted. Not a valid path",
-                                    name_span,
+                                    name_tag,
                                 ))
                             }
                         }
@@ -369,7 +365,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    name_span,
+                                    name_tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -405,7 +401,7 @@ impl Shell for FilesystemShell {
                                             return Err(ShellError::labeled_error(
                                                 e.to_string(),
                                                 e.to_string(),
-                                                name_span,
+                                                name_tag,
                                             ));
                                         }
                                         Ok(o) => o,
@@ -419,7 +415,7 @@ impl Shell for FilesystemShell {
                                         return Err(ShellError::labeled_error(
                                             e.to_string(),
                                             e.to_string(),
-                                            name_span,
+                                            name_tag,
                                         ));
                                     }
                                     Ok(o) => o,
@@ -452,7 +448,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     "Copy aborted. Not a valid path",
                                     "Copy aborted. Not a valid path",
-                                    name_span,
+                                    name_tag,
                                 ))
                             }
                         }
@@ -479,7 +475,7 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 "Copy aborted. Not a valid destination",
                                 "Copy aborted. Not a valid destination",
-                                name_span,
+                                name_tag,
                             ))
                         }
                     }
@@ -488,7 +484,7 @@ impl Shell for FilesystemShell {
                 return Err(ShellError::labeled_error(
                     format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
                     format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
-                    &dst.span(),
+                    dst.tag(),
                 ));
             }
         }
@@ -499,7 +495,7 @@ impl Shell for FilesystemShell {
     fn mkdir(
         &self,
         MkdirArgs { rest: directories }: MkdirArgs,
-        name: Span,
+        name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
         let full_path = PathBuf::from(path);
@@ -524,7 +520,7 @@ impl Shell for FilesystemShell {
                     return Err(ShellError::labeled_error(
                         reason.to_string(),
                         reason.to_string(),
-                        dir.span(),
+                        dir.tag(),
                     ))
                 }
                 Ok(_) => {}
@@ -537,10 +533,10 @@ impl Shell for FilesystemShell {
     fn mv(
         &self,
         MoveArgs { src, dst }: MoveArgs,
-        name: Span,
+        name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
-        let name_span = name;
+        let name_tag = name;
 
         let mut source = PathBuf::from(path);
         let mut destination = PathBuf::from(path);
@@ -566,7 +562,7 @@ impl Shell for FilesystemShell {
                     return Err(ShellError::labeled_error(
                         "Rename aborted. Not a valid destination",
                         "Rename aborted. Not a valid destination",
-                        dst.span(),
+                        dst.tag(),
                     ))
                 }
             }
@@ -580,7 +576,7 @@ impl Shell for FilesystemShell {
                         return Err(ShellError::labeled_error(
                             "Rename aborted. Not a valid entry name",
                             "Rename aborted. Not a valid entry name",
-                            name_span,
+                            name_tag,
                         ))
                     }
                 };
@@ -592,7 +588,7 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 format!("Rename aborted. {:}", e.to_string()),
                                 format!("Rename aborted. {:}", e.to_string()),
-                                name_span,
+                                name_tag,
                             ))
                         }
                     };
@@ -616,7 +612,7 @@ impl Shell for FilesystemShell {
                                     destination_file_name,
                                     e.to_string(),
                                 ),
-                                name_span,
+                                name_tag,
                             ));
                         }
                         Ok(o) => o,
@@ -639,7 +635,7 @@ impl Shell for FilesystemShell {
                                     destination_file_name,
                                     e.to_string(),
                                 ),
-                                name_span,
+                                name_tag,
                             ));
                         }
                         Ok(o) => o,
@@ -661,7 +657,7 @@ impl Shell for FilesystemShell {
                                         destination_file_name,
                                         e.to_string(),
                                     ),
-                                    name_span,
+                                    name_tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -714,7 +710,7 @@ impl Shell for FilesystemShell {
                                                     destination_file_name,
                                                     e.to_string(),
                                                 ),
-                                                name_span,
+                                                name_tag,
                                             ));
                                         }
                                         Ok(o) => o,
@@ -738,7 +734,7 @@ impl Shell for FilesystemShell {
                                                 destination_file_name,
                                                 e.to_string(),
                                             ),
-                                            name_span,
+                                            name_tag,
                                         ));
                                     }
                                     Ok(o) => o,
@@ -761,7 +757,7 @@ impl Shell for FilesystemShell {
                                         destination_file_name,
                                         e.to_string(),
                                     ),
-                                    name_span,
+                                    name_tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -793,7 +789,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     "Rename aborted. Not a valid entry name",
                                     "Rename aborted. Not a valid entry name",
-                                    name_span,
+                                    name_tag,
                                 ))
                             }
                         };
@@ -817,7 +813,7 @@ impl Shell for FilesystemShell {
                                             destination_file_name,
                                             e.to_string(),
                                         ),
-                                        name_span,
+                                        name_tag,
                                     ));
                                 }
                                 Ok(o) => o,
@@ -829,7 +825,7 @@ impl Shell for FilesystemShell {
                 return Err(ShellError::labeled_error(
                     format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
                     format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
-                    dst.span(),
+                    dst.tag(),
                 ));
             }
         }
@@ -840,16 +836,16 @@ impl Shell for FilesystemShell {
     fn rm(
         &self,
         RemoveArgs { target, recursive }: RemoveArgs,
-        name: Span,
+        name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
-        let name_span = name;
+        let name_tag = name;
 
         if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
             return Err(ShellError::labeled_error(
                 "Remove aborted. \".\" or \"..\" may not be removed.",
                 "Remove aborted. \".\" or \"..\" may not be removed.",
-                target.span(),
+                target.tag(),
             ));
         }
 
@@ -881,7 +877,7 @@ impl Shell for FilesystemShell {
                         return Err(ShellError::labeled_error(
                             format!("{:?} is a directory. Try using \"--recursive\".", file),
                             format!("{:?} is a directory. Try using \"--recursive\".", file),
-                            target.span(),
+                            target.tag(),
                         ));
                     }
                 }
@@ -898,7 +894,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     "Remove aborted. Not a valid path",
                                     "Remove aborted. Not a valid path",
-                                    name_span,
+                                    name_tag,
                                 ))
                             }
                         }
@@ -918,7 +914,7 @@ impl Shell for FilesystemShell {
                                 "Directory {:?} found somewhere inside. Try using \"--recursive\".",
                                 path_file_name
                             ),
-                            target.span(),
+                            target.tag(),
                         ));
                     }
 
@@ -932,7 +928,7 @@ impl Shell for FilesystemShell {
                     return Err(ShellError::labeled_error(
                         format!("Remove aborted. {:}", e.to_string()),
                         format!("Remove aborted. {:}", e.to_string()),
-                        name_span,
+                        name_tag,
                     ))
                 }
             }
@@ -953,7 +949,7 @@ impl Shell for FilesystemShell {
                 return Err(ShellError::labeled_error(
                     "unable to show current directory",
                     "pwd command failed",
-                    args.call_info.name_span,
+                    args.call_info.name_tag,
                 ));
             }
         };
@@ -961,7 +957,7 @@ impl Shell for FilesystemShell {
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::value(
             Value::Primitive(Primitive::String(p.to_string_lossy().to_string()))
-                .simple_spanned(args.call_info.name_span),
+                .tagged(args.call_info.name_tag),
         ));
 
         Ok(stream.into())

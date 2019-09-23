@@ -33,58 +33,40 @@ impl WholeStreamCommand for Date {
     }
 }
 
-pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, span: Span) -> Tagged<Value>
+pub fn date_to_value<T: TimeZone>(dt: DateTime<T>, tag: Tag) -> Tagged<Value>
 where
     T::Offset: Display,
 {
     let mut indexmap = IndexMap::new();
 
-    indexmap.insert(
-        "year".to_string(),
-        Tagged::from_simple_spanned_item(Value::int(dt.year()), span),
-    );
-    indexmap.insert(
-        "month".to_string(),
-        Tagged::from_simple_spanned_item(Value::int(dt.month()), span),
-    );
-    indexmap.insert(
-        "day".to_string(),
-        Tagged::from_simple_spanned_item(Value::int(dt.day()), span),
-    );
-    indexmap.insert(
-        "hour".to_string(),
-        Tagged::from_simple_spanned_item(Value::int(dt.hour()), span),
-    );
-    indexmap.insert(
-        "minute".to_string(),
-        Tagged::from_simple_spanned_item(Value::int(dt.minute()), span),
-    );
-    indexmap.insert(
-        "second".to_string(),
-        Tagged::from_simple_spanned_item(Value::int(dt.second()), span),
-    );
+    indexmap.insert("year".to_string(), Value::int(dt.year()).tagged(tag));
+    indexmap.insert("month".to_string(), Value::int(dt.month()).tagged(tag));
+    indexmap.insert("day".to_string(), Value::int(dt.day()).tagged(tag));
+    indexmap.insert("hour".to_string(), Value::int(dt.hour()).tagged(tag));
+    indexmap.insert("minute".to_string(), Value::int(dt.minute()).tagged(tag));
+    indexmap.insert("second".to_string(), Value::int(dt.second()).tagged(tag));
 
     let tz = dt.offset();
     indexmap.insert(
         "timezone".to_string(),
-        Tagged::from_simple_spanned_item(Value::string(format!("{}", tz)), span),
+        Value::string(format!("{}", tz)).tagged(tag),
     );
 
-    Tagged::from_simple_spanned_item(Value::Row(Dictionary::from(indexmap)), span)
+    Value::Row(Dictionary::from(indexmap)).tagged(tag)
 }
 
 pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
 
     let mut date_out = VecDeque::new();
-    let span = args.call_info.name_span;
+    let tag = args.call_info.name_tag;
 
     let value = if args.has("utc") {
         let utc: DateTime<Utc> = Utc::now();
-        date_to_value(utc, span)
+        date_to_value(utc, tag)
     } else {
         let local: DateTime<Local> = Local::now();
-        date_to_value(local, span)
+        date_to_value(local, tag)
     };
 
     date_out.push_back(value);

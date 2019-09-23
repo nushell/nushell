@@ -258,6 +258,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | first amount | Show only the first number of rows |
 | last amount | Show only the last number of rows |
 | nth row-number | Return only the selected row |
+| pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
 | str (column) | Apply string function. Optionally use the column of a table |
 | tags | Read the tags (metadata) for values |
 | to-json | Convert table into .json text |
@@ -298,8 +299,6 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | table | View the contents of the pipeline as a table |
 | textview | Autoview of text data |
 | tree | View the contents of the pipeline as a tree |
-| vtable | View the contents of the pipeline as a vertical (rotated) table |
-
 # License
 
 The project is made available under the MIT license. See "LICENSE" for more information.

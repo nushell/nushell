@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 pub struct Save;
 
 macro_rules! process_string {
-    ($input:ident, $name_span:ident) => {{
+    ($input:ident, $name_tag:ident) => {{
         let mut result_string = String::new();
         for res in $input {
             match res {
@@ -21,7 +21,7 @@ macro_rules! process_string {
                     yield core::task::Poll::Ready(Err(ShellError::labeled_error(
                         "Save could not successfully save",
                         "unexpected data during save",
-                        $name_span,
+                        $name_tag,
                     )));
                 }
             }
@@ -31,7 +31,7 @@ macro_rules! process_string {
 }
 
 macro_rules! process_string_return_success {
-    ($result_vec:ident, $name_span:ident) => {{
+    ($result_vec:ident, $name_tag:ident) => {{
         let mut result_string = String::new();
         for res in $result_vec {
             match res {
@@ -45,7 +45,7 @@ macro_rules! process_string_return_success {
                     yield core::task::Poll::Ready(Err(ShellError::labeled_error(
                         "Save could not successfully save",
                         "unexpected data during text save",
-                        $name_span,
+                        $name_tag,
                     )));
                 }
             }
@@ -55,7 +55,7 @@ macro_rules! process_string_return_success {
 }
 
 macro_rules! process_binary_return_success {
-    ($result_vec:ident, $name_span:ident) => {{
+    ($result_vec:ident, $name_tag:ident) => {{
         let mut result_binary: Vec<u8> = Vec::new();
         for res in $result_vec {
             match res {
@@ -71,7 +71,7 @@ macro_rules! process_binary_return_success {
                     yield core::task::Poll::Ready(Err(ShellError::labeled_error(
                         "Save could not successfully save",
                         "unexpected data during binary save",
-                        $name_span,
+                        $name_tag,
                     )));
                 }
             }
@@ -93,7 +93,7 @@ impl WholeStreamCommand for Save {
 
     fn signature(&self) -> Signature {
         Signature::build("save")
-            .optional("path", SyntaxType::Path)
+            .optional("path", SyntaxShape::Path)
             .switch("raw")
     }
 
@@ -127,7 +127,7 @@ fn save(
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(shell_manager.path());
-    let name_span = name;
+    let name_tag = name;
 
     let source_map = source_map.clone();
     let stream = async_stream_block! {
@@ -136,7 +136,7 @@ fn save(
             // If there is no filename, check the metadata for the origin filename
             if input.len() > 0 {
                 let origin = input[0].origin();
-                match origin.and_then(|x| source_map.get(&x)) {
+                match source_map.get(&origin) {
                     Some(path) => match path {
                         SpanSource::File(file) => {
                             full_path.push(Path::new(file));
@@ -145,7 +145,7 @@ fn save(
                             yield Err(ShellError::labeled_error(
                                 "Save requires a filepath",
                                 "needs path",
-                                name_span,
+                                name_tag,
                             ));
                         }
                     },
@@ -153,7 +153,7 @@ fn save(
                         yield Err(ShellError::labeled_error(
                             "Save requires a filepath",
                             "needs path",
-                            name_span,
+                            name_tag,
                         ));
                     }
                 }
@@ -161,7 +161,7 @@ fn save(
                 yield Err(ShellError::labeled_error(
                     "Save requires a filepath",
                     "needs path",
-                    name_span,
+                    name_tag,
                 ));
             }
         } else {
@@ -185,21 +185,21 @@ fn save(
                             },
                             source: raw_args.call_info.source,
                             source_map: raw_args.call_info.source_map,
-                            name_span: raw_args.call_info.name_span,
+                            name_tag: raw_args.call_info.name_tag,
                         }
                     };
-                    let mut result = converter.run(new_args.with_input(input), &registry);
+                    let mut result = converter.run(new_args.with_input(input), &registry, false);
                     let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
                     if converter.is_binary() {
-                        process_binary_return_success!(result_vec, name_span)
+                        process_binary_return_success!(result_vec, name_tag)
                     } else {
-                        process_string_return_success!(result_vec, name_span)
+                        process_string_return_success!(result_vec, name_tag)
                     }
                 } else {
-                    process_string!(input, name_span)
+                    process_string!(input, name_tag)
                 }
             } else {
-                process_string!(input, name_span)
+                process_string!(input, name_tag)
             }
         } else {
             Ok(string_from(&input).into_bytes())

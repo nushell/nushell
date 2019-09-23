@@ -13,10 +13,64 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
+mod serde_bigint {
+    use num_traits::cast::FromPrimitive;
+    use num_traits::cast::ToPrimitive;
+
+    pub fn serialize<S>(big_int: &super::BigInt, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(
+            &big_int
+                .to_i64()
+                .ok_or(serde::ser::Error::custom("expected a i64-sized bignum"))?,
+            serializer,
+        )
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<super::BigInt, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let x: i64 = serde::Deserialize::deserialize(deserializer)?;
+        Ok(super::BigInt::from_i64(x)
+            .ok_or(serde::de::Error::custom("expected a i64-sized bignum"))?)
+    }
+}
+
+mod serde_bigdecimal {
+    use num_traits::cast::FromPrimitive;
+    use num_traits::cast::ToPrimitive;
+
+    pub fn serialize<S>(big_decimal: &super::BigDecimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde::Serialize::serialize(
+            &big_decimal
+                .to_f64()
+                .ok_or(serde::ser::Error::custom("expected a f64-sized bignum"))?,
+            serializer,
+        )
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<super::BigDecimal, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let x: f64 = serde::Deserialize::deserialize(deserializer)?;
+        Ok(super::BigDecimal::from_f64(x)
+            .ok_or(serde::de::Error::custom("expected a f64-sized bigdecimal"))?)
+    }
+}
+
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
+    #[serde(with = "serde_bigint")]
     Int(BigInt),
+    #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     Bytes(u64),
     String(String),
@@ -150,7 +204,7 @@ pub struct Operation {
 pub struct Block {
     pub(crate) expressions: Vec<hir::Expression>,
     pub(crate) source: Text,
-    pub(crate) span: Span,
+    pub(crate) tag: Tag,
 }
 
 impl Block {
@@ -158,7 +212,7 @@ impl Block {
         let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
-            return Ok(Value::nothing().simple_spanned(self.span));
+            return Ok(Value::nothing().tagged(self.tag));
         }
 
         let mut last = None;
@@ -249,7 +303,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Block {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
                 "Block",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -265,7 +319,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for i64 {
             }
             v => Err(ShellError::type_error(
                 "Integer",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -279,7 +333,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for String {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             v => Err(ShellError::type_error(
                 "String",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -293,7 +347,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
             Value::Primitive(Primitive::Binary(b)) => Ok(b.clone()),
             v => Err(ShellError::type_error(
                 "Binary",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -307,7 +361,7 @@ impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::data::Dictionar
             Value::Row(d) => Ok(d),
             v => Err(ShellError::type_error(
                 "Dictionary",
-                value.copy_span(v.type_name()),
+                value.copy_tag(v.type_name()),
             )),
         }
     }
@@ -329,7 +383,7 @@ impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
                 Value::Primitive(Primitive::Boolean(true)) => Ok(Switch::Present),
                 v => Err(ShellError::type_error(
                     "Boolean",
-                    value.copy_span(v.type_name()),
+                    value.copy_tag(v.type_name()),
                 )),
             },
         }
@@ -641,7 +695,7 @@ impl Tagged<Value> {
             Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
             other => Err(ShellError::type_error(
                 "Path",
-                other.type_name().tagged(self.span()),
+                other.type_name().tagged(self.tag()),
             )),
         }
     }

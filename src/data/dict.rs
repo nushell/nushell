@@ -169,6 +169,10 @@ impl TaggedDictBuilder {
     pub fn into_tagged_dict(self) -> Tagged<Dictionary> {
         Dictionary { entries: self.dict }.tagged(self.tag)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.dict.is_empty()
+    }
 }
 
 impl From<TaggedDictBuilder> for Tagged<Value> {
