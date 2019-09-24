@@ -16,7 +16,7 @@ impl PerItemCommand for Echo {
     }
 
     fn usage(&self) -> &str {
-        "Echo the argments back to the user."
+        "Echo the arguments back to the user."
     }
 
     fn run(
