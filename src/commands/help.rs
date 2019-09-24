@@ -28,13 +28,6 @@ impl PerItemCommand for Help {
     ) -> Result<OutputStream, ShellError> {
         let tag = call_info.name_tag;
 
-        if call_info.args.len() == 0 {
-            return Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                Value::nothing().tagged(tag),
-            )))]
-            .into());
-        }
-
         match call_info.args.expect_nth(0)? {
             Tagged {
                 item: Value::Primitive(Primitive::String(document)),
