@@ -28,11 +28,11 @@ impl PerItemCommand for Help {
     ) -> Result<OutputStream, ShellError> {
         let tag = call_info.name_tag;
 
-        match call_info.args.expect_nth(0)? {
-            Tagged {
+        match call_info.args.nth(0) {
+            Some(Tagged {
                 item: Value::Primitive(Primitive::String(document)),
                 tag,
-            } => {
+            }) => {
                 let mut help = VecDeque::new();
                 if document == "commands" {
                     let mut sorted_names = registry.names();
