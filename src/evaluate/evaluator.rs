@@ -1,5 +1,5 @@
 use crate::data::base::Block;
-use crate::errors::{ArgumentError, Description};
+use crate::errors::ArgumentError;
 use crate::parser::{
     hir::{self, Expression, RawExpression},
     CommandRegistry, Text,
@@ -87,10 +87,20 @@ pub(crate) fn evaluate_baseline_expr(
 
                 match next {
                     None => {
-                        return Err(ShellError::missing_property(
-                            Description::from(item.tagged_type_name()),
-                            Description::from(name.clone()),
-                        ))
+                        let possibilities = item.data_descriptors();
+
+                        let mut possible_matches: Vec<_> = possibilities
+                            .iter()
+                            .map(|x| (natural::distance::levenshtein_distance(x, &name), x))
+                            .collect();
+
+                        possible_matches.sort();
+
+                        return Err(ShellError::labeled_error(
+                            "Unknown column",
+                            format!("did you mean '{}'?", possible_matches[0].1),
+                            expr.tag(),
+                        ));
                     }
                     Some(next) => {
                         item = next.clone().item.tagged(expr.tag());

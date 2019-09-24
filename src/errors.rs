@@ -13,20 +13,6 @@ pub enum Description {
 }
 
 impl Description {
-    pub fn from(value: Tagged<impl Into<String>>) -> Description {
-        let value_tag = value.tag();
-
-        match value_tag {
-            Tag {
-                span: crate::data::meta::Span { start: 0, end: 0 },
-                ..
-            } => Description::Synthetic(value.item.into()),
-            _ => Description::Source(Tagged::from_item(value.item.into(), value_tag)),
-        }
-    }
-}
-
-impl Description {
     fn into_label(self) -> Result<Label<Tag>, String> {
         match self {
             Description::Source(s) => Ok(Label::new_primary(s.tag()).with_message(s.item)),
@@ -112,10 +98,6 @@ impl ShellError {
             right: right.map(|r| r.into()),
         }
         .start()
-    }
-
-    pub(crate) fn missing_property(subpath: Description, expr: Description) -> ShellError {
-        ProximateShellError::MissingProperty { subpath, expr }.start()
     }
 
     pub(crate) fn missing_value(tag: Option<Tag>, reason: impl Into<String>) -> ShellError {

@@ -7,7 +7,7 @@
 
 A modern shell for the GitHub era
 
-![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
+![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
 
 # Status
 
@@ -19,7 +19,7 @@ Nu comes with a set of built-in commands (listed below). If a command is unknown
 
 There are a few good resources to learn about Nu. First, there is a [book](https://book.nushell.sh) about Nu, currently in progress. The book focuses on using Nu and its core concepts.
 
-If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-handbook/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
 We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
 
@@ -50,13 +50,8 @@ cargo +nightly install nu
 You can also install Nu with all the bells and whistles:
 
 ```
-cargo +nightly install nu --features raw-key,clipboard
+cargo +nightly install nu --all-features
 ```
-
-The following optional features are currently supported:
-
-* **raw-key** - direct keyboard input, which creates a smoother experience in viewing text and binaries
-* **clipboard** - integration with the native clipboard via the `clip` command
 
 ## Docker
 
@@ -220,55 +215,57 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | ------------- | ------------- |
 | cd path | Change to a new path |
 | cp source path | Copy files |
+| date (--utc) | Get the current datetime |
+| fetch url | Fetch contents from a url and retrieve data as a table if possible |
+| help | Display help information about commands |
 | ls (path) | View the contents of the current or given path |
 | mkdir path | Make directories, creates intermediary directories as required. |
 | mv source target | Move files or directories. |
-| date (--utc) | Get the current datetime |
+| open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
+| post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | ps | View current processes |
 | sys | View information about the current system |
 | which filename | Finds a program file. |
-| open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
-| fetch url | Fetch contents from a url and retrieve data as a table if possible |
-| post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
+| version | Display Nu version |
+
+## Shell commands
 | exit (--now) | Exit the current shell (or all shells) |
 | enter (path) | Create a new shell and begin at this path |
 | p | Go to previous shell |
 | n | Go to next shell |
 | shells | Display the list of current shells |
-| help | Display help information about commands |
-| version | Display Nu version |
 
 ## Filters on tables (structured data)
 | command | description |
 | ------------- | ------------- |
-| pick ...columns | Down-select table to only these columns |
-| reject ...columns | Remove the given columns from the table |
-| get column-or-column-path | Open column and get data from the corresponding cells |
-| sort-by ...columns | Sort by the given columns |
-| where condition | Filter table to match the condition |
-| inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
 | add column-or-column-path value | Add a new column to the table |
-| embed column | Creates a new table of one column with the given name, and places the current table inside of it |
-| sum | Sum a column of values |
 | edit column-or-column-path value | Edit an existing column to have a new value |
+| embed column | Creates a new table of one column with the given name, and places the current table inside of it |
+| first amount | Show only the first number of rows |
+| get column-or-column-path | Open column and get data from the corresponding cells |
+| inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
+| last amount | Show only the last number of rows |
+| nth row-number | Return only the selected row |
+| pick ...columns | Down-select table to only these columns |
+| pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
+| reject ...columns | Remove the given columns from the table |
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
 | skip-while condition | Skips rows while the condition matches. |
-| first amount | Show only the first number of rows |
-| last amount | Show only the last number of rows |
-| nth row-number | Return only the selected row |
-| pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
+| sort-by ...columns | Sort by the given columns |
 | str (column) | Apply string function. Optionally use the column of a table |
+| sum | Sum a column of values |
 | tags | Read the tags (metadata) for values |
-| to-json | Convert table into .json text |
-| to-toml | Convert table into .toml text |
-| to-yaml | Convert table into .yaml text |
-| to-bson | Convert table into .bson text |
-| to-csv | Convert table into .csv text |
 | to-bson | Convert table into .bson binary data |
-| to-tsv | Convert table into .tsv text |
+| to-csv | Convert table into .csv text |
+| to-json | Convert table into .json text |
 | to-sqlite | Convert table to sqlite .db binary data |
+| to-toml | Convert table into .toml text |
+| to-tsv | Convert table into .tsv text |
+| to-url | Convert table to a urlencoded string |
+| to-yaml | Convert table into .yaml text |
+| where condition | Filter table to match the condition |
 
 ## Filters on text (unstructured data)
 | command | description |
@@ -280,6 +277,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-sqlite | Parse binary data as sqlite .db and create table |
 | from-toml | Parse text as .toml and create table |
 | from-tsv  | Parse text as .tsv and create table  |
+| from-url | Parse urlencoded string and create a table |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
@@ -293,12 +291,13 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | autoview | View the contents of the pipeline as a table or list |
-| binaryview | Autoview of binary data |
-| clip | Copy the contents of the pipeline to the copy/paste buffer |
+| binaryview | Autoview of binary data (optional feature) |
+| clip | Copy the contents of the pipeline to the copy/paste buffer (optional feature) |
 | save filename | Save the contents of the pipeline to a file |
 | table | View the contents of the pipeline as a table |
 | textview | Autoview of text data |
-| tree | View the contents of the pipeline as a tree |
+| tree | View the contents of the pipeline as a tree (optional feature) |
+
 # License
 
 The project is made available under the MIT license. See "LICENSE" for more information.
