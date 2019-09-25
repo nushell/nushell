@@ -187,6 +187,14 @@ impl Shell for FilesystemShell {
                 } else {
                     let path = PathBuf::from(self.path());
 
+                    if target.exists() && !target.is_dir() {
+                        return Err(ShellError::labeled_error(
+                            "Can not change to directory",
+                            "is not a directory",
+                            v.tag().clone(),
+                        ));
+                    }
+
                     match dunce::canonicalize(path.join(&target)) {
                         Ok(p) => p,
                         Err(_) => {
