@@ -159,5 +159,9 @@ path = "src/plugins/textview.rs"
 required-features = ["textview"]
 
 [[bin]]
+name = "nu_plugin_docker"
+path = "src/plugins/docker.rs"
+
+[[bin]]
 name = "nu"
 path = "src/main.rs"
