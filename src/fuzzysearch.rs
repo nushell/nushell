@@ -1,4 +1,5 @@
 use ansi_term::{ANSIString, ANSIStrings, Colour, Style};
+#[cfg(feature = "crossterm")]
 use crossterm::{cursor, terminal, ClearType, InputEvent, KeyEvent, RawScreen};
 use std::io::Write;
 use sublime_fuzzy::best_match;
@@ -18,76 +19,78 @@ pub fn interactive_fuzzy_search(lines: &Vec<&str>, max_results: usize) -> Select
         Edit(String),
     }
     let mut state = State::Selecting;
-    if let Ok(_raw) = RawScreen::into_raw_mode() {
-        // User input for search
-        let mut searchinput = String::new();
-        let mut selected = 0;
+    #[cfg(feature = "crossterm")]
+    {
+        if let Ok(_raw) = RawScreen::into_raw_mode() {
+            // User input for search
+            let mut searchinput = String::new();
+            let mut selected = 0;
 
-        let mut cursor = cursor();
-        let _ = cursor.hide();
-        let input = crossterm::input();
-        let mut sync_stdin = input.read_sync();
+            let mut cursor = cursor();
+            let _ = cursor.hide();
+            let input = crossterm::input();
+            let mut sync_stdin = input.read_sync();
 
-        while state == State::Selecting {
-            let mut selected_lines = fuzzy_search(&searchinput, &lines, max_results);
-            let num_lines = selected_lines.len();
-            paint_selection_list(&selected_lines, selected);
-            if let Some(ev) = sync_stdin.next() {
-                match ev {
-                    InputEvent::Keyboard(k) => match k {
-                        KeyEvent::Esc | KeyEvent::Ctrl('c') => {
-                            state = State::Quit;
-                        }
-                        KeyEvent::Up => {
-                            if selected > 0 {
-                                selected -= 1;
+            while state == State::Selecting {
+                let mut selected_lines = fuzzy_search(&searchinput, &lines, max_results);
+                let num_lines = selected_lines.len();
+                paint_selection_list(&selected_lines, selected);
+                if let Some(ev) = sync_stdin.next() {
+                    match ev {
+                        InputEvent::Keyboard(k) => match k {
+                            KeyEvent::Esc | KeyEvent::Ctrl('c') => {
+                                state = State::Quit;
                             }
-                        }
-                        KeyEvent::Down => {
-                            if selected + 1 < selected_lines.len() {
-                                selected += 1;
+                            KeyEvent::Up => {
+                                if selected > 0 {
+                                    selected -= 1;
+                                }
                             }
-                        }
-                        KeyEvent::Char('\n') => {
-                            state = if selected_lines.len() > 0 {
-                                State::Selected(selected_lines.remove(selected).text)
-                            } else {
-                                State::Edit("".to_string())
-                            };
-                        }
-                        KeyEvent::Char('\t') | KeyEvent::Right => {
-                            state = if selected_lines.len() > 0 {
-                                State::Edit(selected_lines.remove(selected).text)
-                            } else {
-                                State::Edit("".to_string())
-                            };
-                        }
-                        KeyEvent::Char(ch) => {
-                            searchinput.push(ch);
-                            selected = 0;
-                        }
-                        KeyEvent::Backspace => {
-                            searchinput.pop();
-                            selected = 0;
-                        }
-                        _ => {
-                            // println!("OTHER InputEvent: {:?}", k);
-                        }
-                    },
-                    _ => {}
+                            KeyEvent::Down => {
+                                if selected + 1 < selected_lines.len() {
+                                    selected += 1;
+                                }
+                            }
+                            KeyEvent::Char('\n') => {
+                                state = if selected_lines.len() > 0 {
+                                    State::Selected(selected_lines.remove(selected).text)
+                                } else {
+                                    State::Edit("".to_string())
+                                };
+                            }
+                            KeyEvent::Char('\t') | KeyEvent::Right => {
+                                state = if selected_lines.len() > 0 {
+                                    State::Edit(selected_lines.remove(selected).text)
+                                } else {
+                                    State::Edit("".to_string())
+                                };
+                            }
+                            KeyEvent::Char(ch) => {
+                                searchinput.push(ch);
+                                selected = 0;
+                            }
+                            KeyEvent::Backspace => {
+                                searchinput.pop();
+                                selected = 0;
+                            }
+                            _ => {
+                                // println!("OTHER InputEvent: {:?}", k);
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+                if num_lines > 0 {
+                    cursor.move_up(num_lines as u16);
                 }
             }
-            if num_lines > 0 {
-                cursor.move_up(num_lines as u16);
-            }
+            let (_x, y) = cursor.pos();
+            let _ = cursor.goto(0, y - 1);
+            let _ = cursor.show();
+            let _ = RawScreen::disable_raw_mode();
         }
-        let (_x, y) = cursor.pos();
-        let _ = cursor.goto(0, y - 1);
-        let _ = cursor.show();
-        let _ = RawScreen::disable_raw_mode();
+        terminal().clear(ClearType::FromCursorDown).unwrap();
     }
-    terminal().clear(ClearType::FromCursorDown).unwrap();
-
     match state {
         State::Selected(line) => SelectionResult::Selected(line),
         State::Edit(line) => SelectionResult::Edit(line),
@@ -132,6 +135,7 @@ pub fn fuzzy_search(searchstr: &str, lines: &Vec<&str>, max_results: usize) -> V
     results
 }
 
+#[cfg(feature = "crossterm")]
 fn highlight(textmatch: &Match, normal: Style, highlighted: Style) -> Vec<ANSIString> {
     let text = &textmatch.text;
     let mut ansi_strings = vec![];
@@ -147,6 +151,7 @@ fn highlight(textmatch: &Match, normal: Style, highlighted: Style) -> Vec<ANSISt
     ansi_strings
 }
 
+#[cfg(feature = "crossterm")]
 fn paint_selection_list(lines: &Vec<Match>, selected: usize) {
     let terminal = terminal();
     let size = terminal.terminal_size();
