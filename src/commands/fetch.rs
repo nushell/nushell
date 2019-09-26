@@ -58,7 +58,7 @@ fn run(
     let registry = registry.clone();
     let raw_args = raw_args.clone();
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
 
         let result = fetch(&path_str, path_span).await;
 

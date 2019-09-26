@@ -36,7 +36,7 @@ fn last(
     LastArgs { amount }: LastArgs,
     context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let v: Vec<_> = context.input.into_vec().await;
         let k = v.len() - (*amount as usize);
         for x in v[k..].iter() {

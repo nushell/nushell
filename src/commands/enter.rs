@@ -61,7 +61,7 @@ impl PerItemCommand for Enter {
                     )))]
                     .into())
                 } else {
-                    let stream = async_stream_block! {
+                    let stream = async_stream! {
                         // If it's a file, attempt to open the file as a value and enter it
                         let cwd = raw_args.shell_manager.path();
 

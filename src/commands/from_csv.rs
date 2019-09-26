@@ -88,7 +88,7 @@ fn from_csv(
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         let mut concat_string = String::new();

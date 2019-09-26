@@ -52,7 +52,7 @@ fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
 }
 
 pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let input = context.input.into_vec().await;
 
         let descs = merge_descriptors(&input);
