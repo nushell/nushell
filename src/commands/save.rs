@@ -2,6 +2,7 @@ use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use futures_async_stream::async_stream_block;
 use std::path::{Path, PathBuf};
 
 pub struct Save;

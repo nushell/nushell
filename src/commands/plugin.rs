@@ -3,6 +3,7 @@ use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
 use derive_new::new;
+use futures_async_stream::async_stream_block;
 use log::trace;
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
