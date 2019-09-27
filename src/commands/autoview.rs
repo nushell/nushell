@@ -1,6 +1,7 @@
 use crate::commands::{RawCommandArgs, WholeStreamCommand};
 use crate::errors::ShellError;
 use crate::prelude::*;
+use futures_async_stream::async_stream_block;
 
 pub struct Autoview;
 

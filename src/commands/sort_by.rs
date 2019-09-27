@@ -35,7 +35,7 @@ fn sort_by(
     SortByArgs { rest }: SortByArgs,
     mut context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::new(async_stream_block! {
+    Ok(OutputStream::new(async_stream! {
         let mut vec = context.input.drain_vec().await;
 
         let calc_key = |item: &Tagged<Value>| {
