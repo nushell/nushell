@@ -1,0 +1,11 @@
+image:
+  file: docker/Dockerfile
+
+# List the ports you want to expose and what to do when they are served. See https://www.gitpod.io/docs/43_config_ports/
+ports:
+- port: 3000
+
+# List the start up tasks. You can start them in parallel in multiple terminals. See https://www.gitpod.io/docs/44_config_start_tasks/
+tasks:
+- init: echo 'init script' # runs during prebuild
+  command: echo 'start script'
