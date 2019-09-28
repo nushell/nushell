@@ -161,6 +161,7 @@ required-features = ["textview"]
 [[bin]]
 name = "nu_plugin_docker"
 path = "src/plugins/docker.rs"
+required-features = ["docker"]
 
 [[bin]]
 name = "nu"

@@ -248,7 +248,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Next),
             whole_stream_command(Previous),
             whole_stream_command(Debug),
-            // whole_stream_command(Docker),
             whole_stream_command(Lines),
             whole_stream_command(Shells),
             whole_stream_command(SplitColumn),
