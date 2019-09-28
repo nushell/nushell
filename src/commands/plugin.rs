@@ -297,7 +297,7 @@ pub fn sink_plugin(
     let args = args.evaluate_once(registry)?;
     let call_info = args.call_info.clone();
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
         let request = JsonRpc::new("sink", (call_info.clone(), input));
@@ -312,6 +312,11 @@ pub fn sink_plugin(
             .expect("Failed to spawn child process");
 
         let _ = child.wait();
+
+        // Needed for async_stream to type check
+        if false {
+            yield ReturnSuccess::value(Value::nothing().tagged_unknown());
+        }
     };
     Ok(OutputStream::new(stream))
 }

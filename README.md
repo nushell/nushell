@@ -17,7 +17,7 @@ Nu comes with a set of built-in commands (listed below). If a command is unknown
 
 # Learning more
 
-There are a few good resources to learn about Nu. First, there is a [book](https://book.nushell.sh) about Nu, currently in progress. The book focuses on using Nu and its core concepts.
+There are a few good resources to learn about Nu. There is a [book](https://book.nushell.sh) about Nu that is currently in progress. The book focuses on using Nu and its core concepts.
 
 If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
@@ -181,7 +181,7 @@ Here we use the variable `$it` to refer to the value being piped to the external
 
 ## Shells
 
-By default, Nu will work inside of a single directory and allow you to navigate around your filesystem. Sometimes, you'll want to work in multiple directories at the same time. For this, Nu offers a way of adding additional working directories that you can jump between. 
+Nu will work inside of a single directory and allow you to navigate around your filesystem by default. Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time. 
 
 To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
 

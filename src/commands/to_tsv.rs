@@ -134,7 +134,7 @@ fn to_tsv(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
-    let stream = async_stream_block! {
+    let stream = async_stream! {
          let input: Vec<Tagged<Value>> = input.values.collect().await;
 
          let to_process_input = if input.len() > 1 {

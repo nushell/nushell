@@ -76,7 +76,7 @@ fn collect_values(input: &Vec<Tagged<Value>>) -> Result<Vec<toml::Value>, ShellE
 fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_tag = args.name_tag();
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {

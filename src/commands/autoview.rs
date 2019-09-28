@@ -34,7 +34,7 @@ pub fn autoview(
     mut context: RunnableContext,
     raw: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::new(async_stream_block! {
+    Ok(OutputStream::new(async_stream! {
         let input = context.input.drain_vec().await;
 
         if input.len() > 0 {
@@ -87,6 +87,11 @@ pub fn autoview(
                 let result = table.run(raw.with_input(input), &context.commands, false);
                 result.collect::<Vec<_>>().await;
             }
+        }
+
+        // Needed for async_stream to type check
+        if false {
+            yield ReturnSuccess::value(Value::nothing().tagged_unknown());
         }
     }))
 }
