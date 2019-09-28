@@ -1,12 +1,15 @@
 FROM gitpod/workspace-full
 
 USER root
-
-# Install custom tools, runtime, etc. using apt-get
-# For example, the command below would install "bastet" - a command line tetris clone:
-#
-# RUN apt-get update \
-#    && apt-get install -y bastet \
-#    && apt-get clean && rm -rf /var/cache/apt/* && rm -rf /var/lib/apt/lists/* && rm -rf /tmp/*
-#
-# More information: https://www.gitpod.io/docs/42_config_docker/
+RUN apt-get update && apt-get install -y libssl-dev \
+    libxcb-composite0-dev \
+    pkg-config \
+    curl
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain `cat rust-toolchain`
+RUN echo "##vso[task.prependpath]/root/.cargo/bin" && \
+    rustc -Vv && \
+    if $RELEASE; then cargo build --release && cargo run --release; \
+                   cp target/release/nu /usr/local/bin; \   
+                 else cargo build; \
+                   cp target/debug/nu /usr/local/bin; fi;
+RUN cargo build
