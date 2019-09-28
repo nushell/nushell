@@ -1,8 +1,8 @@
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
-[![Build Status](https://dev.azure.com/nushell/nushell/_apis/build/status/nushell.nushell?branchName=master)](https://dev.azure.com/nushell/nushell/_build/latest?definitionId=2&branchName=master) 
+[![Build Status](https://dev.azure.com/nushell/nushell/_apis/build/status/nushell.nushell?branchName=master)](https://dev.azure.com/nushell/nushell/_build/latest?definitionId=2&branchName=master)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
 
-            
+
 # Nu Shell
 
 A modern shell for the GitHub era
@@ -22,10 +22,12 @@ There are a few good resources to learn about Nu. There is a [book](https://book
 If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
 We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
+Try it in gitpod
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
 
 # Installation
 
-## Local 
+## Local
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
 
@@ -71,13 +73,13 @@ To build the base image:
 
 ```bash
 $ docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
-``` 
+```
 
 And then to build the smaller container (using a Multistage build):
 
 ```bash
 $ docker build -f docker/Dockerfile -t nushell/nu .
-``` 
+```
 
 Either way, you can run either container as follows:
 
@@ -112,17 +114,17 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 ```
 /home/jonathan/Source/nushell(master)> ls | where type == "Directory" | autoview
 ━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
- #  │ name      │ type      │ readonly │ size   │ accessed     │ modified 
+ #  │ name      │ type      │ readonly │ size   │ accessed     │ modified
 ────┼───────────┼───────────┼──────────┼────────┼──────────────┼────────────────
-  0 │ .azure    │ Directory │          │ 4.1 KB │ 2 months ago │ a day ago 
-  1 │ target    │ Directory │          │ 4.1 KB │ 3 days ago   │ 3 days ago 
-  2 │ images    │ Directory │          │ 4.1 KB │ 2 months ago │ 2 weeks ago 
-  3 │ tests     │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago 
-  4 │ tmp       │ Directory │          │ 4.1 KB │ 2 weeks ago  │ 2 weeks ago 
-  5 │ src       │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago 
-  6 │ assets    │ Directory │          │ 4.1 KB │ a month ago  │ a month ago 
+  0 │ .azure    │ Directory │          │ 4.1 KB │ 2 months ago │ a day ago
+  1 │ target    │ Directory │          │ 4.1 KB │ 3 days ago   │ 3 days ago
+  2 │ images    │ Directory │          │ 4.1 KB │ 2 months ago │ 2 weeks ago
+  3 │ tests     │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
+  4 │ tmp       │ Directory │          │ 4.1 KB │ 2 weeks ago  │ 2 weeks ago
+  5 │ src       │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
+  6 │ assets    │ Directory │          │ 4.1 KB │ a month ago  │ a month ago
   7 │ docs      │ Directory │          │ 4.1 KB │ 2 months ago │ 2 months ago
-━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━  
+━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
@@ -136,12 +138,12 @@ Being able to use the same commands and compose them differently is an important
 ```text
 /home/jonathan/Source/nushell(master)> ps | where cpu > 0
 ━━━┯━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━
- # │ pid   │ name            │ status   │ cpu 
+ # │ pid   │ name            │ status   │ cpu
 ───┼───────┼─────────────────┼──────────┼──────────
- 0 │   992 │ chrome          │ Sleeping │ 6.988768 
- 1 │  4240 │ chrome          │ Sleeping │ 5.645982 
- 2 │ 13973 │ qemu-system-x86 │ Sleeping │ 4.996551 
- 3 │ 15746 │ nu              │ Sleeping │ 84.59905 
+ 0 │   992 │ chrome          │ Sleeping │ 6.988768
+ 1 │  4240 │ chrome          │ Sleeping │ 5.645982
+ 2 │ 13973 │ qemu-system-x86 │ Sleeping │ 4.996551
+ 3 │ 15746 │ nu              │ Sleeping │ 84.59905
 ━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━
 
 ```
@@ -153,9 +155,9 @@ Nu can load file and URL contents as raw text or as structured data (if it recog
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
 ━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
- bin              │ dependencies   │ dev-dependencies 
+ bin              │ dependencies   │ dev-dependencies
 ──────────────────┼────────────────┼──────────────────
- [table: 12 rows] │ [table: 1 row] │ [table: 1 row]   
+ [table: 12 rows] │ [table: 1 row] │ [table: 1 row]
 ━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━
 ```
 
@@ -164,7 +166,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
 ━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
- authors         │ description                │ edition │ license │ name │ version 
+ authors         │ description                │ edition │ license │ name │ version
 ─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
  [table: 3 rows] │ A shell for the GitHub era │ 2018    │ ISC     │ nu   │ 0.3.0
 ━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
@@ -181,7 +183,7 @@ Here we use the variable `$it` to refer to the value being piped to the external
 
 ## Shells
 
-Nu will work inside of a single directory and allow you to navigate around your filesystem by default. Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time. 
+Nu will work inside of a single directory and allow you to navigate around your filesystem by default. Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time.
 
 To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
 
