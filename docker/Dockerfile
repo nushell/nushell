@@ -1,6 +1,6 @@
 ARG FROMTAG=latest
 FROM quay.io/nushell/nu-base:${FROMTAG} as base
-FROM gitpod/workspace-full
+FROM ubuntu:18.04
 COPY --from=base /usr/local/bin/nu /usr/local/bin/nu
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y libssl-dev \
