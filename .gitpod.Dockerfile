@@ -4,7 +4,8 @@ USER root
 RUN apt-get update && apt-get install -y libssl-dev \
     libxcb-composite0-dev \
     pkg-config \
-    curl
+    curl \
+    rustc
 RUN echo "##vso[task.prependpath]/root/.cargo/bin" && \
     rustc -Vv && \
     if $RELEASE; then cargo build --release && cargo run --release; \
