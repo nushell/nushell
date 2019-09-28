@@ -230,6 +230,8 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | version | Display Nu version |
 
 ## Shell commands
+| command | description |
+| ------- | ----------- |
 | exit (--now) | Exit the current shell (or all shells) |
 | enter (path) | Create a new shell and begin at this path |
 | p | Go to previous shell |
