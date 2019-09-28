@@ -2,13 +2,12 @@ use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::prelude::*;
-use futures_async_stream::async_stream_block;
 use std::path::{Path, PathBuf};
 
 pub struct Save;
 
 macro_rules! process_string {
-    ($input:ident, $name_tag:ident) => {{
+    ($scope:tt, $input:ident, $name_tag:ident) => {{
         let mut result_string = String::new();
         for res in $input {
             match res {
@@ -19,11 +18,11 @@ macro_rules! process_string {
                     result_string.push_str(&s);
                 }
                 _ => {
-                    yield core::task::Poll::Ready(Err(ShellError::labeled_error(
+                    break $scope Err(ShellError::labeled_error(
                         "Save could not successfully save",
                         "unexpected data during save",
                         $name_tag,
-                    )));
+                    ));
                 }
             }
         }
@@ -32,7 +31,7 @@ macro_rules! process_string {
 }
 
 macro_rules! process_string_return_success {
-    ($result_vec:ident, $name_tag:ident) => {{
+    ($scope:tt, $result_vec:ident, $name_tag:ident) => {{
         let mut result_string = String::new();
         for res in $result_vec {
             match res {
@@ -43,11 +42,11 @@ macro_rules! process_string_return_success {
                     result_string.push_str(&s);
                 }
                 _ => {
-                    yield core::task::Poll::Ready(Err(ShellError::labeled_error(
+                    break $scope Err(ShellError::labeled_error(
                         "Save could not successfully save",
                         "unexpected data during text save",
                         $name_tag,
-                    )));
+                    ));
                 }
             }
         }
@@ -56,7 +55,7 @@ macro_rules! process_string_return_success {
 }
 
 macro_rules! process_binary_return_success {
-    ($result_vec:ident, $name_tag:ident) => {{
+    ($scope:tt, $result_vec:ident, $name_tag:ident) => {{
         let mut result_binary: Vec<u8> = Vec::new();
         for res in $result_vec {
             match res {
@@ -69,11 +68,11 @@ macro_rules! process_binary_return_success {
                     }
                 }
                 _ => {
-                    yield core::task::Poll::Ready(Err(ShellError::labeled_error(
+                    break $scope Err(ShellError::labeled_error(
                         "Save could not successfully save",
                         "unexpected data during binary save",
                         $name_tag,
-                    )));
+                    ));
                 }
             }
         }
@@ -131,7 +130,7 @@ fn save(
     let name_tag = name;
 
     let source_map = source_map.clone();
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let input: Vec<Tagged<Value>> = input.values.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the origin filename
@@ -171,39 +170,43 @@ fn save(
             }
         }
 
-        let content : Result<Vec<u8>, ShellError> = if !save_raw {
-            if let Some(extension) = full_path.extension() {
-                let command_name = format!("to-{}", extension.to_str().unwrap());
-                if let Some(converter) = registry.get_command(&command_name) {
-                    let new_args = RawCommandArgs {
-                        host,
-                        shell_manager,
-                        call_info: UnevaluatedCallInfo {
-                            args: crate::parser::hir::Call {
-                                head: raw_args.call_info.args.head,
-                                positional: None,
-                                named: None
-                            },
-                            source: raw_args.call_info.source,
-                            source_map: raw_args.call_info.source_map,
-                            name_tag: raw_args.call_info.name_tag,
+        // TODO use label_break_value once it is stable:
+        // https://github.com/rust-lang/rust/issues/48594
+        let content : Result<Vec<u8>, ShellError> = 'scope: loop {
+            break if !save_raw {
+                if let Some(extension) = full_path.extension() {
+                    let command_name = format!("to-{}", extension.to_str().unwrap());
+                    if let Some(converter) = registry.get_command(&command_name) {
+                        let new_args = RawCommandArgs {
+                            host,
+                            shell_manager,
+                            call_info: UnevaluatedCallInfo {
+                                args: crate::parser::hir::Call {
+                                    head: raw_args.call_info.args.head,
+                                    positional: None,
+                                    named: None
+                                },
+                                source: raw_args.call_info.source,
+                                source_map: raw_args.call_info.source_map,
+                                name_tag: raw_args.call_info.name_tag,
+                            }
+                        };
+                        let mut result = converter.run(new_args.with_input(input), &registry, false);
+                        let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
+                        if converter.is_binary() {
+                            process_binary_return_success!('scope, result_vec, name_tag)
+                        } else {
+                            process_string_return_success!('scope, result_vec, name_tag)
                         }
-                    };
-                    let mut result = converter.run(new_args.with_input(input), &registry, false);
-                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
-                    if converter.is_binary() {
-                        process_binary_return_success!(result_vec, name_tag)
                     } else {
-                        process_string_return_success!(result_vec, name_tag)
+                        process_string!('scope, input, name_tag)
                     }
                 } else {
-                    process_string!(input, name_tag)
+                    process_string!('scope, input, name_tag)
                 }
             } else {
-                process_string!(input, name_tag)
-            }
-        } else {
-            Ok(string_from(&input).into_bytes())
+                Ok(string_from(&input).into_bytes())
+            };
         };
 
         match content {

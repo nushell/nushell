@@ -1,5 +1,3 @@
-#![feature(generators)]
-#![feature(proc_macro_hygiene)]
 #![recursion_limit = "512"]
 
 #[macro_use]
