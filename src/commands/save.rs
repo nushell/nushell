@@ -138,7 +138,7 @@ fn save(
                 let anchor = input[0].anchor();
                 match source_map.get(&anchor) {
                     Some(path) => match path {
-                        SpanSource::File(file) => {
+                        AnchorLocation::File(file) => {
                             full_path.push(Path::new(file));
                         }
                         _ => {

@@ -43,10 +43,10 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
                 tags.insert_tagged("span", dict.into_tagged_value());
 
                 match source_map.get(&anchor) {
-                    Some(SpanSource::File(source)) => {
+                    Some(AnchorLocation::File(source)) => {
                         tags.insert("anchor", Value::string(source));
                     }
-                    Some(SpanSource::Url(source)) => {
+                    Some(AnchorLocation::Url(source)) => {
                         tags.insert("anchor", Value::string(source));
                     }
                     _ => {}

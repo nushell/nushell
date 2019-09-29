@@ -54,7 +54,7 @@ pub(crate) use crate::commands::command::{
 pub(crate) use crate::commands::PerItemCommand;
 pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
-pub(crate) use crate::context::{Context, SpanSource};
+pub(crate) use crate::context::{AnchorLocation, Context};
 pub(crate) use crate::data::base as value;
 pub(crate) use crate::data::meta::{Tag, Tagged, TaggedItem};
 pub(crate) use crate::data::types::ExtractType;

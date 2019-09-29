@@ -1,7 +1,7 @@
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap, SpanSource,
+    serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap,
     Tagged, Value,
 };
 
@@ -223,11 +223,11 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
 
             if let Some(source) = source {
                 let extension: Option<String> = match source {
-                    SpanSource::File(file) => {
+                    AnchorLocation::File(file) => {
                         let path = Path::new(file);
                         path.extension().map(|x| x.to_string_lossy().to_string())
                     }
-                    SpanSource::Url(url) => {
+                    AnchorLocation::Url(url) => {
                         let url = url::Url::parse(url);
                         if let Ok(url) = url {
                             let url = url.clone();
@@ -246,7 +246,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
                         }
                     }
                     //FIXME: this probably isn't correct
-                    SpanSource::Source(_source) => None,
+                    AnchorLocation::Source(_source) => None,
                 };
 
                 match extension {

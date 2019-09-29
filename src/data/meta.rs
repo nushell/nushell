@@ -1,4 +1,4 @@
-use crate::context::{SourceMap, SpanSource};
+use crate::context::{AnchorLocation, SourceMap};
 use crate::prelude::*;
 use crate::Text;
 use derive_new::new;
@@ -96,8 +96,8 @@ impl<T> Tagged<T> {
 
     pub fn anchor_name(&self, source_map: &SourceMap) -> Option<String> {
         match source_map.get(&self.tag.anchor) {
-            Some(SpanSource::File(file)) => Some(file.clone()),
-            Some(SpanSource::Url(url)) => Some(url.clone()),
+            Some(AnchorLocation::File(file)) => Some(file.clone()),
+            Some(AnchorLocation::Url(url)) => Some(url.clone()),
             _ => None,
         }
     }

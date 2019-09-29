@@ -67,7 +67,7 @@ impl PerItemCommand for Enter {
 
                         let full_path = std::path::PathBuf::from(cwd);
 
-                        let (file_extension, contents, contents_tag, span_source) =
+                        let (file_extension, contents, contents_tag, anchor_location) =
                             crate::commands::open::fetch(
                                 &full_path,
                                 &location_clone,
@@ -77,9 +77,9 @@ impl PerItemCommand for Enter {
 
                         if contents_tag.anchor != uuid::Uuid::nil() {
                             // If we have loaded something, track its source
-                            yield ReturnSuccess::action(CommandAction::AddSpanSource(
+                            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
                                 contents_tag.anchor,
-                                span_source,
+                                anchor_location,
                             ));
                         }
 
