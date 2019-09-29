@@ -22,6 +22,7 @@ There are a few good resources to learn about Nu. There is a [book](https://book
 If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
 We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
+
 Try it in gitpod
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
 
@@ -43,7 +44,7 @@ Optional dependencies:
 * To use Nu with all possible optional features enabled, you'll also need the following:
   * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
-To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) the nightly compiler via `rustup install nightly`):
+To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the nightly compiler via `rustup install nightly`):
 
 ```
 cargo +nightly install nu
