@@ -80,26 +80,7 @@ fn run(
     let registry = registry.clone();
     let raw_args = raw_args.clone();
 
-    let content_type = call_info
-        .args
-        .get("content-type")
-        .map(|x| x.as_string().unwrap());
-
-    let content_length = call_info
-        .args
-        .get("content-length")
-        .map(|x| x.as_string().unwrap());
-
-    let mut headers = vec![];
-    match content_type {
-        Some(ct) => headers.push(HeaderKind::ContentType(ct)),
-        None => {}
-    };
-
-    match content_length {
-        Some(cl) => headers.push(HeaderKind::ContentLength(cl)),
-        None => {}
-    };
+    let headers = get_headers(&call_info)?;
 
     let stream = async_stream! {
         let (file_extension, contents, contents_tag, span_source) =
@@ -164,6 +145,52 @@ fn run(
     };
 
     Ok(stream.to_output_stream())
+}
+
+fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
+    let mut headers = vec![];
+
+    match extract_header_value(&call_info, "content-type") {
+        Ok(h) => match h {
+            Some(ct) => headers.push(HeaderKind::ContentType(ct)),
+            None => {}
+        },
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    match extract_header_value(&call_info, "content-length") {
+        Ok(h) => match h {
+            Some(cl) => headers.push(HeaderKind::ContentLength(cl)),
+            None => {}
+        },
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    Ok(headers)
+}
+
+fn extract_header_value(call_info: &CallInfo, key: &str) -> Result<Option<String>, ShellError> {
+    if call_info.args.has(key) {
+        let val = match call_info.args.get(key) {
+            Some(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => s.clone(),
+            _ => {
+                return Err(ShellError::string(format!(
+                    "{} not in expected format.  Expected string.",
+                    key
+                )));
+            }
+        };
+        return Ok(Some(val));
+    }
+
+    Ok(None)
 }
 
 pub async fn post(
