@@ -21,10 +21,10 @@ impl Plugin for BinaryView {
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
         for v in input {
-            let value_origin = v.origin();
+            let value_anchor = v.anchor();
             match v.item {
                 Value::Primitive(Primitive::Binary(b)) => {
-                    let source = call_info.source_map.get(&value_origin);
+                    let source = call_info.source_map.get(&value_anchor);
                     let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}

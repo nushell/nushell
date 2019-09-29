@@ -35,19 +35,19 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
         .map(move |v| {
             let mut tags = TaggedDictBuilder::new(v.tag());
             {
-                let origin = v.origin();
+                let anchor = v.anchor();
                 let span = v.tag().span;
                 let mut dict = TaggedDictBuilder::new(v.tag());
                 dict.insert("start", Value::int(span.start as i64));
                 dict.insert("end", Value::int(span.end as i64));
                 tags.insert_tagged("span", dict.into_tagged_value());
 
-                match source_map.get(&origin) {
+                match source_map.get(&anchor) {
                     Some(SpanSource::File(source)) => {
-                        tags.insert("origin", Value::string(source));
+                        tags.insert("anchor", Value::string(source));
                     }
                     Some(SpanSource::Url(source)) => {
-                        tags.insert("origin", Value::string(source));
+                        tags.insert("anchor", Value::string(source));
                     }
                     _ => {}
                 }

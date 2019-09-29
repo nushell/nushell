@@ -75,10 +75,10 @@ impl PerItemCommand for Enter {
                             )
                             .await.unwrap();
 
-                        if contents_tag.origin != uuid::Uuid::nil() {
+                        if contents_tag.anchor != uuid::Uuid::nil() {
                             // If we have loaded something, track its source
                             yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                                contents_tag.origin,
+                                contents_tag.anchor,
                                 span_source,
                             ));
                         }

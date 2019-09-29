@@ -76,10 +76,10 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if contents_tag.origin != uuid::Uuid::nil() {
+        if contents_tag.anchor != uuid::Uuid::nil() {
             // If we have loaded something, track its source
             yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                contents_tag.origin,
+                contents_tag.anchor,
                 span_source,
             ));
         }
@@ -158,7 +158,7 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
                         SpanSource::Url(location.to_string()),
                     )),
@@ -173,7 +173,7 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
                         SpanSource::Url(location.to_string()),
                     )),
@@ -190,7 +190,7 @@ pub async fn fetch(
                             Value::binary(buf),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
                             SpanSource::Url(location.to_string()),
                         ))
@@ -206,7 +206,7 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
                         SpanSource::Url(location.to_string()),
                     )),
@@ -223,7 +223,7 @@ pub async fn fetch(
                             Value::binary(buf),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
                             SpanSource::Url(location.to_string()),
                         ))
@@ -239,7 +239,7 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
                         SpanSource::Url(location.to_string()),
                     )),
@@ -266,7 +266,7 @@ pub async fn fetch(
                             })?),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
                             SpanSource::Url(location.to_string()),
                         ))
@@ -276,7 +276,7 @@ pub async fn fetch(
                         Value::string(format!("Not yet supported MIME type: {} {}", ty, sub_ty)),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
                         SpanSource::Url(location.to_string()),
                     )),
@@ -287,7 +287,7 @@ pub async fn fetch(
                 Value::string(format!("No content type found")),
                 Tag {
                     span,
-                    origin: Uuid::new_v4(),
+                    anchor: Uuid::new_v4(),
                 },
                 SpanSource::Url(location.to_string()),
             )),
