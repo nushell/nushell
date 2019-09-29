@@ -91,7 +91,7 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         for value in to_process_input {
             match value_to_toml_value(&value) {
                 Ok(toml_value) => {
-                    match toml::to_string(&toml_value) {
+                    match toml::to_string_pretty(&toml_value) {
                         Ok(x) => yield ReturnSuccess::value(
                             Value::Primitive(Primitive::String(x)).tagged(name_tag),
                         ),
