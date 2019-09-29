@@ -1,4 +1,4 @@
-use crate::context::{SourceMap, SpanSource};
+use crate::context::{AnchorLocation, SourceMap};
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::evaluate::Scope;
@@ -376,7 +376,7 @@ impl EvaluatedCommandArgs {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(String),
-    AddSpanSource(Uuid, SpanSource),
+    AddAnchorLocation(Uuid, AnchorLocation),
     Exit,
     EnterShell(String),
     EnterValueShell(Tagged<Value>),
@@ -390,7 +390,7 @@ impl ToDebug for CommandAction {
     fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
         match self {
             CommandAction::ChangePath(s) => write!(f, "action:change-path={}", s),
-            CommandAction::AddSpanSource(u, source) => {
+            CommandAction::AddAnchorLocation(u, source) => {
                 write!(f, "action:add-span-source={}@{:?}", u, source)
             }
             CommandAction::Exit => write!(f, "action:exit"),

@@ -1,5 +1,5 @@
 use crate::commands::UnevaluatedCallInfo;
-use crate::context::SpanSource;
+use crate::context::AnchorLocation;
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::parser::hir::SyntaxShape;
@@ -83,7 +83,7 @@ fn run(
     let headers = get_headers(&call_info)?;
 
     let stream = async_stream! {
-        let (file_extension, contents, contents_tag, span_source) =
+        let (file_extension, contents, contents_tag, anchor_location) =
             post(&path_str, &body, user, password, &headers, path_span, &registry, &raw_args).await.unwrap();
 
         let file_extension = if has_raw {
@@ -94,11 +94,11 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if contents_tag.origin != uuid::Uuid::nil() {
+        if contents_tag.anchor != uuid::Uuid::nil() {
             // If we have loaded something, track its source
-            yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                contents_tag.origin,
-                span_source,
+            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
+                contents_tag.anchor,
+                anchor_location,
             ));
         }
 
@@ -202,7 +202,7 @@ pub async fn post(
     tag: Tag,
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
-) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
+) -> Result<(Option<String>, Value, Tag, AnchorLocation), ShellError> {
     let registry = registry.clone();
     let raw_args = raw_args.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
@@ -311,7 +311,7 @@ pub async fn post(
                                 )
                             })?),
                             tag,
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
                             Some("json".to_string()),
@@ -323,7 +323,7 @@ pub async fn post(
                                 )
                             })?),
                             tag,
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
                             let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
@@ -337,7 +337,7 @@ pub async fn post(
                                 None,
                                 Value::binary(buf),
                                 tag,
-                                SpanSource::Url(location.to_string()),
+                                AnchorLocation::Url(location.to_string()),
                             ))
                         }
                         (mime::IMAGE, image_ty) => {
@@ -352,7 +352,7 @@ pub async fn post(
                                 Some(image_ty.to_string()),
                                 Value::binary(buf),
                                 tag,
-                                SpanSource::Url(location.to_string()),
+                                AnchorLocation::Url(location.to_string()),
                             ))
                         }
                         (mime::TEXT, mime::HTML) => Ok((
@@ -365,7 +365,7 @@ pub async fn post(
                                 )
                             })?),
                             tag,
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         )),
                         (mime::TEXT, mime::PLAIN) => {
                             let path_extension = url::Url::parse(location)
@@ -389,7 +389,7 @@ pub async fn post(
                                     )
                                 })?),
                                 tag,
-                                SpanSource::Url(location.to_string()),
+                                AnchorLocation::Url(location.to_string()),
                             ))
                         }
                         (ty, sub_ty) => Ok((
@@ -399,7 +399,7 @@ pub async fn post(
                                 ty, sub_ty
                             )),
                             tag,
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         )),
                     }
                 }
@@ -407,7 +407,7 @@ pub async fn post(
                     None,
                     Value::string(format!("No content type found")),
                     tag,
-                    SpanSource::Url(location.to_string()),
+                    AnchorLocation::Url(location.to_string()),
                 )),
             },
             Err(_) => {

@@ -26,8 +26,8 @@ use uuid::Uuid;
 
 pub type NomSpan<'a> = LocatedSpanEx<&'a str, Uuid>;
 
-pub fn nom_input(s: &str, origin: Uuid) -> NomSpan<'_> {
-    LocatedSpanEx::new_extra(s, origin)
+pub fn nom_input(s: &str, anchor: Uuid) -> NomSpan<'_> {
+    LocatedSpanEx::new_extra(s, anchor)
 }
 
 macro_rules! operator {
@@ -149,7 +149,7 @@ impl Into<Number> for BigDecimal {
 }
 
 pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
-    let original = input;
+    let anchoral = input;
     let start = input.offset;
     trace_step(input, "raw_decimal", move |input| {
         let (input, neg) = opt(tag("-"))(input)?;
@@ -1308,7 +1308,7 @@ mod tests {
         right: usize,
     ) -> TokenNode {
         let node = DelimitedNode::new(*delimiter, children);
-        let spanned = node.tagged((left, right, delimiter.tag.origin));
+        let spanned = node.tagged((left, right, delimiter.tag.anchor));
         TokenNode::Delimited(spanned)
     }
 
@@ -1319,7 +1319,7 @@ mod tests {
             Box::new(head),
             tail.into_iter().map(TokenNode::Token).collect(),
         );
-        let spanned = node.tagged((left, right, tag.origin));
+        let spanned = node.tagged((left, right, tag.anchor));
         TokenNode::Path(spanned)
     }
 

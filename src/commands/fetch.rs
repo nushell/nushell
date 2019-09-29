@@ -1,5 +1,5 @@
 use crate::commands::UnevaluatedCallInfo;
-use crate::context::SpanSource;
+use crate::context::AnchorLocation;
 use crate::data::meta::Span;
 use crate::data::Value;
 use crate::errors::ShellError;
@@ -66,7 +66,7 @@ fn run(
             yield Err(e);
             return;
         }
-        let (file_extension, contents, contents_tag, span_source) = result.unwrap();
+        let (file_extension, contents, contents_tag, anchor_location) = result.unwrap();
 
         let file_extension = if has_raw {
             None
@@ -76,11 +76,11 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if contents_tag.origin != uuid::Uuid::nil() {
+        if contents_tag.anchor != uuid::Uuid::nil() {
             // If we have loaded something, track its source
-            yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                contents_tag.origin,
-                span_source,
+            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
+                contents_tag.anchor,
+                anchor_location,
             ));
         }
 
@@ -132,7 +132,7 @@ fn run(
 pub async fn fetch(
     location: &str,
     span: Span,
-) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
+) -> Result<(Option<String>, Value, Tag, AnchorLocation), ShellError> {
     if let Err(_) = url::Url::parse(location) {
         return Err(ShellError::labeled_error(
             "Incomplete or incorrect url",
@@ -158,9 +158,9 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
-                        SpanSource::Url(location.to_string()),
+                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::APPLICATION, mime::JSON) => Ok((
                         Some("json".to_string()),
@@ -173,9 +173,9 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
-                        SpanSource::Url(location.to_string()),
+                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::APPLICATION, mime::OCTET_STREAM) => {
                         let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
@@ -190,9 +190,9 @@ pub async fn fetch(
                             Value::binary(buf),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         ))
                     }
                     (mime::IMAGE, mime::SVG) => Ok((
@@ -206,9 +206,9 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
-                        SpanSource::Url(location.to_string()),
+                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::IMAGE, image_ty) => {
                         let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
@@ -223,9 +223,9 @@ pub async fn fetch(
                             Value::binary(buf),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         ))
                     }
                     (mime::TEXT, mime::HTML) => Ok((
@@ -239,9 +239,9 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
-                        SpanSource::Url(location.to_string()),
+                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::TEXT, mime::PLAIN) => {
                         let path_extension = url::Url::parse(location)
@@ -266,9 +266,9 @@ pub async fn fetch(
                             })?),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
-                            SpanSource::Url(location.to_string()),
+                            AnchorLocation::Url(location.to_string()),
                         ))
                     }
                     (ty, sub_ty) => Ok((
@@ -276,9 +276,9 @@ pub async fn fetch(
                         Value::string(format!("Not yet supported MIME type: {} {}", ty, sub_ty)),
                         Tag {
                             span,
-                            origin: Uuid::new_v4(),
+                            anchor: Uuid::new_v4(),
                         },
-                        SpanSource::Url(location.to_string()),
+                        AnchorLocation::Url(location.to_string()),
                     )),
                 }
             }
@@ -287,9 +287,9 @@ pub async fn fetch(
                 Value::string(format!("No content type found")),
                 Tag {
                     span,
-                    origin: Uuid::new_v4(),
+                    anchor: Uuid::new_v4(),
                 },
-                SpanSource::Url(location.to_string()),
+                AnchorLocation::Url(location.to_string()),
             )),
         },
         Err(_) => {

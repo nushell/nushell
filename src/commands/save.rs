@@ -133,12 +133,12 @@ fn save(
     let stream = async_stream! {
         let input: Vec<Tagged<Value>> = input.values.collect().await;
         if path.is_none() {
-            // If there is no filename, check the metadata for the origin filename
+            // If there is no filename, check the metadata for the anchor filename
             if input.len() > 0 {
-                let origin = input[0].origin();
-                match source_map.get(&origin) {
+                let anchor = input[0].anchor();
+                match source_map.get(&anchor) {
                     Some(path) => match path {
-                        SpanSource::File(file) => {
+                        AnchorLocation::File(file) => {
                             full_path.push(Path::new(file));
                         }
                         _ => {

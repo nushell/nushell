@@ -18,15 +18,15 @@ pub struct TokenTreeBuilder {
     #[new(default)]
     output: String,
 
-    origin: Uuid,
+    anchor: Uuid,
 }
 
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
 pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Tagged<CallNode> + 'static>;
 
 impl TokenTreeBuilder {
-    pub fn build(origin: Uuid, block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
-        let mut builder = TokenTreeBuilder::new(origin);
+    pub fn build(anchor: Uuid, block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
+        let mut builder = TokenTreeBuilder::new(anchor);
         let node = block(&mut builder);
         (node, builder.output)
     }
@@ -76,7 +76,7 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_pipeline((out, None), (start, end, b.origin))
+            TokenTreeBuilder::tagged_pipeline((out, None), (start, end, b.anchor))
         })
     }
 
@@ -95,7 +95,7 @@ impl TokenTreeBuilder {
 
             b.pos = end;
 
-            TokenTreeBuilder::tagged_op(input, (start, end, b.origin))
+            TokenTreeBuilder::tagged_op(input, (start, end, b.anchor))
         })
     }
 
@@ -113,8 +113,8 @@ impl TokenTreeBuilder {
             b.pos = end;
 
             TokenTreeBuilder::tagged_string(
-                (inner_start, inner_end, b.origin),
-                (start, end, b.origin),
+                (inner_start, inner_end, b.anchor),
+                (start, end, b.anchor),
             )
         })
     }
@@ -130,7 +130,7 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            TokenTreeBuilder::tagged_bare((start, end, b.origin))
+            TokenTreeBuilder::tagged_bare((start, end, b.anchor))
         })
     }
 
@@ -145,7 +145,7 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            TokenTreeBuilder::tagged_pattern((start, end, b.origin))
+            TokenTreeBuilder::tagged_pattern((start, end, b.anchor))
         })
     }
 
@@ -160,7 +160,7 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
-            TokenTreeBuilder::tagged_external_word((start, end, b.origin))
+            TokenTreeBuilder::tagged_external_word((start, end, b.anchor))
         })
     }
 
@@ -180,8 +180,8 @@ impl TokenTreeBuilder {
             b.pos = end;
 
             TokenTreeBuilder::tagged_number(
-                RawNumber::Int((start, end, b.origin).into()),
-                (start, end, b.origin),
+                RawNumber::Int((start, end, b.anchor).into()),
+                (start, end, b.anchor),
             )
         })
     }
@@ -194,8 +194,8 @@ impl TokenTreeBuilder {
             b.pos = end;
 
             TokenTreeBuilder::tagged_number(
-                RawNumber::Decimal((start, end, b.origin).into()),
-                (start, end, b.origin),
+                RawNumber::Decimal((start, end, b.anchor).into()),
+                (start, end, b.anchor),
             )
         })
     }
@@ -214,8 +214,8 @@ impl TokenTreeBuilder {
             b.pos = end_unit;
 
             TokenTreeBuilder::tagged_size(
-                (RawNumber::Int((start_int, end_int, b.origin).into()), unit),
-                (start_int, end_unit, b.origin),
+                (RawNumber::Int((start_int, end_int, b.anchor).into()), unit),
+                (start_int, end_unit, b.anchor),
             )
         })
     }
@@ -244,7 +244,7 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_path((head, output), (start, end, b.origin))
+            TokenTreeBuilder::tagged_path((head, output), (start, end, b.anchor))
         })
     }
 
@@ -259,7 +259,7 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("$");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::tagged_var((inner_start, end, b.origin), (start, end, b.origin))
+            TokenTreeBuilder::tagged_var((inner_start, end, b.anchor), (start, end, b.anchor))
         })
     }
 
@@ -274,7 +274,7 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("--");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::tagged_flag((inner_start, end, b.origin), (start, end, b.origin))
+            TokenTreeBuilder::tagged_flag((inner_start, end, b.anchor), (start, end, b.anchor))
         })
     }
 
@@ -289,7 +289,7 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("-");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::tagged_shorthand((inner_start, end, b.origin), (start, end, b.origin))
+            TokenTreeBuilder::tagged_shorthand((inner_start, end, b.anchor), (start, end, b.anchor))
         })
     }
 
@@ -302,7 +302,7 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            TokenTreeBuilder::tagged_member((start, end, b.origin))
+            TokenTreeBuilder::tagged_member((start, end, b.anchor))
         })
     }
 
@@ -323,7 +323,7 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_call(nodes, (start, end, b.origin))
+            TokenTreeBuilder::tagged_call(nodes, (start, end, b.anchor))
         })
     }
 
@@ -350,7 +350,7 @@ impl TokenTreeBuilder {
 
             let (_, end) = b.consume(")");
 
-            TokenTreeBuilder::tagged_parens(output, (start, end, b.origin))
+            TokenTreeBuilder::tagged_parens(output, (start, end, b.anchor))
         })
     }
 
@@ -368,7 +368,7 @@ impl TokenTreeBuilder {
 
             let (_, end) = b.consume("]");
 
-            TokenTreeBuilder::tagged_square(output, (start, end, b.origin))
+            TokenTreeBuilder::tagged_square(output, (start, end, b.anchor))
         })
     }
 
@@ -386,7 +386,7 @@ impl TokenTreeBuilder {
 
             let (_, end) = b.consume(" }");
 
-            TokenTreeBuilder::tagged_brace(output, (start, end, b.origin))
+            TokenTreeBuilder::tagged_brace(output, (start, end, b.anchor))
         })
     }
 
@@ -397,7 +397,7 @@ impl TokenTreeBuilder {
     pub fn sp() -> CurriedToken {
         Box::new(|b| {
             let (start, end) = b.consume(" ");
-            TokenNode::Whitespace(Tag::from((start, end, b.origin)))
+            TokenNode::Whitespace(Tag::from((start, end, b.anchor)))
         })
     }
 
@@ -406,7 +406,7 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            TokenTreeBuilder::tagged_ws((start, end, b.origin))
+            TokenTreeBuilder::tagged_ws((start, end, b.anchor))
         })
     }
 
@@ -425,6 +425,6 @@ impl TokenTreeBuilder {
         let start = self.pos;
         self.pos += input.len();
         self.output.push_str(input);
-        (start, self.pos, self.origin).into()
+        (start, self.pos, self.anchor).into()
     }
 }

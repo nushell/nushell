@@ -1,5 +1,5 @@
 use crate::commands::UnevaluatedCallInfo;
-use crate::context::SpanSource;
+use crate::context::AnchorLocation;
 use crate::data::meta::Span;
 use crate::data::Value;
 use crate::errors::ShellError;
@@ -67,7 +67,7 @@ fn run(
             yield Err(e);
             return;
         }
-        let (file_extension, contents, contents_tag, span_source) = result.unwrap();
+        let (file_extension, contents, contents_tag, anchor_location) = result.unwrap();
 
         let file_extension = if has_raw {
             None
@@ -77,11 +77,11 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if contents_tag.origin != uuid::Uuid::nil() {
+        if contents_tag.anchor != uuid::Uuid::nil() {
             // If we have loaded something, track its source
-            yield ReturnSuccess::action(CommandAction::AddSpanSource(
-                contents_tag.origin,
-                span_source,
+            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
+                contents_tag.anchor,
+                anchor_location,
             ));
         }
 
@@ -134,7 +134,7 @@ pub async fn fetch(
     cwd: &PathBuf,
     location: &str,
     span: Span,
-) -> Result<(Option<String>, Value, Tag, SpanSource), ShellError> {
+) -> Result<(Option<String>, Value, Tag, AnchorLocation), ShellError> {
     let mut cwd = cwd.clone();
 
     cwd.push(Path::new(location));
@@ -147,9 +147,9 @@ pub async fn fetch(
                     Value::string(s),
                     Tag {
                         span,
-                        origin: Uuid::new_v4(),
+                        anchor: Uuid::new_v4(),
                     },
-                    SpanSource::File(cwd.to_string_lossy().to_string()),
+                    AnchorLocation::File(cwd.to_string_lossy().to_string()),
                 )),
                 Err(_) => {
                     //Non utf8 data.
@@ -166,18 +166,18 @@ pub async fn fetch(
                                         Value::string(s),
                                         Tag {
                                             span,
-                                            origin: Uuid::new_v4(),
+                                            anchor: Uuid::new_v4(),
                                         },
-                                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        AnchorLocation::File(cwd.to_string_lossy().to_string()),
                                     )),
                                     Err(_) => Ok((
                                         None,
                                         Value::binary(bytes),
                                         Tag {
                                             span,
-                                            origin: Uuid::new_v4(),
+                                            anchor: Uuid::new_v4(),
                                         },
-                                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        AnchorLocation::File(cwd.to_string_lossy().to_string()),
                                     )),
                                 }
                             } else {
@@ -186,9 +186,9 @@ pub async fn fetch(
                                     Value::binary(bytes),
                                     Tag {
                                         span,
-                                        origin: Uuid::new_v4(),
+                                        anchor: Uuid::new_v4(),
                                     },
-                                    SpanSource::File(cwd.to_string_lossy().to_string()),
+                                    AnchorLocation::File(cwd.to_string_lossy().to_string()),
                                 ))
                             }
                         }
@@ -204,18 +204,18 @@ pub async fn fetch(
                                         Value::string(s),
                                         Tag {
                                             span,
-                                            origin: Uuid::new_v4(),
+                                            anchor: Uuid::new_v4(),
                                         },
-                                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        AnchorLocation::File(cwd.to_string_lossy().to_string()),
                                     )),
                                     Err(_) => Ok((
                                         None,
                                         Value::binary(bytes),
                                         Tag {
                                             span,
-                                            origin: Uuid::new_v4(),
+                                            anchor: Uuid::new_v4(),
                                         },
-                                        SpanSource::File(cwd.to_string_lossy().to_string()),
+                                        AnchorLocation::File(cwd.to_string_lossy().to_string()),
                                     )),
                                 }
                             } else {
@@ -224,9 +224,9 @@ pub async fn fetch(
                                     Value::binary(bytes),
                                     Tag {
                                         span,
-                                        origin: Uuid::new_v4(),
+                                        anchor: Uuid::new_v4(),
                                     },
-                                    SpanSource::File(cwd.to_string_lossy().to_string()),
+                                    AnchorLocation::File(cwd.to_string_lossy().to_string()),
                                 ))
                             }
                         }
@@ -235,9 +235,9 @@ pub async fn fetch(
                             Value::binary(bytes),
                             Tag {
                                 span,
-                                origin: Uuid::new_v4(),
+                                anchor: Uuid::new_v4(),
                             },
-                            SpanSource::File(cwd.to_string_lossy().to_string()),
+                            AnchorLocation::File(cwd.to_string_lossy().to_string()),
                         )),
                     }
                 }

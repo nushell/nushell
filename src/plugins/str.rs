@@ -204,7 +204,7 @@ mod tests {
     use num_bigint::BigInt;
 
     struct CallStub {
-        origin: uuid::Uuid,
+        anchor: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
@@ -212,7 +212,7 @@ mod tests {
     impl CallStub {
         fn new() -> CallStub {
             CallStub {
-                origin: uuid::Uuid::nil(),
+                anchor: uuid::Uuid::nil(),
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
@@ -236,7 +236,7 @@ mod tests {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
                 source_map: SourceMap::new(),
-                name_tag: Tag::unknown_span(self.origin),
+                name_tag: Tag::unknown_span(self.anchor),
             }
         }
     }
