@@ -11,6 +11,11 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use surf::mime;
 
+pub enum HeaderKind {
+    ContentType(String),
+    ContentLength(String),
+}
+
 pub struct Post;
 
 impl PerItemCommand for Post {
@@ -24,6 +29,8 @@ impl PerItemCommand for Post {
             .required("body", SyntaxShape::Any)
             .named("user", SyntaxShape::Any)
             .named("password", SyntaxShape::Any)
+            .named("content-type", SyntaxShape::Any)
+            .named("content-length", SyntaxShape::Any)
             .switch("raw")
     }
 
@@ -73,9 +80,30 @@ fn run(
     let registry = registry.clone();
     let raw_args = raw_args.clone();
 
+    let content_type = call_info
+        .args
+        .get("content-type")
+        .map(|x| x.as_string().unwrap());
+
+    let content_length = call_info
+        .args
+        .get("content-length")
+        .map(|x| x.as_string().unwrap());
+
+    let mut headers = vec![];
+    match content_type {
+        Some(ct) => headers.push(HeaderKind::ContentType(ct)),
+        None => {}
+    };
+
+    match content_length {
+        Some(cl) => headers.push(HeaderKind::ContentLength(cl)),
+        None => {}
+    };
+
     let stream = async_stream! {
         let (file_extension, contents, contents_tag, span_source) =
-            post(&path_str, &body, user, password, path_span, &registry, &raw_args).await.unwrap();
+            post(&path_str, &body, user, password, &headers, path_span, &registry, &raw_args).await.unwrap();
 
         let file_extension = if has_raw {
             None
@@ -143,6 +171,7 @@ pub async fn post(
     body: &Tagged<Value>,
     user: Option<String>,
     password: Option<String>,
+    headers: &Vec<HeaderKind>,
     tag: Tag,
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
@@ -163,6 +192,13 @@ pub async fn post(
                 let mut s = surf::post(location).body_string(body_str.to_string());
                 if let Some(login) = login {
                     s = s.set_header("Authorization", format!("Basic {}", login));
+                }
+
+                for h in headers {
+                    s = match h {
+                        HeaderKind::ContentType(ct) => s.set_header("Content-Type", ct),
+                        HeaderKind::ContentLength(cl) => s.set_header("Content-Length", cl),
+                    };
                 }
                 s.await
             }
