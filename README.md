@@ -43,13 +43,13 @@ Optional dependencies:
 * To use Nu with all possible optional features enabled, you'll also need the following:
   * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
-To install Nu via cargo:
+To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) the nightly compiler via `rustup install nightly`):
 
 ```
 cargo +nightly install nu
 ```
 
-You can also install Nu with all the bells and whistles:
+You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://book.nushell.sh/en/installation#dependencies] for your platform):
 
 ```
 cargo +nightly install nu --all-features
