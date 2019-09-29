@@ -302,7 +302,6 @@ impl ExternalCommand {
                         }
                     }
                 }
-                println!("");
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
