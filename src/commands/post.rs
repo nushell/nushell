@@ -175,16 +175,25 @@ fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
 
 fn extract_header_value(call_info: &CallInfo, key: &str) -> Result<Option<String>, ShellError> {
     if call_info.args.has(key) {
-        let val = match call_info.args.get(key) {
+        let tagged = call_info.args.get(key);
+        let val = match tagged {
             Some(Tagged {
                 item: Value::Primitive(Primitive::String(s)),
                 ..
             }) => s.clone(),
+            Some(Tagged { tag, .. }) => {
+                return Err(ShellError::labeled_error(
+                    format!("{} not in expected format.  Expected string.", key),
+                    "post error",
+                    tag,
+                ));
+            }
             _ => {
-                return Err(ShellError::string(format!(
-                    "{} not in expected format.  Expected string.",
-                    key
-                )));
+                return Err(ShellError::labeled_error(
+                    format!("{} not in expected format.  Expected string.", key),
+                    "post error",
+                    Tag::unknown(),
+                ));
             }
         };
         return Ok(Some(val));
