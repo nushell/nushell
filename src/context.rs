@@ -11,21 +11,21 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum SpanSource {
+pub enum AnchorLocation {
     Url(String),
     File(String),
     Source(Text),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SourceMap(HashMap<Uuid, SpanSource>);
+pub struct SourceMap(HashMap<Uuid, AnchorLocation>);
 
 impl SourceMap {
-    pub fn insert(&mut self, uuid: Uuid, span_source: SpanSource) {
-        self.0.insert(uuid, span_source);
+    pub fn insert(&mut self, uuid: Uuid, anchor_location: AnchorLocation) {
+        self.0.insert(uuid, anchor_location);
     }
 
-    pub fn get(&self, uuid: &Uuid) -> Option<&SpanSource> {
+    pub fn get(&self, uuid: &Uuid) -> Option<&AnchorLocation> {
         self.0.get(uuid)
     }
 
@@ -105,8 +105,8 @@ impl Context {
         }
     }
 
-    pub fn add_span_source(&mut self, uuid: Uuid, span_source: SpanSource) {
-        self.source_map.insert(uuid, span_source);
+    pub fn add_anchor_location(&mut self, uuid: Uuid, anchor_location: AnchorLocation) {
+        self.source_map.insert(uuid, anchor_location);
     }
 
     pub(crate) fn has_command(&self, name: &str) -> bool {

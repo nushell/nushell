@@ -73,10 +73,10 @@ impl ValueShell {
 
 impl Shell for ValueShell {
     fn name(&self, source_map: &SourceMap) -> String {
-        let origin_name = self.value.origin_name(source_map);
+        let anchor_name = self.value.anchor_name(source_map);
         format!(
             "{}",
-            match origin_name {
+            match anchor_name {
                 Some(x) => format!("{{{}}}", x),
                 None => format!("<{}>", self.value.item.type_name(),),
             }

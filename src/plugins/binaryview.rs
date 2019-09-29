@@ -1,6 +1,6 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SpanSource, Tagged, Value,
+    serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature, Tagged, Value,
 };
 use pretty_hex::*;
 
@@ -21,10 +21,10 @@ impl Plugin for BinaryView {
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
         for v in input {
-            let value_origin = v.origin();
+            let value_anchor = v.anchor();
             match v.item {
                 Value::Primitive(Primitive::Binary(b)) => {
-                    let source = call_info.source_map.get(&value_origin);
+                    let source = call_info.source_map.get(&value_anchor);
                     let _ = view_binary(&b, source, call_info.args.has("lores"));
                 }
                 _ => {}
@@ -35,7 +35,7 @@ impl Plugin for BinaryView {
 
 fn view_binary(
     b: &[u8],
-    source: Option<&SpanSource>,
+    source: Option<&AnchorLocation>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
@@ -254,7 +254,7 @@ fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
 
 pub fn view_contents(
     buffer: &[u8],
-    _source: Option<&SpanSource>,
+    _source: Option<&AnchorLocation>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_image_buffer = load_from_png_buffer(buffer);
@@ -341,12 +341,12 @@ pub fn view_contents(
 #[cfg(feature = "rawkey")]
 pub fn view_contents_interactive(
     buffer: &[u8],
-    source: Option<&SpanSource>,
+    source: Option<&AnchorLocation>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use rawkey::{KeyCode, RawKey};
 
-    let sav_path = if let Some(SpanSource::File(f)) = source {
+    let sav_path = if let Some(AnchorLocation::File(f)) = source {
         let mut path = std::path::PathBuf::from(f);
         path.set_extension("sav");
         Some(path)
