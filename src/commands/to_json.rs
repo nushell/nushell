@@ -96,7 +96,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         for value in to_process_input {
             match value_to_json_value(&value) {
                 Ok(json_value) => {
-                    match serde_json::to_string(&json_value) {
+                    match serde_json::to_string_pretty(&json_value) {
                         Ok(x) => yield ReturnSuccess::value(
                             Value::Primitive(Primitive::String(x)).tagged(name_tag),
                         ),
