@@ -94,6 +94,8 @@ The second container is a bit smaller, if size is important to you.
 
 ## Packaging status
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
+
 ### Fedora
 
 [COPR repo](https://copr.fedorainfracloud.org/coprs/atim/nushell/): `sudo dnf copr enable atim/nushell -y && sudo dnf install nushell -y`
