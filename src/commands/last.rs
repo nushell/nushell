@@ -38,10 +38,13 @@ fn last(
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let v: Vec<_> = context.input.into_vec().await;
-        let k = v.len() - (*amount as usize);
-        for x in v[k..].iter() {
-            let y: Tagged<Value> = x.clone();
-            yield ReturnSuccess::value(y)
+        let count = (*amount as usize);
+        if count < v.len() {
+            let k = v.len() - count;
+            for x in v[k..].iter() {
+                let y: Tagged<Value> = x.clone();
+                yield ReturnSuccess::value(y)
+            }
         }
     };
     Ok(stream.to_output_stream())
