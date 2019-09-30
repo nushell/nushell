@@ -5,7 +5,7 @@
 
 # Nu Shell
 
-A modern shell for the GitHub era
+Nu Shell comes with a set of built-in commands. If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even vim will work just fine.
 
 ![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
 
