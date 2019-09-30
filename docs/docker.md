@@ -41,7 +41,7 @@ docker run -it .
 This image does not contain the common packages contained in the default tag and only contains the minimal packages needed to run `nu`. Unless you are working in an environment where only the `nu` image will be deployed and you have space constraints, it's highly recommended to use the alpine image if you aim for small image size. Only use this image if you really need **both** `glibc` and small image size.
 
 ### `nu:<version>-alpine`
-This image is based on the popular [Alpine Linux project](http://alpinelinux.org/), available in [the alpine official image][alpine]. Alpine Linux is much smaller than most distribution base images (~5MB), and thus leads to much slimmer images in general.
+This image is based on the popular [Alpine Linux project](https://alpinelinux.org/), available in [the alpine official image][alpine]. Alpine Linux is much smaller than most distribution base images (~5MB), and thus leads to much slimmer images in general.
 
 This variant is highly recommended when final image size being as small as possible is desired. The main caveat to note is that it does use `musl` libc instead of `glibc` and friends, so certain software might run into issues depending on the depth of their libc requirements. However, most software doesn't have an issue with this, so this variant is usually a very safe choice. See [this Hacker News comment thread](https://news.ycombinator.com/item?id=10782897) for more discussion of the issues that might arise and some pro/con comparisons of using Alpine-based images.
 
@@ -104,7 +104,7 @@ ENTRYPOINT ["nu"]
 </details>
 
 ### `nu:<version>-<libc-variant>-busybox`
-This image is based on [Busybox](http://www.busybox.net/) which is a very good ingredient to craft space-efficient distributions. It combines tiny versions of many common UNIX utilities into a single small executable. It also provides replacements for most of the utilities you usually find in GNU fileutils, shellutils, etc. The utilities in BusyBox generally have fewer options than their full-featured GNU cousins; however, the options that are included provide the expected functionality and behave very much like their GNU counterparts. Basically, this image provides a fairly complete environment for any small or embedded system.
+This image is based on [Busybox](https://www.busybox.net/) which is a very good ingredient to craft space-efficient distributions. It combines tiny versions of many common UNIX utilities into a single small executable. It also provides replacements for most of the utilities you usually find in GNU fileutils, shellutils, etc. The utilities in BusyBox generally have fewer options than their full-featured GNU cousins; however, the options that are included provide the expected functionality and behave very much like their GNU counterparts. Basically, this image provides a fairly complete environment for any small or embedded system.
 
 > Use this only if you need common utilities like `tar`, `awk`, and many more but don't want extra blob like nushell plugins and others.
 
@@ -120,5 +120,5 @@ ENTRYPOINT ["nu"]
 ```
 </details>
 
-[musl]: http://www.musl-libc.org/
+[musl]: https://www.musl-libc.org/
 [alpine]: https://hub.docker.com/_/alpine/
