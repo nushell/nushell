@@ -11,7 +11,7 @@ A modern shell for the GitHub era
 
 # Status
 
-This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be unstable for some commands. Future releases will work fill out missing features and improve stability. Its design is also subject to change as it matures.
+This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be unstable for some commands. Future releases will work to fill out missing features and improve stability. Its design is also subject to change as it matures.
 
 Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
