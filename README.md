@@ -21,7 +21,7 @@ There are a few good resources to learn about Nu. There is a [book](https://book
 
 If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
-We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
+We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
 
 Try it in gitpod
 
