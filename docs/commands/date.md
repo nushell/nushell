@@ -5,10 +5,10 @@ Use `date` to get the current date and time. Defaults to local timezone but you 
 ## Flags
 
     --utc
-      Returns da current date and time in UTC
+      Returns the current date and time in UTC
 
     --local
-      Returns da current date and time in your local timezone
+      Returns the current date and time in your local timezone
 
 ## Examples
 
