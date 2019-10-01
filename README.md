@@ -91,7 +91,7 @@ $ docker run -it nushell/nu
 /> exit
 ```
 
-The second container is a bit smaller, if the size is important to you.
+The second container is a bit smaller if the size is important to you.
 
 ## Packaging status
 
