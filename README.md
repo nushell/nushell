@@ -24,6 +24,7 @@ If you're a developer who would like to contribute to Nu, we're also working on 
 We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
 
 Try it in gitpod
+
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
 
 # Installation
