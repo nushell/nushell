@@ -111,7 +111,7 @@ In Unix, it's common to pipe between commands to split up a sophisticated comman
 
 * Commands that produce a stream (eg, `ls`)
 * Commands that filter a stream (eg, `where type == "Directory"`)
-* Commands that consumes the output of the pipeline (eg, `autoview`)
+* Commands that consume the output of the pipeline (eg, `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
