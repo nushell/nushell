@@ -1,0 +1,11 @@
+The TRIM() function removes the space character OR other specified characters from the start or end of a string.
+By default, the TRIM() function removes leading and trailing spaces from a string.
+syntax:
+TRIM(string)
+
+example-
+SELECT TRIM('    Trim This     ');
+>> Trim This
+
+SELECT TRIM('#! ' FROM '    #trim this!    ') ;
+>> trim this
