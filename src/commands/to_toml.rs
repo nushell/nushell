@@ -49,6 +49,7 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
 
         Value::Table(l) => toml::Value::Array(collect_values(l)?),
+        Value::Error(e) => return Err(e.clone()),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
         Value::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())

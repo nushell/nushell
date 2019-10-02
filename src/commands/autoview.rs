@@ -1,6 +1,7 @@
 use crate::commands::{RawCommandArgs, WholeStreamCommand};
 use crate::errors::ShellError;
 use crate::prelude::*;
+use futures::stream::TryStreamExt;
 
 pub struct Autoview;
 
@@ -35,59 +36,76 @@ pub fn autoview(
     raw: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::new(async_stream! {
-        let input = context.input.drain_vec().await;
+        //let input = context.input.drain_vec().await;
+        let mut output_stream: OutputStream = context.input.into();
 
-        if input.len() > 0 {
-            if let Tagged {
-                item: Value::Primitive(Primitive::Binary(_)),
-                ..
-            } = input[0usize]
-            {
-                let binary = context.get_command("binaryview");
-                if let Some(binary) = binary {
-                    let result = binary.run(raw.with_input(input), &context.commands, false);
-                    result.collect::<Vec<_>>().await;
-                } else {
-                    for i in input {
-                        match i.item {
-                            Value::Primitive(Primitive::Binary(b)) => {
-                                use pretty_hex::*;
-                                println!("{:?}", b.hex_dump());
-                            }
-                            _ => {}
-                        }
+        match output_stream.try_next().await {
+            Ok(Some(x)) => {
+                match output_stream.try_next().await {
+                    Ok(Some(y)) => {
+                        println!("Two things!");
                     }
-                };
-            } else if is_single_anchored_text_value(&input) {
-                let text = context.get_command("textview");
-                if let Some(text) = text {
-                    let result = text.run(raw.with_input(input), &context.commands, false);
-                    result.collect::<Vec<_>>().await;
-                } else {
-                    for i in input {
-                        match i.item {
-                            Value::Primitive(Primitive::String(s)) => {
-                                println!("{}", s);
-                            }
-                            _ => {}
-                        }
+                    _ => {
+                        println!("One thing!");
                     }
                 }
-            } else if is_single_text_value(&input) {
-                for i in input {
-                    match i.item {
-                        Value::Primitive(Primitive::String(s)) => {
-                            println!("{}", s);
-                        }
-                        _ => {}
-                    }
-                }
-            } else {
-                let table = context.expect_command("table");
-                let result = table.run(raw.with_input(input), &context.commands, false);
-                result.collect::<Vec<_>>().await;
+            }
+            _ => {
+                println!("No things!");
             }
         }
+
+        // if input.len() > 0 {
+        //     if let Tagged {
+        //         item: Value::Primitive(Primitive::Binary(_)),
+        //         ..
+        //     } = input[0usize]
+        //     {
+        //         let binary = context.get_command("binaryview");
+        //         if let Some(binary) = binary {
+        //             let result = binary.run(raw.with_input(input), &context.commands, false);
+        //             result.collect::<Vec<_>>().await;
+        //         } else {
+        //             for i in input {
+        //                 match i.item {
+        //                     Value::Primitive(Primitive::Binary(b)) => {
+        //                         use pretty_hex::*;
+        //                         println!("{:?}", b.hex_dump());
+        //                     }
+        //                     _ => {}
+        //                 }
+        //             }
+        //         };
+        //     } else if is_single_anchored_text_value(&input) {
+        //         let text = context.get_command("textview");
+        //         if let Some(text) = text {
+        //             let result = text.run(raw.with_input(input), &context.commands, false);
+        //             result.collect::<Vec<_>>().await;
+        //         } else {
+        //             for i in input {
+        //                 match i.item {
+        //                     Value::Primitive(Primitive::String(s)) => {
+        //                         println!("{}", s);
+        //                     }
+        //                     _ => {}
+        //                 }
+        //             }
+        //         }
+        //     } else if is_single_text_value(&input) {
+        //         for i in input {
+        //             match i.item {
+        //                 Value::Primitive(Primitive::String(s)) => {
+        //                     println!("{}", s);
+        //                 }
+        //                 _ => {}
+        //             }
+        //         }
+        //     } else {
+        //         let table = context.expect_command("table");
+        //         let result = table.run(raw.with_input(input), &context.commands, false);
+        //         result.collect::<Vec<_>>().await;
+        //     }
+        // }
 
         // Needed for async_stream to type check
         if false {

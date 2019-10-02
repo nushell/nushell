@@ -50,6 +50,7 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
         Value::Primitive(Primitive::Path(s)) => serde_json::Value::String(s.display().to_string()),
 
         Value::Table(l) => serde_json::Value::Array(json_list(l)?),
+        Value::Error(e) => return Err(e.clone()),
         Value::Block(_) => serde_json::Value::Null,
         Value::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()

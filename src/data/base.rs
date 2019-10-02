@@ -236,6 +236,9 @@ pub enum Value {
     Row(crate::data::Dictionary),
     Table(Vec<Tagged<Value>>),
 
+    // Errors are a type of value too
+    Error(ShellError),
+
     Block(Block),
 }
 
@@ -284,6 +287,7 @@ impl fmt::Debug for ValueDebug<'_> {
             Value::Row(o) => o.debug(f),
             Value::Table(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
+            Value::Error(_) => write!(f, "[[error]]"),
         }
     }
 }
@@ -403,6 +407,7 @@ impl Value {
             Value::Row(_) => format!("object"),
             Value::Table(_) => format!("list"),
             Value::Block(_) => format!("block"),
+            Value::Error(_) => format!("error"),
         }
     }
 
@@ -418,6 +423,7 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::Table(_) => vec![],
+            Value::Error(_) => vec![],
         }
     }
 
@@ -549,6 +555,7 @@ impl Value {
             Value::Row(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Table(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -567,6 +574,7 @@ impl Value {
                 l.len(),
                 if l.len() == 1 { "row" } else { "rows" }
             ),
+            Value::Error(_) => format!("[error]"),
         }
     }
 
@@ -615,6 +623,7 @@ impl Value {
             Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+            Value::Error(e) => return Err(e.clone()),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::string(format!(
                 "Expected string, got {:?}",

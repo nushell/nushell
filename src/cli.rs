@@ -531,30 +531,41 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left
-                        .run(ctx, input, Text::from(line), is_first_command)
-                        .await
-                    {
+                    ) => match left.run(ctx, input, Text::from(line), is_first_command) {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(line.clone(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left
-                            .run(ctx, input, Text::from(line), is_first_command)
-                            .await
-                        {
+                        match left.run(ctx, input, Text::from(line), is_first_command) {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left
-                            .run(ctx, input, Text::from(line), is_first_command)
-                            .await
-                        {
-                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
+                        match left.run(ctx, input, Text::from(line), is_first_command) {
+                            Ok(val) => {
+                                use futures::stream::TryStreamExt;
+
+                                //ClassifiedInputStream::from_input_stream(val),
+                                println!("Collecting stream...");
+                                let mut output_stream: OutputStream = val.into();
+                                loop {
+                                    match output_stream.try_next().await {
+                                        Ok(Some(_item)) => {
+                                            // if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                            //     break;
+                                            // }
+                                        }
+                                        _ => {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                return LineResult::Success(String::new());
+                            }
                             Err(err) => return LineResult::Error(line.clone(), err),
                         }
                     }

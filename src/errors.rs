@@ -330,7 +330,7 @@ impl ShellError {
     }
 
     pub fn string(title: impl Into<String>) -> ShellError {
-        ProximateShellError::String(StringError::new(title.into(), Value::nothing())).start()
+        ProximateShellError::String(StringError::new(title.into(), String::new())).start()
     }
 
     pub(crate) fn unimplemented(title: impl Into<String>) -> ShellError {
@@ -463,7 +463,7 @@ impl std::cmp::Ord for ShellDiagnostic {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, new, Clone, Serialize, Deserialize)]
 pub struct StringError {
     title: String,
-    error: Value,
+    error: String,
 }
 
 impl std::fmt::Display for ShellError {
@@ -489,7 +489,7 @@ impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
     fn from(input: Box<dyn std::error::Error>) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }
@@ -499,7 +499,7 @@ impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }
@@ -509,7 +509,7 @@ impl std::convert::From<subprocess::PopenError> for ShellError {
     fn from(input: subprocess::PopenError) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }
@@ -519,7 +519,7 @@ impl std::convert::From<serde_yaml::Error> for ShellError {
     fn from(input: serde_yaml::Error) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{:?}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }
@@ -529,7 +529,7 @@ impl std::convert::From<toml::ser::Error> for ShellError {
     fn from(input: toml::ser::Error) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{:?}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }
@@ -539,7 +539,7 @@ impl std::convert::From<serde_json::Error> for ShellError {
     fn from(input: serde_json::Error) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{:?}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }
@@ -549,7 +549,7 @@ impl std::convert::From<Box<dyn std::error::Error + Send + Sync>> for ShellError
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
         ProximateShellError::String(StringError {
             title: format!("{:?}", input),
-            error: Value::nothing(),
+            error: String::new(),
         })
         .start()
     }

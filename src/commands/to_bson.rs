@@ -58,6 +58,7 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
                 .collect::<Result<_, _>>()?,
         ),
         Value::Block(_) => Bson::Null,
+        Value::Error(e) => return Err(e.clone()),
         Value::Primitive(Primitive::Binary(b)) => Bson::Binary(BinarySubtype::Generic, b.clone()),
         Value::Row(o) => object_value_to_bson(o)?,
     })

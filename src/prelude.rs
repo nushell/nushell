@@ -99,6 +99,22 @@ where
     }
 }
 
+pub trait ToInputStream {
+    fn to_input_stream(self) -> InputStream;
+}
+
+impl<T, U> ToInputStream for T
+where
+    T: Stream<Item = U> + Send + 'static,
+    U: Into<Result<Tagged<Value>, ShellError>>,
+{
+    fn to_input_stream(self) -> InputStream {
+        InputStream {
+            values: self.map(|item| item.into().unwrap()).boxed(),
+        }
+    }
+}
+
 pub trait ToOutputStream {
     fn to_output_stream(self) -> OutputStream;
 }

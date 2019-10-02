@@ -35,6 +35,8 @@ impl RenderView for GenericView<'_> {
                 view.render_view(host)?;
                 Ok(())
             }
+
+            Value::Error(e) => Err(e.clone()),
         }
     }
 }
