@@ -1,6 +1,6 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, SyntaxShape, Tagged, Value, 
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    SyntaxShape, Tagged, Value,
 };
 use regex::Regex;
 
@@ -11,8 +11,8 @@ struct Match {
 
 impl Match {
     fn new() -> Self {
-        Match { 
-            column: String::new(), 
+        Match {
+            column: String::new(),
             regex: Regex::new("").unwrap(),
         }
     }
@@ -37,7 +37,9 @@ impl Plugin for Match {
                 }
                 _ => {
                     return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}", args[0])));
+                        "Unrecognized type in params: {:?}",
+                        args[0]
+                    )));
                 }
             }
             match &args[1] {
@@ -48,8 +50,10 @@ impl Plugin for Match {
                     self.regex = Regex::new(s).unwrap();
                 }
                 _ => {
-                     return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}", args[0])));
+                    return Err(ShellError::string(format!(
+                        "Unrecognized type in params: {:?}",
+                        args[0]
+                    )));
                 }
             }
         }
@@ -73,21 +77,24 @@ impl Plugin for Match {
                         }
                         _ => {
                             return Err(ShellError::string(format!(
-                                "value is not a string! {:?}", &val)));
+                                "value is not a string! {:?}",
+                                &val
+                            )));
                         }
                     }
                 } else {
                     return Err(ShellError::string(format!(
-                        "column not in row! {:?} {:?}", &self.column, dict)));
+                        "column not in row! {:?} {:?}",
+                        &self.column, dict
+                    )));
                 }
             }
             _ => {
-                return Err(ShellError::string(format!(
-                    "Not a row! {:?}", &input)));
+                return Err(ShellError::string(format!("Not a row! {:?}", &input)));
             }
         }
         if flag {
-            Ok(vec![Ok(ReturnSuccess::Value(input))]) 
+            Ok(vec![Ok(ReturnSuccess::Value(input))])
         } else {
             Ok(vec![])
         }
