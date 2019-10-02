@@ -1,8 +1,7 @@
 use nu::{
-    serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, SyntaxShape, Tagged, TaggedItem, Value, EvaluatedArgs,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    Signature, SyntaxShape, Tagged, Value, 
 };
-use indexmap::IndexMap;
 use regex::Regex;
 
 struct Match {
