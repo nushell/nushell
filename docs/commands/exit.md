@@ -1,6 +1,6 @@
 # exit
 
-Exits the nu shell. If STATUS is supplied, it will be converted to an integer and used as the exit code. Otherwise, the exit code will be that of the last command executed.
+Exits the nu shell. If you have multiple nu shells, use `exit --now` to exit all of them.
 
 ## Examples 
 
@@ -8,10 +8,23 @@ Exits the nu shell. If STATUS is supplied, it will be converted to an integer an
 > exit
 ```
 
-```shell
-> exit 1
 ```
-
-```shell
-> exit 0
+/home/username/stuff/books> shells
+---+---+------------+----------------------------
+ # |   | name       | path 
+---+---+------------+----------------------------
+ 0 |   | filesystem | /home/username/stuff/notes 
+ 1 |   | filesystem | /home/username/stuff/videos 
+ 2 | X | filesystem | /home/username/stuff/books 
+---+---+------------+----------------------------
+/home/username/stuff/books> exit
+/home/username/stuff/videos> shells
+---+---+------------+----------------------------
+ # |   | name       | path 
+---+---+------------+----------------------------
+ 0 |   | filesystem | /home/username/stuff/notes 
+ 1 | X | filesystem | /home/username/stuff/videos 
+---+---+------------+----------------------------
+/home/username/stuff/videos> exit --now
+exits both the shells
 ```
