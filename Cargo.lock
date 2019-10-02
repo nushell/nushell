@@ -1561,6 +1561,7 @@ dependencies = [
  "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ptree 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rawkey 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "roxmltree 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustyline 5.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
