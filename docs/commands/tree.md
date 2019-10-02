@@ -6,7 +6,7 @@ When you use the TREE command each directory name is displayed along with the na
 
 First, the root directory and the directories within it are listed:
 ```shell
-> tree github/
+> tree
 ├── designhacktober
 │   ├── adobexd
 │   │   └── contributers.html
@@ -264,12 +264,7 @@ tree (directory name)(folder name)*
 *- Optional
 
 ## Examples
-In Linux:
-```
-tree github/
-```
 
-In Windows:
-```
-tree C:/Windows
+```shell
+tree
 ```
