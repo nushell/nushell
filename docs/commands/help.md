@@ -43,5 +43,10 @@ Change to a new path.
 Usage:
   > cd (directory)
 ```
+>help trim 
+Trim leading and following whitespace from text data.
+
+Usage:
+  > trim(str)
 
 
