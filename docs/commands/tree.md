@@ -4,24 +4,16 @@ Use `tree` to display directory paths and (optionally) files in each subdirector
 
 When you use the TREE command each directory name is displayed along with the names of any subdirectories within it. The display will be in a format like the summary below. (Different versions of DOS may display the data in a slightly different format.)
 
-First, the root directory and the directories within it are listed:
+## Syntax
+
+tree (directory name)(folder name)*
+*- Optional
+
+## Examples
+
 ```shell
 > tree
-├── designhacktober
-│   ├── adobexd
-│   │   └── contributers.html
-│   ├── CODEOFCON.md
-│   ├── CONTRIBUTING.md
-│   ├── LICENSE
-│   ├── OtherSoftwareDesigns
-│   │   └── contributers.html
-│   ├── react
-│   │   └── contributers.html
-│   ├── README.md
-│   └── techstackrecommendation
-│       ├── TemplateCommunity.docx
-│       └── TemplateEcom.docx
-└── nushell
+├── nushell
     ├── assets
     │   ├── syntaxes.bin
     │   └── themes.bin
@@ -257,14 +249,4 @@ First, the root directory and the directories within it are listed:
         ├── helpers
         │   └── mod.rs
         └── tests.rs
-```
-## Syntax
-
-tree (directory name)(folder name)*
-*- Optional
-
-## Examples
-
-```shell
-tree
 ```
