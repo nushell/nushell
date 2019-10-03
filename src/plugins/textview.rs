@@ -150,7 +150,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                             KeyEvent::Esc => {
                                 break;
                             }
-                            KeyEvent::Up => {
+                            KeyEvent::Up | KeyEvent::Char('k') => {
                                 if starting_row > 0 {
                                     starting_row -= 1;
                                     max_bottom_line = paint_textview(
@@ -160,19 +160,19 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                                     );
                                 }
                             }
-                            KeyEvent::Down => {
+                            KeyEvent::Down | KeyEvent::Char('j') => {
                                 if starting_row < (max_bottom_line - height) {
                                     starting_row += 1;
                                 }
                                 max_bottom_line =
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
-                            KeyEvent::PageUp => {
+                            KeyEvent::PageUp | KeyEvent::Ctrl('b') => {
                                 starting_row -= std::cmp::min(height, starting_row);
                                 max_bottom_line =
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
-                            KeyEvent::PageDown | KeyEvent::Char(' ') => {
+                            KeyEvent::PageDown | KeyEvent::Ctrl('f') | KeyEvent::Char(' ') => {
                                 if starting_row < (max_bottom_line - height) {
                                     starting_row += height;
 
