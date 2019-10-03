@@ -73,21 +73,20 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
         }
     }
 
-    match obj {
-        Tagged {
-            item: Value::Primitive(Primitive::String(_)),
-            ..
-        } => current = Some(obj),
-        Tagged {
-            item: Value::Primitive(Primitive::Path(_)),
-            ..
-        } => current = Some(obj),
-        _ => {}
-    };
-
     match current {
         Some(v) => Ok(v.clone()),
-        None => Ok(Value::nothing().tagged(obj.tag)),
+        None => match obj {
+            // If its None check for certain values.
+            Tagged {
+                item: Value::Primitive(Primitive::String(_)),
+                ..
+            } => Ok(obj.clone()),
+            Tagged {
+                item: Value::Primitive(Primitive::Path(_)),
+                ..
+            } => Ok(obj.clone()),
+            _ => Ok(Value::nothing().tagged(obj.tag)),
+        },
     }
 }
 
