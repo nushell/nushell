@@ -52,7 +52,7 @@ impl Plugin for Match {
                 _ => {
                     return Err(ShellError::string(format!(
                         "Unrecognized type in params: {:?}",
-                        args[0]
+                        args[1]
                     )));
                 }
             }
