@@ -1,6 +1,6 @@
 # last
 
-Use `last` to retrieve the last "n" rows of a table. `last` has a required amount parameter that indicates how many rows you would like returned. If more than one row is returned, an index column will be included showing the row number. `last` does not alter the order the rows of the table.
+Use `last` to retrieve the last "n" rows of a table. `last` has a required amount parameter that indicates how many rows you would like returned. If more than one row is returned, an index column will be included showing the row number. `last` does not alter the order of the rows of the table.
 
 ## Examples
 
