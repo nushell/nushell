@@ -58,17 +58,32 @@ fn get_member(path: &Tagged<String>, obj: &Tagged<Value>) -> Result<Tagged<Value
 
                             possible_matches.sort();
 
-                            return Err(ShellError::labeled_error(
-                                "Unknown column",
-                                format!("did you mean '{}'?", possible_matches[0].1),
-                                path.tag(),
-                            ));
+                            if possible_matches.len() > 0 {
+                                return Err(ShellError::labeled_error(
+                                    "Unknown column",
+                                    format!("did you mean '{}'?", possible_matches[0].1),
+                                    path.tag(),
+                                ));
+                            }
+                            None
                         }
                     }
                 }
             }
         }
     }
+
+    match obj {
+        Tagged {
+            item: Value::Primitive(Primitive::String(_)),
+            ..
+        } => current = Some(obj),
+        Tagged {
+            item: Value::Primitive(Primitive::Path(_)),
+            ..
+        } => current = Some(obj),
+        _ => {}
+    };
 
     match current {
         Some(v) => Ok(v.clone()),
