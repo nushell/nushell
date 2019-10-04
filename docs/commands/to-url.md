@@ -22,3 +22,14 @@ Converts table data into url-formatted text.
  2 │ +=+&name=filesystem&path=%2Fhome%2Fshaurya%2FDesktop 
 ━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+```shell
+> open sample.url 
+━━━━━━━━━━┯━━━━━━━━┯━━━━━━┯━━━━━━━━
+ bread    │ cheese │ meat │ fat 
+──────────┼────────┼──────┼────────
+ baguette │ comté  │ ham  │ butter 
+━━━━━━━━━━┷━━━━━━━━┷━━━━━━┷━━━━━━━━
+> open sample.url  | to-url
+bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter
+```
