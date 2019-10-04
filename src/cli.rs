@@ -548,8 +548,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Ok(val) => {
                                 use futures::stream::TryStreamExt;
 
-                                //ClassifiedInputStream::from_input_stream(val),
-                                println!("Collecting stream...");
                                 let mut output_stream: OutputStream = val.into();
                                 loop {
                                     match output_stream.try_next().await {

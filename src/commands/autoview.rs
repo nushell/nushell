@@ -1,5 +1,6 @@
 use crate::commands::{RawCommandArgs, WholeStreamCommand};
 use crate::errors::ShellError;
+use crate::parser::hir::{Expression, NamedArguments};
 use crate::prelude::*;
 use futures::stream::TryStreamExt;
 
@@ -32,115 +33,130 @@ impl WholeStreamCommand for Autoview {
 
 pub fn autoview(
     AutoviewArgs {}: AutoviewArgs,
-    mut context: RunnableContext,
+    context: RunnableContext,
     raw: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
+    let binary = context.get_command("binaryview");
+    let text = context.get_command("textview");
+    let table = context.get_command("table");
+
     Ok(OutputStream::new(async_stream! {
-        //let input = context.input.drain_vec().await;
         let mut output_stream: OutputStream = context.input.into();
 
         match output_stream.try_next().await {
             Ok(Some(x)) => {
                 match output_stream.try_next().await {
                     Ok(Some(y)) => {
-                        println!("Two things!");
+                        let stream = async_stream! {
+                            yield Ok(x);
+                            yield Ok(y);
+
+                            loop {
+                                match output_stream.try_next().await {
+                                    Ok(Some(z)) => {
+                                        yield Ok(z);
+                                    }
+                                    _ => break,
+                                }
+                            }
+                        };
+                        if let Some(table) = table {
+                            let mut new_output_stream: OutputStream = stream.to_output_stream();
+                            let mut finished = false;
+                            let mut current_idx = 0;
+                            loop {
+                                let mut new_input = VecDeque::new();
+
+                                for _ in 0..25 {
+                                    match new_output_stream.try_next().await {
+                                        Ok(Some(a)) => {
+                                            if let ReturnSuccess::Value(v) = a {
+                                                new_input.push_back(v);
+                                            }
+                                        }
+                                        _ => {
+                                            finished = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                let raw = raw.clone();
+
+                                let mut command_args = raw.with_input(new_input.into());
+                                let mut named_args = NamedArguments::new();
+                                named_args.insert_optional("start_number", Some(Expression::number(current_idx, Tag::unknown())));
+                                command_args.call_info.args.named = Some(named_args);
+
+                                let result = table.run(command_args, &context.commands, false);
+                                result.collect::<Vec<_>>().await;
+
+                                if finished {
+                                    break;
+                                } else {
+                                    current_idx += 25;
+                                }
+                            }
+                        }
                     }
                     _ => {
-                        println!("One thing!");
+                        if let ReturnSuccess::Value(x) = x {
+                            match x {
+                                Tagged {
+                                    item: Value::Primitive(Primitive::String(ref s)),
+                                    tag: Tag { anchor, .. },
+                                } if anchor != uuid::Uuid::nil() => {
+                                    if let Some(text) = text {
+                                        let mut stream = VecDeque::new();
+                                        stream.push_back(x.clone());
+                                        let result = text.run(raw.with_input(stream.into()), &context.commands, false);
+                                        result.collect::<Vec<_>>().await;
+                                    } else {
+                                        println!("{}", s);
+                                    }
+                                }
+                                Tagged {
+                                    item: Value::Primitive(Primitive::String(s)),
+                                    ..
+                                } => {
+                                    println!("{}", s);
+                                }
+
+                                Tagged { item: Value::Primitive(Primitive::Binary(ref b)), .. } => {
+                                    if let Some(binary) = binary {
+                                        let mut stream = VecDeque::new();
+                                        stream.push_back(x.clone());
+                                        let result = binary.run(raw.with_input(stream.into()), &context.commands, false);
+                                        result.collect::<Vec<_>>().await;
+                                    } else {
+                                        use pretty_hex::*;
+                                        println!("{:?}", b.hex_dump());
+                                    }
+                                }
+
+                                Tagged { item: ref item, .. } => {
+                                    // if let Some(table) = table {
+                                    //     let mut stream = VecDeque::new();
+                                    //     stream.push_back(x.clone());
+                                    //     let result = table.run(raw.with_input(stream.into()), &context.commands, false);
+                                    //     result.collect::<Vec<_>>().await;
+                                    // } else {
+                                        println!("{:?}", item);
+                                    // }
+                                }
+                            }
+                        }
                     }
                 }
             }
             _ => {
-                println!("No things!");
+                //println!("<no results>");
             }
         }
-
-        // if input.len() > 0 {
-        //     if let Tagged {
-        //         item: Value::Primitive(Primitive::Binary(_)),
-        //         ..
-        //     } = input[0usize]
-        //     {
-        //         let binary = context.get_command("binaryview");
-        //         if let Some(binary) = binary {
-        //             let result = binary.run(raw.with_input(input), &context.commands, false);
-        //             result.collect::<Vec<_>>().await;
-        //         } else {
-        //             for i in input {
-        //                 match i.item {
-        //                     Value::Primitive(Primitive::Binary(b)) => {
-        //                         use pretty_hex::*;
-        //                         println!("{:?}", b.hex_dump());
-        //                     }
-        //                     _ => {}
-        //                 }
-        //             }
-        //         };
-        //     } else if is_single_anchored_text_value(&input) {
-        //         let text = context.get_command("textview");
-        //         if let Some(text) = text {
-        //             let result = text.run(raw.with_input(input), &context.commands, false);
-        //             result.collect::<Vec<_>>().await;
-        //         } else {
-        //             for i in input {
-        //                 match i.item {
-        //                     Value::Primitive(Primitive::String(s)) => {
-        //                         println!("{}", s);
-        //                     }
-        //                     _ => {}
-        //                 }
-        //             }
-        //         }
-        //     } else if is_single_text_value(&input) {
-        //         for i in input {
-        //             match i.item {
-        //                 Value::Primitive(Primitive::String(s)) => {
-        //                     println!("{}", s);
-        //                 }
-        //                 _ => {}
-        //             }
-        //         }
-        //     } else {
-        //         let table = context.expect_command("table");
-        //         let result = table.run(raw.with_input(input), &context.commands, false);
-        //         result.collect::<Vec<_>>().await;
-        //     }
-        // }
 
         // Needed for async_stream to type check
         if false {
             yield ReturnSuccess::value(Value::nothing().tagged_unknown());
         }
     }))
-}
-
-fn is_single_text_value(input: &Vec<Tagged<Value>>) -> bool {
-    if input.len() != 1 {
-        return false;
-    }
-    if let Tagged {
-        item: Value::Primitive(Primitive::String(_)),
-        ..
-    } = input[0]
-    {
-        true
-    } else {
-        false
-    }
-}
-
-fn is_single_anchored_text_value(input: &Vec<Tagged<Value>>) -> bool {
-    if input.len() != 1 {
-        return false;
-    }
-
-    if let Tagged {
-        item: Value::Primitive(Primitive::String(_)),
-        tag: Tag { anchor, .. },
-    } = input[0]
-    {
-        anchor != uuid::Uuid::nil()
-    } else {
-        false
-    }
 }

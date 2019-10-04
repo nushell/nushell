@@ -180,7 +180,8 @@ impl InternalCommand {
                         yield Ok(v);
                     }
 
-                    _ => {
+                    Err(x) => {
+                        yield Ok(Value::Error(x).tagged_unknown());
                         break;
                     }
                 }
