@@ -27,7 +27,7 @@ Converts table data into json text.
 > open sgml_description.json | to-json
 {"glossary":{"title":"example glossary","GlossDiv":{"title":"S","GlossList":{"GlossEntry":{"ID":"SGML","SortAs":"SGML","GlossTerm":"Standard Generalized Markup Language","Acronym":"SGML","Abbrev":"ISO 8879:1986","Height":10,"GlossDef":{"para":"A meta-markup language, used to create markup languages such as DocBook.","GlossSeeAlso":["GML","XML"]},"Sections":[101,102],"GlossSee":"markup"}}}}}
 ```
-We can also convert files !
+We can also convert formats !
 ```shell
 > open jonathan.xml
 ━━━━━━━━━━━━━━━━
