@@ -73,7 +73,7 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     registry: CommandRegistry,
-    pub(crate) source_map: Arc<Mutex<SourceMap>>,
+    pub(crate) source_map: SourceMap,
     host: Arc<Mutex<dyn Host + Send>>,
     pub(crate) shell_manager: ShellManager,
 }
