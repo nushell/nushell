@@ -134,15 +134,18 @@ pub fn autoview(
                                     }
                                 }
 
+                                Tagged { item: Value::Error(e), .. } => {
+                                    yield Err(e);
+                                }
                                 Tagged { item: ref item, .. } => {
-                                    // if let Some(table) = table {
-                                    //     let mut stream = VecDeque::new();
-                                    //     stream.push_back(x.clone());
-                                    //     let result = table.run(raw.with_input(stream.into()), &context.commands, false);
-                                    //     result.collect::<Vec<_>>().await;
-                                    // } else {
+                                    if let Some(table) = table {
+                                        let mut stream = VecDeque::new();
+                                        stream.push_back(x.clone());
+                                        let result = table.run(raw.with_input(stream.into()), &context.commands, false);
+                                        result.collect::<Vec<_>>().await;
+                                    } else {
                                         println!("{:?}", item);
-                                    // }
+                                    }
                                 }
                             }
                         }

@@ -551,6 +551,12 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                                 let mut output_stream: OutputStream = val.into();
                                 loop {
                                     match output_stream.try_next().await {
+                                        Ok(Some(ReturnSuccess::Value(Tagged {
+                                            item: Value::Error(e),
+                                            ..
+                                        }))) => {
+                                            return LineResult::Error(line.clone(), e);
+                                        }
                                         Ok(Some(_item)) => {
                                             // if ctx.ctrl_c.load(Ordering::SeqCst) {
                                             //     break;
