@@ -402,6 +402,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
+                println!("Adding success line");
                 rl.add_history_entry(line.clone());
             }
 

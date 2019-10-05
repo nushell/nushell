@@ -129,6 +129,7 @@ impl InternalCommand {
                             context.shell_manager.set_path(path);
                         }
                         CommandAction::AddAnchorLocation(uuid, anchor_location) => {
+                            println!("Add anchor location");
                             context.add_anchor_location(uuid, anchor_location);
                         }
                         CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
