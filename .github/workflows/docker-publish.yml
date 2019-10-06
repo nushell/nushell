@@ -68,12 +68,13 @@ jobs:
         export PATCH=$([ ${{ matrix.use-patch }} = true ] && echo .${{ matrix.tag }} || echo '')
         chmod +x $NU_BINS
 
-        echo ${{ secrets.DOCKER_REGISTRY }} | docker login ${REGISTRY%%/*} -u ${{ github.actor }} --password-stdin
+        echo ${{ secrets.DOCKER_REGISTRY }} | docker login ${REGISTRY%/*} -u ${{ github.actor }} --password-stdin
         docker-compose --file docker/docker-compose.package.yml build
         docker-compose --file docker/docker-compose.package.yml push              # exact version
       env:
         BASE_IMAGE: ${{ matrix.base-image }}
-        REGISTRY: docker.pkg.github.com/${{ github.repository }}
+        # REGISTRY: docker.pkg.github.com/${{ github.repository }} #TODO: waiting support for GITHUB_TOKEN for docker.pkg.github.com
+        REGISTRY: quay.io/${{ github.actor }}
 
     #region semantics tagging
     - name: Retag and push without suffixing version
@@ -95,7 +96,9 @@ jobs:
         # latest version
         docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${{ matrix.tag }}
         docker push ${REGISTRY,,}/nu:${{ matrix.tag }}
-      env: { REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' }
+      env:
+        # REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' #TODO: waiting support for GITHUB_TOKEN for docker.pkg.github.com
+        REGISTRY: quay.io/${{ github.actor }}
     - name: Retag and push debian as latest
       if: matrix.tag == 'debian'
       run: |-
@@ -112,5 +115,7 @@ jobs:
         # latest version
         docker tag ${REGISTRY,,}/nu:${{ matrix.tag }} ${REGISTRY,,}/nu:latest
         docker push ${REGISTRY,,}/nu:latest
-      env: { REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' }
+      env:
+        # REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' #TODO: waiting support for GITHUB_TOKEN for docker.pkg.github.com
+        REGISTRY: quay.io/${{ github.actor }}
     #endregion semantics tagging
