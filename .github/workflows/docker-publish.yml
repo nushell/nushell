@@ -14,7 +14,11 @@ jobs:
         - x86_64-unknown-linux-gnu
     steps:
     - uses: actions/checkout@v1
-    - run: cargo install cross
+    - name: Install rust-embedded/cross
+      env: { VERSION: v0.1.16 }
+      run: >-
+        wget -nv https://github.com/rust-embedded/cross/releases/download/${VERSION}/cross-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+        -O- | sudo tar xz -C /usr/local/bin/
     - name: compile for specific target
       env: { arch: '${{ matrix.arch }}' }
       run: |
