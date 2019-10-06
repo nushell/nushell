@@ -3,7 +3,7 @@ use nu::{
     Tagged, Value,
 };
 
-pub type ColumnPath = Vec<Tagged<String>>;
+pub type ColumnPath = Tagged<Vec<Tagged<String>>>;
 
 struct Edit {
     field: Option<ColumnPath>,
@@ -24,19 +24,22 @@ impl Edit {
                 Some(f) => match obj.replace_data_at_column_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
-                        return Err(ShellError::string(
+                        return Err(ShellError::labeled_error(
                             "edit could not find place to insert column",
+                            "column name",
+                            f.tag,
                         ))
                     }
                 },
-                None => Err(ShellError::string(
+                None => Err(ShellError::untagged_runtime_error(
                     "edit needs a column when changing a value in a table",
                 )),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            _ => Err(ShellError::labeled_error(
+                "Unrecognized type in stream",
+                "original value",
+                value_tag,
+            )),
         }
     }
 }
@@ -57,14 +60,9 @@ impl Plugin for Edit {
                     item: Value::Table(_),
                     ..
                 } => {
-                    self.field = Some(table.as_column_path()?.item);
+                    self.field = Some(table.as_column_path()?);
                 }
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )))
-                }
+                value => return Err(ShellError::type_error("table", value.tagged_type_name())),
             }
             match &args[1] {
                 Tagged { item: v, .. } => {

@@ -150,7 +150,6 @@ fn save(
                         }
                     },
                     None => {
-                        eprintln!("{:?} {:?}", anchor, source_map);
                         yield Err(ShellError::labeled_error(
                             "Save requires a filepath (2)",
                             "needs path",
@@ -213,9 +212,9 @@ fn save(
         match content {
             Ok(save_data) => match std::fs::write(full_path, save_data) {
                 Ok(o) => o,
-                Err(e) => yield Err(ShellError::string(e.to_string())),
+                Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "for command", name)),
             },
-            Err(e) => yield Err(ShellError::string(e.to_string())),
+            Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "for command", name)),
         }
 
     };

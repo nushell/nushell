@@ -14,7 +14,7 @@ pub enum SemVerAction {
     Patch,
 }
 
-pub type ColumnPath = Vec<Tagged<String>>;
+pub type ColumnPath = Tagged<Vec<Tagged<String>>>;
 
 struct Inc {
     field: Option<ColumnPath>,
@@ -90,7 +90,11 @@ impl Inc {
                     let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
                         Some(result) => self.inc(result.map(|x| x.clone()))?,
                         None => {
-                            return Err(ShellError::string("inc could not find field to replace"))
+                            return Err(ShellError::labeled_error(
+                                "inc could not find field to replace",
+                                "column name",
+                                f.tag,
+                            ))
                         }
                     };
                     match value.item.replace_data_at_column_path(
@@ -100,18 +104,22 @@ impl Inc {
                     ) {
                         Some(v) => return Ok(v),
                         None => {
-                            return Err(ShellError::string("inc could not find field to replace"))
+                            return Err(ShellError::labeled_error(
+                                "inc could not find field to replace",
+                                "column name",
+                                f.tag,
+                            ))
                         }
                     }
                 }
-                None => Err(ShellError::string(
+                None => Err(ShellError::untagged_runtime_error(
                     "inc needs a field when incrementing a column in a table",
                 )),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            _ => Err(ShellError::type_error(
+                "incrementable value",
+                value.tagged_type_name(),
+            )),
         }
     }
 }
@@ -145,14 +153,9 @@ impl Plugin for Inc {
                         item: Value::Table(_),
                         ..
                     } => {
-                        self.field = Some(table.as_column_path()?.item);
+                        self.field = Some(table.as_column_path()?);
                     }
-                    _ => {
-                        return Err(ShellError::string(format!(
-                            "Unrecognized type in params: {:?}",
-                            arg
-                        )))
-                    }
+                    value => return Err(ShellError::type_error("table", value.tagged_type_name())),
                 }
             }
         }
@@ -163,7 +166,11 @@ impl Plugin for Inc {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, Inc::usage())))
+                return Err(ShellError::untagged_runtime_error(format!(
+                    "{}: {}",
+                    reason,
+                    Inc::usage()
+                )))
             }
             None => Ok(vec![]),
         }
@@ -308,7 +315,7 @@ mod tests {
         assert_eq!(
             plugin
                 .field
-                .map(|f| f.into_iter().map(|f| f.item).collect()),
+                .map(|f| f.iter().map(|f| f.item.clone()).collect()),
             Some(vec!["package".to_string(), "version".to_string()])
         );
     }

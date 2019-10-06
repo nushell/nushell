@@ -5,7 +5,6 @@ use crate::parser::parse::operator::Operator;
 use crate::parser::parse::pipeline::{Pipeline, PipelineElement};
 use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, TokenNode};
 use crate::parser::parse::tokens::{RawNumber, RawToken};
-use crate::parser::parse::unit::Unit;
 use crate::parser::CallNode;
 use derive_new::new;
 use uuid::Uuid;
@@ -227,31 +226,6 @@ impl TokenTreeBuilder {
         TokenNode::Token(RawToken::Number(input.into()).tagged(tag.into()))
     }
 
-    pub fn size(int: impl Into<i64>, unit: impl Into<Unit>) -> CurriedToken {
-        let int = int.into();
-        let unit = unit.into();
-
-        Box::new(move |b| {
-            let (start_int, end_int) = b.consume(&int.to_string());
-            let (_, end_unit) = b.consume(unit.as_str());
-            b.pos = end_unit;
-
-            TokenTreeBuilder::tagged_size(
-                (RawNumber::Int((start_int, end_int, b.anchor).into()), unit),
-                (start_int, end_unit, b.anchor),
-            )
-        })
-    }
-
-    pub fn tagged_size(
-        input: (impl Into<RawNumber>, impl Into<Unit>),
-        tag: impl Into<Tag>,
-    ) -> TokenNode {
-        let (int, unit) = (input.0.into(), input.1.into());
-
-        TokenNode::Token(RawToken::Size(int, unit).tagged(tag.into()))
-    }
-
     pub fn var(input: impl Into<String>) -> CurriedToken {
         let input = input.into();
 
@@ -297,19 +271,6 @@ impl TokenTreeBuilder {
         TokenNode::Flag(Flag::new(FlagKind::Shorthand, input.into()).tagged(tag.into()))
     }
 
-    pub fn member(input: impl Into<String>) -> CurriedToken {
-        let input = input.into();
-
-        Box::new(move |b| {
-            let (start, end) = b.consume(&input);
-            TokenTreeBuilder::tagged_member((start, end, b.anchor))
-        })
-    }
-
-    pub fn tagged_member(tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Member(tag.into())
-    }
-
     pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedCall {
         Box::new(move |b| {
             let start = b.pos;
@@ -340,58 +301,79 @@ impl TokenTreeBuilder {
         CallNode::new(Box::new(head), tail).tagged(tag.into())
     }
 
+    fn consume_delimiter(
+        &mut self,
+        input: Vec<CurriedToken>,
+        _open: &str,
+        _close: &str,
+    ) -> (Tag, Tag, Tag, Vec<TokenNode>) {
+        let (start_open_paren, end_open_paren) = self.consume("(");
+        let mut output = vec![];
+        for item in input {
+            output.push(item(self));
+        }
+
+        let (start_close_paren, end_close_paren) = self.consume(")");
+
+        let open = Tag::from((start_open_paren, end_open_paren, self.anchor));
+        let close = Tag::from((start_close_paren, end_close_paren, self.anchor));
+        let whole = Tag::from((start_open_paren, end_close_paren, self.anchor));
+
+        (open, close, whole, output)
+    }
+
     pub fn parens(input: Vec<CurriedToken>) -> CurriedToken {
         Box::new(move |b| {
-            let (start, _) = b.consume("(");
-            let mut output = vec![];
-            for item in input {
-                output.push(item(b));
-            }
+            let (open, close, whole, output) = b.consume_delimiter(input, "(", ")");
 
-            let (_, end) = b.consume(")");
-
-            TokenTreeBuilder::tagged_parens(output, (start, end, b.anchor))
+            TokenTreeBuilder::tagged_parens(output, (open, close), whole)
         })
     }
 
-    pub fn tagged_parens(input: impl Into<Vec<TokenNode>>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Delimited(DelimitedNode::new(Delimiter::Paren, input.into()).tagged(tag.into()))
+    pub fn tagged_parens(
+        input: impl Into<Vec<TokenNode>>,
+        tags: (Tag, Tag),
+        tag: impl Into<Tag>,
+    ) -> TokenNode {
+        TokenNode::Delimited(
+            DelimitedNode::new(Delimiter::Paren, tags, input.into()).tagged(tag.into()),
+        )
     }
 
     pub fn square(input: Vec<CurriedToken>) -> CurriedToken {
         Box::new(move |b| {
-            let (start, _) = b.consume("[");
-            let mut output = vec![];
-            for item in input {
-                output.push(item(b));
-            }
+            let (open, close, whole, tokens) = b.consume_delimiter(input, "[", "]");
 
-            let (_, end) = b.consume("]");
-
-            TokenTreeBuilder::tagged_square(output, (start, end, b.anchor))
+            TokenTreeBuilder::tagged_square(tokens, (open, close), whole)
         })
     }
 
-    pub fn tagged_square(input: impl Into<Vec<TokenNode>>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Delimited(DelimitedNode::new(Delimiter::Square, input.into()).tagged(tag.into()))
+    pub fn tagged_square(
+        input: impl Into<Vec<TokenNode>>,
+        tags: (Tag, Tag),
+        tag: impl Into<Tag>,
+    ) -> TokenNode {
+        TokenNode::Delimited(
+            DelimitedNode::new(Delimiter::Square, tags, input.into()).tagged(tag.into()),
+        )
     }
 
     pub fn braced(input: Vec<CurriedToken>) -> CurriedToken {
         Box::new(move |b| {
-            let (start, _) = b.consume("{ ");
-            let mut output = vec![];
-            for item in input {
-                output.push(item(b));
-            }
+            let (open, close, whole, tokens) = b.consume_delimiter(input, "{", "}");
 
-            let (_, end) = b.consume(" }");
-
-            TokenTreeBuilder::tagged_brace(output, (start, end, b.anchor))
+            TokenTreeBuilder::tagged_brace(tokens, (open, close), whole)
         })
     }
 
-    pub fn tagged_brace(input: impl Into<Vec<TokenNode>>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Delimited(DelimitedNode::new(Delimiter::Brace, input.into()).tagged(tag.into()))
+    pub fn tagged_brace(
+        input: impl Into<Vec<TokenNode>>,
+        tags: (Tag, Tag),
+        tag: impl Into<Tag>,
+    ) -> TokenNode {
+        TokenNode::Delimited(
+            DelimitedNode::new(Delimiter::Brace, tags, input.into()).tagged(tag.into()),
+        )
     }
 
     pub fn sp() -> CurriedToken {

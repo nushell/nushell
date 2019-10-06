@@ -1,4 +1,3 @@
-use crate::parser::parse::unit::*;
 use crate::parser::Operator;
 use crate::prelude::*;
 use crate::{Tagged, Text};
@@ -9,13 +8,27 @@ use std::str::FromStr;
 pub enum RawToken {
     Number(RawNumber),
     Operator(Operator),
-    Size(RawNumber, Unit),
     String(Tag),
     Variable(Tag),
     ExternalCommand(Tag),
     ExternalWord,
     GlobPattern,
     Bare,
+}
+
+impl RawToken {
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            RawToken::Number(_) => "Number",
+            RawToken::Operator(..) => "operator",
+            RawToken::String(_) => "String",
+            RawToken::Variable(_) => "variable",
+            RawToken::ExternalCommand(_) => "external command",
+            RawToken::ExternalWord => "external word",
+            RawToken::GlobPattern => "glob pattern",
+            RawToken::Bare => "String",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -47,22 +60,6 @@ impl RawNumber {
     }
 }
 
-impl RawToken {
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            RawToken::Number(_) => "Number",
-            RawToken::Operator(..) => "operator",
-            RawToken::Size(..) => "Size",
-            RawToken::String(_) => "String",
-            RawToken::Variable(_) => "variable",
-            RawToken::ExternalCommand(_) => "external command",
-            RawToken::ExternalWord => "external word",
-            RawToken::GlobPattern => "glob pattern",
-            RawToken::Bare => "String",
-        }
-    }
-}
-
 pub type Token = Tagged<RawToken>;
 
 impl Token {
@@ -70,6 +67,76 @@ impl Token {
         DebugToken {
             node: *self,
             source,
+        }
+    }
+
+    pub fn extract_number(&self) -> Option<Tagged<RawNumber>> {
+        match self.item {
+            RawToken::Number(number) => Some((number).tagged(self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_int(&self) -> Option<(Tag, Tag)> {
+        match self.item {
+            RawToken::Number(RawNumber::Int(int)) => Some((int, self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_decimal(&self) -> Option<(Tag, Tag)> {
+        match self.item {
+            RawToken::Number(RawNumber::Decimal(decimal)) => Some((decimal, self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_operator(&self) -> Option<Tagged<Operator>> {
+        match self.item {
+            RawToken::Operator(operator) => Some(operator.tagged(self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_string(&self) -> Option<(Tag, Tag)> {
+        match self.item {
+            RawToken::String(tag) => Some((tag, self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_variable(&self) -> Option<(Tag, Tag)> {
+        match self.item {
+            RawToken::Variable(tag) => Some((tag, self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_external_command(&self) -> Option<(Tag, Tag)> {
+        match self.item {
+            RawToken::ExternalCommand(tag) => Some((tag, self.tag)),
+            _ => None,
+        }
+    }
+
+    pub fn extract_external_word(&self) -> Option<Tag> {
+        match self.item {
+            RawToken::ExternalWord => Some(self.tag),
+            _ => None,
+        }
+    }
+
+    pub fn extract_glob_pattern(&self) -> Option<Tag> {
+        match self.item {
+            RawToken::GlobPattern => Some(self.tag),
+            _ => None,
+        }
+    }
+
+    pub fn extract_bare(&self) -> Option<Tag> {
+        match self.item {
+            RawToken::Bare => Some(self.tag),
+            _ => None,
         }
     }
 }

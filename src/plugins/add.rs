@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use nu::{
     serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature, SyntaxShape,
-    Tagged, Value,
+    Tagged, TaggedItem, Value,
 };
 
 pub type ColumnPath = Vec<Tagged<String>>;
@@ -25,21 +25,27 @@ impl Add {
                 Some(f) => match obj.insert_data_at_column_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
-                        return Err(ShellError::string(format!(
-                            "add could not find place to insert field {:?} {}",
-                            obj,
-                            f.iter().map(|i| &i.item).join(".")
-                        )))
+                        return Err(ShellError::labeled_error(
+                            format!(
+                                "add could not find place to insert field {:?} {}",
+                                obj,
+                                f.iter().map(|i| &i.item).join(".")
+                            ),
+                            "column name",
+                            value_tag,
+                        ))
                     }
                 },
-                None => Err(ShellError::string(
+                None => Err(ShellError::labeled_error(
                     "add needs a column name when adding a value to a table",
+                    "column name",
+                    value_tag,
                 )),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            (value, _) => Err(ShellError::type_error(
+                "row",
+                value.type_name().tagged(value_tag),
+            )),
         }
     }
 }
@@ -64,12 +70,7 @@ impl Plugin for Add {
                     self.field = Some(table.as_column_path()?.item);
                 }
 
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )))
-                }
+                value => return Err(ShellError::type_error("table", value.tagged_type_name())),
             }
             match &args[1] {
                 Tagged { item: v, .. } => {

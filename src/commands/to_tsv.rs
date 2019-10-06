@@ -32,7 +32,9 @@ impl WholeStreamCommand for ToTSV {
     }
 }
 
-pub fn value_to_tsv_value(v: &Value) -> Value {
+pub fn value_to_tsv_value(tagged_value: &Tagged<Value>) -> Tagged<Value> {
+    let v = &tagged_value.item;
+
     match v {
         Value::Primitive(Primitive::String(s)) => Value::Primitive(Primitive::String(s.clone())),
         Value::Primitive(Primitive::Nothing) => Value::Primitive(Primitive::Nothing),
@@ -47,20 +49,28 @@ pub fn value_to_tsv_value(v: &Value) -> Value {
         Value::Block(_) => Value::Primitive(Primitive::Nothing),
         _ => Value::Primitive(Primitive::Nothing),
     }
+    .tagged(tagged_value.tag)
 }
 
-fn to_string_helper(v: &Value) -> Result<String, ShellError> {
+fn to_string_helper(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
+    let v = &tagged_value.item;
     match v {
         Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
         Value::Primitive(Primitive::Bytes(b)) => Ok(format!("{}", b)),
-        Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
-        Value::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
-        Value::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
-        Value::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
+        Value::Primitive(Primitive::Boolean(_)) => Ok(tagged_value.as_string()?),
+        Value::Primitive(Primitive::Decimal(_)) => Ok(tagged_value.as_string()?),
+        Value::Primitive(Primitive::Int(_)) => Ok(tagged_value.as_string()?),
+        Value::Primitive(Primitive::Path(_)) => Ok(tagged_value.as_string()?),
         Value::Table(_) => return Ok(String::from("[table]")),
         Value::Row(_) => return Ok(String::from("[row]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => return Err(ShellError::string("Unexpected value")),
+        _ => {
+            return Err(ShellError::labeled_error(
+                "Unexpected value",
+                "original value",
+                tagged_value.tag,
+            ))
+        }
     }
 }
 
@@ -76,7 +86,9 @@ fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
     ret
 }
 
-pub fn to_string(v: &Value) -> Result<String, ShellError> {
+pub fn to_string(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
+    let v = &tagged_value.item;
+
     match v {
         Value::Row(o) => {
             let mut wtr = WriterBuilder::new().delimiter(b'\t').from_writer(vec![]);
@@ -91,11 +103,20 @@ pub fn to_string(v: &Value) -> Result<String, ShellError> {
             wtr.write_record(fields).expect("can not write.");
             wtr.write_record(values).expect("can not write.");
 
-            return Ok(String::from_utf8(
-                wtr.into_inner()
-                    .map_err(|_| ShellError::string("Could not convert record"))?,
-            )
-            .map_err(|_| ShellError::string("Could not convert record"))?);
+            return Ok(String::from_utf8(wtr.into_inner().map_err(|_| {
+                ShellError::labeled_error(
+                    "Could not convert record",
+                    "original value",
+                    tagged_value.tag,
+                )
+            })?)
+            .map_err(|_| {
+                ShellError::labeled_error(
+                    "Could not convert record",
+                    "original value",
+                    tagged_value.tag,
+                )
+            })?);
         }
         Value::Table(list) => {
             let mut wtr = WriterBuilder::new().delimiter(b'\t').from_writer(vec![]);
@@ -119,13 +140,22 @@ pub fn to_string(v: &Value) -> Result<String, ShellError> {
                 wtr.write_record(&row).expect("can not write");
             }
 
-            return Ok(String::from_utf8(
-                wtr.into_inner()
-                    .map_err(|_| ShellError::string("Could not convert record"))?,
-            )
-            .map_err(|_| ShellError::string("Could not convert record"))?);
+            return Ok(String::from_utf8(wtr.into_inner().map_err(|_| {
+                ShellError::labeled_error(
+                    "Could not convert record",
+                    "original value",
+                    tagged_value.tag,
+                )
+            })?)
+            .map_err(|_| {
+                ShellError::labeled_error(
+                    "Could not convert record",
+                    "original value",
+                    tagged_value.tag,
+                )
+            })?);
         }
-        _ => return to_string_helper(&v),
+        _ => return to_string_helper(tagged_value),
     }
 }
 
@@ -147,7 +177,7 @@ fn to_tsv(
          };
 
          for value in to_process_input {
-             match to_string(&value_to_tsv_value(&value.item)) {
+             match to_string(&value_to_tsv_value(&value)) {
                  Ok(x) => {
                      let converted = if headerless {
                          x.lines().skip(1).collect()

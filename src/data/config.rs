@@ -51,8 +51,9 @@ pub fn user_data() -> Result<PathBuf, ShellError> {
 }
 
 pub fn app_path(app_data_type: AppDataType, display: &str) -> Result<PathBuf, ShellError> {
-    let path = app_root(app_data_type, &APP_INFO)
-        .map_err(|err| ShellError::string(&format!("Couldn't open {} path:\n{}", display, err)))?;
+    let path = app_root(app_data_type, &APP_INFO).map_err(|err| {
+        ShellError::untagged_runtime_error(&format!("Couldn't open {} path:\n{}", display, err))
+    })?;
 
     Ok(path)
 }
@@ -75,10 +76,21 @@ pub fn read(
     let tag = tag.into();
     let contents = fs::read_to_string(filename)
         .map(|v| v.tagged(tag))
-        .map_err(|err| ShellError::string(&format!("Couldn't read config file:\n{}", err)))?;
+        .map_err(|err| {
+            ShellError::labeled_error(
+                &format!("Couldn't read config file:\n{}", err),
+                "file name",
+                tag,
+            )
+        })?;
 
-    let parsed: toml::Value = toml::from_str(&contents)
-        .map_err(|err| ShellError::string(&format!("Couldn't parse config file:\n{}", err)))?;
+    let parsed: toml::Value = toml::from_str(&contents).map_err(|err| {
+        ShellError::labeled_error(
+            &format!("Couldn't parse config file:\n{}", err),
+            "file name",
+            tag,
+        )
+    })?;
 
     let value = convert_toml_value_to_nu_value(&parsed, tag);
     let tag = value.tag();

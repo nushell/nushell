@@ -1,5 +1,5 @@
 use crate::errors::ShellError;
-use crate::parser::parse::{call_node::*, flag::*, pipeline::*, tokens::*};
+use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
 use crate::prelude::*;
 use crate::traits::ToDebug;
 use crate::{Tag, Tagged, Text};
@@ -17,10 +17,9 @@ pub enum TokenNode {
     Delimited(Tagged<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
     Flag(Tagged<Flag>),
-    Member(Tag),
     Whitespace(Tag),
 
-    Error(Tagged<Box<ShellError>>),
+    Error(Tagged<ShellError>),
 }
 
 impl ToDebug for TokenNode {
@@ -78,7 +77,7 @@ impl fmt::Debug for DebugTokenNode<'_> {
                 )
             }
             TokenNode::Pipeline(pipeline) => write!(f, "{}", pipeline.debug(self.source)),
-            TokenNode::Error(s) => write!(f, "<error> for {:?}", s.tag().slice(self.source)),
+            TokenNode::Error(_) => write!(f, "<error>"),
             rest => write!(f, "{}", rest.tag().slice(self.source)),
         }
     }
@@ -99,9 +98,8 @@ impl TokenNode {
             TokenNode::Delimited(s) => s.tag(),
             TokenNode::Pipeline(s) => s.tag(),
             TokenNode::Flag(s) => s.tag(),
-            TokenNode::Member(s) => *s,
             TokenNode::Whitespace(s) => *s,
-            TokenNode::Error(s) => s.tag(),
+            TokenNode::Error(s) => return s.tag,
         }
     }
 
@@ -113,7 +111,6 @@ impl TokenNode {
             TokenNode::Delimited(d) => d.type_name(),
             TokenNode::Pipeline(_) => "pipeline",
             TokenNode::Flag(_) => "flag",
-            TokenNode::Member(_) => "member",
             TokenNode::Whitespace(_) => "whitespace",
             TokenNode::Error(_) => "error",
         }
@@ -155,16 +152,37 @@ impl TokenNode {
         }
     }
 
-    pub fn as_block(&self) -> Option<Tagged<&[TokenNode]>> {
+    pub fn is_pattern(&self) -> bool {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::GlobPattern,
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_dot(&self) -> bool {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::Operator(Operator::Dot),
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_block(&self) -> Option<(Tagged<&[TokenNode]>, (Tag, Tag))> {
         match self {
             TokenNode::Delimited(Tagged {
                 item:
                     DelimitedNode {
                         delimiter,
                         children,
+                        tags,
                     },
                 tag,
-            }) if *delimiter == Delimiter::Brace => Some((&children[..]).tagged(tag)),
+            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).tagged(tag), *tags)),
             _ => None,
         }
     }
@@ -203,7 +221,7 @@ impl TokenNode {
     pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
             TokenNode::Pipeline(Tagged { item, .. }) => Ok(item.clone()),
-            _ => Err(ShellError::string("unimplemented")),
+            _ => Err(ShellError::unimplemented("unimplemented")),
         }
     }
 
@@ -259,6 +277,7 @@ impl TokenNode {
 #[get = "pub(crate)"]
 pub struct DelimitedNode {
     pub(crate) delimiter: Delimiter,
+    pub(crate) tags: (Tag, Tag),
     pub(crate) children: Vec<TokenNode>,
 }
 
@@ -280,19 +299,19 @@ pub enum Delimiter {
 }
 
 impl Delimiter {
-    pub(crate) fn open(&self) -> char {
+    pub(crate) fn open(&self) -> &'static str {
         match self {
-            Delimiter::Paren => '(',
-            Delimiter::Brace => '{',
-            Delimiter::Square => '[',
+            Delimiter::Paren => "(",
+            Delimiter::Brace => "{",
+            Delimiter::Square => "[",
         }
     }
 
-    pub(crate) fn close(&self) -> char {
+    pub(crate) fn close(&self) -> &'static str {
         match self {
-            Delimiter::Paren => ')',
-            Delimiter::Brace => '}',
-            Delimiter::Square => ']',
+            Delimiter::Paren => ")",
+            Delimiter::Brace => "}",
+            Delimiter::Square => "]",
         }
     }
 }

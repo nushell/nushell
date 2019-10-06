@@ -1,12 +1,39 @@
 use crate::parser::hir::syntax_shape::{
-    expand_bare, expand_syntax, expression::expand_file_path, parse_single_node, ExpandContext,
-    ExpandExpression, ExpandSyntax,
+    expand_atom, expand_bare, expand_syntax, expression::expand_file_path, parse_single_node,
+    AtomicToken, ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, FallibleColorSyntax,
+    FlatShape,
 };
 use crate::parser::{hir, hir::TokensIterator, Operator, RawToken, TokenNode};
 use crate::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
 pub struct PatternShape;
+
+impl FallibleColorSyntax for PatternShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        token_nodes.atomic(|token_nodes| {
+            let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
+
+            match &atom.item {
+                AtomicToken::GlobPattern { .. } | AtomicToken::Word { .. } => {
+                    shapes.push(FlatShape::GlobPattern.tagged(atom.tag));
+                    Ok(())
+                }
+
+                _ => Err(ShellError::type_error("pattern", atom.tagged_type_name())),
+            }
+        })
+    }
+}
 
 impl ExpandExpression for PatternShape {
     fn expand_expr<'a, 'b>(
@@ -23,7 +50,7 @@ impl ExpandExpression for PatternShape {
             Err(_) => {}
         }
 
-        parse_single_node(token_nodes, "Pattern", |token, token_tag| {
+        parse_single_node(token_nodes, "Pattern", |token, token_tag, _| {
             Ok(match token {
                 RawToken::GlobPattern => {
                     return Err(ShellError::unreachable(
@@ -44,7 +71,6 @@ impl ExpandExpression for PatternShape {
                 RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token_tag),
                 RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token_tag)),
                 RawToken::Number(_) => hir::Expression::bare(token_tag),
-                RawToken::Size(_, _) => hir::Expression::bare(token_tag),
 
                 RawToken::String(tag) => hir::Expression::file_path(
                     expand_file_path(tag.slice(context.source), context),

@@ -72,6 +72,7 @@ impl ClassifiedInputStream {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct ClassifiedPipeline {
     pub(crate) commands: Vec<ClassifiedCommand>,
 }
@@ -117,15 +118,19 @@ impl InternalCommand {
 
         let command = context.expect_command(&self.name);
 
-        let result = context.run_command(
-            command,
-            self.name_tag.clone(),
-            context.source_map.clone(),
-            self.args,
-            &source,
-            objects,
-            is_first_command,
-        );
+        let result = {
+            let source_map = context.source_map.lock().unwrap().clone();
+
+            context.run_command(
+                command,
+                self.name_tag.clone(),
+                source_map,
+                self.args,
+                &source,
+                objects,
+                is_first_command,
+            )
+        };
 
         let result = trace_out_stream!(target: "nu::trace_stream::internal", source: &source, "output" = result);
         let mut result = result.values;
@@ -253,7 +258,11 @@ impl ExternalCommand {
                             tag,
                         ));
                     } else {
-                        return Err(ShellError::string("Error: $it needs string data"));
+                        return Err(ShellError::labeled_error(
+                            "Error: $it needs string data",
+                            "given something else",
+                            name_tag,
+                        ));
                     }
                 }
                 if !first {

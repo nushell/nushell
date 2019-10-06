@@ -44,11 +44,13 @@ fn run(
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let path = match call_info
-        .args
-        .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
-    {
+    let path = match call_info.args.nth(0).ok_or_else(|| {
+        ShellError::labeled_error(
+            "No file or directory specified",
+            "for command",
+            call_info.name_tag,
+        )
+    })? {
         file => file,
     };
     let path_buf = path.as_path()?;

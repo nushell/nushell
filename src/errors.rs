@@ -20,6 +20,14 @@ impl Description {
             Description::Synthetic(s) => Err(s),
         }
     }
+
+    #[allow(unused)]
+    fn tag(&self) -> Tag {
+        match self {
+            Description::Source(tagged) => tagged.tag,
+            Description::Synthetic(_) => Tag::unknown(),
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
@@ -36,6 +44,13 @@ pub struct ShellError {
     cause: Option<Box<ProximateShellError>>,
 }
 
+impl ShellError {
+    #[allow(unused)]
+    pub(crate) fn tag(&self) -> Option<Tag> {
+        self.error.tag()
+    }
+}
+
 impl ToDebug for ShellError {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
         self.error.fmt_debug(f, source)
@@ -47,18 +62,25 @@ impl serde::de::Error for ShellError {
     where
         T: std::fmt::Display,
     {
-        ShellError::string(msg.to_string())
+        ShellError::untagged_runtime_error(msg.to_string())
     }
 }
 
 impl ShellError {
-    pub(crate) fn type_error(
+    pub fn type_error(
         expected: impl Into<String>,
         actual: Tagged<impl Into<String>>,
     ) -> ShellError {
         ProximateShellError::TypeError {
             expected: expected.into(),
             actual: actual.map(|i| Some(i.into())),
+        }
+        .start()
+    }
+
+    pub fn untagged_runtime_error(error: impl Into<String>) -> ShellError {
+        ProximateShellError::UntaggedRuntimeError {
+            reason: error.into(),
         }
         .start()
     }
@@ -174,9 +196,6 @@ impl ShellError {
 
     pub(crate) fn to_diagnostic(self) -> Diagnostic<Tag> {
         match self.error {
-            ProximateShellError::String(StringError { title, .. }) => {
-                Diagnostic::new(Severity::Error, title)
-            }
             ProximateShellError::InvalidCommand { command } => {
                 Diagnostic::new(Severity::Error, "Invalid command")
                     .with_label(Label::new_primary(command))
@@ -286,7 +305,7 @@ impl ShellError {
             } => Diagnostic::new(Severity::Error, "Syntax Error")
                 .with_label(Label::new_primary(tag).with_message(item)),
 
-            ProximateShellError::MissingProperty { subpath, expr } => {
+            ProximateShellError::MissingProperty { subpath, expr, .. } => {
                 let subpath = subpath.into_label();
                 let expr = expr.into_label();
 
@@ -310,6 +329,8 @@ impl ShellError {
                     .with_label(Label::new_primary(left.tag()).with_message(left.item))
                     .with_label(Label::new_secondary(right.tag()).with_message(right.item))
             }
+
+            ProximateShellError::UntaggedRuntimeError { reason } => Diagnostic::new(Severity::Error, format!("Error: {}", reason))
         }
     }
 
@@ -343,20 +364,16 @@ impl ShellError {
         )
     }
 
-    pub fn string(title: impl Into<String>) -> ShellError {
-        ProximateShellError::String(StringError::new(title.into(), Value::nothing())).start()
-    }
-
     pub(crate) fn unimplemented(title: impl Into<String>) -> ShellError {
-        ShellError::string(&format!("Unimplemented: {}", title.into()))
+        ShellError::untagged_runtime_error(&format!("Unimplemented: {}", title.into()))
     }
 
     pub(crate) fn unexpected(title: impl Into<String>) -> ShellError {
-        ShellError::string(&format!("Unexpected: {}", title.into()))
+        ShellError::untagged_runtime_error(&format!("Unexpected: {}", title.into()))
     }
 
     pub(crate) fn unreachable(title: impl Into<String>) -> ShellError {
-        ShellError::string(&format!("BUG: Unreachable: {}", title.into()))
+        ShellError::untagged_runtime_error(&format!("BUG: Unreachable: {}", title.into()))
     }
 }
 
@@ -401,7 +418,6 @@ impl ExpectedRange {
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ProximateShellError {
-    String(StringError),
     SyntaxError {
         problem: Tagged<String>,
     },
@@ -419,6 +435,7 @@ pub enum ProximateShellError {
     MissingProperty {
         subpath: Description,
         expr: Description,
+        tag: Tag,
     },
     MissingValue {
         tag: Option<Tag>,
@@ -439,6 +456,9 @@ pub enum ProximateShellError {
         left: Tagged<String>,
         right: Tagged<String>,
     },
+    UntaggedRuntimeError {
+        reason: String,
+    },
 }
 
 impl ProximateShellError {
@@ -447,6 +467,22 @@ impl ProximateShellError {
             cause: None,
             error: self,
         }
+    }
+
+    pub(crate) fn tag(&self) -> Option<Tag> {
+        Some(match self {
+            ProximateShellError::SyntaxError { problem } => problem.tag(),
+            ProximateShellError::UnexpectedEof { tag, .. } => *tag,
+            ProximateShellError::InvalidCommand { command } => *command,
+            ProximateShellError::TypeError { actual, .. } => actual.tag,
+            ProximateShellError::MissingProperty { tag, .. } => *tag,
+            ProximateShellError::MissingValue { tag, .. } => return *tag,
+            ProximateShellError::ArgumentError { tag, .. } => *tag,
+            ProximateShellError::RangeError { actual_kind, .. } => actual_kind.tag,
+            ProximateShellError::Diagnostic(..) => return None,
+            ProximateShellError::UntaggedRuntimeError { .. } => return None,
+            ProximateShellError::CoerceError { left, right } => left.tag.until(right.tag),
+        })
     }
 }
 
@@ -491,7 +527,6 @@ pub struct StringError {
 impl std::fmt::Display for ShellError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &self.error {
-            ProximateShellError::String(s) => write!(f, "{}", &s.title),
             ProximateShellError::MissingValue { .. } => write!(f, "MissingValue"),
             ProximateShellError::InvalidCommand { .. } => write!(f, "InvalidCommand"),
             ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
@@ -502,6 +537,7 @@ impl std::fmt::Display for ShellError {
             ProximateShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
             ProximateShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
             ProximateShellError::CoerceError { .. } => write!(f, "CoerceError"),
+            ProximateShellError::UntaggedRuntimeError { .. } => write!(f, "UntaggedRuntimeError"),
         }
     }
 }
@@ -510,71 +546,43 @@ impl std::error::Error for ShellError {}
 
 impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
     fn from(input: Box<dyn std::error::Error>) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{}", input))
     }
 }
 
 impl std::convert::From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{}", input))
     }
 }
 
 impl std::convert::From<subprocess::PopenError> for ShellError {
     fn from(input: subprocess::PopenError) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{}", input))
     }
 }
 
 impl std::convert::From<serde_yaml::Error> for ShellError {
     fn from(input: serde_yaml::Error) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{:?}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{:?}", input))
     }
 }
 
 impl std::convert::From<toml::ser::Error> for ShellError {
     fn from(input: toml::ser::Error) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{:?}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{:?}", input))
     }
 }
 
 impl std::convert::From<serde_json::Error> for ShellError {
     fn from(input: serde_json::Error) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{:?}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{:?}", input))
     }
 }
 
 impl std::convert::From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ProximateShellError::String(StringError {
-            title: format!("{:?}", input),
-            error: Value::nothing(),
-        })
-        .start()
+        ShellError::untagged_runtime_error(format!("{:?}", input))
     }
 }
 
