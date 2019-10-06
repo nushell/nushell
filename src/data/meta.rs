@@ -240,6 +240,16 @@ impl Tag {
         }
     }
 
+    pub fn for_char(pos: usize, anchor: Uuid) -> Tag {
+        Tag {
+            anchor,
+            span: Span {
+                start: pos,
+                end: pos + 1,
+            },
+        }
+    }
+
     pub fn unknown_span(anchor: Uuid) -> Tag {
         Tag {
             anchor,
@@ -267,6 +277,24 @@ impl Tag {
         }
     }
 
+    pub fn until_option(&self, other: Option<impl Into<Tag>>) -> Tag {
+        match other {
+            Some(other) => {
+                let other = other.into();
+                debug_assert!(
+                    self.anchor == other.anchor,
+                    "Can only merge two tags with the same anchor"
+                );
+
+                Tag {
+                    span: Span::new(self.span.start, other.span.end),
+                    anchor: self.anchor,
+                }
+            }
+            None => *self,
+        }
+    }
+
     pub fn slice<'a>(&self, source: &'a str) -> &'a str {
         self.span.slice(source)
     }
@@ -284,6 +312,7 @@ impl Tag {
     }
 }
 
+#[allow(unused)]
 pub fn tag_for_tagged_list(mut iter: impl Iterator<Item = Tag>) -> Tag {
     let first = iter.next();
 

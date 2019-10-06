@@ -96,7 +96,7 @@ textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
-trace = ["nom-tracable/trace"]
+# trace = ["nom-tracable/trace"]
 all = ["raw-key", "textview", "binaryview", "sys", "ps", "clipboard", "ptree"]
 
 [dependencies.rusqlite]

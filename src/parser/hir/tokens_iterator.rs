@@ -3,16 +3,13 @@ pub(crate) mod debug;
 use crate::errors::ShellError;
 use crate::parser::TokenNode;
 use crate::{Tag, Tagged, TaggedItem};
-use derive_new::new;
 
-#[derive(Debug, new)]
-pub struct TokensIterator<'a> {
-    tokens: &'a [TokenNode],
+#[derive(Debug)]
+pub struct TokensIterator<'content> {
+    tokens: &'content [TokenNode],
     tag: Tag,
     skip_ws: bool,
-    #[new(default)]
     index: usize,
-    #[new(default)]
     seen: indexmap::IndexSet<usize>,
 }
 
@@ -124,9 +121,39 @@ pub fn peek_error(
 }
 
 impl<'content> TokensIterator<'content> {
-    #[cfg(test)]
+    pub fn new(items: &'content [TokenNode], tag: Tag, skip_ws: bool) -> TokensIterator<'content> {
+        TokensIterator {
+            tokens: items,
+            tag,
+            skip_ws,
+            index: 0,
+            seen: indexmap::IndexSet::new(),
+        }
+    }
+
+    pub fn anchor(&self) -> uuid::Uuid {
+        self.tag.anchor
+    }
+
     pub fn all(tokens: &'content [TokenNode], tag: Tag) -> TokensIterator<'content> {
         TokensIterator::new(tokens, tag, false)
+    }
+
+    pub fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
+    pub fn spanned<T>(
+        &mut self,
+        block: impl FnOnce(&mut TokensIterator<'content>) -> T,
+    ) -> Tagged<T> {
+        let start = self.tag_at_cursor();
+
+        let result = block(self);
+
+        let end = self.tag_at_cursor();
+
+        result.tagged(start.until(end))
     }
 
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
@@ -143,8 +170,26 @@ impl<'content> TokensIterator<'content> {
         }
     }
 
-    pub fn anchor(&self) -> uuid::Uuid {
-        self.tag.anchor
+    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
+    /// that you'll succeed.
+    pub fn atomic<'me, T>(
+        &'me mut self,
+        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
+    ) -> Result<T, ShellError> {
+        let index = self.index;
+        let seen = self.seen.clone();
+
+        let checkpoint = Checkpoint {
+            iterator: self,
+            index,
+            seen,
+            committed: false,
+        };
+
+        let value = block(checkpoint.iterator)?;
+
+        checkpoint.commit();
+        return Ok(value);
     }
 
     fn eof_tag(&self) -> Tag {
@@ -157,6 +202,15 @@ impl<'content> TokensIterator<'content> {
         match next.node {
             None => "end".tagged(self.eof_tag()),
             Some(node) => node.tagged_type_name(),
+        }
+    }
+
+    pub fn tag_at_cursor(&mut self) -> Tag {
+        let next = self.peek_any();
+
+        match next.node {
+            None => self.eof_tag(),
+            Some(node) => node.tag(),
         }
     }
 
@@ -231,12 +285,36 @@ impl<'content> TokensIterator<'content> {
         start_next(self, false)
     }
 
+    // Peek the next token, including whitespace, but not EOF
+    pub fn peek_any_token<'me, T>(
+        &'me mut self,
+        block: impl FnOnce(&'content TokenNode) -> Result<T, ShellError>,
+    ) -> Result<T, ShellError> {
+        let peeked = start_next(self, false);
+        let peeked = peeked.not_eof("invariant");
+
+        match peeked {
+            Err(err) => return Err(err),
+            Ok(peeked) => match block(peeked.node) {
+                Err(err) => return Err(err),
+                Ok(val) => {
+                    peeked.commit();
+                    return Ok(val);
+                }
+            },
+        }
+    }
+
     fn commit(&mut self, from: usize, to: usize) {
         for index in from..to {
             self.seen.insert(index);
         }
 
         self.index = to;
+    }
+
+    pub fn pos(&self, skip_ws: bool) -> Option<usize> {
+        peek_pos(self, skip_ws)
     }
 
     pub fn debug_remaining(&self) -> Vec<TokenNode> {
@@ -246,18 +324,18 @@ impl<'content> TokensIterator<'content> {
     }
 }
 
-impl<'a> Iterator for TokensIterator<'a> {
-    type Item = &'a TokenNode;
+impl<'content> Iterator for TokensIterator<'content> {
+    type Item = &'content TokenNode;
 
-    fn next(&mut self) -> Option<&'a TokenNode> {
+    fn next(&mut self) -> Option<&'content TokenNode> {
         next(self, self.skip_ws)
     }
 }
 
 fn peek<'content, 'me>(
-    iterator: &TokensIterator<'content>,
+    iterator: &'me TokensIterator<'content>,
     skip_ws: bool,
-) -> Option<&'content TokenNode> {
+) -> Option<&'me TokenNode> {
     let mut to = iterator.index;
 
     loop {
@@ -283,6 +361,37 @@ fn peek<'content, 'me>(
             _ => {
                 return Some(node);
             }
+        }
+    }
+}
+
+fn peek_pos<'content, 'me>(
+    iterator: &'me TokensIterator<'content>,
+    skip_ws: bool,
+) -> Option<usize> {
+    let mut to = iterator.index;
+
+    loop {
+        if to >= iterator.tokens.len() {
+            return None;
+        }
+
+        if iterator.seen.contains(&to) {
+            to += 1;
+            continue;
+        }
+
+        if to >= iterator.tokens.len() {
+            return None;
+        }
+
+        let node = &iterator.tokens[to];
+
+        match node {
+            TokenNode::Whitespace(_) if skip_ws => {
+                to += 1;
+            }
+            _ => return Some(to),
         }
     }
 }
@@ -337,7 +446,10 @@ fn start_next<'content, 'me>(
     }
 }
 
-fn next<'a>(iterator: &mut TokensIterator<'a>, skip_ws: bool) -> Option<&'a TokenNode> {
+fn next<'me, 'content>(
+    iterator: &'me mut TokensIterator<'content>,
+    skip_ws: bool,
+) -> Option<&'content TokenNode> {
     loop {
         if iterator.index >= iterator.tokens.len() {
             return None;

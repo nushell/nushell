@@ -1,6 +1,8 @@
 use crate::parser::hir::syntax_shape::{
-    expand_expr, expand_syntax, parse_single_node, AnyExpressionShape, BareShape, ExpandContext,
-    ExpandExpression, ExpandSyntax, Peeked, SkipSyntax, StringShape, TestSyntax, WhitespaceShape,
+    color_fallible_syntax, color_fallible_syntax_with, expand_atom, expand_expr, expand_syntax,
+    parse_single_node, AnyExpressionShape, AtomicToken, BareShape, ExpandContext, ExpandExpression,
+    ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, Peeked, SkipSyntax, StringShape,
+    TestSyntax, WhitespaceShape,
 };
 use crate::parser::{hir, hir::Expression, hir::TokensIterator, Operator, RawToken};
 use crate::prelude::*;
@@ -42,8 +44,80 @@ impl ExpandExpression for VariablePathShape {
     }
 }
 
+impl FallibleColorSyntax for VariablePathShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        token_nodes.atomic(|token_nodes| {
+            // If the head of the token stream is not a variable, fail
+            color_fallible_syntax(&VariableShape, token_nodes, context, shapes)?;
+
+            loop {
+                // look for a dot at the head of a stream
+                let dot = color_fallible_syntax_with(
+                    &ColorableDotShape,
+                    &FlatShape::Dot,
+                    token_nodes,
+                    context,
+                    shapes,
+                );
+
+                // if there's no dot, we're done
+                match dot {
+                    Err(_) => break,
+                    Ok(_) => {}
+                }
+
+                // otherwise, look for a member, and if you don't find one, fail
+                color_fallible_syntax(&MemberShape, token_nodes, context, shapes)?;
+            }
+
+            Ok(())
+        })
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct PathTailShape;
+
+/// The failure mode of `PathTailShape` is a dot followed by a non-member
+impl FallibleColorSyntax for PathTailShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        token_nodes.atomic(|token_nodes| loop {
+            let result = color_fallible_syntax_with(
+                &ColorableDotShape,
+                &FlatShape::Dot,
+                token_nodes,
+                context,
+                shapes,
+            );
+
+            match result {
+                Err(_) => return Ok(()),
+                Ok(_) => {}
+            }
+
+            // If we've seen a dot but not a member, fail
+            color_fallible_syntax(&MemberShape, token_nodes, context, shapes)?;
+        })
+    }
+}
 
 impl ExpandSyntax for PathTailShape {
     type Output = (Vec<Tagged<String>>, Tag);
@@ -121,6 +195,63 @@ impl ExpandSyntax for ExpressionContinuationShape {
     }
 }
 
+pub enum ContinuationInfo {
+    Dot,
+    Infix,
+}
+
+impl FallibleColorSyntax for ExpressionContinuationShape {
+    type Info = ContinuationInfo;
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<ContinuationInfo, ShellError> {
+        token_nodes.atomic(|token_nodes| {
+            // Try to expand a `.`
+            let dot = color_fallible_syntax_with(
+                &ColorableDotShape,
+                &FlatShape::Dot,
+                token_nodes,
+                context,
+                shapes,
+            );
+
+            match dot {
+                Ok(_) => {
+                    // we found a dot, so let's keep looking for a member; if no member was found, fail
+                    color_fallible_syntax(&MemberShape, token_nodes, context, shapes)?;
+
+                    Ok(ContinuationInfo::Dot)
+                }
+                Err(_) => {
+                    let mut new_shapes = vec![];
+                    let result = token_nodes.atomic(|token_nodes| {
+                        // we didn't find a dot, so let's see if we're looking at an infix. If not found, fail
+                        color_fallible_syntax(&InfixShape, token_nodes, context, &mut new_shapes)?;
+
+                        // now that we've seen an infix shape, look for any expression. If not found, fail
+                        color_fallible_syntax(
+                            &AnyExpressionShape,
+                            token_nodes,
+                            context,
+                            &mut new_shapes,
+                        )?;
+
+                        Ok(ContinuationInfo::Infix)
+                    })?;
+                    shapes.extend(new_shapes);
+                    Ok(result)
+                }
+            }
+        })
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct VariableShape;
 
@@ -130,7 +261,7 @@ impl ExpandExpression for VariableShape {
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
-        parse_single_node(token_nodes, "variable", |token, token_tag| {
+        parse_single_node(token_nodes, "variable", |token, token_tag, _| {
             Ok(match token {
                 RawToken::Variable(tag) => {
                     if tag.slice(context.source) == "it" {
@@ -147,6 +278,43 @@ impl ExpandExpression for VariableShape {
                 }
             })
         })
+    }
+}
+
+impl FallibleColorSyntax for VariableShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        let atom = expand_atom(
+            token_nodes,
+            "variable",
+            context,
+            ExpansionRule::permissive(),
+        );
+
+        let atom = match atom {
+            Err(err) => return Err(err),
+            Ok(atom) => atom,
+        };
+
+        match &atom.item {
+            AtomicToken::Variable { .. } => {
+                shapes.push(FlatShape::Variable.tagged(atom.tag));
+                Ok(())
+            }
+            AtomicToken::ItVariable { .. } => {
+                shapes.push(FlatShape::ItVariable.tagged(atom.tag));
+                Ok(())
+            }
+            _ => Err(ShellError::type_error("variable", atom.tagged_type_name())),
+        }
     }
 }
 
@@ -272,6 +440,55 @@ pub fn expand_column_path<'a, 'b>(
 #[derive(Debug, Copy, Clone)]
 pub struct ColumnPathShape;
 
+impl FallibleColorSyntax for ColumnPathShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        // If there's not even one member shape, fail
+        color_fallible_syntax(&MemberShape, token_nodes, context, shapes)?;
+
+        loop {
+            let checkpoint = token_nodes.checkpoint();
+
+            match color_fallible_syntax_with(
+                &ColorableDotShape,
+                &FlatShape::Dot,
+                checkpoint.iterator,
+                context,
+                shapes,
+            ) {
+                Err(_) => {
+                    // we already saw at least one member shape, so return successfully
+                    return Ok(());
+                }
+
+                Ok(_) => {
+                    match color_fallible_syntax(&MemberShape, checkpoint.iterator, context, shapes)
+                    {
+                        Err(_) => {
+                            // we saw a dot but not a member (but we saw at least one member),
+                            // so don't commit the dot but return successfully
+                            return Ok(());
+                        }
+
+                        Ok(_) => {
+                            // we saw a dot and a member, so commit it and continue on
+                            checkpoint.commit();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl ExpandSyntax for ColumnPathShape {
     type Output = Tagged<Vec<Member>>;
 
@@ -286,6 +503,43 @@ impl ExpandSyntax for ColumnPathShape {
 
 #[derive(Debug, Copy, Clone)]
 pub struct MemberShape;
+
+impl FallibleColorSyntax for MemberShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        let bare = color_fallible_syntax_with(
+            &BareShape,
+            &FlatShape::BareMember,
+            token_nodes,
+            context,
+            shapes,
+        );
+
+        match bare {
+            Ok(_) => return Ok(()),
+            Err(_) => {
+                // If we don't have a bare word, we'll look for a string
+            }
+        }
+
+        // Look for a string token. If we don't find one, fail
+        color_fallible_syntax_with(
+            &StringShape,
+            &FlatShape::StringMember,
+            token_nodes,
+            context,
+            shapes,
+        )
+    }
+}
 
 impl ExpandSyntax for MemberShape {
     type Output = Member;
@@ -317,6 +571,34 @@ impl ExpandSyntax for MemberShape {
 #[derive(Debug, Copy, Clone)]
 pub struct DotShape;
 
+#[derive(Debug, Copy, Clone)]
+pub struct ColorableDotShape;
+
+impl FallibleColorSyntax for ColorableDotShape {
+    type Info = ();
+    type Input = FlatShape;
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        input: &FlatShape,
+        token_nodes: &'b mut TokensIterator<'a>,
+        _context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        let peeked = token_nodes.peek_any().not_eof("dot")?;
+
+        match peeked.node {
+            node if node.is_dot() => {
+                peeked.commit();
+                shapes.push((*input).tagged(node.tag()));
+                Ok(())
+            }
+
+            other => Err(ShellError::type_error("dot", other.tagged_type_name())),
+        }
+    }
+}
+
 impl SkipSyntax for DotShape {
     fn skip<'a, 'b>(
         &self,
@@ -337,7 +619,7 @@ impl ExpandSyntax for DotShape {
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
     ) -> Result<Self::Output, ShellError> {
-        parse_single_node(token_nodes, "dot", |token, token_tag| {
+        parse_single_node(token_nodes, "dot", |token, token_tag, _| {
             Ok(match token {
                 RawToken::Operator(Operator::Dot) => token_tag,
                 _ => {
@@ -354,6 +636,53 @@ impl ExpandSyntax for DotShape {
 #[derive(Debug, Copy, Clone)]
 pub struct InfixShape;
 
+impl FallibleColorSyntax for InfixShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        outer_shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        let checkpoint = token_nodes.checkpoint();
+        let mut shapes = vec![];
+
+        // An infix operator must be prefixed by whitespace. If no whitespace was found, fail
+        color_fallible_syntax(&WhitespaceShape, checkpoint.iterator, context, &mut shapes)?;
+
+        // Parse the next TokenNode after the whitespace
+        parse_single_node(
+            checkpoint.iterator,
+            "infix operator",
+            |token, token_tag, _| {
+                match token {
+                    // If it's an operator (and not `.`), it's a match
+                    RawToken::Operator(operator) if operator != Operator::Dot => {
+                        shapes.push(FlatShape::Operator.tagged(token_tag));
+                        Ok(())
+                    }
+
+                    // Otherwise, it's not a match
+                    _ => Err(ShellError::type_error(
+                        "infix operator",
+                        token.type_name().tagged(token_tag),
+                    )),
+                }
+            },
+        )?;
+
+        // An infix operator must be followed by whitespace. If no whitespace was found, fail
+        color_fallible_syntax(&WhitespaceShape, checkpoint.iterator, context, &mut shapes)?;
+
+        outer_shapes.extend(shapes);
+        checkpoint.commit();
+        Ok(())
+    }
+}
+
 impl ExpandSyntax for InfixShape {
     type Output = (Tag, Tagged<Operator>, Tag);
 
@@ -368,8 +697,10 @@ impl ExpandSyntax for InfixShape {
         let start = expand_syntax(&WhitespaceShape, checkpoint.iterator, context)?;
 
         // Parse the next TokenNode after the whitespace
-        let operator =
-            parse_single_node(checkpoint.iterator, "infix operator", |token, token_tag| {
+        let operator = parse_single_node(
+            checkpoint.iterator,
+            "infix operator",
+            |token, token_tag, _| {
                 Ok(match token {
                     // If it's an operator (and not `.`), it's a match
                     RawToken::Operator(operator) if operator != Operator::Dot => {
@@ -384,7 +715,8 @@ impl ExpandSyntax for InfixShape {
                         ))
                     }
                 })
-            })?;
+            },
+        )?;
 
         // An infix operator must be followed by whitespace
         let end = expand_syntax(&WhitespaceShape, checkpoint.iterator, context)?;

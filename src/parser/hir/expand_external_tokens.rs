@@ -1,5 +1,11 @@
 use crate::errors::ShellError;
-use crate::parser::{TokenNode, TokensIterator};
+use crate::parser::{
+    hir::syntax_shape::{
+        color_syntax, expand_atom, AtomicToken, ColorSyntax, ExpandContext, ExpansionRule,
+        MaybeSpaceShape,
+    },
+    FlatShape, TokenNode, TokensIterator,
+};
 use crate::{Tag, Tagged, Text};
 
 pub fn expand_external_tokens(
@@ -17,6 +23,34 @@ pub fn expand_external_tokens(
     }
 
     Ok(out)
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ExternalTokensShape;
+
+impl ColorSyntax for ExternalTokensShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Self::Info {
+        loop {
+            // Allow a space
+            color_syntax(&MaybeSpaceShape, token_nodes, context, shapes);
+
+            // Process an external expression. External expressions are mostly words, with a
+            // few exceptions (like $variables and path expansion rules)
+            match color_syntax(&ExternalExpression, token_nodes, context, shapes).1 {
+                ExternalExpressionResult::Eof => break,
+                ExternalExpressionResult::Processed => continue,
+            }
+        }
+    }
 }
 
 pub fn expand_next_expression(
@@ -48,16 +82,15 @@ pub fn expand_next_expression(
 fn triage_external_head(node: &TokenNode) -> Result<Tag, ShellError> {
     Ok(match node {
         TokenNode::Token(token) => token.tag(),
-        TokenNode::Call(_call) => unimplemented!(),
-        TokenNode::Nodes(_nodes) => unimplemented!(),
-        TokenNode::Delimited(_delimited) => unimplemented!(),
-        TokenNode::Pipeline(_pipeline) => unimplemented!(),
+        TokenNode::Call(_call) => unimplemented!("TODO: OMG"),
+        TokenNode::Nodes(_nodes) => unimplemented!("TODO: OMG"),
+        TokenNode::Delimited(_delimited) => unimplemented!("TODO: OMG"),
+        TokenNode::Pipeline(_pipeline) => unimplemented!("TODO: OMG"),
         TokenNode::Flag(flag) => flag.tag(),
-        TokenNode::Member(member) => *member,
         TokenNode::Whitespace(_whitespace) => {
             unreachable!("This function should be called after next_non_ws()")
         }
-        TokenNode::Error(_error) => unimplemented!(),
+        TokenNode::Error(_error) => unimplemented!("TODO: OMG"),
     })
 }
 
@@ -73,7 +106,7 @@ fn triage_continuation<'a, 'b>(
 
     match &node {
         node if node.is_whitespace() => return Ok(None),
-        TokenNode::Token(..) | TokenNode::Flag(..) | TokenNode::Member(..) => {}
+        TokenNode::Token(..) | TokenNode::Flag(..) => {}
         TokenNode::Call(..) => unimplemented!("call"),
         TokenNode::Nodes(..) => unimplemented!("nodes"),
         TokenNode::Delimited(..) => unimplemented!("delimited"),
@@ -84,4 +117,43 @@ fn triage_continuation<'a, 'b>(
 
     peeked.commit();
     Ok(Some(node.tag()))
+}
+
+#[must_use]
+enum ExternalExpressionResult {
+    Eof,
+    Processed,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct ExternalExpression;
+
+impl ColorSyntax for ExternalExpression {
+    type Info = ExternalExpressionResult;
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> ExternalExpressionResult {
+        let atom = match expand_atom(
+            token_nodes,
+            "external word",
+            context,
+            ExpansionRule::permissive(),
+        ) {
+            Err(_) => unreachable!("TODO: separate infallible expand_atom"),
+            Ok(Tagged {
+                item: AtomicToken::Eof { .. },
+                ..
+            }) => return ExternalExpressionResult::Eof,
+            Ok(atom) => atom,
+        };
+
+        atom.color_tokens(shapes);
+        return ExternalExpressionResult::Processed;
+    }
 }

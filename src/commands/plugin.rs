@@ -128,7 +128,7 @@ pub fn filter_plugin(
                             },
                             Err(e) => {
                                 let mut result = VecDeque::new();
-                                result.push_back(Err(ShellError::string(format!(
+                                result.push_back(Err(ShellError::untagged_runtime_error(format!(
                                     "Error while processing begin_filter response: {:?} {}",
                                     e, input
                                 ))));
@@ -138,7 +138,7 @@ pub fn filter_plugin(
                     }
                     Err(e) => {
                         let mut result = VecDeque::new();
-                        result.push_back(Err(ShellError::string(format!(
+                        result.push_back(Err(ShellError::untagged_runtime_error(format!(
                             "Error while reading begin_filter response: {:?}",
                             e
                         ))));
@@ -189,7 +189,7 @@ pub fn filter_plugin(
                             },
                             Err(e) => {
                                 let mut result = VecDeque::new();
-                                result.push_back(Err(ShellError::string(format!(
+                                result.push_back(Err(ShellError::untagged_runtime_error(format!(
                                     "Error while processing end_filter response: {:?} {}",
                                     e, input
                                 ))));
@@ -199,7 +199,7 @@ pub fn filter_plugin(
                     }
                     Err(e) => {
                         let mut result = VecDeque::new();
-                        result.push_back(Err(ShellError::string(format!(
+                        result.push_back(Err(ShellError::untagged_runtime_error(format!(
                             "Error while reading end_filter: {:?}",
                             e
                         ))));
@@ -236,7 +236,7 @@ pub fn filter_plugin(
                             },
                             Err(e) => {
                                 let mut result = VecDeque::new();
-                                result.push_back(Err(ShellError::string(format!(
+                                result.push_back(Err(ShellError::untagged_runtime_error(format!(
                                     "Error while processing filter response: {:?} {}",
                                     e, input
                                 ))));
@@ -246,7 +246,7 @@ pub fn filter_plugin(
                     }
                     Err(e) => {
                         let mut result = VecDeque::new();
-                        result.push_back(Err(ShellError::string(format!(
+                        result.push_back(Err(ShellError::untagged_runtime_error(format!(
                             "Error while reading filter response: {:?}",
                             e
                         ))));

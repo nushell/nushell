@@ -298,7 +298,7 @@ impl fmt::Debug for ValueDebug<'_> {
 }
 
 impl Tagged<Value> {
-    pub(crate) fn tagged_type_name(&self) -> Tagged<String> {
+    pub fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
         Tagged::from_item(name, self.tag())
     }
@@ -424,10 +424,27 @@ impl Tagged<Value> {
 
         Ok(out.tagged(self.tag))
     }
+
+    pub(crate) fn as_string(&self) -> Result<String, ShellError> {
+        match &self.item {
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+            // TODO: this should definitely be more general with better errors
+            other => Err(ShellError::labeled_error(
+                "Expected string",
+                other.type_name(),
+                self.tag,
+            )),
+        }
+    }
 }
 
 impl Value {
-    pub(crate) fn type_name(&self) -> String {
+    pub fn type_name(&self) -> String {
         match self {
             Value::Primitive(p) => p.type_name(),
             Value::Row(_) => format!("row"),
@@ -738,22 +755,6 @@ impl Value {
         }
     }
 
-    pub(crate) fn as_string(&self) -> Result<String, ShellError> {
-        match self {
-            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
-            Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected string, got {:?}",
-                other
-            ))),
-        }
-    }
-
     pub(crate) fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
@@ -806,9 +807,14 @@ impl Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
-    pub fn date_from_str(s: &str) -> Result<Value, ShellError> {
-        let date = DateTime::parse_from_rfc3339(s)
-            .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
+    pub fn date_from_str(s: Tagged<&str>) -> Result<Value, ShellError> {
+        let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
+            ShellError::labeled_error(
+                &format!("Date parse error: {}", err),
+                "original value",
+                s.tag,
+            )
+        })?;
 
         let date = date.with_timezone(&chrono::offset::Utc);
 

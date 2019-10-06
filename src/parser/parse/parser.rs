@@ -189,7 +189,7 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
     match input.fragment.chars().next() {
         None => return Ok((input, RawNumber::int((start, input.offset, input.extra)))),
         Some('.') => (),
-        Some(other) if other.is_whitespace() => {
+        other if is_boundary(other) => {
             return Ok((input, RawNumber::int((start, input.offset, input.extra))))
         }
         _ => {
@@ -215,16 +215,14 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
 
     let next = input.fragment.chars().next();
 
-    if let Some(next) = next {
-        if !next.is_whitespace() {
-            return Err(nom::Err::Error(nom::error::make_error(
-                input,
-                nom::error::ErrorKind::Tag,
-            )));
-        }
+    if is_boundary(next) {
+        Ok((input, RawNumber::decimal((start, end, input.extra))))
+    } else {
+        Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Tag,
+        )))
     }
-
-    Ok((input, RawNumber::decimal((start, end, input.extra))))
 }
 
 #[tracable_parser]
@@ -476,11 +474,14 @@ pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     ))
 }
 
-pub fn delimited(input: NomSpan, delimiter: Delimiter) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
+pub fn delimited(
+    input: NomSpan,
+    delimiter: Delimiter,
+) -> IResult<NomSpan, (Tag, Tag, Tagged<Vec<TokenNode>>)> {
     let left = input.offset;
-    let (input, _) = char(delimiter.open())(input)?;
+    let (input, open_tag) = tag(delimiter.open())(input)?;
     let (input, inner_items) = opt(spaced_token_list)(input)?;
-    let (input, _) = char(delimiter.close())(input)?;
+    let (input, close_tag) = tag(delimiter.close())(input)?;
     let right = input.offset;
 
     let mut items = vec![];
@@ -489,36 +490,43 @@ pub fn delimited(input: NomSpan, delimiter: Delimiter) -> IResult<NomSpan, Tagge
         items.extend(inner_items.item);
     }
 
-    Ok((input, items.tagged((left, right, input.extra.origin))))
+    Ok((
+        input,
+        (
+            Tag::from(open_tag),
+            Tag::from(close_tag),
+            items.tagged((left, right, input.extra.origin)),
+        ),
+    ))
 }
 
 #[tracable_parser]
 pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    let (input, tokens) = delimited(input, Delimiter::Paren)?;
+    let (input, (left, right, tokens)) = delimited(input, Delimiter::Paren)?;
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_parens(tokens.item, tokens.tag),
+        TokenTreeBuilder::tagged_parens(tokens.item, (left, right), tokens.tag),
     ))
 }
 
 #[tracable_parser]
 pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    let (input, tokens) = delimited(input, Delimiter::Square)?;
+    let (input, (left, right, tokens)) = delimited(input, Delimiter::Square)?;
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_square(tokens.item, tokens.tag),
+        TokenTreeBuilder::tagged_square(tokens.item, (left, right), tokens.tag),
     ))
 }
 
 #[tracable_parser]
 pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    let (input, tokens) = delimited(input, Delimiter::Brace)?;
+    let (input, (left, right, tokens)) = delimited(input, Delimiter::Brace)?;
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_brace(tokens.item, tokens.tag),
+        TokenTreeBuilder::tagged_square(tokens.item, (left, right), tokens.tag),
     ))
 }
 
@@ -1246,7 +1254,10 @@ mod tests {
         left: usize,
         right: usize,
     ) -> TokenNode {
-        let node = DelimitedNode::new(*delimiter, children);
+        let start = Tag::for_char(left, delimiter.tag.anchor);
+        let end = Tag::for_char(right, delimiter.tag.anchor);
+
+        let node = DelimitedNode::new(delimiter.item, (start, end), children);
         let spanned = node.tagged((left, right, delimiter.tag.anchor));
         TokenNode::Delimited(spanned)
     }

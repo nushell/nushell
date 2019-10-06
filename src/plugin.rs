@@ -32,7 +32,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
         let input = match input {
             Some(arg) => std::fs::read_to_string(arg),
             None => {
-                send_response(ShellError::string(format!("No input given.")));
+                send_response(ShellError::untagged_runtime_error("No input given."));
                 return;
             }
         };
@@ -64,7 +64,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     return;
                 }
                 e => {
-                    send_response(ShellError::string(format!(
+                    send_response(ShellError::untagged_runtime_error(format!(
                         "Could not handle plugin message: {} {:?}",
                         input, e
                     )));
@@ -102,7 +102,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                             break;
                         }
                         e => {
-                            send_response(ShellError::string(format!(
+                            send_response(ShellError::untagged_runtime_error(format!(
                                 "Could not handle plugin message: {} {:?}",
                                 input, e
                             )));
@@ -111,7 +111,7 @@ pub fn serve_plugin(plugin: &mut dyn Plugin) {
                     }
                 }
                 e => {
-                    send_response(ShellError::string(format!(
+                    send_response(ShellError::untagged_runtime_error(format!(
                         "Could not handle plugin message: {:?}",
                         e,
                     )));

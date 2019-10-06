@@ -145,7 +145,7 @@ impl Shell for FilesystemShell {
                         source.tag(),
                     ));
                 } else {
-                    return Err(ShellError::string("Invalid pattern."));
+                    return Err(ShellError::untagged_runtime_error("Invalid pattern."));
                 }
             }
         };

@@ -1,7 +1,8 @@
-use crate::parser::hir::syntax_shape::{ExpandContext, ExpandExpression};
+use crate::data::meta::Span;
+use crate::parser::hir::syntax_shape::{ExpandContext, ExpandSyntax};
 use crate::parser::parse::tokens::RawNumber;
 use crate::parser::parse::unit::Unit;
-use crate::parser::{hir, hir::TokensIterator, RawToken, TokenNode};
+use crate::parser::{hir::TokensIterator, RawToken, TokenNode};
 use crate::prelude::*;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -12,12 +13,14 @@ use nom::IResult;
 #[derive(Debug, Copy, Clone)]
 pub struct UnitShape;
 
-impl ExpandExpression for UnitShape {
-    fn expand_expr<'a, 'b>(
+impl ExpandSyntax for UnitShape {
+    type Output = Tagged<(Tagged<RawNumber>, Tagged<Unit>)>;
+
+    fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<Tagged<(Tagged<RawNumber>, Tagged<Unit>)>, ShellError> {
         let peeked = token_nodes.peek_any().not_eof("unit")?;
 
         let tag = match peeked.node {
@@ -40,15 +43,12 @@ impl ExpandExpression for UnitShape {
             Ok((number, unit)) => (number, unit),
         };
 
-        Ok(hir::Expression::size(
-            number.to_number(context.source),
-            unit,
-            tag,
-        ))
+        peeked.commit();
+        Ok((number, unit).tagged(tag))
     }
 }
 
-fn unit_size(input: &str, bare_tag: Tag) -> IResult<&str, (Tagged<RawNumber>, Unit)> {
+fn unit_size(input: &str, bare_tag: Tag) -> IResult<&str, (Tagged<RawNumber>, Tagged<Unit>)> {
     let (input, digits) = digit1(input)?;
 
     let (input, dot) = opt(tag("."))(input)?;
@@ -85,5 +85,12 @@ fn unit_size(input: &str, bare_tag: Tag) -> IResult<&str, (Tagged<RawNumber>, Un
         value(Unit::MB, alt((tag("PB"), tag("pb"), tag("Pb")))),
     )))(input)?;
 
-    Ok((input, (number, unit)))
+    let start_span = number.tag.span.end();
+
+    let unit_tag = Tag::new(
+        bare_tag.anchor,
+        Span::from((start_span, bare_tag.span.end())),
+    );
+
+    Ok((input, (number, unit.tagged(unit_tag))))
 }

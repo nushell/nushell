@@ -105,20 +105,24 @@ impl Str {
                     ) {
                         Some(v) => return Ok(v),
                         None => {
-                            return Err(ShellError::string("str could not find field to replace"))
+                            return Err(ShellError::type_error(
+                                "column name",
+                                value.tagged_type_name(),
+                            ))
                         }
                     }
                 }
-                None => Err(ShellError::string(format!(
+                None => Err(ShellError::untagged_runtime_error(format!(
                     "{}: {}",
                     "str needs a column when applied to a value in a row",
                     Str::usage()
                 ))),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            _ => Err(ShellError::labeled_error(
+                "Unrecognized type in stream",
+                value.type_name(),
+                value.tag,
+            )),
         }
     }
 }
@@ -167,10 +171,11 @@ impl Plugin for Str {
                     self.field = Some(table.as_column_path()?.item);
                 }
                 _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        possible_field
-                    )))
+                    return Err(ShellError::labeled_error(
+                        "Unrecognized type in params",
+                        possible_field.type_name(),
+                        possible_field.tag,
+                    ))
                 }
             }
         }
@@ -187,7 +192,11 @@ impl Plugin for Str {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, Str::usage())))
+                return Err(ShellError::untagged_runtime_error(format!(
+                    "{}: {}",
+                    reason,
+                    Str::usage()
+                )))
             }
             None => Ok(vec![]),
         }

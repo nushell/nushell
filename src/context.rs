@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -77,7 +77,7 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     registry: CommandRegistry,
-    pub(crate) source_map: SourceMap,
+    pub(crate) source_map: Arc<Mutex<SourceMap>>,
     host: Arc<Mutex<dyn Host + Send>>,
     pub(crate) shell_manager: ShellManager,
 }
@@ -99,7 +99,7 @@ impl Context {
         let registry = CommandRegistry::new();
         Ok(Context {
             registry: registry.clone(),
-            source_map: SourceMap::new(),
+            source_map: Arc::new(Mutex::new(SourceMap::new())),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             shell_manager: ShellManager::basic(registry)?,
         })
@@ -118,7 +118,9 @@ impl Context {
     }
 
     pub fn add_anchor_location(&mut self, uuid: Uuid, anchor_location: AnchorLocation) {
-        self.source_map.insert(uuid, anchor_location);
+        let mut source_map = self.source_map.lock().unwrap();
+
+        source_map.insert(uuid, anchor_location);
     }
 
     pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {

@@ -1,4 +1,7 @@
-use crate::parser::hir::syntax_shape::{parse_single_node, ExpandContext, ExpandExpression};
+use crate::parser::hir::syntax_shape::{
+    expand_atom, parse_single_node, ExpandContext, ExpandExpression, ExpansionRule,
+    FallibleColorSyntax, FlatShape,
+};
 use crate::parser::{
     hir,
     hir::{RawNumber, TokensIterator},
@@ -15,20 +18,9 @@ impl ExpandExpression for NumberShape {
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
-        parse_single_node(token_nodes, "Number", |token, token_tag| {
+        parse_single_node(token_nodes, "Number", |token, token_tag, err| {
             Ok(match token {
-                RawToken::GlobPattern => {
-                    return Err(ShellError::type_error(
-                        "Number",
-                        "glob pattern".to_string().tagged(token_tag),
-                    ))
-                }
-                RawToken::Operator(..) => {
-                    return Err(ShellError::type_error(
-                        "Number",
-                        "operator".to_string().tagged(token_tag),
-                    ))
-                }
+                RawToken::GlobPattern | RawToken::Operator(..) => return Err(err.error()),
                 RawToken::Variable(tag) if tag.slice(context.source) == "it" => {
                     hir::Expression::it_variable(tag, token_tag)
                 }
@@ -38,13 +30,39 @@ impl ExpandExpression for NumberShape {
                 RawToken::Number(number) => {
                     hir::Expression::number(number.to_number(context.source), token_tag)
                 }
-                RawToken::Size(number, unit) => {
-                    hir::Expression::size(number.to_number(context.source), unit, token_tag)
-                }
                 RawToken::Bare => hir::Expression::bare(token_tag),
                 RawToken::String(tag) => hir::Expression::string(tag, token_tag),
             })
         })
+    }
+}
+
+impl FallibleColorSyntax for NumberShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        let atom = token_nodes.spanned(|token_nodes| {
+            expand_atom(token_nodes, "number", context, ExpansionRule::permissive())
+        });
+
+        let atom = match atom {
+            Tagged { item: Err(_), tag } => {
+                shapes.push(FlatShape::Error.tagged(tag));
+                return Ok(());
+            }
+            Tagged { item: Ok(atom), .. } => atom,
+        };
+
+        atom.color_tokens(shapes);
+
+        Ok(())
     }
 }
 
@@ -57,41 +75,51 @@ impl ExpandExpression for IntShape {
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
-        parse_single_node(token_nodes, "Integer", |token, token_tag| {
+        parse_single_node(token_nodes, "Integer", |token, token_tag, err| {
             Ok(match token {
-                RawToken::GlobPattern => {
-                    return Err(ShellError::type_error(
-                        "Integer",
-                        "glob pattern".to_string().tagged(token_tag),
-                    ))
-                }
-                RawToken::Operator(..) => {
-                    return Err(ShellError::type_error(
-                        "Integer",
-                        "operator".to_string().tagged(token_tag),
-                    ))
-                }
+                RawToken::GlobPattern | RawToken::Operator(..) => return Err(err.error()),
+                RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token_tag)),
                 RawToken::Variable(tag) if tag.slice(context.source) == "it" => {
                     hir::Expression::it_variable(tag, token_tag)
                 }
                 RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token_tag),
-                RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token_tag)),
                 RawToken::Variable(tag) => hir::Expression::variable(tag, token_tag),
                 RawToken::Number(number @ RawNumber::Int(_)) => {
                     hir::Expression::number(number.to_number(context.source), token_tag)
                 }
-                token @ RawToken::Number(_) => {
-                    return Err(ShellError::type_error(
-                        "Integer",
-                        token.type_name().tagged(token_tag),
-                    ));
-                }
-                RawToken::Size(number, unit) => {
-                    hir::Expression::size(number.to_number(context.source), unit, token_tag)
-                }
+                RawToken::Number(_) => return Err(err.error()),
                 RawToken::Bare => hir::Expression::bare(token_tag),
                 RawToken::String(tag) => hir::Expression::string(tag, token_tag),
             })
         })
+    }
+}
+
+impl FallibleColorSyntax for IntShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+        shapes: &mut Vec<Tagged<FlatShape>>,
+    ) -> Result<(), ShellError> {
+        let atom = token_nodes.spanned(|token_nodes| {
+            expand_atom(token_nodes, "integer", context, ExpansionRule::permissive())
+        });
+
+        let atom = match atom {
+            Tagged { item: Err(_), tag } => {
+                shapes.push(FlatShape::Error.tagged(tag));
+                return Ok(());
+            }
+            Tagged { item: Ok(atom), .. } => atom,
+        };
+
+        atom.color_tokens(shapes);
+
+        Ok(())
     }
 }
