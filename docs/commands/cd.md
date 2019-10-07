@@ -21,5 +21,5 @@ If you didn't already know, the `cd` command is very simple. It stands for 'chan
 /home/username/Desktop/super/duper/crazy/nested/folders> cd
 /home/username> cd ../../usr
 /usr> cd
-/home/username> 
+/home/username>
 ```
