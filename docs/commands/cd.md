@@ -23,3 +23,11 @@ If you didn't already know, the `cd` command is very simple. It stands for 'chan
 /usr> cd
 /home/username>
 ```
+
+Using `cd -` will take you to the previous directory:
+
+```shell
+/home/username/Desktop/super/duper/crazy/nested/folders> cd
+/home/username> cd -
+/home/username/Desktop/super/duper/crazy/nested/folders> cd
+```
