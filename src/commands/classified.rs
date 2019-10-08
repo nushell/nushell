@@ -239,7 +239,7 @@ impl ExternalCommand {
                             tag,
                         ));
                     } else {
-                        return Err(ShellError::string("Error: $it needs string data"));
+                        return Err(ShellError::labeled_error("Error: $it needs string data"));
                     }
                 }
                 if !first {
