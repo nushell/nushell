@@ -178,7 +178,7 @@ impl TokenNode {
     pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
             TokenNode::Pipeline(Tagged { item, .. }) => Ok(item.clone()),
-            _ => Err(ShellError::string("unimplemented")),
+            _ => Err(ShellError::labeled_error("unimplemented")),
         }
     }
 }
