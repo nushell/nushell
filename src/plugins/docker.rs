@@ -99,7 +99,7 @@ impl Plugin for Docker {
                     Err(e) => return Err(e),
                 },
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         args[0]
                     )))
