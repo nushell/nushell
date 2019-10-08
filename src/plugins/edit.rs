@@ -22,16 +22,16 @@ impl Edit {
                 Some(f) => match obj.replace_data_at_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
-                        return Err(ShellError::string(
+                        return Err(ShellError::labeled_error(
                             "edit could not find place to insert column",
                         ))
                     }
                 },
-                None => Err(ShellError::string(
+                None => Err(ShellError::labeled_error(
                     "edit needs a column when changing a value in a table",
                 )),
             },
-            x => Err(ShellError::string(format!(
+            x => Err(ShellError::labeled_error(format!(
                 "Unrecognized type in stream: {:?}",
                 x
             ))),
@@ -58,7 +58,7 @@ impl Plugin for Edit {
                     self.field = Some(s.clone());
                 }
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         args[0]
                     )))
