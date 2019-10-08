@@ -1,5 +1,5 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    serve_plugin, CallInfo, TaggedDictBuilder, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
     SyntaxShape, Tagged, Value,
 };
 
@@ -61,10 +61,35 @@ impl Plugin for Parse {
         Ok(vec![])
     }
     fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        match input {
-            _ => {
-                Ok(vec![])
+        match input.item {
+            Value::Row(dict) => {
+                if let Some(col) = &self.column {
+                    if let Some(Tagged {
+                        item: Value::Primitive(Primitive::String(s)),
+                        ..
+                    }) = dict.entries.get(col.as_str()) {
+                        let regex = self.regex.as_ref().ok_or_else(|| ShellError::string("no regex there"))?;
+                        if regex.is_match(&s) {
+                            let caps = regex.captures(&s).ok_or_else(|| ShellError::string("no captures"))?;
+                            let names = regex.capture_names();
+                            let mut dict = TaggedDictBuilder::new(input.tag);
+                            for name in names.skip(1) {
+                                let name = name.unwrap();
+                                let res = caps.name(name).unwrap();
+                                dict.insert(name, Value::string(res.as_str()));
+                            }
+                            Ok(vec![ReturnSuccess::value(dict.into_tagged_value())])
+                        } else {
+                            Ok(vec![])
+                        }
+                    } else {
+                        Err(ShellError::string("Column not found or not filled with strings."))
+                    }
+                } else {
+                    Err(ShellError::string("Please provide a column for now (TODO)"))
+                }
             }
+            _ => Ok(vec![])
         }
     }
 }
