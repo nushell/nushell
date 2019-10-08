@@ -88,6 +88,10 @@ clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2", optional = true }
 image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"], optional = true }
 
+# Todo: wait for https://github.com/starship/starship/pull/509 to get merged/released
+# then switch this back to a normal dependency declaration.
+starship = { git = "https://github.com/Southclaws/Starship", branch = "prompt-api", optional = true}
+
 [features]
 default = ["textview", "sys", "ps"]
 raw-key = ["rawkey", "neso"]
@@ -95,6 +99,7 @@ textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
+starship-prompt = ["starship"]
 
 [dependencies.rusqlite]
 version = "0.20.0"

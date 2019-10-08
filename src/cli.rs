@@ -365,14 +365,26 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         // Redefine Ctrl-D to same command as Ctrl-C
         rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
 
-        let prompt = &format!(
-            "{}{}> ",
-            cwd,
-            match current_branch() {
-                Some(s) => format!("({})", s),
-                None => "".to_string(),
+        let prompt = {
+            #[cfg(feature = "starship-prompt")]
+            {
+                &starship::print::get_prompt(starship::context::Context::new_with_dir(
+                    clap::ArgMatches::default(),
+                    cwd,
+                ))
             }
-        );
+            #[cfg(not(feature = "starship-prompt"))]
+            {
+                &format!(
+                    "{}{}> ",
+                    cwd,
+                    match current_branch() {
+                        Some(s) => format!("({})", s),
+                        None => "".to_string(),
+                    }
+                )
+            }
+        };
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
