@@ -376,7 +376,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             #[cfg(not(feature = "starship-prompt"))]
             {
                 &format!(
-                    "{}{}> ",
+                    "{}{}\x1b[m> ",
                     cwd,
                     match current_branch() {
                         Some(s) => format!("({})", s),
