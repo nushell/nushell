@@ -48,7 +48,7 @@ fn run(
     let path = match call_info
         .args
         .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No file or directory specified")))?
+        .ok_or_else(|| ShellError::labeled_error(&format!("No file or directory specified")))?
     {
         file => file,
     };
