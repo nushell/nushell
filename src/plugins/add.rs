@@ -22,17 +22,17 @@ impl Add {
                 Some(f) => match obj.insert_data_at_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
-                        return Err(ShellError::string(format!(
+                        return Err(ShellError::labeled_error(format!(
                             "add could not find place to insert field {:?} {}",
                             obj, f
                         )))
                     }
                 },
-                None => Err(ShellError::string(
+                None => Err(ShellError::labeled_error(
                     "add needs a column name when adding a value to a table",
                 )),
             },
-            x => Err(ShellError::string(format!(
+            x => Err(ShellError::labeled_error(format!(
                 "Unrecognized type in stream: {:?}",
                 x
             ))),
@@ -60,7 +60,7 @@ impl Plugin for Add {
                     self.field = Some(s.clone());
                 }
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         args[0]
                     )))
