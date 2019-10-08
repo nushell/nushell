@@ -102,17 +102,17 @@ impl Str {
                     {
                         Some(v) => return Ok(v),
                         None => {
-                            return Err(ShellError::string("str could not find field to replace"))
+                            return Err(ShellError::labeled_error("str could not find field to replace"))
                         }
                     }
                 }
-                None => Err(ShellError::string(format!(
+                None => Err(ShellError::labeled_error(format!(
                     "{}: {}",
                     "str needs a column when applied to a value in a row",
                     Str::usage()
                 ))),
             },
-            x => Err(ShellError::string(format!(
+            x => Err(ShellError::labeled_error(format!(
                 "Unrecognized type in stream: {:?}",
                 x
             ))),
@@ -158,7 +158,7 @@ impl Plugin for Str {
                     }
                 },
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         possible_field
                     )))
@@ -178,7 +178,7 @@ impl Plugin for Str {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, Str::usage())))
+                return Err(ShellError::labeled_error(format!("{}: {}", reason, Str::usage())))
             }
             None => Ok(vec![]),
         }
