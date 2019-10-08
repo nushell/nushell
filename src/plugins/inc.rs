@@ -88,7 +88,7 @@ impl Inc {
                     let replacement = match value.item.get_data_by_path(value.tag(), f) {
                         Some(result) => self.inc(result.map(|x| x.clone()))?,
                         None => {
-                            return Err(ShellError::string("inc could not find field to replace"))
+                            return Err(ShellError::labeled_error("inc could not find field to replace"))
                         }
                     };
                     match value
@@ -97,15 +97,15 @@ impl Inc {
                     {
                         Some(v) => return Ok(v),
                         None => {
-                            return Err(ShellError::string("inc could not find field to replace"))
+                            return Err(ShellError::labeled_error("inc could not find field to replace"))
                         }
                     }
                 }
-                None => Err(ShellError::string(
+                None => Err(ShellError::labeled_error(
                     "inc needs a field when incrementing a column in a table",
                 )),
             },
-            x => Err(ShellError::string(format!(
+            x => Err(ShellError::labeled_error(format!(
                 "Unrecognized type in stream: {:?}",
                 x
             ))),
@@ -145,7 +145,7 @@ impl Plugin for Inc {
                         self.field = Some(s);
                     }
                     _ => {
-                        return Err(ShellError::string(format!(
+                        return Err(ShellError::labeled_error(format!(
                             "Unrecognized type in params: {:?}",
                             arg
                         )))
@@ -160,7 +160,7 @@ impl Plugin for Inc {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, Inc::usage())))
+                return Err(ShellError::labeled_error(format!("{}: {}", reason, Inc::usage())))
             }
             None => Ok(vec![]),
         }
