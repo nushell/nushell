@@ -11,6 +11,7 @@ use crate::data::config;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
 use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
+#[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::parser::registry::Signature;
 use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
