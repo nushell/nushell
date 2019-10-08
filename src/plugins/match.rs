@@ -36,7 +36,7 @@ impl Plugin for Match {
                     self.column = s.clone();
                 }
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         args[0]
                     )));
@@ -50,7 +50,7 @@ impl Plugin for Match {
                     self.regex = Regex::new(s).unwrap();
                 }
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         args[1]
                     )));
@@ -76,21 +76,21 @@ impl Plugin for Match {
                             flag = self.regex.is_match(s);
                         }
                         _ => {
-                            return Err(ShellError::string(format!(
+                            return Err(ShellError::labeled_error(format!(
                                 "value is not a string! {:?}",
                                 &val
                             )));
                         }
                     }
                 } else {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "column not in row! {:?} {:?}",
                         &self.column, dict
                     )));
                 }
             }
             _ => {
-                return Err(ShellError::string(format!("Not a row! {:?}", &input)));
+                return Err(ShellError::labeled_error(format!("Not a row! {:?}", &input)));
             }
         }
         if flag {
