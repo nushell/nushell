@@ -28,7 +28,7 @@ impl Sum {
                         self.total = Some(value.clone());
                         Ok(())
                     }
-                    _ => Err(ShellError::string(format!(
+                    _ => Err(ShellError::labeled_error(format!(
                         "Could not sum non-integer or unrelated types"
                     ))),
                 }
@@ -47,12 +47,12 @@ impl Sum {
                         self.total = Some(value);
                         Ok(())
                     }
-                    _ => Err(ShellError::string(format!(
+                    _ => Err(ShellError::labeled_error(format!(
                         "Could not sum non-integer or unrelated types"
                     ))),
                 }
             }
-            x => Err(ShellError::string(format!(
+            x => Err(ShellError::labeled_error(format!(
                 "Unrecognized type in stream: {:?}",
                 x
             ))),
