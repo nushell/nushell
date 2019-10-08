@@ -46,7 +46,7 @@ impl serde::de::Error for ShellError {
     where
         T: std::fmt::Display,
     {
-        ShellError::string(msg.to_string())
+        ShellError::labeled_error(msg.to_string())
     }
 }
 
@@ -334,11 +334,11 @@ impl ShellError {
     }
 
     pub(crate) fn unimplemented(title: impl Into<String>) -> ShellError {
-        ShellError::string(&format!("Unimplemented: {}", title.into()))
+        ShellError::labeled_error(&format!("Unimplemented: {}", title.into()))
     }
 
     pub(crate) fn unexpected(title: impl Into<String>) -> ShellError {
-        ShellError::string(&format!("Unexpected: {}", title.into()))
+        ShellError::labeled_error(&format!("Unexpected: {}", title.into()))
     }
 }
 

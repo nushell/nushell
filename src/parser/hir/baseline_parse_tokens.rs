@@ -76,7 +76,7 @@ pub fn baseline_parse_next_expr(
 ) -> Result<hir::Expression, ShellError> {
     let next = tokens
         .next()
-        .ok_or_else(|| ShellError::string("Expected token, found none"))?;
+        .ok_or_else(|| ShellError::labeled_error("Expected token, found none"))?;
 
     trace!(target: "nu::parser::parse_one_expr", "syntax_type={:?}, token={:?}", syntax_type, next);
 

@@ -58,14 +58,14 @@ fn run(
     let path = match call_info
         .args
         .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No url specified")))?
+        .ok_or_else(|| ShellError::labeled_error(&format!("No url specified")))?
     {
         file => file.clone(),
     };
     let body = match call_info
         .args
         .nth(1)
-        .ok_or_else(|| ShellError::string(&format!("No body specified")))?
+        .ok_or_else(|| ShellError::labeled_error(&format!("No body specified")))?
     {
         file => file.clone(),
     };

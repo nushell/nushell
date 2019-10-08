@@ -25,7 +25,7 @@ impl Embed {
                     });
                     Ok(())
                 }
-                None => Err(ShellError::string(
+                None => Err(ShellError::labeled_error(
                     "embed needs a field when embedding a value",
                 )),
             },
@@ -53,7 +53,7 @@ impl Plugin for Embed {
                     self.values = Vec::new();
                 }
                 _ => {
-                    return Err(ShellError::string(format!(
+                    return Err(ShellError::labeled_error(format!(
                         "Unrecognized type in params: {:?}",
                         args[0]
                     )))

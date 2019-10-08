@@ -60,7 +60,7 @@ fn to_string_helper(v: &Value) -> Result<String, ShellError> {
         Value::Table(_) => return Ok(String::from("[Table]")),
         Value::Row(_) => return Ok(String::from("[Row]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => return Err(ShellError::string("Unexpected value")),
+        _ => return Err(ShellError::labeled_error("Unexpected value")),
     }
 }
 
@@ -94,9 +94,9 @@ pub fn to_string(v: &Value) -> Result<String, ShellError> {
 
             return Ok(String::from_utf8(
                 wtr.into_inner()
-                    .map_err(|_| ShellError::string("Could not convert record"))?,
+                    .map_err(|_| ShellError::labeled_error("Could not convert record"))?,
             )
-            .map_err(|_| ShellError::string("Could not convert record"))?);
+            .map_err(|_| ShellError::labeled_error("Could not convert record"))?);
         }
         Value::Table(list) => {
             let mut wtr = WriterBuilder::new().from_writer(vec![]);
@@ -122,9 +122,9 @@ pub fn to_string(v: &Value) -> Result<String, ShellError> {
 
             return Ok(String::from_utf8(
                 wtr.into_inner()
-                    .map_err(|_| ShellError::string("Could not convert record"))?,
+                    .map_err(|_| ShellError::labeled_error("Could not convert record"))?,
             )
-            .map_err(|_| ShellError::string("Could not convert record"))?);
+            .map_err(|_| ShellError::labeled_error("Could not convert record"))?);
         }
         _ => return to_string_helper(&v),
     }
