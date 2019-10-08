@@ -2517,7 +2517,7 @@ dependencies = [
 [[package]]
 name = "starship"
 version = "0.21.0"
-source = "git+https://github.com/Southclaws/Starship?branch=prompt-api#00e5e2b7ce9f4968c037914e81e9ff95abe250c8"
+source = "git+https://github.com/Southclaws/Starship?branch=prompt-api#de96556f8804f63a32a4f08c733fbb2c646f72f3"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "battery 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2543,7 +2543,7 @@ dependencies = [
 [[package]]
 name = "starship_module_config_derive"
 version = "0.1.0"
-source = "git+https://github.com/Southclaws/Starship?branch=prompt-api#00e5e2b7ce9f4968c037914e81e9ff95abe250c8"
+source = "git+https://github.com/Southclaws/Starship?branch=prompt-api#de96556f8804f63a32a4f08c733fbb2c646f72f3"
 dependencies = [
  "proc-macro2 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
