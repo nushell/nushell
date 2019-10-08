@@ -94,11 +94,11 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                 },
                 Err(e) => {
                     trace!("incompatible plugin {:?}", input);
-                    Err(ShellError::string(format!("Error: {:?}", e)))
+                    Err(ShellError::labeled_error(format!("Error: {:?}", e)))
                 }
             }
         }
-        Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
+        Err(e) => Err(ShellError::labeled_error(format!("Error: {:?}", e))),
     };
 
     let _ = child.wait();
