@@ -87,10 +87,7 @@ rawkey = {version = "0.1.2", optional = true }
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2", optional = true }
 image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"], optional = true }
-
-# Todo: wait for https://github.com/starship/starship/pull/509 to get merged/released
-# then switch this back to a normal dependency declaration.
-starship = { git = "https://github.com/Southclaws/Starship", branch = "prompt-api", optional = true}
+starship = { version = "0.22.0", optional = true}
 
 [features]
 default = ["textview", "sys", "ps"]
