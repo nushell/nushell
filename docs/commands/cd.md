@@ -2,7 +2,7 @@
 
 If you didn't already know, the `cd` command is very simple. It stands for 'change directory' and it does exactly that. It changes the current directory to the one specified. If no directory is specified, it takes you to the home directory. Additionally, using `cd ..` takes you to the parent directory.
 
-## Examples -
+## Examples
 
 ```shell
 /home/username> cd Desktop
@@ -21,5 +21,13 @@ If you didn't already know, the `cd` command is very simple. It stands for 'chan
 /home/username/Desktop/super/duper/crazy/nested/folders> cd
 /home/username> cd ../../usr
 /usr> cd
-/home/username> 
+/home/username>
+```
+
+Using `cd -` will take you to the previous directory:
+
+```shell
+/home/username/Desktop/super/duper/crazy/nested/folders> cd
+/home/username> cd -
+/home/username/Desktop/super/duper/crazy/nested/folders> cd
 ```
