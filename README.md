@@ -1,29 +1,31 @@
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
 [![Build Status](https://dev.azure.com/nushell/nushell/_apis/build/status/nushell.nushell?branchName=master)](https://dev.azure.com/nushell/nushell/_build/latest?definitionId=2&branchName=master)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
+[![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 
 
 # Nu Shell
 
-A modern shell for the GitHub era
+A modern shell for the GitHub era.
 
 ![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
 
 # Status
 
-This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be unstable for some commands. Future releases will work fill out missing features and improve stability. Its design is also subject to change as it matures.
+This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be unstable for some commands. Future releases will work to fill out missing features and improve stability. Its design is also subject to change as it matures.
 
-Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
+Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and macOS), correctly passing through stdin, stdout, and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
 # Learning more
 
 There are a few good resources to learn about Nu. There is a [book](https://book.nushell.sh) about Nu that is currently in progress. The book focuses on using Nu and its core concepts.
 
-If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help you get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
-We also have an active [discord](https://discord.gg/NtAbbGn) and [twitter](https://twitter.com/nu_shell) if you'd like to come chat with us.
+We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come and chat with us.
 
-Try it in gitpod
+Try it in Gitpod.
+
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
 
 # Installation
@@ -90,9 +92,11 @@ $ docker run -it nushell/nu
 /> exit
 ```
 
-The second container is a bit smaller, if size is important to you.
+The second container is a bit smaller if the size is important to you.
 
 ## Packaging status
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
 
 ### Fedora
 
@@ -100,15 +104,15 @@ The second container is a bit smaller, if size is important to you.
 
 # Philosophy
 
-Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
+Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
 
 ## Pipelines
 
-In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories
+In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories:
 
 * Commands that produce a stream (eg, `ls`)
 * Commands that filter a stream (eg, `where type == "Directory"`)
-* Commands that consumes the output of the pipeline (eg, `autoview`)
+* Commands that consume the output of the pipeline (eg, `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 

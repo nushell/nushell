@@ -212,7 +212,7 @@ fn open_can_parse_ini() {
 fn open_can_parse_utf16_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open utf16.ini | get .ShellClassInfo | get IconIndex | echo $it"
+        "open utf16.ini | get '.ShellClassInfo' | get IconIndex | echo $it"
     );
 
     assert_eq!(actual, "-236")

@@ -55,18 +55,14 @@ fn run(
     raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let call_info = call_info.clone();
-    let path = match call_info
-        .args
-        .nth(0)
-        .ok_or_else(|| ShellError::string(&format!("No url specified")))?
-    {
+    let path = match call_info.args.nth(0).ok_or_else(|| {
+        ShellError::labeled_error("No url specified", "for command", call_info.name_tag)
+    })? {
         file => file.clone(),
     };
-    let body = match call_info
-        .args
-        .nth(1)
-        .ok_or_else(|| ShellError::string(&format!("No body specified")))?
-    {
+    let body = match call_info.args.nth(1).ok_or_else(|| {
+        ShellError::labeled_error("No body specified", "for command", call_info.name_tag)
+    })? {
         file => file.clone(),
     };
     let path_str = path.as_string()?;

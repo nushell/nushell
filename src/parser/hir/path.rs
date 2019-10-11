@@ -2,17 +2,47 @@ use crate::parser::hir::Expression;
 use crate::prelude::*;
 use crate::Tagged;
 use derive_new::new;
-use getset::Getters;
+use getset::{Getters, MutGetters};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Getters, Serialize, Deserialize, new,
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Getters,
+    MutGetters,
+    Serialize,
+    Deserialize,
+    new,
 )]
 #[get = "pub(crate)"]
 pub struct Path {
     head: Expression,
+    #[get_mut = "pub(crate)"]
     tail: Vec<Tagged<String>>,
+}
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.head)?;
+
+        for entry in &self.tail {
+            write!(f, ".{}", entry.item)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Path {
+    pub(crate) fn parts(self) -> (Expression, Vec<Tagged<String>>) {
+        (self.head, self.tail)
+    }
 }
 
 impl ToDebug for Path {

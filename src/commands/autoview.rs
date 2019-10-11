@@ -6,6 +6,8 @@ use futures::stream::TryStreamExt;
 
 pub struct Autoview;
 
+const STREAM_PAGE_SIZE: u64 = 50;
+
 #[derive(Deserialize)]
 pub struct AutoviewArgs {}
 
@@ -67,7 +69,7 @@ pub fn autoview(
                             loop {
                                 let mut new_input = VecDeque::new();
 
-                                for _ in 0..25 {
+                                for _ in 0..STREAM_PAGE_SIZE {
                                     match new_output_stream.try_next().await {
                                         Ok(Some(a)) => {
                                             if let ReturnSuccess::Value(v) = a {
@@ -94,7 +96,7 @@ pub fn autoview(
                                 if finished {
                                     break;
                                 } else {
-                                    current_idx += 25;
+                                    current_idx += STREAM_PAGE_SIZE;
                                 }
                             }
                         }
