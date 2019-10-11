@@ -12,6 +12,7 @@ use crate::utils::FileStructure;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 
 pub struct FilesystemShell {
     pub(crate) path: String,
@@ -84,7 +85,7 @@ impl Shell for FilesystemShell {
     fn ls(
         &self,
         pattern: Option<Tagged<PathBuf>>,
-        command_tag: Tag,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
@@ -93,6 +94,9 @@ impl Shell for FilesystemShell {
             Some(value) => full_path.push((*value).as_ref()),
             _ => {}
         }
+
+        let ctrl_c = context.ctrl_c.clone();
+        let name_tag = context.name;
 
         //If it's not a glob, try to display the contents of the entry if it's a directory
         let lossy_path = full_path.to_string_lossy();
@@ -112,7 +116,7 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 e.to_string(),
                                 e.to_string(),
-                                command_tag,
+                                name_tag,
                             ));
                         }
                     }
@@ -120,6 +124,9 @@ impl Shell for FilesystemShell {
                 };
                 let stream = async_stream! {
                     for entry in entries {
+                        if ctrl_c.load(Ordering::SeqCst) {
+                            break;
+                        }
                         if let Ok(entry) = entry {
                             let filepath = entry.path();
                             let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
@@ -127,7 +134,7 @@ impl Shell for FilesystemShell {
                             } else {
                                 Path::new(&filepath)
                             };
-                            let value = dir_entry_dict(filename, &entry.metadata().unwrap(), command_tag)?;
+                            let value = dir_entry_dict(filename, &entry.metadata().unwrap(), name_tag)?;
                             yield ReturnSuccess::value(value);
                         }
                     }
@@ -154,6 +161,9 @@ impl Shell for FilesystemShell {
         // Enumerate the entries from the glob and add each
         let stream = async_stream! {
             for entry in entries {
+                if ctrl_c.load(Ordering::SeqCst) {
+                    break;
+                }
                 if let Ok(entry) = entry {
                     let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
                         fname
@@ -161,7 +171,7 @@ impl Shell for FilesystemShell {
                         Path::new(&entry)
                     };
                     let metadata = std::fs::metadata(&entry).unwrap();
-                    if let Ok(value) = dir_entry_dict(filename, &metadata, command_tag) {
+                    if let Ok(value) = dir_entry_dict(filename, &metadata, name_tag) {
                         yield ReturnSuccess::value(value);
                     }
                 }

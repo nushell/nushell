@@ -129,7 +129,7 @@ impl Shell for HelpShell {
     fn ls(
         &self,
         _pattern: Option<Tagged<PathBuf>>,
-        _command_tag: Tag,
+        _context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         Ok(self
             .commands()

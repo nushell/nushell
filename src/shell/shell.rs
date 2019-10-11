@@ -16,7 +16,7 @@ pub trait Shell: std::fmt::Debug {
     fn ls(
         &self,
         pattern: Option<Tagged<PathBuf>>,
-        command_tag: Tag,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError>;
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;

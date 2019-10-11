@@ -90,9 +90,10 @@ impl Shell for ValueShell {
     fn ls(
         &self,
         target: Option<Tagged<PathBuf>>,
-        command_name: Tag,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
+        let name_tag = context.name;
 
         match &target {
             Some(value) => full_path.push(value.as_ref()),
@@ -114,7 +115,7 @@ impl Shell for ValueShell {
             return Err(ShellError::labeled_error(
                 "Can not list entries inside",
                 "No such path exists",
-                command_name,
+                name_tag,
             ));
         }
 
