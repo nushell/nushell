@@ -121,6 +121,7 @@ fn save(
         shell_manager,
         source_map,
         host,
+        ctrl_c,
         commands: registry,
         ..
     }: RunnableContext,
@@ -179,6 +180,7 @@ fn save(
                     if let Some(converter) = registry.get_command(&command_name) {
                         let new_args = RawCommandArgs {
                             host,
+                            ctrl_c,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
                                 args: crate::parser::hir::Call {

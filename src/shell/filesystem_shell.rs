@@ -94,8 +94,6 @@ impl Shell for FilesystemShell {
             _ => {}
         }
 
-        let mut shell_entries = VecDeque::new();
-
         //If it's not a glob, try to display the contents of the entry if it's a directory
         let lossy_path = full_path.to_string_lossy();
         if !lossy_path.contains("*") && !lossy_path.contains("?") {
@@ -120,18 +118,21 @@ impl Shell for FilesystemShell {
                     }
                     Ok(o) => o,
                 };
-                for entry in entries {
-                    let entry = entry?;
-                    let filepath = entry.path();
-                    let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                        fname
-                    } else {
-                        Path::new(&filepath)
-                    };
-                    let value = dir_entry_dict(filename, &entry.metadata()?, command_tag)?;
-                    shell_entries.push_back(ReturnSuccess::value(value))
-                }
-                return Ok(shell_entries.to_output_stream());
+                let stream = async_stream! {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            let filepath = entry.path();
+                            let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                                fname
+                            } else {
+                                Path::new(&filepath)
+                            };
+                            let value = dir_entry_dict(filename, &entry.metadata().unwrap(), command_tag)?;
+                            yield ReturnSuccess::value(value);
+                        }
+                    }
+                };
+                return Ok(stream.to_output_stream());
             }
         }
 
@@ -151,20 +152,22 @@ impl Shell for FilesystemShell {
         };
 
         // Enumerate the entries from the glob and add each
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
-                    fname
-                } else {
-                    Path::new(&entry)
-                };
-                let metadata = std::fs::metadata(&entry)?;
-                let value = dir_entry_dict(filename, &metadata, command_tag)?;
-                shell_entries.push_back(ReturnSuccess::value(value))
+        let stream = async_stream! {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
+                        fname
+                    } else {
+                        Path::new(&entry)
+                    };
+                    let metadata = std::fs::metadata(&entry).unwrap();
+                    if let Ok(value) = dir_entry_dict(filename, &metadata, command_tag) {
+                        yield ReturnSuccess::value(value);
+                    }
+                }
             }
-        }
-
-        Ok(shell_entries.to_output_stream())
+        };
+        Ok(stream.to_output_stream())
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {

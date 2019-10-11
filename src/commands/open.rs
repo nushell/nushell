@@ -94,6 +94,7 @@ fn run(
             if let Some(converter) = registry.get_command(&command_name) {
                 let new_args = RawCommandArgs {
                     host: raw_args.host,
+                    ctrl_c: raw_args.ctrl_c,
                     shell_manager: raw_args.shell_manager,
                     call_info: UnevaluatedCallInfo {
                         args: crate::parser::hir::Call {

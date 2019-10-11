@@ -28,8 +28,7 @@ use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -339,16 +338,15 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     // we are ok if history does not exist
     let _ = rl.load_history(&History::path());
 
-    let ctrl_c = Arc::new(AtomicBool::new(false));
-    let cc = ctrl_c.clone();
+    let cc = context.ctrl_c.clone();
     ctrlc::set_handler(move || {
         cc.store(true, Ordering::SeqCst);
     })
     .expect("Error setting Ctrl-C handler");
     let mut ctrlcbreak = false;
     loop {
-        if ctrl_c.load(Ordering::SeqCst) {
-            ctrl_c.store(false, Ordering::SeqCst);
+        if context.ctrl_c.load(Ordering::SeqCst) {
+            context.ctrl_c.store(false, Ordering::SeqCst);
             continue;
         }
 
@@ -412,7 +410,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
-                println!("Adding success line");
                 rl.add_history_entry(line.clone());
             }
 
@@ -577,9 +574,9 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                                             return LineResult::Error(line.to_string(), e);
                                         }
                                         Ok(Some(_item)) => {
-                                            // if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                            //     break;
-                                            // }
+                                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                                break;
+                                            }
                                         }
                                         _ => {
                                             break;

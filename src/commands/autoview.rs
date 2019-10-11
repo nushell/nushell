@@ -3,6 +3,7 @@ use crate::errors::ShellError;
 use crate::parser::hir::{Expression, NamedArguments};
 use crate::prelude::*;
 use futures::stream::TryStreamExt;
+use std::sync::atomic::Ordering;
 
 pub struct Autoview;
 
@@ -49,6 +50,7 @@ pub fn autoview(
             Ok(Some(x)) => {
                 match output_stream.try_next().await {
                     Ok(Some(y)) => {
+                        let ctrl_c = context.ctrl_c.clone();
                         let stream = async_stream! {
                             yield Ok(x);
                             yield Ok(y);
@@ -56,6 +58,9 @@ pub fn autoview(
                             loop {
                                 match output_stream.try_next().await {
                                     Ok(Some(z)) => {
+                                        if ctrl_c.load(Ordering::SeqCst) {
+                                            break;
+                                        }
                                         yield Ok(z);
                                     }
                                     _ => break,
@@ -71,6 +76,7 @@ pub fn autoview(
 
                                 for _ in 0..STREAM_PAGE_SIZE {
                                     match new_output_stream.try_next().await {
+
                                         Ok(Some(a)) => {
                                             if let ReturnSuccess::Value(v) = a {
                                                 new_input.push_back(v);
