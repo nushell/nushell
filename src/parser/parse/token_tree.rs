@@ -1,5 +1,6 @@
 use crate::errors::ShellError;
 use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
+use crate::prelude::*;
 use crate::traits::ToDebug;
 use crate::{Tag, Tagged, Text};
 use derive_new::new;
@@ -12,15 +13,13 @@ pub enum TokenNode {
     Token(Token),
 
     Call(Tagged<CallNode>),
+    Nodes(Tagged<Vec<TokenNode>>),
     Delimited(Tagged<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
-    Operator(Tagged<Operator>),
     Flag(Tagged<Flag>),
-    Member(Tag),
     Whitespace(Tag),
 
-    Error(Tagged<Box<ShellError>>),
-    Path(Tagged<PathNode>),
+    Error(Tagged<ShellError>),
 }
 
 impl ToDebug for TokenNode {
@@ -78,7 +77,7 @@ impl fmt::Debug for DebugTokenNode<'_> {
                 )
             }
             TokenNode::Pipeline(pipeline) => write!(f, "{}", pipeline.debug(self.source)),
-            TokenNode::Error(s) => write!(f, "<error> for {:?}", s.tag().slice(self.source)),
+            TokenNode::Error(_) => write!(f, "<error>"),
             rest => write!(f, "{}", rest.tag().slice(self.source)),
         }
     }
@@ -94,32 +93,31 @@ impl TokenNode {
     pub fn tag(&self) -> Tag {
         match self {
             TokenNode::Token(t) => t.tag(),
+            TokenNode::Nodes(t) => t.tag(),
             TokenNode::Call(s) => s.tag(),
             TokenNode::Delimited(s) => s.tag(),
             TokenNode::Pipeline(s) => s.tag(),
-            TokenNode::Operator(s) => s.tag(),
             TokenNode::Flag(s) => s.tag(),
-            TokenNode::Member(s) => *s,
             TokenNode::Whitespace(s) => *s,
-            TokenNode::Error(s) => s.tag(),
-            TokenNode::Path(s) => s.tag(),
+            TokenNode::Error(s) => return s.tag,
         }
     }
 
-    pub fn type_name(&self) -> String {
+    pub fn type_name(&self) -> &'static str {
         match self {
             TokenNode::Token(t) => t.type_name(),
+            TokenNode::Nodes(_) => "nodes",
             TokenNode::Call(_) => "command",
             TokenNode::Delimited(d) => d.type_name(),
             TokenNode::Pipeline(_) => "pipeline",
-            TokenNode::Operator(_) => "operator",
             TokenNode::Flag(_) => "flag",
-            TokenNode::Member(_) => "member",
             TokenNode::Whitespace(_) => "whitespace",
             TokenNode::Error(_) => "error",
-            TokenNode::Path(_) => "path",
         }
-        .to_string()
+    }
+
+    pub fn tagged_type_name(&self) -> Tagged<&'static str> {
+        self.type_name().tagged(self.tag())
     }
 
     pub fn old_debug<'a>(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
@@ -134,6 +132,16 @@ impl TokenNode {
         self.tag().slice(source)
     }
 
+    pub fn get_variable(&self) -> Result<(Tag, Tag), ShellError> {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::Variable(inner_tag),
+                tag: outer_tag,
+            }) => Ok((*outer_tag, *inner_tag)),
+            _ => Err(ShellError::type_error("variable", self.tagged_type_name())),
+        }
+    }
+
     pub fn is_bare(&self) -> bool {
         match self {
             TokenNode::Token(Tagged {
@@ -141,6 +149,41 @@ impl TokenNode {
                 ..
             }) => true,
             _ => false,
+        }
+    }
+
+    pub fn is_pattern(&self) -> bool {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::GlobPattern,
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_dot(&self) -> bool {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::Operator(Operator::Dot),
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_block(&self) -> Option<(Tagged<&[TokenNode]>, (Tag, Tag))> {
+        match self {
+            TokenNode::Delimited(Tagged {
+                item:
+                    DelimitedNode {
+                        delimiter,
+                        children,
+                        tags,
+                    },
+                tag,
+            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).tagged(tag), *tags)),
+            _ => None,
         }
     }
 
@@ -178,7 +221,54 @@ impl TokenNode {
     pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
             TokenNode::Pipeline(Tagged { item, .. }) => Ok(item.clone()),
-            _ => Err(ShellError::string("unimplemented")),
+            _ => Err(ShellError::unimplemented("unimplemented")),
+        }
+    }
+
+    pub fn is_whitespace(&self) -> bool {
+        match self {
+            TokenNode::Whitespace(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn expect_string(&self) -> (Tag, Tag) {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::String(inner_tag),
+                tag: outer_tag,
+            }) => (*outer_tag, *inner_tag),
+            other => panic!("Expected string, found {:?}", other),
+        }
+    }
+}
+
+#[cfg(test)]
+impl TokenNode {
+    pub fn expect_list(&self) -> Tagged<&[TokenNode]> {
+        match self {
+            TokenNode::Nodes(Tagged { item, tag }) => (&item[..]).tagged(tag),
+            other => panic!("Expected list, found {:?}", other),
+        }
+    }
+
+    pub fn expect_var(&self) -> (Tag, Tag) {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::Variable(inner_tag),
+                tag: outer_tag,
+            }) => (*outer_tag, *inner_tag),
+            other => panic!("Expected var, found {:?}", other),
+        }
+    }
+
+    pub fn expect_bare(&self) -> Tag {
+        match self {
+            TokenNode::Token(Tagged {
+                item: RawToken::Bare,
+                tag,
+            }) => *tag,
+            other => panic!("Expected var, found {:?}", other),
         }
     }
 }
@@ -186,8 +276,9 @@ impl TokenNode {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
 #[get = "pub(crate)"]
 pub struct DelimitedNode {
-    delimiter: Delimiter,
-    children: Vec<TokenNode>,
+    pub(crate) delimiter: Delimiter,
+    pub(crate) tags: (Tag, Tag),
+    pub(crate) children: Vec<TokenNode>,
 }
 
 impl DelimitedNode {
@@ -205,6 +296,24 @@ pub enum Delimiter {
     Paren,
     Brace,
     Square,
+}
+
+impl Delimiter {
+    pub(crate) fn open(&self) -> &'static str {
+        match self {
+            Delimiter::Paren => "(",
+            Delimiter::Brace => "{",
+            Delimiter::Square => "[",
+        }
+    }
+
+    pub(crate) fn close(&self) -> &'static str {
+        match self {
+            Delimiter::Paren => ")",
+            Delimiter::Brace => "}",
+            Delimiter::Square => "]",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]

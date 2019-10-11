@@ -143,7 +143,7 @@ fn save(
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(
-                                "Save requires a filepath",
+                                "Save requires a filepath (1)",
                                 "needs path",
                                 name_tag,
                             ));
@@ -151,7 +151,7 @@ fn save(
                     },
                     None => {
                         yield Err(ShellError::labeled_error(
-                            "Save requires a filepath",
+                            "Save requires a filepath (2)",
                             "needs path",
                             name_tag,
                         ));
@@ -159,7 +159,7 @@ fn save(
                 }
             } else {
                 yield Err(ShellError::labeled_error(
-                    "Save requires a filepath",
+                    "Save requires a filepath (3)",
                     "needs path",
                     name_tag,
                 ));
@@ -212,9 +212,9 @@ fn save(
         match content {
             Ok(save_data) => match std::fs::write(full_path, save_data) {
                 Ok(o) => o,
-                Err(e) => yield Err(ShellError::string(e.to_string())),
+                Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "for command", name)),
             },
-            Err(e) => yield Err(ShellError::string(e.to_string())),
+            Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "for command", name)),
         }
 
     };

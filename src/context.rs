@@ -1,5 +1,5 @@
 use crate::commands::{Command, UnevaluatedCallInfo};
-use crate::parser::hir;
+use crate::parser::{hir, hir::syntax_shape::ExpandContext};
 use crate::prelude::*;
 
 use derive_new::new;
@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -53,13 +53,17 @@ impl CommandRegistry {
         registry.get(name).map(|c| c.clone())
     }
 
+    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
+        self.get_command(name).unwrap()
+    }
+
     pub(crate) fn has(&self, name: &str) -> bool {
         let registry = self.registry.lock().unwrap();
 
         registry.contains_key(name)
     }
 
-    fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
+    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
         let mut registry = self.registry.lock().unwrap();
         registry.insert(name.into(), command);
     }
@@ -73,7 +77,7 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     registry: CommandRegistry,
-    pub(crate) source_map: SourceMap,
+    pub(crate) source_map: Arc<Mutex<SourceMap>>,
     host: Arc<Mutex<dyn Host + Send>>,
     pub(crate) shell_manager: ShellManager,
 }
@@ -83,11 +87,19 @@ impl Context {
         &self.registry
     }
 
+    pub(crate) fn expand_context<'context>(
+        &'context self,
+        source: &'context Text,
+        tag: Tag,
+    ) -> ExpandContext<'context> {
+        ExpandContext::new(&self.registry, tag, source, self.shell_manager.homedir())
+    }
+
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
         let registry = CommandRegistry::new();
         Ok(Context {
             registry: registry.clone(),
-            source_map: SourceMap::new(),
+            source_map: Arc::new(Mutex::new(SourceMap::new())),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
             shell_manager: ShellManager::basic(registry)?,
         })
@@ -106,15 +118,17 @@ impl Context {
     }
 
     pub fn add_anchor_location(&mut self, uuid: Uuid, anchor_location: AnchorLocation) {
-        self.source_map.insert(uuid, anchor_location);
+        let mut source_map = self.source_map.lock().unwrap();
+
+        source_map.insert(uuid, anchor_location);
     }
 
-    pub(crate) fn has_command(&self, name: &str) -> bool {
-        self.registry.has(name)
+    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+        self.registry.get_command(name)
     }
 
-    pub(crate) fn get_command(&self, name: &str) -> Arc<Command> {
-        self.registry.get_command(name).unwrap()
+    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
+        self.registry.expect_command(name)
     }
 
     pub(crate) fn run_command<'a>(

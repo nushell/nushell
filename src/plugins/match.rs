@@ -35,11 +35,12 @@ impl Plugin for Match {
                 } => {
                     self.column = s.clone();
                 }
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )));
+                Tagged { tag, .. } => {
+                    return Err(ShellError::labeled_error(
+                        "Unrecognized type in params",
+                        "value",
+                        tag,
+                    ));
                 }
             }
             match &args[1] {
@@ -49,11 +50,12 @@ impl Plugin for Match {
                 } => {
                     self.regex = Regex::new(s).unwrap();
                 }
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[1]
-                    )));
+                Tagged { tag, .. } => {
+                    return Err(ShellError::labeled_error(
+                        "Unrecognized type in params",
+                        "value",
+                        tag,
+                    ));
                 }
             }
         }
@@ -65,7 +67,7 @@ impl Plugin for Match {
         match &input {
             Tagged {
                 item: Value::Row(dict),
-                ..
+                tag,
             } => {
                 if let Some(val) = dict.entries.get(&self.column) {
                     match val {
@@ -75,22 +77,20 @@ impl Plugin for Match {
                         } => {
                             flag = self.regex.is_match(s);
                         }
-                        _ => {
-                            return Err(ShellError::string(format!(
-                                "value is not a string! {:?}",
-                                &val
-                            )));
+                        Tagged { tag, .. } => {
+                            return Err(ShellError::labeled_error("expected string", "value", tag));
                         }
                     }
                 } else {
-                    return Err(ShellError::string(format!(
-                        "column not in row! {:?} {:?}",
-                        &self.column, dict
-                    )));
+                    return Err(ShellError::labeled_error(
+                        format!("column not in row! {:?} {:?}", &self.column, dict),
+                        "row",
+                        tag,
+                    ));
                 }
             }
-            _ => {
-                return Err(ShellError::string(format!("Not a row! {:?}", &input)));
+            Tagged { tag, .. } => {
+                return Err(ShellError::labeled_error("Expected row", "value", tag));
             }
         }
         if flag {

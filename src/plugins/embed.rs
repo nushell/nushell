@@ -25,8 +25,10 @@ impl Embed {
                     });
                     Ok(())
                 }
-                None => Err(ShellError::string(
+                None => Err(ShellError::labeled_error(
                     "embed needs a field when embedding a value",
+                    "original value",
+                    value.tag,
                 )),
             },
         }
@@ -52,12 +54,7 @@ impl Plugin for Embed {
                     self.field = Some(s.clone());
                     self.values = Vec::new();
                 }
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )))
-                }
+                value => return Err(ShellError::type_error("string", value.tagged_type_name())),
             }
         }
 

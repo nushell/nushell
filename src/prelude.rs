@@ -1,4 +1,14 @@
 #[macro_export]
+macro_rules! return_err {
+    ($expr:expr) => {
+        match $expr {
+            Err(_) => return,
+            Ok(expr) => expr,
+        };
+    };
+}
+
+#[macro_export]
 macro_rules! stream {
     ($($expr:expr),*) => {{
         let mut v = VecDeque::new();

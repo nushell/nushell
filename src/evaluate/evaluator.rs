@@ -7,12 +7,23 @@ use crate::parser::{
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
+use log::trace;
+use std::fmt;
 
 #[derive(new)]
 pub struct Scope {
     it: Tagged<Value>,
     #[new(default)]
     vars: IndexMap<String, Tagged<Value>>,
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map()
+            .entry(&"$it", &format!("{:?}", self.it.item))
+            .entries(self.vars.iter().map(|(k, v)| (k, &v.item)))
+            .finish()
+    }
 }
 
 impl Scope {
@@ -48,11 +59,14 @@ pub(crate) fn evaluate_baseline_expr(
         RawExpression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(Value::string(s).tagged_unknown())
         }
-        RawExpression::Variable(var) => evaluate_reference(var, scope, source),
+        RawExpression::Variable(var) => evaluate_reference(var, scope, source, expr.tag()),
+        RawExpression::Command(_) => evaluate_command(expr.tag(), scope, source),
         RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),
         RawExpression::Binary(binary) => {
             let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
+
+            trace!("left={:?} right={:?}", left.item, right.item);
 
             match left.compare(binary.op(), &*right) {
                 Ok(result) => Ok(Value::boolean(result).tagged(expr.tag())),
@@ -130,14 +144,16 @@ fn evaluate_reference(
     name: &hir::Variable,
     scope: &Scope,
     source: &Text,
+    tag: Tag,
 ) -> Result<Tagged<Value>, ShellError> {
+    trace!("Evaluating {} with Scope {}", name, scope);
     match name {
-        hir::Variable::It(tag) => Ok(scope.it.item.clone().tagged(*tag)),
-        hir::Variable::Other(tag) => Ok(scope
+        hir::Variable::It(_) => Ok(scope.it.item.clone().tagged(tag)),
+        hir::Variable::Other(inner) => Ok(scope
             .vars
-            .get(tag.slice(source))
+            .get(inner.slice(source))
             .map(|v| v.clone())
-            .unwrap_or_else(|| Value::nothing().tagged(*tag))),
+            .unwrap_or_else(|| Value::nothing().tagged(tag))),
     }
 }
 
@@ -149,4 +165,8 @@ fn evaluate_external(
     Err(ShellError::syntax_error(
         "Unexpected external command".tagged(*external.name()),
     ))
+}
+
+fn evaluate_command(tag: Tag, _scope: &Scope, _source: &Text) -> Result<Tagged<Value>, ShellError> {
+    Err(ShellError::syntax_error("Unexpected command".tagged(tag)))
 }

@@ -111,6 +111,7 @@ fn is_single_text_value(input: &Vec<Tagged<Value>>) -> bool {
     }
 }
 
+#[allow(unused)]
 fn is_single_anchored_text_value(input: &Vec<Tagged<Value>>) -> bool {
     if input.len() != 1 {
         return false;

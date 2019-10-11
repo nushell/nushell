@@ -54,11 +54,10 @@ fn run(
                     output.push_str(&s);
                 }
                 _ => {
-                    return Err(ShellError::labeled_error(
-                        "Expect a string from pipeline",
-                        "not a string-compatible value",
-                        i.tag(),
-                    ));
+                    return Err(ShellError::type_error(
+                        "a string-compatible value",
+                        i.tagged_type_name(),
+                    ))
                 }
             }
         }
