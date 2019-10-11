@@ -7,7 +7,7 @@
 with pkgs;
 let
 
-  nightly = ((pkgs.rustChannelOf {
+  nightly = (pkgs.rustChannelOf {
     date = "2019-09-01";
     channel = "nightly";
   }).rust.override {
@@ -18,7 +18,7 @@ let
       "rust-src"
       "rustfmt-preview"
     ];
-  });
+  };
 
   nu-deps = [ openssl_1_1 pkg-config x11 python3 ];
 
