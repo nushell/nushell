@@ -584,7 +584,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                                     }
                                 }
 
-                                return LineResult::Success(String::new());
+                                return LineResult::Success(line.to_string());
                             }
                             Err(err) => return LineResult::Error(line.to_string(), err),
                         }
