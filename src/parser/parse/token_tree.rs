@@ -19,7 +19,7 @@ pub enum TokenNode {
     Flag(Spanned<Flag>),
     Whitespace(Tag),
 
-    Error(Tagged<ShellError>),
+    Error(Spanned<ShellError>),
 }
 
 impl ToDebug for TokenNode {
@@ -102,7 +102,10 @@ impl TokenNode {
                 anchor: uuid::Uuid::nil(),
             },
             TokenNode::Whitespace(s) => *s,
-            TokenNode::Error(s) => return s.tag,
+            TokenNode::Error(s) => Tag {
+                span: s.span,
+                anchor: uuid::Uuid::nil(),
+            },
         }
     }
 

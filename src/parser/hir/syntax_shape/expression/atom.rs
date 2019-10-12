@@ -404,10 +404,10 @@ pub fn expand_atom<'me, 'content>(
             Err(_) => {}
 
             // But if it was a valid unit, we're done here
-            Ok(Tagged {
+            Ok(Spanned {
                 item: (number, unit),
-                tag,
-            }) => return Ok(AtomicToken::Size { number, unit }.spanned(tag.span)),
+                span,
+            }) => return Ok(AtomicToken::Size { number, unit }.spanned(span)),
         },
     }
 
@@ -452,7 +452,7 @@ pub fn expand_atom<'me, 'content>(
 
         TokenNode::Error(error) => {
             peeked.commit();
-            return Ok(AtomicToken::Error { error: *error }.spanned(error.tag.span));
+            return Ok(AtomicToken::Error { error: *error }.spanned(error.span));
         }
 
         // [ ... ]

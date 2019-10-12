@@ -95,7 +95,10 @@ impl FlatShape {
                 anchor: uuid::Uuid::nil(),
             })),
             TokenNode::Whitespace(_) => shapes.push(FlatShape::Whitespace.tagged(token.tag())),
-            TokenNode::Error(v) => shapes.push(FlatShape::Error.tagged(v.tag)),
+            TokenNode::Error(v) => shapes.push(FlatShape::Error.tagged(Tag {
+                span: v.span,
+                anchor: uuid::Uuid::nil(),
+            })),
         }
     }
 }
