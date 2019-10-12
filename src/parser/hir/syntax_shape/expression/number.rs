@@ -46,7 +46,7 @@ impl FallibleColorSyntax for NumberShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = token_nodes.spanned(|token_nodes| {
             expand_atom(token_nodes, "number", context, ExpansionRule::permissive())
@@ -104,7 +104,7 @@ impl FallibleColorSyntax for IntShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = token_nodes.spanned(|token_nodes| {
             expand_atom(token_nodes, "integer", context, ExpansionRule::permissive())

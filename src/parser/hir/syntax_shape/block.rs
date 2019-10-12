@@ -11,7 +11,7 @@ use crate::parser::{
     parse::token_tree::Delimiter,
     RawToken, TokenNode,
 };
-use crate::{Tag, Tagged, TaggedItem};
+use crate::{Spanned, SpannedItem, Tag, Tagged, TaggedItem};
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyBlockShape;
@@ -25,7 +25,7 @@ impl FallibleColorSyntax for AnyBlockShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let block = token_nodes.peek_non_ws().not_eof("block");
 
@@ -97,7 +97,7 @@ impl FallibleColorSyntax for ShorthandBlock {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // Try to find a shorthand head. If none found, fail
         color_fallible_syntax(&ShorthandPath, token_nodes, context, shapes)?;
@@ -148,7 +148,7 @@ impl FallibleColorSyntax for ShorthandPath {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| {
             let variable = color_fallible_syntax(&VariablePathShape, token_nodes, context, shapes);
@@ -232,7 +232,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // A shorthand path must not be at EOF
         let peeked = token_nodes.peek_non_ws().not_eof("shorthand path")?;
@@ -244,7 +244,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
                 tag,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::BareMember.tagged(tag));
+                shapes.push(FlatShape::BareMember.spanned(tag.span));
                 Ok(())
             }
 
@@ -254,7 +254,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
                 tag: outer,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::StringMember.tagged(outer));
+                shapes.push(FlatShape::StringMember.spanned(outer.span));
                 Ok(())
             }
 

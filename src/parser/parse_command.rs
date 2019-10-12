@@ -10,7 +10,7 @@ use crate::parser::{
     Flag,
 };
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged, Text};
+use crate::{Spanned, Tag, Tagged, Text};
 use log::trace;
 
 pub fn parse_command_tail(
@@ -195,7 +195,7 @@ impl ColorSyntax for CommandTailShape {
         signature: &Signature,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         let mut args = ColoringArgs::new(token_nodes.len());
         trace_remaining("nodes", token_nodes.clone(), context.source());

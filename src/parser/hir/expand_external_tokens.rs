@@ -6,7 +6,7 @@ use crate::parser::{
     },
     FlatShape, TokenNode, TokensIterator,
 };
-use crate::{Tag, Tagged, Text};
+use crate::{Spanned, Tag, Tagged, Text};
 
 pub fn expand_external_tokens(
     token_nodes: &mut TokensIterator<'_>,
@@ -37,7 +37,7 @@ impl ColorSyntax for ExternalTokensShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         loop {
             // Allow a space
@@ -137,7 +137,7 @@ impl ColorSyntax for ExternalExpression {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> ExternalExpressionResult {
         let atom = match expand_atom(
             token_nodes,
@@ -146,7 +146,7 @@ impl ColorSyntax for ExternalExpression {
             ExpansionRule::permissive(),
         ) {
             Err(_) => unreachable!("TODO: separate infallible expand_atom"),
-            Ok(Tagged {
+            Ok(Spanned {
                 item: AtomicToken::Eof { .. },
                 ..
             }) => return ExternalExpressionResult::Eof,

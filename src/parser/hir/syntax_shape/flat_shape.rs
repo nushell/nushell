@@ -1,5 +1,5 @@
 use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, RawToken, TokenNode};
-use crate::{Tag, Tagged, TaggedItem, Text};
+use crate::{Span, Tagged, TaggedItem, Text};
 
 #[derive(Debug, Copy, Clone)]
 pub enum FlatShape {
@@ -25,7 +25,7 @@ pub enum FlatShape {
     Decimal,
     Whitespace,
     Error,
-    Size { number: Tag, unit: Tag },
+    Size { number: Span, unit: Span },
 }
 
 impl FlatShape {

@@ -14,6 +14,39 @@ pub struct Spanned<T> {
     pub item: T,
 }
 
+impl<T> Spanned<T> {
+    fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
+        Spanned {
+            item: self,
+            span: span.into(),
+        }
+    }
+}
+
+pub trait SpannedItem: Sized {
+    fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
+        Spanned {
+            item: self,
+            span: span.into(),
+        }
+    }
+
+    fn spanned_unknown(self) -> Spanned<Self> {
+        Spanned {
+            item: self,
+            span: Span::unknown(),
+        }
+    }
+}
+impl<T> SpannedItem for T {}
+
+impl<T> std::ops::Deref for Spanned<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.item
+    }
+}
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Tagged<T> {
     pub tag: Tag,

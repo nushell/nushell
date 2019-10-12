@@ -18,14 +18,14 @@ impl FallibleColorSyntax for PatternShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| {
             let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
 
             match &atom.item {
                 AtomicToken::GlobPattern { .. } | AtomicToken::Word { .. } => {
-                    shapes.push(FlatShape::GlobPattern.tagged(atom.tag));
+                    shapes.push(FlatShape::GlobPattern.spanned(atom.span));
                     Ok(())
                 }
 

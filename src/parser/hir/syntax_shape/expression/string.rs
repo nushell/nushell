@@ -18,7 +18,7 @@ impl FallibleColorSyntax for StringShape {
         input: &FlatShape,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = expand_atom(token_nodes, "string", context, ExpansionRule::permissive());
 
@@ -28,10 +28,10 @@ impl FallibleColorSyntax for StringShape {
         };
 
         match atom {
-            Tagged {
+            Spanned {
                 item: AtomicToken::String { .. },
-                tag,
-            } => shapes.push((*input).tagged(tag)),
+                span,
+            } => shapes.push((*input).spanned(span)),
             other => other.color_tokens(shapes),
         }
 

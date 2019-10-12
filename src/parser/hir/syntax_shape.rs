@@ -64,7 +64,7 @@ impl FallibleColorSyntax for SyntaxShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         match self {
             SyntaxShape::Any => {
@@ -211,7 +211,7 @@ pub trait FallibleColorSyntax: std::fmt::Debug + Copy {
         input: &Self::Input,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<Self::Info, ShellError>;
 }
 
@@ -224,7 +224,7 @@ pub trait ColorSyntax: std::fmt::Debug + Copy {
         input: &Self::Input,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info;
 }
 
@@ -240,7 +240,7 @@ pub trait ColorSyntax: std::fmt::Debug + Copy {
 //         input: &Self::Input,
 //         token_nodes: &'b mut TokensIterator<'a>,
 //         context: &ExpandContext,
-//         shapes: &mut Vec<Tagged<FlatShape>>,
+//         shapes: &mut Vec<Spanned<FlatShape>>,
 //     ) -> Result<T::Info, ShellError> {
 //         FallibleColorSyntax::color_syntax(self, input, token_nodes, context, shapes)
 //     }
@@ -282,7 +282,7 @@ pub fn color_syntax<'a, 'b, T: ColorSyntax<Info = U, Input = ()>, U>(
     shape: &T,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> ((), U) {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -310,7 +310,7 @@ pub fn color_fallible_syntax<'a, 'b, T: FallibleColorSyntax<Info = U, Input = ()
     shape: &T,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> Result<U, ShellError> {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -344,7 +344,7 @@ pub fn color_syntax_with<'a, 'b, T: ColorSyntax<Info = U, Input = I>, U, I>(
     input: &I,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> ((), U) {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -373,7 +373,7 @@ pub fn color_fallible_syntax_with<'a, 'b, T: FallibleColorSyntax<Info = U, Input
     input: &I,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> Result<U, ShellError> {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -545,7 +545,7 @@ impl FallibleColorSyntax for BareShape {
         input: &FlatShape,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.peek_any_token(|token| match token {
             // If it's a bare token, color it
@@ -553,7 +553,7 @@ impl FallibleColorSyntax for BareShape {
                 item: RawToken::Bare,
                 tag,
             }) => {
-                shapes.push((*input).tagged(tag));
+                shapes.push((*input).spanned(tag.span));
                 Ok(())
             }
 
@@ -645,7 +645,7 @@ impl FallibleColorSyntax for PipelineShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // Make sure we're looking at a pipeline
         let Pipeline { parts, .. } = token_nodes.peek_any_token(|node| node.as_pipeline())?;
@@ -654,7 +654,7 @@ impl FallibleColorSyntax for PipelineShape {
         for part in parts {
             // If the pipeline part has a prefix `|`, emit a pipe to color
             if let Some(pipe) = part.pipe {
-                shapes.push(FlatShape::Pipe.tagged(pipe));
+                shapes.push(FlatShape::Pipe.spanned(pipe.span));
             }
 
             // Create a new iterator containing the tokens in the pipeline part to color
@@ -711,7 +711,7 @@ impl FallibleColorSyntax for CommandHeadShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<CommandHeadKind, ShellError> {
         // If we don't ultimately find a token, roll back
         token_nodes.atomic(|token_nodes| {
@@ -726,7 +726,7 @@ impl FallibleColorSyntax for CommandHeadShape {
             match atom.item {
                 // If the head is an explicit external command (^cmd), color it as an external command
                 AtomicToken::ExternalCommand { command } => {
-                    shapes.push(FlatShape::ExternalCommand.tagged(command));
+                    shapes.push(FlatShape::ExternalCommand.spanned(command));
                     Ok(CommandHeadKind::External)
                 }
 
@@ -736,19 +736,19 @@ impl FallibleColorSyntax for CommandHeadShape {
 
                     if context.registry.has(name) {
                         // If the registry has the command, color it as an internal command
-                        shapes.push(FlatShape::InternalCommand.tagged(text));
+                        shapes.push(FlatShape::InternalCommand.spanned(text));
                         let command = context.registry.expect_command(name);
                         Ok(CommandHeadKind::Internal(command.signature()))
                     } else {
                         // Otherwise, color it as an external command
-                        shapes.push(FlatShape::ExternalCommand.tagged(text));
+                        shapes.push(FlatShape::ExternalCommand.spanned(text));
                         Ok(CommandHeadKind::External)
                     }
                 }
 
                 // Otherwise, we're not actually looking at a command
                 _ => Err(ShellError::syntax_error(
-                    "No command at the head".tagged(atom.tag),
+                    "No command at the head".tagged(atom.span),
                 )),
             }
         })
@@ -866,7 +866,7 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked_head = token_nodes.peek_non_ws().not_eof("command head4");
 
@@ -879,14 +879,14 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
             TokenNode::Token(Tagged {
                 item: RawToken::Bare,
                 tag,
-            }) => shapes.push(FlatShape::Word.tagged(tag)),
+            }) => shapes.push(FlatShape::Word.spanned(tag.span)),
 
             TokenNode::Token(Tagged {
                 item: RawToken::String(_inner_tag),
                 tag,
-            }) => shapes.push(FlatShape::String.tagged(tag)),
+            }) => shapes.push(FlatShape::String.spanned(tag.span)),
 
-            _node => shapes.push(FlatShape::Error.tagged(peeked_head.node.tag())),
+            _node => shapes.push(FlatShape::Error.spanned(peeked_head.node.tag().span)),
         };
 
         peeked_head.commit();
@@ -997,7 +997,7 @@ impl FallibleColorSyntax for WhitespaceShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace");
 
@@ -1007,7 +1007,7 @@ impl FallibleColorSyntax for WhitespaceShape {
         };
 
         let _tag = match peeked.node {
-            TokenNode::Whitespace(tag) => shapes.push(FlatShape::Whitespace.tagged(tag)),
+            TokenNode::Whitespace(tag) => shapes.push(FlatShape::Whitespace.spanned(tag.span)),
 
             _other => return Ok(()),
         };
@@ -1094,7 +1094,7 @@ impl ColorSyntax for MaybeSpaceShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         let peeked = token_nodes.peek_any().not_eof("whitespace");
 
@@ -1105,7 +1105,7 @@ impl ColorSyntax for MaybeSpaceShape {
 
         if let TokenNode::Whitespace(tag) = peeked.node {
             peeked.commit();
-            shapes.push(FlatShape::Whitespace.tagged(tag));
+            shapes.push(FlatShape::Whitespace.spanned(tag.span));
         }
     }
 }
@@ -1122,14 +1122,14 @@ impl FallibleColorSyntax for SpaceShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
         match peeked.node {
             TokenNode::Whitespace(tag) => {
                 peeked.commit();
-                shapes.push(FlatShape::Whitespace.tagged(tag));
+                shapes.push(FlatShape::Whitespace.spanned(tag.span));
                 Ok(())
             }
 
@@ -1239,7 +1239,7 @@ impl ColorSyntax for CommandShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) {
         let kind = color_fallible_syntax(&CommandHeadShape, token_nodes, context, shapes);
 

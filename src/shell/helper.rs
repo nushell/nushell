@@ -3,7 +3,7 @@ use crate::parser::hir::syntax_shape::{color_fallible_syntax, FlatShape, Pipelin
 use crate::parser::hir::TokensIterator;
 use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
-use crate::{Tag, Tagged, TaggedItem, Text};
+use crate::{Spanned, Tag, Tagged, TaggedItem, Text};
 use ansi_term::Color;
 use log::trace;
 use rustyline::completion::Completer;
@@ -135,7 +135,7 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
     })
 }
 
-fn paint_flat_shape(flat_shape: Tagged<FlatShape>, line: &str) -> String {
+fn paint_flat_shape(flat_shape: Spanned<FlatShape>, line: &str) -> String {
     let style = match &flat_shape.item {
         FlatShape::OpenDelimiter(_) => Color::White.normal(),
         FlatShape::CloseDelimiter(_) => Color::White.normal(),

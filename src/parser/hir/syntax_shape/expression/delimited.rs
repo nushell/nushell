@@ -17,16 +17,16 @@ pub fn expand_delimited_square(
 }
 
 pub fn color_delimited_square(
-    (open, close): (Tag, Tag),
+    (open, close): (Span, Span),
     children: &Vec<TokenNode>,
     tag: Tag,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) {
-    shapes.push(FlatShape::OpenDelimiter(Delimiter::Square).tagged(open));
+    shapes.push(FlatShape::OpenDelimiter(Delimiter::Square).spanned(open));
     let mut tokens = TokensIterator::new(&children, tag, false);
     let _list = color_syntax(&ExpressionListShape, &mut tokens, context, shapes);
-    shapes.push(FlatShape::CloseDelimiter(Delimiter::Square).tagged(close));
+    shapes.push(FlatShape::CloseDelimiter(Delimiter::Square).spanned(close));
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -40,10 +40,10 @@ impl ColorSyntax for DelimitedShape {
         (delimiter, open, close): &(Delimiter, Tag, Tag),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
-        shapes.push(FlatShape::OpenDelimiter(*delimiter).tagged(open));
+        shapes.push(FlatShape::OpenDelimiter(*delimiter).spanned(open));
         color_syntax(&ExpressionListShape, token_nodes, context, shapes);
-        shapes.push(FlatShape::CloseDelimiter(*delimiter).tagged(close));
+        shapes.push(FlatShape::CloseDelimiter(*delimiter).spanned(close));
     }
 }

@@ -9,82 +9,83 @@ use crate::parser::{
     DelimitedNode, Delimiter, FlatShape, RawToken, TokenNode, Unit,
 };
 use crate::prelude::*;
+use crate::{Span, Spanned};
 
 #[derive(Debug)]
 pub enum AtomicToken<'tokens> {
     Eof {
-        tag: Tag,
+        span: Span,
     },
     Error {
-        error: Tagged<ShellError>,
+        error: Spanned<ShellError>,
     },
     Number {
         number: RawNumber,
     },
     Size {
-        number: Tagged<RawNumber>,
-        unit: Tagged<Unit>,
+        number: Spanned<RawNumber>,
+        unit: Spanned<Unit>,
     },
     String {
-        body: Tag,
+        body: Span,
     },
     ItVariable {
-        name: Tag,
+        name: Span,
     },
     Variable {
-        name: Tag,
+        name: Span,
     },
     ExternalCommand {
-        command: Tag,
+        command: Span,
     },
     ExternalWord {
-        text: Tag,
+        text: Span,
     },
     GlobPattern {
-        pattern: Tag,
+        pattern: Span,
     },
     FilePath {
-        path: Tag,
+        path: Span,
     },
     Word {
-        text: Tag,
+        text: Span,
     },
     SquareDelimited {
-        tags: (Tag, Tag),
+        spans: (Span, Span),
         nodes: &'tokens Vec<TokenNode>,
     },
     ParenDelimited {
-        tags: (Tag, Tag),
+        span: (Span, Span),
         nodes: &'tokens Vec<TokenNode>,
     },
     BraceDelimited {
-        tags: (Tag, Tag),
+        spans: (Span, Span),
         nodes: &'tokens Vec<TokenNode>,
     },
     Pipeline {
-        pipe: Option<Tag>,
-        elements: Tagged<&'tokens Vec<TokenNode>>,
+        pipe: Option<Span>,
+        elements: Spanned<&'tokens Vec<TokenNode>>,
     },
     ShorthandFlag {
-        name: Tag,
+        name: Span,
     },
     LonghandFlag {
-        name: Tag,
+        name: Span,
     },
     Dot {
-        text: Tag,
+        text: Span,
     },
     Operator {
-        text: Tag,
+        text: Span,
     },
     Whitespace {
-        text: Tag,
+        text: Span,
     },
 }
 
-pub type TaggedAtomicToken<'tokens> = Tagged<AtomicToken<'tokens>>;
+pub type SpannedAtomicToken<'tokens> = Spanned<AtomicToken<'tokens>>;
 
-impl<'tokens> TaggedAtomicToken<'tokens> {
+impl<'tokens> SpannedAtomicToken<'tokens> {
     pub fn into_hir(
         &self,
         context: &ExpandContext,
@@ -94,53 +95,53 @@ impl<'tokens> TaggedAtomicToken<'tokens> {
             AtomicToken::Eof { .. } => {
                 return Err(ShellError::type_error(
                     expected,
-                    "eof atomic token".tagged(self.tag),
+                    "eof atomic token".tagged(self.span),
                 ))
             }
             AtomicToken::Error { .. } => {
                 return Err(ShellError::type_error(
                     expected,
-                    "eof atomic token".tagged(self.tag),
+                    "eof atomic token".tagged(self.span),
                 ))
             }
             AtomicToken::Operator { .. } => {
                 return Err(ShellError::type_error(
                     expected,
-                    "operator".tagged(self.tag),
+                    "operator".tagged(self.span),
                 ))
             }
             AtomicToken::ShorthandFlag { .. } => {
                 return Err(ShellError::type_error(
                     expected,
-                    "shorthand flag".tagged(self.tag),
+                    "shorthand flag".tagged(self.span),
                 ))
             }
             AtomicToken::LonghandFlag { .. } => {
-                return Err(ShellError::type_error(expected, "flag".tagged(self.tag)))
+                return Err(ShellError::type_error(expected, "flag".tagged(self.span)))
             }
             AtomicToken::Whitespace { .. } => {
                 return Err(ShellError::unimplemented("whitespace in AtomicToken"))
             }
             AtomicToken::Dot { .. } => {
-                return Err(ShellError::type_error(expected, "dot".tagged(self.tag)))
+                return Err(ShellError::type_error(expected, "dot".tagged(self.span)))
             }
             AtomicToken::Number { number } => {
-                Expression::number(number.to_number(context.source), self.tag)
+                Expression::number(number.to_number(context.source), self.span)
             }
             AtomicToken::FilePath { path } => Expression::file_path(
                 expand_file_path(path.slice(context.source), context),
-                self.tag,
+                self.span,
             ),
             AtomicToken::Size { number, unit } => {
-                Expression::size(number.to_number(context.source), **unit, self.tag)
+                Expression::size(number.to_number(context.source), **unit, self.span)
             }
-            AtomicToken::String { body } => Expression::string(body, self.tag),
-            AtomicToken::ItVariable { name } => Expression::it_variable(name, self.tag),
-            AtomicToken::Variable { name } => Expression::variable(name, self.tag),
+            AtomicToken::String { body } => Expression::string(body, self.span),
+            AtomicToken::ItVariable { name } => Expression::it_variable(name, self.span),
+            AtomicToken::Variable { name } => Expression::variable(name, self.span),
             AtomicToken::ExternalCommand { command } => {
-                Expression::external_command(command, self.tag)
+                Expression::external_command(command, self.span)
             }
-            AtomicToken::ExternalWord { text } => Expression::string(text, self.tag),
+            AtomicToken::ExternalWord { text } => Expression::string(text, self.span),
             AtomicToken::GlobPattern { pattern } => Expression::pattern(pattern),
             AtomicToken::Word { text } => Expression::string(text, text),
             AtomicToken::SquareDelimited { .. } => unimplemented!("into_hir"),
@@ -148,6 +149,33 @@ impl<'tokens> TaggedAtomicToken<'tokens> {
             AtomicToken::BraceDelimited { .. } => unimplemented!("into_hir"),
             AtomicToken::Pipeline { .. } => unimplemented!("into_hir"),
         })
+    }
+
+    pub fn spanned_type_name(&self) -> Spanned<&'static str> {
+        match &self.item {
+            AtomicToken::Eof { .. } => "eof",
+            AtomicToken::Error { .. } => "error",
+            AtomicToken::Operator { .. } => "operator",
+            AtomicToken::ShorthandFlag { .. } => "shorthand flag",
+            AtomicToken::LonghandFlag { .. } => "flag",
+            AtomicToken::Whitespace { .. } => "whitespace",
+            AtomicToken::Dot { .. } => "dot",
+            AtomicToken::Number { .. } => "number",
+            AtomicToken::FilePath { .. } => "file path",
+            AtomicToken::Size { .. } => "size",
+            AtomicToken::String { .. } => "string",
+            AtomicToken::ItVariable { .. } => "$it",
+            AtomicToken::Variable { .. } => "variable",
+            AtomicToken::ExternalCommand { .. } => "external command",
+            AtomicToken::ExternalWord { .. } => "external word",
+            AtomicToken::GlobPattern { .. } => "file pattern",
+            AtomicToken::Word { .. } => "word",
+            AtomicToken::SquareDelimited { .. } => "array literal",
+            AtomicToken::ParenDelimited { .. } => "parenthesized expression",
+            AtomicToken::BraceDelimited { .. } => "block",
+            AtomicToken::Pipeline { .. } => "pipeline",
+        }
+        .spanned(self.span)
     }
 
     pub fn tagged_type_name(&self) -> Tagged<&'static str> {
@@ -174,64 +202,64 @@ impl<'tokens> TaggedAtomicToken<'tokens> {
             AtomicToken::BraceDelimited { .. } => "block",
             AtomicToken::Pipeline { .. } => "pipeline",
         }
-        .tagged(self.tag)
+        .tagged(self.span)
     }
 
-    pub(crate) fn color_tokens(&self, shapes: &mut Vec<Tagged<FlatShape>>) {
+    pub(crate) fn color_tokens(&self, shapes: &mut Vec<Spanned<FlatShape>>) {
         match &self.item {
             AtomicToken::Eof { .. } => {}
-            AtomicToken::Error { .. } => return shapes.push(FlatShape::Error.tagged(self.tag)),
+            AtomicToken::Error { .. } => return shapes.push(FlatShape::Error.spanned(self.span)),
             AtomicToken::Operator { .. } => {
-                return shapes.push(FlatShape::Operator.tagged(self.tag));
+                return shapes.push(FlatShape::Operator.spanned(self.span));
             }
             AtomicToken::ShorthandFlag { .. } => {
-                return shapes.push(FlatShape::ShorthandFlag.tagged(self.tag));
+                return shapes.push(FlatShape::ShorthandFlag.spanned(self.span));
             }
             AtomicToken::LonghandFlag { .. } => {
-                return shapes.push(FlatShape::Flag.tagged(self.tag));
+                return shapes.push(FlatShape::Flag.spanned(self.span));
             }
             AtomicToken::Whitespace { .. } => {
-                return shapes.push(FlatShape::Whitespace.tagged(self.tag));
+                return shapes.push(FlatShape::Whitespace.spanned(self.span));
             }
-            AtomicToken::FilePath { .. } => return shapes.push(FlatShape::Path.tagged(self.tag)),
-            AtomicToken::Dot { .. } => return shapes.push(FlatShape::Dot.tagged(self.tag)),
+            AtomicToken::FilePath { .. } => return shapes.push(FlatShape::Path.spanned(self.span)),
+            AtomicToken::Dot { .. } => return shapes.push(FlatShape::Dot.spanned(self.span)),
             AtomicToken::Number {
                 number: RawNumber::Decimal(_),
             } => {
-                return shapes.push(FlatShape::Decimal.tagged(self.tag));
+                return shapes.push(FlatShape::Decimal.spanned(self.span));
             }
             AtomicToken::Number {
                 number: RawNumber::Int(_),
             } => {
-                return shapes.push(FlatShape::Int.tagged(self.tag));
+                return shapes.push(FlatShape::Int.spanned(self.span));
             }
             AtomicToken::Size { number, unit } => {
                 return shapes.push(
                     FlatShape::Size {
-                        number: number.tag,
-                        unit: unit.tag,
+                        number: number.span,
+                        unit: unit.span,
                     }
-                    .tagged(self.tag),
+                    .spanned(self.span),
                 );
             }
-            AtomicToken::String { .. } => return shapes.push(FlatShape::String.tagged(self.tag)),
+            AtomicToken::String { .. } => return shapes.push(FlatShape::String.spanned(self.span)),
             AtomicToken::ItVariable { .. } => {
-                return shapes.push(FlatShape::ItVariable.tagged(self.tag))
+                return shapes.push(FlatShape::ItVariable.spanned(self.span))
             }
             AtomicToken::Variable { .. } => {
-                return shapes.push(FlatShape::Variable.tagged(self.tag))
+                return shapes.push(FlatShape::Variable.spanned(self.span))
             }
             AtomicToken::ExternalCommand { .. } => {
-                return shapes.push(FlatShape::ExternalCommand.tagged(self.tag));
+                return shapes.push(FlatShape::ExternalCommand.spanned(self.span));
             }
             AtomicToken::ExternalWord { .. } => {
-                return shapes.push(FlatShape::ExternalWord.tagged(self.tag))
+                return shapes.push(FlatShape::ExternalWord.spanned(self.span))
             }
             AtomicToken::GlobPattern { .. } => {
-                return shapes.push(FlatShape::GlobPattern.tagged(self.tag))
+                return shapes.push(FlatShape::GlobPattern.spanned(self.span))
             }
-            AtomicToken::Word { .. } => return shapes.push(FlatShape::Word.tagged(self.tag)),
-            _ => return shapes.push(FlatShape::Error.tagged(self.tag)),
+            AtomicToken::Word { .. } => return shapes.push(FlatShape::Word.spanned(self.span)),
+            _ => return shapes.push(FlatShape::Error.spanned(self.span)),
         }
     }
 }
@@ -350,14 +378,14 @@ pub fn expand_atom<'me, 'content>(
     expected: &'static str,
     context: &ExpandContext,
     rule: ExpansionRule,
-) -> Result<TaggedAtomicToken<'content>, ShellError> {
+) -> Result<SpannedAtomicToken<'content>, ShellError> {
     if token_nodes.at_end() {
         match rule.allow_eof {
             true => {
                 return Ok(AtomicToken::Eof {
-                    tag: Tag::unknown(),
+                    span: Span::unknown(),
                 }
-                .tagged_unknown())
+                .spanned(Span::unknown()))
             }
             false => return Err(ShellError::unexpected_eof("anything", Tag::unknown())),
         }
@@ -379,7 +407,7 @@ pub fn expand_atom<'me, 'content>(
             Ok(Tagged {
                 item: (number, unit),
                 tag,
-            }) => return Ok(AtomicToken::Size { number, unit }.tagged(tag)),
+            }) => return Ok(AtomicToken::Size { number, unit }.spanned(tag.span)),
         },
     }
 
@@ -397,7 +425,7 @@ pub fn expand_atom<'me, 'content>(
                     // word, and we should try to parse it as a glob next
                 }
 
-                _ => return Ok(AtomicToken::Word { text: tag }.tagged(tag)),
+                _ => return Ok(AtomicToken::Word { text: tag.span }.spanned(tag.span)),
             }
         }
     }
@@ -407,7 +435,7 @@ pub fn expand_atom<'me, 'content>(
     match expand_syntax(&BarePatternShape, token_nodes, context) {
         // If we didn't find a bare path
         Err(_) => {}
-        Ok(tag) => return Ok(AtomicToken::GlobPattern { pattern: tag }.tagged(tag)),
+        Ok(tag) => return Ok(AtomicToken::GlobPattern { pattern: tag.span }.spanned(tag.span)),
     }
 
     // The next token corresponds to at most one atomic token
@@ -427,7 +455,7 @@ pub fn expand_atom<'me, 'content>(
             return Ok(AtomicToken::Error {
                 error: error.clone(),
             }
-            .tagged(error.tag));
+            .spanned(error.tag.span));
         }
 
         // [ ... ]
@@ -441,11 +469,12 @@ pub fn expand_atom<'me, 'content>(
             tag,
         }) => {
             peeked.commit();
+            let tags = *tags;
             return Ok(AtomicToken::SquareDelimited {
                 nodes: children,
-                tags: *tags,
+                spans: (tags.0.span, tags.1.span),
             }
-            .tagged(tag));
+            .spanned(tag.span));
         }
 
         TokenNode::Flag(Tagged {
@@ -457,7 +486,7 @@ pub fn expand_atom<'me, 'content>(
             tag,
         }) => {
             peeked.commit();
-            return Ok(AtomicToken::ShorthandFlag { name: *name }.tagged(tag));
+            return Ok(AtomicToken::ShorthandFlag { name: name.span }.spanned(tag.span));
         }
 
         TokenNode::Flag(Tagged {
@@ -469,7 +498,7 @@ pub fn expand_atom<'me, 'content>(
             tag,
         }) => {
             peeked.commit();
-            return Ok(AtomicToken::ShorthandFlag { name: *name }.tagged(tag));
+            return Ok(AtomicToken::ShorthandFlag { name: name.span }.spanned(tag.span));
         }
 
         // If we see whitespace, process the whitespace according to the whitespace
@@ -478,7 +507,7 @@ pub fn expand_atom<'me, 'content>(
             // if whitespace is allowed, return a whitespace token
             WhitespaceHandling::AllowWhitespace => {
                 peeked.commit();
-                return Ok(AtomicToken::Whitespace { text: *tag }.tagged(tag));
+                return Ok(AtomicToken::Whitespace { text: tag.span }.spanned(tag.span));
             }
 
             // if whitespace is disallowed, return an error
@@ -494,9 +523,9 @@ pub fn expand_atom<'me, 'content>(
 
             peeked.commit();
             return Ok(AtomicToken::Error {
-                error: ShellError::type_error("token", other.tagged_type_name()).tagged(tag),
+                error: ShellError::type_error("token", other.tagged_type_name()).spanned(tag.span),
             }
-            .tagged(tag));
+            .spanned(tag.span));
         }
     }
 
@@ -519,23 +548,36 @@ pub fn expand_atom<'me, 'content>(
                 return Err(ShellError::invalid_external_word(token_tag))
             }
 
-            RawToken::Number(number) => AtomicToken::Number { number }.tagged(token_tag),
-            RawToken::Operator(_) => AtomicToken::Operator { text: token_tag }.tagged(token_tag),
-            RawToken::String(body) => AtomicToken::String { body }.tagged(token_tag),
+            RawToken::Number(number) => AtomicToken::Number { number }.spanned(token_tag.span),
+            RawToken::Operator(_) => AtomicToken::Operator {
+                text: token_tag.span,
+            }
+            .spanned(token_tag.span),
+            RawToken::String(body) => {
+                AtomicToken::String { body: body.span }.spanned(token_tag.span)
+            }
             RawToken::Variable(name) if name.slice(context.source) == "it" => {
-                AtomicToken::ItVariable { name }.tagged(token_tag)
+                AtomicToken::ItVariable { name: name.span }.spanned(token_tag.span)
             }
-            RawToken::Variable(name) => AtomicToken::Variable { name }.tagged(token_tag),
-            RawToken::ExternalCommand(command) => {
-                AtomicToken::ExternalCommand { command }.tagged(token_tag)
+            RawToken::Variable(name) => {
+                AtomicToken::Variable { name: name.span }.spanned(token_tag.span)
             }
-            RawToken::ExternalWord => {
-                AtomicToken::ExternalWord { text: token_tag }.tagged(token_tag)
+            RawToken::ExternalCommand(command) => AtomicToken::ExternalCommand {
+                command: command.span,
             }
-            RawToken::GlobPattern => {
-                AtomicToken::GlobPattern { pattern: token_tag }.tagged(token_tag)
+            .spanned(token_tag.span),
+            RawToken::ExternalWord => AtomicToken::ExternalWord {
+                text: token_tag.span,
             }
-            RawToken::Bare => AtomicToken::Word { text: token_tag }.tagged(token_tag),
+            .spanned(token_tag.span),
+            RawToken::GlobPattern => AtomicToken::GlobPattern {
+                pattern: token_tag.span,
+            }
+            .spanned(token_tag.span),
+            RawToken::Bare => AtomicToken::Word {
+                text: token_tag.span,
+            }
+            .spanned(token_tag.span),
         })
     })
 }

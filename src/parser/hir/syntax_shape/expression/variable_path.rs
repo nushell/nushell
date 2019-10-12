@@ -53,7 +53,7 @@ impl FallibleColorSyntax for VariablePathShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| {
             // If the head of the token stream is not a variable, fail
@@ -97,7 +97,7 @@ impl FallibleColorSyntax for PathTailShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| loop {
             let result = color_fallible_syntax_with(
@@ -209,7 +209,7 @@ impl FallibleColorSyntax for ExpressionContinuationShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<ContinuationInfo, ShellError> {
         token_nodes.atomic(|token_nodes| {
             // Try to expand a `.`
@@ -290,7 +290,7 @@ impl FallibleColorSyntax for VariableShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = expand_atom(
             token_nodes,
@@ -306,11 +306,11 @@ impl FallibleColorSyntax for VariableShape {
 
         match &atom.item {
             AtomicToken::Variable { .. } => {
-                shapes.push(FlatShape::Variable.tagged(atom.tag));
+                shapes.push(FlatShape::Variable.spanned(atom.span));
                 Ok(())
             }
             AtomicToken::ItVariable { .. } => {
-                shapes.push(FlatShape::ItVariable.tagged(atom.tag));
+                shapes.push(FlatShape::ItVariable.spanned(atom.span));
                 Ok(())
             }
             _ => Err(ShellError::type_error("variable", atom.tagged_type_name())),
@@ -449,7 +449,7 @@ impl FallibleColorSyntax for ColumnPathShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // If there's not even one member shape, fail
         color_fallible_syntax(&MemberShape, token_nodes, context, shapes)?;
@@ -513,7 +513,7 @@ impl FallibleColorSyntax for MemberShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let bare = color_fallible_syntax_with(
             &BareShape,
@@ -583,14 +583,14 @@ impl FallibleColorSyntax for ColorableDotShape {
         input: &FlatShape,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked = token_nodes.peek_any().not_eof("dot")?;
 
         match peeked.node {
             node if node.is_dot() => {
                 peeked.commit();
-                shapes.push((*input).tagged(node.tag()));
+                shapes.push((*input).spanned(node.span()));
                 Ok(())
             }
 
@@ -645,7 +645,7 @@ impl FallibleColorSyntax for InfixShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        outer_shapes: &mut Vec<Tagged<FlatShape>>,
+        outer_shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let checkpoint = token_nodes.checkpoint();
         let mut shapes = vec![];
@@ -661,7 +661,7 @@ impl FallibleColorSyntax for InfixShape {
                 match token {
                     // If it's an operator (and not `.`), it's a match
                     RawToken::Operator(operator) if operator != Operator::Dot => {
-                        shapes.push(FlatShape::Operator.tagged(token_tag));
+                        shapes.push(FlatShape::Operator.spanned(token_tag.span));
                         Ok(())
                     }
 
