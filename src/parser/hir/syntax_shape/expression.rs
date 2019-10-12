@@ -270,19 +270,19 @@ impl FallibleColorSyntax for BareTailShape {
 }
 
 impl ExpandSyntax for BareTailShape {
-    type Output = Option<Tag>;
+    type Output = Option<Span>;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Option<Tag>, ShellError> {
-        let mut end: Option<Tag> = None;
+    ) -> Result<Option<Span>, ShellError> {
+        let mut end: Option<Span> = None;
 
         loop {
             match expand_syntax(&BareShape, token_nodes, context) {
                 Ok(bare) => {
-                    end = Some(bare.tag);
+                    end = Some(bare.span);
                     continue;
                 }
 

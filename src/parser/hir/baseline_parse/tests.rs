@@ -99,7 +99,7 @@ fn test_parse_command() {
 
             hir::Expression::path(
                 hir::Expression::variable(inner_var, outer_var),
-                vec!["amount".tagged(amount), "max ghz".tagged(outer_max_ghz)],
+                vec!["amount".spanned(amount), "max ghz".spanned(outer_max_ghz)],
                 outer_var.until(outer_max_ghz),
             )
         },

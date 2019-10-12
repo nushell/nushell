@@ -188,25 +188,25 @@ impl Expression {
         RawExpression::Path(Box::new(Path::new(head, tail))).spanned(span.into())
     }
 
-    pub(crate) fn dot_member(head: Expression, next: Tagged<impl Into<String>>) -> Expression {
+    pub(crate) fn dot_member(head: Expression, next: Spanned<impl Into<String>>) -> Expression {
         let Spanned { item, span } = head;
-        let new_tag = head.span.until(next.tag);
+        let new_span = head.span.until(next.span);
 
         match item {
             RawExpression::Path(path) => {
                 let (head, mut tail) = path.parts();
 
                 tail.push(next.map(|i| i.into()));
-                Expression::path(head, tail, new_tag)
+                Expression::path(head, tail, new_span)
             }
 
-            other => Expression::path(other.spanned(span), vec![next], new_tag),
+            other => Expression::path(other.spanned(span), vec![next], new_span),
         }
     }
 
     pub(crate) fn infix(
         left: Expression,
-        op: Tagged<impl Into<Operator>>,
+        op: Spanned<impl Into<Operator>>,
         right: Expression,
     ) -> Expression {
         let new_span = left.span.until(right.span);
@@ -321,14 +321,14 @@ impl std::fmt::Display for Tagged<&Literal> {
     }
 }
 
-impl ToDebug for Tagged<&Literal> {
+impl ToDebug for Spanned<&Literal> {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
-        match self.item() {
-            Literal::Number(number) => write!(f, "{:?}", *number),
+        match self.item {
+            Literal::Number(number) => write!(f, "{:?}", number),
             Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
             Literal::String(tag) => write!(f, "{}", tag.slice(source)),
-            Literal::GlobPattern => write!(f, "{}", self.tag().slice(source)),
-            Literal::Bare => write!(f, "{}", self.tag().slice(source)),
+            Literal::GlobPattern => write!(f, "{}", self.span.slice(source)),
+            Literal::Bare => write!(f, "{}", self.span.slice(source)),
         }
     }
 }

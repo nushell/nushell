@@ -14,6 +14,15 @@ pub struct Spanned<T> {
     pub item: T,
 }
 
+impl<T> Spanned<T> {
+    pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Spanned<U> {
+        let span = self.span;
+
+        let mapped = input(self.item);
+        mapped.spanned(span)
+    }
+}
+
 pub trait SpannedItem: Sized {
     fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned {

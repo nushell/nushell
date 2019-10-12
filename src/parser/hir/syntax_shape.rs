@@ -564,7 +564,7 @@ impl FallibleColorSyntax for BareShape {
 }
 
 impl ExpandSyntax for BareShape {
-    type Output = Tagged<String>;
+    type Output = Spanned<String>;
 
     fn expand_syntax<'a, 'b>(
         &self,
@@ -579,7 +579,7 @@ impl ExpandSyntax for BareShape {
                 tag,
             }) => {
                 peeked.commit();
-                Ok(tag.tagged_string(context.source))
+                Ok(tag.spanned_string(context.source))
             }
 
             other => Err(ShellError::type_error("word", other.tagged_type_name())),
@@ -814,7 +814,7 @@ impl ExpandSyntax for ClassifiedCommandShape {
 
         match &head {
             CommandSignature::Expression(expr) => Err(ShellError::syntax_error(
-                "Unexpected expression in command position".tagged(expr.tag),
+                "Unexpected expression in command position".tagged(expr.span),
             )),
 
             // If the command starts with `^`, treat it as an external command no matter what
@@ -832,7 +832,7 @@ impl ExpandSyntax for ClassifiedCommandShape {
 
             CommandSignature::Internal(command) => {
                 let tail =
-                    parse_command_tail(&command.signature(), &context, iterator, command.tag)?;
+                    parse_command_tail(&command.signature(), &context, iterator, command.span)?;
 
                 let (positional, named) = match tail {
                     None => (None, None),
@@ -847,7 +847,10 @@ impl ExpandSyntax for ClassifiedCommandShape {
 
                 Ok(ClassifiedCommand::Internal(InternalCommand::new(
                     command.item.name().to_string(),
-                    command.tag,
+                    Tag {
+                        span: command.span,
+                        anchor: uuid::Uuid::nil(),
+                    },
                     call,
                 )))
             }

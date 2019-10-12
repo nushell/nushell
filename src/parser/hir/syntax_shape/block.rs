@@ -11,7 +11,7 @@ use crate::parser::{
     parse::token_tree::Delimiter,
     RawToken, TokenNode,
 };
-use crate::{Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+use crate::{Spanned, SpannedItem, Tag, Tagged};
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyBlockShape;
@@ -290,7 +290,7 @@ impl ExpandExpression for ShorthandHeadShape {
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
                     it,
-                    vec![tag.tagged_string(context.source)],
+                    vec![tag.spanned_string(context.source)],
                     tag,
                 ))
             }
@@ -309,7 +309,7 @@ impl ExpandExpression for ShorthandHeadShape {
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
                     it,
-                    vec![inner.string(context.source).tagged(outer)],
+                    vec![inner.string(context.source).spanned(outer)],
                     outer,
                 ))
             }

@@ -120,13 +120,13 @@ impl FallibleColorSyntax for PathTailShape {
 }
 
 impl ExpandSyntax for PathTailShape {
-    type Output = (Vec<Tagged<String>>, Tag);
+    type Output = (Vec<Spanned<String>>, Span);
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Result<Self::Output, ShellError> {
-        let mut end: Option<Tag> = None;
+        let mut end: Option<Span> = None;
         let mut tail = vec![];
 
         loop {
@@ -136,8 +136,8 @@ impl ExpandSyntax for PathTailShape {
             }
 
             let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-            let member = syntax.to_tagged_string(context.source);
-            end = Some(member.tag());
+            let member = syntax.to_spanned_string(context.source);
+            end = Some(member.span);
             tail.push(member);
         }
 
@@ -156,8 +156,8 @@ impl ExpandSyntax for PathTailShape {
 
 #[derive(Debug)]
 pub enum ExpressionContinuation {
-    DotSuffix(Tag, Tagged<String>),
-    InfixSuffix(Tagged<Operator>, Expression),
+    DotSuffix(Span, Spanned<String>),
+    InfixSuffix(Spanned<Operator>, Expression),
 }
 
 /// An expression continuation
@@ -332,12 +332,12 @@ impl Member {
         }
     }
 
-    // pub(crate) fn tag(&self) -> Tag {
-    //     match self {
-    //         Member::String(outer, _inner) => *outer,
-    //         Member::Bare(tag) => *tag,
-    //     }
-    // }
+    pub(crate) fn span(&self) -> Span {
+        match self {
+            Member::String(outer, _inner) => *outer,
+            Member::Bare(span) => *span,
+        }
+    }
 
     pub(crate) fn to_spanned_string(&self, source: &str) -> Spanned<String> {
         match self {
@@ -360,7 +360,10 @@ impl Member {
     pub(crate) fn tagged_type_name(&self) -> Tagged<&'static str> {
         match self {
             Member::String(outer, _inner) => "string".tagged(outer),
-            Member::Bare(span) => "word".tagged(tag),
+            Member::Bare(span) => "word".tagged(Tag {
+                span: *span,
+                anchor: uuid::Uuid::nil(),
+            }),
         }
     }
 }
@@ -374,7 +377,7 @@ enum ColumnPathState {
 }
 
 impl ColumnPathState {
-    pub fn dot(self, dot: Tag) -> ColumnPathState {
+    pub fn dot(self, dot: Span) -> ColumnPathState {
         match self {
             ColumnPathState::Initial => ColumnPathState::LeadingDot(dot),
             ColumnPathState::LeadingDot(_) => {
@@ -390,13 +393,13 @@ impl ColumnPathState {
 
     pub fn member(self, member: Member) -> ColumnPathState {
         match self {
-            ColumnPathState::Initial => ColumnPathState::Member(member.tag(), vec![member]),
+            ColumnPathState::Initial => ColumnPathState::Member(member.span(), vec![member]),
             ColumnPathState::LeadingDot(tag) => {
-                ColumnPathState::Member(tag.until(member.tag()), vec![member])
+                ColumnPathState::Member(tag.until(member.span()), vec![member])
             }
 
             ColumnPathState::Dot(tag, mut tags, _) => {
-                ColumnPathState::Member(tag.until(member.tag()), {
+                ColumnPathState::Member(tag.until(member.span()), {
                     tags.push(member);
                     tags
                 })
@@ -623,20 +626,20 @@ impl SkipSyntax for DotShape {
 }
 
 impl ExpandSyntax for DotShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
     ) -> Result<Self::Output, ShellError> {
-        parse_single_node(token_nodes, "dot", |token, token_tag, _| {
+        parse_single_node(token_nodes, "dot", |token, token_span, _| {
             Ok(match token {
-                RawToken::Operator(Operator::Dot) => token_tag,
+                RawToken::Operator(Operator::Dot) => token_span,
                 _ => {
                     return Err(ShellError::type_error(
                         "dot",
-                        token.type_name().tagged(token_tag),
+                        token.type_name().tagged(token_span),
                     ))
                 }
             })
