@@ -382,6 +382,17 @@ impl Span {
         Span { start, end }
     }
 
+    pub fn until_option(&self, other: Option<impl Into<Span>>) -> Span {
+        match other {
+            Some(other) => {
+                let other = other.into();
+
+                Span::new(self.start, other.end)
+            }
+            None => *self,
+        }
+    }
+
     /*
     pub fn unknown_with_uuid(uuid: Uuid) -> Span {
         Span {

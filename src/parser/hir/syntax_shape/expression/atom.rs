@@ -452,10 +452,7 @@ pub fn expand_atom<'me, 'content>(
 
         TokenNode::Error(error) => {
             peeked.commit();
-            return Ok(AtomicToken::Error {
-                error: error.clone(),
-            }
-            .spanned(error.tag.span));
+            return Ok(AtomicToken::Error { error: *error }.spanned(error.tag.span));
         }
 
         // [ ... ]
@@ -486,7 +483,7 @@ pub fn expand_atom<'me, 'content>(
             span,
         }) => {
             peeked.commit();
-            return Ok(AtomicToken::ShorthandFlag { name }.spanned(*span));
+            return Ok(AtomicToken::ShorthandFlag { name: *name }.spanned(*span));
         }
 
         TokenNode::Flag(Spanned {
@@ -498,7 +495,7 @@ pub fn expand_atom<'me, 'content>(
             span,
         }) => {
             peeked.commit();
-            return Ok(AtomicToken::ShorthandFlag { name: name.span }.spanned(*span));
+            return Ok(AtomicToken::ShorthandFlag { name: *name }.spanned(*span));
         }
 
         // If we see whitespace, process the whitespace according to the whitespace

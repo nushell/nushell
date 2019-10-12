@@ -131,7 +131,10 @@ impl ExpandExpression for AnyExpressionStartShape {
                 return Ok(hir::Expression::size(
                     number.to_number(context.source),
                     unit.item,
-                    atom.span.into(),
+                    Tag {
+                        span: atom.span,
+                        anchor: uuid::Uuid::nil(),
+                    },
                 ))
             }
 
@@ -144,11 +147,7 @@ impl ExpandExpression for AnyExpressionStartShape {
                 Ok(hir::Expression::bare(atom.span.until_option(end)))
             }
 
-            other => {
-                return other
-                    .spanned(atom.span.into())
-                    .into_hir(context, "expression")
-            }
+            other => return other.spanned(atom.span).into_hir(context, "expression"),
         }
     }
 }

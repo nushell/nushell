@@ -381,7 +381,7 @@ pub fn flag(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_flag(bare.tag(), (start, end, input.extra)),
+        TokenTreeBuilder::spanned_flag(bare.tag().span, Span::new(start, end)),
     ))
 }
 
@@ -394,7 +394,7 @@ pub fn shorthand(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_shorthand(bare.tag(), (start, end, input.extra)),
+        TokenTreeBuilder::spanned_shorthand(bare.tag().span, Span::new(start, end)),
     ))
 }
 
