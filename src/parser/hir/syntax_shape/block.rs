@@ -239,22 +239,22 @@ impl FallibleColorSyntax for ShorthandHeadShape {
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::BareMember.spanned(tag.span));
+                shapes.push(FlatShape::BareMember.spanned(span));
                 Ok(())
             }
 
             // If the head of a shorthand path is a string, it expands to `$it."some string"`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(_),
-                tag: outer,
+                span: outer,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::StringMember.spanned(outer.span));
+                shapes.push(FlatShape::StringMember.spanned(outer));
                 Ok(())
             }
 
@@ -277,9 +277,9 @@ impl ExpandExpression for ShorthandHeadShape {
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
                 // Commit the peeked token
                 peeked.commit();
@@ -290,15 +290,15 @@ impl ExpandExpression for ShorthandHeadShape {
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
                     it,
-                    vec![tag.spanned_string(context.source)],
-                    tag,
+                    vec![span.spanned_string(context.source)],
+                    *span,
                 ))
             }
 
             // If the head of a shorthand path is a string, it expands to `$it."some string"`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(inner),
-                tag: outer,
+                span: outer,
             }) => {
                 // Commit the peeked token
                 peeked.commit();
@@ -309,8 +309,8 @@ impl ExpandExpression for ShorthandHeadShape {
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
                     it,
-                    vec![inner.string(context.source).spanned(outer)],
-                    outer,
+                    vec![inner.string(context.source).spanned(*outer)],
+                    *outer,
                 ))
             }
 

@@ -199,24 +199,24 @@ impl TokenNode {
         }
     }
 
-    pub fn as_block(&self) -> Option<(Spanned<&[TokenNode]>, (Tag, Tag))> {
+    pub fn as_block(&self) -> Option<(Spanned<&[TokenNode]>, (Span, Span))> {
         match self {
             TokenNode::Delimited(Spanned {
                 item:
                     DelimitedNode {
                         delimiter,
                         children,
-                        tags,
+                        spans,
                     },
                 span,
-            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).spanned(*span), *tags)),
+            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).spanned(*span), *spans)),
             _ => None,
         }
     }
 
     pub fn is_external(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::ExternalCommand(..),
                 ..
             }) => true,
@@ -224,15 +224,12 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_external(&self) -> Tag {
+    pub fn expect_external(&self) -> Span {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::ExternalCommand(span),
                 ..
-            }) => Tag {
-                span: *span,
-                anchor: uuid::Uuid::nil(),
-            },
+            }) => *span,
             _ => panic!("Only call expect_external if you checked is_external first"),
         }
     }
@@ -264,10 +261,10 @@ impl TokenNode {
 
     pub fn expect_string(&self) -> (Span, Span) {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(inner_span),
-                tag: outer_tag,
-            }) => (outer_tag.span, *inner_span),
+                span: outer_span,
+            }) => (*outer_span, *inner_span),
             other => panic!("Expected string, found {:?}", other),
         }
     }
@@ -285,28 +282,22 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_var(&self) -> (Tag, Tag) {
+    pub fn expect_var(&self) -> (Span, Span) {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Variable(inner_span),
-                tag: outer_tag,
-            }) => (
-                *outer_tag,
-                Tag {
-                    span: *inner_span,
-                    anchor: uuid::Uuid::nil(),
-                },
-            ),
+                span: outer_span,
+            }) => (*outer_span, *inner_span),
             other => panic!("Expected var, found {:?}", other),
         }
     }
 
-    pub fn expect_bare(&self) -> Tag {
+    pub fn expect_bare(&self) -> Span {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
-            }) => *tag,
+                span,
+            }) => *span,
             other => panic!("Expected var, found {:?}", other),
         }
     }
@@ -316,7 +307,7 @@ impl TokenNode {
 #[get = "pub(crate)"]
 pub struct DelimitedNode {
     pub(crate) delimiter: Delimiter,
-    pub(crate) tags: (Tag, Tag),
+    pub(crate) spans: (Span, Span),
     pub(crate) children: Vec<TokenNode>,
 }
 

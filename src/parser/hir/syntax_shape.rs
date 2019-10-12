@@ -574,12 +574,12 @@ impl ExpandSyntax for BareShape {
         let peeked = token_nodes.peek_any().not_eof("word")?;
 
         match peeked.node {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
                 peeked.commit();
-                Ok(tag.spanned_string(context.source))
+                Ok(span.spanned_string(context.source))
             }
 
             other => Err(ShellError::type_error("word", other.tagged_type_name())),

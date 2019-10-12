@@ -1,5 +1,5 @@
 use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, RawToken, TokenNode};
-use crate::{Span, Spanned, Tag, Tagged, TaggedItem, Text};
+use crate::{Span, Spanned, SpannedItem, Tag, TaggedItem, Text};
 
 #[derive(Debug, Copy, Clone)]
 pub enum FlatShape {
@@ -29,28 +29,30 @@ pub enum FlatShape {
 }
 
 impl FlatShape {
-    pub fn from(token: &TokenNode, source: &Text, shapes: &mut Vec<Tagged<FlatShape>>) -> () {
+    pub fn from(token: &TokenNode, source: &Text, shapes: &mut Vec<Spanned<FlatShape>>) -> () {
         match token {
             TokenNode::Token(token) => match token.item {
                 RawToken::Number(RawNumber::Int(_)) => {
-                    shapes.push(FlatShape::Int.tagged(token.tag))
+                    shapes.push(FlatShape::Int.spanned(token.span))
                 }
                 RawToken::Number(RawNumber::Decimal(_)) => {
-                    shapes.push(FlatShape::Decimal.tagged(token.tag))
+                    shapes.push(FlatShape::Decimal.spanned(token.span))
                 }
-                RawToken::Operator(Operator::Dot) => shapes.push(FlatShape::Dot.tagged(token.tag)),
-                RawToken::Operator(_) => shapes.push(FlatShape::Operator.tagged(token.tag)),
-                RawToken::String(_) => shapes.push(FlatShape::String.tagged(token.tag)),
+                RawToken::Operator(Operator::Dot) => {
+                    shapes.push(FlatShape::Dot.spanned(token.span))
+                }
+                RawToken::Operator(_) => shapes.push(FlatShape::Operator.spanned(token.span)),
+                RawToken::String(_) => shapes.push(FlatShape::String.spanned(token.span)),
                 RawToken::Variable(v) if v.slice(source) == "it" => {
-                    shapes.push(FlatShape::ItVariable.tagged(token.tag))
+                    shapes.push(FlatShape::ItVariable.spanned(token.span))
                 }
-                RawToken::Variable(_) => shapes.push(FlatShape::Variable.tagged(token.tag)),
+                RawToken::Variable(_) => shapes.push(FlatShape::Variable.spanned(token.span)),
                 RawToken::ExternalCommand(_) => {
-                    shapes.push(FlatShape::ExternalCommand.tagged(token.tag))
+                    shapes.push(FlatShape::ExternalCommand.spanned(token.span))
                 }
-                RawToken::ExternalWord => shapes.push(FlatShape::ExternalWord.tagged(token.tag)),
-                RawToken::GlobPattern => shapes.push(FlatShape::GlobPattern.tagged(token.tag)),
-                RawToken::Bare => shapes.push(FlatShape::Word.tagged(token.tag)),
+                RawToken::ExternalWord => shapes.push(FlatShape::ExternalWord.spanned(token.span)),
+                RawToken::GlobPattern => shapes.push(FlatShape::GlobPattern.spanned(token.span)),
+                RawToken::Bare => shapes.push(FlatShape::Word.spanned(token.span)),
             },
             TokenNode::Call(_) => unimplemented!(),
             TokenNode::Nodes(nodes) => {
