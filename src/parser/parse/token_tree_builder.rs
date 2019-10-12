@@ -127,7 +127,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn tagged_string(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Token(RawToken::String(input.into()).tagged(tag.into()))
+        TokenNode::Token(RawToken::String(input.into().span).tagged(tag.into()))
     }
 
     pub fn bare(input: impl Into<String>) -> CurriedToken {

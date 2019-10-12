@@ -384,6 +384,10 @@ impl Span {
         }
     }
 
+    pub fn string<'a>(&self, source: &'a str) -> String {
+        self.slice(source).to_string()
+    }
+
     /*
     pub fn unknown_with_uuid(uuid: Uuid) -> Span {
         Span {

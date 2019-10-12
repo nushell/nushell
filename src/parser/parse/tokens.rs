@@ -8,7 +8,7 @@ use std::str::FromStr;
 pub enum RawToken {
     Number(RawNumber),
     Operator(Operator),
-    String(Tag),
+    String(Span),
     Variable(Tag),
     ExternalCommand(Tag),
     ExternalWord,
@@ -100,7 +100,13 @@ impl Token {
 
     pub fn extract_string(&self) -> Option<(Tag, Tag)> {
         match self.item {
-            RawToken::String(tag) => Some((tag, self.tag)),
+            RawToken::String(span) => Some((
+                Tag {
+                    span,
+                    anchor: uuid::Uuid::nil(),
+                },
+                self.tag,
+            )),
             _ => None,
         }
     }

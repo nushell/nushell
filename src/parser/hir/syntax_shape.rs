@@ -912,9 +912,9 @@ impl ExpandExpression for InternalCommandHeadShape {
             ) => spanned.map(|_| hir::RawExpression::Literal(hir::Literal::Bare)),
 
             TokenNode::Token(Tagged {
-                item: RawToken::String(inner_tag),
+                item: RawToken::String(inner_span),
                 tag,
-            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_tag)).tagged(*tag),
+            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_span)).tagged(*tag),
 
             node => {
                 return Err(ShellError::type_error(

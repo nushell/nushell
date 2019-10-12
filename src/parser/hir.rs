@@ -175,7 +175,7 @@ impl Expression {
         RawExpression::Synthetic(Synthetic::String(s.into())).tagged_unknown()
     }
 
-    pub(crate) fn string(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
+    pub(crate) fn string(inner: impl Into<Span>, outer: impl Into<Tag>) -> Expression {
         RawExpression::Literal(Literal::String(inner.into())).tagged(outer.into())
     }
 
@@ -296,7 +296,7 @@ impl From<Tagged<Path>> for Expression {
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),
-    String(Tag),
+    String(Span),
     GlobPattern,
     Bare,
 }

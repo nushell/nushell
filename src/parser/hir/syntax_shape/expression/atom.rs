@@ -135,15 +135,15 @@ impl<'tokens> SpannedAtomicToken<'tokens> {
             AtomicToken::Size { number, unit } => {
                 Expression::size(number.to_number(context.source), **unit, self.span)
             }
-            AtomicToken::String { body } => Expression::string(body, self.span),
+            AtomicToken::String { body } => Expression::string(*body, self.span),
             AtomicToken::ItVariable { name } => Expression::it_variable(name, self.span),
             AtomicToken::Variable { name } => Expression::variable(name, self.span),
             AtomicToken::ExternalCommand { command } => {
                 Expression::external_command(command, self.span)
             }
-            AtomicToken::ExternalWord { text } => Expression::string(text, self.span),
+            AtomicToken::ExternalWord { text } => Expression::string(*text, self.span),
             AtomicToken::GlobPattern { pattern } => Expression::pattern(pattern),
-            AtomicToken::Word { text } => Expression::string(text, text),
+            AtomicToken::Word { text } => Expression::string(*text, text),
             AtomicToken::SquareDelimited { .. } => unimplemented!("into_hir"),
             AtomicToken::ParenDelimited { .. } => unimplemented!("into_hir"),
             AtomicToken::BraceDelimited { .. } => unimplemented!("into_hir"),
@@ -553,9 +553,7 @@ pub fn expand_atom<'me, 'content>(
                 text: token_tag.span,
             }
             .spanned(token_tag.span),
-            RawToken::String(body) => {
-                AtomicToken::String { body: body.span }.spanned(token_tag.span)
-            }
+            RawToken::String(body) => AtomicToken::String { body }.spanned(token_tag.span),
             RawToken::Variable(name) if name.slice(context.source) == "it" => {
                 AtomicToken::ItVariable { name: name.span }.spanned(token_tag.span)
             }
