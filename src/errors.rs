@@ -143,12 +143,12 @@ impl ShellError {
     pub(crate) fn argument_error(
         command: impl Into<String>,
         kind: ArgumentError,
-        tag: Tag,
+        tag: impl Into<Tag>,
     ) -> ShellError {
         ProximateShellError::ArgumentError {
             command: command.into(),
             error: kind,
-            tag,
+            tag: tag.into(),
         }
         .start()
     }

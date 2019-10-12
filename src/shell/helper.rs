@@ -170,7 +170,7 @@ fn paint_flat_shape(flat_shape: Spanned<FlatShape>, line: &str) -> String {
         }
     };
 
-    let body = flat_shape.tag.slice(line);
+    let body = flat_shape.span.slice(line);
     style.paint(body).to_string()
 }
 

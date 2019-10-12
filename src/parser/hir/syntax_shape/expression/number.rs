@@ -112,7 +112,7 @@ impl FallibleColorSyntax for IntShape {
 
         let atom = match atom {
             Tagged { item: Err(_), tag } => {
-                shapes.push(FlatShape::Error.tagged(tag));
+                shapes.push(FlatShape::Error.spanned(tag.span));
                 return Ok(());
             }
             Tagged { item: Ok(atom), .. } => atom,
