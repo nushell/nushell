@@ -60,7 +60,7 @@ impl RawNumber {
     }
 }
 
-pub type Token = Tagged<RawToken>;
+pub type Token = Spanned<RawToken>;
 
 impl Token {
     pub fn debug<'a>(&self, source: &'a Text) -> DebugToken<'a> {
@@ -70,43 +70,37 @@ impl Token {
         }
     }
 
-    pub fn extract_number(&self) -> Option<Tagged<RawNumber>> {
+    pub fn extract_number(&self) -> Option<Spanned<RawNumber>> {
         match self.item {
-            RawToken::Number(number) => Some((number).tagged(self.tag)),
+            RawToken::Number(number) => Some((number).spanned(self.span)),
             _ => None,
         }
     }
 
-    pub fn extract_int(&self) -> Option<(Span, Tag)> {
+    pub fn extract_int(&self) -> Option<(Span, Span)> {
         match self.item {
-            RawToken::Number(RawNumber::Int(int)) => Some((int, self.tag)),
+            RawToken::Number(RawNumber::Int(int)) => Some((int, self.span)),
             _ => None,
         }
     }
 
-    pub fn extract_decimal(&self) -> Option<(Span, Tag)> {
+    pub fn extract_decimal(&self) -> Option<(Span, Span)> {
         match self.item {
-            RawToken::Number(RawNumber::Decimal(decimal)) => Some((decimal, self.tag)),
+            RawToken::Number(RawNumber::Decimal(decimal)) => Some((decimal, self.span)),
             _ => None,
         }
     }
 
-    pub fn extract_operator(&self) -> Option<Tagged<Operator>> {
+    pub fn extract_operator(&self) -> Option<Spanned<Operator>> {
         match self.item {
-            RawToken::Operator(operator) => Some(operator.tagged(self.tag)),
+            RawToken::Operator(operator) => Some(operator.spanned(self.span)),
             _ => None,
         }
     }
 
-    pub fn extract_string(&self) -> Option<(Tag, Tag)> {
+    pub fn extract_string(&self) -> Option<(Span, Span)> {
         match self.item {
-            RawToken::String(span) => Some((
-                Tag {
-                    span,
-                    anchor: uuid::Uuid::nil(),
-                },
-                self.tag,
-            )),
+            RawToken::String(span) => Some((span, self.span)),
             _ => None,
         }
     }

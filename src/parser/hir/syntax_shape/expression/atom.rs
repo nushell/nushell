@@ -532,7 +532,7 @@ pub fn expand_atom<'me, 'content>(
         }
     }
 
-    parse_single_node(token_nodes, expected, |token, token_tag, err| {
+    parse_single_node(token_nodes, expected, |token, token_span, err| {
         Ok(match token {
             // First, the error cases. Each error case corresponds to a expansion rule
             // flag that can be used to allow the case
@@ -543,39 +543,38 @@ pub fn expand_atom<'me, 'content>(
             RawToken::ExternalCommand(_) if !rule.allow_external_command => {
                 return Err(ShellError::type_error(
                     expected,
-                    token.type_name().tagged(token_tag),
+                    token.type_name().tagged(Tag {
+                        span: token_span,
+                        anchor: uuid::Uuid::nil(),
+                    }),
                 ))
             }
             // rule.allow_external_word
             RawToken::ExternalWord if !rule.allow_external_word => {
-                return Err(ShellError::invalid_external_word(token_tag))
+                return Err(ShellError::invalid_external_word(Tag {
+                    span: token_span,
+                    anchor: uuid::Uuid::nil(),
+                }))
             }
 
-            RawToken::Number(number) => AtomicToken::Number { number }.spanned(token_tag.span),
-            RawToken::Operator(_) => AtomicToken::Operator {
-                text: token_tag.span,
-            }
-            .spanned(token_tag.span),
-            RawToken::String(body) => AtomicToken::String { body }.spanned(token_tag.span),
+            RawToken::Number(number) => AtomicToken::Number { number }.spanned(token_span),
+            RawToken::Operator(_) => AtomicToken::Operator { text: token_span }.spanned(token_span),
+            RawToken::String(body) => AtomicToken::String { body }.spanned(token_span),
             RawToken::Variable(name) if name.slice(context.source) == "it" => {
-                AtomicToken::ItVariable { name }.spanned(token_tag.span)
+                AtomicToken::ItVariable { name }.spanned(token_span)
             }
-            RawToken::Variable(name) => AtomicToken::Variable { name }.spanned(token_tag.span),
+            RawToken::Variable(name) => AtomicToken::Variable { name }.spanned(token_span),
             RawToken::ExternalCommand(command) => {
-                AtomicToken::ExternalCommand { command }.spanned(token_tag.span)
+                AtomicToken::ExternalCommand { command }.spanned(token_span)
             }
-            RawToken::ExternalWord => AtomicToken::ExternalWord {
-                text: token_tag.span,
+            RawToken::ExternalWord => {
+                AtomicToken::ExternalWord { text: token_span }.spanned(token_span)
             }
-            .spanned(token_tag.span),
             RawToken::GlobPattern => AtomicToken::GlobPattern {
-                pattern: token_tag.span,
+                pattern: token_span,
             }
-            .spanned(token_tag.span),
-            RawToken::Bare => AtomicToken::Word {
-                text: token_tag.span,
-            }
-            .spanned(token_tag.span),
+            .spanned(token_span),
+            RawToken::Bare => AtomicToken::Word { text: token_span }.spanned(token_span),
         })
     })
 }

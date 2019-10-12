@@ -480,7 +480,7 @@ pub fn expand_bare<'a, 'b>(
     token_nodes: &'b mut TokensIterator<'a>,
     _context: &ExpandContext,
     predicate: impl Fn(&TokenNode) -> bool,
-) -> Result<Tag, ShellError> {
+) -> Result<Span, ShellError> {
     let mut state = BarePathState::Initial;
 
     loop {
@@ -511,19 +511,19 @@ pub fn expand_bare<'a, 'b>(
 pub struct BarePathShape;
 
 impl ExpandSyntax for BarePathShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Tag, ShellError> {
+    ) -> Result<Span, ShellError> {
         expand_bare(token_nodes, context, |token| match token {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
                 ..
             })
-            | TokenNode::Token(Tagged {
+            | TokenNode::Token(Spanned {
                 item: RawToken::Operator(Operator::Dot),
                 ..
             }) => true,
@@ -549,11 +549,11 @@ impl FallibleColorSyntax for BareShape {
     ) -> Result<(), ShellError> {
         token_nodes.peek_any_token(|token| match token {
             // If it's a bare token, color it
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
-                shapes.push((*input).spanned(tag.span));
+                shapes.push((*input).spanned(*span));
                 Ok(())
             }
 
@@ -880,15 +880,15 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
         };
 
         let _expr = match peeked_head.node {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
-            }) => shapes.push(FlatShape::Word.spanned(tag.span)),
+                span,
+            }) => shapes.push(FlatShape::Word.spanned(*span)),
 
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(_inner_tag),
-                tag,
-            }) => shapes.push(FlatShape::String.spanned(tag.span)),
+                span,
+            }) => shapes.push(FlatShape::String.spanned(*span)),
 
             _node => shapes.push(FlatShape::Error.spanned(peeked_head.node.tag().span)),
         };
@@ -909,16 +909,16 @@ impl ExpandExpression for InternalCommandHeadShape {
 
         let expr = match peeked_head.node {
             TokenNode::Token(
-                spanned @ Tagged {
+                spanned @ Spanned {
                     item: RawToken::Bare,
                     ..
                 },
             ) => spanned.map(|_| hir::RawExpression::Literal(hir::Literal::Bare)),
 
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(inner_span),
-                tag,
-            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_span)).tagged(*tag),
+                span,
+            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_span)).spanned(*span),
 
             node => {
                 return Err(ShellError::type_error(
@@ -936,24 +936,24 @@ impl ExpandExpression for InternalCommandHeadShape {
 
 pub(crate) struct SingleError<'token> {
     expected: &'static str,
-    node: &'token Tagged<RawToken>,
+    node: &'token Spanned<RawToken>,
 }
 
 impl<'token> SingleError<'token> {
     pub(crate) fn error(&self) -> ShellError {
-        ShellError::type_error(self.expected, self.node.type_name().tagged(self.node.tag))
+        ShellError::type_error(self.expected, self.node.type_name().spanned(self.node.span))
     }
 }
 
 fn parse_single_node<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Tag, SingleError) -> Result<T, ShellError>,
+    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ShellError>,
 ) -> Result<T, ShellError> {
     token_nodes.peek_any_token(|node| match node {
         TokenNode::Token(token) => callback(
             token.item,
-            token.tag(),
+            token.span,
             SingleError {
                 expected,
                 node: token,
@@ -974,7 +974,7 @@ fn parse_single_node_skipping_ws<'a, 'b, T>(
     let expr = match peeked.node {
         TokenNode::Token(token) => callback(
             token.item,
-            token.tag().span,
+            token.span,
             SingleError {
                 expected,
                 node: token,
