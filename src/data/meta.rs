@@ -174,9 +174,9 @@ impl From<&Span> for Tag {
 }
 
 impl From<(usize, usize, TracableContext)> for Tag {
-    fn from((start, end, context): (usize, usize, TracableContext)) -> Self {
+    fn from((start, end, _context): (usize, usize, TracableContext)) -> Self {
         Tag {
-            anchor: context.origin,
+            anchor: uuid::Uuid::nil(),
             span: Span::new(start, end),
         }
     }
@@ -203,7 +203,7 @@ impl From<(usize, usize, Option<Uuid>)> for Tag {
 impl From<nom_locate::LocatedSpanEx<&str, TracableContext>> for Tag {
     fn from(input: nom_locate::LocatedSpanEx<&str, TracableContext>) -> Tag {
         Tag {
-            anchor: input.extra.origin,
+            anchor: uuid::Uuid::nil(),
             span: Span::new(input.offset, input.offset + input.fragment.len()),
         }
     }

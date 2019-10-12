@@ -30,7 +30,6 @@ pub type NomSpan<'a> = LocatedSpanEx<&'a str, TracableContext>;
 
 #[derive(Debug, Clone, Copy, PartialEq, new)]
 pub struct TracableContext {
-    pub(crate) origin: Uuid,
     pub(crate) info: TracableInfo,
 }
 
@@ -40,10 +39,7 @@ impl HasTracableInfo for TracableContext {
     }
 
     fn set_tracable_info(mut self, info: TracableInfo) -> Self {
-        TracableContext {
-            origin: self.origin,
-            info,
-        }
+        TracableContext { info }
     }
 }
 
@@ -56,7 +52,7 @@ impl std::ops::Deref for TracableContext {
 }
 
 pub fn nom_input(s: &str, anchor: Uuid) -> NomSpan<'_> {
-    LocatedSpanEx::new_extra(s, TracableContext::new(anchor, TracableInfo::new()))
+    LocatedSpanEx::new_extra(s, TracableContext::new(TracableInfo::new()))
 }
 
 macro_rules! operator {
@@ -373,7 +369,7 @@ pub fn ident(input: NomSpan) -> IResult<NomSpan, Tag> {
     let (input, _) = take_while(is_bare_char)(input)?;
     let end = input.offset;
 
-    Ok((input, Tag::from((start, end, input.extra.origin))))
+    Ok((input, Tag::from((start, end, uuid::Uuid::nil()))))
 }
 
 #[tracable_parser]
@@ -420,7 +416,7 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
 
     Ok((
         input,
-        make_token_list(first, list, None).tagged((start, end, input.extra.origin)),
+        make_token_list(first, list, None).tagged((start, end, uuid::Uuid::nil())),
     ))
 }
 
@@ -438,7 +434,7 @@ pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNod
     out.extend(items.item);
     out.extend(post_ws);
 
-    Ok((input, out.tagged((start, end, input.extra.origin))))
+    Ok((input, out.tagged((start, end, uuid::Uuid::nil()))))
 }
 
 fn make_token_list(
@@ -495,7 +491,7 @@ pub fn delimited(
         (
             Tag::from(open_tag),
             Tag::from(close_tag),
-            items.tagged((left, right, input.extra.origin)),
+            items.tagged((left, right, uuid::Uuid::nil())),
         ),
     ))
 }
