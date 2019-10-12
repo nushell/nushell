@@ -15,7 +15,7 @@ pub enum TokenNode {
     Call(Spanned<CallNode>),
     Nodes(Spanned<Vec<TokenNode>>),
     Delimited(Spanned<DelimitedNode>),
-    Pipeline(Tagged<Pipeline>),
+    Pipeline(Spanned<Pipeline>),
     Flag(Spanned<Flag>),
     Whitespace(Span),
 
@@ -105,7 +105,10 @@ impl TokenNode {
                 span: s.span,
                 anchor: uuid::Uuid::nil(),
             },
-            TokenNode::Pipeline(s) => s.tag(),
+            TokenNode::Pipeline(s) => Tag {
+                span: s.span,
+                anchor: uuid::Uuid::nil(),
+            },
             TokenNode::Flag(s) => Tag {
                 span: s.span,
                 anchor: uuid::Uuid::nil(),
@@ -247,7 +250,7 @@ impl TokenNode {
 
     pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
-            TokenNode::Pipeline(Tagged { item, .. }) => Ok(item.clone()),
+            TokenNode::Pipeline(Spanned { item, .. }) => Ok(item.clone()),
             _ => Err(ShellError::unimplemented("unimplemented")),
         }
     }

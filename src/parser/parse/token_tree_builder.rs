@@ -77,7 +77,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn tagged_pipeline(input: Vec<Tagged<PipelineElement>>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Pipeline(Pipeline::new(input).tagged(tag.into()))
+        TokenNode::Pipeline(Pipeline::new(input).spanned(tag.into().span))
     }
 
     pub fn token_list(input: Vec<CurriedToken>) -> CurriedToken {

@@ -3,7 +3,7 @@ use crate::parser::hir::syntax_shape::{color_fallible_syntax, FlatShape, Pipelin
 use crate::parser::hir::TokensIterator;
 use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
-use crate::{Spanned, Tag, Tagged, TaggedItem, Text};
+use crate::{Spanned, SpannedItem, Tag, Tagged, Text};
 use ansi_term::Color;
 use log::trace;
 use rustyline::completion::Completer;
@@ -78,7 +78,7 @@ impl Highlighter for Helper {
                     Ok(v) => v,
                 };
 
-                let tokens = vec![TokenNode::Pipeline(pipeline.clone().tagged(v.tag()))];
+                let tokens = vec![TokenNode::Pipeline(pipeline.clone().spanned(v.tag().span))];
                 let mut tokens = TokensIterator::all(&tokens[..], v.tag().span);
 
                 let text = Text::from(line);
