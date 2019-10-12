@@ -89,14 +89,12 @@ impl Str {
 impl Str {
     fn strutils(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
-            }
+            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
             Value::Row(_) => match self.field {
                 Some(ref f) => {
                     let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()))?,
-                        None => return Ok(Tagged::from_item(Value::nothing(), value.tag)),
+                        None => return Ok(Value::nothing().tagged(value.tag)),
                     };
                     match value.item.replace_data_at_column_path(
                         value.tag(),
@@ -271,7 +269,7 @@ mod tests {
     }
 
     fn unstructured_sample_record(value: &str) -> Tagged<Value> {
-        Tagged::from_item(Value::string(value), Tag::unknown())
+        Value::string(value).tagged(Tag::unknown())
     }
 
     #[test]

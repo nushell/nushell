@@ -82,9 +82,7 @@ impl Inc {
             Value::Primitive(Primitive::Bytes(b)) => {
                 Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
             }
-            Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
-            }
+            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
             Value::Row(_) => match self.field {
                 Some(ref f) => {
                     let replacement = match value.item.get_data_by_column_path(value.tag(), f) {

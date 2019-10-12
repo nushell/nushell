@@ -49,7 +49,7 @@ pub(crate) fn evaluate_baseline_expr(
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
     match &expr.item {
-        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_tag(literal), source)),
+        RawExpression::Literal(literal) => Ok(evaluate_literal(literal.tagged(expr.tag()), source)),
         RawExpression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word",
             ArgumentError::InvalidExternalWord,
@@ -71,8 +71,8 @@ pub(crate) fn evaluate_baseline_expr(
             match left.compare(binary.op(), &*right) {
                 Ok(result) => Ok(Value::boolean(result).tagged(expr.tag())),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
-                    binary.left().copy_tag(left_type),
-                    binary.right().copy_tag(right_type),
+                    left_type.tagged(binary.left().tag()),
+                    right_type.tagged(binary.right().tag()),
                 )),
             }
         }

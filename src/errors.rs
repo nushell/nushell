@@ -100,7 +100,7 @@ impl ShellError {
     ) -> ShellError {
         ProximateShellError::RangeError {
             kind: expected.into(),
-            actual_kind: actual.copy_tag(format!("{:?}", actual.item)),
+            actual_kind: format!("{:?}", actual.item).tagged(actual.tag()),
             operation,
         }
         .start()

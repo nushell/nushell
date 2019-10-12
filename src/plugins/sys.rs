@@ -116,7 +116,10 @@ async fn host(tag: Tag) -> Tagged<Value> {
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
-            user_vec.push(Tagged::from_item(Value::string(user.username()), tag));
+            user_vec.push(Tagged {
+                item: Value::string(user.username()),
+                tag,
+            });
         }
     }
     let user_list = Value::Table(user_vec);

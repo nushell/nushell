@@ -78,7 +78,7 @@ pub fn from_tsv_string_to_value(
         }
     }
 
-    Ok(Tagged::from_item(Value::Table(rows), tag))
+    Ok(Value::Table(rows).tagged(tag))
 }
 
 fn from_tsv(

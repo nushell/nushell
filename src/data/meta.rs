@@ -1,13 +1,18 @@
 use crate::context::{AnchorLocation, SourceMap};
 use crate::parser::parse::parser::TracableContext;
 use crate::prelude::*;
-use crate::Text;
 use derive_new::new;
 use getset::Getters;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+#[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
+pub struct Spanned<T> {
+    pub span: Span,
+    pub item: T,
+}
 
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Tagged<T> {
@@ -29,20 +34,23 @@ impl AsRef<Path> for Tagged<PathBuf> {
 
 pub trait TaggedItem: Sized {
     fn tagged(self, tag: impl Into<Tag>) -> Tagged<Self> {
-        Tagged::from_item(self, tag.into())
+        Tagged {
+            item: self,
+            tag: tag.into(),
+        }
     }
 
     // For now, this is a temporary facility. In many cases, there are other useful spans that we
     // could be using, such as the original source spans of JSON or Toml files, but we don't yet
     // have the infrastructure to make that work.
     fn tagged_unknown(self) -> Tagged<Self> {
-        Tagged::from_item(
-            self,
-            Tag {
+        Tagged {
+            item: self,
+            tag: Tag {
                 span: Span::unknown(),
                 anchor: uuid::Uuid::nil(),
             },
-        )
+        }
     }
 }
 
@@ -57,30 +65,11 @@ impl<T> std::ops::Deref for Tagged<T> {
 }
 
 impl<T> Tagged<T> {
-    pub fn with_tag(self, tag: impl Into<Tag>) -> Tagged<T> {
-        Tagged::from_item(self.item, tag)
-    }
-
-    pub fn from_item(item: T, tag: impl Into<Tag>) -> Tagged<T> {
-        Tagged {
-            item,
-            tag: tag.into(),
-        }
-    }
-
     pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Tagged<U> {
         let tag = self.tag();
 
         let mapped = input(self.item);
-        Tagged::from_item(mapped, tag)
-    }
-
-    pub(crate) fn copy_tag<U>(&self, output: U) -> Tagged<U> {
-        Tagged::from_item(output, self.tag())
-    }
-
-    pub fn source(&self, source: &Text) -> Text {
-        Text::from(self.tag().slice(source))
+        mapped.tagged(tag)
     }
 
     pub fn tag(&self) -> Tag {

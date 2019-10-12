@@ -214,10 +214,9 @@ impl Shell for ValueShell {
 
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(Tagged::from_item(
-            Value::string(self.path()),
-            args.call_info.name_tag,
-        )));
+        stream.push_back(ReturnSuccess::value(
+            Value::string(self.path()).tagged(args.call_info.name_tag),
+        ));
         Ok(stream.into())
     }
 
