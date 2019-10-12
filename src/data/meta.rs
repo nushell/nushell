@@ -14,15 +14,6 @@ pub struct Spanned<T> {
     pub item: T,
 }
 
-impl<T> Spanned<T> {
-    fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
-        Spanned {
-            item: self,
-            span: span.into(),
-        }
-    }
-}
-
 pub trait SpannedItem: Sized {
     fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned {

@@ -33,21 +33,21 @@ impl RawToken {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RawNumber {
-    Int(Tag),
-    Decimal(Tag),
+    Int(Span),
+    Decimal(Span),
 }
 
 impl RawNumber {
-    pub fn int(tag: impl Into<Tag>) -> Tagged<RawNumber> {
-        let tag = tag.into();
+    pub fn int(span: impl Into<Span>) -> Spanned<RawNumber> {
+        let span = span.into();
 
-        RawNumber::Int(tag).tagged(tag)
+        RawNumber::Int(span).spanned(span)
     }
 
-    pub fn decimal(tag: impl Into<Tag>) -> Tagged<RawNumber> {
-        let tag = tag.into();
+    pub fn decimal(span: impl Into<Span>) -> Spanned<RawNumber> {
+        let span = span.into();
 
-        RawNumber::Decimal(tag).tagged(tag)
+        RawNumber::Decimal(span).spanned(span)
     }
 
     pub(crate) fn to_number(self, source: &Text) -> Number {
@@ -77,14 +77,14 @@ impl Token {
         }
     }
 
-    pub fn extract_int(&self) -> Option<(Tag, Tag)> {
+    pub fn extract_int(&self) -> Option<(Span, Tag)> {
         match self.item {
             RawToken::Number(RawNumber::Int(int)) => Some((int, self.tag)),
             _ => None,
         }
     }
 
-    pub fn extract_decimal(&self) -> Option<(Tag, Tag)> {
+    pub fn extract_decimal(&self) -> Option<(Span, Tag)> {
         match self.item {
             RawToken::Number(RawNumber::Decimal(decimal)) => Some((decimal, self.tag)),
             _ => None,

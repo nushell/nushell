@@ -452,7 +452,10 @@ pub fn expand_atom<'me, 'content>(
 
         TokenNode::Error(error) => {
             peeked.commit();
-            return Ok(AtomicToken::Error { error: *error }.spanned(error.span));
+            return Ok(AtomicToken::Error {
+                error: error.clone(),
+            }
+            .spanned(error.span));
         }
 
         // [ ... ]

@@ -171,22 +171,28 @@ pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_number(number.item, number.tag),
+        TokenTreeBuilder::tagged_number(
+            number.item,
+            Tag {
+                span: number.span,
+                anchor: uuid::Uuid::nil(),
+            },
+        ),
     ))
 }
 
 #[tracable_parser]
-pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
+pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Spanned<RawNumber>> {
     let anchoral = input;
     let start = input.offset;
     let (input, neg) = opt(tag("-"))(input)?;
     let (input, head) = digit1(input)?;
 
     match input.fragment.chars().next() {
-        None => return Ok((input, RawNumber::int((start, input.offset, input.extra)))),
+        None => return Ok((input, RawNumber::int(Span::new(start, input.offset)))),
         Some('.') => (),
         other if is_boundary(other) => {
-            return Ok((input, RawNumber::int((start, input.offset, input.extra))))
+            return Ok((input, RawNumber::int(Span::new(start, input.offset))))
         }
         _ => {
             return Err(nom::Err::Error(nom::error::make_error(
@@ -202,7 +208,7 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
         Ok((input, dot)) => input,
 
         // it's just an integer
-        Err(_) => return Ok((input, RawNumber::int((start, input.offset, input.extra)))),
+        Err(_) => return Ok((input, RawNumber::int(Span::new(start, input.offset)))),
     };
 
     let (input, tail) = digit1(input)?;
@@ -212,7 +218,7 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Tagged<RawNumber>> {
     let next = input.fragment.chars().next();
 
     if is_boundary(next) {
-        Ok((input, RawNumber::decimal((start, end, input.extra))))
+        Ok((input, RawNumber::decimal(Span::new(start, end))))
     } else {
         Err(nom::Err::Error(nom::error::make_error(
             input,

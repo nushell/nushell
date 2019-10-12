@@ -58,20 +58,18 @@ fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>,
             let (input, rest) = digit1(input)?;
             (
                 input,
-                RawNumber::decimal((
+                RawNumber::decimal(Span::new(
                     bare_span.start(),
                     bare_span.start() + digits.len() + dot.len() + rest.len(),
-                    uuid::Uuid::nil(),
                 )),
             )
         }
 
         None => (
             input,
-            RawNumber::int((
+            RawNumber::int(Span::new(
                 bare_span.start(),
                 bare_span.start() + digits.len(),
-                uuid::Uuid::nil(),
             )),
         ),
     };
@@ -85,7 +83,7 @@ fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>,
         value(Unit::MB, alt((tag("PB"), tag("pb"), tag("Pb")))),
     )))(input)?;
 
-    let start_span = number.tag.span.end();
+    let start_span = number.span.end();
 
     Ok((
         input,

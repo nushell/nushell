@@ -202,7 +202,7 @@ impl TokenTreeBuilder {
             b.pos = end;
 
             TokenTreeBuilder::tagged_number(
-                RawNumber::Int((start, end, b.anchor).into()),
+                RawNumber::Int(Span::new(start, end)),
                 (start, end, b.anchor),
             )
         })
@@ -216,7 +216,7 @@ impl TokenTreeBuilder {
             b.pos = end;
 
             TokenTreeBuilder::tagged_number(
-                RawNumber::Decimal((start, end, b.anchor).into()),
+                RawNumber::Decimal(Span::new(start, end)),
                 (start, end, b.anchor),
             )
         })
