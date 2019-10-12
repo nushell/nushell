@@ -16,7 +16,7 @@ pub enum TokenNode {
     Nodes(Tagged<Vec<TokenNode>>),
     Delimited(Tagged<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
-    Flag(Tagged<Flag>),
+    Flag(Spanned<Flag>),
     Whitespace(Tag),
 
     Error(Tagged<ShellError>),
@@ -97,7 +97,10 @@ impl TokenNode {
             TokenNode::Call(s) => s.tag(),
             TokenNode::Delimited(s) => s.tag(),
             TokenNode::Pipeline(s) => s.tag(),
-            TokenNode::Flag(s) => s.tag(),
+            TokenNode::Flag(s) => Tag {
+                span: s.span,
+                anchor: uuid::Uuid::nil(),
+            },
             TokenNode::Whitespace(s) => *s,
             TokenNode::Error(s) => return s.tag,
         }
@@ -207,10 +210,10 @@ impl TokenNode {
         }
     }
 
-    pub(crate) fn as_flag(&self, value: &str, source: &Text) -> Option<Tagged<Flag>> {
+    pub(crate) fn as_flag(&self, value: &str, source: &Text) -> Option<Spanned<Flag>> {
         match self {
             TokenNode::Flag(
-                flag @ Tagged {
+                flag @ Spanned {
                     item: Flag { .. }, ..
                 },
             ) if value == flag.name().slice(source) => Some(*flag),

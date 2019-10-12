@@ -86,7 +86,10 @@ fn triage_external_head(node: &TokenNode) -> Result<Tag, ShellError> {
         TokenNode::Nodes(_nodes) => unimplemented!("TODO: OMG"),
         TokenNode::Delimited(_delimited) => unimplemented!("TODO: OMG"),
         TokenNode::Pipeline(_pipeline) => unimplemented!("TODO: OMG"),
-        TokenNode::Flag(flag) => flag.tag(),
+        TokenNode::Flag(flag) => Tag {
+            span: flag.span,
+            anchor: uuid::Uuid::nil(),
+        },
         TokenNode::Whitespace(_whitespace) => {
             unreachable!("This function should be called after next_non_ws()")
         }

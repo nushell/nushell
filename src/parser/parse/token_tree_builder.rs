@@ -248,12 +248,12 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("--");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::tagged_flag((inner_start, end, b.anchor), (start, end, b.anchor))
+            TokenTreeBuilder::spanned_flag(Span::new(inner_start, end), Span::new(start, end))
         })
     }
 
-    pub fn tagged_flag(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Flag(Flag::new(FlagKind::Longhand, input.into()).tagged(tag.into()))
+    pub fn spanned_flag(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Flag(Flag::new(FlagKind::Longhand, input.into()).spanned(span.into()))
     }
 
     pub fn shorthand(input: impl Into<String>) -> CurriedToken {
@@ -263,12 +263,12 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("-");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::tagged_shorthand((inner_start, end, b.anchor), (start, end, b.anchor))
+            TokenTreeBuilder::spanned_shorthand((inner_start, end), (start, end))
         })
     }
 
-    pub fn tagged_shorthand(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Flag(Flag::new(FlagKind::Shorthand, input.into()).tagged(tag.into()))
+    pub fn spanned_shorthand(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Flag(Flag::new(FlagKind::Shorthand, input.into()).spanned(span.into()))
     }
 
     pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedCall {

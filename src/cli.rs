@@ -633,7 +633,7 @@ fn classify_pipeline(
     source: &Text,
 ) -> Result<ClassifiedPipeline, ShellError> {
     let mut pipeline_list = vec![pipeline.clone()];
-    let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.tag());
+    let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.tag().span);
 
     expand_syntax(
         &PipelineShape,

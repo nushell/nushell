@@ -62,7 +62,7 @@ pub fn parse_command_tail(
                             return Err(ShellError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.span(),
+                                flag.span,
                             ));
                         }
 

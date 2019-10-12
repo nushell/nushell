@@ -658,7 +658,7 @@ impl FallibleColorSyntax for PipelineShape {
             }
 
             // Create a new iterator containing the tokens in the pipeline part to color
-            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.tag, false);
+            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.tag.span, false);
 
             color_syntax(&MaybeSpaceShape, &mut token_nodes, context, shapes);
             color_syntax(&CommandShape, &mut token_nodes, context, shapes);
@@ -1181,7 +1181,7 @@ fn classify_command(
     context: &ExpandContext,
     source: &Text,
 ) -> Result<ClassifiedCommand, ShellError> {
-    let mut iterator = TokensIterator::new(&command.tokens.item, command.tag, true);
+    let mut iterator = TokensIterator::new(&command.tokens.item, command.tag.span, true);
 
     let head = CommandHeadShape.expand_syntax(&mut iterator, &context)?;
 

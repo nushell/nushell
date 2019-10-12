@@ -116,7 +116,7 @@ fn parse_tokens<T: Eq + Debug>(
 
     ExpandContext::with_empty(&Text::from(source), |context| {
         let tokens = tokens.expect_list();
-        let mut iterator = TokensIterator::all(tokens.item, *context.tag());
+        let mut iterator = TokensIterator::all(tokens.item, context.tag().span);
 
         let expr = expand_syntax(&shape, &mut iterator, &context);
 

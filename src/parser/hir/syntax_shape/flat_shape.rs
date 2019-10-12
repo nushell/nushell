@@ -1,5 +1,5 @@
 use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, RawToken, TokenNode};
-use crate::{Span, Tagged, TaggedItem, Text};
+use crate::{Span, Spanned, Tag, Tagged, TaggedItem, Text};
 
 #[derive(Debug, Copy, Clone)]
 pub enum FlatShape {
@@ -72,22 +72,28 @@ impl FlatShape {
                     }
                 }
             }
-            TokenNode::Flag(Tagged {
+            TokenNode::Flag(Spanned {
                 item:
                     Flag {
                         kind: FlagKind::Longhand,
                         ..
                     },
-                tag,
-            }) => shapes.push(FlatShape::Flag.tagged(tag)),
-            TokenNode::Flag(Tagged {
+                span,
+            }) => shapes.push(FlatShape::Flag.tagged(Tag {
+                span: *span,
+                anchor: uuid::Uuid::nil(),
+            })),
+            TokenNode::Flag(Spanned {
                 item:
                     Flag {
                         kind: FlagKind::Shorthand,
                         ..
                     },
-                tag,
-            }) => shapes.push(FlatShape::ShorthandFlag.tagged(tag)),
+                span,
+            }) => shapes.push(FlatShape::ShorthandFlag.tagged(Tag {
+                span: *span,
+                anchor: uuid::Uuid::nil(),
+            })),
             TokenNode::Whitespace(_) => shapes.push(FlatShape::Whitespace.tagged(token.tag())),
             TokenNode::Error(v) => shapes.push(FlatShape::Error.tagged(v.tag)),
         }

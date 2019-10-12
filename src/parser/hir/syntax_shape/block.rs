@@ -40,7 +40,7 @@ impl FallibleColorSyntax for AnyBlockShape {
         match block {
             // If so, color it as a block
             Some((children, tags)) => {
-                let mut token_nodes = TokensIterator::new(children.item, context.tag, false);
+                let mut token_nodes = TokensIterator::new(children.item, context.tag.span, false);
                 color_syntax_with(
                     &DelimitedShape,
                     &(Delimiter::Brace, tags.0, tags.1),
@@ -72,7 +72,7 @@ impl ExpandExpression for AnyBlockShape {
 
         match block {
             Some((block, _tags)) => {
-                let mut iterator = TokensIterator::new(&block.item, context.tag, false);
+                let mut iterator = TokensIterator::new(&block.item, context.tag.span, false);
 
                 let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
 

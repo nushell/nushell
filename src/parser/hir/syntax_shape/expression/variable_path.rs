@@ -590,7 +590,7 @@ impl FallibleColorSyntax for ColorableDotShape {
         match peeked.node {
             node if node.is_dot() => {
                 peeked.commit();
-                shapes.push((*input).spanned(node.span()));
+                shapes.push((*input).spanned(node.tag().span));
                 Ok(())
             }
 

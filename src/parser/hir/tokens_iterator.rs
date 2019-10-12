@@ -2,12 +2,12 @@ pub(crate) mod debug;
 
 use crate::errors::ShellError;
 use crate::parser::TokenNode;
-use crate::{Tag, Tagged, TaggedItem};
+use crate::{Span, Tag, Tagged, TaggedItem};
 
 #[derive(Debug)]
 pub struct TokensIterator<'content> {
     tokens: &'content [TokenNode],
-    tag: Tag,
+    span: Span,
     skip_ws: bool,
     index: usize,
     seen: indexmap::IndexSet<usize>,
@@ -121,10 +121,14 @@ pub fn peek_error(
 }
 
 impl<'content> TokensIterator<'content> {
-    pub fn new(items: &'content [TokenNode], tag: Tag, skip_ws: bool) -> TokensIterator<'content> {
+    pub fn new(
+        items: &'content [TokenNode],
+        span: Span,
+        skip_ws: bool,
+    ) -> TokensIterator<'content> {
         TokensIterator {
             tokens: items,
-            tag,
+            span,
             skip_ws,
             index: 0,
             seen: indexmap::IndexSet::new(),
@@ -132,11 +136,11 @@ impl<'content> TokensIterator<'content> {
     }
 
     pub fn anchor(&self) -> uuid::Uuid {
-        self.tag.anchor
+        uuid::Uuid::nil()
     }
 
-    pub fn all(tokens: &'content [TokenNode], tag: Tag) -> TokensIterator<'content> {
-        TokensIterator::new(tokens, tag, false)
+    pub fn all(tokens: &'content [TokenNode], span: Span) -> TokensIterator<'content> {
+        TokensIterator::new(tokens, span, false)
     }
 
     pub fn len(&self) -> usize {
@@ -193,7 +197,7 @@ impl<'content> TokensIterator<'content> {
     }
 
     fn eof_tag(&self) -> Tag {
-        Tag::from((self.tag.span.end(), self.tag.span.end(), self.tag.anchor))
+        Tag::from((self.span.end(), self.span.end(), uuid::Uuid::nil()))
     }
 
     pub fn typed_tag_at_cursor(&mut self) -> Tagged<&'static str> {
@@ -262,7 +266,7 @@ impl<'content> TokensIterator<'content> {
     pub fn clone(&self) -> TokensIterator<'content> {
         TokensIterator {
             tokens: self.tokens,
-            tag: self.tag,
+            span: self.span,
             index: self.index,
             seen: self.seen.clone(),
             skip_ws: self.skip_ws,

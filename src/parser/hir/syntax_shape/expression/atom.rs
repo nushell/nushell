@@ -477,28 +477,28 @@ pub fn expand_atom<'me, 'content>(
             .spanned(tag.span));
         }
 
-        TokenNode::Flag(Tagged {
+        TokenNode::Flag(Spanned {
             item:
                 Flag {
                     kind: FlagKind::Shorthand,
                     name,
                 },
-            tag,
+            span,
         }) => {
             peeked.commit();
-            return Ok(AtomicToken::ShorthandFlag { name: name.span }.spanned(tag.span));
+            return Ok(AtomicToken::ShorthandFlag { name }.spanned(*span));
         }
 
-        TokenNode::Flag(Tagged {
+        TokenNode::Flag(Spanned {
             item:
                 Flag {
                     kind: FlagKind::Longhand,
                     name,
                 },
-            tag,
+            span,
         }) => {
             peeked.commit();
-            return Ok(AtomicToken::ShorthandFlag { name: name.span }.spanned(tag.span));
+            return Ok(AtomicToken::ShorthandFlag { name: name.span }.spanned(*span));
         }
 
         // If we see whitespace, process the whitespace according to the whitespace

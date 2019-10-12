@@ -79,7 +79,7 @@ impl Highlighter for Helper {
                 };
 
                 let tokens = vec![TokenNode::Pipeline(pipeline.clone().tagged(v.tag()))];
-                let mut tokens = TokensIterator::all(&tokens[..], v.tag());
+                let mut tokens = TokensIterator::all(&tokens[..], v.tag().span);
 
                 let text = Text::from(line);
                 let expand_context = self

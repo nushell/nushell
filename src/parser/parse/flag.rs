@@ -1,5 +1,5 @@
 use crate::parser::hir::syntax_shape::flat_shape::FlatShape;
-use crate::{Spanned, SpannedItem, Tag};
+use crate::{Span, Spanned, SpannedItem};
 use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ pub enum FlagKind {
 #[get = "pub(crate)"]
 pub struct Flag {
     pub(crate) kind: FlagKind,
-    pub(crate) name: Tag,
+    pub(crate) name: Span,
 }
 
 impl Spanned<Flag> {

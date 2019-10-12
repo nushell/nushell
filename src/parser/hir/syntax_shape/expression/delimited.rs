@@ -6,25 +6,31 @@ use crate::prelude::*;
 
 pub fn expand_delimited_square(
     children: &Vec<TokenNode>,
-    tag: Tag,
+    span: Span,
     context: &ExpandContext,
 ) -> Result<hir::Expression, ShellError> {
-    let mut tokens = TokensIterator::new(&children, tag, false);
+    let mut tokens = TokensIterator::new(&children, span, false);
 
     let list = expand_syntax(&ExpressionListShape, &mut tokens, context);
 
-    Ok(hir::Expression::list(list?, tag))
+    Ok(hir::Expression::list(
+        list?,
+        Tag {
+            span,
+            anchor: uuid::Uuid::nil(),
+        },
+    ))
 }
 
 pub fn color_delimited_square(
     (open, close): (Span, Span),
     children: &Vec<TokenNode>,
-    tag: Tag,
+    span: Span,
     context: &ExpandContext,
     shapes: &mut Vec<Spanned<FlatShape>>,
 ) {
     shapes.push(FlatShape::OpenDelimiter(Delimiter::Square).spanned(open));
-    let mut tokens = TokensIterator::new(&children, tag, false);
+    let mut tokens = TokensIterator::new(&children, span, false);
     let _list = color_syntax(&ExpressionListShape, &mut tokens, context, shapes);
     shapes.push(FlatShape::CloseDelimiter(Delimiter::Square).spanned(close));
 }
