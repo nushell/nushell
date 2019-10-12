@@ -231,7 +231,7 @@ impl Expression {
         RawExpression::Literal(Literal::GlobPattern).tagged(tag.into())
     }
 
-    pub(crate) fn variable(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
+    pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Tag>) -> Expression {
         RawExpression::Variable(Variable::Other(inner.into())).tagged(outer)
     }
 
@@ -239,7 +239,7 @@ impl Expression {
         RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).tagged(outer)
     }
 
-    pub(crate) fn it_variable(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
+    pub(crate) fn it_variable(inner: impl Into<Span>, outer: impl Into<Tag>) -> Expression {
         RawExpression::Variable(Variable::It(inner.into())).tagged(outer)
     }
 }
@@ -347,15 +347,15 @@ impl Literal {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Variable {
-    It(Tag),
-    Other(Tag),
+    It(Span),
+    Other(Span),
 }
 
 impl std::fmt::Display for Variable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Variable::It(_) => write!(f, "$it"),
-            Variable::Other(tag) => write!(f, "${{ {}..{} }}", tag.span.start(), tag.span.end()),
+            Variable::Other(span) => write!(f, "${{ {}..{} }}", span.start(), span.end()),
         }
     }
 }

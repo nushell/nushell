@@ -136,8 +136,8 @@ impl<'tokens> SpannedAtomicToken<'tokens> {
                 Expression::size(number.to_number(context.source), **unit, self.span)
             }
             AtomicToken::String { body } => Expression::string(*body, self.span),
-            AtomicToken::ItVariable { name } => Expression::it_variable(name, self.span),
-            AtomicToken::Variable { name } => Expression::variable(name, self.span),
+            AtomicToken::ItVariable { name } => Expression::it_variable(*name, self.span),
+            AtomicToken::Variable { name } => Expression::variable(*name, self.span),
             AtomicToken::ExternalCommand { command } => {
                 Expression::external_command(command, self.span)
             }
