@@ -12,7 +12,7 @@ use std::fmt;
 pub enum TokenNode {
     Token(Token),
 
-    Call(Tagged<CallNode>),
+    Call(Spanned<CallNode>),
     Nodes(Spanned<Vec<TokenNode>>),
     Delimited(Spanned<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
@@ -97,7 +97,10 @@ impl TokenNode {
                 span: t.span,
                 anchor: uuid::Uuid::nil(),
             },
-            TokenNode::Call(s) => s.tag(),
+            TokenNode::Call(s) => Tag {
+                span: s.span,
+                anchor: uuid::Uuid::nil(),
+            },
             TokenNode::Delimited(s) => Tag {
                 span: s.span,
                 anchor: uuid::Uuid::nil(),
