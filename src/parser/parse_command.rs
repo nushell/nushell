@@ -17,7 +17,7 @@ pub fn parse_command_tail(
     config: &Signature,
     context: &ExpandContext,
     tail: &mut TokensIterator,
-    command_tag: Tag,
+    command_span: Span,
 ) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
     let mut named = NamedArguments::new();
     trace_remaining("nodes", tail.clone(), context.source());
@@ -32,7 +32,7 @@ pub fn parse_command_tail(
                 named.insert_switch(name, flag);
             }
             NamedType::Mandatory(syntax_type) => {
-                match extract_mandatory(config, name, tail, context.source(), command_tag.span) {
+                match extract_mandatory(config, name, tail, context.source(), command_span) {
                     Err(err) => return Err(err), // produce a correct diagnostic
                     Ok((pos, flag)) => {
                         tail.move_to(pos);
@@ -98,7 +98,10 @@ pub fn parse_command_tail(
                     return Err(ShellError::argument_error(
                         config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
-                        command_tag,
+                        Tag {
+                            span: command_span,
+                            anchor: uuid::Uuid::nil(),
+                        },
                     ));
                 }
             }

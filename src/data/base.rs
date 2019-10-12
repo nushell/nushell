@@ -712,7 +712,7 @@ impl Value {
             Value::Block(b) => itertools::join(
                 b.expressions
                     .iter()
-                    .map(|e| e.tag.slice(&b.source).to_string()),
+                    .map(|e| e.span.slice(&b.source).to_string()),
                 "; ",
             ),
             Value::Row(_) => format!("[table: 1 row]"),

@@ -76,10 +76,7 @@ impl ExpandExpression for AnyBlockShape {
 
                 let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
 
-                return Ok(hir::RawExpression::Block(exprs).tagged(Tag {
-                    span: block.span,
-                    anchor: uuid::Uuid::nil(),
-                }));
+                return Ok(hir::RawExpression::Block(exprs).spanned(block.span));
             }
             _ => {}
         }
@@ -129,10 +126,10 @@ impl ExpandExpression for ShorthandBlock {
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
         let path = expand_expr(&ShorthandPath, token_nodes, context)?;
-        let start = path.tag;
+        let start = path.span;
         let expr = continue_expression(path, token_nodes, context)?;
-        let end = expr.tag;
-        let block = hir::RawExpression::Block(vec![expr]).tagged(start.until(end));
+        let end = expr.span;
+        let block = hir::RawExpression::Block(vec![expr]).spanned(start.until(end));
 
         Ok(block)
     }

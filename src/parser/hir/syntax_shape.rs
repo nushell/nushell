@@ -608,8 +608,8 @@ impl TestSyntax for BareShape {
 
 #[derive(Debug)]
 pub enum CommandSignature {
-    Internal(Tagged<Arc<Command>>),
-    LiteralExternal { outer: Tag, inner: Span },
+    Internal(Spanned<Arc<Command>>),
+    LiteralExternal { outer: Span, inner: Span },
     External(Span),
     Expression(hir::Expression),
 }
@@ -618,14 +618,15 @@ impl CommandSignature {
     pub fn to_expression(&self) -> hir::Expression {
         match self {
             CommandSignature::Internal(command) => {
-                let tag = command.tag;
-                hir::RawExpression::Command(tag).tagged(tag)
+                let span = command.span;
+                hir::RawExpression::Command(span).spanned(span)
             }
             CommandSignature::LiteralExternal { outer, inner } => {
-                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*inner)).tagged(outer)
+                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*inner))
+                    .spanned(*outer)
             }
-            CommandSignature::External(tag) => {
-                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*tag)).tagged(tag)
+            CommandSignature::External(span) => {
+                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*span)).spanned(*span)
             }
             CommandSignature::Expression(expr) => expr.clone(),
         }
@@ -764,25 +765,25 @@ impl ExpandSyntax for CommandHeadShape {
         context: &ExpandContext,
     ) -> Result<CommandSignature, ShellError> {
         let node =
-            parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_tag, _| {
+            parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_span, _| {
                 Ok(match token {
                     RawToken::ExternalCommand(span) => CommandSignature::LiteralExternal {
-                        outer: token_tag,
+                        outer: token_span,
                         inner: span,
                     },
                     RawToken::Bare => {
-                        let name = token_tag.slice(context.source);
+                        let name = token_span.slice(context.source);
                         if context.registry.has(name) {
                             let command = context.registry.expect_command(name);
-                            CommandSignature::Internal(command.tagged(token_tag))
+                            CommandSignature::Internal(command.spanned(token_span))
                         } else {
-                            CommandSignature::External(token_tag.span)
+                            CommandSignature::External(token_span)
                         }
                     }
                     _ => {
                         return Err(ShellError::type_error(
                             "command head2",
-                            token.type_name().tagged(token_tag),
+                            token.type_name().tagged(token_span),
                         ))
                     }
                 })
@@ -963,14 +964,14 @@ fn parse_single_node<'a, 'b, T>(
 fn parse_single_node_skipping_ws<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Tag, SingleError) -> Result<T, ShellError>,
+    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ShellError>,
 ) -> Result<T, ShellError> {
     let peeked = token_nodes.peek_non_ws().not_eof(expected)?;
 
     let expr = match peeked.node {
         TokenNode::Token(token) => callback(
             token.item,
-            token.tag(),
+            token.tag().span,
             SingleError {
                 expected,
                 node: token,
@@ -1205,7 +1206,7 @@ fn classify_command(
 
         CommandSignature::Internal(command) => {
             let tail =
-                parse_command_tail(&command.signature(), &context, &mut iterator, command.tag)?;
+                parse_command_tail(&command.signature(), &context, &mut iterator, command.span)?;
 
             let (positional, named) = match tail {
                 None => (None, None),
@@ -1220,7 +1221,10 @@ fn classify_command(
 
             Ok(ClassifiedCommand::Internal(InternalCommand::new(
                 command.name().to_string(),
-                command.tag,
+                Tag {
+                    span: command.span,
+                    anchor: uuid::Uuid::nil(),
+                },
                 call,
             )))
         }

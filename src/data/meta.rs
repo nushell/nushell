@@ -379,6 +379,12 @@ impl Span {
         Span { start, end }
     }
 
+    pub fn until(&self, other: impl Into<Span>) -> Span {
+        let other = other.into();
+
+        Span::new(self.start, other.end)
+    }
+
     pub fn until_option(&self, other: Option<impl Into<Span>>) -> Span {
         match other {
             Some(other) => {
@@ -392,6 +398,14 @@ impl Span {
 
     pub fn string<'a>(&self, source: &'a str) -> String {
         self.slice(source).to_string()
+    }
+
+    pub fn spanned_slice<'a>(&self, source: &'a str) -> Spanned<&'a str> {
+        self.slice(source).spanned(*self)
+    }
+
+    pub fn spanned_string<'a>(&self, source: &'a str) -> Spanned<String> {
+        self.slice(source).to_string().spanned(*self)
     }
 
     /*

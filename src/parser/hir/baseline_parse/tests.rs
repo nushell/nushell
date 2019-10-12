@@ -6,7 +6,7 @@ use crate::parser::hir::syntax_shape::*;
 use crate::parser::hir::TokensIterator;
 use crate::parser::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder as b};
 use crate::parser::TokenNode;
-use crate::{Span, Tag, Tagged, TaggedItem, Text};
+use crate::{Span, SpannedItem, Tag, Tagged, TaggedItem, Text};
 use pretty_assertions::assert_eq;
 use std::fmt::Debug;
 use uuid::Uuid;
@@ -70,7 +70,7 @@ fn test_parse_command() {
                 "ls".to_string(),
                 bare,
                 hir::Call {
-                    head: Box::new(hir::RawExpression::Command(bare).tagged(bare)),
+                    head: Box::new(hir::RawExpression::Command(bare.span).spanned(bare.span)),
                     positional: Some(vec![hir::Expression::pattern(pat)]),
                     named: None,
                 },

@@ -23,9 +23,9 @@ impl ExpandExpression for VariablePathShape {
         //   2. consume the next token as a member and push it onto tail
 
         let head = expand_expr(&VariableShape, token_nodes, context)?;
-        let start = head.tag();
+        let start = head.span;
         let mut end = start;
-        let mut tail: Vec<Tagged<String>> = vec![];
+        let mut tail: Vec<Spanned<String>> = vec![];
 
         loop {
             match DotShape.skip(token_nodes, context) {
@@ -34,9 +34,9 @@ impl ExpandExpression for VariablePathShape {
             }
 
             let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-            let member = syntax.to_tagged_string(context.source);
+            let member = syntax.to_spanned_string(context.source);
 
-            end = member.tag();
+            end = member.span;
             tail.push(member);
         }
 
@@ -320,45 +320,56 @@ impl FallibleColorSyntax for VariableShape {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Member {
-    String(/* outer */ Tag, /* inner */ Tag),
-    Bare(Tag),
+    String(/* outer */ Span, /* inner */ Span),
+    Bare(Span),
 }
 
 impl Member {
     pub(crate) fn to_expr(&self) -> hir::Expression {
         match self {
-            Member::String(outer, inner) => hir::Expression::string(inner, outer),
-            Member::Bare(tag) => hir::Expression::string(tag, tag),
+            Member::String(outer, inner) => hir::Expression::string(*inner, *outer),
+            Member::Bare(span) => hir::Expression::string(*span, *span),
         }
     }
 
-    pub(crate) fn tag(&self) -> Tag {
+    // pub(crate) fn tag(&self) -> Tag {
+    //     match self {
+    //         Member::String(outer, _inner) => *outer,
+    //         Member::Bare(tag) => *tag,
+    //     }
+    // }
+
+    pub(crate) fn to_spanned_string(&self, source: &str) -> Spanned<String> {
         match self {
-            Member::String(outer, _inner) => *outer,
-            Member::Bare(tag) => *tag,
+            Member::String(outer, inner) => inner.string(source).spanned(*outer),
+            Member::Bare(span) => span.spanned_string(source),
         }
     }
 
     pub(crate) fn to_tagged_string(&self, source: &str) -> Tagged<String> {
         match self {
             Member::String(outer, inner) => inner.string(source).tagged(outer),
-            Member::Bare(tag) => tag.tagged_string(source),
+            Member::Bare(span) => Tag {
+                span: *span,
+                anchor: uuid::Uuid::nil(),
+            }
+            .tagged_string(source),
         }
     }
 
     pub(crate) fn tagged_type_name(&self) -> Tagged<&'static str> {
         match self {
             Member::String(outer, _inner) => "string".tagged(outer),
-            Member::Bare(tag) => "word".tagged(tag),
+            Member::Bare(span) => "word".tagged(tag),
         }
     }
 }
 
 enum ColumnPathState {
     Initial,
-    LeadingDot(Tag),
-    Dot(Tag, Vec<Member>, Tag),
-    Member(Tag, Vec<Member>),
+    LeadingDot(Span),
+    Dot(Span, Vec<Member>, Span),
+    Member(Span, Vec<Member>),
     Error(ShellError),
 }
 
@@ -552,7 +563,7 @@ impl ExpandSyntax for MemberShape {
         let bare = BareShape.test(token_nodes, context);
         if let Some(peeked) = bare {
             let node = peeked.not_eof("column")?.commit();
-            return Ok(Member::Bare(node.tag()));
+            return Ok(Member::Bare(node.span));
         }
 
         let string = StringShape.test(token_nodes, context);

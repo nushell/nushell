@@ -262,18 +262,12 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_string(&self) -> (Tag, Tag) {
+    pub fn expect_string(&self) -> (Span, Span) {
         match self {
             TokenNode::Token(Tagged {
                 item: RawToken::String(inner_span),
                 tag: outer_tag,
-            }) => (
-                *outer_tag,
-                Tag {
-                    span: *inner_span,
-                    anchor: uuid::Uuid::nil(),
-                },
-            ),
+            }) => (outer_tag.span, *inner_span),
             other => panic!("Expected string, found {:?}", other),
         }
     }
