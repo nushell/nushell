@@ -766,9 +766,12 @@ impl ExpandSyntax for CommandHeadShape {
         let node =
             parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_tag, _| {
                 Ok(match token {
-                    RawToken::ExternalCommand(tag) => CommandSignature::LiteralExternal {
+                    RawToken::ExternalCommand(span) => CommandSignature::LiteralExternal {
                         outer: token_tag,
-                        inner: tag,
+                        inner: Tag {
+                            span,
+                            anchor: uuid::Uuid::nil(),
+                        },
                     },
                     RawToken::Bare => {
                         let name = token_tag.slice(context.source);

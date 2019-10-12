@@ -131,6 +131,12 @@ impl From<&Tag> for Tag {
     }
 }
 
+impl From<nom_locate::LocatedSpanEx<&str, TracableContext>> for Span {
+    fn from(input: nom_locate::LocatedSpanEx<&str, TracableContext>) -> Span {
+        Span::new(input.offset, input.offset + input.fragment.len())
+    }
+}
+
 impl From<nom_locate::LocatedSpanEx<&str, Uuid>> for Span {
     fn from(input: nom_locate::LocatedSpanEx<&str, Uuid>) -> Span {
         Span::new(input.offset, input.offset + input.fragment.len())

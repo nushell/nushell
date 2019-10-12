@@ -59,7 +59,14 @@ impl ExpandExpression for StringShape {
                         "operator".tagged(token_tag),
                     ))
                 }
-                RawToken::Variable(tag) => expand_variable(tag, token_tag, &context.source),
+                RawToken::Variable(span) => expand_variable(
+                    Tag {
+                        span,
+                        anchor: uuid::Uuid::nil(),
+                    },
+                    token_tag,
+                    &context.source,
+                ),
                 RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token_tag),
                 RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token_tag)),
                 RawToken::Number(_) => hir::Expression::bare(token_tag),

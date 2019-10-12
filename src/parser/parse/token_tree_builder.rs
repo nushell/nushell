@@ -184,13 +184,13 @@ impl TokenTreeBuilder {
             b.pos = end;
 
             TokenTreeBuilder::tagged_external_command(
-                (inner_start, end, b.anchor),
+                Span::new(inner_start, end),
                 (outer_start, end, b.anchor),
             )
         })
     }
 
-    pub fn tagged_external_command(inner: impl Into<Tag>, outer: impl Into<Tag>) -> TokenNode {
+    pub fn tagged_external_command(inner: impl Into<Span>, outer: impl Into<Tag>) -> TokenNode {
         TokenNode::Token(RawToken::ExternalCommand(inner.into()).tagged(outer.into()))
     }
 
@@ -233,11 +233,11 @@ impl TokenTreeBuilder {
             let (start, _) = b.consume("$");
             let (inner_start, end) = b.consume(&input);
 
-            TokenTreeBuilder::tagged_var((inner_start, end, b.anchor), (start, end, b.anchor))
+            TokenTreeBuilder::tagged_var(Span::new(inner_start, end), (start, end, b.anchor))
         })
     }
 
-    pub fn tagged_var(input: impl Into<Tag>, tag: impl Into<Tag>) -> TokenNode {
+    pub fn tagged_var(input: impl Into<Span>, tag: impl Into<Tag>) -> TokenNode {
         TokenNode::Token(RawToken::Variable(input.into()).tagged(tag.into()))
     }
 

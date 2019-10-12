@@ -9,8 +9,8 @@ pub enum RawToken {
     Number(RawNumber),
     Operator(Operator),
     String(Span),
-    Variable(Tag),
-    ExternalCommand(Tag),
+    Variable(Span),
+    ExternalCommand(Span),
     ExternalWord,
     GlobPattern,
     Bare,
@@ -113,14 +113,26 @@ impl Token {
 
     pub fn extract_variable(&self) -> Option<(Tag, Tag)> {
         match self.item {
-            RawToken::Variable(tag) => Some((tag, self.tag)),
+            RawToken::Variable(span) => Some((
+                Tag {
+                    span,
+                    anchor: uuid::Uuid::nil(),
+                },
+                self.tag,
+            )),
             _ => None,
         }
     }
 
     pub fn extract_external_command(&self) -> Option<(Tag, Tag)> {
         match self.item {
-            RawToken::ExternalCommand(tag) => Some((tag, self.tag)),
+            RawToken::ExternalCommand(span) => Some((
+                Tag {
+                    span,
+                    anchor: uuid::Uuid::nil(),
+                },
+                self.tag,
+            )),
             _ => None,
         }
     }

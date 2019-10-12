@@ -141,9 +141,15 @@ impl TokenNode {
     pub fn get_variable(&self) -> Result<(Tag, Tag), ShellError> {
         match self {
             TokenNode::Token(Tagged {
-                item: RawToken::Variable(inner_tag),
+                item: RawToken::Variable(inner_span),
                 tag: outer_tag,
-            }) => Ok((*outer_tag, *inner_tag)),
+            }) => Ok((
+                *outer_tag,
+                Tag {
+                    span: *inner_span,
+                    anchor: uuid::Uuid::nil(),
+                },
+            )),
             _ => Err(ShellError::type_error("variable", self.tagged_type_name())),
         }
     }
@@ -206,9 +212,9 @@ impl TokenNode {
     pub fn expect_external(&self) -> Tag {
         match self {
             TokenNode::Token(Tagged {
-                item: RawToken::ExternalCommand(tag),
+                item: RawToken::ExternalCommand(span),
                 ..
-            }) => *tag,
+            }) => Tag { span: *span, anchor: uuid::Uuid::nil() },
             _ => panic!("Only call expect_external if you checked is_external first"),
         }
     }
@@ -267,9 +273,15 @@ impl TokenNode {
     pub fn expect_var(&self) -> (Tag, Tag) {
         match self {
             TokenNode::Token(Tagged {
-                item: RawToken::Variable(inner_tag),
+                item: RawToken::Variable(inner_span),
                 tag: outer_tag,
-            }) => (*outer_tag, *inner_tag),
+            }) => (
+                *outer_tag,
+                Tag {
+                    span: *inner_span,
+                    anchor: uuid::Uuid::nil(),
+                },
+            ),
             other => panic!("Expected var, found {:?}", other),
         }
     }

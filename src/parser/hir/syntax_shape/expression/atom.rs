@@ -555,15 +555,12 @@ pub fn expand_atom<'me, 'content>(
             .spanned(token_tag.span),
             RawToken::String(body) => AtomicToken::String { body }.spanned(token_tag.span),
             RawToken::Variable(name) if name.slice(context.source) == "it" => {
-                AtomicToken::ItVariable { name: name.span }.spanned(token_tag.span)
+                AtomicToken::ItVariable { name }.spanned(token_tag.span)
             }
-            RawToken::Variable(name) => {
-                AtomicToken::Variable { name: name.span }.spanned(token_tag.span)
+            RawToken::Variable(name) => AtomicToken::Variable { name }.spanned(token_tag.span),
+            RawToken::ExternalCommand(command) => {
+                AtomicToken::ExternalCommand { command }.spanned(token_tag.span)
             }
-            RawToken::ExternalCommand(command) => AtomicToken::ExternalCommand {
-                command: command.span,
-            }
-            .spanned(token_tag.span),
             RawToken::ExternalWord => AtomicToken::ExternalWord {
                 text: token_tag.span,
             }
