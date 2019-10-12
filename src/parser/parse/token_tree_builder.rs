@@ -379,7 +379,7 @@ impl TokenTreeBuilder {
     pub fn sp() -> CurriedToken {
         Box::new(|b| {
             let (start, end) = b.consume(" ");
-            TokenNode::Whitespace(Tag::from((start, end, b.anchor)))
+            TokenNode::Whitespace(Span::new(start, end))
         })
     }
 
@@ -388,12 +388,12 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
-            TokenTreeBuilder::tagged_ws((start, end, b.anchor))
+            TokenTreeBuilder::spanned_ws(Span::new(start, end))
         })
     }
 
-    pub fn tagged_ws(tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Whitespace(tag.into())
+    pub fn spanned_ws(span: impl Into<Span>) -> TokenNode {
+        TokenNode::Whitespace(span.into())
     }
 
     fn consume(&mut self, input: &str) -> (usize, usize) {

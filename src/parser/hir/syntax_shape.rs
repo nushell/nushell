@@ -1007,7 +1007,7 @@ impl FallibleColorSyntax for WhitespaceShape {
         };
 
         let _tag = match peeked.node {
-            TokenNode::Whitespace(tag) => shapes.push(FlatShape::Whitespace.spanned(tag.span)),
+            TokenNode::Whitespace(span) => shapes.push(FlatShape::Whitespace.spanned(*span)),
 
             _other => return Ok(()),
         };
@@ -1019,7 +1019,7 @@ impl FallibleColorSyntax for WhitespaceShape {
 }
 
 impl ExpandSyntax for WhitespaceShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
@@ -1028,7 +1028,7 @@ impl ExpandSyntax for WhitespaceShape {
     ) -> Result<Self::Output, ShellError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
-        let tag = match peeked.node {
+        let span = match peeked.node {
             TokenNode::Whitespace(tag) => *tag,
 
             other => {
@@ -1041,7 +1041,7 @@ impl ExpandSyntax for WhitespaceShape {
 
         peeked.commit();
 
-        Ok(tag)
+        Ok(span)
     }
 }
 
@@ -1103,9 +1103,9 @@ impl ColorSyntax for MaybeSpaceShape {
             Ok(peeked) => peeked,
         };
 
-        if let TokenNode::Whitespace(tag) = peeked.node {
+        if let TokenNode::Whitespace(span) = peeked.node {
             peeked.commit();
-            shapes.push(FlatShape::Whitespace.spanned(tag.span));
+            shapes.push(FlatShape::Whitespace.spanned(*span));
         }
     }
 }
@@ -1127,9 +1127,9 @@ impl FallibleColorSyntax for SpaceShape {
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
         match peeked.node {
-            TokenNode::Whitespace(tag) => {
+            TokenNode::Whitespace(span) => {
                 peeked.commit();
-                shapes.push(FlatShape::Whitespace.spanned(tag.span));
+                shapes.push(FlatShape::Whitespace.spanned(*span));
                 Ok(())
             }
 

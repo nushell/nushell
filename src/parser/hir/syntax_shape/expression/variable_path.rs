@@ -684,7 +684,7 @@ impl FallibleColorSyntax for InfixShape {
 }
 
 impl ExpandSyntax for InfixShape {
-    type Output = (Tag, Tagged<Operator>, Tag);
+    type Output = (Span, Tagged<Operator>, Span);
 
     fn expand_syntax<'a, 'b>(
         &self,

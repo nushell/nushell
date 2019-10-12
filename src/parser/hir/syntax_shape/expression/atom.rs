@@ -503,18 +503,21 @@ pub fn expand_atom<'me, 'content>(
 
         // If we see whitespace, process the whitespace according to the whitespace
         // handling rules
-        TokenNode::Whitespace(tag) => match rule.whitespace {
+        TokenNode::Whitespace(span) => match rule.whitespace {
             // if whitespace is allowed, return a whitespace token
             WhitespaceHandling::AllowWhitespace => {
                 peeked.commit();
-                return Ok(AtomicToken::Whitespace { text: tag.span }.spanned(tag.span));
+                return Ok(AtomicToken::Whitespace { text: *span }.spanned(*span));
             }
 
             // if whitespace is disallowed, return an error
             WhitespaceHandling::RejectWhitespace => {
-                return Err(ShellError::syntax_error(
-                    "Unexpected whitespace".tagged(tag),
-                ))
+                return Err(ShellError::syntax_error("Unexpected whitespace".tagged(
+                    Tag {
+                        span: *span,
+                        anchor: uuid::Uuid::nil(),
+                    },
+                )))
             }
         },
 

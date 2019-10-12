@@ -470,10 +470,7 @@ pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     let (input, ws1) = space1(input)?;
     let right = input.offset;
 
-    Ok((
-        input,
-        TokenTreeBuilder::tagged_ws((left, right, input.extra)),
-    ))
+    Ok((input, TokenTreeBuilder::spanned_ws(Span::new(left, right))))
 }
 
 pub fn delimited(

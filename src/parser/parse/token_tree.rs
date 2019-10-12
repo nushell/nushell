@@ -17,7 +17,7 @@ pub enum TokenNode {
     Delimited(Tagged<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
     Flag(Spanned<Flag>),
-    Whitespace(Tag),
+    Whitespace(Span),
 
     Error(Spanned<ShellError>),
 }
@@ -101,7 +101,10 @@ impl TokenNode {
                 span: s.span,
                 anchor: uuid::Uuid::nil(),
             },
-            TokenNode::Whitespace(s) => *s,
+            TokenNode::Whitespace(s) => Tag {
+                span: *s,
+                anchor: uuid::Uuid::nil(),
+            },
             TokenNode::Error(s) => Tag {
                 span: s.span,
                 anchor: uuid::Uuid::nil(),
@@ -214,7 +217,10 @@ impl TokenNode {
             TokenNode::Token(Tagged {
                 item: RawToken::ExternalCommand(span),
                 ..
-            }) => Tag { span: *span, anchor: uuid::Uuid::nil() },
+            }) => Tag {
+                span: *span,
+                anchor: uuid::Uuid::nil(),
+            },
             _ => panic!("Only call expect_external if you checked is_external first"),
         }
     }
