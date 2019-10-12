@@ -139,7 +139,7 @@ impl<'tokens> SpannedAtomicToken<'tokens> {
             AtomicToken::ItVariable { name } => Expression::it_variable(*name, self.span),
             AtomicToken::Variable { name } => Expression::variable(*name, self.span),
             AtomicToken::ExternalCommand { command } => {
-                Expression::external_command(command, self.span)
+                Expression::external_command(*command, self.span)
             }
             AtomicToken::ExternalWord { text } => Expression::string(*text, self.span),
             AtomicToken::GlobPattern { pattern } => Expression::pattern(pattern),

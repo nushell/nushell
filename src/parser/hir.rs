@@ -235,7 +235,7 @@ impl Expression {
         RawExpression::Variable(Variable::Other(inner.into())).tagged(outer)
     }
 
-    pub(crate) fn external_command(inner: impl Into<Tag>, outer: impl Into<Tag>) -> Expression {
+    pub(crate) fn external_command(inner: impl Into<Span>, outer: impl Into<Tag>) -> Expression {
         RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).tagged(outer)
     }
 

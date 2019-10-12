@@ -609,8 +609,8 @@ impl TestSyntax for BareShape {
 #[derive(Debug)]
 pub enum CommandSignature {
     Internal(Tagged<Arc<Command>>),
-    LiteralExternal { outer: Tag, inner: Tag },
-    External(Tag),
+    LiteralExternal { outer: Tag, inner: Span },
+    External(Span),
     Expression(hir::Expression),
 }
 
@@ -768,10 +768,7 @@ impl ExpandSyntax for CommandHeadShape {
                 Ok(match token {
                     RawToken::ExternalCommand(span) => CommandSignature::LiteralExternal {
                         outer: token_tag,
-                        inner: Tag {
-                            span,
-                            anchor: uuid::Uuid::nil(),
-                        },
+                        inner: span,
                     },
                     RawToken::Bare => {
                         let name = token_tag.slice(context.source);
@@ -779,7 +776,7 @@ impl ExpandSyntax for CommandHeadShape {
                             let command = context.registry.expect_command(name);
                             CommandSignature::Internal(command.tagged(token_tag))
                         } else {
-                            CommandSignature::External(token_tag)
+                            CommandSignature::External(token_tag.span)
                         }
                     }
                     _ => {
