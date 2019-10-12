@@ -106,6 +106,10 @@ features = ["bundled", "blob"]
 [dev-dependencies]
 pretty_assertions = "0.6.1"
 
+[build-dependencies]
+toml = "0.5.3"
+serde = { version = "1.0.101", features = ["derive"] }
+
 [lib]
 name = "nu"
 path = "src/lib.rs"
