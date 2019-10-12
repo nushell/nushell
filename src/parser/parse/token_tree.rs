@@ -13,7 +13,7 @@ pub enum TokenNode {
     Token(Token),
 
     Call(Tagged<CallNode>),
-    Nodes(Tagged<Vec<TokenNode>>),
+    Nodes(Spanned<Vec<TokenNode>>),
     Delimited(Spanned<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
     Flag(Spanned<Flag>),
@@ -93,7 +93,10 @@ impl TokenNode {
     pub fn tag(&self) -> Tag {
         match self {
             TokenNode::Token(t) => t.tag(),
-            TokenNode::Nodes(t) => t.tag(),
+            TokenNode::Nodes(t) => Tag {
+                span: t.span,
+                anchor: uuid::Uuid::nil(),
+            },
             TokenNode::Call(s) => s.tag(),
             TokenNode::Delimited(s) => Tag {
                 span: s.span,
@@ -274,7 +277,10 @@ impl TokenNode {
 impl TokenNode {
     pub fn expect_list(&self) -> Tagged<&[TokenNode]> {
         match self {
-            TokenNode::Nodes(Tagged { item, tag }) => (&item[..]).tagged(tag),
+            TokenNode::Nodes(Spanned { item, span }) => (&item[..]).tagged(Tag {
+                span: *span,
+                anchor: uuid::Uuid::nil(),
+            }),
             other => panic!("Expected list, found {:?}", other),
         }
     }

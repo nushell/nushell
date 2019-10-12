@@ -91,7 +91,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn tagged_token_list(input: Vec<TokenNode>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Nodes(input.tagged(tag))
+        TokenNode::Nodes(input.spanned(tag.into().span))
     }
 
     pub fn op(input: impl Into<Operator>) -> CurriedToken {
