@@ -76,7 +76,10 @@ impl ExpandExpression for AnyBlockShape {
 
                 let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
 
-                return Ok(hir::RawExpression::Block(exprs).tagged(block.tag));
+                return Ok(hir::RawExpression::Block(exprs).tagged(Tag {
+                    span: block.span,
+                    anchor: uuid::Uuid::nil(),
+                }));
             }
             _ => {}
         }

@@ -14,7 +14,7 @@ pub enum TokenNode {
 
     Call(Tagged<CallNode>),
     Nodes(Tagged<Vec<TokenNode>>),
-    Delimited(Tagged<DelimitedNode>),
+    Delimited(Spanned<DelimitedNode>),
     Pipeline(Tagged<Pipeline>),
     Flag(Spanned<Flag>),
     Whitespace(Span),
@@ -95,7 +95,10 @@ impl TokenNode {
             TokenNode::Token(t) => t.tag(),
             TokenNode::Nodes(t) => t.tag(),
             TokenNode::Call(s) => s.tag(),
-            TokenNode::Delimited(s) => s.tag(),
+            TokenNode::Delimited(s) => Tag {
+                span: s.span,
+                anchor: uuid::Uuid::nil(),
+            },
             TokenNode::Pipeline(s) => s.tag(),
             TokenNode::Flag(s) => Tag {
                 span: s.span,
@@ -187,17 +190,17 @@ impl TokenNode {
         }
     }
 
-    pub fn as_block(&self) -> Option<(Tagged<&[TokenNode]>, (Tag, Tag))> {
+    pub fn as_block(&self) -> Option<(Spanned<&[TokenNode]>, (Tag, Tag))> {
         match self {
-            TokenNode::Delimited(Tagged {
+            TokenNode::Delimited(Spanned {
                 item:
                     DelimitedNode {
                         delimiter,
                         children,
                         tags,
                     },
-                tag,
-            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).tagged(tag), *tags)),
+                span,
+            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).spanned(*span), *tags)),
             _ => None,
         }
     }

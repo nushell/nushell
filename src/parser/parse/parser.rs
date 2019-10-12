@@ -1257,7 +1257,7 @@ mod tests {
         let end = Tag::for_char(right, delimiter.tag.anchor);
 
         let node = DelimitedNode::new(delimiter.item, (start, end), children);
-        let spanned = node.tagged((left, right, delimiter.tag.anchor));
+        let spanned = node.spanned(Span::new(left, right));
         TokenNode::Delimited(spanned)
     }
 

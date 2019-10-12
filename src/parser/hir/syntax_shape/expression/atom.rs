@@ -459,14 +459,14 @@ pub fn expand_atom<'me, 'content>(
         }
 
         // [ ... ]
-        TokenNode::Delimited(Tagged {
+        TokenNode::Delimited(Spanned {
             item:
                 DelimitedNode {
                     delimiter: Delimiter::Square,
                     tags,
                     children,
                 },
-            tag,
+            span,
         }) => {
             peeked.commit();
             let tags = *tags;
@@ -474,7 +474,7 @@ pub fn expand_atom<'me, 'content>(
                 nodes: children,
                 spans: (tags.0.span, tags.1.span),
             }
-            .spanned(tag.span));
+            .spanned(*span));
         }
 
         TokenNode::Flag(Spanned {

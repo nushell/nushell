@@ -333,10 +333,10 @@ impl TokenTreeBuilder {
     pub fn tagged_parens(
         input: impl Into<Vec<TokenNode>>,
         tags: (Tag, Tag),
-        tag: impl Into<Tag>,
+        span: impl Into<Span>,
     ) -> TokenNode {
         TokenNode::Delimited(
-            DelimitedNode::new(Delimiter::Paren, tags, input.into()).tagged(tag.into()),
+            DelimitedNode::new(Delimiter::Paren, tags, input.into()).spanned(span.into()),
         )
     }
 
@@ -351,10 +351,10 @@ impl TokenTreeBuilder {
     pub fn tagged_square(
         input: impl Into<Vec<TokenNode>>,
         tags: (Tag, Tag),
-        tag: impl Into<Tag>,
+        span: impl Into<Span>,
     ) -> TokenNode {
         TokenNode::Delimited(
-            DelimitedNode::new(Delimiter::Square, tags, input.into()).tagged(tag.into()),
+            DelimitedNode::new(Delimiter::Square, tags, input.into()).spanned(span.into()),
         )
     }
 
@@ -369,10 +369,10 @@ impl TokenTreeBuilder {
     pub fn tagged_brace(
         input: impl Into<Vec<TokenNode>>,
         tags: (Tag, Tag),
-        tag: impl Into<Tag>,
+        span: impl Into<Span>,
     ) -> TokenNode {
         TokenNode::Delimited(
-            DelimitedNode::new(Delimiter::Brace, tags, input.into()).tagged(tag.into()),
+            DelimitedNode::new(Delimiter::Brace, tags, input.into()).spanned(span.into()),
         )
     }
 
