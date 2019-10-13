@@ -47,7 +47,7 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                                 yield Err(ShellError::labeled_error_with_secondary(
                                     "Expected table with string values",
                                     "requires table with strings",
-                                    tag,
+                                    &tag,
                                     "value originates from here",
                                     v.tag,
                                 ))
@@ -57,13 +57,13 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
 
                     match serde_urlencoded::to_string(row_vec) {
                         Ok(s) => {
-                            yield ReturnSuccess::value(Value::string(s).tagged(tag));
+                            yield ReturnSuccess::value(Value::string(s).tagged(&tag));
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(
                                 "Failed to convert to url-encoded",
                                 "cannot url-encode",
-                                tag,
+                                &tag,
                             ))
                         }
                     }
@@ -72,7 +72,7 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                     yield Err(ShellError::labeled_error_with_secondary(
                         "Expected a table from pipeline",
                         "requires table input",
-                        tag,
+                        &tag,
                         "value originates from here",
                         value_tag,
                     ))
