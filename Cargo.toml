@@ -80,7 +80,7 @@ neso = { version = "0.5.0", optional = true }
 crossterm = { version = "0.10.2", optional = true }
 syntect = {version = "3.2.0", optional = true }
 onig_sys = {version = "=69.1.0", optional = true }
-heim = {version = "0.0.8-alpha.1", optional = true }
+heim = {version = "0.0.8", optional = true }
 battery = {version = "0.7.4", optional = true }
 rawkey = {version = "0.1.2", optional = true }
 clipboard = {version = "0.5", optional = true }
