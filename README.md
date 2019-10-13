@@ -284,6 +284,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-ini | Parse text as .ini and create table |
 | from-json | Parse text as .json and create table |
 | from-sqlite | Parse binary data as sqlite .db and create table |
+| from-ssv  | Parse text as whitespace-separated values and create table|
 | from-toml | Parse text as .toml and create table |
 | from-tsv  | Parse text as .tsv and create table  |
 | from-url | Parse urlencoded string and create a table |
