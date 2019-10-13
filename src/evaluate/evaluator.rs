@@ -50,7 +50,7 @@ pub(crate) fn evaluate_baseline_expr(
 ) -> Result<Tagged<Value>, ShellError> {
     let tag = Tag {
         span: expr.span,
-        anchor: uuid::Uuid::nil(),
+        anchor: None,
     };
     match &expr.item {
         RawExpression::Literal(literal) => Ok(evaluate_literal(literal.tagged(tag), source)),
@@ -77,11 +77,11 @@ pub(crate) fn evaluate_baseline_expr(
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.tagged(Tag {
                         span: binary.left().span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     }),
                     right_type.tagged(Tag {
                         span: binary.right().span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     }),
                 )),
             }

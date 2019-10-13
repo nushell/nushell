@@ -100,7 +100,7 @@ pub fn parse_command_tail(
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
                         Tag {
                             span: command_span,
-                            anchor: uuid::Uuid::nil(),
+                            anchor: None,
                         },
                     ));
                 }

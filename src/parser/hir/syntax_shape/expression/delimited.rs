@@ -13,13 +13,7 @@ pub fn expand_delimited_square(
 
     let list = expand_syntax(&ExpressionListShape, &mut tokens, context);
 
-    Ok(hir::Expression::list(
-        list?,
-        Tag {
-            span,
-            anchor: uuid::Uuid::nil(),
-        },
-    ))
+    Ok(hir::Expression::list(list?, Tag { span, anchor: None }))
 }
 
 pub fn color_delimited_square(

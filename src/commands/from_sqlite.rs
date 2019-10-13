@@ -138,7 +138,7 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
             let value_tag = value.tag();
             match value.item {
                 Value::Primitive(Primitive::Binary(vb)) =>
-                    match from_sqlite_bytes_to_value(vb, tag) {
+                    match from_sqlite_bytes_to_value(vb, tag.clone()) {
                         Ok(x) => match x {
                             Tagged { item: Value::Table(list), .. } => {
                                 for l in list {
@@ -151,7 +151,7 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could not parse as SQLite",
                                 "input cannot be parsed as SQLite",
-                                tag,
+                                &tag,
                                 "value originates from here",
                                 value_tag,
                             ))
@@ -160,7 +160,7 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    &tag,
                     "value originates from here",
                     value_tag,
                 )),

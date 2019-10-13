@@ -3,7 +3,6 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
 use crate::data::{command_dict, TaggedDictBuilder};
 use crate::prelude::*;
 use crate::shell::shell::Shell;
@@ -98,8 +97,8 @@ impl HelpShell {
 }
 
 impl Shell for HelpShell {
-    fn name(&self, source_map: &SourceMap) -> String {
-        let anchor_name = self.value.anchor_name(source_map);
+    fn name(&self) -> String {
+        let anchor_name = self.value.anchor_name();
         format!(
             "{}",
             match anchor_name {

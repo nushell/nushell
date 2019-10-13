@@ -47,7 +47,7 @@ impl NamedArguments {
                 name,
                 NamedValue::PresentSwitch(Tag {
                     span: *flag.name(),
-                    anchor: uuid::Uuid::nil(),
+                    anchor: None,
                 }),
             ),
         };

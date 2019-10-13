@@ -133,7 +133,7 @@ impl ExpandExpression for AnyExpressionStartShape {
                     unit.item,
                     Tag {
                         span: atom.span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     },
                 ))
             }

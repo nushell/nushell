@@ -849,7 +849,7 @@ impl ExpandSyntax for ClassifiedCommandShape {
                     command.item.name().to_string(),
                     Tag {
                         span: command.span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     },
                     call,
                 )))
@@ -1226,7 +1226,7 @@ fn classify_command(
                 command.name().to_string(),
                 Tag {
                     span: command.span,
-                    anchor: uuid::Uuid::nil(),
+                    anchor: None,
                 },
                 call,
             )))

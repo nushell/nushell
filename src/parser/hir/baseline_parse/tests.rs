@@ -9,7 +9,6 @@ use crate::parser::TokenNode;
 use crate::{Span, SpannedItem, Tag, Tagged, Text};
 use pretty_assertions::assert_eq;
 use std::fmt::Debug;
-use uuid::Uuid;
 
 #[test]
 fn test_parse_string() {
@@ -70,7 +69,7 @@ fn test_parse_command() {
                 "ls".to_string(),
                 Tag {
                     span: bare,
-                    anchor: uuid::Uuid::nil(),
+                    anchor: None,
                 },
                 hir::Call {
                     head: Box::new(hir::RawExpression::Command(bare).spanned(bare)),
@@ -115,7 +114,7 @@ fn parse_tokens<T: Eq + Debug>(
     expected: impl FnOnce(Tagged<&[TokenNode]>) -> T,
 ) {
     let tokens = b::token_list(tokens);
-    let (tokens, source) = b::build(test_origin(), tokens);
+    let (tokens, source) = b::build(tokens);
 
     ExpandContext::with_empty(&Text::from(source), |context| {
         let tokens = tokens.expect_list();
@@ -133,10 +132,6 @@ fn parse_tokens<T: Eq + Debug>(
 
         assert_eq!(expr, expected(tokens));
     })
-}
-
-fn test_origin() -> Uuid {
-    Uuid::nil()
 }
 
 fn inner_string_span(span: Span) -> Span {

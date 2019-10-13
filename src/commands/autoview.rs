@@ -113,7 +113,7 @@ pub fn autoview(
                                 Tagged {
                                     item: Value::Primitive(Primitive::String(ref s)),
                                     tag: Tag { anchor, .. },
-                                } if anchor != uuid::Uuid::nil() => {
+                                } if anchor.is_some() => {
                                     if let Some(text) = text {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x.clone());

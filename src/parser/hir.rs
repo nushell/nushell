@@ -303,7 +303,7 @@ pub enum Literal {
 
 impl std::fmt::Display for Tagged<Literal> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", Tagged::new(self.tag, &self.item))
+        write!(f, "{}", Tagged::new(self.tag.clone(), &self.item))
     }
 }
 

@@ -67,7 +67,7 @@ impl PerItemCommand for Enter {
 
                         let full_path = std::path::PathBuf::from(cwd);
 
-                        let (file_extension, contents, contents_tag, anchor_location) =
+                        let (file_extension, contents, contents_tag) =
                             crate::commands::open::fetch(
                                 &full_path,
                                 &location_clone,
@@ -75,18 +75,9 @@ impl PerItemCommand for Enter {
                             )
                             .await.unwrap();
 
-                        if contents_tag.anchor != uuid::Uuid::nil() {
-                            // If we have loaded something, track its source
-                            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
-                                contents_tag.anchor,
-                                anchor_location,
-                            ));
-                        }
-
-
                         match contents {
                             Value::Primitive(Primitive::String(_)) => {
-                                let tagged_contents = contents.tagged(contents_tag);
+                                let tagged_contents = contents.tagged(&contents_tag);
 
                                 if let Some(extension) = file_extension {
                                     let command_name = format!("from-{}", extension);
@@ -104,7 +95,6 @@ impl PerItemCommand for Enter {
                                                     named: None,
                                                 },
                                                 source: raw_args.call_info.source,
-                                                source_map: raw_args.call_info.source_map,
                                                 name_tag: raw_args.call_info.name_tag,
                                             },
                                         };
@@ -124,7 +114,7 @@ impl PerItemCommand for Enter {
                                                     yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
                                                         Tagged {
                                                             item,
-                                                            tag: contents_tag,
+                                                            tag: contents_tag.clone(),
                                                         })));
                                                 }
                                                 x => yield x,

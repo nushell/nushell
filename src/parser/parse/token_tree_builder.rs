@@ -7,7 +7,6 @@ use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, TokenNode};
 use crate::parser::parse::tokens::{RawNumber, RawToken};
 use crate::parser::CallNode;
 use derive_new::new;
-use uuid::Uuid;
 
 #[derive(new)]
 pub struct TokenTreeBuilder {
@@ -16,16 +15,14 @@ pub struct TokenTreeBuilder {
 
     #[new(default)]
     output: String,
-
-    anchor: Uuid,
 }
 
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
 pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Tagged<CallNode> + 'static>;
 
 impl TokenTreeBuilder {
-    pub fn build(anchor: Uuid, block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
-        let mut builder = TokenTreeBuilder::new(anchor);
+    pub fn build(block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
+        let mut builder = TokenTreeBuilder::new();
         let node = block(&mut builder);
         (node, builder.output)
     }
@@ -92,7 +89,7 @@ impl TokenTreeBuilder {
             let tokens = input.into_iter().map(|i| i(b)).collect();
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_token_list(tokens, (start, end, b.anchor))
+            TokenTreeBuilder::tagged_token_list(tokens, (start, end, None))
         })
     }
 
@@ -290,7 +287,7 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_call(nodes, (start, end, b.anchor))
+            TokenTreeBuilder::tagged_call(nodes, (start, end, None))
         })
     }
 

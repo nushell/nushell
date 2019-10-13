@@ -515,7 +515,7 @@ pub fn expand_atom<'me, 'content>(
                 return Err(ShellError::syntax_error("Unexpected whitespace".tagged(
                     Tag {
                         span: *span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     },
                 )))
             }
@@ -545,7 +545,7 @@ pub fn expand_atom<'me, 'content>(
                     expected,
                     token.type_name().tagged(Tag {
                         span: token_span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     }),
                 ))
             }
@@ -553,7 +553,7 @@ pub fn expand_atom<'me, 'content>(
             RawToken::ExternalWord if !rule.allow_external_word => {
                 return Err(ShellError::invalid_external_word(Tag {
                     span: token_span,
-                    anchor: uuid::Uuid::nil(),
+                    anchor: None,
                 }))
             }
 

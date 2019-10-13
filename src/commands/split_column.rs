@@ -94,7 +94,7 @@ fn split_column(
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                name,
+                &name,
                 "value originates from here",
                 v.tag(),
             )),

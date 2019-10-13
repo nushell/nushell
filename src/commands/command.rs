@@ -1,4 +1,3 @@
-use crate::context::{AnchorLocation, SourceMap};
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::evaluate::Scope;
@@ -12,13 +11,11 @@ use std::fmt;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
-use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub source: Text,
-    pub source_map: SourceMap,
     pub name_tag: Tag,
 }
 
@@ -38,7 +35,6 @@ impl UnevaluatedCallInfo {
 
         Ok(CallInfo {
             args,
-            source_map: self.source_map,
             name_tag: self.name_tag,
         })
     }
@@ -47,7 +43,6 @@ impl UnevaluatedCallInfo {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CallInfo {
     pub args: registry::EvaluatedArgs,
-    pub source_map: SourceMap,
     pub name_tag: Tag,
 }
 
@@ -63,7 +58,7 @@ impl CallInfo {
             args: T::deserialize(&mut deserializer)?,
             context: RunnablePerItemContext {
                 shell_manager: shell_manager.clone(),
-                name: self.name_tag,
+                name: self.name_tag.clone(),
             },
             callback,
         })
@@ -133,13 +128,13 @@ impl CommandArgs {
         callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnableArgs<T>, ShellError> {
         let shell_manager = self.shell_manager.clone();
-        let source_map = self.call_info.source_map.clone();
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
+        let call_info = args.call_info.clone();
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
+        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
         Ok(RunnableArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -148,7 +143,6 @@ impl CommandArgs {
                 commands: registry.clone(),
                 shell_manager,
                 name: name_tag,
-                source_map,
                 host,
                 ctrl_c,
             },
@@ -169,13 +163,14 @@ impl CommandArgs {
         };
 
         let shell_manager = self.shell_manager.clone();
-        let source_map = self.call_info.source_map.clone();
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
+        let call_info = args.call_info.clone();
+
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
+        let mut deserializer = ConfigDeserializer::from_call_info(call_info.clone());
 
         Ok(RunnableRawArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -184,7 +179,6 @@ impl CommandArgs {
                 commands: registry.clone(),
                 shell_manager,
                 name: name_tag,
-                source_map,
                 host,
                 ctrl_c,
             },
@@ -211,7 +205,6 @@ pub struct RunnableContext {
     pub host: Arc<Mutex<dyn Host>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub commands: CommandRegistry,
-    pub source_map: SourceMap,
     pub name: Tag,
 }
 
@@ -293,7 +286,7 @@ impl EvaluatedWholeStreamCommandArgs {
     }
 
     pub fn name_tag(&self) -> Tag {
-        self.args.call_info.name_tag
+        self.args.call_info.name_tag.clone()
     }
 
     pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
@@ -387,7 +380,6 @@ impl EvaluatedCommandArgs {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(String),
-    AddAnchorLocation(Uuid, AnchorLocation),
     Exit,
     EnterShell(String),
     EnterValueShell(Tagged<Value>),
@@ -401,9 +393,6 @@ impl ToDebug for CommandAction {
     fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
         match self {
             CommandAction::ChangePath(s) => write!(f, "action:change-path={}", s),
-            CommandAction::AddAnchorLocation(u, source) => {
-                write!(f, "action:add-span-source={}@{:?}", u, source)
-            }
             CommandAction::Exit => write!(f, "action:exit"),
             CommandAction::EnterShell(s) => write!(f, "action:enter-shell={}", s),
             CommandAction::EnterValueShell(t) => {

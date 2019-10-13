@@ -135,10 +135,6 @@ impl<'content> TokensIterator<'content> {
         }
     }
 
-    pub fn anchor(&self) -> uuid::Uuid {
-        uuid::Uuid::nil()
-    }
-
     pub fn all(tokens: &'content [TokenNode], span: Span) -> TokensIterator<'content> {
         TokensIterator::new(tokens, span, false)
     }

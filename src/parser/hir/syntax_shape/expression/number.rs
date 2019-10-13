@@ -30,7 +30,7 @@ impl ExpandExpression for NumberShape {
                 RawToken::ExternalWord => {
                     return Err(ShellError::invalid_external_word(Tag {
                         span: token_span,
-                        anchor: uuid::Uuid::nil(),
+                        anchor: None,
                     }))
                 }
                 RawToken::Variable(tag) => hir::Expression::variable(tag, token_span),

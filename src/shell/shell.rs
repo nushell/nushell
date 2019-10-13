@@ -3,14 +3,13 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::stream::OutputStream;
 use std::path::PathBuf;
 
 pub trait Shell: std::fmt::Debug {
-    fn name(&self, source_map: &SourceMap) -> String;
+    fn name(&self) -> String;
     fn homedir(&self) -> Option<PathBuf>;
 
     fn ls(

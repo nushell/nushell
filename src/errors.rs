@@ -14,9 +14,9 @@ pub enum Description {
 }
 
 impl Description {
-    fn into_label(self) -> Result<Label<Tag>, String> {
+    fn into_label(self) -> Result<Label<Span>, String> {
         match self {
-            Description::Source(s) => Ok(Label::new_primary(s.tag()).with_message(s.item)),
+            Description::Source(s) => Ok(Label::new_primary(s.span()).with_message(s.item)),
             Description::Synthetic(s) => Err(s),
         }
     }
@@ -183,22 +183,22 @@ impl ShellError {
             }
             nom::Err::Failure(span) | nom::Err::Error(span) => {
                 let diagnostic = Diagnostic::new(Severity::Error, format!("Parse Error"))
-                    .with_label(Label::new_primary(Tag::from(span.0)));
+                    .with_label(Label::new_primary(Span::from(span.0)));
 
                 ShellError::diagnostic(diagnostic)
             }
         }
     }
 
-    pub(crate) fn diagnostic(diagnostic: Diagnostic<Tag>) -> ShellError {
+    pub(crate) fn diagnostic(diagnostic: Diagnostic<Span>) -> ShellError {
         ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }).start()
     }
 
-    pub(crate) fn to_diagnostic(self) -> Diagnostic<Tag> {
+    pub(crate) fn to_diagnostic(self) -> Diagnostic<Span> {
         match self.error {
             ProximateShellError::InvalidCommand { command } => {
                 Diagnostic::new(Severity::Error, "Invalid command")
-                    .with_label(Label::new_primary(command))
+                    .with_label(Label::new_primary(command.span))
             }
             ProximateShellError::MissingValue { tag, reason } => {
                 let mut d = Diagnostic::new(
@@ -207,7 +207,7 @@ impl ShellError {
                 );
 
                 if let Some(tag) = tag {
-                    d = d.with_label(Label::new_primary(tag));
+                    d = d.with_label(Label::new_primary(tag.span));
                 }
 
                 d
@@ -220,7 +220,7 @@ impl ShellError {
                 ArgumentError::InvalidExternalWord => Diagnostic::new(
                     Severity::Error,
                     format!("Invalid bare word for Nu command (did you intend to invoke an external command?)"))
-                .with_label(Label::new_primary(tag)),
+                .with_label(Label::new_primary(tag.span)),
                 ArgumentError::MissingMandatoryFlag(name) => Diagnostic::new(
                     Severity::Error,
                     format!(
@@ -230,7 +230,7 @@ impl ShellError {
                         Color::Black.bold().paint(name)
                     ),
                 )
-                .with_label(Label::new_primary(tag)),
+                .with_label(Label::new_primary(tag.span)),
                 ArgumentError::MissingMandatoryPositional(name) => Diagnostic::new(
                     Severity::Error,
                     format!(
@@ -240,7 +240,7 @@ impl ShellError {
                     ),
                 )
                 .with_label(
-                    Label::new_primary(tag).with_message(format!("requires {} parameter", name)),
+                    Label::new_primary(tag.span).with_message(format!("requires {} parameter", name)),
                 ),
                 ArgumentError::MissingValueForName(name) => Diagnostic::new(
                     Severity::Error,
@@ -251,7 +251,7 @@ impl ShellError {
                         Color::Black.bold().paint(name)
                     ),
                 )
-                .with_label(Label::new_primary(tag)),
+                .with_label(Label::new_primary(tag.span)),
             },
             ProximateShellError::TypeError {
                 expected,
@@ -261,7 +261,7 @@ impl ShellError {
                         tag,
                     },
             } => Diagnostic::new(Severity::Error, "Type Error").with_label(
-                Label::new_primary(tag)
+                Label::new_primary(tag.span)
                     .with_message(format!("Expected {}, found {}", expected, actual)),
             ),
             ProximateShellError::TypeError {
@@ -272,12 +272,12 @@ impl ShellError {
                         tag
                     },
             } => Diagnostic::new(Severity::Error, "Type Error")
-                .with_label(Label::new_primary(tag).with_message(expected)),
+                .with_label(Label::new_primary(tag.span).with_message(expected)),
 
             ProximateShellError::UnexpectedEof {
                 expected, tag
             } => Diagnostic::new(Severity::Error, format!("Unexpected end of input"))
-                .with_label(Label::new_primary(tag).with_message(format!("Expected {}", expected))),
+                .with_label(Label::new_primary(tag.span).with_message(format!("Expected {}", expected))),
 
             ProximateShellError::RangeError {
                 kind,
@@ -288,7 +288,7 @@ impl ShellError {
                         tag
                     },
             } => Diagnostic::new(Severity::Error, "Range Error").with_label(
-                Label::new_primary(tag).with_message(format!(
+                Label::new_primary(tag.span).with_message(format!(
                     "Expected to convert {} to {} while {}, but it was out of range",
                     item,
                     kind.desc(),
@@ -303,7 +303,7 @@ impl ShellError {
                         item
                     },
             } => Diagnostic::new(Severity::Error, "Syntax Error")
-                .with_label(Label::new_primary(tag).with_message(item)),
+                .with_label(Label::new_primary(tag.span).with_message(item)),
 
             ProximateShellError::MissingProperty { subpath, expr, .. } => {
                 let subpath = subpath.into_label();
@@ -326,8 +326,8 @@ impl ShellError {
             ProximateShellError::Diagnostic(diag) => diag.diagnostic,
             ProximateShellError::CoerceError { left, right } => {
                 Diagnostic::new(Severity::Error, "Coercion error")
-                    .with_label(Label::new_primary(left.tag()).with_message(left.item))
-                    .with_label(Label::new_secondary(right.tag()).with_message(right.item))
+                    .with_label(Label::new_primary(left.tag().span).with_message(left.item))
+                    .with_label(Label::new_secondary(right.tag().span).with_message(right.item))
             }
 
             ProximateShellError::UntaggedRuntimeError { reason } => Diagnostic::new(Severity::Error, format!("Error: {}", reason))
@@ -341,7 +341,7 @@ impl ShellError {
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::new(Severity::Error, msg.into())
-                .with_label(Label::new_primary(tag.into()).with_message(label.into())),
+                .with_label(Label::new_primary(tag.into().span).with_message(label.into())),
         )
     }
 
@@ -355,10 +355,10 @@ impl ShellError {
         ShellError::diagnostic(
             Diagnostic::new_error(msg.into())
                 .with_label(
-                    Label::new_primary(primary_span.into()).with_message(primary_label.into()),
+                    Label::new_primary(primary_span.into().span).with_message(primary_label.into()),
                 )
                 .with_label(
-                    Label::new_secondary(secondary_span.into())
+                    Label::new_secondary(secondary_span.into().span)
                         .with_message(secondary_label.into()),
                 ),
         )
@@ -499,7 +499,7 @@ impl ToDebug for ProximateShellError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellDiagnostic {
-    pub(crate) diagnostic: Diagnostic<Tag>,
+    pub(crate) diagnostic: Diagnostic<Span>,
 }
 
 impl PartialEq for ShellDiagnostic {

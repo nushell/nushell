@@ -11,7 +11,7 @@ use crate::parser::{
     parse::token_tree::Delimiter,
     RawToken, TokenNode,
 };
-use crate::{Spanned, SpannedItem, Tag};
+use crate::{Span, Spanned, SpannedItem};
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyBlockShape;
@@ -285,7 +285,7 @@ impl ExpandExpression for ShorthandHeadShape {
                 peeked.commit();
 
                 // Synthesize an `$it` expression
-                let it = synthetic_it(token_nodes.anchor());
+                let it = synthetic_it();
 
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
@@ -304,7 +304,7 @@ impl ExpandExpression for ShorthandHeadShape {
                 peeked.commit();
 
                 // Synthesize an `$it` expression
-                let it = synthetic_it(token_nodes.anchor());
+                let it = synthetic_it();
 
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
@@ -325,6 +325,6 @@ impl ExpandExpression for ShorthandHeadShape {
     }
 }
 
-fn synthetic_it(origin: uuid::Uuid) -> hir::Expression {
-    hir::Expression::it_variable(Tag::unknown_span(origin), Tag::unknown_span(origin))
+fn synthetic_it() -> hir::Expression {
+    hir::Expression::it_variable(Span::unknown(), Span::unknown())
 }

@@ -253,7 +253,7 @@ impl TokenNode {
         match self {
             TokenNode::Nodes(Spanned { item, span }) => (&item[..]).tagged(Tag {
                 span: *span,
-                anchor: uuid::Uuid::nil(),
+                anchor: None,
             }),
             other => panic!("Expected list, found {:?}", other),
         }

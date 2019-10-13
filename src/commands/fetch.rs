@@ -10,7 +10,6 @@ use mime::Mime;
 use std::path::PathBuf;
 use std::str::FromStr;
 use surf::mime;
-use uuid::Uuid;
 pub struct Fetch;
 
 impl PerItemCommand for Fetch {
@@ -48,7 +47,7 @@ fn run(
         ShellError::labeled_error(
             "No file or directory specified",
             "for command",
-            call_info.name_tag,
+            &call_info.name_tag,
         )
     })? {
         file => file,
@@ -68,7 +67,7 @@ fn run(
             yield Err(e);
             return;
         }
-        let (file_extension, contents, contents_tag, anchor_location) = result.unwrap();
+        let (file_extension, contents, contents_tag) = result.unwrap();
 
         let file_extension = if has_raw {
             None
@@ -78,15 +77,7 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if contents_tag.anchor != uuid::Uuid::nil() {
-            // If we have loaded something, track its source
-            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
-                contents_tag.anchor,
-                anchor_location,
-            ));
-        }
-
-        let tagged_contents = contents.tagged(contents_tag);
+        let tagged_contents = contents.tagged(&contents_tag);
 
         if let Some(extension) = file_extension {
             let command_name = format!("from-{}", extension);
@@ -102,7 +93,6 @@ fn run(
                             named: None
                         },
                         source: raw_args.call_info.source,
-                        source_map: raw_args.call_info.source_map,
                         name_tag: raw_args.call_info.name_tag,
                     }
                 };
@@ -116,7 +106,7 @@ fn run(
                             }
                         }
                         Ok(ReturnSuccess::Value(Tagged { item, .. })) => {
-                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag }));
+                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag.clone() }));
                         }
                         x => yield x,
                     }
@@ -132,10 +122,7 @@ fn run(
     Ok(stream.to_output_stream())
 }
 
-pub async fn fetch(
-    location: &str,
-    span: Span,
-) -> Result<(Option<String>, Value, Tag, AnchorLocation), ShellError> {
+pub async fn fetch(location: &str, span: Span) -> Result<(Option<String>, Value, Tag), ShellError> {
     if let Err(_) = url::Url::parse(location) {
         return Err(ShellError::labeled_error(
             "Incomplete or incorrect url",
@@ -161,9 +148,8 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            anchor: Uuid::new_v4(),
+                            anchor: Some(AnchorLocation::Url(location.to_string())),
                         },
-                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::APPLICATION, mime::JSON) => Ok((
                         Some("json".to_string()),
@@ -176,9 +162,8 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            anchor: Uuid::new_v4(),
+                            anchor: Some(AnchorLocation::Url(location.to_string())),
                         },
-                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::APPLICATION, mime::OCTET_STREAM) => {
                         let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
@@ -193,9 +178,8 @@ pub async fn fetch(
                             Value::binary(buf),
                             Tag {
                                 span,
-                                anchor: Uuid::new_v4(),
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
                             },
-                            AnchorLocation::Url(location.to_string()),
                         ))
                     }
                     (mime::IMAGE, mime::SVG) => Ok((
@@ -209,9 +193,8 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            anchor: Uuid::new_v4(),
+                            anchor: Some(AnchorLocation::Url(location.to_string())),
                         },
-                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::IMAGE, image_ty) => {
                         let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
@@ -226,9 +209,8 @@ pub async fn fetch(
                             Value::binary(buf),
                             Tag {
                                 span,
-                                anchor: Uuid::new_v4(),
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
                             },
-                            AnchorLocation::Url(location.to_string()),
                         ))
                     }
                     (mime::TEXT, mime::HTML) => Ok((
@@ -242,9 +224,8 @@ pub async fn fetch(
                         })?),
                         Tag {
                             span,
-                            anchor: Uuid::new_v4(),
+                            anchor: Some(AnchorLocation::Url(location.to_string())),
                         },
-                        AnchorLocation::Url(location.to_string()),
                     )),
                     (mime::TEXT, mime::PLAIN) => {
                         let path_extension = url::Url::parse(location)
@@ -269,9 +250,8 @@ pub async fn fetch(
                             })?),
                             Tag {
                                 span,
-                                anchor: Uuid::new_v4(),
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
                             },
-                            AnchorLocation::Url(location.to_string()),
                         ))
                     }
                     (ty, sub_ty) => Ok((
@@ -279,9 +259,8 @@ pub async fn fetch(
                         Value::string(format!("Not yet supported MIME type: {} {}", ty, sub_ty)),
                         Tag {
                             span,
-                            anchor: Uuid::new_v4(),
+                            anchor: Some(AnchorLocation::Url(location.to_string())),
                         },
-                        AnchorLocation::Url(location.to_string()),
                     )),
                 }
             }
@@ -290,9 +269,8 @@ pub async fn fetch(
                 Value::string(format!("No content type found")),
                 Tag {
                     span,
-                    anchor: Uuid::new_v4(),
+                    anchor: Some(AnchorLocation::Url(location.to_string())),
                 },
-                AnchorLocation::Url(location.to_string()),
             )),
         },
         Err(_) => {

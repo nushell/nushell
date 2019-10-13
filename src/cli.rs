@@ -479,7 +479,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) => {
             let line = chomp_newline(line);
 
-            let result = match crate::parser::parse(&line, uuid::Uuid::nil()) {
+            let result = match crate::parser::parse(&line) {
                 Err(err) => {
                     return LineResult::Error(line.to_string(), err);
                 }

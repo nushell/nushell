@@ -119,12 +119,9 @@ impl InternalCommand {
         let command = context.expect_command(&self.name);
 
         let result = {
-            let source_map = context.source_map.lock().unwrap().clone();
-
             context.run_command(
                 command,
                 self.name_tag.clone(),
-                source_map,
                 self.args,
                 &source,
                 objects,
@@ -142,10 +139,6 @@ impl InternalCommand {
                     Ok(ReturnSuccess::Action(action)) => match action {
                         CommandAction::ChangePath(path) => {
                             context.shell_manager.set_path(path);
-                        }
-                        CommandAction::AddAnchorLocation(uuid, anchor_location) => {
-                            println!("Add anchor location");
-                            context.add_anchor_location(uuid, anchor_location);
                         }
                         CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
                         CommandAction::EnterHelpShell(value) => {
@@ -354,7 +347,7 @@ impl ExternalCommand {
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(name_tag));
+                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
                 Ok(ClassifiedInputStream::from_input_stream(
                     stream.boxed() as BoxStream<'static, Tagged<Value>>
                 ))

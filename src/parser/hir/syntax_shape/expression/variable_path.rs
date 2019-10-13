@@ -355,7 +355,7 @@ impl Member {
             Member::String(outer, _inner) => "string".tagged(outer),
             Member::Bare(span) => "word".tagged(Tag {
                 span: *span,
-                anchor: uuid::Uuid::nil(),
+                anchor: None,
             }),
         }
     }

@@ -79,7 +79,7 @@ fn run(
     let headers = get_headers(&call_info)?;
 
     let stream = async_stream! {
-        let (file_extension, contents, contents_tag, anchor_location) =
+        let (file_extension, contents, contents_tag) =
             post(&path_str, &body, user, password, &headers, path_span, &registry, &raw_args).await.unwrap();
 
         let file_extension = if has_raw {
@@ -89,14 +89,6 @@ fn run(
             // extension. Some file types do not declare their mimetypes (such as bson files).
             file_extension.or(path_str.split('.').last().map(String::from))
         };
-
-        if contents_tag.anchor != uuid::Uuid::nil() {
-            // If we have loaded something, track its source
-            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
-                contents_tag.anchor,
-                anchor_location,
-            ));
-        }
 
         let tagged_contents = contents.tagged(contents_tag);
 
@@ -114,7 +106,6 @@ fn run(
                             named: None
                         },
                         source: raw_args.call_info.source,
-                        source_map: raw_args.call_info.source_map,
                         name_tag: raw_args.call_info.name_tag,
                     }
                 };
@@ -208,7 +199,7 @@ pub async fn post(
     tag: Tag,
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
-) -> Result<(Option<String>, Value, Tag, AnchorLocation), ShellError> {
+) -> Result<(Option<String>, Value, Tag), ShellError> {
     let registry = registry.clone();
     let raw_args = raw_args.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
@@ -258,7 +249,6 @@ pub async fn post(
                                 named: None,
                             },
                             source: raw_args.call_info.source,
-                            source_map: raw_args.call_info.source_map,
                             name_tag: raw_args.call_info.name_tag,
                         },
                     };
@@ -317,8 +307,10 @@ pub async fn post(
                                     tag,
                                 )
                             })?),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
                             Some("json".to_string()),
@@ -329,8 +321,10 @@ pub async fn post(
                                     tag,
                                 )
                             })?),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
                             let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
@@ -343,8 +337,10 @@ pub async fn post(
                             Ok((
                                 None,
                                 Value::binary(buf),
-                                tag,
-                                AnchorLocation::Url(location.to_string()),
+                                Tag {
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    span: tag.span,
+                                },
                             ))
                         }
                         (mime::IMAGE, image_ty) => {
@@ -358,8 +354,10 @@ pub async fn post(
                             Ok((
                                 Some(image_ty.to_string()),
                                 Value::binary(buf),
-                                tag,
-                                AnchorLocation::Url(location.to_string()),
+                                Tag {
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    span: tag.span,
+                                },
                             ))
                         }
                         (mime::TEXT, mime::HTML) => Ok((
@@ -371,8 +369,10 @@ pub async fn post(
                                     tag,
                                 )
                             })?),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                         (mime::TEXT, mime::PLAIN) => {
                             let path_extension = url::Url::parse(location)
@@ -395,8 +395,10 @@ pub async fn post(
                                         tag,
                                     )
                                 })?),
-                                tag,
-                                AnchorLocation::Url(location.to_string()),
+                                Tag {
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    span: tag.span,
+                                },
                             ))
                         }
                         (ty, sub_ty) => Ok((
@@ -405,16 +407,20 @@ pub async fn post(
                                 "Not yet supported MIME type: {} {}",
                                 ty, sub_ty
                             )),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                     }
                 }
                 None => Ok((
                     None,
                     Value::string(format!("No content type found")),
-                    tag,
-                    AnchorLocation::Url(location.to_string()),
+                    Tag {
+                        anchor: Some(AnchorLocation::Url(location.to_string())),
+                        span: tag.span,
+                    },
                 )),
             },
             Err(_) => {

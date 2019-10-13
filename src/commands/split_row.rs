@@ -60,7 +60,7 @@ fn split_row(
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name,
+                    &name,
                     "value originates from here",
                     v.tag(),
                 )));

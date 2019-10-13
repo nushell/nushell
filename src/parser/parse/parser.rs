@@ -24,7 +24,6 @@ use nom_tracable::{tracable_parser, HasTracableInfo, TracableInfo};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
-use uuid::Uuid;
 
 pub type NomSpan<'a> = LocatedSpanEx<&'a str, TracableContext>;
 
@@ -51,7 +50,7 @@ impl std::ops::Deref for TracableContext {
     }
 }
 
-pub fn nom_input(s: &str, anchor: Uuid) -> NomSpan<'_> {
+pub fn nom_input(s: &str) -> NomSpan<'_> {
     LocatedSpanEx::new_extra(s, TracableContext::new(TracableInfo::new()))
 }
 
@@ -366,7 +365,7 @@ pub fn ident(input: NomSpan) -> IResult<NomSpan, Tag> {
     let (input, _) = take_while(is_bare_char)(input)?;
     let end = input.offset;
 
-    Ok((input, Tag::from((start, end, uuid::Uuid::nil()))))
+    Ok((input, Tag::from((start, end, None))))
 }
 
 #[tracable_parser]
@@ -413,7 +412,7 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
 
     Ok((
         input,
-        make_token_list(first, list, None).tagged((start, end, uuid::Uuid::nil())),
+        make_token_list(first, list, None).tagged((start, end, None)),
     ))
 }
 
@@ -748,7 +747,7 @@ mod tests {
     macro_rules! equal_tokens {
         ($source:tt -> $tokens:expr) => {
             let result = apply(pipeline, "pipeline", $source);
-            let (expected_tree, expected_source) = TokenTreeBuilder::build(uuid::Uuid::nil(), $tokens);
+            let (expected_tree, expected_source) = TokenTreeBuilder::build($tokens);
 
             if result != expected_tree {
                 let debug_result = format!("{}", result.debug($source));
@@ -769,7 +768,7 @@ mod tests {
 
         (<$parser:tt> $source:tt -> $tokens:expr) => {
             let result = apply($parser, stringify!($parser), $source);
-            let (expected_tree, expected_source) = TokenTreeBuilder::build(uuid::Uuid::nil(), $tokens);
+            let (expected_tree, expected_source) = TokenTreeBuilder::build($tokens);
 
             if result != expected_tree {
                 let debug_result = format!("{}", result.debug($source));
@@ -1232,7 +1231,7 @@ mod tests {
         desc: &str,
         string: &str,
     ) -> TokenNode {
-        f(nom_input(string, uuid::Uuid::nil())).unwrap().1
+        f(nom_input(string)).unwrap().1
     }
 
     fn span((left, right): (usize, usize)) -> Span {
@@ -1258,15 +1257,11 @@ mod tests {
     }
 
     fn build<T>(block: CurriedNode<T>) -> T {
-        let mut builder = TokenTreeBuilder::new(uuid::Uuid::nil());
+        let mut builder = TokenTreeBuilder::new();
         block(&mut builder)
     }
 
     fn build_token(block: CurriedToken) -> TokenNode {
-        TokenTreeBuilder::build(uuid::Uuid::nil(), block).0
-    }
-
-    fn test_uuid() -> uuid::Uuid {
-        uuid::Uuid::nil()
+        TokenTreeBuilder::build(block).0
     }
 }

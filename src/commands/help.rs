@@ -26,7 +26,7 @@ impl PerItemCommand for Help {
         _raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        let tag = call_info.name_tag;
+        let tag = &call_info.name_tag;
 
         match call_info.args.nth(0) {
             Some(Tagged {

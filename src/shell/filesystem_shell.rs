@@ -3,7 +3,6 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
 use crate::data::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
@@ -74,7 +73,7 @@ impl FilesystemShell {
 }
 
 impl Shell for FilesystemShell {
-    fn name(&self, _source_map: &SourceMap) -> String {
+    fn name(&self) -> String {
         "filesystem".to_string()
     }
 
