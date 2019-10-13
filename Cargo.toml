@@ -56,7 +56,6 @@ url = "2.1.0"
 roxmltree = "0.7.0"
 nom_locate = "1.0.0"
 nom-tracable = "0.4.0"
-enum-utils = "0.1.1"
 unicode-xid = "0.2.0"
 serde_ini = "0.2.0"
 subprocess = "0.1.18"
@@ -75,8 +74,8 @@ bigdecimal = { version = "0.1.0", features = ["serde"] }
 natural = "0.3.0"
 serde_urlencoded = "0.6.1"
 sublime_fuzzy = "0.5"
-regex = "1"
 
+regex = {version = "1", optional = true }
 neso = { version = "0.5.0", optional = true }
 crossterm = { version = "0.10.2", optional = true }
 syntect = {version = "3.2.0", optional = true }
@@ -144,6 +143,7 @@ path = "src/plugins/skip.rs"
 [[bin]]
 name = "nu_plugin_match"
 path = "src/plugins/match.rs"
+required-features = ["regex"]
 
 [[bin]]
 name = "nu_plugin_sys"
