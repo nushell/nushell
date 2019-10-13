@@ -1,0 +1,4 @@
+[hintsv1]
+
+description = "Adding hints based upon error states in the syntax highlighter"
+enabled = false
