@@ -126,12 +126,12 @@ impl Highlighter for Helper {
 #[allow(unused)]
 fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
     let mut iter = input.iter();
-    let first = iter.next()?.tag;
+    let first = iter.next()?.tag.clone();
     let last = iter.last();
 
     Some(match last {
         None => first,
-        Some(last) => first.until(last.tag),
+        Some(last) => first.until(&last.tag),
     })
 }
 

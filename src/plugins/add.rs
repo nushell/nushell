@@ -22,7 +22,7 @@ impl Add {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
             (obj @ Value::Row(_), Some(v)) => match &self.field {
-                Some(f) => match obj.insert_data_at_column_path(value_tag, &f, v) {
+                Some(f) => match obj.insert_data_at_column_path(value_tag.clone(), &f, v) {
                     Some(v) => return Ok(v),
                     None => {
                         return Err(ShellError::labeled_error(
@@ -32,7 +32,7 @@ impl Add {
                                 f.iter().map(|i| &i.item).join(".")
                             ),
                             "column name",
-                            value_tag,
+                            &value_tag,
                         ))
                     }
                 },

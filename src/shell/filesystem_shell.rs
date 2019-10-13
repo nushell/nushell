@@ -95,7 +95,7 @@ impl Shell for FilesystemShell {
         }
 
         let ctrl_c = context.ctrl_c.clone();
-        let name_tag = context.name;
+        let name_tag = context.name.clone();
 
         //If it's not a glob, try to display the contents of the entry if it's a directory
         let lossy_path = full_path.to_string_lossy();
@@ -133,7 +133,7 @@ impl Shell for FilesystemShell {
                             } else {
                                 Path::new(&filepath)
                             };
-                            let value = dir_entry_dict(filename, &entry.metadata().unwrap(), name_tag)?;
+                            let value = dir_entry_dict(filename, &entry.metadata().unwrap(), &name_tag)?;
                             yield ReturnSuccess::value(value);
                         }
                     }
@@ -170,7 +170,7 @@ impl Shell for FilesystemShell {
                         Path::new(&entry)
                     };
                     let metadata = std::fs::metadata(&entry).unwrap();
-                    if let Ok(value) = dir_entry_dict(filename, &metadata, name_tag) {
+                    if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag) {
                         yield ReturnSuccess::value(value);
                     }
                 }
@@ -187,7 +187,7 @@ impl Shell for FilesystemShell {
                     return Err(ShellError::labeled_error(
                         "Can not change to home directory",
                         "can not go to home",
-                        args.call_info.name_tag,
+                        &args.call_info.name_tag,
                     ))
                 }
             },
@@ -969,7 +969,7 @@ impl Shell for FilesystemShell {
                 return Err(ShellError::labeled_error(
                     "unable to show current directory",
                     "pwd command failed",
-                    args.call_info.name_tag,
+                    &args.call_info.name_tag,
                 ));
             }
         };
@@ -977,7 +977,7 @@ impl Shell for FilesystemShell {
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::value(
             Value::Primitive(Primitive::String(p.to_string_lossy().to_string()))
-                .tagged(args.call_info.name_tag),
+                .tagged(&args.call_info.name_tag),
         ));
 
         Ok(stream.into())

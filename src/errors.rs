@@ -24,7 +24,7 @@ impl Description {
     #[allow(unused)]
     fn tag(&self) -> Tag {
         match self {
-            Description::Source(tagged) => tagged.tag,
+            Description::Source(tagged) => tagged.tag.clone(),
             Description::Synthetic(_) => Tag::unknown(),
         }
     }
@@ -476,16 +476,16 @@ impl ProximateShellError {
     pub(crate) fn tag(&self) -> Option<Tag> {
         Some(match self {
             ProximateShellError::SyntaxError { problem } => problem.tag(),
-            ProximateShellError::UnexpectedEof { tag, .. } => *tag,
-            ProximateShellError::InvalidCommand { command } => *command,
-            ProximateShellError::TypeError { actual, .. } => actual.tag,
-            ProximateShellError::MissingProperty { tag, .. } => *tag,
-            ProximateShellError::MissingValue { tag, .. } => return *tag,
-            ProximateShellError::ArgumentError { tag, .. } => *tag,
-            ProximateShellError::RangeError { actual_kind, .. } => actual_kind.tag,
+            ProximateShellError::UnexpectedEof { tag, .. } => tag.clone(),
+            ProximateShellError::InvalidCommand { command } => command.clone(),
+            ProximateShellError::TypeError { actual, .. } => actual.tag.clone(),
+            ProximateShellError::MissingProperty { tag, .. } => tag.clone(),
+            ProximateShellError::MissingValue { tag, .. } => return tag.clone(),
+            ProximateShellError::ArgumentError { tag, .. } => tag.clone(),
+            ProximateShellError::RangeError { actual_kind, .. } => actual_kind.tag.clone(),
             ProximateShellError::Diagnostic(..) => return None,
             ProximateShellError::UntaggedRuntimeError { .. } => return None,
-            ProximateShellError::CoerceError { left, right } => left.tag.until(right.tag),
+            ProximateShellError::CoerceError { left, right } => left.tag.until(&right.tag),
         })
     }
 }

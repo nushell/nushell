@@ -1,8 +1,7 @@
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
 use nu::{
-    serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap,
-    Tagged, Value,
+    serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature, Tagged, Value,
 };
 
 use syntect::easy::HighlightLines;
@@ -29,8 +28,8 @@ impl Plugin for TextView {
         Ok(Signature::build("textview").desc("Autoview of text data."))
     }
 
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
-        view_text_value(&input[0], &call_info.source_map);
+    fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {
+        view_text_value(&input[0]);
     }
 }
 
@@ -215,20 +214,18 @@ fn scroll_view(s: &str) {
     scroll_view_lines_if_needed(v, false);
 }
 
-fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
+fn view_text_value(value: &Tagged<Value>) {
     let value_anchor = value.anchor();
     match value.item {
         Value::Primitive(Primitive::String(ref s)) => {
-            let source = source_map.get(&value_anchor);
-
-            if let Some(source) = source {
+            if let Some(source) = value_anchor {
                 let extension: Option<String> = match source {
                     AnchorLocation::File(file) => {
-                        let path = Path::new(file);
+                        let path = Path::new(&file);
                         path.extension().map(|x| x.to_string_lossy().to_string())
                     }
                     AnchorLocation::Url(url) => {
-                        let url = url::Url::parse(url);
+                        let url = url::Url::parse(&url);
                         if let Ok(url) = url {
                             let url = url.clone();
                             if let Some(mut segments) = url.path_segments() {

@@ -14,14 +14,14 @@ impl language_reporting::ReportingFiles for Files {
 
     fn byte_span(
         &self,
-        file: Self::FileId,
+        _file: Self::FileId,
         from_index: usize,
         to_index: usize,
     ) -> Option<Self::Span> {
         Some(Span::new(from_index, to_index))
     }
 
-    fn file_id(&self, tag: Self::Span) -> Self::FileId {
+    fn file_id(&self, _tag: Self::Span) -> Self::FileId {
         0
     }
 
@@ -67,7 +67,7 @@ impl language_reporting::ReportingFiles for Files {
         }
     }
 
-    fn line_span(&self, file: Self::FileId, lineno: usize) -> Option<Self::Span> {
+    fn line_span(&self, _file: Self::FileId, lineno: usize) -> Option<Self::Span> {
         let source = &self.snippet;
         let mut seen_lines = 0;
         let mut seen_bytes = 0;

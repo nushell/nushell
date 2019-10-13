@@ -27,7 +27,7 @@ impl Edit {
                         return Err(ShellError::labeled_error(
                             "edit could not find place to insert column",
                             "column name",
-                            f.tag,
+                            &f.tag,
                         ))
                     }
                 },

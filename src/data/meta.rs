@@ -54,7 +54,7 @@ pub struct Tagged<T> {
 
 impl<T> HasTag for Tagged<T> {
     fn tag(&self) -> Tag {
-        self.tag
+        self.tag.clone()
     }
 }
 
@@ -105,7 +105,7 @@ impl<T> Tagged<T> {
     }
 
     pub fn tag(&self) -> Tag {
-        self.tag
+        self.tag.clone()
     }
 
     pub fn span(&self) -> Span {
@@ -113,13 +113,13 @@ impl<T> Tagged<T> {
     }
 
     pub fn anchor(&self) -> Option<AnchorLocation> {
-        self.tag.anchor
+        self.tag.anchor.clone()
     }
 
     pub fn anchor_name(&self) -> Option<String> {
         match self.tag.anchor {
-            Some(AnchorLocation::File(file)) => Some(file.clone()),
-            Some(AnchorLocation::Url(url)) => Some(url.clone()),
+            Some(AnchorLocation::File(ref file)) => Some(file.clone()),
+            Some(AnchorLocation::Url(ref url)) => Some(url.clone()),
             _ => None,
         }
     }
@@ -135,7 +135,7 @@ impl<T> Tagged<T> {
 
 impl From<&Tag> for Tag {
     fn from(input: &Tag) -> Tag {
-        *input
+        input.clone()
     }
 }
 
@@ -294,7 +294,7 @@ impl Tag {
 
         Tag {
             span: Span::new(self.span.start, other.span.end),
-            anchor: self.anchor,
+            anchor: self.anchor.clone(),
         }
     }
 
@@ -309,10 +309,10 @@ impl Tag {
 
                 Tag {
                     span: Span::new(self.span.start, other.span.end),
-                    anchor: self.anchor,
+                    anchor: self.anchor.clone(),
                 }
             }
-            None => *self,
+            None => self.clone(),
         }
     }
 

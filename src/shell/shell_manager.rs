@@ -149,12 +149,12 @@ impl ShellManager {
         match env {
             Ok(x) => {
                 let path = x[self.current_shell()].path();
-                x[self.current_shell()].cp(args, context.name, &path)
+                x[self.current_shell()].cp(args, context.name.clone(), &path)
             }
             Err(e) => Err(ShellError::labeled_error(
                 format!("Internal error: could not lock {}", e),
                 "Internal error: could not lock",
-                context.name,
+                &context.name,
             )),
         }
     }
@@ -169,12 +169,12 @@ impl ShellManager {
         match env {
             Ok(x) => {
                 let path = x[self.current_shell()].path();
-                x[self.current_shell()].rm(args, context.name, &path)
+                x[self.current_shell()].rm(args, context.name.clone(), &path)
             }
             Err(e) => Err(ShellError::labeled_error(
                 format!("Internal error: could not lock {}", e),
                 "Internal error: could not lock",
-                context.name,
+                &context.name,
             )),
         }
     }
@@ -189,12 +189,12 @@ impl ShellManager {
         match env {
             Ok(x) => {
                 let path = x[self.current_shell()].path();
-                x[self.current_shell()].mkdir(args, context.name, &path)
+                x[self.current_shell()].mkdir(args, context.name.clone(), &path)
             }
             Err(e) => Err(ShellError::labeled_error(
                 format!("Internal error: could not lock {}", e),
                 "Internal error: could not lock",
-                context.name,
+                &context.name,
             )),
         }
     }
@@ -209,12 +209,12 @@ impl ShellManager {
         match env {
             Ok(x) => {
                 let path = x[self.current_shell()].path();
-                x[self.current_shell()].mv(args, context.name, &path)
+                x[self.current_shell()].mv(args, context.name.clone(), &path)
             }
             Err(e) => Err(ShellError::labeled_error(
                 format!("Internal error: could not lock {}", e),
                 "Internal error: could not lock",
-                context.name,
+                &context.name,
             )),
         }
     }

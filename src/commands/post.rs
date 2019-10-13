@@ -54,17 +54,20 @@ fn run(
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
+    let name_tag = call_info.name_tag.clone();
     let call_info = call_info.clone();
-    let path = match call_info.args.nth(0).ok_or_else(|| {
-        ShellError::labeled_error("No url specified", "for command", call_info.name_tag)
-    })? {
-        file => file.clone(),
-    };
-    let body = match call_info.args.nth(1).ok_or_else(|| {
-        ShellError::labeled_error("No body specified", "for command", call_info.name_tag)
-    })? {
-        file => file.clone(),
-    };
+    let path =
+        match call_info.args.nth(0).ok_or_else(|| {
+            ShellError::labeled_error("No url specified", "for command", &name_tag)
+        })? {
+            file => file.clone(),
+        };
+    let body =
+        match call_info.args.nth(1).ok_or_else(|| {
+            ShellError::labeled_error("No body specified", "for command", &name_tag)
+        })? {
+            file => file.clone(),
+        };
     let path_str = path.as_string()?;
     let path_span = path.tag();
     let has_raw = call_info.args.has("raw");
@@ -90,7 +93,7 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        let tagged_contents = contents.tagged(contents_tag);
+        let tagged_contents = contents.tagged(&contents_tag);
 
         if let Some(extension) = file_extension {
             let command_name = format!("from-{}", extension);
@@ -119,7 +122,7 @@ fn run(
                             }
                         }
                         Ok(ReturnSuccess::Value(Tagged { item, .. })) => {
-                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag }));
+                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag.clone() }));
                         }
                         x => yield x,
                     }
@@ -272,7 +275,7 @@ pub async fn post(
                                 return Err(ShellError::labeled_error(
                                     "Save could not successfully save",
                                     "unexpected data during save",
-                                    *tag,
+                                    tag,
                                 ));
                             }
                         }
@@ -288,7 +291,7 @@ pub async fn post(
                     return Err(ShellError::labeled_error(
                         "Could not automatically convert table",
                         "needs manual conversion",
-                        *tag,
+                        tag,
                     ));
                 }
             }
@@ -304,7 +307,7 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?),
                             Tag {
@@ -318,7 +321,7 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?),
                             Tag {
@@ -331,7 +334,7 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load binary file",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?;
                             Ok((
@@ -348,7 +351,7 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load image file",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?;
                             Ok((
@@ -366,7 +369,7 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?),
                             Tag {
@@ -392,7 +395,7 @@ pub async fn post(
                                     ShellError::labeled_error(
                                         "Could not load text from remote url",
                                         "could not load",
-                                        tag,
+                                        &tag,
                                     )
                                 })?),
                                 Tag {

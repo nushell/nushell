@@ -28,7 +28,7 @@ impl Embed {
                 None => Err(ShellError::labeled_error(
                     "embed needs a field when embedding a value",
                     "original value",
-                    value.tag,
+                    &tag,
                 )),
             },
         }

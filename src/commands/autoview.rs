@@ -112,11 +112,11 @@ pub fn autoview(
                             match x {
                                 Tagged {
                                     item: Value::Primitive(Primitive::String(ref s)),
-                                    tag: Tag { anchor, .. },
+                                    tag: Tag { anchor, span },
                                 } if anchor.is_some() => {
                                     if let Some(text) = text {
                                         let mut stream = VecDeque::new();
-                                        stream.push_back(x.clone());
+                                        stream.push_back(Value::string(s).tagged(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands, false);
                                         result.collect::<Vec<_>>().await;
                                     } else {

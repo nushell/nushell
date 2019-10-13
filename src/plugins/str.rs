@@ -172,7 +172,7 @@ impl Plugin for Str {
                     return Err(ShellError::labeled_error(
                         "Unrecognized type in params",
                         possible_field.type_name(),
-                        possible_field.tag,
+                        &possible_field.tag,
                     ))
                 }
             }
@@ -214,13 +214,12 @@ mod tests {
     use super::{Action, Str};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Tag, Tagged,
-        TaggedDictBuilder, TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, Tag, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
     };
     use num_bigint::BigInt;
 
     struct CallStub {
-        anchor: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
@@ -228,7 +227,6 @@ mod tests {
     impl CallStub {
         fn new() -> CallStub {
             CallStub {
-                anchor: uuid::Uuid::nil(),
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
@@ -245,19 +243,18 @@ mod tests {
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             let fields: Vec<Tagged<Value>> = name
                 .split(".")
-                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown_span(self.anchor)))
+                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown()))
                 .collect();
 
             self.positionals
-                .push(Value::Table(fields).tagged(Tag::unknown_span(self.anchor)));
+                .push(Value::Table(fields).tagged(Tag::unknown()));
             self
         }
 
         fn create(&self) -> CallInfo {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
-                source_map: SourceMap::new(),
-                name_tag: Tag::unknown_span(self.anchor),
+                name_tag: Tag::unknown(),
             }
         }
     }

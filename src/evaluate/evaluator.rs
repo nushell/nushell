@@ -97,7 +97,7 @@ pub(crate) fn evaluate_baseline_expr(
             Ok(Value::Table(exprs).tagged(tag))
         }
         RawExpression::Block(block) => {
-            Ok(Value::Block(Block::new(block.clone(), source.clone(), tag)).tagged(tag))
+            Ok(Value::Block(Block::new(block.clone(), source.clone(), tag.clone())).tagged(&tag))
         }
         RawExpression::Path(path) => {
             let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;
@@ -120,11 +120,11 @@ pub(crate) fn evaluate_baseline_expr(
                         return Err(ShellError::labeled_error(
                             "Unknown column",
                             format!("did you mean '{}'?", possible_matches[0].1),
-                            tag,
+                            &tag,
                         ));
                     }
                     Some(next) => {
-                        item = next.clone().item.tagged(tag);
+                        item = next.clone().item.tagged(&tag);
                     }
                 };
             }

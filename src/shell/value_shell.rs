@@ -92,7 +92,7 @@ impl Shell for ValueShell {
         context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
-        let name_tag = context.name;
+        let name_tag = context.name.clone();
 
         match &target {
             Some(value) => full_path.push(value.as_ref()),
@@ -166,7 +166,7 @@ impl Shell for ValueShell {
             return Err(ShellError::labeled_error(
                 "Can not change to path inside",
                 "No such path exists",
-                args.call_info.name_tag,
+                &args.call_info.name_tag,
             ));
         }
 
@@ -214,7 +214,7 @@ impl Shell for ValueShell {
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::value(
-            Value::string(self.path()).tagged(args.call_info.name_tag),
+            Value::string(self.path()).tagged(&args.call_info.name_tag),
         ));
         Ok(stream.into())
     }
