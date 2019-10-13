@@ -416,7 +416,7 @@ pub fn expand_atom<'me, 'content>(
     match expand_syntax(&BarePathShape, token_nodes, context) {
         // If we didn't find a bare path
         Err(_) => {}
-        Ok(tag) => {
+        Ok(span) => {
             let next = token_nodes.peek_any();
 
             match next.node {
@@ -425,7 +425,7 @@ pub fn expand_atom<'me, 'content>(
                     // word, and we should try to parse it as a glob next
                 }
 
-                _ => return Ok(AtomicToken::Word { text: tag.span }.spanned(tag.span)),
+                _ => return Ok(AtomicToken::Word { text: span }.spanned(span)),
             }
         }
     }
@@ -435,7 +435,7 @@ pub fn expand_atom<'me, 'content>(
     match expand_syntax(&BarePatternShape, token_nodes, context) {
         // If we didn't find a bare path
         Err(_) => {}
-        Ok(tag) => return Ok(AtomicToken::GlobPattern { pattern: tag.span }.spanned(tag.span)),
+        Ok(span) => return Ok(AtomicToken::GlobPattern { pattern: span }.spanned(span)),
     }
 
     // The next token corresponds to at most one atomic token
@@ -463,18 +463,18 @@ pub fn expand_atom<'me, 'content>(
             item:
                 DelimitedNode {
                     delimiter: Delimiter::Square,
-                    tags,
+                    spans,
                     children,
                 },
             span,
         }) => {
             peeked.commit();
-            let tags = *tags;
+            let span = *span;
             return Ok(AtomicToken::SquareDelimited {
                 nodes: children,
-                spans: (tags.0.span, tags.1.span),
+                spans: *spans,
             }
-            .spanned(*span));
+            .spanned(span));
         }
 
         TokenNode::Flag(Spanned {
@@ -522,13 +522,13 @@ pub fn expand_atom<'me, 'content>(
         },
 
         other => {
-            let tag = peeked.node.tag();
+            let span = peeked.node.span();
 
             peeked.commit();
             return Ok(AtomicToken::Error {
-                error: ShellError::type_error("token", other.tagged_type_name()).spanned(tag.span),
+                error: ShellError::type_error("token", other.tagged_type_name()).spanned(span),
             }
-            .spanned(tag.span));
+            .spanned(span));
         }
     }
 

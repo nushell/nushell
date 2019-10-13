@@ -65,7 +65,7 @@ macro_rules! operator {
 
             Ok((
                 input,
-                TokenTreeBuilder::tagged_op(tag.fragment, (start, end, input.extra)),
+                TokenTreeBuilder::spanned_op(tag.fragment, Span::new(start, end)),
             ))
         }
     };
@@ -171,13 +171,7 @@ pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_number(
-            number.item,
-            Tag {
-                span: number.span,
-                anchor: uuid::Uuid::nil(),
-            },
-        ),
+        TokenTreeBuilder::spanned_number(number.item, number.span),
     ))
 }
 
@@ -245,7 +239,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     let end = input.offset;
     Ok((
         input,
-        TokenTreeBuilder::tagged_string((start1, end1, input.extra), (start, end, input.extra)),
+        TokenTreeBuilder::spanned_string(Span::new(start1, end1), Span::new(start, end)),
     ))
 }
 
@@ -261,7 +255,7 @@ pub fn sq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_string((start1, end1, input.extra), (start, end, input.extra)),
+        TokenTreeBuilder::spanned_string(Span::new(start1, end1), Span::new(start, end)),
     ))
 }
 
@@ -279,7 +273,7 @@ pub fn external(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_external_command(bare, (start, end, input.extra)),
+        TokenTreeBuilder::spanned_external_command(bare, Span::new(start, end)),
     ))
 }
 
@@ -304,7 +298,7 @@ pub fn pattern(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_pattern((start, end, input.extra)),
+        TokenTreeBuilder::spanned_pattern(Span::new(start, end)),
     ))
 }
 
@@ -337,10 +331,7 @@ pub fn bare(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     let end = input.offset;
 
-    Ok((
-        input,
-        TokenTreeBuilder::tagged_bare((start, end, input.extra)),
-    ))
+    Ok((input, TokenTreeBuilder::spanned_bare(Span::new(start, end))))
 }
 
 #[tracable_parser]
@@ -351,7 +342,7 @@ pub fn external_word(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_external_word((start, end, input.extra)),
+        TokenTreeBuilder::spanned_external_word(Span::new(start, end)),
     ))
 }
 
@@ -364,7 +355,7 @@ pub fn var(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_var(bare, (start, end, input.extra)),
+        TokenTreeBuilder::spanned_var(bare, Span::new(start, end)),
     ))
 }
 
@@ -387,7 +378,7 @@ pub fn flag(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_flag(bare.tag().span, Span::new(start, end)),
+        TokenTreeBuilder::spanned_flag(bare.span(), Span::new(start, end)),
     ))
 }
 
@@ -400,7 +391,7 @@ pub fn shorthand(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_shorthand(bare.tag().span, Span::new(start, end)),
+        TokenTreeBuilder::spanned_shorthand(bare.span(), Span::new(start, end)),
     ))
 }
 
@@ -427,7 +418,7 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
 }
 
 #[tracable_parser]
-pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
+pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNode>>> {
     let start = input.offset;
     let (input, pre_ws) = opt(whitespace)(input)?;
     let (input, items) = token_list(input)?;
@@ -440,7 +431,7 @@ pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNod
     out.extend(items.item);
     out.extend(post_ws);
 
-    Ok((input, out.tagged((start, end, uuid::Uuid::nil()))))
+    Ok((input, out.spanned(Span::new(start, end))))
 }
 
 fn make_token_list(
@@ -476,11 +467,11 @@ pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 pub fn delimited(
     input: NomSpan,
     delimiter: Delimiter,
-) -> IResult<NomSpan, (Tag, Tag, Tagged<Vec<TokenNode>>)> {
+) -> IResult<NomSpan, (Span, Span, Spanned<Vec<TokenNode>>)> {
     let left = input.offset;
-    let (input, open_tag) = tag(delimiter.open())(input)?;
+    let (input, open_span) = tag(delimiter.open())(input)?;
     let (input, inner_items) = opt(spaced_token_list)(input)?;
-    let (input, close_tag) = tag(delimiter.close())(input)?;
+    let (input, close_span) = tag(delimiter.close())(input)?;
     let right = input.offset;
 
     let mut items = vec![];
@@ -492,9 +483,9 @@ pub fn delimited(
     Ok((
         input,
         (
-            Tag::from(open_tag),
-            Tag::from(close_tag),
-            items.tagged((left, right, uuid::Uuid::nil())),
+            Span::from(open_span),
+            Span::from(close_span),
+            items.spanned(Span::new(left, right)),
         ),
     ))
 }
@@ -505,7 +496,7 @@ pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_parens(tokens.item, (left, right), tokens.tag),
+        TokenTreeBuilder::spanned_parens(tokens.item, (left, right), tokens.span),
     ))
 }
 
@@ -515,7 +506,7 @@ pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_square(tokens.item, (left, right), tokens.tag),
+        TokenTreeBuilder::spanned_square(tokens.item, (left, right), tokens.span),
     ))
 }
 
@@ -525,7 +516,7 @@ pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_square(tokens.item, (left, right), tokens.tag),
+        TokenTreeBuilder::spanned_square(tokens.item, (left, right), tokens.span),
     ))
 }
 
@@ -636,18 +627,19 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     let end = input.offset;
 
-    let head_tag = head.tag();
-    let mut all_items: Vec<Tagged<PipelineElement>> =
-        vec![PipelineElement::new(None, head).tagged(head_tag)];
+    let head_span = head.span;
+    let mut all_items: Vec<Spanned<PipelineElement>> =
+        vec![PipelineElement::new(None, head).spanned(head_span)];
 
     all_items.extend(items.into_iter().map(|(pipe, items)| {
-        let items_tag = items.tag();
-        PipelineElement::new(Some(Tag::from(pipe)), items).tagged(Tag::from(pipe).until(items_tag))
+        let items_span = items.span;
+        PipelineElement::new(Some(Span::from(pipe)), items)
+            .spanned(Span::from(pipe).until(items_span))
     }));
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_pipeline(all_items, (start, end, input.extra)),
+        TokenTreeBuilder::spanned_pipeline(all_items, Span::new(start, end)),
     ))
 }
 
@@ -1243,18 +1235,18 @@ mod tests {
         f(nom_input(string, uuid::Uuid::nil())).unwrap().1
     }
 
-    fn tag(left: usize, right: usize) -> Tag {
-        Tag::from((left, right, uuid::Uuid::nil()))
+    fn span((left, right): (usize, usize)) -> Span {
+        Span::new(left, right)
     }
 
     fn delimited(
-        delimiter: Tagged<Delimiter>,
+        delimiter: Spanned<Delimiter>,
         children: Vec<TokenNode>,
         left: usize,
         right: usize,
     ) -> TokenNode {
-        let start = Tag::for_char(left, delimiter.tag.anchor);
-        let end = Tag::for_char(right, delimiter.tag.anchor);
+        let start = Span::for_char(left);
+        let end = Span::for_char(right);
 
         let node = DelimitedNode::new(delimiter.item, (start, end), children);
         let spanned = node.spanned(Span::new(left, right));
@@ -1262,7 +1254,7 @@ mod tests {
     }
 
     fn token(token: RawToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(token.tagged((left, right, uuid::Uuid::nil())))
+        TokenNode::Token(token.spanned(Span::new(left, right)))
     }
 
     fn build<T>(block: CurriedNode<T>) -> T {

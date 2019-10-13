@@ -1,5 +1,5 @@
 use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, RawToken, TokenNode};
-use crate::{Span, Spanned, SpannedItem, Tag, TaggedItem, Text};
+use crate::{Span, Spanned, SpannedItem, Text};
 
 #[derive(Debug, Copy, Clone)]
 pub enum FlatShape {
@@ -61,16 +61,16 @@ impl FlatShape {
                 }
             }
             TokenNode::Delimited(v) => {
-                shapes.push(FlatShape::OpenDelimiter(v.item.delimiter).tagged(v.item.tags.0));
+                shapes.push(FlatShape::OpenDelimiter(v.item.delimiter).spanned(v.item.spans.0));
                 for token in &v.item.children {
                     FlatShape::from(token, source, shapes);
                 }
-                shapes.push(FlatShape::CloseDelimiter(v.item.delimiter).tagged(v.item.tags.1));
+                shapes.push(FlatShape::CloseDelimiter(v.item.delimiter).spanned(v.item.spans.1));
             }
             TokenNode::Pipeline(pipeline) => {
                 for part in &pipeline.parts {
                     if let Some(_) = part.pipe {
-                        shapes.push(FlatShape::Pipe.tagged(part.tag));
+                        shapes.push(FlatShape::Pipe.spanned(part.span));
                     }
                 }
             }
@@ -81,10 +81,7 @@ impl FlatShape {
                         ..
                     },
                 span,
-            }) => shapes.push(FlatShape::Flag.tagged(Tag {
-                span: *span,
-                anchor: uuid::Uuid::nil(),
-            })),
+            }) => shapes.push(FlatShape::Flag.spanned(*span)),
             TokenNode::Flag(Spanned {
                 item:
                     Flag {
@@ -92,15 +89,9 @@ impl FlatShape {
                         ..
                     },
                 span,
-            }) => shapes.push(FlatShape::ShorthandFlag.tagged(Tag {
-                span: *span,
-                anchor: uuid::Uuid::nil(),
-            })),
-            TokenNode::Whitespace(_) => shapes.push(FlatShape::Whitespace.tagged(token.tag())),
-            TokenNode::Error(v) => shapes.push(FlatShape::Error.tagged(Tag {
-                span: v.span,
-                anchor: uuid::Uuid::nil(),
-            })),
+            }) => shapes.push(FlatShape::ShorthandFlag.spanned(*span)),
+            TokenNode::Whitespace(_) => shapes.push(FlatShape::Whitespace.spanned(token.span())),
+            TokenNode::Error(v) => shapes.push(FlatShape::Error.spanned(v.span)),
         }
     }
 }

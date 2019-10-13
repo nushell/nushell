@@ -40,16 +40,16 @@ pub struct DelimitedShape;
 
 impl ColorSyntax for DelimitedShape {
     type Info = ();
-    type Input = (Delimiter, Tag, Tag);
+    type Input = (Delimiter, Span, Span);
     fn color_syntax<'a, 'b>(
         &self,
-        (delimiter, open, close): &(Delimiter, Tag, Tag),
+        (delimiter, open, close): &(Delimiter, Span, Span),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
-        shapes.push(FlatShape::OpenDelimiter(*delimiter).spanned(open));
+        shapes.push(FlatShape::OpenDelimiter(*delimiter).spanned(*open));
         color_syntax(&ExpressionListShape, token_nodes, context, shapes);
-        shapes.push(FlatShape::CloseDelimiter(*delimiter).spanned(close));
+        shapes.push(FlatShape::CloseDelimiter(*delimiter).spanned(*close));
     }
 }

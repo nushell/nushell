@@ -1,13 +1,13 @@
 use crate::parser::TokenNode;
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged};
+use crate::{Span, Spanned};
 use derive_new::new;
 use getset::Getters;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
 pub struct Pipeline {
-    pub(crate) parts: Vec<Tagged<PipelineElement>>,
+    pub(crate) parts: Vec<Spanned<PipelineElement>>,
     // pub(crate) post_ws: Option<Tag>,
 }
 
@@ -23,8 +23,8 @@ impl ToDebug for Pipeline {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
 pub struct PipelineElement {
-    pub pipe: Option<Tag>,
-    pub tokens: Tagged<Vec<TokenNode>>,
+    pub pipe: Option<Span>,
+    pub tokens: Spanned<Vec<TokenNode>>,
 }
 
 impl ToDebug for PipelineElement {

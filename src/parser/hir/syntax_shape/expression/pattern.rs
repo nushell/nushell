@@ -85,23 +85,23 @@ impl ExpandExpression for PatternShape {
 pub struct BarePatternShape;
 
 impl ExpandSyntax for BarePatternShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Tag, ShellError> {
+    ) -> Result<Span, ShellError> {
         expand_bare(token_nodes, context, |token| match token {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
                 ..
             })
-            | TokenNode::Token(Tagged {
+            | TokenNode::Token(Spanned {
                 item: RawToken::Operator(Operator::Dot),
                 ..
             })
-            | TokenNode::Token(Tagged {
+            | TokenNode::Token(Spanned {
                 item: RawToken::GlobPattern,
                 ..
             }) => true,

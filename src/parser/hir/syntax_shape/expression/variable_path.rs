@@ -143,10 +143,14 @@ impl ExpandSyntax for PathTailShape {
 
         match end {
             None => {
-                return Err(ShellError::type_error(
-                    "path tail",
-                    token_nodes.typed_tag_at_cursor(),
-                ))
+                return Err(ShellError::type_error("path tail", {
+                    let typed_span = token_nodes.typed_span_at_cursor();
+
+                    Tagged {
+                        tag: typed_span.span.into(),
+                        item: typed_span.item,
+                    }
+                }))
             }
 
             Some(end) => Ok((tail, end)),
@@ -179,7 +183,7 @@ impl ExpandSyntax for ExpressionContinuationShape {
             // If a `.` was matched, it's a `Path`, and we expect a `Member` next
             Ok(dot) => {
                 let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-                let member = syntax.to_tagged_string(context.source);
+                let member = syntax.to_spanned_string(context.source);
 
                 Ok(ExpressionContinuation::DotSuffix(dot, member))
             }
@@ -343,17 +347,6 @@ impl Member {
         match self {
             Member::String(outer, inner) => inner.string(source).spanned(*outer),
             Member::Bare(span) => span.spanned_string(source),
-        }
-    }
-
-    pub(crate) fn to_tagged_string(&self, source: &str) -> Tagged<String> {
-        match self {
-            Member::String(outer, inner) => inner.string(source).tagged(outer),
-            Member::Bare(span) => Tag {
-                span: *span,
-                anchor: uuid::Uuid::nil(),
-            }
-            .tagged_string(source),
         }
     }
 
@@ -566,7 +559,7 @@ impl ExpandSyntax for MemberShape {
         let bare = BareShape.test(token_nodes, context);
         if let Some(peeked) = bare {
             let node = peeked.not_eof("column")?.commit();
-            return Ok(Member::Bare(node.span));
+            return Ok(Member::Bare(node.span()));
         }
 
         let string = StringShape.test(token_nodes, context);
@@ -604,7 +597,7 @@ impl FallibleColorSyntax for ColorableDotShape {
         match peeked.node {
             node if node.is_dot() => {
                 peeked.commit();
-                shapes.push((*input).spanned(node.tag().span));
+                shapes.push((*input).spanned(node.span()));
                 Ok(())
             }
 
@@ -671,18 +664,18 @@ impl FallibleColorSyntax for InfixShape {
         parse_single_node(
             checkpoint.iterator,
             "infix operator",
-            |token, token_tag, _| {
+            |token, token_span, _| {
                 match token {
                     // If it's an operator (and not `.`), it's a match
                     RawToken::Operator(operator) if operator != Operator::Dot => {
-                        shapes.push(FlatShape::Operator.spanned(token_tag.span));
+                        shapes.push(FlatShape::Operator.spanned(token_span));
                         Ok(())
                     }
 
                     // Otherwise, it's not a match
                     _ => Err(ShellError::type_error(
                         "infix operator",
-                        token.type_name().tagged(token_tag),
+                        token.type_name().tagged(token_span),
                     )),
                 }
             },
@@ -698,7 +691,7 @@ impl FallibleColorSyntax for InfixShape {
 }
 
 impl ExpandSyntax for InfixShape {
-    type Output = (Span, Tagged<Operator>, Span);
+    type Output = (Span, Spanned<Operator>, Span);
 
     fn expand_syntax<'a, 'b>(
         &self,
@@ -714,18 +707,18 @@ impl ExpandSyntax for InfixShape {
         let operator = parse_single_node(
             checkpoint.iterator,
             "infix operator",
-            |token, token_tag, _| {
+            |token, token_span, _| {
                 Ok(match token {
                     // If it's an operator (and not `.`), it's a match
                     RawToken::Operator(operator) if operator != Operator::Dot => {
-                        operator.tagged(token_tag)
+                        operator.spanned(token_span)
                     }
 
                     // Otherwise, it's not a match
                     _ => {
                         return Err(ShellError::type_error(
                             "infix operator",
-                            token.type_name().tagged(token_tag),
+                            token.type_name().tagged(token_span),
                         ))
                     }
                 })

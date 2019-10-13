@@ -45,33 +45,30 @@ impl ExpandExpression for StringShape {
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
-        parse_single_node(token_nodes, "String", |token, token_tag, _| {
+        parse_single_node(token_nodes, "String", |token, token_span, _| {
             Ok(match token {
                 RawToken::GlobPattern => {
                     return Err(ShellError::type_error(
                         "String",
-                        "glob pattern".tagged(token_tag),
+                        "glob pattern".tagged(token_span),
                     ))
                 }
                 RawToken::Operator(..) => {
                     return Err(ShellError::type_error(
                         "String",
-                        "operator".tagged(token_tag),
+                        "operator".tagged(token_span),
                     ))
                 }
-                RawToken::Variable(span) => expand_variable(
-                    Tag {
-                        span,
-                        anchor: uuid::Uuid::nil(),
-                    },
-                    token_tag,
-                    &context.source,
-                ),
-                RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token_tag),
-                RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token_tag)),
-                RawToken::Number(_) => hir::Expression::bare(token_tag),
-                RawToken::Bare => hir::Expression::bare(token_tag),
-                RawToken::String(tag) => hir::Expression::string(tag, token_tag),
+                RawToken::Variable(span) => expand_variable(span, token_span, &context.source),
+                RawToken::ExternalCommand(span) => {
+                    hir::Expression::external_command(span, token_span)
+                }
+                RawToken::ExternalWord => {
+                    return Err(ShellError::invalid_external_word(token_span))
+                }
+                RawToken::Number(_) => hir::Expression::bare(token_span),
+                RawToken::Bare => hir::Expression::bare(token_span),
+                RawToken::String(span) => hir::Expression::string(span, token_span),
             })
         })
     }

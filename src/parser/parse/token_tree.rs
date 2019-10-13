@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
 use crate::prelude::*;
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged, Text};
+use crate::{Tagged, Text};
 use derive_new::new;
 use enum_utils::FromStr;
 use getset::Getters;
@@ -78,49 +78,28 @@ impl fmt::Debug for DebugTokenNode<'_> {
             }
             TokenNode::Pipeline(pipeline) => write!(f, "{}", pipeline.debug(self.source)),
             TokenNode::Error(_) => write!(f, "<error>"),
-            rest => write!(f, "{}", rest.tag().slice(self.source)),
+            rest => write!(f, "{}", rest.span().slice(self.source)),
         }
     }
 }
 
-impl From<&TokenNode> for Tag {
-    fn from(token: &TokenNode) -> Tag {
-        token.tag()
+impl From<&TokenNode> for Span {
+    fn from(token: &TokenNode) -> Span {
+        token.span()
     }
 }
 
 impl TokenNode {
-    pub fn tag(&self) -> Tag {
+    pub fn span(&self) -> Span {
         match self {
-            TokenNode::Token(t) => t.tag(),
-            TokenNode::Nodes(t) => Tag {
-                span: t.span,
-                anchor: uuid::Uuid::nil(),
-            },
-            TokenNode::Call(s) => Tag {
-                span: s.span,
-                anchor: uuid::Uuid::nil(),
-            },
-            TokenNode::Delimited(s) => Tag {
-                span: s.span,
-                anchor: uuid::Uuid::nil(),
-            },
-            TokenNode::Pipeline(s) => Tag {
-                span: s.span,
-                anchor: uuid::Uuid::nil(),
-            },
-            TokenNode::Flag(s) => Tag {
-                span: s.span,
-                anchor: uuid::Uuid::nil(),
-            },
-            TokenNode::Whitespace(s) => Tag {
-                span: *s,
-                anchor: uuid::Uuid::nil(),
-            },
-            TokenNode::Error(s) => Tag {
-                span: s.span,
-                anchor: uuid::Uuid::nil(),
-            },
+            TokenNode::Token(t) => t.span,
+            TokenNode::Nodes(t) => t.span,
+            TokenNode::Call(s) => s.span,
+            TokenNode::Delimited(s) => s.span,
+            TokenNode::Pipeline(s) => s.span,
+            TokenNode::Flag(s) => s.span,
+            TokenNode::Whitespace(s) => *s,
+            TokenNode::Error(s) => s.span,
         }
     }
 
@@ -137,8 +116,12 @@ impl TokenNode {
         }
     }
 
+    pub fn spanned_type_name(&self) -> Spanned<&'static str> {
+        self.type_name().spanned(self.span())
+    }
+
     pub fn tagged_type_name(&self) -> Tagged<&'static str> {
-        self.type_name().tagged(self.tag())
+        self.type_name().tagged(self.span())
     }
 
     pub fn old_debug<'a>(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
@@ -146,32 +129,26 @@ impl TokenNode {
     }
 
     pub fn as_external_arg(&self, source: &Text) -> String {
-        self.tag().slice(source).to_string()
+        self.span().slice(source).to_string()
     }
 
     pub fn source<'a>(&self, source: &'a Text) -> &'a str {
-        self.tag().slice(source)
+        self.span().slice(source)
     }
 
-    pub fn get_variable(&self) -> Result<(Tag, Tag), ShellError> {
+    pub fn get_variable(&self) -> Result<(Span, Span), ShellError> {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Variable(inner_span),
-                tag: outer_tag,
-            }) => Ok((
-                *outer_tag,
-                Tag {
-                    span: *inner_span,
-                    anchor: uuid::Uuid::nil(),
-                },
-            )),
+                span: outer_span,
+            }) => Ok((*outer_span, *inner_span)),
             _ => Err(ShellError::type_error("variable", self.tagged_type_name())),
         }
     }
 
     pub fn is_bare(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
                 ..
             }) => true,
@@ -181,7 +158,7 @@ impl TokenNode {
 
     pub fn is_pattern(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::GlobPattern,
                 ..
             }) => true,
@@ -191,7 +168,7 @@ impl TokenNode {
 
     pub fn is_dot(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Operator(Operator::Dot),
                 ..
             }) => true,

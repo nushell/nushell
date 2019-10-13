@@ -1,6 +1,6 @@
 use crate::parser::Operator;
 use crate::prelude::*;
-use crate::{Tagged, Text};
+use crate::Text;
 use std::fmt;
 use std::str::FromStr;
 
@@ -105,49 +105,37 @@ impl Token {
         }
     }
 
-    pub fn extract_variable(&self) -> Option<(Tag, Tag)> {
+    pub fn extract_variable(&self) -> Option<(Span, Span)> {
         match self.item {
-            RawToken::Variable(span) => Some((
-                Tag {
-                    span,
-                    anchor: uuid::Uuid::nil(),
-                },
-                self.tag,
-            )),
+            RawToken::Variable(span) => Some((span, self.span)),
             _ => None,
         }
     }
 
-    pub fn extract_external_command(&self) -> Option<(Tag, Tag)> {
+    pub fn extract_external_command(&self) -> Option<(Span, Span)> {
         match self.item {
-            RawToken::ExternalCommand(span) => Some((
-                Tag {
-                    span,
-                    anchor: uuid::Uuid::nil(),
-                },
-                self.tag,
-            )),
+            RawToken::ExternalCommand(span) => Some((span, self.span)),
             _ => None,
         }
     }
 
-    pub fn extract_external_word(&self) -> Option<Tag> {
+    pub fn extract_external_word(&self) -> Option<Span> {
         match self.item {
-            RawToken::ExternalWord => Some(self.tag),
+            RawToken::ExternalWord => Some(self.span),
             _ => None,
         }
     }
 
-    pub fn extract_glob_pattern(&self) -> Option<Tag> {
+    pub fn extract_glob_pattern(&self) -> Option<Span> {
         match self.item {
-            RawToken::GlobPattern => Some(self.tag),
+            RawToken::GlobPattern => Some(self.span),
             _ => None,
         }
     }
 
-    pub fn extract_bare(&self) -> Option<Tag> {
+    pub fn extract_bare(&self) -> Option<Span> {
         match self.item {
-            RawToken::Bare => Some(self.tag),
+            RawToken::Bare => Some(self.span),
             _ => None,
         }
     }
@@ -160,6 +148,6 @@ pub struct DebugToken<'a> {
 
 impl fmt::Debug for DebugToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.node.tag().slice(self.source))
+        write!(f, "{}", self.node.span.slice(self.source))
     }
 }

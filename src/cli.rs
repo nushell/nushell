@@ -633,12 +633,12 @@ fn classify_pipeline(
     source: &Text,
 ) -> Result<ClassifiedPipeline, ShellError> {
     let mut pipeline_list = vec![pipeline.clone()];
-    let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.tag().span);
+    let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.span());
 
     expand_syntax(
         &PipelineShape,
         &mut iterator,
-        &context.expand_context(source, pipeline.tag()),
+        &context.expand_context(source, pipeline.span()),
     )
 }
 
@@ -655,7 +655,13 @@ pub(crate) fn external_command(
     Ok(ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
         name_tag: name.tag(),
-        args: arg_list_strings,
+        args: arg_list_strings
+            .iter()
+            .map(|x| Tagged {
+                tag: x.span.into(),
+                item: x.item.clone(),
+            })
+            .collect(),
     }))
 }
 

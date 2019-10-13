@@ -11,7 +11,7 @@ use crate::parser::{
     parse::token_tree::Delimiter,
     RawToken, TokenNode,
 };
-use crate::{Spanned, SpannedItem, Tag, Tagged};
+use crate::{Spanned, SpannedItem, Tag};
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyBlockShape;
@@ -39,11 +39,11 @@ impl FallibleColorSyntax for AnyBlockShape {
 
         match block {
             // If so, color it as a block
-            Some((children, tags)) => {
-                let mut token_nodes = TokensIterator::new(children.item, context.tag.span, false);
+            Some((children, spans)) => {
+                let mut token_nodes = TokensIterator::new(children.item, context.span, false);
                 color_syntax_with(
                     &DelimitedShape,
-                    &(Delimiter::Brace, tags.0, tags.1),
+                    &(Delimiter::Brace, spans.0, spans.1),
                     &mut token_nodes,
                     context,
                     shapes,
@@ -72,7 +72,7 @@ impl ExpandExpression for AnyBlockShape {
 
         match block {
             Some((block, _tags)) => {
-                let mut iterator = TokensIterator::new(&block.item, context.tag.span, false);
+                let mut iterator = TokensIterator::new(&block.item, context.span, false);
 
                 let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
 
@@ -244,7 +244,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
                 span,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::BareMember.spanned(span));
+                shapes.push(FlatShape::BareMember.spanned(*span));
                 Ok(())
             }
 
@@ -254,7 +254,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
                 span: outer,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::StringMember.spanned(outer));
+                shapes.push(FlatShape::StringMember.spanned(*outer));
                 Ok(())
             }
 

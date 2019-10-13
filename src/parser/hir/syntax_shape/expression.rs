@@ -173,15 +173,15 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
         });
 
         let atom = match atom {
-            Tagged {
+            Spanned {
                 item: Err(_err),
-                tag,
+                span,
             } => {
-                shapes.push(FlatShape::Error.spanned(tag.span));
+                shapes.push(FlatShape::Error.spanned(span));
                 return Ok(());
             }
 
-            Tagged {
+            Spanned {
                 item: Ok(value), ..
             } => value,
         };

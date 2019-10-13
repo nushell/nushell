@@ -3,7 +3,7 @@ use crate::parser::hir::syntax_shape::{color_fallible_syntax, FlatShape, Pipelin
 use crate::parser::hir::TokensIterator;
 use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
-use crate::{Spanned, SpannedItem, Tag, Tagged, Text};
+use crate::{Span, Spanned, SpannedItem, Tag, Tagged, Text};
 use ansi_term::Color;
 use log::trace;
 use rustyline::completion::Completer;
@@ -78,13 +78,13 @@ impl Highlighter for Helper {
                     Ok(v) => v,
                 };
 
-                let tokens = vec![TokenNode::Pipeline(pipeline.clone().spanned(v.tag().span))];
-                let mut tokens = TokensIterator::all(&tokens[..], v.tag().span);
+                let tokens = vec![TokenNode::Pipeline(pipeline.clone().spanned(v.span()))];
+                let mut tokens = TokensIterator::all(&tokens[..], v.span());
 
                 let text = Text::from(line);
                 let expand_context = self
                     .context
-                    .expand_context(&text, Tag::from((0, line.len() - 1, uuid::Uuid::nil())));
+                    .expand_context(&text, Span::new(0, line.len() - 1));
                 let mut shapes = vec![];
 
                 // We just constructed a token list that only contains a pipeline, so it can't fail

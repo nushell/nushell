@@ -246,7 +246,7 @@ impl Expression {
 
 impl ToDebug for Expression {
     fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
-        match self.item {
+        match &self.item {
             RawExpression::Literal(l) => l.spanned(self.span).fmt_debug(f, source),
             RawExpression::FilePath(p) => write!(f, "{}", p.display()),
             RawExpression::ExternalWord => write!(f, "{}", self.span.slice(source)),

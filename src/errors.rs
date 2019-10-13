@@ -85,10 +85,10 @@ impl ShellError {
         .start()
     }
 
-    pub(crate) fn unexpected_eof(expected: impl Into<String>, tag: Tag) -> ShellError {
+    pub(crate) fn unexpected_eof(expected: impl Into<String>, tag: impl Into<Tag>) -> ShellError {
         ProximateShellError::UnexpectedEof {
             expected: expected.into(),
-            tag,
+            tag: tag.into(),
         }
         .start()
     }
@@ -153,12 +153,12 @@ impl ShellError {
         .start()
     }
 
-    pub(crate) fn invalid_external_word(tag: Tag) -> ShellError {
+    pub(crate) fn invalid_external_word(tag: impl Into<Tag>) -> ShellError {
         ProximateShellError::ArgumentError {
             command: "Invalid argument to Nu command (did you mean to call an external command?)"
                 .into(),
             error: ArgumentError::InvalidExternalWord,
-            tag,
+            tag: tag.into(),
         }
         .start()
     }

@@ -2,7 +2,7 @@ pub(crate) mod debug;
 
 use crate::errors::ShellError;
 use crate::parser::TokenNode;
-use crate::{Span, Tag, Tagged, TaggedItem};
+use crate::{Span, Spanned, SpannedItem};
 
 #[derive(Debug)]
 pub struct TokensIterator<'content> {
@@ -65,7 +65,7 @@ impl<'content, 'me> Peeked<'content, 'me> {
         match self.node {
             None => Err(ShellError::unexpected_eof(
                 expected,
-                self.iterator.eof_tag(),
+                self.iterator.eof_span(),
             )),
             Some(node) => Ok(PeekedNode {
                 node,
@@ -77,7 +77,7 @@ impl<'content, 'me> Peeked<'content, 'me> {
     }
 
     pub fn type_error(&self, expected: impl Into<String>) -> ShellError {
-        peek_error(&self.node, self.iterator.eof_tag(), expected)
+        peek_error(&self.node, self.iterator.eof_span(), expected)
     }
 }
 
@@ -105,17 +105,17 @@ impl<'content, 'me> PeekedNode<'content, 'me> {
     pub fn rollback(self) {}
 
     pub fn type_error(&self, expected: impl Into<String>) -> ShellError {
-        peek_error(&Some(self.node), self.iterator.eof_tag(), expected)
+        peek_error(&Some(self.node), self.iterator.eof_span(), expected)
     }
 }
 
 pub fn peek_error(
     node: &Option<&TokenNode>,
-    eof_tag: Tag,
+    eof_span: Span,
     expected: impl Into<String>,
 ) -> ShellError {
     match node {
-        None => ShellError::unexpected_eof(expected, eof_tag),
+        None => ShellError::unexpected_eof(expected, eof_span),
         Some(node) => ShellError::type_error(expected, node.tagged_type_name()),
     }
 }
@@ -150,14 +150,14 @@ impl<'content> TokensIterator<'content> {
     pub fn spanned<T>(
         &mut self,
         block: impl FnOnce(&mut TokensIterator<'content>) -> T,
-    ) -> Tagged<T> {
-        let start = self.tag_at_cursor();
+    ) -> Spanned<T> {
+        let start = self.span_at_cursor();
 
         let result = block(self);
 
-        let end = self.tag_at_cursor();
+        let end = self.span_at_cursor();
 
-        result.tagged(start.until(end))
+        result.spanned(start.until(end))
     }
 
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
@@ -196,25 +196,25 @@ impl<'content> TokensIterator<'content> {
         return Ok(value);
     }
 
-    fn eof_tag(&self) -> Tag {
-        Tag::from((self.span.end(), self.span.end(), uuid::Uuid::nil()))
+    fn eof_span(&self) -> Span {
+        Span::new(self.span.end(), self.span.end())
     }
 
-    pub fn typed_tag_at_cursor(&mut self) -> Tagged<&'static str> {
+    pub fn typed_span_at_cursor(&mut self) -> Spanned<&'static str> {
         let next = self.peek_any();
 
         match next.node {
-            None => "end".tagged(self.eof_tag()),
-            Some(node) => node.tagged_type_name(),
+            None => "end".spanned(self.eof_span()),
+            Some(node) => node.spanned_type_name(),
         }
     }
 
-    pub fn tag_at_cursor(&mut self) -> Tag {
+    pub fn span_at_cursor(&mut self) -> Span {
         let next = self.peek_any();
 
         match next.node {
-            None => self.eof_tag(),
-            Some(node) => node.tag(),
+            None => self.eof_span(),
+            Some(node) => node.span(),
         }
     }
 

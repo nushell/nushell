@@ -23,15 +23,15 @@ impl ExpandSyntax for UnitShape {
     ) -> Result<Spanned<(Spanned<RawNumber>, Spanned<Unit>)>, ShellError> {
         let peeked = token_nodes.peek_any().not_eof("unit")?;
 
-        let tag = match peeked.node {
-            TokenNode::Token(Tagged {
+        let span = match peeked.node {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
-            }) => tag,
+                span,
+            }) => span,
             _ => return Err(peeked.type_error("unit")),
         };
 
-        let unit = unit_size(tag.slice(context.source), tag.span);
+        let unit = unit_size(span.slice(context.source), *span);
 
         let (_, (number, unit)) = match unit {
             Err(_) => {
@@ -44,7 +44,7 @@ impl ExpandSyntax for UnitShape {
         };
 
         peeked.commit();
-        Ok((number, unit).spanned(tag.span))
+        Ok((number, unit).spanned(*span))
     }
 }
 

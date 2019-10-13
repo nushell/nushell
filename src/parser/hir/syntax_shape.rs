@@ -158,7 +158,7 @@ pub struct ExpandContext<'context> {
     #[get = "pub(crate)"]
     registry: &'context CommandRegistry,
     #[get = "pub(crate)"]
-    tag: Tag,
+    span: Span,
     #[get = "pub(crate)"]
     source: &'context Text,
     homedir: Option<PathBuf>,
@@ -179,7 +179,7 @@ impl<'context> ExpandContext<'context> {
 
         callback(ExpandContext {
             registry: &registry,
-            tag: Tag::unknown(),
+            span: Span::unknown(),
             source,
             homedir: None,
         })
@@ -446,15 +446,15 @@ pub trait SkipSyntax: std::fmt::Debug + Copy {
 
 enum BarePathState {
     Initial,
-    Seen(Tag, Tag),
+    Seen(Span, Span),
     Error(ShellError),
 }
 
 impl BarePathState {
-    pub fn seen(self, tag: Tag) -> BarePathState {
+    pub fn seen(self, span: Span) -> BarePathState {
         match self {
-            BarePathState::Initial => BarePathState::Seen(tag, tag),
-            BarePathState::Seen(start, _) => BarePathState::Seen(start, tag),
+            BarePathState::Initial => BarePathState::Seen(span, span),
+            BarePathState::Seen(start, _) => BarePathState::Seen(start, span),
             BarePathState::Error(err) => BarePathState::Error(err),
         }
     }
@@ -467,7 +467,7 @@ impl BarePathState {
         }
     }
 
-    pub fn into_bare(self) -> Result<Tag, ShellError> {
+    pub fn into_bare(self) -> Result<Span, ShellError> {
         match self {
             BarePathState::Initial => unreachable!("into_bare in initial state"),
             BarePathState::Seen(start, end) => Ok(start.until(end)),
@@ -494,7 +494,7 @@ pub fn expand_bare<'a, 'b>(
             }
             Some(node) => {
                 if predicate(node) {
-                    state = state.seen(node.tag());
+                    state = state.seen(node.span());
                     peeked.commit();
                 } else {
                     state = state.end(peeked, "word");
@@ -655,11 +655,11 @@ impl FallibleColorSyntax for PipelineShape {
         for part in parts {
             // If the pipeline part has a prefix `|`, emit a pipe to color
             if let Some(pipe) = part.pipe {
-                shapes.push(FlatShape::Pipe.spanned(pipe.span));
+                shapes.push(FlatShape::Pipe.spanned(pipe));
             }
 
             // Create a new iterator containing the tokens in the pipeline part to color
-            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.tag.span, false);
+            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.span, false);
 
             color_syntax(&MaybeSpaceShape, &mut token_nodes, context, shapes);
             color_syntax(&CommandShape, &mut token_nodes, context, shapes);
@@ -686,7 +686,7 @@ impl ExpandSyntax for PipelineShape {
 
         let commands: Result<Vec<_>, ShellError> = parts
             .iter()
-            .map(|item| classify_command(&item, context, &source))
+            .map(|item| classify_command(item, context, &source))
             .collect();
 
         Ok(ClassifiedPipeline {
@@ -890,7 +890,7 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
                 span,
             }) => shapes.push(FlatShape::String.spanned(*span)),
 
-            _node => shapes.push(FlatShape::Error.spanned(peeked_head.node.tag().span)),
+            _node => shapes.push(FlatShape::Error.spanned(peeked_head.node.span())),
         };
 
         peeked_head.commit();
@@ -941,7 +941,7 @@ pub(crate) struct SingleError<'token> {
 
 impl<'token> SingleError<'token> {
     pub(crate) fn error(&self) -> ShellError {
-        ShellError::type_error(self.expected, self.node.type_name().spanned(self.node.span))
+        ShellError::type_error(self.expected, self.node.type_name().tagged(self.node.span))
     }
 }
 
@@ -1172,26 +1172,26 @@ pub fn spaced<T: ExpandExpression>(inner: T) -> SpacedExpression<T> {
     SpacedExpression { inner }
 }
 
-fn expand_variable(tag: Tag, token_tag: Tag, source: &Text) -> hir::Expression {
-    if tag.slice(source) == "it" {
-        hir::Expression::it_variable(tag, token_tag)
+fn expand_variable(span: Span, token_span: Span, source: &Text) -> hir::Expression {
+    if span.slice(source) == "it" {
+        hir::Expression::it_variable(span, token_span)
     } else {
-        hir::Expression::variable(tag, token_tag)
+        hir::Expression::variable(span, token_span)
     }
 }
 
 fn classify_command(
-    command: &Tagged<PipelineElement>,
+    command: &Spanned<PipelineElement>,
     context: &ExpandContext,
     source: &Text,
 ) -> Result<ClassifiedCommand, ShellError> {
-    let mut iterator = TokensIterator::new(&command.tokens.item, command.tag.span, true);
+    let mut iterator = TokensIterator::new(&command.tokens.item, command.span, true);
 
     let head = CommandHeadShape.expand_syntax(&mut iterator, &context)?;
 
     match &head {
         CommandSignature::Expression(_) => Err(ShellError::syntax_error(
-            "Unexpected expression in command position".tagged(command.tag),
+            "Unexpected expression in command position".tagged(command.span),
         )),
 
         // If the command starts with `^`, treat it as an external command no matter what
