@@ -24,8 +24,7 @@ impl Plugin for BinaryView {
             let value_anchor = v.anchor();
             match v.item {
                 Value::Primitive(Primitive::Binary(b)) => {
-                    let source = call_info.source_map.get(&value_anchor);
-                    let _ = view_binary(&b, source, call_info.args.has("lores"));
+                    let _ = view_binary(&b, value_anchor.as_ref(), call_info.args.has("lores"));
                 }
                 _ => {}
             }
