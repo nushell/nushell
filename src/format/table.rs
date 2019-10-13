@@ -34,7 +34,7 @@ impl TableView {
         ret
     }
 
-    pub fn from_list(values: &[Tagged<Value>]) -> Option<TableView> {
+    pub fn from_list(values: &[Tagged<Value>], starting_idx: usize) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }
@@ -68,7 +68,7 @@ impl TableView {
 
             if values.len() > 1 {
                 // Indices are black, bold, right-aligned:
-                row.insert(0, (format!("{}", idx.to_string()), "Fdbr"));
+                row.insert(0, (format!("{}", (starting_idx + idx).to_string()), "Fdbr"));
             }
 
             entries.push(row);

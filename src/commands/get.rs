@@ -82,7 +82,7 @@ pub fn get_column_path(
                 item: Value::Primitive(Primitive::Path(_)),
                 ..
             } => Ok(obj.clone()),
-            _ => Ok(Value::nothing().tagged(obj.tag)),
+            _ => Ok(Value::nothing().tagged(&obj.tag)),
         },
     }
 }

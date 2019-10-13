@@ -40,7 +40,7 @@ async fn ps(tag: Tag) -> Vec<Tagged<Value>> {
     let mut output = vec![];
     while let Some(res) = processes.next().await {
         if let Ok((process, usage)) = res {
-            let mut dict = TaggedDictBuilder::new(tag);
+            let mut dict = TaggedDictBuilder::new(&tag);
             dict.insert("pid", Value::int(process.pid()));
             if let Ok(name) = process.name().await {
                 dict.insert("name", Value::string(name));

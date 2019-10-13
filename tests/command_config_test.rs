@@ -86,30 +86,30 @@ fn sets_configuration_value() {
     h::delete_file_at(nu::config_path().unwrap().join("test_4.toml"));
 }
 
-#[test]
-fn removes_configuration_value() {
-    Playground::setup("config_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            "test_5.toml",
-            r#"
-                    caballeros = [1, 1, 1]
-                    podershell = [1, 1, 1]
-                "#,
-        )]);
+// #[test]
+// fn removes_configuration_value() {
+//     Playground::setup("config_test_5", |dirs, sandbox| {
+//         sandbox.with_files(vec![FileWithContent(
+//             "test_5.toml",
+//             r#"
+//                     caballeros = [1, 1, 1]
+//                     podershell = [1, 1, 1]
+//                 "#,
+//         )]);
 
-        nu!(
-            cwd: dirs.test(),
-            "config --load test_5.toml --remove podershell"
-        );
+//         nu!(
+//             cwd: dirs.test(),
+//             "config --load test_5.toml --remove podershell"
+//         );
 
-        let actual = nu_error!(
-            cwd: dirs.root(),
-            r#"open "{}/test_5.toml" | get podershell | echo $it"#,
-            dirs.config_path()
-        );
+//         let actual = nu_error!(
+//             cwd: dirs.root(),
+//             r#"open "{}/test_5.toml" | get podershell | echo $it"#,
+//             dirs.config_path()
+//         );
 
-        assert!(actual.contains("Unknown column"));
-    });
+//         assert!(actual.contains("Unknown column"));
+//     });
 
-    h::delete_file_at(nu::config_path().unwrap().join("test_5.toml"));
-}
+//     h::delete_file_at(nu::config_path().unwrap().join("test_5.toml"));
+// }

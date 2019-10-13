@@ -66,7 +66,7 @@ pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::{AnchorLocation, Context};
 pub(crate) use crate::data::base as value;
-pub(crate) use crate::data::meta::{Tag, Tagged, TaggedItem};
+pub(crate) use crate::data::meta::{Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
 pub(crate) use crate::data::types::ExtractType;
 pub(crate) use crate::data::{Primitive, Value};
 pub(crate) use crate::env::host::handle_unexpected;
@@ -105,6 +105,22 @@ where
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
             values: self.map(ReturnSuccess::value).boxed(),
+        }
+    }
+}
+
+pub trait ToInputStream {
+    fn to_input_stream(self) -> InputStream;
+}
+
+impl<T, U> ToInputStream for T
+where
+    T: Stream<Item = U> + Send + 'static,
+    U: Into<Result<Tagged<Value>, ShellError>>,
+{
+    fn to_input_stream(self) -> InputStream {
+        InputStream {
+            values: self.map(|item| item.into().unwrap()).boxed(),
         }
     }
 }

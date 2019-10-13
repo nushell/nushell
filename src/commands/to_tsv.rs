@@ -49,7 +49,7 @@ pub fn value_to_tsv_value(tagged_value: &Tagged<Value>) -> Tagged<Value> {
         Value::Block(_) => Value::Primitive(Primitive::Nothing),
         _ => Value::Primitive(Primitive::Nothing),
     }
-    .tagged(tagged_value.tag)
+    .tagged(&tagged_value.tag)
 }
 
 fn to_string_helper(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
@@ -68,7 +68,7 @@ fn to_string_helper(tagged_value: &Tagged<Value>) -> Result<String, ShellError> 
             return Err(ShellError::labeled_error(
                 "Unexpected value",
                 "original value",
-                tagged_value.tag,
+                &tagged_value.tag,
             ))
         }
     }
@@ -107,14 +107,14 @@ pub fn to_string(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?)
             .map_err(|_| {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?);
         }
@@ -144,14 +144,14 @@ pub fn to_string(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?)
             .map_err(|_| {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?);
         }
@@ -168,7 +168,7 @@ fn to_tsv(
          let input: Vec<Tagged<Value>> = input.values.collect().await;
 
          let to_process_input = if input.len() > 1 {
-             let tag = input[0].tag;
+             let tag = input[0].tag.clone();
              vec![Tagged { item: Value::Table(input), tag } ]
          } else if input.len() == 1 {
              input
@@ -184,13 +184,13 @@ fn to_tsv(
                      } else {
                          x
                      };
-                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).tagged(name_tag))
+                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).tagged(&name_tag))
                  }
                  _ => {
                      yield Err(ShellError::labeled_error_with_secondary(
                          "Expected a table with TSV-compatible structure.tag() from pipeline",
                          "requires TSV-compatible input",
-                         name_tag,
+                         &name_tag,
                          "originates from here".to_string(),
                          value.tag(),
                      ))

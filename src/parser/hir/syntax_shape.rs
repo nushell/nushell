@@ -64,7 +64,7 @@ impl FallibleColorSyntax for SyntaxShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         match self {
             SyntaxShape::Any => {
@@ -158,7 +158,7 @@ pub struct ExpandContext<'context> {
     #[get = "pub(crate)"]
     registry: &'context CommandRegistry,
     #[get = "pub(crate)"]
-    tag: Tag,
+    span: Span,
     #[get = "pub(crate)"]
     source: &'context Text,
     homedir: Option<PathBuf>,
@@ -179,7 +179,7 @@ impl<'context> ExpandContext<'context> {
 
         callback(ExpandContext {
             registry: &registry,
-            tag: Tag::unknown(),
+            span: Span::unknown(),
             source,
             homedir: None,
         })
@@ -211,7 +211,7 @@ pub trait FallibleColorSyntax: std::fmt::Debug + Copy {
         input: &Self::Input,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<Self::Info, ShellError>;
 }
 
@@ -224,7 +224,7 @@ pub trait ColorSyntax: std::fmt::Debug + Copy {
         input: &Self::Input,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info;
 }
 
@@ -240,7 +240,7 @@ pub trait ColorSyntax: std::fmt::Debug + Copy {
 //         input: &Self::Input,
 //         token_nodes: &'b mut TokensIterator<'a>,
 //         context: &ExpandContext,
-//         shapes: &mut Vec<Tagged<FlatShape>>,
+//         shapes: &mut Vec<Spanned<FlatShape>>,
 //     ) -> Result<T::Info, ShellError> {
 //         FallibleColorSyntax::color_syntax(self, input, token_nodes, context, shapes)
 //     }
@@ -282,7 +282,7 @@ pub fn color_syntax<'a, 'b, T: ColorSyntax<Info = U, Input = ()>, U>(
     shape: &T,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> ((), U) {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -310,7 +310,7 @@ pub fn color_fallible_syntax<'a, 'b, T: FallibleColorSyntax<Info = U, Input = ()
     shape: &T,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> Result<U, ShellError> {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -344,7 +344,7 @@ pub fn color_syntax_with<'a, 'b, T: ColorSyntax<Info = U, Input = I>, U, I>(
     input: &I,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> ((), U) {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -373,7 +373,7 @@ pub fn color_fallible_syntax_with<'a, 'b, T: FallibleColorSyntax<Info = U, Input
     input: &I,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> Result<U, ShellError> {
     trace!(target: "nu::color_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes, context.source));
 
@@ -446,15 +446,15 @@ pub trait SkipSyntax: std::fmt::Debug + Copy {
 
 enum BarePathState {
     Initial,
-    Seen(Tag, Tag),
+    Seen(Span, Span),
     Error(ShellError),
 }
 
 impl BarePathState {
-    pub fn seen(self, tag: Tag) -> BarePathState {
+    pub fn seen(self, span: Span) -> BarePathState {
         match self {
-            BarePathState::Initial => BarePathState::Seen(tag, tag),
-            BarePathState::Seen(start, _) => BarePathState::Seen(start, tag),
+            BarePathState::Initial => BarePathState::Seen(span, span),
+            BarePathState::Seen(start, _) => BarePathState::Seen(start, span),
             BarePathState::Error(err) => BarePathState::Error(err),
         }
     }
@@ -467,7 +467,7 @@ impl BarePathState {
         }
     }
 
-    pub fn into_bare(self) -> Result<Tag, ShellError> {
+    pub fn into_bare(self) -> Result<Span, ShellError> {
         match self {
             BarePathState::Initial => unreachable!("into_bare in initial state"),
             BarePathState::Seen(start, end) => Ok(start.until(end)),
@@ -480,7 +480,7 @@ pub fn expand_bare<'a, 'b>(
     token_nodes: &'b mut TokensIterator<'a>,
     _context: &ExpandContext,
     predicate: impl Fn(&TokenNode) -> bool,
-) -> Result<Tag, ShellError> {
+) -> Result<Span, ShellError> {
     let mut state = BarePathState::Initial;
 
     loop {
@@ -494,7 +494,7 @@ pub fn expand_bare<'a, 'b>(
             }
             Some(node) => {
                 if predicate(node) {
-                    state = state.seen(node.tag());
+                    state = state.seen(node.span());
                     peeked.commit();
                 } else {
                     state = state.end(peeked, "word");
@@ -511,19 +511,19 @@ pub fn expand_bare<'a, 'b>(
 pub struct BarePathShape;
 
 impl ExpandSyntax for BarePathShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Tag, ShellError> {
+    ) -> Result<Span, ShellError> {
         expand_bare(token_nodes, context, |token| match token {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
                 ..
             })
-            | TokenNode::Token(Tagged {
+            | TokenNode::Token(Spanned {
                 item: RawToken::Operator(Operator::Dot),
                 ..
             }) => true,
@@ -545,15 +545,15 @@ impl FallibleColorSyntax for BareShape {
         input: &FlatShape,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.peek_any_token(|token| match token {
             // If it's a bare token, color it
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
-                shapes.push((*input).tagged(tag));
+                shapes.push((*input).spanned(*span));
                 Ok(())
             }
 
@@ -564,7 +564,7 @@ impl FallibleColorSyntax for BareShape {
 }
 
 impl ExpandSyntax for BareShape {
-    type Output = Tagged<String>;
+    type Output = Spanned<String>;
 
     fn expand_syntax<'a, 'b>(
         &self,
@@ -574,12 +574,12 @@ impl ExpandSyntax for BareShape {
         let peeked = token_nodes.peek_any().not_eof("word")?;
 
         match peeked.node {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
                 peeked.commit();
-                Ok(tag.tagged_string(context.source))
+                Ok(span.spanned_string(context.source))
             }
 
             other => Err(ShellError::type_error("word", other.tagged_type_name())),
@@ -608,9 +608,9 @@ impl TestSyntax for BareShape {
 
 #[derive(Debug)]
 pub enum CommandSignature {
-    Internal(Tagged<Arc<Command>>),
-    LiteralExternal { outer: Tag, inner: Tag },
-    External(Tag),
+    Internal(Spanned<Arc<Command>>),
+    LiteralExternal { outer: Span, inner: Span },
+    External(Span),
     Expression(hir::Expression),
 }
 
@@ -618,14 +618,15 @@ impl CommandSignature {
     pub fn to_expression(&self) -> hir::Expression {
         match self {
             CommandSignature::Internal(command) => {
-                let tag = command.tag;
-                hir::RawExpression::Command(tag).tagged(tag)
+                let span = command.span;
+                hir::RawExpression::Command(span).spanned(span)
             }
             CommandSignature::LiteralExternal { outer, inner } => {
-                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*inner)).tagged(outer)
+                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*inner))
+                    .spanned(*outer)
             }
-            CommandSignature::External(tag) => {
-                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*tag)).tagged(tag)
+            CommandSignature::External(span) => {
+                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*span)).spanned(*span)
             }
             CommandSignature::Expression(expr) => expr.clone(),
         }
@@ -645,7 +646,7 @@ impl FallibleColorSyntax for PipelineShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // Make sure we're looking at a pipeline
         let Pipeline { parts, .. } = token_nodes.peek_any_token(|node| node.as_pipeline())?;
@@ -654,11 +655,11 @@ impl FallibleColorSyntax for PipelineShape {
         for part in parts {
             // If the pipeline part has a prefix `|`, emit a pipe to color
             if let Some(pipe) = part.pipe {
-                shapes.push(FlatShape::Pipe.tagged(pipe));
+                shapes.push(FlatShape::Pipe.spanned(pipe));
             }
 
             // Create a new iterator containing the tokens in the pipeline part to color
-            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.tag, false);
+            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.span, false);
 
             color_syntax(&MaybeSpaceShape, &mut token_nodes, context, shapes);
             color_syntax(&CommandShape, &mut token_nodes, context, shapes);
@@ -685,7 +686,7 @@ impl ExpandSyntax for PipelineShape {
 
         let commands: Result<Vec<_>, ShellError> = parts
             .iter()
-            .map(|item| classify_command(&item, context, &source))
+            .map(|item| classify_command(item, context, &source))
             .collect();
 
         Ok(ClassifiedPipeline {
@@ -711,7 +712,7 @@ impl FallibleColorSyntax for CommandHeadShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<CommandHeadKind, ShellError> {
         // If we don't ultimately find a token, roll back
         token_nodes.atomic(|token_nodes| {
@@ -726,7 +727,7 @@ impl FallibleColorSyntax for CommandHeadShape {
             match atom.item {
                 // If the head is an explicit external command (^cmd), color it as an external command
                 AtomicToken::ExternalCommand { command } => {
-                    shapes.push(FlatShape::ExternalCommand.tagged(command));
+                    shapes.push(FlatShape::ExternalCommand.spanned(command));
                     Ok(CommandHeadKind::External)
                 }
 
@@ -736,19 +737,19 @@ impl FallibleColorSyntax for CommandHeadShape {
 
                     if context.registry.has(name) {
                         // If the registry has the command, color it as an internal command
-                        shapes.push(FlatShape::InternalCommand.tagged(text));
+                        shapes.push(FlatShape::InternalCommand.spanned(text));
                         let command = context.registry.expect_command(name);
                         Ok(CommandHeadKind::Internal(command.signature()))
                     } else {
                         // Otherwise, color it as an external command
-                        shapes.push(FlatShape::ExternalCommand.tagged(text));
+                        shapes.push(FlatShape::ExternalCommand.spanned(text));
                         Ok(CommandHeadKind::External)
                     }
                 }
 
                 // Otherwise, we're not actually looking at a command
                 _ => Err(ShellError::syntax_error(
-                    "No command at the head".tagged(atom.tag),
+                    "No command at the head".tagged(atom.span),
                 )),
             }
         })
@@ -764,25 +765,25 @@ impl ExpandSyntax for CommandHeadShape {
         context: &ExpandContext,
     ) -> Result<CommandSignature, ShellError> {
         let node =
-            parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_tag, _| {
+            parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_span, _| {
                 Ok(match token {
-                    RawToken::ExternalCommand(tag) => CommandSignature::LiteralExternal {
-                        outer: token_tag,
-                        inner: tag,
+                    RawToken::ExternalCommand(span) => CommandSignature::LiteralExternal {
+                        outer: token_span,
+                        inner: span,
                     },
                     RawToken::Bare => {
-                        let name = token_tag.slice(context.source);
+                        let name = token_span.slice(context.source);
                         if context.registry.has(name) {
                             let command = context.registry.expect_command(name);
-                            CommandSignature::Internal(command.tagged(token_tag))
+                            CommandSignature::Internal(command.spanned(token_span))
                         } else {
-                            CommandSignature::External(token_tag)
+                            CommandSignature::External(token_span)
                         }
                     }
                     _ => {
                         return Err(ShellError::type_error(
                             "command head2",
-                            token.type_name().tagged(token_tag),
+                            token.type_name().tagged(token_span),
                         ))
                     }
                 })
@@ -813,7 +814,7 @@ impl ExpandSyntax for ClassifiedCommandShape {
 
         match &head {
             CommandSignature::Expression(expr) => Err(ShellError::syntax_error(
-                "Unexpected expression in command position".tagged(expr.tag),
+                "Unexpected expression in command position".tagged(expr.span),
             )),
 
             // If the command starts with `^`, treat it as an external command no matter what
@@ -831,7 +832,7 @@ impl ExpandSyntax for ClassifiedCommandShape {
 
             CommandSignature::Internal(command) => {
                 let tail =
-                    parse_command_tail(&command.signature(), &context, iterator, command.tag)?;
+                    parse_command_tail(&command.signature(), &context, iterator, command.span)?;
 
                 let (positional, named) = match tail {
                     None => (None, None),
@@ -846,7 +847,10 @@ impl ExpandSyntax for ClassifiedCommandShape {
 
                 Ok(ClassifiedCommand::Internal(InternalCommand::new(
                     command.item.name().to_string(),
-                    command.tag,
+                    Tag {
+                        span: command.span,
+                        anchor: None,
+                    },
                     call,
                 )))
             }
@@ -866,7 +870,7 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked_head = token_nodes.peek_non_ws().not_eof("command head4");
 
@@ -876,17 +880,17 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
         };
 
         let _expr = match peeked_head.node {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
-            }) => shapes.push(FlatShape::Word.tagged(tag)),
+                span,
+            }) => shapes.push(FlatShape::Word.spanned(*span)),
 
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(_inner_tag),
-                tag,
-            }) => shapes.push(FlatShape::String.tagged(tag)),
+                span,
+            }) => shapes.push(FlatShape::String.spanned(*span)),
 
-            _node => shapes.push(FlatShape::Error.tagged(peeked_head.node.tag())),
+            _node => shapes.push(FlatShape::Error.spanned(peeked_head.node.span())),
         };
 
         peeked_head.commit();
@@ -905,16 +909,16 @@ impl ExpandExpression for InternalCommandHeadShape {
 
         let expr = match peeked_head.node {
             TokenNode::Token(
-                spanned @ Tagged {
+                spanned @ Spanned {
                     item: RawToken::Bare,
                     ..
                 },
             ) => spanned.map(|_| hir::RawExpression::Literal(hir::Literal::Bare)),
 
-            TokenNode::Token(Tagged {
-                item: RawToken::String(inner_tag),
-                tag,
-            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_tag)).tagged(*tag),
+            TokenNode::Token(Spanned {
+                item: RawToken::String(inner_span),
+                span,
+            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_span)).spanned(*span),
 
             node => {
                 return Err(ShellError::type_error(
@@ -932,24 +936,24 @@ impl ExpandExpression for InternalCommandHeadShape {
 
 pub(crate) struct SingleError<'token> {
     expected: &'static str,
-    node: &'token Tagged<RawToken>,
+    node: &'token Spanned<RawToken>,
 }
 
 impl<'token> SingleError<'token> {
     pub(crate) fn error(&self) -> ShellError {
-        ShellError::type_error(self.expected, self.node.type_name().tagged(self.node.tag))
+        ShellError::type_error(self.expected, self.node.type_name().tagged(self.node.span))
     }
 }
 
 fn parse_single_node<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Tag, SingleError) -> Result<T, ShellError>,
+    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ShellError>,
 ) -> Result<T, ShellError> {
     token_nodes.peek_any_token(|node| match node {
         TokenNode::Token(token) => callback(
             token.item,
-            token.tag(),
+            token.span,
             SingleError {
                 expected,
                 node: token,
@@ -963,14 +967,14 @@ fn parse_single_node<'a, 'b, T>(
 fn parse_single_node_skipping_ws<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Tag, SingleError) -> Result<T, ShellError>,
+    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ShellError>,
 ) -> Result<T, ShellError> {
     let peeked = token_nodes.peek_non_ws().not_eof(expected)?;
 
     let expr = match peeked.node {
         TokenNode::Token(token) => callback(
             token.item,
-            token.tag(),
+            token.span,
             SingleError {
                 expected,
                 node: token,
@@ -997,7 +1001,7 @@ impl FallibleColorSyntax for WhitespaceShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace");
 
@@ -1007,7 +1011,7 @@ impl FallibleColorSyntax for WhitespaceShape {
         };
 
         let _tag = match peeked.node {
-            TokenNode::Whitespace(tag) => shapes.push(FlatShape::Whitespace.tagged(tag)),
+            TokenNode::Whitespace(span) => shapes.push(FlatShape::Whitespace.spanned(*span)),
 
             _other => return Ok(()),
         };
@@ -1019,7 +1023,7 @@ impl FallibleColorSyntax for WhitespaceShape {
 }
 
 impl ExpandSyntax for WhitespaceShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
@@ -1028,7 +1032,7 @@ impl ExpandSyntax for WhitespaceShape {
     ) -> Result<Self::Output, ShellError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
-        let tag = match peeked.node {
+        let span = match peeked.node {
             TokenNode::Whitespace(tag) => *tag,
 
             other => {
@@ -1041,7 +1045,7 @@ impl ExpandSyntax for WhitespaceShape {
 
         peeked.commit();
 
-        Ok(tag)
+        Ok(span)
     }
 }
 
@@ -1094,7 +1098,7 @@ impl ColorSyntax for MaybeSpaceShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         let peeked = token_nodes.peek_any().not_eof("whitespace");
 
@@ -1103,9 +1107,9 @@ impl ColorSyntax for MaybeSpaceShape {
             Ok(peeked) => peeked,
         };
 
-        if let TokenNode::Whitespace(tag) = peeked.node {
+        if let TokenNode::Whitespace(span) = peeked.node {
             peeked.commit();
-            shapes.push(FlatShape::Whitespace.tagged(tag));
+            shapes.push(FlatShape::Whitespace.spanned(*span));
         }
     }
 }
@@ -1122,14 +1126,14 @@ impl FallibleColorSyntax for SpaceShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
         match peeked.node {
-            TokenNode::Whitespace(tag) => {
+            TokenNode::Whitespace(span) => {
                 peeked.commit();
-                shapes.push(FlatShape::Whitespace.tagged(tag));
+                shapes.push(FlatShape::Whitespace.spanned(*span));
                 Ok(())
             }
 
@@ -1168,26 +1172,26 @@ pub fn spaced<T: ExpandExpression>(inner: T) -> SpacedExpression<T> {
     SpacedExpression { inner }
 }
 
-fn expand_variable(tag: Tag, token_tag: Tag, source: &Text) -> hir::Expression {
-    if tag.slice(source) == "it" {
-        hir::Expression::it_variable(tag, token_tag)
+fn expand_variable(span: Span, token_span: Span, source: &Text) -> hir::Expression {
+    if span.slice(source) == "it" {
+        hir::Expression::it_variable(span, token_span)
     } else {
-        hir::Expression::variable(tag, token_tag)
+        hir::Expression::variable(span, token_span)
     }
 }
 
 fn classify_command(
-    command: &Tagged<PipelineElement>,
+    command: &Spanned<PipelineElement>,
     context: &ExpandContext,
     source: &Text,
 ) -> Result<ClassifiedCommand, ShellError> {
-    let mut iterator = TokensIterator::new(&command.tokens.item, command.tag, true);
+    let mut iterator = TokensIterator::new(&command.tokens.item, command.span, true);
 
     let head = CommandHeadShape.expand_syntax(&mut iterator, &context)?;
 
     match &head {
         CommandSignature::Expression(_) => Err(ShellError::syntax_error(
-            "Unexpected expression in command position".tagged(command.tag),
+            "Unexpected expression in command position".tagged(command.span),
         )),
 
         // If the command starts with `^`, treat it as an external command no matter what
@@ -1205,7 +1209,7 @@ fn classify_command(
 
         CommandSignature::Internal(command) => {
             let tail =
-                parse_command_tail(&command.signature(), &context, &mut iterator, command.tag)?;
+                parse_command_tail(&command.signature(), &context, &mut iterator, command.span)?;
 
             let (positional, named) = match tail {
                 None => (None, None),
@@ -1220,7 +1224,10 @@ fn classify_command(
 
             Ok(ClassifiedCommand::Internal(InternalCommand::new(
                 command.name().to_string(),
-                command.tag,
+                Tag {
+                    span: command.span,
+                    anchor: None,
+                },
                 call,
             )))
         }
@@ -1239,7 +1246,7 @@ impl ColorSyntax for CommandShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) {
         let kind = color_fallible_syntax(&CommandHeadShape, token_nodes, context, shapes);
 

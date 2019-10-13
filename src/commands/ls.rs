@@ -34,5 +34,5 @@ impl WholeStreamCommand for LS {
 }
 
 fn ls(LsArgs { path }: LsArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    context.shell_manager.ls(path, context.name)
+    context.shell_manager.ls(path, &context)
 }

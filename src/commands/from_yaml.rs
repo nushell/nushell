@@ -64,17 +64,17 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) ->
         serde_yaml::Value::String(s) => Value::string(s).tagged(tag),
         serde_yaml::Value::Sequence(a) => Value::Table(
             a.iter()
-                .map(|x| convert_yaml_value_to_nu_value(x, tag))
+                .map(|x| convert_yaml_value_to_nu_value(x, &tag))
                 .collect(),
         )
         .tagged(tag),
         serde_yaml::Value::Mapping(t) => {
-            let mut collected = TaggedDictBuilder::new(tag);
+            let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
                 match k {
                     serde_yaml::Value::String(k) => {
-                        collected.insert_tagged(k.clone(), convert_yaml_value_to_nu_value(v, tag));
+                        collected.insert_tagged(k.clone(), convert_yaml_value_to_nu_value(v, &tag));
                     }
                     _ => unimplemented!("Unknown key type"),
                 }
@@ -108,7 +108,7 @@ fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -117,15 +117,15 @@ fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    &tag,
                     "value originates from here",
-                    value_tag,
+                    &value_tag,
                 )),
 
             }
         }
 
-        match from_yaml_string_to_value(concat_string, tag) {
+        match from_yaml_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
@@ -138,9 +138,9 @@ fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as YAML",
                     "input cannot be parsed as YAML",
-                    tag,
+                    &tag,
                     "value originates from here",
-                    last_tag,
+                    &last_tag,
                 ))
             } ,
         }

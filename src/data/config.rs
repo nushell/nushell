@@ -75,12 +75,12 @@ pub fn read(
 
     let tag = tag.into();
     let contents = fs::read_to_string(filename)
-        .map(|v| v.tagged(tag))
+        .map(|v| v.tagged(&tag))
         .map_err(|err| {
             ShellError::labeled_error(
                 &format!("Couldn't read config file:\n{}", err),
                 "file name",
-                tag,
+                &tag,
             )
         })?;
 
@@ -88,7 +88,7 @@ pub fn read(
         ShellError::labeled_error(
             &format!("Couldn't parse config file:\n{}", err),
             "file name",
-            tag,
+            &tag,
         )
     })?;
 
@@ -98,7 +98,7 @@ pub fn read(
         Value::Row(Dictionary { entries }) => Ok(entries),
         other => Err(ShellError::type_error(
             "Dictionary",
-            other.type_name().tagged(tag),
+            other.type_name().tagged(&tag),
         )),
     }
 }

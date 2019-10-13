@@ -21,10 +21,10 @@ pub(crate) use parse::tokens::{RawNumber, RawToken};
 pub(crate) use parse::unit::Unit;
 pub(crate) use registry::CommandRegistry;
 
-pub fn parse(input: &str, anchor: uuid::Uuid) -> Result<TokenNode, ShellError> {
+pub fn parse(input: &str) -> Result<TokenNode, ShellError> {
     let _ = pretty_env_logger::try_init();
 
-    match pipeline(nom_input(input, anchor)) {
+    match pipeline(nom_input(input)) {
         Ok((_rest, val)) => Ok(val),
         Err(err) => Err(ShellError::parse_error(err)),
     }

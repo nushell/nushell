@@ -115,7 +115,7 @@ impl TaggedListBuilder {
     }
 
     pub fn push(&mut self, value: impl Into<Value>) {
-        self.list.push(value.into().tagged(self.tag));
+        self.list.push(value.into().tagged(&self.tag));
     }
 
     pub fn insert_tagged(&mut self, value: impl Into<Tagged<Value>>) {
@@ -155,7 +155,7 @@ impl TaggedDictBuilder {
     }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
-        self.dict.insert(key.into(), value.into().tagged(self.tag));
+        self.dict.insert(key.into(), value.into().tagged(&self.tag));
     }
 
     pub fn insert_tagged(&mut self, key: impl Into<String>, value: impl Into<Tagged<Value>>) {

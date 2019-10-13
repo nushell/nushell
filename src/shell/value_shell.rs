@@ -3,7 +3,6 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
@@ -72,8 +71,8 @@ impl ValueShell {
 }
 
 impl Shell for ValueShell {
-    fn name(&self, source_map: &SourceMap) -> String {
-        let anchor_name = self.value.anchor_name(source_map);
+    fn name(&self) -> String {
+        let anchor_name = self.value.anchor_name();
         format!(
             "{}",
             match anchor_name {
@@ -90,9 +89,10 @@ impl Shell for ValueShell {
     fn ls(
         &self,
         target: Option<Tagged<PathBuf>>,
-        command_name: Tag,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
+        let name_tag = context.name.clone();
 
         match &target {
             Some(value) => full_path.push(value.as_ref()),
@@ -114,7 +114,7 @@ impl Shell for ValueShell {
             return Err(ShellError::labeled_error(
                 "Can not list entries inside",
                 "No such path exists",
-                command_name,
+                name_tag,
             ));
         }
 
@@ -166,7 +166,7 @@ impl Shell for ValueShell {
             return Err(ShellError::labeled_error(
                 "Can not change to path inside",
                 "No such path exists",
-                args.call_info.name_tag,
+                &args.call_info.name_tag,
             ));
         }
 
@@ -213,10 +213,9 @@ impl Shell for ValueShell {
 
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let mut stream = VecDeque::new();
-        stream.push_back(ReturnSuccess::value(Tagged::from_item(
-            Value::string(self.path()),
-            args.call_info.name_tag,
-        )));
+        stream.push_back(ReturnSuccess::value(
+            Value::string(self.path()).tagged(&args.call_info.name_tag),
+        ));
         Ok(stream.into())
     }
 

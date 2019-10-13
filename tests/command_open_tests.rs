@@ -222,7 +222,7 @@ fn open_can_parse_utf16_ini() {
 fn errors_if_file_not_found() {
     let actual = nu_error!(
         cwd: "tests/fixtures/formats",
-        "open i_dont_exist.txt | echo $it"
+        "open i_dont_exist.txt"
     );
 
     assert!(actual.contains("File could not be opened"));

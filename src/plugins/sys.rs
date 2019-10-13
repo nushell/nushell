@@ -80,7 +80,7 @@ async fn mem(tag: Tag) -> Tagged<Value> {
 }
 
 async fn host(tag: Tag) -> Tagged<Value> {
-    let mut dict = TaggedDictBuilder::with_capacity(tag, 6);
+    let mut dict = TaggedDictBuilder::with_capacity(&tag, 6);
 
     let (platform_result, uptime_result) =
         futures::future::join(host::platform(), host::uptime()).await;
@@ -95,7 +95,7 @@ async fn host(tag: Tag) -> Tagged<Value> {
 
     // Uptime
     if let Ok(uptime) = uptime_result {
-        let mut uptime_dict = TaggedDictBuilder::with_capacity(tag, 4);
+        let mut uptime_dict = TaggedDictBuilder::with_capacity(&tag, 4);
 
         let uptime = uptime.get::<time::second>().round() as i64;
         let days = uptime / (60 * 60 * 24);
@@ -116,7 +116,10 @@ async fn host(tag: Tag) -> Tagged<Value> {
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
-            user_vec.push(Tagged::from_item(Value::string(user.username()), tag));
+            user_vec.push(Tagged {
+                item: Value::string(user.username()),
+                tag: tag.clone(),
+            });
         }
     }
     let user_list = Value::Table(user_vec);
@@ -130,7 +133,7 @@ async fn disks(tag: Tag) -> Option<Value> {
     let mut partitions = disk::partitions_physical();
     while let Some(part) = partitions.next().await {
         if let Ok(part) = part {
-            let mut dict = TaggedDictBuilder::with_capacity(tag, 6);
+            let mut dict = TaggedDictBuilder::with_capacity(&tag, 6);
             dict.insert(
                 "device",
                 Value::string(
@@ -176,7 +179,7 @@ async fn battery(tag: Tag) -> Option<Value> {
         if let Ok(batteries) = manager.batteries() {
             for battery in batteries {
                 if let Ok(battery) = battery {
-                    let mut dict = TaggedDictBuilder::new(tag);
+                    let mut dict = TaggedDictBuilder::new(&tag);
                     if let Some(vendor) = battery.vendor() {
                         dict.insert("vendor", Value::string(vendor));
                     }
@@ -217,7 +220,7 @@ async fn temp(tag: Tag) -> Option<Value> {
     let mut sensors = sensors::temperatures();
     while let Some(sensor) = sensors.next().await {
         if let Ok(sensor) = sensor {
-            let mut dict = TaggedDictBuilder::new(tag);
+            let mut dict = TaggedDictBuilder::new(&tag);
             dict.insert("unit", Value::string(sensor.unit()));
             if let Some(label) = sensor.label() {
                 dict.insert("label", Value::string(label));
@@ -259,7 +262,7 @@ async fn net(tag: Tag) -> Option<Value> {
     let mut io_counters = net::io_counters();
     while let Some(nic) = io_counters.next().await {
         if let Ok(nic) = nic {
-            let mut network_idx = TaggedDictBuilder::with_capacity(tag, 3);
+            let mut network_idx = TaggedDictBuilder::with_capacity(&tag, 3);
             network_idx.insert("name", Value::string(nic.interface()));
             network_idx.insert(
                 "sent",
@@ -280,11 +283,17 @@ async fn net(tag: Tag) -> Option<Value> {
 }
 
 async fn sysinfo(tag: Tag) -> Vec<Tagged<Value>> {
-    let mut sysinfo = TaggedDictBuilder::with_capacity(tag, 7);
+    let mut sysinfo = TaggedDictBuilder::with_capacity(&tag, 7);
 
-    let (host, cpu, disks, memory, temp) =
-        futures::future::join5(host(tag), cpu(tag), disks(tag), mem(tag), temp(tag)).await;
-    let (net, battery) = futures::future::join(net(tag), battery(tag)).await;
+    let (host, cpu, disks, memory, temp) = futures::future::join5(
+        host(tag.clone()),
+        cpu(tag.clone()),
+        disks(tag.clone()),
+        mem(tag.clone()),
+        temp(tag.clone()),
+    )
+    .await;
+    let (net, battery) = futures::future::join(net(tag.clone()), battery(tag.clone())).await;
 
     sysinfo.insert_tagged("host", host);
     if let Some(cpu) = cpu {

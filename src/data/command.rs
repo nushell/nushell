@@ -7,7 +7,7 @@ use std::ops::Deref;
 pub(crate) fn command_dict(command: Arc<Command>, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
 
-    let mut cmd_dict = TaggedDictBuilder::new(tag);
+    let mut cmd_dict = TaggedDictBuilder::new(&tag);
 
     cmd_dict.insert("name", Value::string(command.name()));
 
@@ -42,7 +42,7 @@ fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Tagged
 
 fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
     let tag = tag.into();
-    let mut sig = TaggedListBuilder::new(tag);
+    let mut sig = TaggedListBuilder::new(&tag);
 
     for arg in signature.positional.iter() {
         let is_required = match arg {
@@ -50,19 +50,19 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
             PositionalType::Optional(_, _) => false,
         };
 
-        sig.insert_tagged(for_spec(arg.name(), "argument", is_required, tag));
+        sig.insert_tagged(for_spec(arg.name(), "argument", is_required, &tag));
     }
 
     if let Some(_) = signature.rest_positional {
         let is_required = false;
-        sig.insert_tagged(for_spec("rest", "argument", is_required, tag));
+        sig.insert_tagged(for_spec("rest", "argument", is_required, &tag));
     }
 
     for (name, ty) in signature.named.iter() {
         match ty {
-            NamedType::Mandatory(_) => sig.insert_tagged(for_spec(name, "flag", true, tag)),
-            NamedType::Optional(_) => sig.insert_tagged(for_spec(name, "flag", false, tag)),
-            NamedType::Switch => sig.insert_tagged(for_spec(name, "switch", false, tag)),
+            NamedType::Mandatory(_) => sig.insert_tagged(for_spec(name, "flag", true, &tag)),
+            NamedType::Optional(_) => sig.insert_tagged(for_spec(name, "flag", false, &tag)),
+            NamedType::Switch => sig.insert_tagged(for_spec(name, "switch", false, &tag)),
         }
     }
 

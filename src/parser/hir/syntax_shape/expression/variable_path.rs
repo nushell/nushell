@@ -23,9 +23,9 @@ impl ExpandExpression for VariablePathShape {
         //   2. consume the next token as a member and push it onto tail
 
         let head = expand_expr(&VariableShape, token_nodes, context)?;
-        let start = head.tag();
+        let start = head.span;
         let mut end = start;
-        let mut tail: Vec<Tagged<String>> = vec![];
+        let mut tail: Vec<Spanned<String>> = vec![];
 
         loop {
             match DotShape.skip(token_nodes, context) {
@@ -34,9 +34,9 @@ impl ExpandExpression for VariablePathShape {
             }
 
             let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-            let member = syntax.to_tagged_string(context.source);
+            let member = syntax.to_spanned_string(context.source);
 
-            end = member.tag();
+            end = member.span;
             tail.push(member);
         }
 
@@ -53,7 +53,7 @@ impl FallibleColorSyntax for VariablePathShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| {
             // If the head of the token stream is not a variable, fail
@@ -97,7 +97,7 @@ impl FallibleColorSyntax for PathTailShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| loop {
             let result = color_fallible_syntax_with(
@@ -120,13 +120,13 @@ impl FallibleColorSyntax for PathTailShape {
 }
 
 impl ExpandSyntax for PathTailShape {
-    type Output = (Vec<Tagged<String>>, Tag);
+    type Output = (Vec<Spanned<String>>, Span);
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Result<Self::Output, ShellError> {
-        let mut end: Option<Tag> = None;
+        let mut end: Option<Span> = None;
         let mut tail = vec![];
 
         loop {
@@ -136,17 +136,21 @@ impl ExpandSyntax for PathTailShape {
             }
 
             let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-            let member = syntax.to_tagged_string(context.source);
-            end = Some(member.tag());
+            let member = syntax.to_spanned_string(context.source);
+            end = Some(member.span);
             tail.push(member);
         }
 
         match end {
             None => {
-                return Err(ShellError::type_error(
-                    "path tail",
-                    token_nodes.typed_tag_at_cursor(),
-                ))
+                return Err(ShellError::type_error("path tail", {
+                    let typed_span = token_nodes.typed_span_at_cursor();
+
+                    Tagged {
+                        tag: typed_span.span.into(),
+                        item: typed_span.item,
+                    }
+                }))
             }
 
             Some(end) => Ok((tail, end)),
@@ -156,8 +160,8 @@ impl ExpandSyntax for PathTailShape {
 
 #[derive(Debug)]
 pub enum ExpressionContinuation {
-    DotSuffix(Tag, Tagged<String>),
-    InfixSuffix(Tagged<Operator>, Expression),
+    DotSuffix(Span, Spanned<String>),
+    InfixSuffix(Spanned<Operator>, Expression),
 }
 
 /// An expression continuation
@@ -179,7 +183,7 @@ impl ExpandSyntax for ExpressionContinuationShape {
             // If a `.` was matched, it's a `Path`, and we expect a `Member` next
             Ok(dot) => {
                 let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-                let member = syntax.to_tagged_string(context.source);
+                let member = syntax.to_spanned_string(context.source);
 
                 Ok(ExpressionContinuation::DotSuffix(dot, member))
             }
@@ -209,7 +213,7 @@ impl FallibleColorSyntax for ExpressionContinuationShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<ContinuationInfo, ShellError> {
         token_nodes.atomic(|token_nodes| {
             // Try to expand a `.`
@@ -290,7 +294,7 @@ impl FallibleColorSyntax for VariableShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = expand_atom(
             token_nodes,
@@ -306,11 +310,11 @@ impl FallibleColorSyntax for VariableShape {
 
         match &atom.item {
             AtomicToken::Variable { .. } => {
-                shapes.push(FlatShape::Variable.tagged(atom.tag));
+                shapes.push(FlatShape::Variable.spanned(atom.span));
                 Ok(())
             }
             AtomicToken::ItVariable { .. } => {
-                shapes.push(FlatShape::ItVariable.tagged(atom.tag));
+                shapes.push(FlatShape::ItVariable.spanned(atom.span));
                 Ok(())
             }
             _ => Err(ShellError::type_error("variable", atom.tagged_type_name())),
@@ -320,50 +324,53 @@ impl FallibleColorSyntax for VariableShape {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Member {
-    String(/* outer */ Tag, /* inner */ Tag),
-    Bare(Tag),
+    String(/* outer */ Span, /* inner */ Span),
+    Bare(Span),
 }
 
 impl Member {
     pub(crate) fn to_expr(&self) -> hir::Expression {
         match self {
-            Member::String(outer, inner) => hir::Expression::string(inner, outer),
-            Member::Bare(tag) => hir::Expression::string(tag, tag),
+            Member::String(outer, inner) => hir::Expression::string(*inner, *outer),
+            Member::Bare(span) => hir::Expression::string(*span, *span),
         }
     }
 
-    pub(crate) fn tag(&self) -> Tag {
+    pub(crate) fn span(&self) -> Span {
         match self {
             Member::String(outer, _inner) => *outer,
-            Member::Bare(tag) => *tag,
+            Member::Bare(span) => *span,
         }
     }
 
-    pub(crate) fn to_tagged_string(&self, source: &str) -> Tagged<String> {
+    pub(crate) fn to_spanned_string(&self, source: &str) -> Spanned<String> {
         match self {
-            Member::String(outer, inner) => inner.string(source).tagged(outer),
-            Member::Bare(tag) => tag.tagged_string(source),
+            Member::String(outer, inner) => inner.string(source).spanned(*outer),
+            Member::Bare(span) => span.spanned_string(source),
         }
     }
 
     pub(crate) fn tagged_type_name(&self) -> Tagged<&'static str> {
         match self {
             Member::String(outer, _inner) => "string".tagged(outer),
-            Member::Bare(tag) => "word".tagged(tag),
+            Member::Bare(span) => "word".tagged(Tag {
+                span: *span,
+                anchor: None,
+            }),
         }
     }
 }
 
 enum ColumnPathState {
     Initial,
-    LeadingDot(Tag),
-    Dot(Tag, Vec<Member>, Tag),
-    Member(Tag, Vec<Member>),
+    LeadingDot(Span),
+    Dot(Span, Vec<Member>, Span),
+    Member(Span, Vec<Member>),
     Error(ShellError),
 }
 
 impl ColumnPathState {
-    pub fn dot(self, dot: Tag) -> ColumnPathState {
+    pub fn dot(self, dot: Span) -> ColumnPathState {
         match self {
             ColumnPathState::Initial => ColumnPathState::LeadingDot(dot),
             ColumnPathState::LeadingDot(_) => {
@@ -379,13 +386,13 @@ impl ColumnPathState {
 
     pub fn member(self, member: Member) -> ColumnPathState {
         match self {
-            ColumnPathState::Initial => ColumnPathState::Member(member.tag(), vec![member]),
+            ColumnPathState::Initial => ColumnPathState::Member(member.span(), vec![member]),
             ColumnPathState::LeadingDot(tag) => {
-                ColumnPathState::Member(tag.until(member.tag()), vec![member])
+                ColumnPathState::Member(tag.until(member.span()), vec![member])
             }
 
             ColumnPathState::Dot(tag, mut tags, _) => {
-                ColumnPathState::Member(tag.until(member.tag()), {
+                ColumnPathState::Member(tag.until(member.span()), {
                     tags.push(member);
                     tags
                 })
@@ -449,7 +456,7 @@ impl FallibleColorSyntax for ColumnPathShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // If there's not even one member shape, fail
         color_fallible_syntax(&MemberShape, token_nodes, context, shapes)?;
@@ -513,7 +520,7 @@ impl FallibleColorSyntax for MemberShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let bare = color_fallible_syntax_with(
             &BareShape,
@@ -552,7 +559,7 @@ impl ExpandSyntax for MemberShape {
         let bare = BareShape.test(token_nodes, context);
         if let Some(peeked) = bare {
             let node = peeked.not_eof("column")?.commit();
-            return Ok(Member::Bare(node.tag()));
+            return Ok(Member::Bare(node.span()));
         }
 
         let string = StringShape.test(token_nodes, context);
@@ -583,14 +590,14 @@ impl FallibleColorSyntax for ColorableDotShape {
         input: &FlatShape,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let peeked = token_nodes.peek_any().not_eof("dot")?;
 
         match peeked.node {
             node if node.is_dot() => {
                 peeked.commit();
-                shapes.push((*input).tagged(node.tag()));
+                shapes.push((*input).spanned(node.span()));
                 Ok(())
             }
 
@@ -612,20 +619,20 @@ impl SkipSyntax for DotShape {
 }
 
 impl ExpandSyntax for DotShape {
-    type Output = Tag;
+    type Output = Span;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
     ) -> Result<Self::Output, ShellError> {
-        parse_single_node(token_nodes, "dot", |token, token_tag, _| {
+        parse_single_node(token_nodes, "dot", |token, token_span, _| {
             Ok(match token {
-                RawToken::Operator(Operator::Dot) => token_tag,
+                RawToken::Operator(Operator::Dot) => token_span,
                 _ => {
                     return Err(ShellError::type_error(
                         "dot",
-                        token.type_name().tagged(token_tag),
+                        token.type_name().tagged(token_span),
                     ))
                 }
             })
@@ -645,7 +652,7 @@ impl FallibleColorSyntax for InfixShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        outer_shapes: &mut Vec<Tagged<FlatShape>>,
+        outer_shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let checkpoint = token_nodes.checkpoint();
         let mut shapes = vec![];
@@ -657,18 +664,18 @@ impl FallibleColorSyntax for InfixShape {
         parse_single_node(
             checkpoint.iterator,
             "infix operator",
-            |token, token_tag, _| {
+            |token, token_span, _| {
                 match token {
                     // If it's an operator (and not `.`), it's a match
                     RawToken::Operator(operator) if operator != Operator::Dot => {
-                        shapes.push(FlatShape::Operator.tagged(token_tag));
+                        shapes.push(FlatShape::Operator.spanned(token_span));
                         Ok(())
                     }
 
                     // Otherwise, it's not a match
                     _ => Err(ShellError::type_error(
                         "infix operator",
-                        token.type_name().tagged(token_tag),
+                        token.type_name().tagged(token_span),
                     )),
                 }
             },
@@ -684,7 +691,7 @@ impl FallibleColorSyntax for InfixShape {
 }
 
 impl ExpandSyntax for InfixShape {
-    type Output = (Tag, Tagged<Operator>, Tag);
+    type Output = (Span, Spanned<Operator>, Span);
 
     fn expand_syntax<'a, 'b>(
         &self,
@@ -700,18 +707,18 @@ impl ExpandSyntax for InfixShape {
         let operator = parse_single_node(
             checkpoint.iterator,
             "infix operator",
-            |token, token_tag, _| {
+            |token, token_span, _| {
                 Ok(match token {
                     // If it's an operator (and not `.`), it's a match
                     RawToken::Operator(operator) if operator != Operator::Dot => {
-                        operator.tagged(token_tag)
+                        operator.spanned(token_span)
                     }
 
                     // Otherwise, it's not a match
                     _ => {
                         return Err(ShellError::type_error(
                             "infix operator",
-                            token.type_name().tagged(token_tag),
+                            token.type_name().tagged(token_span),
                         ))
                     }
                 })

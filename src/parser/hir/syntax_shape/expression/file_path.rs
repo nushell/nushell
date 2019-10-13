@@ -17,7 +17,7 @@ impl FallibleColorSyntax for FilePathShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = expand_atom(
             token_nodes,
@@ -36,7 +36,7 @@ impl FallibleColorSyntax for FilePathShape {
             | AtomicToken::String { .. }
             | AtomicToken::Number { .. }
             | AtomicToken::Size { .. } => {
-                shapes.push(FlatShape::Path.tagged(atom.tag));
+                shapes.push(FlatShape::Path.spanned(atom.span));
             }
 
             _ => atom.color_tokens(shapes),
@@ -57,12 +57,12 @@ impl ExpandExpression for FilePathShape {
         match atom.item {
             AtomicToken::Word { text: body } | AtomicToken::String { body } => {
                 let path = expand_file_path(body.slice(context.source), context);
-                return Ok(hir::Expression::file_path(path, atom.tag));
+                return Ok(hir::Expression::file_path(path, atom.span));
             }
 
             AtomicToken::Number { .. } | AtomicToken::Size { .. } => {
-                let path = atom.tag.slice(context.source);
-                return Ok(hir::Expression::file_path(path, atom.tag));
+                let path = atom.span.slice(context.source);
+                return Ok(hir::Expression::file_path(path, atom.span));
             }
 
             _ => return atom.into_hir(context, "file path"),

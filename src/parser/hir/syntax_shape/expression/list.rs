@@ -9,7 +9,7 @@ use crate::parser::{
     hir::TokensIterator,
     FlatShape,
 };
-use crate::Tagged;
+use crate::Spanned;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ExpressionListShape;
@@ -60,7 +60,7 @@ impl ColorSyntax for ExpressionListShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) {
         // We encountered a parsing error and will continue with simpler coloring ("backoff
         // coloring mode")
@@ -126,7 +126,7 @@ impl ColorSyntax for BackoffColoringMode {
         _input: &Self::Input,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         loop {
             if token_nodes.at_end() {
@@ -159,7 +159,7 @@ impl ColorSyntax for SimplestExpression {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) {
         let atom = expand_atom(
             token_nodes,
