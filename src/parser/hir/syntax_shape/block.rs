@@ -11,7 +11,7 @@ use crate::parser::{
     parse::token_tree::Delimiter,
     RawToken, TokenNode,
 };
-use crate::{Tag, Tagged, TaggedItem};
+use crate::{Span, Spanned, SpannedItem};
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyBlockShape;
@@ -25,7 +25,7 @@ impl FallibleColorSyntax for AnyBlockShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let block = token_nodes.peek_non_ws().not_eof("block");
 
@@ -39,11 +39,11 @@ impl FallibleColorSyntax for AnyBlockShape {
 
         match block {
             // If so, color it as a block
-            Some((children, tags)) => {
-                let mut token_nodes = TokensIterator::new(children.item, context.tag, false);
+            Some((children, spans)) => {
+                let mut token_nodes = TokensIterator::new(children.item, context.span, false);
                 color_syntax_with(
                     &DelimitedShape,
-                    &(Delimiter::Brace, tags.0, tags.1),
+                    &(Delimiter::Brace, spans.0, spans.1),
                     &mut token_nodes,
                     context,
                     shapes,
@@ -72,11 +72,11 @@ impl ExpandExpression for AnyBlockShape {
 
         match block {
             Some((block, _tags)) => {
-                let mut iterator = TokensIterator::new(&block.item, context.tag, false);
+                let mut iterator = TokensIterator::new(&block.item, context.span, false);
 
                 let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
 
-                return Ok(hir::RawExpression::Block(exprs).tagged(block.tag));
+                return Ok(hir::RawExpression::Block(exprs).spanned(block.span));
             }
             _ => {}
         }
@@ -97,7 +97,7 @@ impl FallibleColorSyntax for ShorthandBlock {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // Try to find a shorthand head. If none found, fail
         color_fallible_syntax(&ShorthandPath, token_nodes, context, shapes)?;
@@ -126,10 +126,10 @@ impl ExpandExpression for ShorthandBlock {
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
         let path = expand_expr(&ShorthandPath, token_nodes, context)?;
-        let start = path.tag;
+        let start = path.span;
         let expr = continue_expression(path, token_nodes, context)?;
-        let end = expr.tag;
-        let block = hir::RawExpression::Block(vec![expr]).tagged(start.until(end));
+        let end = expr.span;
+        let block = hir::RawExpression::Block(vec![expr]).spanned(start.until(end));
 
         Ok(block)
     }
@@ -148,7 +148,7 @@ impl FallibleColorSyntax for ShorthandPath {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         token_nodes.atomic(|token_nodes| {
             let variable = color_fallible_syntax(&VariablePathShape, token_nodes, context, shapes);
@@ -232,29 +232,29 @@ impl FallibleColorSyntax for ShorthandHeadShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // A shorthand path must not be at EOF
         let peeked = token_nodes.peek_non_ws().not_eof("shorthand path")?;
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::BareMember.tagged(tag));
+                shapes.push(FlatShape::BareMember.spanned(*span));
                 Ok(())
             }
 
             // If the head of a shorthand path is a string, it expands to `$it."some string"`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(_),
-                tag: outer,
+                span: outer,
             }) => {
                 peeked.commit();
-                shapes.push(FlatShape::StringMember.tagged(outer));
+                shapes.push(FlatShape::StringMember.spanned(*outer));
                 Ok(())
             }
 
@@ -277,40 +277,40 @@ impl ExpandExpression for ShorthandHeadShape {
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
+                span,
             }) => {
                 // Commit the peeked token
                 peeked.commit();
 
                 // Synthesize an `$it` expression
-                let it = synthetic_it(token_nodes.anchor());
+                let it = synthetic_it();
 
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
                     it,
-                    vec![tag.tagged_string(context.source)],
-                    tag,
+                    vec![span.spanned_string(context.source)],
+                    *span,
                 ))
             }
 
             // If the head of a shorthand path is a string, it expands to `$it."some string"`
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::String(inner),
-                tag: outer,
+                span: outer,
             }) => {
                 // Commit the peeked token
                 peeked.commit();
 
                 // Synthesize an `$it` expression
-                let it = synthetic_it(token_nodes.anchor());
+                let it = synthetic_it();
 
                 // Make a path out of `$it` and the bare token as a member
                 Ok(hir::Expression::path(
                     it,
-                    vec![inner.string(context.source).tagged(outer)],
-                    outer,
+                    vec![inner.string(context.source).spanned(*outer)],
+                    *outer,
                 ))
             }
 
@@ -325,6 +325,6 @@ impl ExpandExpression for ShorthandHeadShape {
     }
 }
 
-fn synthetic_it(origin: uuid::Uuid) -> hir::Expression {
-    hir::Expression::it_variable(Tag::unknown_span(origin), Tag::unknown_span(origin))
+fn synthetic_it() -> hir::Expression {
+    hir::Expression::it_variable(Span::unknown(), Span::unknown())
 }

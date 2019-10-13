@@ -10,14 +10,14 @@ use crate::parser::{
     Flag,
 };
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged, Text};
+use crate::{Span, Spanned, Tag, Text};
 use log::trace;
 
 pub fn parse_command_tail(
     config: &Signature,
     context: &ExpandContext,
     tail: &mut TokensIterator,
-    command_tag: Tag,
+    command_span: Span,
 ) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
     let mut named = NamedArguments::new();
     trace_remaining("nodes", tail.clone(), context.source());
@@ -32,7 +32,7 @@ pub fn parse_command_tail(
                 named.insert_switch(name, flag);
             }
             NamedType::Mandatory(syntax_type) => {
-                match extract_mandatory(config, name, tail, context.source(), command_tag) {
+                match extract_mandatory(config, name, tail, context.source(), command_span) {
                     Err(err) => return Err(err), // produce a correct diagnostic
                     Ok((pos, flag)) => {
                         tail.move_to(pos);
@@ -41,7 +41,7 @@ pub fn parse_command_tail(
                             return Err(ShellError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.tag(),
+                                flag.span,
                             ));
                         }
 
@@ -62,7 +62,7 @@ pub fn parse_command_tail(
                             return Err(ShellError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.tag(),
+                                flag.span,
                             ));
                         }
 
@@ -98,7 +98,10 @@ pub fn parse_command_tail(
                     return Err(ShellError::argument_error(
                         config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
-                        command_tag,
+                        Tag {
+                            span: command_span,
+                            anchor: None,
+                        },
                     ));
                 }
             }
@@ -158,7 +161,7 @@ pub fn parse_command_tail(
 
 #[derive(Debug)]
 struct ColoringArgs {
-    vec: Vec<Option<Vec<Tagged<FlatShape>>>>,
+    vec: Vec<Option<Vec<Spanned<FlatShape>>>>,
 }
 
 impl ColoringArgs {
@@ -167,11 +170,11 @@ impl ColoringArgs {
         ColoringArgs { vec }
     }
 
-    fn insert(&mut self, pos: usize, shapes: Vec<Tagged<FlatShape>>) {
+    fn insert(&mut self, pos: usize, shapes: Vec<Spanned<FlatShape>>) {
         self.vec[pos] = Some(shapes);
     }
 
-    fn spread_shapes(self, shapes: &mut Vec<Tagged<FlatShape>>) {
+    fn spread_shapes(self, shapes: &mut Vec<Spanned<FlatShape>>) {
         for item in self.vec {
             match item {
                 None => {}
@@ -195,7 +198,7 @@ impl ColorSyntax for CommandTailShape {
         signature: &Signature,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         let mut args = ColoringArgs::new(token_nodes.len());
         trace_remaining("nodes", token_nodes.clone(), context.source());
@@ -216,7 +219,7 @@ impl ColorSyntax for CommandTailShape {
                         name,
                         token_nodes,
                         context.source(),
-                        Tag::unknown(),
+                        Span::unknown(),
                     ) {
                         Err(_) => {
                             // The mandatory flag didn't exist at all, so there's nothing to color
@@ -378,7 +381,7 @@ impl ColorSyntax for CommandTailShape {
         // Consume any remaining tokens with backoff coloring mode
         color_syntax(&BackoffColoringMode, token_nodes, context, shapes);
 
-        shapes.sort_by(|a, b| a.tag.span.start().cmp(&b.tag.span.start()));
+        shapes.sort_by(|a, b| a.span.start().cmp(&b.span.start()));
     }
 }
 
@@ -393,15 +396,15 @@ fn extract_mandatory(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-    tag: Tag,
-) -> Result<(usize, Tagged<Flag>), ShellError> {
+    span: Span,
+) -> Result<(usize, Spanned<Flag>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
         None => Err(ShellError::argument_error(
             config.name.clone(),
             ArgumentError::MissingMandatoryFlag(name.to_string()),
-            tag,
+            span,
         )),
 
         Some((pos, flag)) => {
@@ -415,7 +418,7 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-) -> Result<(Option<(usize, Tagged<Flag>)>), ShellError> {
+) -> Result<(Option<(usize, Spanned<Flag>)>), ShellError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {

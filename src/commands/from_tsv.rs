@@ -63,12 +63,12 @@ pub fn from_tsv_string_to_value(
         if let Some(row_values) = iter.next() {
             let row_values = row_values?;
 
-            let mut row = TaggedDictBuilder::new(tag);
+            let mut row = TaggedDictBuilder::new(&tag);
 
             for (idx, entry) in row_values.iter().enumerate() {
                 row.insert_tagged(
                     fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(&tag),
                 );
             }
 
@@ -78,7 +78,7 @@ pub fn from_tsv_string_to_value(
         }
     }
 
-    Ok(Tagged::from_item(Value::Table(rows), tag))
+    Ok(Value::Table(rows).tagged(&tag))
 }
 
 fn from_tsv(
@@ -97,7 +97,7 @@ fn from_tsv(
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -106,15 +106,15 @@ fn from_tsv(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name_tag,
+                    &name_tag,
                     "value originates from here",
-                    value_tag,
+                    &value_tag,
                 )),
 
             }
         }
 
-        match from_tsv_string_to_value(concat_string, skip_headers, name_tag) {
+        match from_tsv_string_to_value(concat_string, skip_headers, name_tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
@@ -127,9 +127,9 @@ fn from_tsv(
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as TSV",
                     "input cannot be parsed as TSV",
-                    name_tag,
+                    &name_tag,
                     "value originates from here",
-                    last_tag,
+                    &last_tag,
                 ))
             } ,
         }

@@ -47,7 +47,7 @@ pub fn value_to_csv_value(v: &Tagged<Value>) -> Tagged<Value> {
         Value::Block(_) => Value::Primitive(Primitive::Nothing),
         _ => Value::Primitive(Primitive::Nothing),
     }
-    .tagged(v.tag)
+    .tagged(v.tag.clone())
 }
 
 fn to_string_helper(v: &Tagged<Value>) -> Result<String, ShellError> {
@@ -61,7 +61,13 @@ fn to_string_helper(v: &Tagged<Value>) -> Result<String, ShellError> {
         Value::Table(_) => return Ok(String::from("[Table]")),
         Value::Row(_) => return Ok(String::from("[Row]")),
         Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => return Err(ShellError::labeled_error("Unexpected value", "", v.tag)),
+        _ => {
+            return Err(ShellError::labeled_error(
+                "Unexpected value",
+                "",
+                v.tag.clone(),
+            ))
+        }
     }
 }
 
@@ -99,14 +105,14 @@ pub fn to_string(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?)
             .map_err(|_| {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?);
         }
@@ -136,14 +142,14 @@ pub fn to_string(tagged_value: &Tagged<Value>) -> Result<String, ShellError> {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?)
             .map_err(|_| {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
-                    tagged_value.tag,
+                    &tagged_value.tag,
                 )
             })?);
         }
@@ -160,7 +166,7 @@ fn to_csv(
          let input: Vec<Tagged<Value>> = input.values.collect().await;
 
          let to_process_input = if input.len() > 1 {
-             let tag = input[0].tag;
+             let tag = input[0].tag.clone();
              vec![Tagged { item: Value::Table(input), tag } ]
          } else if input.len() == 1 {
              input
@@ -176,13 +182,13 @@ fn to_csv(
                      } else {
                          x
                      };
-                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).tagged(name_tag))
+                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).tagged(&name_tag))
                  }
                  _ => {
                      yield Err(ShellError::labeled_error_with_secondary(
                          "Expected a table with CSV-compatible structure.tag() from pipeline",
                          "requires CSV-compatible input",
-                         name_tag,
+                         &name_tag,
                          "originates from here".to_string(),
                          value.tag(),
                      ))

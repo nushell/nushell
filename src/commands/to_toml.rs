@@ -38,10 +38,10 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
             toml::Value::String("<Beginning of Stream>".to_string())
         }
         Value::Primitive(Primitive::Decimal(f)) => {
-            toml::Value::Float(f.tagged(v.tag).coerce_into("converting to TOML float")?)
+            toml::Value::Float(f.tagged(&v.tag).coerce_into("converting to TOML float")?)
         }
         Value::Primitive(Primitive::Int(i)) => {
-            toml::Value::Integer(i.tagged(v.tag).coerce_into("converting to TOML integer")?)
+            toml::Value::Integer(i.tagged(&v.tag).coerce_into("converting to TOML integer")?)
         }
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),
         Value::Primitive(Primitive::Pattern(s)) => toml::Value::String(s.clone()),
@@ -49,6 +49,7 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
 
         Value::Table(l) => toml::Value::Array(collect_values(l)?),
+        Value::Error(e) => return Err(e.clone()),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
         Value::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
@@ -80,7 +81,7 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {
-            let tag = input[0].tag;
+            let tag = input[0].tag.clone();
             vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
@@ -93,12 +94,12 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 Ok(toml_value) => {
                     match toml::to_string(&toml_value) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Primitive(Primitive::String(x)).tagged(name_tag),
+                            Value::Primitive(Primitive::String(x)).tagged(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with TOML-compatible structure.tag() from pipeline",
                             "requires TOML-compatible input",
-                            name_tag,
+                            &name_tag,
                             "originates from here".to_string(),
                             value.tag(),
                         )),
@@ -107,7 +108,7 @@ fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with TOML-compatible structure from pipeline",
                     "requires TOML-compatible input",
-                    name_tag))
+                    &name_tag))
             }
         }
     };

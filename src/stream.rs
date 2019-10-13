@@ -23,6 +23,17 @@ impl InputStream {
     }
 }
 
+impl Stream for InputStream {
+    type Item = Tagged<Value>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
+        Stream::poll_next(std::pin::Pin::new(&mut self.values), cx)
+    }
+}
+
 impl From<BoxStream<'static, Tagged<Value>>> for InputStream {
     fn from(input: BoxStream<'static, Tagged<Value>>) -> InputStream {
         InputStream { values: input }

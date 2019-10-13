@@ -2,7 +2,7 @@ use crate::errors::ShellError;
 use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
 use crate::prelude::*;
 use crate::traits::ToDebug;
-use crate::{Tag, Tagged, Text};
+use crate::{Tagged, Text};
 use derive_new::new;
 use enum_utils::FromStr;
 use getset::Getters;
@@ -12,14 +12,14 @@ use std::fmt;
 pub enum TokenNode {
     Token(Token),
 
-    Call(Tagged<CallNode>),
-    Nodes(Tagged<Vec<TokenNode>>),
-    Delimited(Tagged<DelimitedNode>),
-    Pipeline(Tagged<Pipeline>),
-    Flag(Tagged<Flag>),
-    Whitespace(Tag),
+    Call(Spanned<CallNode>),
+    Nodes(Spanned<Vec<TokenNode>>),
+    Delimited(Spanned<DelimitedNode>),
+    Pipeline(Spanned<Pipeline>),
+    Flag(Spanned<Flag>),
+    Whitespace(Span),
 
-    Error(Tagged<ShellError>),
+    Error(Spanned<ShellError>),
 }
 
 impl ToDebug for TokenNode {
@@ -78,28 +78,28 @@ impl fmt::Debug for DebugTokenNode<'_> {
             }
             TokenNode::Pipeline(pipeline) => write!(f, "{}", pipeline.debug(self.source)),
             TokenNode::Error(_) => write!(f, "<error>"),
-            rest => write!(f, "{}", rest.tag().slice(self.source)),
+            rest => write!(f, "{}", rest.span().slice(self.source)),
         }
     }
 }
 
-impl From<&TokenNode> for Tag {
-    fn from(token: &TokenNode) -> Tag {
-        token.tag()
+impl From<&TokenNode> for Span {
+    fn from(token: &TokenNode) -> Span {
+        token.span()
     }
 }
 
 impl TokenNode {
-    pub fn tag(&self) -> Tag {
+    pub fn span(&self) -> Span {
         match self {
-            TokenNode::Token(t) => t.tag(),
-            TokenNode::Nodes(t) => t.tag(),
-            TokenNode::Call(s) => s.tag(),
-            TokenNode::Delimited(s) => s.tag(),
-            TokenNode::Pipeline(s) => s.tag(),
-            TokenNode::Flag(s) => s.tag(),
+            TokenNode::Token(t) => t.span,
+            TokenNode::Nodes(t) => t.span,
+            TokenNode::Call(s) => s.span,
+            TokenNode::Delimited(s) => s.span,
+            TokenNode::Pipeline(s) => s.span,
+            TokenNode::Flag(s) => s.span,
             TokenNode::Whitespace(s) => *s,
-            TokenNode::Error(s) => return s.tag,
+            TokenNode::Error(s) => s.span,
         }
     }
 
@@ -116,8 +116,12 @@ impl TokenNode {
         }
     }
 
+    pub fn spanned_type_name(&self) -> Spanned<&'static str> {
+        self.type_name().spanned(self.span())
+    }
+
     pub fn tagged_type_name(&self) -> Tagged<&'static str> {
-        self.type_name().tagged(self.tag())
+        self.type_name().tagged(self.span())
     }
 
     pub fn old_debug<'a>(&'a self, source: &'a Text) -> DebugTokenNode<'a> {
@@ -125,26 +129,26 @@ impl TokenNode {
     }
 
     pub fn as_external_arg(&self, source: &Text) -> String {
-        self.tag().slice(source).to_string()
+        self.span().slice(source).to_string()
     }
 
     pub fn source<'a>(&self, source: &'a Text) -> &'a str {
-        self.tag().slice(source)
+        self.span().slice(source)
     }
 
-    pub fn get_variable(&self) -> Result<(Tag, Tag), ShellError> {
+    pub fn get_variable(&self) -> Result<(Span, Span), ShellError> {
         match self {
-            TokenNode::Token(Tagged {
-                item: RawToken::Variable(inner_tag),
-                tag: outer_tag,
-            }) => Ok((*outer_tag, *inner_tag)),
+            TokenNode::Token(Spanned {
+                item: RawToken::Variable(inner_span),
+                span: outer_span,
+            }) => Ok((*outer_span, *inner_span)),
             _ => Err(ShellError::type_error("variable", self.tagged_type_name())),
         }
     }
 
     pub fn is_bare(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
                 ..
             }) => true,
@@ -154,7 +158,7 @@ impl TokenNode {
 
     pub fn is_pattern(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::GlobPattern,
                 ..
             }) => true,
@@ -164,7 +168,7 @@ impl TokenNode {
 
     pub fn is_dot(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Operator(Operator::Dot),
                 ..
             }) => true,
@@ -172,24 +176,24 @@ impl TokenNode {
         }
     }
 
-    pub fn as_block(&self) -> Option<(Tagged<&[TokenNode]>, (Tag, Tag))> {
+    pub fn as_block(&self) -> Option<(Spanned<&[TokenNode]>, (Span, Span))> {
         match self {
-            TokenNode::Delimited(Tagged {
+            TokenNode::Delimited(Spanned {
                 item:
                     DelimitedNode {
                         delimiter,
                         children,
-                        tags,
+                        spans,
                     },
-                tag,
-            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).tagged(tag), *tags)),
+                span,
+            }) if *delimiter == Delimiter::Brace => Some(((&children[..]).spanned(*span), *spans)),
             _ => None,
         }
     }
 
     pub fn is_external(&self) -> bool {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::ExternalCommand(..),
                 ..
             }) => true,
@@ -197,20 +201,20 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_external(&self) -> Tag {
+    pub fn expect_external(&self) -> Span {
         match self {
-            TokenNode::Token(Tagged {
-                item: RawToken::ExternalCommand(tag),
+            TokenNode::Token(Spanned {
+                item: RawToken::ExternalCommand(span),
                 ..
-            }) => *tag,
+            }) => *span,
             _ => panic!("Only call expect_external if you checked is_external first"),
         }
     }
 
-    pub(crate) fn as_flag(&self, value: &str, source: &Text) -> Option<Tagged<Flag>> {
+    pub(crate) fn as_flag(&self, value: &str, source: &Text) -> Option<Spanned<Flag>> {
         match self {
             TokenNode::Flag(
-                flag @ Tagged {
+                flag @ Spanned {
                     item: Flag { .. }, ..
                 },
             ) if value == flag.name().slice(source) => Some(*flag),
@@ -220,7 +224,7 @@ impl TokenNode {
 
     pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
         match self {
-            TokenNode::Pipeline(Tagged { item, .. }) => Ok(item.clone()),
+            TokenNode::Pipeline(Spanned { item, .. }) => Ok(item.clone()),
             _ => Err(ShellError::unimplemented("unimplemented")),
         }
     }
@@ -232,12 +236,12 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_string(&self) -> (Tag, Tag) {
+    pub fn expect_string(&self) -> (Span, Span) {
         match self {
-            TokenNode::Token(Tagged {
-                item: RawToken::String(inner_tag),
-                tag: outer_tag,
-            }) => (*outer_tag, *inner_tag),
+            TokenNode::Token(Spanned {
+                item: RawToken::String(inner_span),
+                span: outer_span,
+            }) => (*outer_span, *inner_span),
             other => panic!("Expected string, found {:?}", other),
         }
     }
@@ -247,27 +251,30 @@ impl TokenNode {
 impl TokenNode {
     pub fn expect_list(&self) -> Tagged<&[TokenNode]> {
         match self {
-            TokenNode::Nodes(Tagged { item, tag }) => (&item[..]).tagged(tag),
+            TokenNode::Nodes(Spanned { item, span }) => (&item[..]).tagged(Tag {
+                span: *span,
+                anchor: None,
+            }),
             other => panic!("Expected list, found {:?}", other),
         }
     }
 
-    pub fn expect_var(&self) -> (Tag, Tag) {
+    pub fn expect_var(&self) -> (Span, Span) {
         match self {
-            TokenNode::Token(Tagged {
-                item: RawToken::Variable(inner_tag),
-                tag: outer_tag,
-            }) => (*outer_tag, *inner_tag),
+            TokenNode::Token(Spanned {
+                item: RawToken::Variable(inner_span),
+                span: outer_span,
+            }) => (*outer_span, *inner_span),
             other => panic!("Expected var, found {:?}", other),
         }
     }
 
-    pub fn expect_bare(&self) -> Tag {
+    pub fn expect_bare(&self) -> Span {
         match self {
-            TokenNode::Token(Tagged {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
-            }) => *tag,
+                span,
+            }) => *span,
             other => panic!("Expected var, found {:?}", other),
         }
     }
@@ -277,7 +284,7 @@ impl TokenNode {
 #[get = "pub(crate)"]
 pub struct DelimitedNode {
     pub(crate) delimiter: Delimiter,
-    pub(crate) tags: (Tag, Tag),
+    pub(crate) spans: (Span, Span),
     pub(crate) children: Vec<TokenNode>,
 }
 

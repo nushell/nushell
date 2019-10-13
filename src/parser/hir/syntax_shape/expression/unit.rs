@@ -14,24 +14,24 @@ use nom::IResult;
 pub struct UnitShape;
 
 impl ExpandSyntax for UnitShape {
-    type Output = Tagged<(Tagged<RawNumber>, Tagged<Unit>)>;
+    type Output = Spanned<(Spanned<RawNumber>, Spanned<Unit>)>;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Tagged<(Tagged<RawNumber>, Tagged<Unit>)>, ShellError> {
+    ) -> Result<Spanned<(Spanned<RawNumber>, Spanned<Unit>)>, ShellError> {
         let peeked = token_nodes.peek_any().not_eof("unit")?;
 
-        let tag = match peeked.node {
-            TokenNode::Token(Tagged {
+        let span = match peeked.node {
+            TokenNode::Token(Spanned {
                 item: RawToken::Bare,
-                tag,
-            }) => tag,
+                span,
+            }) => span,
             _ => return Err(peeked.type_error("unit")),
         };
 
-        let unit = unit_size(tag.slice(context.source), *tag);
+        let unit = unit_size(span.slice(context.source), *span);
 
         let (_, (number, unit)) = match unit {
             Err(_) => {
@@ -44,11 +44,11 @@ impl ExpandSyntax for UnitShape {
         };
 
         peeked.commit();
-        Ok((number, unit).tagged(tag))
+        Ok((number, unit).spanned(*span))
     }
 }
 
-fn unit_size(input: &str, bare_tag: Tag) -> IResult<&str, (Tagged<RawNumber>, Tagged<Unit>)> {
+fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>, Spanned<Unit>)> {
     let (input, digits) = digit1(input)?;
 
     let (input, dot) = opt(tag("."))(input)?;
@@ -58,20 +58,18 @@ fn unit_size(input: &str, bare_tag: Tag) -> IResult<&str, (Tagged<RawNumber>, Ta
             let (input, rest) = digit1(input)?;
             (
                 input,
-                RawNumber::decimal((
-                    bare_tag.span.start(),
-                    bare_tag.span.start() + digits.len() + dot.len() + rest.len(),
-                    bare_tag.anchor,
+                RawNumber::decimal(Span::new(
+                    bare_span.start(),
+                    bare_span.start() + digits.len() + dot.len() + rest.len(),
                 )),
             )
         }
 
         None => (
             input,
-            RawNumber::int((
-                bare_tag.span.start(),
-                bare_tag.span.start() + digits.len(),
-                bare_tag.anchor,
+            RawNumber::int(Span::new(
+                bare_span.start(),
+                bare_span.start() + digits.len(),
             )),
         ),
     };
@@ -85,12 +83,10 @@ fn unit_size(input: &str, bare_tag: Tag) -> IResult<&str, (Tagged<RawNumber>, Ta
         value(Unit::MB, alt((tag("PB"), tag("pb"), tag("Pb")))),
     )))(input)?;
 
-    let start_span = number.tag.span.end();
+    let start_span = number.span.end();
 
-    let unit_tag = Tag::new(
-        bare_tag.anchor,
-        Span::from((start_span, bare_tag.span.end())),
-    );
-
-    Ok((input, (number, unit.tagged(unit_tag))))
+    Ok((
+        input,
+        (number, unit.spanned(Span::new(start_span, bare_span.end()))),
+    ))
 }

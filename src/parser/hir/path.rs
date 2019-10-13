@@ -1,6 +1,5 @@
 use crate::parser::hir::Expression;
 use crate::prelude::*;
-use crate::Tagged;
 use derive_new::new;
 use getset::{Getters, MutGetters};
 use serde::{Deserialize, Serialize};
@@ -24,7 +23,7 @@ use std::fmt;
 pub struct Path {
     head: Expression,
     #[get_mut = "pub(crate)"]
-    tail: Vec<Tagged<String>>,
+    tail: Vec<Spanned<String>>,
 }
 
 impl fmt::Display for Path {
@@ -40,7 +39,7 @@ impl fmt::Display for Path {
 }
 
 impl Path {
-    pub(crate) fn parts(self) -> (Expression, Vec<Tagged<String>>) {
+    pub(crate) fn parts(self) -> (Expression, Vec<Spanned<String>>) {
         (self.head, self.tail)
     }
 }
@@ -50,7 +49,7 @@ impl ToDebug for Path {
         write!(f, "{}", self.head.debug(source))?;
 
         for part in &self.tail {
-            write!(f, ".{}", part.item())?;
+            write!(f, ".{}", part.item)?;
         }
 
         Ok(())

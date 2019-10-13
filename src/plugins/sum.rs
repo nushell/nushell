@@ -21,7 +21,7 @@ impl Sum {
                         tag,
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Value::int(i + j).tagged(*tag));
+                        self.total = Some(Value::int(i + j).tagged(tag));
                         Ok(())
                     }
                     None => {
@@ -36,7 +36,7 @@ impl Sum {
                 }
             }
             Value::Primitive(Primitive::Bytes(b)) => {
-                match self.total {
+                match &self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Bytes(j)),
                         tag,

@@ -119,33 +119,32 @@ fn save(
         input,
         name,
         shell_manager,
-        source_map,
         host,
+        ctrl_c,
         commands: registry,
         ..
     }: RunnableContext,
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
     let mut full_path = PathBuf::from(shell_manager.path());
-    let name_tag = name;
+    let name_tag = name.clone();
 
-    let source_map = source_map.clone();
     let stream = async_stream! {
         let input: Vec<Tagged<Value>> = input.values.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the anchor filename
             if input.len() > 0 {
                 let anchor = input[0].anchor();
-                match source_map.get(&anchor) {
+                match anchor {
                     Some(path) => match path {
                         AnchorLocation::File(file) => {
-                            full_path.push(Path::new(file));
+                            full_path.push(Path::new(&file));
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(
                                 "Save requires a filepath (1)",
                                 "needs path",
-                                name_tag,
+                                name_tag.clone(),
                             ));
                         }
                     },
@@ -153,7 +152,7 @@ fn save(
                         yield Err(ShellError::labeled_error(
                             "Save requires a filepath (2)",
                             "needs path",
-                            name_tag,
+                            name_tag.clone(),
                         ));
                     }
                 }
@@ -161,7 +160,7 @@ fn save(
                 yield Err(ShellError::labeled_error(
                     "Save requires a filepath (3)",
                     "needs path",
-                    name_tag,
+                    name_tag.clone(),
                 ));
             }
         } else {
@@ -179,6 +178,7 @@ fn save(
                     if let Some(converter) = registry.get_command(&command_name) {
                         let new_args = RawCommandArgs {
                             host,
+                            ctrl_c,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
                                 args: crate::parser::hir::Call {
@@ -187,7 +187,6 @@ fn save(
                                     named: None
                                 },
                                 source: raw_args.call_info.source,
-                                source_map: raw_args.call_info.source_map,
                                 name_tag: raw_args.call_info.name_tag,
                             }
                         };

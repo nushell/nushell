@@ -35,7 +35,7 @@ fn run(
     _registry: &CommandRegistry,
     _raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let name = call_info.name_tag;
+    let name = call_info.name_tag.clone();
 
     let mut output = String::new();
 

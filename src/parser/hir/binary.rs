@@ -1,6 +1,6 @@
 use crate::parser::{hir::Expression, Operator};
 use crate::prelude::*;
-use crate::Tagged;
+
 use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use std::fmt;
 #[get = "pub(crate)"]
 pub struct Binary {
     left: Expression,
-    op: Tagged<Operator>,
+    op: Spanned<Operator>,
     right: Expression,
 }
 

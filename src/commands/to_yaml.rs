@@ -39,7 +39,7 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
             serde_yaml::Value::Number(serde_yaml::Number::from(f.to_f64().unwrap()))
         }
         Value::Primitive(Primitive::Int(i)) => serde_yaml::Value::Number(serde_yaml::Number::from(
-            CoerceInto::<i64>::coerce_into(i.tagged(v.tag), "converting to YAML number")?,
+            CoerceInto::<i64>::coerce_into(i.tagged(&v.tag), "converting to YAML number")?,
         )),
         Value::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
@@ -55,6 +55,7 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
 
             serde_yaml::Value::Sequence(out)
         }
+        Value::Error(e) => return Err(e.clone()),
         Value::Block(_) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::Binary(b)) => serde_yaml::Value::Sequence(
             b.iter()
@@ -81,7 +82,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {
-            let tag = input[0].tag;
+            let tag = input[0].tag.clone();
             vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
@@ -94,12 +95,12 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 Ok(yaml_value) => {
                     match serde_yaml::to_string(&yaml_value) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Primitive(Primitive::String(x)).tagged(name_tag),
+                            Value::Primitive(Primitive::String(x)).tagged(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with YAML-compatible structure.tag() from pipeline",
                             "requires YAML-compatible input",
-                            name_tag,
+                            &name_tag,
                             "originates from here".to_string(),
                             value.tag(),
                         )),
@@ -108,7 +109,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with YAML-compatible structure from pipeline",
                     "requires YAML-compatible input",
-                    name_tag))
+                    &name_tag))
             }
         }
     };

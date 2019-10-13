@@ -6,17 +6,17 @@ use crate::parser::{
     },
     FlatShape, TokenNode, TokensIterator,
 };
-use crate::{Tag, Tagged, Text};
+use crate::{Span, Spanned, Text};
 
 pub fn expand_external_tokens(
     token_nodes: &mut TokensIterator<'_>,
     source: &Text,
-) -> Result<Vec<Tagged<String>>, ShellError> {
-    let mut out: Vec<Tagged<String>> = vec![];
+) -> Result<Vec<Spanned<String>>, ShellError> {
+    let mut out: Vec<Spanned<String>> = vec![];
 
     loop {
-        if let Some(tag) = expand_next_expression(token_nodes)? {
-            out.push(tag.tagged_string(source));
+        if let Some(span) = expand_next_expression(token_nodes)? {
+            out.push(span.spanned_string(source));
         } else {
             break;
         }
@@ -37,7 +37,7 @@ impl ColorSyntax for ExternalTokensShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         loop {
             // Allow a space
@@ -55,7 +55,7 @@ impl ColorSyntax for ExternalTokensShape {
 
 pub fn expand_next_expression(
     token_nodes: &mut TokensIterator<'_>,
-) -> Result<Option<Tag>, ShellError> {
+) -> Result<Option<Span>, ShellError> {
     let first = token_nodes.next_non_ws();
 
     let first = match first {
@@ -79,14 +79,14 @@ pub fn expand_next_expression(
     Ok(Some(first.until(last)))
 }
 
-fn triage_external_head(node: &TokenNode) -> Result<Tag, ShellError> {
+fn triage_external_head(node: &TokenNode) -> Result<Span, ShellError> {
     Ok(match node {
-        TokenNode::Token(token) => token.tag(),
+        TokenNode::Token(token) => token.span,
         TokenNode::Call(_call) => unimplemented!("TODO: OMG"),
         TokenNode::Nodes(_nodes) => unimplemented!("TODO: OMG"),
         TokenNode::Delimited(_delimited) => unimplemented!("TODO: OMG"),
         TokenNode::Pipeline(_pipeline) => unimplemented!("TODO: OMG"),
-        TokenNode::Flag(flag) => flag.tag(),
+        TokenNode::Flag(flag) => flag.span,
         TokenNode::Whitespace(_whitespace) => {
             unreachable!("This function should be called after next_non_ws()")
         }
@@ -96,7 +96,7 @@ fn triage_external_head(node: &TokenNode) -> Result<Tag, ShellError> {
 
 fn triage_continuation<'a, 'b>(
     nodes: &'a mut TokensIterator<'b>,
-) -> Result<Option<Tag>, ShellError> {
+) -> Result<Option<Span>, ShellError> {
     let mut peeked = nodes.peek_any();
 
     let node = match peeked.node {
@@ -116,7 +116,7 @@ fn triage_continuation<'a, 'b>(
     }
 
     peeked.commit();
-    Ok(Some(node.tag()))
+    Ok(Some(node.span()))
 }
 
 #[must_use]
@@ -137,7 +137,7 @@ impl ColorSyntax for ExternalExpression {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> ExternalExpressionResult {
         let atom = match expand_atom(
             token_nodes,
@@ -146,7 +146,7 @@ impl ColorSyntax for ExternalExpression {
             ExpansionRule::permissive(),
         ) {
             Err(_) => unreachable!("TODO: separate infallible expand_atom"),
-            Ok(Tagged {
+            Ok(Spanned {
                 item: AtomicToken::Eof { .. },
                 ..
             }) => return ExternalExpressionResult::Eof,

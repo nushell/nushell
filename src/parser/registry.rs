@@ -298,7 +298,7 @@ pub(crate) fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::named::NamedValue::PresentSwitch(tag) => {
-                        results.insert(name.clone(), Value::boolean(true).tagged(*tag));
+                        results.insert(name.clone(), Value::boolean(true).tagged(tag));
                     }
                     hir::named::NamedValue::Value(expr) => {
                         results.insert(

@@ -46,7 +46,7 @@ impl FallibleColorSyntax for AnyExpressionShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // Look for an expression at the cursor
         color_fallible_syntax(&AnyExpressionStartShape, token_nodes, context, shapes)?;
@@ -94,7 +94,7 @@ pub(crate) fn continue_expression(
 pub(crate) fn continue_coloring_expression(
     token_nodes: &mut TokensIterator<'_>,
     context: &ExpandContext,
-    shapes: &mut Vec<Tagged<FlatShape>>,
+    shapes: &mut Vec<Spanned<FlatShape>>,
 ) -> Result<(), ShellError> {
     // if there's not even one expression continuation, fail
     color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context, shapes)?;
@@ -131,20 +131,23 @@ impl ExpandExpression for AnyExpressionStartShape {
                 return Ok(hir::Expression::size(
                     number.to_number(context.source),
                     unit.item,
-                    atom.tag,
+                    Tag {
+                        span: atom.span,
+                        anchor: None,
+                    },
                 ))
             }
 
             AtomicToken::SquareDelimited { nodes, .. } => {
-                expand_delimited_square(&nodes, atom.tag, context)
+                expand_delimited_square(&nodes, atom.span.into(), context)
             }
 
             AtomicToken::Word { .. } | AtomicToken::Dot { .. } => {
                 let end = expand_syntax(&BareTailShape, token_nodes, context)?;
-                Ok(hir::Expression::bare(atom.tag.until_option(end)))
+                Ok(hir::Expression::bare(atom.span.until_option(end)))
             }
 
-            other => return other.tagged(atom.tag).into_hir(context, "expression"),
+            other => return other.spanned(atom.span).into_hir(context, "expression"),
         }
     }
 }
@@ -158,7 +161,7 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = token_nodes.spanned(|token_nodes| {
             expand_atom(
@@ -170,15 +173,15 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
         });
 
         let atom = match atom {
-            Tagged {
+            Spanned {
                 item: Err(_err),
-                tag,
+                span,
             } => {
-                shapes.push(FlatShape::Error.tagged(tag));
+                shapes.push(FlatShape::Error.spanned(span));
                 return Ok(());
             }
 
-            Tagged {
+            Spanned {
                 item: Ok(value), ..
             } => value,
         };
@@ -186,18 +189,18 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
         match atom.item {
             AtomicToken::Size { number, unit } => shapes.push(
                 FlatShape::Size {
-                    number: number.tag,
-                    unit: unit.tag,
+                    number: number.span.into(),
+                    unit: unit.span.into(),
                 }
-                .tagged(atom.tag),
+                .spanned(atom.span),
             ),
 
-            AtomicToken::SquareDelimited { nodes, tags } => {
-                color_delimited_square(tags, &nodes, atom.tag, context, shapes)
+            AtomicToken::SquareDelimited { nodes, spans } => {
+                color_delimited_square(spans, &nodes, atom.span.into(), context, shapes)
             }
 
             AtomicToken::Word { .. } | AtomicToken::Dot { .. } => {
-                shapes.push(FlatShape::Word.tagged(atom.tag));
+                shapes.push(FlatShape::Word.spanned(atom.span));
             }
 
             _ => atom.color_tokens(shapes),
@@ -219,7 +222,7 @@ impl FallibleColorSyntax for BareTailShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Tagged<FlatShape>>,
+        shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let len = shapes.len();
 
@@ -267,19 +270,19 @@ impl FallibleColorSyntax for BareTailShape {
 }
 
 impl ExpandSyntax for BareTailShape {
-    type Output = Option<Tag>;
+    type Output = Option<Span>;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Option<Tag>, ShellError> {
-        let mut end: Option<Tag> = None;
+    ) -> Result<Option<Span>, ShellError> {
+        let mut end: Option<Span> = None;
 
         loop {
             match expand_syntax(&BareShape, token_nodes, context) {
                 Ok(bare) => {
-                    end = Some(bare.tag);
+                    end = Some(bare.span);
                     continue;
                 }
 

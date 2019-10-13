@@ -58,7 +58,7 @@ pub fn config(
     }: ConfigArgs,
     RunnableContext { name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = name;
+    let name_span = name.clone();
 
     let configuration = if let Some(supplied) = load {
         Some(supplied.item().clone())

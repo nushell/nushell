@@ -43,9 +43,13 @@ impl NamedArguments {
 
         match switch {
             None => self.named.insert(name.into(), NamedValue::AbsentSwitch),
-            Some(flag) => self
-                .named
-                .insert(name, NamedValue::PresentSwitch(*flag.name())),
+            Some(flag) => self.named.insert(
+                name,
+                NamedValue::PresentSwitch(Tag {
+                    span: *flag.name(),
+                    anchor: None,
+                }),
+            ),
         };
     }
 

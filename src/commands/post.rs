@@ -54,17 +54,20 @@ fn run(
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
+    let name_tag = call_info.name_tag.clone();
     let call_info = call_info.clone();
-    let path = match call_info.args.nth(0).ok_or_else(|| {
-        ShellError::labeled_error("No url specified", "for command", call_info.name_tag)
-    })? {
-        file => file.clone(),
-    };
-    let body = match call_info.args.nth(1).ok_or_else(|| {
-        ShellError::labeled_error("No body specified", "for command", call_info.name_tag)
-    })? {
-        file => file.clone(),
-    };
+    let path =
+        match call_info.args.nth(0).ok_or_else(|| {
+            ShellError::labeled_error("No url specified", "for command", &name_tag)
+        })? {
+            file => file.clone(),
+        };
+    let body =
+        match call_info.args.nth(1).ok_or_else(|| {
+            ShellError::labeled_error("No body specified", "for command", &name_tag)
+        })? {
+            file => file.clone(),
+        };
     let path_str = path.as_string()?;
     let path_span = path.tag();
     let has_raw = call_info.args.has("raw");
@@ -79,7 +82,7 @@ fn run(
     let headers = get_headers(&call_info)?;
 
     let stream = async_stream! {
-        let (file_extension, contents, contents_tag, anchor_location) =
+        let (file_extension, contents, contents_tag) =
             post(&path_str, &body, user, password, &headers, path_span, &registry, &raw_args).await.unwrap();
 
         let file_extension = if has_raw {
@@ -90,21 +93,14 @@ fn run(
             file_extension.or(path_str.split('.').last().map(String::from))
         };
 
-        if contents_tag.anchor != uuid::Uuid::nil() {
-            // If we have loaded something, track its source
-            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
-                contents_tag.anchor,
-                anchor_location,
-            ));
-        }
-
-        let tagged_contents = contents.tagged(contents_tag);
+        let tagged_contents = contents.tagged(&contents_tag);
 
         if let Some(extension) = file_extension {
             let command_name = format!("from-{}", extension);
             if let Some(converter) = registry.get_command(&command_name) {
                 let new_args = RawCommandArgs {
                     host: raw_args.host,
+                    ctrl_c: raw_args.ctrl_c,
                     shell_manager: raw_args.shell_manager,
                     call_info: UnevaluatedCallInfo {
                         args: crate::parser::hir::Call {
@@ -113,7 +109,6 @@ fn run(
                             named: None
                         },
                         source: raw_args.call_info.source,
-                        source_map: raw_args.call_info.source_map,
                         name_tag: raw_args.call_info.name_tag,
                     }
                 };
@@ -127,7 +122,7 @@ fn run(
                             }
                         }
                         Ok(ReturnSuccess::Value(Tagged { item, .. })) => {
-                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag }));
+                            yield Ok(ReturnSuccess::Value(Tagged { item, tag: contents_tag.clone() }));
                         }
                         x => yield x,
                     }
@@ -207,7 +202,7 @@ pub async fn post(
     tag: Tag,
     registry: &CommandRegistry,
     raw_args: &RawCommandArgs,
-) -> Result<(Option<String>, Value, Tag, AnchorLocation), ShellError> {
+) -> Result<(Option<String>, Value, Tag), ShellError> {
     let registry = registry.clone();
     let raw_args = raw_args.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
@@ -248,6 +243,7 @@ pub async fn post(
                 if let Some(converter) = registry.get_command("to-json") {
                     let new_args = RawCommandArgs {
                         host: raw_args.host,
+                        ctrl_c: raw_args.ctrl_c,
                         shell_manager: raw_args.shell_manager,
                         call_info: UnevaluatedCallInfo {
                             args: crate::parser::hir::Call {
@@ -256,7 +252,6 @@ pub async fn post(
                                 named: None,
                             },
                             source: raw_args.call_info.source,
-                            source_map: raw_args.call_info.source_map,
                             name_tag: raw_args.call_info.name_tag,
                         },
                     };
@@ -280,7 +275,7 @@ pub async fn post(
                                 return Err(ShellError::labeled_error(
                                     "Save could not successfully save",
                                     "unexpected data during save",
-                                    *tag,
+                                    tag,
                                 ));
                             }
                         }
@@ -296,7 +291,7 @@ pub async fn post(
                     return Err(ShellError::labeled_error(
                         "Could not automatically convert table",
                         "needs manual conversion",
-                        *tag,
+                        tag,
                     ));
                 }
             }
@@ -312,11 +307,13 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
                             Some("json".to_string()),
@@ -324,25 +321,29 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                         (mime::APPLICATION, mime::OCTET_STREAM) => {
                             let buf: Vec<u8> = r.body_bytes().await.map_err(|_| {
                                 ShellError::labeled_error(
                                     "Could not load binary file",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?;
                             Ok((
                                 None,
                                 Value::binary(buf),
-                                tag,
-                                AnchorLocation::Url(location.to_string()),
+                                Tag {
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    span: tag.span,
+                                },
                             ))
                         }
                         (mime::IMAGE, image_ty) => {
@@ -350,14 +351,16 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load image file",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?;
                             Ok((
                                 Some(image_ty.to_string()),
                                 Value::binary(buf),
-                                tag,
-                                AnchorLocation::Url(location.to_string()),
+                                Tag {
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    span: tag.span,
+                                },
                             ))
                         }
                         (mime::TEXT, mime::HTML) => Ok((
@@ -366,11 +369,13 @@ pub async fn post(
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
-                                    tag,
+                                    &tag,
                                 )
                             })?),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                         (mime::TEXT, mime::PLAIN) => {
                             let path_extension = url::Url::parse(location)
@@ -390,11 +395,13 @@ pub async fn post(
                                     ShellError::labeled_error(
                                         "Could not load text from remote url",
                                         "could not load",
-                                        tag,
+                                        &tag,
                                     )
                                 })?),
-                                tag,
-                                AnchorLocation::Url(location.to_string()),
+                                Tag {
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                    span: tag.span,
+                                },
                             ))
                         }
                         (ty, sub_ty) => Ok((
@@ -403,16 +410,20 @@ pub async fn post(
                                 "Not yet supported MIME type: {} {}",
                                 ty, sub_ty
                             )),
-                            tag,
-                            AnchorLocation::Url(location.to_string()),
+                            Tag {
+                                anchor: Some(AnchorLocation::Url(location.to_string())),
+                                span: tag.span,
+                            },
                         )),
                     }
                 }
                 None => Ok((
                     None,
                     Value::string(format!("No content type found")),
-                    tag,
-                    AnchorLocation::Url(location.to_string()),
+                    Tag {
+                        anchor: Some(AnchorLocation::Url(location.to_string())),
+                        span: tag.span,
+                    },
                 )),
             },
             Err(_) => {

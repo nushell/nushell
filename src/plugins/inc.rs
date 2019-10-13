@@ -82,9 +82,7 @@ impl Inc {
             Value::Primitive(Primitive::Bytes(b)) => {
                 Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
             }
-            Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
-            }
+            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
             Value::Row(_) => match self.field {
                 Some(ref f) => {
                     let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
@@ -93,7 +91,7 @@ impl Inc {
                             return Err(ShellError::labeled_error(
                                 "inc could not find field to replace",
                                 "column name",
-                                f.tag,
+                                &f.tag,
                             ))
                         }
                     };
@@ -107,7 +105,7 @@ impl Inc {
                             return Err(ShellError::labeled_error(
                                 "inc could not find field to replace",
                                 "column name",
-                                f.tag,
+                                &f.tag,
                             ))
                         }
                     }
@@ -191,20 +189,18 @@ mod tests {
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, SourceMap, Tag, Tagged, TaggedDictBuilder,
-        TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, Tag, Tagged, TaggedDictBuilder, TaggedItem,
+        Value,
     };
 
     struct CallStub {
-        anchor: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
 
     impl CallStub {
-        fn new(anchor: uuid::Uuid) -> CallStub {
+        fn new() -> CallStub {
             CallStub {
-                anchor,
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
@@ -221,19 +217,18 @@ mod tests {
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             let fields: Vec<Tagged<Value>> = name
                 .split(".")
-                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown_span(self.anchor)))
+                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown()))
                 .collect();
 
             self.positionals
-                .push(Value::Table(fields).tagged(Tag::unknown_span(self.anchor)));
+                .push(Value::Table(fields).tagged(Tag::unknown()));
             self
         }
 
         fn create(&self) -> CallInfo {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
-                source_map: SourceMap::new(),
-                name_tag: Tag::unknown_span(self.anchor),
+                name_tag: Tag::unknown(),
             }
         }
     }
@@ -260,7 +255,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new(test_uuid()).with_long_flag("major").create())
+            .begin_filter(CallStub::new().with_long_flag("major").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -270,7 +265,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new(test_uuid()).with_long_flag("minor").create())
+            .begin_filter(CallStub::new().with_long_flag("minor").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -280,7 +275,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(CallStub::new(test_uuid()).with_long_flag("patch").create())
+            .begin_filter(CallStub::new().with_long_flag("patch").create())
             .is_ok());
         assert!(plugin.action.is_some());
     }
@@ -291,7 +286,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new(test_uuid())
+                CallStub::new()
                     .with_long_flag("major")
                     .with_long_flag("minor")
                     .create(),
@@ -305,11 +300,7 @@ mod tests {
         let mut plugin = Inc::new();
 
         assert!(plugin
-            .begin_filter(
-                CallStub::new(test_uuid())
-                    .with_parameter("package.version")
-                    .create()
-            )
+            .begin_filter(CallStub::new().with_parameter("package.version").create())
             .is_ok());
 
         assert_eq!(
@@ -347,7 +338,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new(test_uuid())
+                CallStub::new()
                     .with_long_flag("major")
                     .with_parameter("version")
                     .create()
@@ -375,7 +366,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new(test_uuid())
+                CallStub::new()
                     .with_long_flag("minor")
                     .with_parameter("version")
                     .create()
@@ -404,7 +395,7 @@ mod tests {
 
         assert!(plugin
             .begin_filter(
-                CallStub::new(test_uuid())
+                CallStub::new()
                     .with_long_flag("patch")
                     .with_parameter(&field)
                     .create()
@@ -424,9 +415,5 @@ mod tests {
             ),
             _ => {}
         }
-    }
-
-    fn test_uuid() -> uuid::Uuid {
-        uuid::Uuid::nil()
     }
 }

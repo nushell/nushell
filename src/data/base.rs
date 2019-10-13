@@ -213,7 +213,7 @@ impl Block {
         let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
-            return Ok(Value::nothing().tagged(self.tag));
+            return Ok(Value::nothing().tagged(&self.tag));
         }
 
         let mut last = None;
@@ -244,6 +244,9 @@ pub enum Value {
     Primitive(Primitive),
     Row(crate::data::Dictionary),
     Table(Vec<Tagged<Value>>),
+
+    // Errors are a type of value too
+    Error(ShellError),
 
     Block(Block),
 }
@@ -293,6 +296,7 @@ impl fmt::Debug for ValueDebug<'_> {
             Value::Row(o) => o.debug(f),
             Value::Table(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
+            Value::Error(_) => write!(f, "[[error]]"),
         }
     }
 }
@@ -300,7 +304,7 @@ impl fmt::Debug for ValueDebug<'_> {
 impl Tagged<Value> {
     pub fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
-        Tagged::from_item(name, self.tag())
+        name.tagged(self.tag())
     }
 }
 
@@ -312,7 +316,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Block {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
                 "Block",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -324,11 +328,11 @@ impl std::convert::TryFrom<&Tagged<Value>> for i64 {
     fn try_from(value: &Tagged<Value>) -> Result<i64, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Int(int)) => {
-                int.tagged(value.tag).coerce_into("converting to i64")
+                int.tagged(&value.tag).coerce_into("converting to i64")
             }
             v => Err(ShellError::type_error(
                 "Integer",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -342,7 +346,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for String {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             v => Err(ShellError::type_error(
                 "String",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -356,7 +360,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
             Value::Primitive(Primitive::Binary(b)) => Ok(b.clone()),
             v => Err(ShellError::type_error(
                 "Binary",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -370,7 +374,7 @@ impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::data::Dictionar
             Value::Row(d) => Ok(d),
             v => Err(ShellError::type_error(
                 "Dictionary",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -392,7 +396,7 @@ impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
                 Value::Primitive(Primitive::Boolean(true)) => Ok(Switch::Present),
                 v => Err(ShellError::type_error(
                     "Boolean",
-                    value.copy_tag(v.type_name()),
+                    v.type_name().tagged(value.tag()),
                 )),
             },
         }
@@ -410,19 +414,19 @@ impl Tagged<Value> {
         match &self.item {
             Value::Table(table) => {
                 for item in table {
-                    out.push(item.as_string()?.tagged(item.tag));
+                    out.push(item.as_string()?.tagged(&item.tag));
                 }
             }
 
             other => {
                 return Err(ShellError::type_error(
                     "column name",
-                    other.type_name().tagged(self.tag),
+                    other.type_name().tagged(&self.tag),
                 ))
             }
         }
 
-        Ok(out.tagged(self.tag))
+        Ok(out.tagged(&self.tag))
     }
 
     pub(crate) fn as_string(&self) -> Result<String, ShellError> {
@@ -437,7 +441,7 @@ impl Tagged<Value> {
             other => Err(ShellError::labeled_error(
                 "Expected string",
                 other.type_name(),
-                self.tag,
+                &self.tag,
             )),
         }
     }
@@ -450,6 +454,7 @@ impl Value {
             Value::Row(_) => format!("row"),
             Value::Table(_) => format!("list"),
             Value::Block(_) => format!("block"),
+            Value::Error(_) => format!("error"),
         }
     }
 
@@ -465,6 +470,7 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::Table(_) => vec![],
+            Value::Error(_) => vec![],
         }
     }
 
@@ -503,7 +509,7 @@ impl Value {
             }
         }
 
-        Some(Tagged::from_item(current, tag))
+        Some(current.tagged(tag))
     }
 
     pub fn get_data_by_path(&self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
@@ -515,7 +521,7 @@ impl Value {
             }
         }
 
-        Some(Tagged::from_item(current, tag))
+        Some(current.tagged(tag))
     }
 
     pub fn insert_data_at_path(
@@ -535,8 +541,8 @@ impl Value {
                 // Special case for inserting at the top level
                 current
                     .entries
-                    .insert(path.to_string(), Tagged::from_item(new_value, tag));
-                return Some(Tagged::from_item(new_obj, tag));
+                    .insert(path.to_string(), new_value.tagged(&tag));
+                return Some(new_obj.tagged(&tag));
             }
 
             for idx in 0..split_path.len() {
@@ -547,13 +553,13 @@ impl Value {
                                 Value::Row(o) => {
                                     o.entries.insert(
                                         split_path[idx + 1].to_string(),
-                                        Tagged::from_item(new_value, tag),
+                                        new_value.tagged(&tag),
                                     );
                                 }
                                 _ => {}
                             }
 
-                            return Some(Tagged::from_item(new_obj, tag));
+                            return Some(new_obj.tagged(&tag));
                         } else {
                             match next.item {
                                 Value::Row(ref mut o) => {
@@ -584,11 +590,10 @@ impl Value {
 
             if split_path.len() == 1 {
                 // Special case for inserting at the top level
-                current.entries.insert(
-                    split_path[0].item.clone(),
-                    Tagged::from_item(new_value, tag),
-                );
-                return Some(Tagged::from_item(new_obj, tag));
+                current
+                    .entries
+                    .insert(split_path[0].item.clone(), new_value.tagged(&tag));
+                return Some(new_obj.tagged(&tag));
             }
 
             for idx in 0..split_path.len() {
@@ -599,13 +604,13 @@ impl Value {
                                 Value::Row(o) => {
                                     o.entries.insert(
                                         split_path[idx + 1].to_string(),
-                                        Tagged::from_item(new_value, tag),
+                                        new_value.tagged(&tag),
                                     );
                                 }
                                 _ => {}
                             }
 
-                            return Some(Tagged::from_item(new_obj, tag));
+                            return Some(new_obj.tagged(&tag));
                         } else {
                             match next.item {
                                 Value::Row(ref mut o) => {
@@ -639,8 +644,8 @@ impl Value {
                 match current.entries.get_mut(split_path[idx]) {
                     Some(next) => {
                         if idx == (split_path.len() - 1) {
-                            *next = Tagged::from_item(replaced_value, tag);
-                            return Some(Tagged::from_item(new_obj, tag));
+                            *next = replaced_value.tagged(&tag);
+                            return Some(new_obj.tagged(&tag));
                         } else {
                             match next.item {
                                 Value::Row(ref mut o) => {
@@ -672,8 +677,8 @@ impl Value {
                 match current.entries.get_mut(&split_path[idx].item) {
                     Some(next) => {
                         if idx == (split_path.len() - 1) {
-                            *next = Tagged::from_item(replaced_value, tag);
-                            return Some(Tagged::from_item(new_obj, tag));
+                            *next = replaced_value.tagged(&tag);
+                            return Some(new_obj.tagged(&tag));
                         } else {
                             match next.item {
                                 Value::Row(ref mut o) => {
@@ -697,6 +702,7 @@ impl Value {
             Value::Row(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Table(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -706,7 +712,7 @@ impl Value {
             Value::Block(b) => itertools::join(
                 b.expressions
                     .iter()
-                    .map(|e| e.source(&b.source).to_string()),
+                    .map(|e| e.span.slice(&b.source).to_string()),
                 "; ",
             ),
             Value::Row(_) => format!("[table: 1 row]"),
@@ -715,6 +721,7 @@ impl Value {
                 l.len(),
                 if l.len() == 1 { "row" } else { "rows" }
             ),
+            Value::Error(_) => format!("[error]"),
         }
     }
 

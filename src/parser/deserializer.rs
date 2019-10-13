@@ -52,7 +52,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         self.stack.push(DeserializerItem {
             key_struct_field: Some((name.to_string(), name)),
-            val: value.unwrap_or_else(|| Value::nothing().tagged(self.call.name_tag)),
+            val: value.unwrap_or_else(|| Value::nothing().tagged(&self.call.name_tag)),
         });
 
         Ok(())

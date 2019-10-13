@@ -62,12 +62,12 @@ pub fn from_csv_string_to_value(
         if let Some(row_values) = iter.next() {
             let row_values = row_values?;
 
-            let mut row = TaggedDictBuilder::new(tag);
+            let mut row = TaggedDictBuilder::new(tag.clone());
 
             for (idx, entry) in row_values.iter().enumerate() {
                 row.insert_tagged(
                     fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(&tag),
                 );
             }
 
@@ -77,7 +77,7 @@ pub fn from_csv_string_to_value(
         }
     }
 
-    Ok(Tagged::from_item(Value::Table(rows), tag))
+    Ok(Value::Table(rows).tagged(&tag))
 }
 
 fn from_csv(
@@ -96,7 +96,7 @@ fn from_csv(
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -105,15 +105,15 @@ fn from_csv(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name_tag,
+                    name_tag.clone(),
                     "value originates from here",
-                    value_tag,
+                    value_tag.clone(),
                 )),
 
             }
         }
 
-        match from_csv_string_to_value(concat_string, skip_headers, name_tag) {
+        match from_csv_string_to_value(concat_string, skip_headers, name_tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
@@ -126,9 +126,9 @@ fn from_csv(
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as CSV",
                     "input cannot be parsed as CSV",
-                    name_tag,
+                    name_tag.clone(),
                     "value originates from here",
-                    last_tag,
+                    last_tag.clone(),
                 ))
             } ,
         }

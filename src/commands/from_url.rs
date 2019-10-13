@@ -39,7 +39,7 @@ fn from_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -47,9 +47,9 @@ fn from_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    &tag,
                     "value originates from here",
-                    value_tag,
+                    &value_tag,
                 )),
 
             }

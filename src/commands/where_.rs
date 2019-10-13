@@ -49,7 +49,7 @@ impl PerItemCommand for Where {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",
                     "where needs a condition",
-                    *tag,
+                    tag,
                 ))
             }
         };

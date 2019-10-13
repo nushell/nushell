@@ -46,7 +46,7 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
         Value::Primitive(Primitive::BeginningOfStream) => Bson::Null,
         Value::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
         Value::Primitive(Primitive::Int(i)) => {
-            Bson::I64(i.tagged(v.tag).coerce_into("converting to BSON")?)
+            Bson::I64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
         }
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
@@ -58,6 +58,7 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
                 .collect::<Result<_, _>>()?,
         ),
         Value::Block(_) => Bson::Null,
+        Value::Error(e) => return Err(e.clone()),
         Value::Primitive(Primitive::Binary(b)) => Bson::Binary(BinarySubtype::Generic, b.clone()),
         Value::Row(o) => object_value_to_bson(o)?,
     })
@@ -170,7 +171,7 @@ fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Result<BinarySubty
             _ => unreachable!(),
         }),
         Value::Primitive(Primitive::Int(i)) => Ok(BinarySubtype::UserDefined(
-            i.tagged(tagged_value.tag)
+            i.tagged(&tagged_value.tag)
                 .coerce_into("converting to BSON binary subtype")?,
         )),
         _ => Err(ShellError::type_error(
@@ -207,12 +208,12 @@ fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
         Bson::Array(a) => {
             for v in a.into_iter() {
                 match v {
-                    Bson::Document(d) => shell_encode_document(&mut out, d, tag)?,
+                    Bson::Document(d) => shell_encode_document(&mut out, d, tag.clone())?,
                     _ => {
                         return Err(ShellError::labeled_error(
                             format!("All top level values must be Documents, got {:?}", v),
                             "requires BSON-compatible document",
-                            tag,
+                            &tag,
                         ))
                     }
                 }
@@ -237,7 +238,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {
-            let tag = input[0].tag;
+            let tag = input[0].tag.clone();
             vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
@@ -248,14 +249,14 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         for value in to_process_input {
             match value_to_bson_value(&value) {
                 Ok(bson_value) => {
-                    match bson_value_to_bytes(bson_value, name_tag) {
+                    match bson_value_to_bytes(bson_value, name_tag.clone()) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::binary(x).tagged(name_tag),
+                            Value::binary(x).tagged(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with BSON-compatible structure.tag() from pipeline",
                             "requires BSON-compatible input",
-                            name_tag,
+                            &name_tag,
                             "originates from here".to_string(),
                             value.tag(),
                         )),
@@ -264,7 +265,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with BSON-compatible structure from pipeline",
                     "requires BSON-compatible input",
-                    name_tag))
+                    &name_tag))
             }
         }
     };
