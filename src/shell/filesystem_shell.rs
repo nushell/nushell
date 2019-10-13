@@ -128,13 +128,16 @@ impl Shell for FilesystemShell {
                         }
                         if let Ok(entry) = entry {
                             let filepath = entry.path();
-                            let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                                fname
-                            } else {
-                                Path::new(&filepath)
-                            };
-                            let value = dir_entry_dict(filename, &entry.metadata().unwrap(), &name_tag)?;
-                            yield ReturnSuccess::value(value);
+                            if let Ok(metadata) = std::fs::symlink_metadata(&filepath) {
+                                let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                                    fname
+                                } else {
+                                    Path::new(&filepath)
+                                };
+
+                                let value = dir_entry_dict(filename, &metadata, &name_tag)?;
+                                yield ReturnSuccess::value(value);
+                            }
                         }
                     }
                 };
@@ -164,14 +167,16 @@ impl Shell for FilesystemShell {
                     break;
                 }
                 if let Ok(entry) = entry {
-                    let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
-                        fname
-                    } else {
-                        Path::new(&entry)
-                    };
-                    let metadata = std::fs::metadata(&entry).unwrap();
-                    if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag) {
-                        yield ReturnSuccess::value(value);
+                    if let Ok(metadata) = std::fs::symlink_metadata(&entry) {
+                        let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
+                            fname
+                        } else {
+                            Path::new(&entry)
+                        };
+
+                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag) {
+                            yield ReturnSuccess::value(value);
+                        }
                     }
                 }
             }
