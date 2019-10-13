@@ -4,7 +4,6 @@ use crate::prelude::*;
 use crate::traits::ToDebug;
 use crate::{Tagged, Text};
 use derive_new::new;
-use enum_utils::FromStr;
 use getset::Getters;
 use std::fmt;
 
@@ -298,7 +297,7 @@ impl DelimitedNode {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, FromStr)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Delimiter {
     Paren,
     Brace,
