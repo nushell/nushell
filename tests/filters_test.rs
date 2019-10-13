@@ -359,7 +359,7 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
 fn converts_from_ssv_text_to_structured_table() {
     Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "oc_get_svc.ssv",
+            "oc_get_svc.txt",
             r#"
                 NAME              LABELS                                    SELECTOR                  IP              PORT(S)
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
@@ -371,15 +371,15 @@ fn converts_from_ssv_text_to_structured_table() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open oc_get_svc.ssv
+                open oc_get_svc.txt
                 | from-ssv
                 | nth 0
-                | get NAME
+                | get IP
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "docker-registry");
+        assert_eq!(actual, "172.30.78.158");
     })
 }
 
@@ -387,7 +387,7 @@ fn converts_from_ssv_text_to_structured_table() {
 fn converts_from_ssv_text_skipping_headers_to_structured_table() {
     Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "oc_get_svc.ssv",
+            "oc_get_svc.txt",
             r#"
                 NAME              LABELS                                    SELECTOR                  IP              PORT(S)
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
@@ -399,7 +399,7 @@ fn converts_from_ssv_text_skipping_headers_to_structured_table() {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open oc_get_svc.ssv
+                open oc_get_svc.txt
                 | from-ssv --headerless
                 | nth 2
                 | get Column2
