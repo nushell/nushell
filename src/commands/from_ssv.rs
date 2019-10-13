@@ -39,7 +39,6 @@ fn from_ssv_string_to_value(
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, &str> {
     let mut lines = s.lines();
-    let tag = tag.into();
 
     let headers = lines
         .next()
@@ -56,6 +55,7 @@ fn from_ssv_string_to_value(
         headers
     };
 
+    let tag = tag.into();
     let rows = lines
         .map(|l| {
             let mut row = TaggedDictBuilder::new(tag);
