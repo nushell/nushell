@@ -189,6 +189,7 @@ impl ColoringArgs {
 #[derive(Debug, Copy, Clone)]
 pub struct CommandTailShape;
 
+#[cfg(not(coloring_in_tokens))]
 impl ColorSyntax for CommandTailShape {
     type Info = ();
     type Input = Signature;
@@ -382,6 +383,206 @@ impl ColorSyntax for CommandTailShape {
         color_syntax(&BackoffColoringMode, token_nodes, context, shapes);
 
         shapes.sort_by(|a, b| a.span.start().cmp(&b.span.start()));
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl ColorSyntax for CommandTailShape {
+    type Info = ();
+    type Input = Signature;
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        signature: &Signature,
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Self::Info {
+        let mut args = ColoringArgs::new(token_nodes.len());
+        trace_remaining("nodes", token_nodes.clone(), context.source());
+
+        for (name, kind) in &signature.named {
+            trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
+
+            match kind {
+                NamedType::Switch => {
+                    match token_nodes.extract(|t| t.as_flag(name, context.source())) {
+                        Some((pos, flag)) => args.insert(pos, vec![flag.color()]),
+                        None => {}
+                    }
+                }
+                NamedType::Mandatory(syntax_type) => {
+                    match extract_mandatory(
+                        signature,
+                        name,
+                        token_nodes,
+                        context.source(),
+                        Span::unknown(),
+                    ) {
+                        Err(_) => {
+                            // The mandatory flag didn't exist at all, so there's nothing to color
+                        }
+                        Ok((pos, flag)) => {
+                            let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
+                                token_nodes.color_shape(flag.color());
+                                token_nodes.move_to(pos);
+
+                                if token_nodes.at_end() {
+                                    // args.insert(pos, shapes);
+                                    // token_nodes.restart();
+                                    return Ok(());
+                                    // continue;
+                                }
+
+                                // We still want to color the flag even if the following tokens don't match, so don't
+                                // propagate the error to the parent atomic block if it fails
+                                let _ = token_nodes.atomic(|token_nodes| {
+                                    // We can live with unmatched syntax after a mandatory flag
+                                    color_syntax(&MaybeSpaceShape, token_nodes, context);
+
+                                    // If the part after a mandatory flag isn't present, that's ok, but we
+                                    // should roll back any whitespace we chomped
+                                    color_fallible_syntax(syntax_type, token_nodes, context)?;
+
+                                    Ok(())
+                                });
+
+                                Ok(())
+                            });
+
+                            args.insert(pos, shapes);
+                            token_nodes.restart();
+                        }
+                    }
+                }
+                NamedType::Optional(syntax_type) => {
+                    match extract_optional(name, token_nodes, context.source()) {
+                        Err(_) => {
+                            // The optional flag didn't exist at all, so there's nothing to color
+                        }
+                        Ok(Some((pos, flag))) => {
+                            let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
+                                token_nodes.color_shape(flag.color());
+                                token_nodes.move_to(pos);
+
+                                if token_nodes.at_end() {
+                                    // args.insert(pos, shapes);
+                                    // token_nodes.restart();
+                                    return Ok(());
+                                    // continue;
+                                }
+
+                                // We still want to color the flag even if the following tokens don't match, so don't
+                                // propagate the error to the parent atomic block if it fails
+                                let _ = token_nodes.atomic(|token_nodes| {
+                                    // We can live with unmatched syntax after a mandatory flag
+                                    color_syntax(&MaybeSpaceShape, token_nodes, context);
+
+                                    // If the part after a mandatory flag isn't present, that's ok, but we
+                                    // should roll back any whitespace we chomped
+                                    color_fallible_syntax(syntax_type, token_nodes, context)?;
+
+                                    Ok(())
+                                });
+
+                                Ok(())
+                            });
+
+                            args.insert(pos, shapes);
+                            token_nodes.restart();
+                        }
+
+                        Ok(None) => {
+                            token_nodes.restart();
+                        }
+                    }
+                }
+            };
+        }
+
+        trace_remaining("after named", token_nodes.clone(), context.source());
+
+        for arg in &signature.positional {
+            trace!("Processing positional {:?}", arg);
+
+            match arg {
+                PositionalType::Mandatory(..) => {
+                    if token_nodes.at_end() {
+                        break;
+                    }
+                }
+
+                PositionalType::Optional(..) => {
+                    if token_nodes.at_end() {
+                        break;
+                    }
+                }
+            }
+
+            let pos = token_nodes.pos(false);
+
+            match pos {
+                None => break,
+                Some(pos) => {
+                    // We can live with an unmatched positional argument. Hopefully it will be
+                    // matched by a future token
+                    let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
+                        color_syntax(&MaybeSpaceShape, token_nodes, context);
+
+                        // If no match, we should roll back any whitespace we chomped
+                        color_fallible_syntax(&arg.syntax_type(), token_nodes, context)?;
+
+                        Ok(())
+                    });
+
+                    args.insert(pos, shapes);
+                }
+            }
+        }
+
+        trace_remaining("after positional", token_nodes.clone(), context.source());
+
+        if let Some(syntax_type) = signature.rest_positional {
+            loop {
+                if token_nodes.at_end_possible_ws() {
+                    break;
+                }
+
+                let pos = token_nodes.pos(false);
+
+                match pos {
+                    None => break,
+                    Some(pos) => {
+                        // If any arguments don't match, we'll fall back to backoff coloring mode
+                        let (result, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
+                            color_syntax(&MaybeSpaceShape, token_nodes, context);
+
+                            // If no match, we should roll back any whitespace we chomped
+                            color_fallible_syntax(&syntax_type, token_nodes, context)?;
+
+                            Ok(())
+                        });
+
+                        args.insert(pos, shapes);
+
+                        match result {
+                            Err(_) => break,
+                            Ok(_) => continue,
+                        }
+                    }
+                }
+            }
+        }
+
+        args.spread_shapes(token_nodes.mut_shapes());
+
+        // Consume any remaining tokens with backoff coloring mode
+        color_syntax(&BackoffColoringMode, token_nodes, context);
+
+        // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
+        // this solution.
+        token_nodes
+            .mut_shapes()
+            .sort_by(|a, b| a.span.start().cmp(&b.span.start()));
     }
 }
 

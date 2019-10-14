@@ -85,11 +85,27 @@ impl Highlighter for Helper {
                 let expand_context = self
                     .context
                     .expand_context(&text, Span::new(0, line.len() - 1));
-                let mut shapes = vec![];
 
-                // We just constructed a token list that only contains a pipeline, so it can't fail
-                color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context, &mut shapes)
+                #[cfg(not(coloring_in_tokens))]
+                let shapes = {
+                    let mut shapes = vec![];
+                    color_fallible_syntax(
+                        &PipelineShape,
+                        &mut tokens,
+                        &expand_context,
+                        &mut shapes,
+                    )
                     .unwrap();
+                    shapes
+                };
+
+                #[cfg(coloring_in_tokens)]
+                let shapes = {
+                    // We just constructed a token list that only contains a pipeline, so it can't fail
+                    color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context).unwrap();
+
+                    tokens.shapes()
+                };
 
                 trace!(target: "nu::shapes",
                     "SHAPES :: {:?}",
@@ -97,7 +113,7 @@ impl Highlighter for Helper {
                 );
 
                 for shape in shapes {
-                    let styled = paint_flat_shape(shape, line);
+                    let styled = paint_flat_shape(&shape, line);
                     out.push_str(&styled);
                 }
 
@@ -135,7 +151,7 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
     })
 }
 
-fn paint_flat_shape(flat_shape: Spanned<FlatShape>, line: &str) -> String {
+fn paint_flat_shape(flat_shape: &Spanned<FlatShape>, line: &str) -> String {
     let style = match &flat_shape.item {
         FlatShape::OpenDelimiter(_) => Color::White.normal(),
         FlatShape::CloseDelimiter(_) => Color::White.normal(),

@@ -9,6 +9,7 @@ use crate::prelude::*;
 #[derive(Debug, Copy, Clone)]
 pub struct StringShape;
 
+#[cfg(not(coloring_in_tokens))]
 impl FallibleColorSyntax for StringShape {
     type Info = ();
     type Input = FlatShape;
@@ -33,6 +34,36 @@ impl FallibleColorSyntax for StringShape {
                 span,
             } => shapes.push((*input).spanned(span)),
             other => other.color_tokens(shapes),
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl FallibleColorSyntax for StringShape {
+    type Info = ();
+    type Input = FlatShape;
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        input: &FlatShape,
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Result<(), ShellError> {
+        let atom = expand_atom(token_nodes, "string", context, ExpansionRule::permissive());
+
+        let atom = match atom {
+            Err(_) => return Ok(()),
+            Ok(atom) => atom,
+        };
+
+        match atom {
+            Spanned {
+                item: AtomicToken::String { .. },
+                span,
+            } => token_nodes.color_shape((*input).spanned(span)),
+            other => other.color_tokens(token_nodes.mut_shapes()),
         }
 
         Ok(())

@@ -37,6 +37,7 @@ impl ExpandExpression for AnyExpressionShape {
     }
 }
 
+#[cfg(not(coloring_in_tokens))]
 impl FallibleColorSyntax for AnyExpressionShape {
     type Info = ();
     type Input = ();
@@ -52,6 +53,32 @@ impl FallibleColorSyntax for AnyExpressionShape {
         color_fallible_syntax(&AnyExpressionStartShape, token_nodes, context, shapes)?;
 
         match continue_coloring_expression(token_nodes, context, shapes) {
+            Err(_) => {
+                // it's fine for there to be no continuation
+            }
+
+            Ok(()) => {}
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl FallibleColorSyntax for AnyExpressionShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Result<(), ShellError> {
+        // Look for an expression at the cursor
+        color_fallible_syntax(&AnyExpressionStartShape, token_nodes, context)?;
+
+        match continue_coloring_expression(token_nodes, context) {
             Err(_) => {
                 // it's fine for there to be no continuation
             }
@@ -91,6 +118,7 @@ pub(crate) fn continue_expression(
     }
 }
 
+#[cfg(not(coloring_in_tokens))]
 pub(crate) fn continue_coloring_expression(
     token_nodes: &mut TokensIterator<'_>,
     context: &ExpandContext,
@@ -103,6 +131,29 @@ pub(crate) fn continue_coloring_expression(
         // Check to see whether there's any continuation after the head expression
         let result =
             color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context, shapes);
+
+        match result {
+            Err(_) => {
+                // We already saw one continuation, so just return
+                return Ok(());
+            }
+
+            Ok(_) => {}
+        }
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+pub(crate) fn continue_coloring_expression(
+    token_nodes: &mut TokensIterator<'_>,
+    context: &ExpandContext,
+) -> Result<(), ShellError> {
+    // if there's not even one expression continuation, fail
+    color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context)?;
+
+    loop {
+        // Check to see whether there's any continuation after the head expression
+        let result = color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context);
 
         match result {
             Err(_) => {
@@ -152,6 +203,7 @@ impl ExpandExpression for AnyExpressionStartShape {
     }
 }
 
+#[cfg(not(coloring_in_tokens))]
 impl FallibleColorSyntax for AnyExpressionStartShape {
     type Info = ();
     type Input = ();
@@ -210,9 +262,70 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
     }
 }
 
+#[cfg(coloring_in_tokens)]
+impl FallibleColorSyntax for AnyExpressionStartShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Result<(), ShellError> {
+        let atom = token_nodes.spanned(|token_nodes| {
+            expand_atom(
+                token_nodes,
+                "expression",
+                context,
+                ExpansionRule::permissive(),
+            )
+        });
+
+        let atom = match atom {
+            Spanned {
+                item: Err(_err),
+                span,
+            } => {
+                token_nodes.color_shape(FlatShape::Error.spanned(span));
+                return Ok(());
+            }
+
+            Spanned {
+                item: Ok(value), ..
+            } => value,
+        };
+
+        match atom.item {
+            AtomicToken::Size { number, unit } => token_nodes.color_shape(
+                FlatShape::Size {
+                    number: number.span.into(),
+                    unit: unit.span.into(),
+                }
+                .spanned(atom.span),
+            ),
+
+            AtomicToken::SquareDelimited { nodes, spans } => {
+                token_nodes.child((&nodes[..]).spanned(atom.span), |tokens| {
+                    color_delimited_square(spans, tokens, atom.span.into(), context);
+                });
+            }
+
+            AtomicToken::Word { .. } | AtomicToken::Dot { .. } => {
+                token_nodes.color_shape(FlatShape::Word.spanned(atom.span));
+            }
+
+            _ => atom.color_tokens(token_nodes.mut_shapes()),
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct BareTailShape;
 
+#[cfg(not(coloring_in_tokens))]
 impl FallibleColorSyntax for BareTailShape {
     type Info = ();
     type Input = ();
@@ -260,6 +373,56 @@ impl FallibleColorSyntax for BareTailShape {
         }
 
         if shapes.len() > len {
+            Ok(())
+        } else {
+            Err(ShellError::syntax_error(
+                "No tokens matched BareTailShape".tagged_unknown(),
+            ))
+        }
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl FallibleColorSyntax for BareTailShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Result<(), ShellError> {
+        let len = token_nodes.shapes().len();
+
+        loop {
+            let word =
+                color_fallible_syntax_with(&BareShape, &FlatShape::Word, token_nodes, context);
+
+            match word {
+                // if a word was found, continue
+                Ok(_) => continue,
+                // if a word wasn't found, try to find a dot
+                Err(_) => {}
+            }
+
+            // try to find a dot
+            let dot = color_fallible_syntax_with(
+                &ColorableDotShape,
+                &FlatShape::Word,
+                token_nodes,
+                context,
+            );
+
+            match dot {
+                // if a dot was found, try to find another word
+                Ok(_) => continue,
+                // otherwise, we're done
+                Err(_) => break,
+            }
+        }
+
+        if token_nodes.shapes().len() > len {
             Ok(())
         } else {
             Err(ShellError::syntax_error(
