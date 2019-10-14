@@ -155,6 +155,60 @@ macro_rules! nu_error {
     }};
 }
 
+#[macro_export]
+macro_rules! nu_combined {
+    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
+        use $crate::helpers::DisplayPath;
+
+        let path = format!($path, $(
+            $part.display_path()
+        ),*);
+
+        nu_combined!($cwd, &path)
+    }};
+
+    (cwd: $cwd:expr, $path:expr) => {{
+        nu_combined!($cwd, $path)
+    }};
+
+    ($cwd:expr, $path:expr) => {{
+        pub use std::error::Error;
+        pub use std::io::prelude::*;
+        pub use std::process::{Command, Stdio};
+
+        let commands = &*format!(
+            "
+                            cd {}
+                            {}
+                            exit",
+            $crate::helpers::in_directory($cwd),
+            $crate::helpers::DisplayPath::display_path(&$path)
+        );
+
+        let mut process = Command::new(helpers::executable_path())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("couldn't run test");
+
+        let stdin = process.stdin.as_mut().expect("couldn't open stdin");
+        stdin
+            .write_all(commands.as_bytes())
+            .expect("couldn't write to stdin");
+
+        let output = process
+            .wait_with_output()
+            .expect("couldn't read from stdout/stderr");
+
+        let err = String::from_utf8_lossy(&output.stderr).into_owned();
+        let out = String::from_utf8_lossy(&output.stdout).into_owned();
+        let out = out.replace("\r\n", "");
+        let out = out.replace("\n", "");
+        (out, err)
+    }};
+}
+
 pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
     FileWithContentToBeTrimmed(&'a str, &'a str),

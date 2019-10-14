@@ -165,6 +165,28 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
 }
 
 #[test]
+fn it_arg_works_with_many_inputs_to_external_command() {
+    Playground::setup("it_arg_works_with_many_inputs", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            FileWithContent("file1", "text"),
+            FileWithContent("file2", " and more text"),
+        ]);
+
+        let (stdout, stderr) = nu_combined!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                echo file1 file2
+                | split-row " "
+                | cat $it
+            "#
+        ));
+
+        assert_eq!("text and more text", stdout);
+        assert!(!stderr.contains("No such file or directory"));
+    })
+}
+
+#[test]
 fn save_can_write_out_csv() {
     Playground::setup("save_test_2", |dirs, _| {
         let expected_file = dirs.test().join("cargo_sample.csv");
