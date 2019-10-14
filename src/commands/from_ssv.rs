@@ -37,12 +37,11 @@ fn from_ssv_string_to_value(
     s: &str,
     headerless: bool,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, &str> {
+) -> Option<Tagged<Value>> {
     let mut lines = s.lines();
 
     let headers = lines
-        .next()
-        .expect("No content.")
+        .next()?
         .split_whitespace()
         .map(|s| s.to_owned())
         .collect::<Vec<String>>();
@@ -69,7 +68,7 @@ fn from_ssv_string_to_value(
         })
         .collect();
 
-    Ok(Tagged::from_item(Value::Table(rows), tag))
+    Some(Tagged::from_item(Value::Table(rows), tag))
 }
 
 fn from_ssv(
@@ -101,13 +100,13 @@ fn from_ssv(
         }
 
         match from_ssv_string_to_value(&concat_string, headerless, name) {
-            Ok(x) => match x {
+            Some(x) => match x {
                 Tagged { item: Value::Table(list), ..} => {
                     for l in list { yield ReturnSuccess::value(l) }
                 }
                 x => yield ReturnSuccess::value(x)
             },
-            Err(_) => if let Some(last_tag) = latest_tag {
+            None => if let Some(last_tag) = latest_tag {
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as SSV",
                     "input cannot be parsed ssv",
@@ -115,7 +114,7 @@ fn from_ssv(
                     "value originates from here",
                     last_tag,
                 ))
-            }
+            },
         }
     };
 
