@@ -60,11 +60,19 @@ pub fn get_column_path(
 
                     possible_matches.sort();
 
-                    return Err(ShellError::labeled_error(
-                        "Unknown column",
-                        format!("did you mean '{}'?", possible_matches[0].1),
-                        tag_for_tagged_list(path.iter().map(|p| p.tag())),
-                    ));
+                    if possible_matches.len() > 0 {
+                        return Err(ShellError::labeled_error(
+                            "Unknown column",
+                            format!("did you mean '{}'?", possible_matches[0].1),
+                            tag_for_tagged_list(path.iter().map(|p| p.tag())),
+                        ));
+                    } else {
+                        return Err(ShellError::labeled_error(
+                            "Unknown column",
+                            "row does not contain this column",
+                            tag_for_tagged_list(path.iter().map(|p| p.tag())),
+                        ));
+                    }
                 }
             }
         }

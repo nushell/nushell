@@ -42,7 +42,7 @@ impl TableView {
         let mut headers = TableView::merge_descriptors(values);
 
         if headers.len() == 0 {
-            headers.push("value".to_string());
+            headers.push("<unknown>".to_string());
         }
 
         let mut entries = vec![];
