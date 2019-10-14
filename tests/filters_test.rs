@@ -580,6 +580,21 @@ fn can_sum() {
 }
 
 #[test]
+fn can_average() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open sgml_description.json
+            | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+            | average
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "101.5000000000000")
+}
+
+#[test]
 fn can_filter_by_unit_size_comparison() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",

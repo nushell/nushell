@@ -88,27 +88,24 @@ impl Plugin for Average {
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         match self.total {
             None => Ok(vec![]),
-            Some(ref inner) => {
-                match inner.item() {
-                    Value::Primitive(Primitive::Int(i)) => {
-                        let total: u64 = i
-                            .tagged(inner.tag.clone())
-                            .coerce_into("converting for average")?;
-                        let avg = total as f64 / self.count as f64;
-                        let primitive_value: Value = Primitive::from(avg).into();
-                        let tagged_value = primitive_value.tagged(inner.tag.clone());
-                        Ok(vec![ReturnSuccess::value(tagged_value)])
-                    }
-                    Value::Primitive(Primitive::Bytes(bytes)) => {
-                        // let total: u64 = b.tagged(inner.tag.clone()).coerce_into("converting for average")?;
-                        let avg = *bytes as f64 / self.count as f64;
-                        let primitive_value: Value = Primitive::from(avg).into();
-                        let tagged_value = primitive_value.tagged(inner.tag.clone());
-                        Ok(vec![ReturnSuccess::value(tagged_value)])
-                    }
-                    _ => Ok(vec![]),
+            Some(ref inner) => match inner.item() {
+                Value::Primitive(Primitive::Int(i)) => {
+                    let total: u64 = i
+                        .tagged(inner.tag.clone())
+                        .coerce_into("converting for average")?;
+                    let avg = total as f64 / self.count as f64;
+                    let primitive_value: Value = Primitive::from(avg).into();
+                    let tagged_value = primitive_value.tagged(inner.tag.clone());
+                    Ok(vec![ReturnSuccess::value(tagged_value)])
                 }
-            }
+                Value::Primitive(Primitive::Bytes(bytes)) => {
+                    let avg = *bytes as f64 / self.count as f64;
+                    let primitive_value: Value = Primitive::from(avg).into();
+                    let tagged_value = primitive_value.tagged(inner.tag.clone());
+                    Ok(vec![ReturnSuccess::value(tagged_value)])
+                }
+                _ => Ok(vec![]),
+            },
         }
     }
 }
