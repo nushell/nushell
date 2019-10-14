@@ -71,18 +71,18 @@ fn from_ssv_string_to_value(
     let rows = string_to_table(s, headerless)
         .iter()
         .map(|row| {
-            let mut tagged_dict = TaggedDictBuilder::new(tag);
+            let mut tagged_dict = TaggedDictBuilder::new(&tag);
             for (col, entry) in row {
                 tagged_dict.insert_tagged(
                     col,
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(&tag),
                 )
             }
             tagged_dict.into_tagged_value()
         })
         .collect();
 
-    Some(Tagged::from_item(Value::Table(rows), tag))
+    Some(Value::Table(rows).tagged(&tag))
 }
 
 fn from_ssv(
@@ -96,7 +96,7 @@ fn from_ssv(
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -104,27 +104,27 @@ fn from_ssv(
                 _ => yield Err(ShellError::labeled_error_with_secondary (
                     "Expected a string from pipeline",
                     "requires string input",
-                    name,
+                    &name,
                     "value originates from here",
-                    value_tag
+                    &value_tag
                 )),
             }
         }
 
-        match from_ssv_string_to_value(&concat_string, headerless, name) {
+        match from_ssv_string_to_value(&concat_string, headerless, name.clone()) {
             Some(x) => match x {
                 Tagged { item: Value::Table(list), ..} => {
                     for l in list { yield ReturnSuccess::value(l) }
                 }
                 x => yield ReturnSuccess::value(x)
             },
-            None => if let Some(last_tag) = latest_tag {
+            None => if let Some(tag) = latest_tag {
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as SSV",
                     "input cannot be parsed ssv",
-                    name,
+                    &name,
                     "value originates from here",
-                    last_tag,
+                    &tag,
                 ))
             },
         }
