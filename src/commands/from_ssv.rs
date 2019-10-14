@@ -86,8 +86,6 @@ fn from_ssv(
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
-                    concat_string.push_str("\n");
-
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary (
                     "Expected a string from pipeline",
