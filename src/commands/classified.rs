@@ -225,7 +225,6 @@ impl ExternalCommand {
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
         let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
-        let name_tag = self.name_tag.clone();
 
         trace!(target: "nu::run::external", "-> {}", self.name);
         trace!(target: "nu::run::external", "inputs = {:?}", inputs);
@@ -235,53 +234,47 @@ impl ExternalCommand {
             arg_string.push_str(&arg);
         }
 
+        trace!(target: "nu::run::external", "command = {:?}", self.name);
+
         let mut process;
-
-        process = Exec::cmd(&self.name);
-
-        trace!(target: "nu::run::external", "command = {:?}", process);
-
         if arg_string.contains("$it") {
-            let mut first = true;
-
-            for i in &inputs {
-                if i.as_string().is_err() {
-                    let mut tag = None;
-                    for arg in &self.args {
-                        if arg.item.contains("$it") {
-                            tag = Some(arg.tag());
+            let input_strings = inputs
+                .iter()
+                .map(|i| {
+                    i.as_string().map_err(|_| {
+                        let arg = self.args.iter().find(|arg| arg.item.contains("$it"));
+                        if let Some(arg) = arg {
+                            ShellError::labeled_error(
+                                "External $it needs string data",
+                                "given row instead of string data",
+                                arg.tag(),
+                            )
+                        } else {
+                            ShellError::labeled_error(
+                                "Error: $it needs string data",
+                                "given something else",
+                                self.name_tag.clone(),
+                            )
                         }
-                    }
-                    if let Some(tag) = tag {
-                        return Err(ShellError::labeled_error(
-                            "External $it needs string data",
-                            "given row instead of string data",
-                            tag,
-                        ));
-                    } else {
-                        return Err(ShellError::labeled_error(
-                            "Error: $it needs string data",
-                            "given something else",
-                            name_tag,
-                        ));
-                    }
-                }
-                if !first {
-                    process = process.arg("&&");
-                    process = process.arg(&self.name);
-                } else {
-                    first = false;
-                }
+                    })
+                })
+                .collect::<Result<Vec<String>, ShellError>>()?;
 
-                for arg in &self.args {
+            let commands = input_strings.iter().map(|i| {
+                let args = self.args.iter().filter_map(|arg| {
                     if arg.chars().all(|c| c.is_whitespace()) {
-                        continue;
+                        None
+                    } else {
+                        Some(arg.replace("$it", &i))
                     }
+                });
 
-                    process = process.arg(&arg.replace("$it", &i.as_string()?));
-                }
-            }
+                format!("{} {}", self.name, itertools::join(args, " "))
+            });
+
+            process = Exec::shell(itertools::join(commands, " && "))
         } else {
+            process = Exec::cmd(&self.name);
             for arg in &self.args {
                 let arg_chars: Vec<_> = arg.chars().collect();
                 if arg_chars.len() > 1
@@ -321,6 +314,7 @@ impl ExternalCommand {
 
         trace!(target: "nu::run::external", "next = {:?}", stream_next);
 
+        let name_tag = self.name_tag.clone();
         if let Ok(mut popen) = popen {
             match stream_next {
                 StreamNext::Last => {
