@@ -317,41 +317,50 @@ impl ExternalCommand {
         trace!(target: "nu::run::external", "set up stdin pipe");
         trace!(target: "nu::run::external", "built process {:?}", process);
 
-        let mut popen = process.popen().unwrap();
+        let popen = process.popen();
 
         trace!(target: "nu::run::external", "next = {:?}", stream_next);
 
-        match stream_next {
-            StreamNext::Last => {
-                let _ = popen.detach();
-                loop {
-                    match popen.poll() {
-                        None => {
-                            let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
-                        }
-                        _ => {
-                            let _ = popen.terminate();
-                            break;
+        if let Ok(mut popen) = popen {
+            match stream_next {
+                StreamNext::Last => {
+                    let _ = popen.detach();
+                    loop {
+                        match popen.poll() {
+                            None => {
+                                let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
+                            }
+                            _ => {
+                                let _ = popen.terminate();
+                                break;
+                            }
                         }
                     }
+                    Ok(ClassifiedInputStream::new())
                 }
-                Ok(ClassifiedInputStream::new())
+                StreamNext::External => {
+                    let _ = popen.detach();
+                    let stdout = popen.stdout.take().unwrap();
+                    Ok(ClassifiedInputStream::from_stdout(stdout))
+                }
+                StreamNext::Internal => {
+                    let _ = popen.detach();
+                    let stdout = popen.stdout.take().unwrap();
+                    let file = futures::io::AllowStdIo::new(stdout);
+                    let stream = Framed::new(file, LinesCodec {});
+                    let stream =
+                        stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
+                    Ok(ClassifiedInputStream::from_input_stream(
+                        stream.boxed() as BoxStream<'static, Tagged<Value>>
+                    ))
+                }
             }
-            StreamNext::External => {
-                let _ = popen.detach();
-                let stdout = popen.stdout.take().unwrap();
-                Ok(ClassifiedInputStream::from_stdout(stdout))
-            }
-            StreamNext::Internal => {
-                let _ = popen.detach();
-                let stdout = popen.stdout.take().unwrap();
-                let file = futures::io::AllowStdIo::new(stdout);
-                let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
-                Ok(ClassifiedInputStream::from_input_stream(
-                    stream.boxed() as BoxStream<'static, Tagged<Value>>
-                ))
-            }
+        } else {
+            return Err(ShellError::labeled_error(
+                "Command not found",
+                "command not found",
+                name_tag,
+            ));
         }
     }
 }
