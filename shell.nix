@@ -27,6 +27,4 @@ let
 in stdenv.mkDerivation {
   name = "nushell-rust";
   buildInputs = nu-deps ++ rust;
-  RUST_SRC_PATH = "${nightly}/lib/rustlib/src/rust/src";
-  SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt";
 }
