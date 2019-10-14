@@ -1,4 +1,5 @@
-use crate::Tag;
+use crate::parser::hir::syntax_shape::flat_shape::FlatShape;
+use crate::{Span, Spanned, SpannedItem};
 use derive_new::new;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,15 @@ pub enum FlagKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Getters, new)]
 #[get = "pub(crate)"]
 pub struct Flag {
-    kind: FlagKind,
-    name: Tag,
+    pub(crate) kind: FlagKind,
+    pub(crate) name: Span,
+}
+
+impl Spanned<Flag> {
+    pub fn color(&self) -> Spanned<FlatShape> {
+        match self.item.kind {
+            FlagKind::Longhand => FlatShape::Flag.spanned(self.span),
+            FlagKind::Shorthand => FlatShape::ShorthandFlag.spanned(self.span),
+        }
+    }
 }

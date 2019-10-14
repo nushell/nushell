@@ -7,12 +7,23 @@ use crate::parser::{
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
+use log::trace;
+use std::fmt;
 
 #[derive(new)]
 pub struct Scope {
     it: Tagged<Value>,
     #[new(default)]
     vars: IndexMap<String, Tagged<Value>>,
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map()
+            .entry(&"$it", &format!("{:?}", self.it.item))
+            .entries(self.vars.iter().map(|(k, v)| (k, &v.item)))
+            .finish()
+    }
 }
 
 impl Scope {
@@ -37,28 +48,41 @@ pub(crate) fn evaluate_baseline_expr(
     scope: &Scope,
     source: &Text,
 ) -> Result<Tagged<Value>, ShellError> {
+    let tag = Tag {
+        span: expr.span,
+        anchor: None,
+    };
     match &expr.item {
-        RawExpression::Literal(literal) => Ok(evaluate_literal(expr.copy_tag(literal), source)),
+        RawExpression::Literal(literal) => Ok(evaluate_literal(literal.tagged(tag), source)),
         RawExpression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word",
             ArgumentError::InvalidExternalWord,
-            expr.tag(),
+            tag,
         )),
-        RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(expr.tag())),
+        RawExpression::FilePath(path) => Ok(Value::path(path.clone()).tagged(tag)),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(Value::string(s).tagged_unknown())
         }
-        RawExpression::Variable(var) => evaluate_reference(var, scope, source),
+        RawExpression::Variable(var) => evaluate_reference(var, scope, source, tag),
+        RawExpression::Command(_) => evaluate_command(tag, scope, source),
         RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),
         RawExpression::Binary(binary) => {
             let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
 
+            trace!("left={:?} right={:?}", left.item, right.item);
+
             match left.compare(binary.op(), &*right) {
-                Ok(result) => Ok(Value::boolean(result).tagged(expr.tag())),
+                Ok(result) => Ok(Value::boolean(result).tagged(tag)),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
-                    binary.left().copy_tag(left_type),
-                    binary.right().copy_tag(right_type),
+                    left_type.tagged(Tag {
+                        span: binary.left().span,
+                        anchor: None,
+                    }),
+                    right_type.tagged(Tag {
+                        span: binary.right().span,
+                        anchor: None,
+                    }),
                 )),
             }
         }
@@ -70,13 +94,10 @@ pub(crate) fn evaluate_baseline_expr(
                 exprs.push(expr);
             }
 
-            Ok(Value::Table(exprs).tagged(expr.tag()))
+            Ok(Value::Table(exprs).tagged(tag))
         }
         RawExpression::Block(block) => {
-            Ok(
-                Value::Block(Block::new(block.clone(), source.clone(), expr.tag()))
-                    .tagged(expr.tag()),
-            )
+            Ok(Value::Block(Block::new(block.clone(), source.clone(), tag.clone())).tagged(&tag))
         }
         RawExpression::Path(path) => {
             let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;
@@ -96,19 +117,27 @@ pub(crate) fn evaluate_baseline_expr(
 
                         possible_matches.sort();
 
-                        return Err(ShellError::labeled_error(
-                            "Unknown column",
-                            format!("did you mean '{}'?", possible_matches[0].1),
-                            expr.tag(),
-                        ));
+                        if possible_matches.len() > 0 {
+                            return Err(ShellError::labeled_error(
+                                "Unknown column",
+                                format!("did you mean '{}'?", possible_matches[0].1),
+                                &tag,
+                            ));
+                        } else {
+                            return Err(ShellError::labeled_error(
+                                "Unknown column",
+                                "row does not have this column",
+                                &tag,
+                            ));
+                        }
                     }
                     Some(next) => {
-                        item = next.clone().item.tagged(expr.tag());
+                        item = next.clone().item.tagged(&tag);
                     }
                 };
             }
 
-            Ok(item.item().clone().tagged(expr.tag()))
+            Ok(item.item().clone().tagged(tag))
         }
         RawExpression::Boolean(_boolean) => unimplemented!(),
     }
@@ -130,14 +159,16 @@ fn evaluate_reference(
     name: &hir::Variable,
     scope: &Scope,
     source: &Text,
+    tag: Tag,
 ) -> Result<Tagged<Value>, ShellError> {
+    trace!("Evaluating {} with Scope {}", name, scope);
     match name {
-        hir::Variable::It(tag) => Ok(scope.it.item.clone().tagged(*tag)),
-        hir::Variable::Other(tag) => Ok(scope
+        hir::Variable::It(_) => Ok(scope.it.item.clone().tagged(tag)),
+        hir::Variable::Other(inner) => Ok(scope
             .vars
-            .get(tag.slice(source))
+            .get(inner.slice(source))
             .map(|v| v.clone())
-            .unwrap_or_else(|| Value::nothing().tagged(*tag))),
+            .unwrap_or_else(|| Value::nothing().tagged(tag))),
     }
 }
 
@@ -149,4 +180,8 @@ fn evaluate_external(
     Err(ShellError::syntax_error(
         "Unexpected external command".tagged(*external.name()),
     ))
+}
+
+fn evaluate_command(tag: Tag, _scope: &Scope, _source: &Text) -> Result<Tagged<Value>, ShellError> {
+    Err(ShellError::syntax_error("Unexpected command".tagged(tag)))
 }

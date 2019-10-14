@@ -1,37 +1,18 @@
 use crate::commands::{Command, UnevaluatedCallInfo};
-use crate::parser::hir;
+use crate::parser::{hir, hir::syntax_shape::ExpandContext};
 use crate::prelude::*;
-
 use derive_new::new;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::error::Error;
-use std::sync::Arc;
-use uuid::Uuid;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnchorLocation {
     Url(String),
     File(String),
     Source(Text),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SourceMap(HashMap<Uuid, AnchorLocation>);
-
-impl SourceMap {
-    pub fn insert(&mut self, uuid: Uuid, anchor_location: AnchorLocation) {
-        self.0.insert(uuid, anchor_location);
-    }
-
-    pub fn get(&self, uuid: &Uuid) -> Option<&AnchorLocation> {
-        self.0.get(uuid)
-    }
-
-    pub fn new() -> SourceMap {
-        SourceMap(HashMap::new())
-    }
 }
 
 #[derive(Clone, new)]
@@ -53,13 +34,17 @@ impl CommandRegistry {
         registry.get(name).map(|c| c.clone())
     }
 
+    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
+        self.get_command(name).unwrap()
+    }
+
     pub(crate) fn has(&self, name: &str) -> bool {
         let registry = self.registry.lock().unwrap();
 
         registry.contains_key(name)
     }
 
-    fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
+    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
         let mut registry = self.registry.lock().unwrap();
         registry.insert(name.into(), command);
     }
@@ -73,8 +58,8 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     registry: CommandRegistry,
-    pub(crate) source_map: SourceMap,
     host: Arc<Mutex<dyn Host + Send>>,
+    pub ctrl_c: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
 }
 
@@ -83,12 +68,20 @@ impl Context {
         &self.registry
     }
 
+    pub(crate) fn expand_context<'context>(
+        &'context self,
+        source: &'context Text,
+        span: Span,
+    ) -> ExpandContext<'context> {
+        ExpandContext::new(&self.registry, span, source, self.shell_manager.homedir())
+    }
+
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
         let registry = CommandRegistry::new();
         Ok(Context {
             registry: registry.clone(),
-            source_map: SourceMap::new(),
             host: Arc::new(Mutex::new(crate::env::host::BasicHost)),
+            ctrl_c: Arc::new(AtomicBool::new(false)),
             shell_manager: ShellManager::basic(registry)?,
         })
     }
@@ -105,43 +98,31 @@ impl Context {
         }
     }
 
-    pub fn add_anchor_location(&mut self, uuid: Uuid, anchor_location: AnchorLocation) {
-        self.source_map.insert(uuid, anchor_location);
+    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+        self.registry.get_command(name)
     }
 
-    pub(crate) fn has_command(&self, name: &str) -> bool {
-        self.registry.has(name)
-    }
-
-    pub(crate) fn get_command(&self, name: &str) -> Arc<Command> {
-        self.registry.get_command(name).unwrap()
+    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
+        self.registry.expect_command(name)
     }
 
     pub(crate) fn run_command<'a>(
         &mut self,
         command: Arc<Command>,
         name_tag: Tag,
-        source_map: SourceMap,
         args: hir::Call,
         source: &Text,
         input: InputStream,
         is_first_command: bool,
     ) -> OutputStream {
-        let command_args = self.command_args(args, input, source, source_map, name_tag);
+        let command_args = self.command_args(args, input, source, name_tag);
         command.run(command_args, self.registry(), is_first_command)
     }
 
-    fn call_info(
-        &self,
-        args: hir::Call,
-        source: &Text,
-        source_map: SourceMap,
-        name_tag: Tag,
-    ) -> UnevaluatedCallInfo {
+    fn call_info(&self, args: hir::Call, source: &Text, name_tag: Tag) -> UnevaluatedCallInfo {
         UnevaluatedCallInfo {
             args,
             source: source.clone(),
-            source_map,
             name_tag,
         }
     }
@@ -151,13 +132,13 @@ impl Context {
         args: hir::Call,
         input: InputStream,
         source: &Text,
-        source_map: SourceMap,
         name_tag: Tag,
     ) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),
+            ctrl_c: self.ctrl_c.clone(),
             shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info(args, source, source_map, name_tag),
+            call_info: self.call_info(args, source, name_tag),
             input,
         }
     }

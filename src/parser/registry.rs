@@ -1,11 +1,11 @@
 // TODO: Temporary redirect
 pub(crate) use crate::context::CommandRegistry;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::parser::{hir, hir::SyntaxShape, parse_command, CallNode};
+use crate::parser::{hir, hir::SyntaxShape};
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
-use log::trace;
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -271,21 +271,6 @@ impl<'a> Iterator for PositionalIter<'a> {
     }
 }
 
-impl Signature {
-    pub(crate) fn parse_args(
-        &self,
-        call: &Tagged<CallNode>,
-        context: &Context,
-        source: &Text,
-    ) -> Result<hir::Call, ShellError> {
-        let args = parse_command(self, context, call, source)?;
-
-        trace!("parsed args: {:?}", args);
-
-        Ok(args)
-    }
-}
-
 pub(crate) fn evaluate_args(
     call: &hir::Call,
     registry: &CommandRegistry,
@@ -313,7 +298,7 @@ pub(crate) fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::named::NamedValue::PresentSwitch(tag) => {
-                        results.insert(name.clone(), Value::boolean(true).tagged(*tag));
+                        results.insert(name.clone(), Value::boolean(true).tagged(tag));
                     }
                     hir::named::NamedValue::Value(expr) => {
                         results.insert(

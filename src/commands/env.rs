@@ -37,22 +37,22 @@ pub fn get_environment(tag: Tag) -> Result<Tagged<Value>, Box<dyn std::error::Er
     let mut indexmap = IndexMap::new();
 
     let path = std::env::current_dir()?;
-    indexmap.insert("cwd".to_string(), Value::path(path).tagged(tag));
+    indexmap.insert("cwd".to_string(), Value::path(path).tagged(&tag));
 
     if let Some(home) = dirs::home_dir() {
-        indexmap.insert("home".to_string(), Value::path(home).tagged(tag));
+        indexmap.insert("home".to_string(), Value::path(home).tagged(&tag));
     }
 
     let config = config::default_path()?;
-    indexmap.insert("config".to_string(), Value::path(config).tagged(tag));
+    indexmap.insert("config".to_string(), Value::path(config).tagged(&tag));
 
     let history = History::path();
-    indexmap.insert("history".to_string(), Value::path(history).tagged(tag));
+    indexmap.insert("history".to_string(), Value::path(history).tagged(&tag));
 
     let temp = std::env::temp_dir();
-    indexmap.insert("temp".to_string(), Value::path(temp).tagged(tag));
+    indexmap.insert("temp".to_string(), Value::path(temp).tagged(&tag));
 
-    let mut dict = TaggedDictBuilder::new(tag);
+    let mut dict = TaggedDictBuilder::new(&tag);
     for v in std::env::vars() {
         dict.insert(v.0, Value::string(v.1));
     }
@@ -60,14 +60,14 @@ pub fn get_environment(tag: Tag) -> Result<Tagged<Value>, Box<dyn std::error::Er
         indexmap.insert("vars".to_string(), dict.into_tagged_value());
     }
 
-    Ok(Value::Row(Dictionary::from(indexmap)).tagged(tag))
+    Ok(Value::Row(Dictionary::from(indexmap)).tagged(&tag))
 }
 
 pub fn env(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
 
     let mut env_out = VecDeque::new();
-    let tag = args.call_info.name_tag;
+    let tag = args.call_info.name_tag.clone();
 
     let value = get_environment(tag)?;
     env_out.push_back(value);

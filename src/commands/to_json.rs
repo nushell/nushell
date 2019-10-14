@@ -42,7 +42,7 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
             .unwrap(),
         ),
         Value::Primitive(Primitive::Int(i)) => serde_json::Value::Number(serde_json::Number::from(
-            CoerceInto::<i64>::coerce_into(i.tagged(v.tag), "converting to JSON number")?,
+            CoerceInto::<i64>::coerce_into(i.tagged(&v.tag), "converting to JSON number")?,
         )),
         Value::Primitive(Primitive::Nothing) => serde_json::Value::Null,
         Value::Primitive(Primitive::Pattern(s)) => serde_json::Value::String(s.clone()),
@@ -50,6 +50,7 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
         Value::Primitive(Primitive::Path(s)) => serde_json::Value::String(s.display().to_string()),
 
         Value::Table(l) => serde_json::Value::Array(json_list(l)?),
+        Value::Error(e) => return Err(e.clone()),
         Value::Block(_) => serde_json::Value::Null,
         Value::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()
@@ -85,7 +86,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {
-            let tag = input[0].tag;
+            let tag = input[0].tag.clone();
             vec![Tagged { item: Value::Table(input), tag } ]
         } else if input.len() == 1 {
             input
@@ -98,12 +99,12 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 Ok(json_value) => {
                     match serde_json::to_string(&json_value) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Primitive(Primitive::String(x)).tagged(name_tag),
+                            Value::Primitive(Primitive::String(x)).tagged(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with JSON-compatible structure.tag() from pipeline",
                             "requires JSON-compatible input",
-                            name_tag,
+                            &name_tag,
                             "originates from here".to_string(),
                             value.tag(),
                         )),
@@ -112,7 +113,7 @@ fn to_json(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                 _ => yield Err(ShellError::labeled_error(
                     "Expected a table with JSON-compatible structure from pipeline",
                     "requires JSON-compatible input",
-                    name_tag))
+                    &name_tag))
             }
         }
     };

@@ -58,7 +58,7 @@ pub fn config(
     }: ConfigArgs,
     RunnableContext { name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = name;
+    let name_span = name.clone();
 
     let configuration = if let Some(supplied) = load {
         Some(supplied.item().clone())
@@ -70,9 +70,9 @@ pub fn config(
 
     if let Some(v) = get {
         let key = v.to_string();
-        let value = result
-            .get(&key)
-            .ok_or_else(|| ShellError::string(&format!("Missing key {} in config", key)))?;
+        let value = result.get(&key).ok_or_else(|| {
+            ShellError::labeled_error(&format!("Missing key in config"), "key", v.tag())
+        })?;
 
         let mut results = VecDeque::new();
 
@@ -120,10 +120,11 @@ pub fn config(
             result.swap_remove(&key);
             config::write(&result, &configuration)?;
         } else {
-            return Err(ShellError::string(&format!(
+            return Err(ShellError::labeled_error(
                 "{} does not exist in config",
-                key
-            )));
+                "key",
+                v.tag(),
+            ));
         }
 
         let obj = VecDeque::from_iter(vec![Value::Row(result.into()).tagged(v.tag())]);

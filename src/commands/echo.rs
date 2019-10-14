@@ -35,7 +35,7 @@ fn run(
     _registry: &CommandRegistry,
     _raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let name = call_info.name_tag;
+    let name = call_info.name_tag.clone();
 
     let mut output = String::new();
 
@@ -54,11 +54,10 @@ fn run(
                     output.push_str(&s);
                 }
                 _ => {
-                    return Err(ShellError::labeled_error(
-                        "Expect a string from pipeline",
-                        "not a string-compatible value",
-                        i.tag(),
-                    ));
+                    return Err(ShellError::type_error(
+                        "a string-compatible value",
+                        i.tagged_type_name(),
+                    ))
                 }
             }
         }

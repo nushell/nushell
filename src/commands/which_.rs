@@ -33,7 +33,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
 
     let mut which_out = VecDeque::new();
-    let tag = args.call_info.name_tag;
+    let tag = args.call_info.name_tag.clone();
 
     if let Some(v) = &args.call_info.args.positional {
         if v.len() > 0 {
@@ -52,7 +52,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     return Err(ShellError::labeled_error(
                         "Expected a filename to find",
                         "needs a filename",
-                        *tag,
+                        tag,
                     ));
                 }
             }

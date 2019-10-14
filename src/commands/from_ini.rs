@@ -45,10 +45,13 @@ fn convert_ini_top_to_nu_value(
     tag: impl Into<Tag>,
 ) -> Tagged<Value> {
     let tag = tag.into();
-    let mut top_level = TaggedDictBuilder::new(tag);
+    let mut top_level = TaggedDictBuilder::new(tag.clone());
 
     for (key, value) in v.iter() {
-        top_level.insert_tagged(key.clone(), convert_ini_second_to_nu_value(value, tag));
+        top_level.insert_tagged(
+            key.clone(),
+            convert_ini_second_to_nu_value(value, tag.clone()),
+        );
     }
 
     top_level.into_tagged_value()
@@ -75,7 +78,7 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -84,15 +87,15 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    &tag,
                     "value originates from here",
-                    value_tag,
+                    &value_tag,
                 )),
 
             }
         }
 
-        match from_ini_string_to_value(concat_string, tag) {
+        match from_ini_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
@@ -105,7 +108,7 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as INI",
                     "input cannot be parsed as INI",
-                    tag,
+                    &tag,
                     "value originates from here",
                     last_tag,
                 ))

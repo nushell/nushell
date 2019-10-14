@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, Value,
+    SyntaxShape, Tagged, TaggedItem, Value,
 };
 
 #[derive(Debug, Eq, PartialEq)]
@@ -10,8 +10,10 @@ enum Action {
     ToInteger,
 }
 
+pub type ColumnPath = Vec<Tagged<String>>;
+
 struct Str {
-    field: Option<String>,
+    field: Option<ColumnPath>,
     params: Option<Vec<String>>,
     error: Option<String>,
     action: Option<Action>,
@@ -43,8 +45,8 @@ impl Str {
         Ok(applied)
     }
 
-    fn for_field(&mut self, field: &str) {
-        self.field = Some(String::from(field));
+    fn for_field(&mut self, column_path: ColumnPath) {
+        self.field = Some(column_path);
     }
 
     fn permit(&mut self) -> bool {
@@ -87,35 +89,38 @@ impl Str {
 impl Str {
     fn strutils(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
-            }
+            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
             Value::Row(_) => match self.field {
                 Some(ref f) => {
-                    let replacement = match value.item.get_data_by_path(value.tag(), f) {
+                    let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
                         Some(result) => self.strutils(result.map(|x| x.clone()))?,
-                        None => return Ok(Tagged::from_item(Value::nothing(), value.tag)),
+                        None => return Ok(Value::nothing().tagged(value.tag)),
                     };
-                    match value
-                        .item
-                        .replace_data_at_path(value.tag(), f, replacement.item.clone())
-                    {
+                    match value.item.replace_data_at_column_path(
+                        value.tag(),
+                        f,
+                        replacement.item.clone(),
+                    ) {
                         Some(v) => return Ok(v),
                         None => {
-                            return Err(ShellError::string("str could not find field to replace"))
+                            return Err(ShellError::type_error(
+                                "column name",
+                                value.tagged_type_name(),
+                            ))
                         }
                     }
                 }
-                None => Err(ShellError::string(format!(
+                None => Err(ShellError::untagged_runtime_error(format!(
                     "{}: {}",
                     "str needs a column when applied to a value in a row",
                     Str::usage()
                 ))),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            _ => Err(ShellError::labeled_error(
+                "Unrecognized type in stream",
+                value.type_name(),
+                value.tag,
+            )),
         }
     }
 }
@@ -127,7 +132,7 @@ impl Plugin for Str {
             .switch("downcase")
             .switch("upcase")
             .switch("to-int")
-            .rest(SyntaxShape::Member)
+            .rest(SyntaxShape::ColumnPath)
             .filter())
     }
 
@@ -148,20 +153,27 @@ impl Plugin for Str {
             match possible_field {
                 Tagged {
                     item: Value::Primitive(Primitive::String(s)),
-                    ..
+                    tag,
                 } => match self.action {
                     Some(Action::Downcase)
                     | Some(Action::Upcase)
                     | Some(Action::ToInteger)
                     | None => {
-                        self.for_field(&s);
+                        self.for_field(vec![s.clone().tagged(tag)]);
                     }
                 },
+                table @ Tagged {
+                    item: Value::Table(_),
+                    ..
+                } => {
+                    self.field = Some(table.as_column_path()?.item);
+                }
                 _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        possible_field
-                    )))
+                    return Err(ShellError::labeled_error(
+                        "Unrecognized type in params",
+                        possible_field.type_name(),
+                        &possible_field.tag,
+                    ))
                 }
             }
         }
@@ -178,7 +190,11 @@ impl Plugin for Str {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, Str::usage())))
+                return Err(ShellError::untagged_runtime_error(format!(
+                    "{}: {}",
+                    reason,
+                    Str::usage()
+                )))
             }
             None => Ok(vec![]),
         }
@@ -198,13 +214,12 @@ mod tests {
     use super::{Action, Str};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Tag, Tagged,
-        TaggedDictBuilder, TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, Tag, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
     };
     use num_bigint::BigInt;
 
     struct CallStub {
-        anchor: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
@@ -212,7 +227,6 @@ mod tests {
     impl CallStub {
         fn new() -> CallStub {
             CallStub {
-                anchor: uuid::Uuid::nil(),
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
@@ -227,16 +241,20 @@ mod tests {
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
+            let fields: Vec<Tagged<Value>> = name
+                .split(".")
+                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown()))
+                .collect();
+
             self.positionals
-                .push(Value::string(name.to_string()).tagged(Tag::unknown()));
+                .push(Value::Table(fields).tagged(Tag::unknown()));
             self
         }
 
         fn create(&self) -> CallInfo {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
-                source_map: SourceMap::new(),
-                name_tag: Tag::unknown_span(self.anchor),
+                name_tag: Tag::unknown(),
             }
         }
     }
@@ -248,7 +266,7 @@ mod tests {
     }
 
     fn unstructured_sample_record(value: &str) -> Tagged<Value> {
-        Tagged::from_item(Value::string(value), Tag::unknown())
+        Value::string(value).tagged(Tag::unknown())
     }
 
     #[test]
@@ -303,7 +321,12 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(plugin.field, Some("package.description".to_string()));
+        assert_eq!(
+            plugin
+                .field
+                .map(|f| f.into_iter().map(|f| f.item).collect()),
+            Some(vec!["package".to_string(), "description".to_string()])
+        )
     }
 
     #[test]

@@ -15,7 +15,7 @@ impl PerItemCommand for Enter {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("enter").required("location", SyntaxShape::Block)
+        Signature::build("enter").required("location", SyntaxShape::Path)
     }
 
     fn usage(&self) -> &str {
@@ -33,14 +33,14 @@ impl PerItemCommand for Enter {
         let raw_args = raw_args.clone();
         match call_info.args.expect_nth(0)? {
             Tagged {
-                item: Value::Primitive(Primitive::String(location)),
+                item: Value::Primitive(Primitive::Path(location)),
                 ..
             } => {
-                let location = location.to_string();
-                let location_clone = location.to_string();
+                let location_string = location.display().to_string();
+                let location_clone = location_string.clone();
 
                 if location.starts_with("help") {
-                    let spec = location.split(":").collect::<Vec<&str>>();
+                    let spec = location_string.split(":").collect::<Vec<&str>>();
 
                     let (_, command) = (spec[0], spec[1]);
 
@@ -67,7 +67,7 @@ impl PerItemCommand for Enter {
 
                         let full_path = std::path::PathBuf::from(cwd);
 
-                        let (file_extension, contents, contents_tag, anchor_location) =
+                        let (file_extension, contents, contents_tag) =
                             crate::commands::open::fetch(
                                 &full_path,
                                 &location_clone,
@@ -75,18 +75,9 @@ impl PerItemCommand for Enter {
                             )
                             .await.unwrap();
 
-                        if contents_tag.anchor != uuid::Uuid::nil() {
-                            // If we have loaded something, track its source
-                            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
-                                contents_tag.anchor,
-                                anchor_location,
-                            ));
-                        }
-
-
                         match contents {
                             Value::Primitive(Primitive::String(_)) => {
-                                let tagged_contents = contents.tagged(contents_tag);
+                                let tagged_contents = contents.tagged(&contents_tag);
 
                                 if let Some(extension) = file_extension {
                                     let command_name = format!("from-{}", extension);
@@ -95,6 +86,7 @@ impl PerItemCommand for Enter {
                                     {
                                         let new_args = RawCommandArgs {
                                             host: raw_args.host,
+                                            ctrl_c: raw_args.ctrl_c,
                                             shell_manager: raw_args.shell_manager,
                                             call_info: UnevaluatedCallInfo {
                                                 args: crate::parser::hir::Call {
@@ -103,7 +95,6 @@ impl PerItemCommand for Enter {
                                                     named: None,
                                                 },
                                                 source: raw_args.call_info.source,
-                                                source_map: raw_args.call_info.source_map,
                                                 name_tag: raw_args.call_info.name_tag,
                                             },
                                         };
@@ -123,7 +114,7 @@ impl PerItemCommand for Enter {
                                                     yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
                                                         Tagged {
                                                             item,
-                                                            tag: contents_tag,
+                                                            tag: contents_tag.clone(),
                                                         })));
                                                 }
                                                 x => yield x,

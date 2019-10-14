@@ -104,7 +104,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
 
         for desc in descs {
             let mut column_num: usize = 0;
-            let mut dict = TaggedDictBuilder::new(context.name);
+            let mut dict = TaggedDictBuilder::new(&context.name);
 
             if !args.ignore_titles && !args.header_row {
                 dict.insert(headers[column_num].clone(), Value::string(desc.clone()));

@@ -93,6 +93,7 @@ macro_rules! nu {
             .write_all(commands.as_bytes())
             .expect("couldn't write to stdin");
 
+
         let output = process
             .wait_with_output()
             .expect("couldn't read from stdout");

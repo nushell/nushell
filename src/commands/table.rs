@@ -5,16 +5,13 @@ use crate::prelude::*;
 
 pub struct Table;
 
-#[derive(Deserialize)]
-pub struct TableArgs {}
-
 impl WholeStreamCommand for Table {
     fn name(&self) -> &str {
         "table"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("table")
+        Signature::build("table").named("start_number", SyntaxShape::Number)
     }
 
     fn usage(&self) -> &str {
@@ -26,16 +23,29 @@ impl WholeStreamCommand for Table {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, table)?.run()
+        table(args, registry)
     }
 }
 
-pub fn table(_args: TableArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
+fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let args = args.evaluate_once(registry)?;
+
     let stream = async_stream! {
-        let input: Vec<Tagged<Value>> = context.input.into_vec().await;
+        let host = args.host.clone();
+        let start_number = match args.get("start_number") {
+            Some(Tagged { item: Value::Primitive(Primitive::Int(i)), .. }) => {
+                i.to_usize().unwrap()
+            }
+            _ => {
+                0
+            }
+        };
+
+        let input: Vec<Tagged<Value>> = args.input.into_vec().await;
         if input.len() > 0 {
-            let mut host = context.host.lock().unwrap();
-            let view = TableView::from_list(&input);
+            let mut host = host.lock().unwrap();
+            let view = TableView::from_list(&input, start_number);
+
             if let Some(view) = view {
                 handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
             }
