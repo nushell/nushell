@@ -33,6 +33,27 @@ impl WholeStreamCommand for FromSSV {
     }
 }
 
+fn string_to_table(s: &str, headerless: bool) -> std::iter::Map<Vec<(String, String)>> {
+    let mut lines = s.lines().filter(|l| !l.trim().is_empty());
+
+    let headers = lines
+        .next()
+        .unwrap()
+        .split_whitespace()
+        .map(|s| s.to_owned())
+        .collect::<Vec<String>>();
+
+    let header_row = if headerless {
+        (0..headers.len())
+            .map(|i| format!("Column{}", i + 1))
+            .collect::<Vec<String>>()
+    } else {
+        headers
+    };
+
+    lines.map(|l| header_row.iter().zip(l.split_whitespace()))
+}
+
 fn from_ssv_string_to_value(
     s: &str,
     headerless: bool,
@@ -117,4 +138,23 @@ fn from_ssv(
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_trims_empty_and_whitespace_only_lines() {
+        let input = r#"
+
+            a b
+
+            1 2
+
+            3 4
+        "#;
+
+        let
+}
 }
