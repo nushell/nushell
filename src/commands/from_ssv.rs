@@ -44,14 +44,22 @@ fn string_to_table(s: &str, headerless: bool) -> Vec<Vec<(String, String)>> {
         .collect::<Vec<String>>();
 
     let header_row = if headerless {
-        (0..headers.len())
-            .map(|i| format!("Column{}", i + 1))
+        (1..=headers.len())
+            .map(|i| format!("Column{}", i))
             .collect::<Vec<String>>()
     } else {
         headers
     };
 
-    lines.map(|l| header_row.iter().zip(l.split_whitespace())).collect()
+    lines
+        .map(|l| {
+            header_row
+                .iter()
+                .zip(l.split_whitespace())
+                .map(|(a, b)| (String::from(a), String::from(b)))
+                .collect()
+        })
+        .collect()
 }
 
 fn from_ssv_string_to_value(
@@ -59,33 +67,18 @@ fn from_ssv_string_to_value(
     headerless: bool,
     tag: impl Into<Tag>,
 ) -> Option<Tagged<Value>> {
-    let mut lines = s.lines().filter(|l| !l.is_empty());
-
-    let headers = lines
-        .next()?
-        .split_whitespace()
-        .map(|s| s.to_owned())
-        .collect::<Vec<String>>();
-
-    let header_row = if headerless {
-        (0..headers.len())
-            .map(|i| format!("Column{}", i + 1))
-            .collect::<Vec<String>>()
-    } else {
-        headers
-    };
-
     let tag = tag.into();
-    let rows = lines
-        .map(|l| {
-            let mut row = TaggedDictBuilder::new(tag);
-            for (column, value) in header_row.iter().zip(l.split_whitespace()) {
-                row.insert_tagged(
-                    column.to_owned(),
-                    Value::Primitive(Primitive::String(String::from(value))).tagged(tag),
+    let rows = string_to_table(s, headerless)
+        .iter()
+        .map(|row| {
+            let mut tagged_dict = TaggedDictBuilder::new(tag);
+            for (col, entry) in row {
+                tagged_dict.insert_tagged(
+                    col,
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
                 )
             }
-            row.into_tagged_value()
+            tagged_dict.into_tagged_value()
         })
         .collect();
 
@@ -143,18 +136,44 @@ fn from_ssv(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn owned(x: &str, y: &str) -> (String, String) {
+        (String::from(x), String::from(y))
+    }
 
     #[test]
     fn it_trims_empty_and_whitespace_only_lines() {
         let input = r#"
 
-            a b
+            a       b
 
-            1 2
+            1    2
 
             3 4
         "#;
+        let result = string_to_table(input, false);
+        assert_eq!(
+            result,
+            vec![
+                vec![owned("a", "1"), owned("b", "2")],
+                vec![owned("a", "3"), owned("b", "4")]
+            ]
+        );
+    }
 
-        let
-}
+    #[test]
+    fn it_ignores_headers_when_headerless() {
+        let input = r#"
+            a b
+            1 2
+            3 4
+        "#;
+        let result = string_to_table(input, true);
+        assert_eq!(
+            result,
+            vec![
+                vec![owned("Column1", "1"), owned("Column2", "2")],
+                vec![owned("Column1", "3"), owned("Column2", "4")]
+            ]
+        );
+    }
 }
