@@ -117,11 +117,19 @@ pub(crate) fn evaluate_baseline_expr(
 
                         possible_matches.sort();
 
-                        return Err(ShellError::labeled_error(
-                            "Unknown column",
-                            format!("did you mean '{}'?", possible_matches[0].1),
-                            &tag,
-                        ));
+                        if possible_matches.len() > 0 {
+                            return Err(ShellError::labeled_error(
+                                "Unknown column",
+                                format!("did you mean '{}'?", possible_matches[0].1),
+                                &tag,
+                            ));
+                        } else {
+                            return Err(ShellError::labeled_error(
+                                "Unknown column",
+                                "row does not have this column",
+                                &tag,
+                            ));
+                        }
                     }
                     Some(next) => {
                         item = next.clone().item.tagged(&tag);
