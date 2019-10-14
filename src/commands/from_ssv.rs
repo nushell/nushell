@@ -33,12 +33,11 @@ impl WholeStreamCommand for FromSSV {
     }
 }
 
-fn string_to_table(s: &str, headerless: bool) -> Vec<Vec<(String, String)>> {
+fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)>>> {
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
 
     let headers = lines
-        .next()
-        .unwrap()
+        .next()?
         .split_whitespace()
         .map(|s| s.to_owned())
         .collect::<Vec<String>>();
@@ -51,15 +50,17 @@ fn string_to_table(s: &str, headerless: bool) -> Vec<Vec<(String, String)>> {
         headers
     };
 
-    lines
-        .map(|l| {
-            header_row
-                .iter()
-                .zip(l.split_whitespace())
-                .map(|(a, b)| (String::from(a), String::from(b)))
-                .collect()
-        })
-        .collect()
+    Some(
+        lines
+            .map(|l| {
+                header_row
+                    .iter()
+                    .zip(l.split_whitespace())
+                    .map(|(a, b)| (String::from(a), String::from(b)))
+                    .collect()
+            })
+            .collect(),
+    )
 }
 
 fn from_ssv_string_to_value(
@@ -68,7 +69,7 @@ fn from_ssv_string_to_value(
     tag: impl Into<Tag>,
 ) -> Option<Tagged<Value>> {
     let tag = tag.into();
-    let rows = string_to_table(s, headerless)
+    let rows = string_to_table(s, headerless)?
         .iter()
         .map(|row| {
             let mut tagged_dict = TaggedDictBuilder::new(&tag);
@@ -153,10 +154,10 @@ mod tests {
         let result = string_to_table(input, false);
         assert_eq!(
             result,
-            vec![
+            Some(vec![
                 vec![owned("a", "1"), owned("b", "2")],
                 vec![owned("a", "3"), owned("b", "4")]
-            ]
+            ])
         );
     }
 
@@ -170,10 +171,17 @@ mod tests {
         let result = string_to_table(input, true);
         assert_eq!(
             result,
-            vec![
+            Some(vec![
                 vec![owned("Column1", "1"), owned("Column2", "2")],
                 vec![owned("Column1", "3"), owned("Column2", "4")]
-            ]
+            ])
         );
+    }
+
+    #[test]
+    fn it_returns_none_given_an_empty_string() {
+        let input = "";
+        let result = string_to_table(input, true);
+        assert_eq!(result, None);
     }
 }
