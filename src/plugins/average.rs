@@ -1,6 +1,6 @@
 use nu::{
-    serve_plugin, CoerceInto, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tagged, TaggedItem, Value,
+    serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    Signature, Tagged, TaggedItem, Value,
 };
 
 #[derive(Debug)]
@@ -11,56 +11,61 @@ struct Average {
 
 impl Average {
     fn new() -> Average {
-        Average { total: None, count: 1 }
+        Average {
+            total: None,
+            count: 0,
+        }
     }
 
     fn average(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Nothing) => Ok(()),
-            Value::Primitive(Primitive::Int(i)) => {
-                match &self.total {
-                    Some(Tagged {
-                        item: Value::Primitive(Primitive::Int(j)),
-                        tag,
-                    }) => {
-                        self.total = Some(Value::int(i + j).tagged(tag));
-                        self.count = self.count + 1;
-                        Ok(())
-                    }
-                    None => {
-                        self.total = Some(value.clone());
-                        Ok(())
-                    }
-                    _ => Err(ShellError::string(format!(
-                        "Could not calculate average of non-integer or unrelated types"
-                    ))),
+            Value::Primitive(Primitive::Int(i)) => match &self.total {
+                Some(Tagged {
+                    item: Value::Primitive(Primitive::Int(j)),
+                    tag,
+                }) => {
+                    self.total = Some(Value::int(i + j).tagged(tag));
+                    self.count += 1;
+                    Ok(())
                 }
-            }
-            Value::Primitive(Primitive::Bytes(b)) => {
-                match self.total {
-                    Some(Tagged {
-                        item: Value::Primitive(Primitive::Bytes(j)),
-                        tag,
-                    }) => {
-                        self.total = Some(Value::int(b + j).tagged(tag));
-                        self.count = self.count + 1;
-                        Ok(())
-                    }
-                    None => {
-                        self.total = Some(value);
-                        Ok(())
-                    }
-                    _ => Err(ShellError::string(format!(
-                        "Could not calculate average of non-integer or unrelated types"
-                    ))),
+                None => {
+                    self.total = Some(value.clone());
+                    self.count += 1;
+                    Ok(())
                 }
-            }
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+                _ => Err(ShellError::labeled_error(
+                    "Could calculate average of non-integer or unrelated types",
+                    "source",
+                    value.tag,
+                )),
+            },
+            Value::Primitive(Primitive::Bytes(b)) => match &self.total {
+                Some(Tagged {
+                    item: Value::Primitive(Primitive::Bytes(j)),
+                    tag,
+                }) => {
+                    self.total = Some(Value::bytes(b + j).tagged(tag));
+                    self.count += 1;
+                    Ok(())
+                }
+                None => {
+                    self.total = Some(value);
+                    self.count += 1;
+                    Ok(())
+                }
+                _ => Err(ShellError::labeled_error(
+                    "Could calculate average of non-integer or unrelated types",
+                    "source",
+                    value.tag,
+                )),
+            },
+            x => Err(ShellError::labeled_error(
+                format!("Unrecognized type in stream: {:?}", x),
+                "source",
+                value.tag,
+            )),
         }
-
     }
 }
 
@@ -83,19 +88,27 @@ impl Plugin for Average {
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         match self.total {
             None => Ok(vec![]),
-            Some(ref v) =>  {
-                match v.item() {
+            Some(ref inner) => {
+                match inner.item() {
                     Value::Primitive(Primitive::Int(i)) => {
-                        let total: u64 = i.tagged(v.tag).coerce_into("converting for average")?;
+                        let total: u64 = i
+                            .tagged(inner.tag.clone())
+                            .coerce_into("converting for average")?;
                         let avg = total as f64 / self.count as f64;
-                        let decimal_value: Value=  Primitive::from(avg).into();
-                        let tagged_value = decimal_value.tagged(v.tag);
+                        let primitive_value: Value = Primitive::from(avg).into();
+                        let tagged_value = primitive_value.tagged(inner.tag.clone());
                         Ok(vec![ReturnSuccess::value(tagged_value)])
                     }
-                    _ => unreachable!()
-
+                    Value::Primitive(Primitive::Bytes(bytes)) => {
+                        // let total: u64 = b.tagged(inner.tag.clone()).coerce_into("converting for average")?;
+                        let avg = *bytes as f64 / self.count as f64;
+                        let primitive_value: Value = Primitive::from(avg).into();
+                        let tagged_value = primitive_value.tagged(inner.tag.clone());
+                        Ok(vec![ReturnSuccess::value(tagged_value)])
+                    }
+                    _ => Ok(vec![]),
                 }
-            },
+            }
         }
     }
 }
@@ -103,4 +116,3 @@ impl Plugin for Average {
 fn main() {
     serve_plugin(&mut Average::new());
 }
-
