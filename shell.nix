@@ -8,7 +8,7 @@ with pkgs;
 let
 
   nightly = (pkgs.rustChannelOf {
-    date = "2019-09-01";
+    date = "2019-10-14";
     channel = "nightly";
   }).rust.override {
     extensions = [
@@ -27,4 +27,5 @@ let
 in stdenv.mkDerivation {
   name = "nushell-rust";
   buildInputs = nu-deps ++ rust;
+  SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt";
 }
