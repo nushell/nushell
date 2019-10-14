@@ -38,7 +38,7 @@ fn from_ssv_string_to_value(
     headerless: bool,
     tag: impl Into<Tag>,
 ) -> Option<Tagged<Value>> {
-    let mut lines = s.lines();
+    let mut lines = s.lines().filter(|l| !l.is_empty());
 
     let headers = lines
         .next()?
