@@ -173,7 +173,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 ━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
  authors         │ description                │ edition │ license │ name │ version
 ─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
- [table: 3 rows] │ A shell for the GitHub era │ 2018    │ ISC     │ nu   │ 0.3.0
+ [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.4.0
 ━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
 ```
 
@@ -181,7 +181,7 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.3.0
+0.4.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
@@ -200,7 +200,7 @@ Nu supports plugins that offer additional functionality to the shell and follow 
 
 There are a few examples in the `plugins` directory.
 
-Plugins are binaries that are available in your path and follow a "nu_plugin_*" naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
+Plugins are binaries that are available in your path and follow a `nu_plugin_*` naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
 # Goals
 
