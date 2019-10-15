@@ -7,9 +7,12 @@ pub struct FromSSV;
 #[derive(Deserialize)]
 pub struct FromSSVArgs {
     headerless: bool,
+    #[serde(rename(deserialize = "minimum-spaces"))]
+    minimum_spaces: Option<Tagged<usize>>,
 }
 
 const STRING_REPRESENTATION: &str = "from-ssv";
+const DEFAULT_MINIMUM_SPACES: usize = 2;
 
 impl WholeStreamCommand for FromSSV {
     fn name(&self) -> &str {
@@ -17,11 +20,13 @@ impl WholeStreamCommand for FromSSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(STRING_REPRESENTATION).switch("headerless")
+        Signature::build(STRING_REPRESENTATION)
+            .switch("headerless")
+            .named("minimum-spaces", SyntaxShape::Int)
     }
 
     fn usage(&self) -> &str {
-        "Parse text as whitespace-separated values and create a table."
+        "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
     fn run(
@@ -33,12 +38,19 @@ impl WholeStreamCommand for FromSSV {
     }
 }
 
-fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)>>> {
+fn string_to_table(
+    s: &str,
+    headerless: bool,
+    split_at: usize,
+) -> Option<Vec<Vec<(String, String)>>> {
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
+    let separator = " ".repeat(std::cmp::max(split_at, 1));
 
     let headers = lines
         .next()?
-        .split_whitespace()
+        .split(&separator)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
         .map(|s| s.to_owned())
         .collect::<Vec<String>>();
 
@@ -55,7 +67,11 @@ fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)
             .map(|l| {
                 header_row
                     .iter()
-                    .zip(l.split_whitespace())
+                    .zip(
+                        l.split(&separator)
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty()),
+                    )
                     .map(|(a, b)| (String::from(a), String::from(b)))
                     .collect()
             })
@@ -66,10 +82,11 @@ fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)
 fn from_ssv_string_to_value(
     s: &str,
     headerless: bool,
+    split_at: usize,
     tag: impl Into<Tag>,
 ) -> Option<Tagged<Value>> {
     let tag = tag.into();
-    let rows = string_to_table(s, headerless)?
+    let rows = string_to_table(s, headerless, split_at)?
         .iter()
         .map(|row| {
             let mut tagged_dict = TaggedDictBuilder::new(&tag);
@@ -87,13 +104,20 @@ fn from_ssv_string_to_value(
 }
 
 fn from_ssv(
-    FromSSVArgs { headerless }: FromSSVArgs,
+    FromSSVArgs {
+        headerless,
+        minimum_spaces,
+    }: FromSSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
+        let split_at = match minimum_spaces {
+            Some(number) => number.item,
+            None => DEFAULT_MINIMUM_SPACES
+        };
 
         for value in values {
             let value_tag = value.tag();
@@ -112,7 +136,7 @@ fn from_ssv(
             }
         }
 
-        match from_ssv_string_to_value(&concat_string, headerless, name.clone()) {
+        match from_ssv_string_to_value(&concat_string, headerless, split_at, name.clone()) {
             Some(x) => match x {
                 Tagged { item: Value::Table(list), ..} => {
                     for l in list { yield ReturnSuccess::value(l) }
@@ -151,7 +175,7 @@ mod tests {
 
             3 4
         "#;
-        let result = string_to_table(input, false);
+        let result = string_to_table(input, false, 1);
         assert_eq!(
             result,
             Some(vec![
@@ -168,7 +192,7 @@ mod tests {
             1 2
             3 4
         "#;
-        let result = string_to_table(input, true);
+        let result = string_to_table(input, true, 1);
         assert_eq!(
             result,
             Some(vec![
@@ -181,7 +205,46 @@ mod tests {
     #[test]
     fn it_returns_none_given_an_empty_string() {
         let input = "";
-        let result = string_to_table(input, true);
+        let result = string_to_table(input, true, 1);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn it_allows_a_predefined_number_of_spaces() {
+        let input = r#"
+            column a   column b
+            entry 1   entry number  2
+            3   four
+        "#;
+
+        let result = string_to_table(input, false, 3);
+        assert_eq!(
+            result,
+            Some(vec![
+                vec![
+                    owned("column a", "entry 1"),
+                    owned("column b", "entry number  2")
+                ],
+                vec![owned("column a", "3"), owned("column b", "four")]
+            ])
+        );
+    }
+
+    #[test]
+    fn it_trims_remaining_separator_space() {
+        let input = r#"
+            colA   colB     colC
+            val1   val2     val3
+        "#;
+
+        let trimmed = |s: &str| s.trim() == s;
+
+        let result = string_to_table(input, false, 2).unwrap();
+        assert_eq!(
+            true,
+            result
+                .iter()
+                .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b)))
+        )
     }
 }
