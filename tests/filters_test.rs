@@ -400,7 +400,7 @@ fn converts_from_ssv_text_to_structured_table_with_separator_specified() {
             cwd: dirs.test(), h::pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv -n 3
+                | from-ssv --minimum-spaces 3
                 | nth 0
                 | get IP
                 | echo $it

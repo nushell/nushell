@@ -7,7 +7,8 @@ pub struct FromSSV;
 #[derive(Deserialize)]
 pub struct FromSSVArgs {
     headerless: bool,
-    n: Option<Tagged<usize>>,
+    #[serde(rename(deserialize = "minimum-spaces"))]
+    minimum_spaces: Option<Tagged<usize>>,
 }
 
 const STRING_REPRESENTATION: &str = "from-ssv";
@@ -21,7 +22,7 @@ impl WholeStreamCommand for FromSSV {
     fn signature(&self) -> Signature {
         Signature::build(STRING_REPRESENTATION)
             .switch("headerless")
-            .named("n", SyntaxShape::Int)
+            .named("minimum-spaces", SyntaxShape::Int)
     }
 
     fn usage(&self) -> &str {
@@ -103,14 +104,17 @@ fn from_ssv_string_to_value(
 }
 
 fn from_ssv(
-    FromSSVArgs { headerless, n }: FromSSVArgs,
+    FromSSVArgs {
+        headerless,
+        minimum_spaces,
+    }: FromSSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
-        let split_at = match n {
+        let split_at = match minimum_spaces {
             Some(number) => number.item,
             None => DEFAULT_ALLOWED_SPACES
         };
