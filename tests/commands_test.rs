@@ -71,6 +71,49 @@ fn first_gets_first_row_when_no_amount_given() {
 }
 
 #[test]
+fn last_gets_last_rows_by_amount() {
+    Playground::setup("last_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | last 3
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn last_gets_last_row_when_no_amount_given() {
+    Playground::setup("last_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | last
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "1");
+    })
+}
+
+#[test]
 fn get() {
     Playground::setup("get_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
