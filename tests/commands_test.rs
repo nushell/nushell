@@ -32,13 +32,23 @@ fn first_gets_first_rows_by_amount() {
 }
 
 #[test]
-fn first_requires_an_amount() {
-    Playground::setup("first_test_2", |dirs, _| {
-        let actual = nu_error!(
-            cwd: dirs.test(), "ls | first"
-        );
+fn first_gets_first_row_when_no_amount_given() {
+    Playground::setup("first_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("los-tres-amigos.PASSTEST.txt")]);
 
-        assert!(actual.contains("requires amount parameter"));
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | get name
+                | first
+                | split-column "."
+                | get Column2
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "PASSTEST");
     })
 }
 
