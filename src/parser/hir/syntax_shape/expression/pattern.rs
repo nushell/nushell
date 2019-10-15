@@ -9,6 +9,7 @@ use crate::prelude::*;
 #[derive(Debug, Copy, Clone)]
 pub struct PatternShape;
 
+#[cfg(not(coloring_in_tokens))]
 impl FallibleColorSyntax for PatternShape {
     type Info = ();
     type Input = ();
@@ -26,6 +27,32 @@ impl FallibleColorSyntax for PatternShape {
             match &atom.item {
                 AtomicToken::GlobPattern { .. } | AtomicToken::Word { .. } => {
                     shapes.push(FlatShape::GlobPattern.spanned(atom.span));
+                    Ok(())
+                }
+
+                _ => Err(ShellError::type_error("pattern", atom.tagged_type_name())),
+            }
+        })
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl FallibleColorSyntax for PatternShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Result<(), ShellError> {
+        token_nodes.atomic(|token_nodes| {
+            let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
+
+            match &atom.item {
+                AtomicToken::GlobPattern { .. } | AtomicToken::Word { .. } => {
+                    token_nodes.color_shape(FlatShape::GlobPattern.spanned(atom.span));
                     Ok(())
                 }
 

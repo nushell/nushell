@@ -1,16 +1,23 @@
 pub(crate) mod debug;
 
 use crate::errors::ShellError;
+#[cfg(coloring_in_tokens)]
+use crate::parser::hir::syntax_shape::FlatShape;
 use crate::parser::TokenNode;
 use crate::{Span, Spanned, SpannedItem};
+#[allow(unused)]
+use getset::Getters;
 
-#[derive(Debug)]
+#[derive(Getters, Debug)]
 pub struct TokensIterator<'content> {
     tokens: &'content [TokenNode],
     span: Span,
     skip_ws: bool,
     index: usize,
     seen: indexmap::IndexSet<usize>,
+    #[cfg(coloring_in_tokens)]
+    #[get = "pub"]
+    shapes: Vec<Spanned<FlatShape>>,
 }
 
 #[derive(Debug)]
@@ -18,6 +25,8 @@ pub struct Checkpoint<'content, 'me> {
     pub(crate) iterator: &'me mut TokensIterator<'content>,
     index: usize,
     seen: indexmap::IndexSet<usize>,
+    #[cfg(coloring_in_tokens)]
+    shape_start: usize,
     committed: bool,
 }
 
@@ -32,6 +41,8 @@ impl<'content, 'me> std::ops::Drop for Checkpoint<'content, 'me> {
         if !self.committed {
             self.iterator.index = self.index;
             self.iterator.seen = self.seen.clone();
+            #[cfg(coloring_in_tokens)]
+            self.iterator.shapes.truncate(self.shape_start);
         }
     }
 }
@@ -132,6 +143,8 @@ impl<'content> TokensIterator<'content> {
             skip_ws,
             index: 0,
             seen: indexmap::IndexSet::new(),
+            #[cfg(coloring_in_tokens)]
+            shapes: vec![],
         }
     }
 
@@ -156,10 +169,47 @@ impl<'content> TokensIterator<'content> {
         result.spanned(start.until(end))
     }
 
+    #[cfg(coloring_in_tokens)]
+    pub fn color_shape(&mut self, shape: Spanned<FlatShape>) {
+        self.shapes.push(shape);
+    }
+
+    #[cfg(coloring_in_tokens)]
+    pub fn mut_shapes(&mut self) -> &mut Vec<Spanned<FlatShape>> {
+        &mut self.shapes
+    }
+
+    #[cfg(coloring_in_tokens)]
+    pub fn child<T>(
+        &mut self,
+        tokens: Spanned<&'content [TokenNode]>,
+        block: impl FnOnce(&mut TokensIterator) -> T,
+    ) -> T {
+        let mut shapes = vec![];
+        std::mem::swap(&mut shapes, &mut self.shapes);
+
+        let mut iterator = TokensIterator {
+            tokens: tokens.item,
+            span: tokens.span,
+            skip_ws: false,
+            index: 0,
+            seen: indexmap::IndexSet::new(),
+            shapes,
+        };
+
+        let result = block(&mut iterator);
+
+        std::mem::swap(&mut iterator.shapes, &mut self.shapes);
+
+        result
+    }
+
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
     /// that you'll succeed.
     pub fn checkpoint<'me>(&'me mut self) -> Checkpoint<'content, 'me> {
         let index = self.index;
+        #[cfg(coloring_in_tokens)]
+        let shape_start = self.shapes.len();
         let seen = self.seen.clone();
 
         Checkpoint {
@@ -167,6 +217,8 @@ impl<'content> TokensIterator<'content> {
             index,
             seen,
             committed: false,
+            #[cfg(coloring_in_tokens)]
+            shape_start,
         }
     }
 
@@ -177,6 +229,8 @@ impl<'content> TokensIterator<'content> {
         block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
     ) -> Result<T, ShellError> {
         let index = self.index;
+        #[cfg(coloring_in_tokens)]
+        let shape_start = self.shapes.len();
         let seen = self.seen.clone();
 
         let checkpoint = Checkpoint {
@@ -184,12 +238,52 @@ impl<'content> TokensIterator<'content> {
             index,
             seen,
             committed: false,
+            #[cfg(coloring_in_tokens)]
+            shape_start,
         };
 
         let value = block(checkpoint.iterator)?;
 
         checkpoint.commit();
         return Ok(value);
+    }
+
+    #[cfg(coloring_in_tokens)]
+    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
+    /// that you'll succeed.
+    pub fn atomic_returning_shapes<'me, T>(
+        &'me mut self,
+        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
+    ) -> (Result<T, ShellError>, Vec<Spanned<FlatShape>>) {
+        let index = self.index;
+        let mut shapes = vec![];
+
+        let seen = self.seen.clone();
+        std::mem::swap(&mut self.shapes, &mut shapes);
+
+        let checkpoint = Checkpoint {
+            iterator: self,
+            index,
+            seen,
+            committed: false,
+            shape_start: 0,
+        };
+
+        let value = block(checkpoint.iterator);
+
+        let value = match value {
+            Err(err) => {
+                drop(checkpoint);
+                std::mem::swap(&mut self.shapes, &mut shapes);
+                return (Err(err), vec![]);
+            }
+
+            Ok(value) => value,
+        };
+
+        checkpoint.commit();
+        std::mem::swap(&mut self.shapes, &mut shapes);
+        return (Ok(value), shapes);
     }
 
     fn eof_span(&self) -> Span {
@@ -266,6 +360,8 @@ impl<'content> TokensIterator<'content> {
             index: self.index,
             seen: self.seen.clone(),
             skip_ws: self.skip_ws,
+            #[cfg(coloring_in_tokens)]
+            shapes: self.shapes.clone(),
         }
     }
 

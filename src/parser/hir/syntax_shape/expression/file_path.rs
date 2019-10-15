@@ -8,6 +8,7 @@ use crate::prelude::*;
 #[derive(Debug, Copy, Clone)]
 pub struct FilePathShape;
 
+#[cfg(not(coloring_in_tokens))]
 impl FallibleColorSyntax for FilePathShape {
     type Info = ();
     type Input = ();
@@ -40,6 +41,44 @@ impl FallibleColorSyntax for FilePathShape {
             }
 
             _ => atom.color_tokens(shapes),
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl FallibleColorSyntax for FilePathShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Result<(), ShellError> {
+        let atom = expand_atom(
+            token_nodes,
+            "file path",
+            context,
+            ExpansionRule::permissive(),
+        );
+
+        let atom = match atom {
+            Err(_) => return Ok(()),
+            Ok(atom) => atom,
+        };
+
+        match atom.item {
+            AtomicToken::Word { .. }
+            | AtomicToken::String { .. }
+            | AtomicToken::Number { .. }
+            | AtomicToken::Size { .. } => {
+                token_nodes.color_shape(FlatShape::Path.spanned(atom.span));
+            }
+
+            _ => atom.color_tokens(token_nodes.mut_shapes()),
         }
 
         Ok(())

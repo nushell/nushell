@@ -1,10 +1,12 @@
 use crate::errors::ShellError;
+#[cfg(not(coloring_in_tokens))]
+use crate::parser::hir::syntax_shape::FlatShape;
 use crate::parser::{
     hir::syntax_shape::{
         color_syntax, expand_atom, AtomicToken, ColorSyntax, ExpandContext, ExpansionRule,
         MaybeSpaceShape,
     },
-    FlatShape, TokenNode, TokensIterator,
+    TokenNode, TokensIterator,
 };
 use crate::{Span, Spanned, Text};
 
@@ -28,6 +30,7 @@ pub fn expand_external_tokens(
 #[derive(Debug, Copy, Clone)]
 pub struct ExternalTokensShape;
 
+#[cfg(not(coloring_in_tokens))]
 impl ColorSyntax for ExternalTokensShape {
     type Info = ();
     type Input = ();
@@ -46,6 +49,31 @@ impl ColorSyntax for ExternalTokensShape {
             // Process an external expression. External expressions are mostly words, with a
             // few exceptions (like $variables and path expansion rules)
             match color_syntax(&ExternalExpression, token_nodes, context, shapes).1 {
+                ExternalExpressionResult::Eof => break,
+                ExternalExpressionResult::Processed => continue,
+            }
+        }
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl ColorSyntax for ExternalTokensShape {
+    type Info = ();
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> Self::Info {
+        loop {
+            // Allow a space
+            color_syntax(&MaybeSpaceShape, token_nodes, context);
+
+            // Process an external expression. External expressions are mostly words, with a
+            // few exceptions (like $variables and path expansion rules)
+            match color_syntax(&ExternalExpression, token_nodes, context).1 {
                 ExternalExpressionResult::Eof => break,
                 ExternalExpressionResult::Processed => continue,
             }
@@ -128,6 +156,7 @@ enum ExternalExpressionResult {
 #[derive(Debug, Copy, Clone)]
 struct ExternalExpression;
 
+#[cfg(not(coloring_in_tokens))]
 impl ColorSyntax for ExternalExpression {
     type Info = ExternalExpressionResult;
     type Input = ();
@@ -154,6 +183,36 @@ impl ColorSyntax for ExternalExpression {
         };
 
         atom.color_tokens(shapes);
+        return ExternalExpressionResult::Processed;
+    }
+}
+
+#[cfg(coloring_in_tokens)]
+impl ColorSyntax for ExternalExpression {
+    type Info = ExternalExpressionResult;
+    type Input = ();
+
+    fn color_syntax<'a, 'b>(
+        &self,
+        _input: &(),
+        token_nodes: &'b mut TokensIterator<'a>,
+        context: &ExpandContext,
+    ) -> ExternalExpressionResult {
+        let atom = match expand_atom(
+            token_nodes,
+            "external word",
+            context,
+            ExpansionRule::permissive(),
+        ) {
+            Err(_) => unreachable!("TODO: separate infallible expand_atom"),
+            Ok(Spanned {
+                item: AtomicToken::Eof { .. },
+                ..
+            }) => return ExternalExpressionResult::Eof,
+            Ok(atom) => atom,
+        };
+
+        atom.color_tokens(token_nodes.mut_shapes());
         return ExternalExpressionResult::Processed;
     }
 }
