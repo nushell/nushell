@@ -25,7 +25,7 @@ impl WholeStreamCommand for FromSSV {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as whitespace-separated values and create a table."
+        "Parse text as space-separated values and create a table."
     }
 
     fn run(
