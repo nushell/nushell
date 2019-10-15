@@ -7,9 +7,11 @@ pub struct FromSSV;
 #[derive(Deserialize)]
 pub struct FromSSVArgs {
     headerless: bool,
+    n: Option<Tagged<usize>>,
 }
 
 const STRING_REPRESENTATION: &str = "from-ssv";
+const DEFAULT_ALLOWED_SPACES: usize = 0;
 
 impl WholeStreamCommand for FromSSV {
     fn name(&self) -> &str {
@@ -17,7 +19,9 @@ impl WholeStreamCommand for FromSSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(STRING_REPRESENTATION).switch("headerless")
+        Signature::build(STRING_REPRESENTATION)
+            .switch("headerless")
+            .named("n", SyntaxShape::Int)
     }
 
     fn usage(&self) -> &str {
@@ -33,12 +37,19 @@ impl WholeStreamCommand for FromSSV {
     }
 }
 
-fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)>>> {
+fn string_to_table(
+    s: &str,
+    headerless: bool,
+    split_at: usize,
+) -> Option<Vec<Vec<(String, String)>>> {
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
+    let separator = " ".repeat(std::cmp::max(split_at, 1));
 
     let headers = lines
         .next()?
-        .split_whitespace()
+        .split(&separator)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
         .map(|s| s.to_owned())
         .collect::<Vec<String>>();
 
@@ -55,7 +66,11 @@ fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)
             .map(|l| {
                 header_row
                     .iter()
-                    .zip(l.split_whitespace())
+                    .zip(
+                        l.split(&separator)
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty()),
+                    )
                     .map(|(a, b)| (String::from(a), String::from(b)))
                     .collect()
             })
@@ -66,10 +81,11 @@ fn string_to_table(s: &str, headerless: bool) -> Option<Vec<Vec<(String, String)
 fn from_ssv_string_to_value(
     s: &str,
     headerless: bool,
+    split_at: usize,
     tag: impl Into<Tag>,
 ) -> Option<Tagged<Value>> {
     let tag = tag.into();
-    let rows = string_to_table(s, headerless)?
+    let rows = string_to_table(s, headerless, split_at)?
         .iter()
         .map(|row| {
             let mut tagged_dict = TaggedDictBuilder::new(&tag);
@@ -87,13 +103,17 @@ fn from_ssv_string_to_value(
 }
 
 fn from_ssv(
-    FromSSVArgs { headerless }: FromSSVArgs,
+    FromSSVArgs { headerless, n }: FromSSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
+        let split_at = match n {
+            Some(number) => number.item,
+            None => DEFAULT_ALLOWED_SPACES
+        };
 
         for value in values {
             let value_tag = value.tag();
@@ -112,7 +132,7 @@ fn from_ssv(
             }
         }
 
-        match from_ssv_string_to_value(&concat_string, headerless, name.clone()) {
+        match from_ssv_string_to_value(&concat_string, headerless, split_at, name.clone()) {
             Some(x) => match x {
                 Tagged { item: Value::Table(list), ..} => {
                     for l in list { yield ReturnSuccess::value(l) }
@@ -151,7 +171,7 @@ mod tests {
 
             3 4
         "#;
-        let result = string_to_table(input, false);
+        let result = string_to_table(input, false, 1);
         assert_eq!(
             result,
             Some(vec![
@@ -168,7 +188,7 @@ mod tests {
             1 2
             3 4
         "#;
-        let result = string_to_table(input, true);
+        let result = string_to_table(input, true, 1);
         assert_eq!(
             result,
             Some(vec![
@@ -181,7 +201,7 @@ mod tests {
     #[test]
     fn it_returns_none_given_an_empty_string() {
         let input = "";
-        let result = string_to_table(input, true);
+        let result = string_to_table(input, true, 1);
         assert_eq!(result, None);
     }
 
@@ -193,7 +213,7 @@ mod tests {
             3   four
         "#;
 
-        let result = string_to_table(input, false);
+        let result = string_to_table(input, false, 3);
         assert_eq!(
             result,
             Some(vec![
@@ -215,7 +235,7 @@ mod tests {
 
         let trimmed = |s: &str| s.trim() == s;
 
-        let result = string_to_table(input, false).unwrap();
+        let result = string_to_table(input, false, 2).unwrap();
         assert_eq!(
             true,
             result
