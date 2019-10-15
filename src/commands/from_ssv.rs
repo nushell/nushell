@@ -26,7 +26,7 @@ impl WholeStreamCommand for FromSSV {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as space-separated values and create a table."
+        "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
     }
 
     fn run(
