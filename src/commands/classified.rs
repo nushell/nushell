@@ -251,7 +251,7 @@ impl ExternalCommand {
                             )
                         } else {
                             ShellError::labeled_error(
-                                "Error: $it needs string data",
+                                "$it needs string data",
                                 "given something else",
                                 self.name_tag.clone(),
                             )

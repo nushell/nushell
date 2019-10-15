@@ -8,6 +8,7 @@ pub(crate) mod classified;
 pub(crate) mod clip;
 pub(crate) mod command;
 pub(crate) mod config;
+pub(crate) mod count;
 pub(crate) mod cp;
 pub(crate) mod date;
 pub(crate) mod debug;
@@ -78,6 +79,7 @@ pub(crate) use command::{
 
 pub(crate) use classified::ClassifiedCommand;
 pub(crate) use config::Config;
+pub(crate) use count::Count;
 pub(crate) use cp::Cpy;
 pub(crate) use date::Date;
 pub(crate) use debug::Debug;

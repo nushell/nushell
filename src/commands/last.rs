@@ -7,7 +7,7 @@ pub struct Last;
 
 #[derive(Deserialize)]
 pub struct LastArgs {
-    amount: Tagged<u64>,
+    rows: Option<Tagged<u64>>,
 }
 
 impl WholeStreamCommand for Last {
@@ -16,7 +16,7 @@ impl WholeStreamCommand for Last {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("last").required("amount", SyntaxShape::Number)
+        Signature::build("last").optional("rows", SyntaxShape::Number)
     }
 
     fn usage(&self) -> &str {
@@ -32,13 +32,17 @@ impl WholeStreamCommand for Last {
     }
 }
 
-fn last(
-    LastArgs { amount }: LastArgs,
-    context: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+fn last(LastArgs { rows }: LastArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let v: Vec<_> = context.input.into_vec().await;
-        let count = (*amount as usize);
+
+        let rows_desired = if let Some(quantity) = rows {
+            *quantity
+        } else {
+         1
+        };
+
+        let count = (rows_desired as usize);
         if count < v.len() {
             let k = v.len() - count;
             for x in v[k..].iter() {

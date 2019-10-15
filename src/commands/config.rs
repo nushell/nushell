@@ -70,9 +70,9 @@ pub fn config(
 
     if let Some(v) = get {
         let key = v.to_string();
-        let value = result.get(&key).ok_or_else(|| {
-            ShellError::labeled_error(&format!("Missing key in config"), "key", v.tag())
-        })?;
+        let value = result
+            .get(&key)
+            .ok_or_else(|| ShellError::labeled_error("Missing key in config", "key", v.tag()))?;
 
         let mut results = VecDeque::new();
 
@@ -121,7 +121,7 @@ pub fn config(
             config::write(&result, &configuration)?;
         } else {
             return Err(ShellError::labeled_error(
-                "{} does not exist in config",
+                "Key does not exist in config",
                 "key",
                 v.tag(),
             ));

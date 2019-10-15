@@ -7,26 +7,21 @@ use helpers::{Playground, Stub::*};
 fn ls_lists_regular_files() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![
-            EmptyFile("yehuda.10.txt"),
-            EmptyFile("jonathan.10.txt"),
-            EmptyFile("andres.10.txt"),
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
         ]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
                 ls
-                | get name
-                | lines
-                | split-column "."
-                | get Column2
-                | str --to-int
-                | sum
+                | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "30");
+        assert_eq!(actual, "3");
     })
 }
 
@@ -34,22 +29,17 @@ fn ls_lists_regular_files() {
 fn ls_lists_regular_files_using_asterisk_wildcard() {
     Playground::setup("ls_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![
-            EmptyFile("los.1.txt"),
-            EmptyFile("tres.1.txt"),
-            EmptyFile("amigos.1.txt"),
-            EmptyFile("arepas.1.clu"),
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
         ]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
                 ls *.txt
-                | get name
-                | lines
-                | split-column "."
-                | get Column2
-                | str --to-int
-                | sum
+                | count
                 | echo $it
             "#
         ));
@@ -72,16 +62,11 @@ fn ls_lists_regular_files_using_question_mark_wildcard() {
             cwd: dirs.test(), h::pipeline(
             r#"
                 ls *.??.txt
-                | get name
-                | lines
-                | split-column "."
-                | get Column2
-                | str --to-int
-                | sum
+                | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "30");
+        assert_eq!(actual, "3");
     })
 }
