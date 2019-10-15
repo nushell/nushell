@@ -282,6 +282,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Env),
             whole_stream_command(FromCSV),
             whole_stream_command(FromTSV),
+            whole_stream_command(FromSSV),
             whole_stream_command(FromINI),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
