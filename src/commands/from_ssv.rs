@@ -12,7 +12,7 @@ pub struct FromSSVArgs {
 }
 
 const STRING_REPRESENTATION: &str = "from-ssv";
-const DEFAULT_ALLOWED_SPACES: usize = 0;
+const DEFAULT_MINIMUM_SPACES: usize = 2;
 
 impl WholeStreamCommand for FromSSV {
     fn name(&self) -> &str {
@@ -116,7 +116,7 @@ fn from_ssv(
         let mut latest_tag: Option<Tag> = None;
         let split_at = match minimum_spaces {
             Some(number) => number.item,
-            None => DEFAULT_ALLOWED_SPACES
+            None => DEFAULT_MINIMUM_SPACES
         };
 
         for value in values {
