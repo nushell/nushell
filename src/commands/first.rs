@@ -36,12 +36,13 @@ fn first(
     FirstArgs { rows }: FirstArgs,
     context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-
     let rows_desired = if let Some(quantity) = rows {
         *quantity
     } else {
         1
     };
 
-    Ok(OutputStream::from_input(context.input.values.take(rows_desired)))
+    Ok(OutputStream::from_input(
+        context.input.values.take(rows_desired),
+    ))
 }

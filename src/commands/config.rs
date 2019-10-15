@@ -70,9 +70,9 @@ pub fn config(
 
     if let Some(v) = get {
         let key = v.to_string();
-        let value = result.get(&key).ok_or_else(|| {
-            ShellError::labeled_error("Missing key in config", "key", v.tag())
-        })?;
+        let value = result
+            .get(&key)
+            .ok_or_else(|| ShellError::labeled_error("Missing key in config", "key", v.tag()))?;
 
         let mut results = VecDeque::new();
 
