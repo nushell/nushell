@@ -184,4 +184,43 @@ mod tests {
         let result = string_to_table(input, true);
         assert_eq!(result, None);
     }
+
+    #[test]
+    fn it_allows_a_predefined_number_of_spaces() {
+        let input = r#"
+            column a   column b
+            entry 1   entry number  2
+            3   four
+        "#;
+
+        let result = string_to_table(input, false);
+        assert_eq!(
+            result,
+            Some(vec![
+                vec![
+                    owned("column a", "entry 1"),
+                    owned("column b", "entry number  2")
+                ],
+                vec![owned("column a", "3"), owned("column b", "four")]
+            ])
+        );
+    }
+
+    #[test]
+    fn it_trims_remaining_separator_space() {
+        let input = r#"
+            colA   colB     colC
+            val1   val2     val3
+        "#;
+
+        let trimmed = |s: &str| s.trim() == s;
+
+        let result = string_to_table(input, false).unwrap();
+        assert_eq!(
+            true,
+            result
+                .iter()
+                .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b)))
+        )
+    }
 }
