@@ -21,8 +21,8 @@ async fn docker(sub_command: &String, name: Tag) -> Result<Vec<Tagged<Value>>, S
         "images" => docker_images(name),
         _ => Err(ShellError::labeled_error(
             "Unsupported Docker command",
-            format!("'{}'?", sub_command),
-            name.span,
+            "unknown docker command",
+            name,
         )),
     }
 }
@@ -46,7 +46,7 @@ fn process_docker_output(cmd_output: &str, tag: Tag) -> Result<Vec<Tagged<Value>
             .filter(|s| s.trim() != "")
             .collect();
 
-        let mut dict = TaggedDictBuilder::new(tag);
+        let mut dict = TaggedDictBuilder::new(&tag);
         for (i, v) in values.iter().enumerate() {
             dict.insert(header[i].to_string(), Value::string(v.trim().to_string()));
         }
@@ -92,18 +92,13 @@ impl Plugin for Docker {
         if let Some(args) = callinfo.args.positional {
             match &args[0] {
                 Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
+                    item: Value::Primitive(Primitive::String(command)),
                     ..
-                } => match block_on(docker(&s, callinfo.name_tag)) {
+                } => match block_on(docker(&command, args[0].tag())) {
                     Ok(v) => return Ok(v.into_iter().map(ReturnSuccess::value).collect()),
                     Err(e) => return Err(e),
                 },
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )))
-                }
+                _ => return Err(ShellError::type_error("string", args[0].tagged_type_name())),
             }
         }
 
