@@ -171,9 +171,9 @@ mod tests {
 
             a       b
 
-            1    2
+            1       2
 
-            3 4
+            3       4
         "#;
         let result = string_to_table(input, false, 1);
         assert_eq!(
@@ -182,6 +182,20 @@ mod tests {
                 vec![owned("a", "1"), owned("b", "2")],
                 vec![owned("a", "3"), owned("b", "4")]
             ])
+        );
+    }
+
+    #[test]
+    fn it_deals_with_single_column_input() {
+        let input = r#"
+            a
+            1
+            2
+        "#;
+        let result = string_to_table(input, false, 1);
+        assert_eq!(
+            result,
+            Some(vec![vec![owned("a", "1")], vec![owned("a", "2")]])
         );
     }
 
@@ -206,15 +220,15 @@ mod tests {
     fn it_returns_none_given_an_empty_string() {
         let input = "";
         let result = string_to_table(input, true, 1);
-        assert_eq!(result, None);
+        assert!(result.is_none());
     }
 
     #[test]
     fn it_allows_a_predefined_number_of_spaces() {
         let input = r#"
             column a   column b
-            entry 1   entry number  2
-            3   four
+            entry 1    entry number  2
+            3          four
         "#;
 
         let result = string_to_table(input, false, 3);
@@ -240,11 +254,54 @@ mod tests {
         let trimmed = |s: &str| s.trim() == s;
 
         let result = string_to_table(input, false, 2).unwrap();
+        assert!(result
+            .iter()
+            .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b))))
+    }
+
+    #[test]
+    fn it_keeps_empty_columns() {
+        let input = r#"
+            colA   col B     col C
+                   val2      val3
+            val4   val 5     val 6
+            val7             val8
+        "#;
+
+        let result = string_to_table(input, false, 2).unwrap();
         assert_eq!(
-            true,
-            result
-                .iter()
-                .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b)))
+            result,
+            vec![
+                vec![
+                    owned("colA", ""),
+                    owned("col B", "val2"),
+                    owned("col C", "val3")
+                ],
+                vec![
+                    owned("colA", "val4"),
+                    owned("col B", "val 5"),
+                    owned("col C", "val 6")
+                ],
+                vec![
+                    owned("colA", "val7"),
+                    owned("col B", ""),
+                    owned("col C", "val8")
+                ],
+            ]
+        )
+    }
+
+    #[test]
+    fn it_drops_trailing_values() {
+        let input = r#"
+            colA   col B
+            val1   val2   trailing value that should be ignored
+        "#;
+
+        let result = string_to_table(input, false, 2).unwrap();
+        assert_eq!(
+            result,
+            vec![vec![owned("colA", "val1"), owned("col B", "val2"),],]
         )
     }
 }
