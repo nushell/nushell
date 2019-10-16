@@ -46,33 +46,39 @@ fn string_to_table(
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
-    let headers = lines
-        .next()?
-        .split(&separator)
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_owned())
-        .collect::<Vec<String>>();
+    let headers_raw = lines.next()?;
 
-    let header_row = if headerless {
-        (1..=headers.len())
-            .map(|i| format!("Column{}", i))
-            .collect::<Vec<String>>()
-    } else {
+    let headers = headers_raw
+        .trim()
+        .split(&separator)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| (headers_raw.find(s).unwrap(), s.to_owned()));
+
+    let columns = if headerless {
         headers
+            .enumerate()
+            .map(|(header_no, (string_index, _))| {
+                (string_index, format!("Column{}", header_no + 1))
+            })
+            .collect::<Vec<(usize, String)>>()
+    } else {
+        headers.collect::<Vec<(usize, String)>>()
     };
 
     Some(
         lines
             .map(|l| {
-                header_row
+                columns
                     .iter()
-                    .zip(
-                        l.split(&separator)
-                            .map(|s| s.trim())
-                            .filter(|s| !s.is_empty()),
-                    )
-                    .map(|(a, b)| (String::from(a), String::from(b)))
+                    .enumerate()
+                    .filter_map(|(i, (start, col))| {
+                        (match columns.get(i + 1) {
+                            Some((end, _)) => l.get(*start..*end),
+                            None => l.get(*start..)?.split(&separator).next(),
+                        })
+                        .and_then(|s| Some((col.clone(), String::from(s.trim()))))
+                    })
                     .collect()
             })
             .collect(),
