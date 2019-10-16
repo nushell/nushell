@@ -1190,13 +1190,13 @@ dependencies = [
 
 [[package]]
 name = "language-reporting"
-version = "0.3.1"
-source = "git+https://github.com/wycats/language-reporting#1e2100290fec96f69646e1e61482d80f7a8e7855"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "derive-new 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "render-tree 0.1.1 (git+https://github.com/wycats/language-reporting)",
+ "render-tree 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
  "termcolor 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1487,7 +1487,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "app_dirs 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1519,7 +1519,7 @@ dependencies = [
  "image 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "indexmap 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "language-reporting 0.3.1 (git+https://github.com/wycats/language-reporting)",
+ "language-reporting 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "mime 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "natural 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2007,7 +2007,7 @@ dependencies = [
 [[package]]
 name = "render-tree"
 version = "0.1.1"
-source = "git+https://github.com/wycats/language-reporting#1e2100290fec96f69646e1e61482d80f7a8e7855"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "itertools 0.7.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2950,7 +2950,7 @@ dependencies = [
 "checksum jpeg-decoder 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "c1aae18ffeeae409c6622c3b6a7ee49792a7e5a062eea1b135fbb74e301792ba"
 "checksum js-sys 0.3.28 (registry+https://github.com/rust-lang/crates.io-index)" = "2cc9a97d7cec30128fd8b28a7c1f9df1c001ceb9b441e2b755e24130a6b43c79"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
-"checksum language-reporting 0.3.1 (git+https://github.com/wycats/language-reporting)" = "<none>"
+"checksum language-reporting 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4e6a84e1e6cccd818617d299427ad1519f127af2738b1d3a581835ef56ae298b"
 "checksum lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "76f033c7ad61445c5b347c7382dd1237847eb1bce590fe50365dcb33d546be73"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum lazycell 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b294d6fa9ee409a054354afc4352b0b9ef7ca222c69b8812cbea9e7d2bf3783f"
@@ -3038,7 +3038,7 @@ dependencies = [
 "checksum regex-automata 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "92b73c2a1770c255c240eaa4ee600df1704a38dc3feaa6e949e7fcd4f8dc09f9"
 "checksum regex-syntax 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)" = "11a7e20d1cce64ef2fed88b66d347f88bd9babb82845b2b858f3edbf59a4f716"
 "checksum remove_dir_all 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4a83fa3702a688b9359eccba92d153ac33fd2e8462f9e0e3fdf155239ea7792e"
-"checksum render-tree 0.1.1 (git+https://github.com/wycats/language-reporting)" = "<none>"
+"checksum render-tree 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "68ed587df09cfb7ce1bc6fe8f77e24db219f222c049326ccbfb948ec67e31664"
 "checksum result 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "194d8e591e405d1eecf28819740abed6d719d1a2db87fc0bcdedee9a26d55560"
 "checksum roxmltree 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b1a3193e568c6e262f817fd07af085c7f79241a947aedd3779d47eadc170e174"
 "checksum rusqlite 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2a194373ef527035645a1bc21b10dc2125f73497e6e155771233eb187aedd051"
