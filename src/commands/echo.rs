@@ -1,10 +1,14 @@
+use crate::commands::command::RunnablePerItemContext;
 use crate::data::Value;
 use crate::errors::ShellError;
+use crate::parser::registry::Signature;
 use crate::prelude::*;
 
-use crate::parser::registry::Signature;
-
 pub struct Echo;
+#[derive(Deserialize)]
+pub struct EchoArgs {
+    rest: Vec<Tagged<Value>>,
+}
 
 impl PerItemCommand for Echo {
     fn name(&self) -> &str {
@@ -22,43 +26,36 @@ impl PerItemCommand for Echo {
     fn run(
         &self,
         call_info: &CallInfo,
-        registry: &CommandRegistry,
+        _registry: &CommandRegistry,
         raw_args: &RawCommandArgs,
         _input: Tagged<Value>,
     ) -> Result<OutputStream, ShellError> {
-        run(call_info, registry, raw_args)
+        call_info.process(&raw_args.shell_manager, echo)?.run()
     }
 }
 
-fn run(
-    call_info: &CallInfo,
-    _registry: &CommandRegistry,
-    _raw_args: &RawCommandArgs,
+fn echo(
+    EchoArgs {
+        rest: maybe_strings,
+    }: EchoArgs,
+    RunnablePerItemContext { name, .. }: &RunnablePerItemContext,
 ) -> Result<OutputStream, ShellError> {
-    let name = call_info.name_tag.clone();
-
     let mut output = String::new();
 
-    let mut first = true;
-
-    if let Some(ref positional) = call_info.args.positional {
-        for i in positional {
-            match i.as_string() {
-                Ok(s) => {
-                    if !first {
-                        output.push_str(" ");
-                    } else {
-                        first = false;
-                    }
-
-                    output.push_str(&s);
+    for (idx, out) in maybe_strings.iter().enumerate() {
+        match out.as_string() {
+            Err(_) => {
+                return Err(ShellError::type_error(
+                    "a string-compatible value",
+                    out.tagged_type_name(),
+                ))
+            }
+            Ok(out) => {
+                if idx > 0 {
+                    output.push_str(" ");
                 }
-                _ => {
-                    return Err(ShellError::type_error(
-                        "a string-compatible value",
-                        i.tagged_type_name(),
-                    ))
-                }
+
+                output.push_str(&out);
             }
         }
     }
