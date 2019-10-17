@@ -580,7 +580,7 @@ fn can_sum() {
 }
 
 #[test]
-fn can_average() {
+fn can_average_numbers() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
@@ -592,6 +592,16 @@ fn can_average() {
     ));
 
     assert_eq!(actual, "101.5000000000000")
+}
+
+#[test]
+fn can_average_bytes() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "ls | get size | average | echo $it"
+    );
+
+    assert_eq!(actual, "2282.727272727273");
 }
 
 #[test]
