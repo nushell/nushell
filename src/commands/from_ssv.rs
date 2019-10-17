@@ -307,7 +307,10 @@ mod tests {
         let result = string_to_table(input, false, 2).unwrap();
         assert_eq!(
             result,
-            vec![vec![owned("colA", "val1"), owned("col B", "val2   trailing value that should be included"),],]
+            vec![vec![
+                owned("colA", "val1"),
+                owned("col B", "val2   trailing value that should be included"),
+            ],]
         )
     }
 }
