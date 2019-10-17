@@ -78,9 +78,9 @@ fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>,
         value(Unit::B, alt((tag("B"), tag("b")))),
         value(Unit::KB, alt((tag("KB"), tag("kb"), tag("Kb")))),
         value(Unit::MB, alt((tag("MB"), tag("mb"), tag("Mb")))),
-        value(Unit::MB, alt((tag("GB"), tag("gb"), tag("Gb")))),
-        value(Unit::MB, alt((tag("TB"), tag("tb"), tag("Tb")))),
-        value(Unit::MB, alt((tag("PB"), tag("pb"), tag("Pb")))),
+        value(Unit::GB, alt((tag("GB"), tag("gb"), tag("Gb")))),
+        value(Unit::TB, alt((tag("TB"), tag("tb"), tag("Tb")))),
+        value(Unit::PB, alt((tag("PB"), tag("pb"), tag("Pb")))),
     )))(input)?;
 
     let start_span = number.span.end();
