@@ -1,5 +1,8 @@
-# average This command allows you to calculate the average of values in a column.  ## Examples 
-To get the average of the file sizes in a directory, simply pipe the size column from the ls command to the sum command.
+# average 
+This command allows you to calculate the average of values in a column.  
+
+## Examples 
+To get the average of the file sizes in a directory, simply pipe the size column from the ls command to the average command.
 
 ```shell
 > ls | get size | average
@@ -19,8 +22,8 @@ To get the average of the file sizes in a directory, simply pipe the size column
 ━━━━━━━━━
 ```
 
-Note that average only works for integer and byte values at the moment, and if the shell doesn't recognize the values in a column as one of those types, it will return an error.
-One way to solve this is to convert each row to an integer and then pipe the result to `average`
+Note that average only works for integer and byte values. If the shell doesn't recognize the values in a column as one of those types, it will return an error.
+One way to solve this is to convert each row to an integer when possible and then pipe the result to `average`
 
 ```shell
 > open tests/fixtures/formats/caco3_plastics.csv | get tariff_item | average
