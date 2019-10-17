@@ -75,7 +75,7 @@ fn string_to_table(
                     .filter_map(|(i, (start, col))| {
                         (match columns.get(i + 1) {
                             Some((end, _)) => l.get(*start..*end),
-                            None => l.get(*start..)?.split(&separator).next(),
+                            None => l.get(*start..),
                         })
                         .and_then(|s| Some((col.clone(), String::from(s.trim()))))
                     })
@@ -298,16 +298,16 @@ mod tests {
     }
 
     #[test]
-    fn it_drops_trailing_values() {
+    fn it_uses_the_full_final_column() {
         let input = r#"
             colA   col B
-            val1   val2   trailing value that should be ignored
+            val1   val2   trailing value that should be included
         "#;
 
         let result = string_to_table(input, false, 2).unwrap();
         assert_eq!(
             result,
-            vec![vec![owned("colA", "val1"), owned("col B", "val2"),],]
+            vec![vec![owned("colA", "val1"), owned("col B", "val2   trailing value that should be included"),],]
         )
     }
 }
