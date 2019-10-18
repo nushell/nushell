@@ -8,6 +8,7 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
+use trash as SendToTrash;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
@@ -860,7 +861,7 @@ impl Shell for FilesystemShell {
 
     fn rm(
         &self,
-        RemoveArgs { target, recursive }: RemoveArgs,
+        RemoveArgs { target, recursive, trash }: RemoveArgs,
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
@@ -946,7 +947,11 @@ impl Shell for FilesystemShell {
                     if path.is_dir() {
                         std::fs::remove_dir_all(&path)?;
                     } else if path.is_file() {
-                        std::fs::remove_file(&path)?;
+                        if trash.item {
+                            SendToTrash::remove(path).unwrap();
+                        } else {
+                            std::fs::remove_file(&path)?;
+                        }
                     }
                 }
                 Err(e) => {

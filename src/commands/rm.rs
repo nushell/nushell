@@ -11,6 +11,7 @@ pub struct Remove;
 pub struct RemoveArgs {
     pub target: Tagged<PathBuf>,
     pub recursive: Tagged<bool>,
+    pub trash: Tagged<bool>,
 }
 
 impl PerItemCommand for Remove {
@@ -21,11 +22,12 @@ impl PerItemCommand for Remove {
     fn signature(&self) -> Signature {
         Signature::build("rm")
             .required("path", SyntaxShape::Pattern)
+            .switch("trash")
             .switch("recursive")
     }
 
     fn usage(&self) -> &str {
-        "Remove a file, (for removing directory append '--recursive')"
+        "Remove a file. Append '--recursive' to remove directories and '--trash' for seding it to system recycle bin"
     }
 
     fn run(
