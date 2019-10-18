@@ -8,6 +8,7 @@ use crate::Text;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
+use indexmap::IndexMap;
 use log::trace;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -452,7 +453,7 @@ impl Value {
         match self {
             Value::Primitive(p) => p.type_name(),
             Value::Row(_) => format!("row"),
-            Value::Table(_) => format!("list"),
+            Value::Table(_) => format!("table"),
             Value::Block(_) => format!("block"),
             Value::Error(_) => format!("error"),
         }
@@ -684,6 +685,15 @@ impl Value {
                                 Value::Row(ref mut o) => {
                                     current = o;
                                 }
+                                Value::Table(ref mut l) => match l.get_mut(0) {
+                                    Some(Tagged {
+                                        item: Value::Row(ref mut dict),
+                                        ..
+                                    }) => {
+                                        current = dict;
+                                    }
+                                    _ => return None,
+                                },
                                 _ => return None,
                             }
                         }
@@ -767,6 +777,21 @@ impl Value {
             Value::Primitive(Primitive::Boolean(true)) => true,
             _ => false,
         }
+    }
+
+    #[allow(unused)]
+    pub fn row(entries: IndexMap<String, Tagged<Value>>) -> Value {
+        Value::Row(entries.into())
+    }
+
+    pub fn table(list: &Vec<Tagged<Value>>) -> Value {
+        let mut out = vec![];
+
+        for v in list {
+            out.push(v.clone());
+        }
+
+        Value::Table(out)
     }
 
     pub fn string(s: impl Into<String>) -> Value {
@@ -926,4 +951,107 @@ fn coerce_compare_primitive(
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),
     })
+}
+#[cfg(test)]
+mod tests {
+
+    use crate::data::meta::*;
+    use crate::Value;
+    use indexmap::IndexMap;
+
+    fn string(input: impl Into<String>) -> Tagged<Value> {
+        Value::string(input.into()).tagged_unknown()
+    }
+
+    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
+        Value::row(entries).tagged_unknown()
+    }
+
+    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
+        Value::table(list).tagged_unknown()
+    }
+
+    fn column_path(paths: &Vec<Tagged<Value>>) -> Tagged<Vec<Tagged<String>>> {
+        let paths = paths
+            .iter()
+            .map(|p| string(p.as_string().unwrap()))
+            .collect();
+        let table = table(&paths);
+        table.as_column_path().unwrap()
+    }
+    #[test]
+    fn gets_the_matching_field_from_a_row() {
+        let field = "amigos";
+
+        let row = Value::row(indexmap! {
+            field.into() => table(&vec![
+                string("andres"),
+                string("jonathan"),
+                string("yehuda"),
+            ]),
+        });
+
+        assert_eq!(
+            table(&vec![
+                string("andres"),
+                string("jonathan"),
+                string("yehuda")
+            ]),
+            *row.get_data_by_key(field).unwrap()
+        );
+    }
+
+    #[test]
+    fn gets_the_first_row_with_matching_field_from_rows_inside_a_table() {
+        let field = "name";
+
+        let table = Value::table(&vec![
+            row(indexmap! {field.into() =>   string("andres")}),
+            row(indexmap! {field.into() => string("jonathan")}),
+            row(indexmap! {field.into() =>   string("yehuda")}),
+        ]);
+
+        assert_eq!(string("andres"), *table.get_data_by_key(field).unwrap());
+    }
+
+    #[test]
+    fn gets_the_matching_field_from_nested_rows_inside_a_row() {
+        let _field = "package.version";
+        let field = vec![string("package"), string("version")];
+        let field = column_path(&field);
+
+        let (version, tag) = string("0.4.0").into_parts();
+
+        let row = Value::row(indexmap! {
+            "package".into() => row(indexmap!{
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+            })
+        });
+
+        assert_eq!(version, **row.get_data_by_column_path(tag, &field).unwrap())
+    }
+
+    #[test]
+    fn gets_the_first_row_with_matching_field_from_nested_rows_inside_a_table() {
+        let _field = "package.authors.name";
+        let field = vec![string("package"), string("authors"), string("name")];
+        let field = column_path(&field);
+
+        let (name, tag) = string("Andrés N. Robalino").into_parts();
+
+        let row = Value::row(indexmap! {
+            "package".into() => row(indexmap!{
+                "authors".into() => table(&vec![
+                    row(indexmap!{"name".into()=> string("Andrés N. Robalino")}),
+                    row(indexmap!{"name".into()=> string("Jonathan Turner")}),
+                    row(indexmap!{"name".into() => string("Yehuda Katz")})
+                ]),
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+            })
+        });
+
+        assert_eq!(name, **row.get_data_by_column_path(tag, &field).unwrap())
+    }
 }

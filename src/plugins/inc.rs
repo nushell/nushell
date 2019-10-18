@@ -14,7 +14,7 @@ pub enum SemVerAction {
     Patch,
 }
 
-pub type ColumnPath = Tagged<Vec<Tagged<String>>>;
+pub type ColumnPath = Vec<Tagged<String>>;
 
 struct Inc {
     field: Option<ColumnPath>,
@@ -83,6 +83,16 @@ impl Inc {
                 Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
             }
             Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
+            Value::Table(values) => {
+                if values.len() == 1 {
+                    return Ok(Value::Table(vec![self.inc(values[0].clone())?]).tagged(value.tag()));
+                } else {
+                    return Err(ShellError::type_error(
+                        "incrementable value",
+                        value.tagged_type_name(),
+                    ));
+                }
+            }
             Value::Row(_) => match self.field {
                 Some(ref f) => {
                     let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
@@ -91,10 +101,11 @@ impl Inc {
                             return Err(ShellError::labeled_error(
                                 "inc could not find field to replace",
                                 "column name",
-                                &f.tag,
+                                value.tag(),
                             ))
                         }
                     };
+
                     match value.item.replace_data_at_column_path(
                         value.tag(),
                         f,
@@ -105,7 +116,7 @@ impl Inc {
                             return Err(ShellError::labeled_error(
                                 "inc could not find field to replace",
                                 "column name",
-                                &f.tag,
+                                value.tag(),
                             ))
                         }
                     }
@@ -151,7 +162,7 @@ impl Plugin for Inc {
                         item: Value::Table(_),
                         ..
                     } => {
-                        self.field = Some(table.as_column_path()?);
+                        self.field = Some(table.as_column_path()?.item().to_vec());
                     }
                     value => return Err(ShellError::type_error("table", value.tagged_type_name())),
                 }

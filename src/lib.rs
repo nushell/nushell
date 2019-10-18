@@ -1,5 +1,9 @@
 #![recursion_limit = "1024"]
 
+#[cfg(test)]
+#[macro_use]
+extern crate indexmap;
+
 #[macro_use]
 mod prelude;
 

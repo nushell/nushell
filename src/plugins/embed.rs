@@ -1,6 +1,9 @@
+#[macro_use]
+extern crate indexmap;
+
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tag, Tagged, TaggedDictBuilder, Value,
+    SyntaxShape, Tag, Tagged, TaggedItem, Value,
 };
 
 struct Embed {
@@ -16,22 +19,8 @@ impl Embed {
     }
 
     fn embed(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
-        match value {
-            Tagged { item, tag } => match &self.field {
-                Some(_) => {
-                    self.values.push(Tagged {
-                        item: item,
-                        tag: tag,
-                    });
-                    Ok(())
-                }
-                None => Err(ShellError::labeled_error(
-                    "embed needs a field when embedding a value",
-                    "original value",
-                    &tag,
-                )),
-            },
-        }
+        self.values.push(value);
+        Ok(())
     }
 }
 
@@ -39,8 +28,7 @@ impl Plugin for Embed {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("embed")
             .desc("Embeds a new field to the table.")
-            .required("Field", SyntaxShape::String)
-            .rest(SyntaxShape::String)
+            .optional("field", SyntaxShape::String)
             .filter())
     }
 
@@ -67,15 +55,15 @@ impl Plugin for Embed {
     }
 
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
-        let mut root = TaggedDictBuilder::new(Tag::unknown());
-        root.insert_tagged(
-            self.field.as_ref().unwrap(),
-            Tagged {
-                item: Value::Table(self.values.clone()),
-                tag: Tag::unknown(),
-            },
-        );
-        Ok(vec![ReturnSuccess::value(root.into_tagged_value())])
+        let row = Value::row(indexmap! {
+            match &self.field {
+                Some(key) => key.clone(),
+                None => "root".into(),
+            } => Value::table(&self.values).tagged(Tag::unknown()),
+        })
+        .tagged(Tag::unknown());
+
+        Ok(vec![ReturnSuccess::value(row)])
     }
 }
 
