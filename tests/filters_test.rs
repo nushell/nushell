@@ -598,10 +598,10 @@ fn can_average_numbers() {
 fn can_average_bytes() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "ls | get size | average | echo $it"
+        "ls | sort-by name | skip 1 | first 2 | get size | average | echo $it"
     );
 
-    assert_eq!(actual, "2282.727272727273");
+    assert_eq!(actual, "1600.000000000000");
 }
 
 #[test]
