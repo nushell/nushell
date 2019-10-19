@@ -39,12 +39,6 @@ impl Unit {
     }
 }
 
-impl From<&str> for Unit {
-    fn from(input: &str) -> Unit {
-        Unit::from_str(input).unwrap()
-    }
-}
-
 impl FromStr for Unit {
     type Err = ();
     fn from_str(input: &str) -> Result<Self, <Self as std::str::FromStr>::Err> {
