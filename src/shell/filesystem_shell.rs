@@ -944,14 +944,12 @@ impl Shell for FilesystemShell {
                         ));
                     }
 
-                    if path.is_dir() {
+                    if trash.item {
+                        SendToTrash::remove(path).unwrap();
+                    } else if path.is_dir() {
                         std::fs::remove_dir_all(&path)?;
                     } else if path.is_file() {
-                        if trash.item {
-                            SendToTrash::remove(path).unwrap();
-                        } else {
-                            std::fs::remove_file(&path)?;
-                        }
+                        std::fs::remove_file(&path)?;
                     }
                 }
                 Err(e) => {
