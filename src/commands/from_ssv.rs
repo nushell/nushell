@@ -46,33 +46,39 @@ fn string_to_table(
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
-    let headers = lines
-        .next()?
-        .split(&separator)
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_owned())
-        .collect::<Vec<String>>();
+    let headers_raw = lines.next()?;
 
-    let header_row = if headerless {
-        (1..=headers.len())
-            .map(|i| format!("Column{}", i))
-            .collect::<Vec<String>>()
-    } else {
+    let headers = headers_raw
+        .trim()
+        .split(&separator)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| (headers_raw.find(s).unwrap(), s.to_owned()));
+
+    let columns = if headerless {
         headers
+            .enumerate()
+            .map(|(header_no, (string_index, _))| {
+                (string_index, format!("Column{}", header_no + 1))
+            })
+            .collect::<Vec<(usize, String)>>()
+    } else {
+        headers.collect::<Vec<(usize, String)>>()
     };
 
     Some(
         lines
             .map(|l| {
-                header_row
+                columns
                     .iter()
-                    .zip(
-                        l.split(&separator)
-                            .map(|s| s.trim())
-                            .filter(|s| !s.is_empty()),
-                    )
-                    .map(|(a, b)| (String::from(a), String::from(b)))
+                    .enumerate()
+                    .filter_map(|(i, (start, col))| {
+                        (match columns.get(i + 1) {
+                            Some((end, _)) => l.get(*start..*end),
+                            None => l.get(*start..),
+                        })
+                        .and_then(|s| Some((col.clone(), String::from(s.trim()))))
+                    })
                     .collect()
             })
             .collect(),
@@ -171,9 +177,9 @@ mod tests {
 
             a       b
 
-            1    2
+            1       2
 
-            3 4
+            3       4
         "#;
         let result = string_to_table(input, false, 1);
         assert_eq!(
@@ -182,6 +188,20 @@ mod tests {
                 vec![owned("a", "1"), owned("b", "2")],
                 vec![owned("a", "3"), owned("b", "4")]
             ])
+        );
+    }
+
+    #[test]
+    fn it_deals_with_single_column_input() {
+        let input = r#"
+            a
+            1
+            2
+        "#;
+        let result = string_to_table(input, false, 1);
+        assert_eq!(
+            result,
+            Some(vec![vec![owned("a", "1")], vec![owned("a", "2")]])
         );
     }
 
@@ -206,15 +226,15 @@ mod tests {
     fn it_returns_none_given_an_empty_string() {
         let input = "";
         let result = string_to_table(input, true, 1);
-        assert_eq!(result, None);
+        assert!(result.is_none());
     }
 
     #[test]
     fn it_allows_a_predefined_number_of_spaces() {
         let input = r#"
             column a   column b
-            entry 1   entry number  2
-            3   four
+            entry 1    entry number  2
+            3          four
         "#;
 
         let result = string_to_table(input, false, 3);
@@ -240,11 +260,57 @@ mod tests {
         let trimmed = |s: &str| s.trim() == s;
 
         let result = string_to_table(input, false, 2).unwrap();
+        assert!(result
+            .iter()
+            .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b))))
+    }
+
+    #[test]
+    fn it_keeps_empty_columns() {
+        let input = r#"
+            colA   col B     col C
+                   val2      val3
+            val4   val 5     val 6
+            val7             val8
+        "#;
+
+        let result = string_to_table(input, false, 2).unwrap();
         assert_eq!(
-            true,
-            result
-                .iter()
-                .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b)))
+            result,
+            vec![
+                vec![
+                    owned("colA", ""),
+                    owned("col B", "val2"),
+                    owned("col C", "val3")
+                ],
+                vec![
+                    owned("colA", "val4"),
+                    owned("col B", "val 5"),
+                    owned("col C", "val 6")
+                ],
+                vec![
+                    owned("colA", "val7"),
+                    owned("col B", ""),
+                    owned("col C", "val8")
+                ],
+            ]
+        )
+    }
+
+    #[test]
+    fn it_uses_the_full_final_column() {
+        let input = r#"
+            colA   col B
+            val1   val2   trailing value that should be included
+        "#;
+
+        let result = string_to_table(input, false, 2).unwrap();
+        assert_eq!(
+            result,
+            vec![vec![
+                owned("colA", "val1"),
+                owned("col B", "val2   trailing value that should be included"),
+            ],]
         )
     }
 }
