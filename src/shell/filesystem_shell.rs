@@ -8,11 +8,11 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
-use trash as SendToTrash;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
+use trash as SendToTrash;
 
 pub struct FilesystemShell {
     pub(crate) path: String,
@@ -861,7 +861,11 @@ impl Shell for FilesystemShell {
 
     fn rm(
         &self,
-        RemoveArgs { target, recursive, trash }: RemoveArgs,
+        RemoveArgs {
+            target,
+            recursive,
+            trash,
+        }: RemoveArgs,
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
