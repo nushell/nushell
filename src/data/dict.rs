@@ -89,6 +89,17 @@ impl Dictionary {
         }
     }
 
+    pub(crate) fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Tagged<Value>> {
+        match self
+            .entries
+            .iter_mut()
+            .find(|(desc_name, _)| *desc_name == name)
+        {
+            Some((_, v)) => Some(v),
+            None => None,
+        }
+    }
+
     pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut debug = f.debug_struct("Dictionary");
 
