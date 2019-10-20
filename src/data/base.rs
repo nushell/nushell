@@ -497,6 +497,28 @@ impl Value {
         }
     }
 
+    pub(crate) fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Tagged<Value>> {
+        match self {
+            Value::Row(ref mut o) => o.get_mut_data_by_key(name),
+            Value::Table(ref mut l) => {
+                for item in l {
+                    match item {
+                        Tagged {
+                            item: Value::Row(ref mut o),
+                            ..
+                        } => match o.get_mut_data_by_key(name) {
+                            Some(v) => return Some(v),
+                            None => {}
+                        },
+                        _ => {}
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
     pub fn get_data_by_column_path(
         &self,
         tag: Tag,
@@ -504,18 +526,6 @@ impl Value {
     ) -> Option<Tagged<&Value>> {
         let mut current = self;
         for p in path {
-            match current.get_data_by_key(p) {
-                Some(v) => current = v,
-                None => return None,
-            }
-        }
-
-        Some(current.tagged(tag))
-    }
-
-    pub fn get_data_by_path(&self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
-        let mut current = self;
-        for p in path.split(".") {
             match current.get_data_by_key(p) {
                 Some(v) => current = v,
                 None => return None,
@@ -629,41 +639,6 @@ impl Value {
         None
     }
 
-    pub fn replace_data_at_path(
-        &self,
-        tag: Tag,
-        path: &str,
-        replaced_value: Value,
-    ) -> Option<Tagged<Value>> {
-        let mut new_obj = self.clone();
-
-        let split_path: Vec<_> = path.split(".").collect();
-
-        if let Value::Row(ref mut o) = new_obj {
-            let mut current = o;
-            for idx in 0..split_path.len() {
-                match current.entries.get_mut(split_path[idx]) {
-                    Some(next) => {
-                        if idx == (split_path.len() - 1) {
-                            *next = replaced_value.tagged(&tag);
-                            return Some(new_obj.tagged(&tag));
-                        } else {
-                            match next.item {
-                                Value::Row(ref mut o) => {
-                                    current = o;
-                                }
-                                _ => return None,
-                            }
-                        }
-                    }
-                    _ => return None,
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn replace_data_at_column_path(
         &self,
         tag: Tag,
@@ -671,34 +646,20 @@ impl Value {
         replaced_value: Value,
     ) -> Option<Tagged<Value>> {
         let mut new_obj = self.clone();
+        let mut current = &mut new_obj;
 
-        if let Value::Row(ref mut o) = new_obj {
-            let mut current = o;
-            for idx in 0..split_path.len() {
-                match current.entries.get_mut(&split_path[idx].item) {
-                    Some(next) => {
-                        if idx == (split_path.len() - 1) {
-                            *next = replaced_value.tagged(&tag);
-                            return Some(new_obj.tagged(&tag));
-                        } else {
-                            match next.item {
-                                Value::Row(ref mut o) => {
-                                    current = o;
-                                }
-                                Value::Table(ref mut l) => match l.get_mut(0) {
-                                    Some(Tagged {
-                                        item: Value::Row(ref mut dict),
-                                        ..
-                                    }) => {
-                                        current = dict;
-                                    }
-                                    _ => return None,
-                                },
-                                _ => return None,
-                            }
-                        }
+        for idx in 0..split_path.len() {
+            match current.get_mut_data_by_key(&split_path[idx].item) {
+                Some(next) => {
+                    if idx == (split_path.len() - 1) {
+                        *next = replaced_value.tagged(&tag);
+                        return Some(new_obj.tagged(&tag));
+                    } else {
+                        current = &mut next.item;
                     }
-                    _ => return None,
+                }
+                None => {
+                    return None;
                 }
             }
         }
@@ -785,13 +746,7 @@ impl Value {
     }
 
     pub fn table(list: &Vec<Tagged<Value>>) -> Value {
-        let mut out = vec![];
-
-        for v in list {
-            out.push(v.clone());
-        }
-
-        Value::Table(out)
+        Value::Table(list.to_vec())
     }
 
     pub fn string(s: impl Into<String>) -> Value {
@@ -972,86 +927,193 @@ mod tests {
     }
 
     fn column_path(paths: &Vec<Tagged<Value>>) -> Tagged<Vec<Tagged<String>>> {
-        let paths = paths
-            .iter()
-            .map(|p| string(p.as_string().unwrap()))
-            .collect();
-        let table = table(&paths);
-        table.as_column_path().unwrap()
+        table(
+            &paths
+                .iter()
+                .map(|p| string(p.as_string().unwrap()))
+                .collect(),
+        )
+        .as_column_path()
+        .unwrap()
     }
+
     #[test]
-    fn gets_the_matching_field_from_a_row() {
-        let field = "amigos";
+    fn gets_matching_field_from_a_row() {
+        let row = Value::row(indexmap! {
+            "amigos".into() => table(&vec![string("andres"),string("jonathan"),string("yehuda")])
+        });
+
+        assert_eq!(
+            *row.get_data_by_key("amigos").unwrap(),
+            table(&vec![
+                string("andres"),
+                string("jonathan"),
+                string("yehuda")
+            ])
+        );
+    }
+
+    #[test]
+    fn gets_matching_field_from_nested_rows_inside_a_row() {
+        let field_path = column_path(&vec![string("package"), string("version")]);
+
+        let (version, tag) = string("0.4.0").into_parts();
 
         let row = Value::row(indexmap! {
-            field.into() => table(&vec![
+            "package".into() =>
+                row(indexmap! {
+                    "name".into()    =>     string("nu"),
+                    "version".into() =>  string("0.4.0")
+                })
+        });
+
+        assert_eq!(
+            **row.get_data_by_column_path(tag, &field_path).unwrap(),
+            version
+        )
+    }
+
+    #[test]
+    fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() {
+        let field_path = column_path(&vec![string("package"), string("authors"), string("name")]);
+
+        let (name, tag) = string("Andrés N. Robalino").into_parts();
+
+        let row = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+                "authors".into() => table(&vec![
+                    row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
+                    row(indexmap!{"name".into() => string("Jonathan Turner")}),
+                    row(indexmap!{"name".into() => string("Yehuda Katz")})
+                ])
+            })
+        });
+
+        assert_eq!(
+            **row.get_data_by_column_path(tag, &field_path).unwrap(),
+            name
+        )
+    }
+
+    #[test]
+    fn replaces_matching_field_from_a_row() {
+        let field_path = column_path(&vec![string("amigos")]);
+
+        let sample = Value::row(indexmap! {
+            "amigos".into() => table(&vec![
                 string("andres"),
                 string("jonathan"),
                 string("yehuda"),
             ]),
         });
 
-        assert_eq!(
-            table(&vec![
-                string("andres"),
-                string("jonathan"),
-                string("yehuda")
-            ]),
-            *row.get_data_by_key(field).unwrap()
-        );
+        let (replacement, tag) = string("jonas").into_parts();
+
+        let actual = sample
+            .replace_data_at_column_path(tag, &field_path, replacement)
+            .unwrap();
+
+        assert_eq!(actual, row(indexmap! {"amigos".into() => string("jonas")}));
     }
 
     #[test]
-    fn gets_the_first_row_with_matching_field_from_rows_inside_a_table() {
-        let field = "name";
-
-        let table = Value::table(&vec![
-            row(indexmap! {field.into() =>   string("andres")}),
-            row(indexmap! {field.into() => string("jonathan")}),
-            row(indexmap! {field.into() =>   string("yehuda")}),
+    fn replaces_matching_field_from_nested_rows_inside_a_row() {
+        let field_path = column_path(&vec![
+            string("package"),
+            string("authors"),
+            string("los.3.caballeros"),
         ]);
 
-        assert_eq!(string("andres"), *table.get_data_by_key(field).unwrap());
-    }
-
-    #[test]
-    fn gets_the_matching_field_from_nested_rows_inside_a_row() {
-        let _field = "package.version";
-        let field = vec![string("package"), string("version")];
-        let field = column_path(&field);
-
-        let (version, tag) = string("0.4.0").into_parts();
-
-        let row = Value::row(indexmap! {
-            "package".into() => row(indexmap!{
-                "name".into() => string("nu"),
-                "version".into() => string("0.4.0"),
+        let sample = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "authors".into() => row(indexmap! {
+                    "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.amigos".into() => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.caballeros".into() => table(&vec![string("andres::yehuda::jonathan")])
+                })
             })
         });
 
-        assert_eq!(version, **row.get_data_by_column_path(tag, &field).unwrap())
+        let (replacement, tag) = table(&vec![string("yehuda::jonathan::andres")]).into_parts();
+
+        let actual = sample
+            .replace_data_at_column_path(tag.clone(), &field_path, replacement.clone())
+            .unwrap();
+
+        assert_eq!(
+            actual,
+            Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "authors".into() => row(indexmap! {
+                    "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.amigos".into()      => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.caballeros".into()  => replacement.tagged(&tag)})})})
+            .tagged(tag)
+        );
     }
-
     #[test]
-    fn gets_the_first_row_with_matching_field_from_nested_rows_inside_a_table() {
-        let _field = "package.authors.name";
-        let field = vec![string("package"), string("authors"), string("name")];
-        let field = column_path(&field);
+    fn replaces_matching_field_from_rows_inside_a_table() {
+        let field_path = column_path(&vec![
+            string("shell_policy"),
+            string("releases"),
+            string("nu.version.arepa"),
+        ]);
 
-        let (name, tag) = string("Andrés N. Robalino").into_parts();
-
-        let row = Value::row(indexmap! {
-            "package".into() => row(indexmap!{
-                "authors".into() => table(&vec![
-                    row(indexmap!{"name".into()=> string("Andrés N. Robalino")}),
-                    row(indexmap!{"name".into()=> string("Jonathan Turner")}),
-                    row(indexmap!{"name".into() => string("Yehuda Katz")})
-                ]),
-                "name".into() => string("nu"),
-                "version".into() => string("0.4.0"),
+        let sample = Value::row(indexmap! {
+            "shell_policy".into() => row(indexmap! {
+                "releases".into() => table(&vec![
+                    row(indexmap! {
+                        "nu.version.arepa".into() => row(indexmap! {
+                            "code".into() => string("0.4.0"), "tag_line".into() => string("GitHub-era")
+                        })
+                    }),
+                    row(indexmap! {
+                        "nu.version.taco".into() => row(indexmap! {
+                            "code".into() => string("0.3.0"), "tag_line".into() => string("GitHub-era")
+                        })
+                    }),
+                    row(indexmap! {
+                        "nu.version.stable".into() => row(indexmap! {
+                            "code".into() => string("0.2.0"), "tag_line".into() => string("GitHub-era")
+                        })
+                    })
+                ])
             })
         });
 
-        assert_eq!(name, **row.get_data_by_column_path(tag, &field).unwrap())
+        let (replacement, tag) = row(indexmap! {
+            "code".into() => string("0.5.0"),
+            "tag_line".into() => string("CABALLEROS")
+        })
+        .into_parts();
+
+        let actual = sample
+            .replace_data_at_column_path(tag.clone(), &field_path, replacement.clone())
+            .unwrap();
+
+        assert_eq!(
+            actual,
+            Value::row(indexmap! {
+                "shell_policy".into() => row(indexmap! {
+                    "releases".into() => table(&vec![
+                        row(indexmap! {
+                            "nu.version.arepa".into() => replacement.tagged(&tag)
+                        }),
+                        row(indexmap! {
+                            "nu.version.taco".into() => row(indexmap! {
+                                "code".into() => string("0.3.0"), "tag_line".into() => string("GitHub-era")
+                            })
+                        }),
+                        row(indexmap! {
+                            "nu.version.stable".into() => row(indexmap! {
+                                "code".into() => string("0.2.0"), "tag_line".into() => string("GitHub-era")
+                            })
+                        })
+                    ])
+                })
+            }).tagged(&tag)
+        );
     }
 }
