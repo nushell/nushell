@@ -249,10 +249,12 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | add column-or-column-path value | Add a new column to the table |
+| count | Show the total number of cells |
 | edit column-or-column-path value | Edit an existing column to have a new value |
 | embed column | Creates a new table of one column with the given name, and places the current table inside of it |
 | first amount | Show only the first number of rows |
 | get column-or-column-path | Open column and get data from the corresponding cells |
+| group-by column | Creates a new table with the data from the table rows grouped by the column given |
 | inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
 | last amount | Show only the last number of rows |
 | nth row-number | Return only the selected row |

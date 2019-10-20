@@ -20,7 +20,7 @@ impl WholeStreamCommand for Count {
     }
 
     fn usage(&self) -> &str {
-        "Show the total number of rows."
+        "Show the total number of cells."
     }
 
     fn run(
