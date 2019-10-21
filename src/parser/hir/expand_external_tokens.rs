@@ -61,6 +61,10 @@ impl ColorSyntax for ExternalTokensShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "ExternalTokensShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -192,6 +196,10 @@ impl ColorSyntax for ExternalExpression {
     type Info = ExternalExpressionResult;
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "ExternalExpression"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -212,7 +220,7 @@ impl ColorSyntax for ExternalExpression {
             Ok(atom) => atom,
         };
 
-        atom.color_tokens(token_nodes.mut_shapes());
+        token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes));
         return ExternalExpressionResult::Processed;
     }
 }

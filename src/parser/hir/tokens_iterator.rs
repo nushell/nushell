@@ -1,23 +1,35 @@
 pub(crate) mod debug;
 
+use self::debug::Tracer;
 use crate::errors::ShellError;
 #[cfg(coloring_in_tokens)]
 use crate::parser::hir::syntax_shape::FlatShape;
 use crate::parser::TokenNode;
+use crate::prelude::*;
 use crate::{Span, Spanned, SpannedItem};
 #[allow(unused)]
-use getset::Getters;
+use getset::{Getters, MutGetters};
 
 #[derive(Getters, Debug)]
-pub struct TokensIterator<'content> {
+pub struct TokensIteratorState<'content> {
     tokens: &'content [TokenNode],
     span: Span,
     skip_ws: bool,
     index: usize,
     seen: indexmap::IndexSet<usize>,
     #[cfg(coloring_in_tokens)]
-    #[get = "pub"]
+    #[cfg_attr(coloring_in_tokens, get = "pub")]
     shapes: Vec<Spanned<FlatShape>>,
+}
+
+#[derive(Getters, MutGetters, Debug)]
+pub struct TokensIterator<'content> {
+    #[get = "pub"]
+    #[get_mut = "pub"]
+    state: TokensIteratorState<'content>,
+    #[get = "pub"]
+    #[get_mut = "pub"]
+    tracer: Tracer,
 }
 
 #[derive(Debug)]
@@ -39,10 +51,12 @@ impl<'content, 'me> Checkpoint<'content, 'me> {
 impl<'content, 'me> std::ops::Drop for Checkpoint<'content, 'me> {
     fn drop(&mut self) {
         if !self.committed {
-            self.iterator.index = self.index;
-            self.iterator.seen = self.seen.clone();
+            let state = &mut self.iterator.state;
+
+            state.index = self.index;
+            state.seen = self.seen.clone();
             #[cfg(coloring_in_tokens)]
-            self.iterator.shapes.truncate(self.shape_start);
+            state.shapes.truncate(self.shape_start);
         }
     }
 }
@@ -138,13 +152,16 @@ impl<'content> TokensIterator<'content> {
         skip_ws: bool,
     ) -> TokensIterator<'content> {
         TokensIterator {
-            tokens: items,
-            span,
-            skip_ws,
-            index: 0,
-            seen: indexmap::IndexSet::new(),
-            #[cfg(coloring_in_tokens)]
-            shapes: vec![],
+            state: TokensIteratorState {
+                tokens: items,
+                span,
+                skip_ws,
+                index: 0,
+                seen: indexmap::IndexSet::new(),
+                #[cfg(coloring_in_tokens)]
+                shapes: vec![],
+            },
+            tracer: Tracer::new(),
         }
     }
 
@@ -153,7 +170,7 @@ impl<'content> TokensIterator<'content> {
     }
 
     pub fn len(&self) -> usize {
-        self.tokens.len()
+        self.state.tokens.len()
     }
 
     pub fn spanned<T>(
@@ -171,35 +188,146 @@ impl<'content> TokensIterator<'content> {
 
     #[cfg(coloring_in_tokens)]
     pub fn color_shape(&mut self, shape: Spanned<FlatShape>) {
-        self.shapes.push(shape);
+        self.with_tracer(|_, tracer| tracer.add_shape(shape));
+        self.state.shapes.push(shape);
     }
 
     #[cfg(coloring_in_tokens)]
-    pub fn mut_shapes(&mut self) -> &mut Vec<Spanned<FlatShape>> {
-        &mut self.shapes
+    pub fn mutate_shapes(&mut self, block: impl FnOnce(&mut Vec<Spanned<FlatShape>>)) {
+        let new_shapes: Vec<Spanned<FlatShape>> = {
+            let shapes = &mut self.state.shapes;
+            let len = shapes.len();
+            block(shapes);
+            (len..(shapes.len())).map(|i| shapes[i]).collect()
+        };
+
+        self.with_tracer(|_, tracer| {
+            for shape in new_shapes {
+                tracer.add_shape(shape)
+            }
+        });
     }
 
     #[cfg(coloring_in_tokens)]
-    pub fn child<T>(
-        &mut self,
-        tokens: Spanned<&'content [TokenNode]>,
-        block: impl FnOnce(&mut TokensIterator) -> T,
+    pub fn silently_mutate_shapes(&mut self, block: impl FnOnce(&mut Vec<Spanned<FlatShape>>)) {
+        let shapes = &mut self.state.shapes;
+        block(shapes);
+    }
+
+    #[cfg(coloring_in_tokens)]
+    pub fn sort_shapes(&mut self) {
+        // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
+        // this solution.
+
+        self.state
+            .shapes
+            .sort_by(|a, b| a.span.start().cmp(&b.span.start()));
+    }
+
+    #[cfg(coloring_in_tokens)]
+    pub fn child<'me, T>(
+        &'me mut self,
+        tokens: Spanned<&'me [TokenNode]>,
+        block: impl FnOnce(&mut TokensIterator<'me>) -> T,
     ) -> T {
         let mut shapes = vec![];
-        std::mem::swap(&mut shapes, &mut self.shapes);
+        std::mem::swap(&mut shapes, &mut self.state.shapes);
+
+        let mut tracer = Tracer::new();
+        std::mem::swap(&mut tracer, &mut self.tracer);
 
         let mut iterator = TokensIterator {
-            tokens: tokens.item,
-            span: tokens.span,
-            skip_ws: false,
-            index: 0,
-            seen: indexmap::IndexSet::new(),
-            shapes,
+            state: TokensIteratorState {
+                tokens: tokens.item,
+                span: tokens.span,
+                skip_ws: false,
+                index: 0,
+                seen: indexmap::IndexSet::new(),
+                shapes,
+            },
+            tracer,
         };
 
         let result = block(&mut iterator);
 
-        std::mem::swap(&mut iterator.shapes, &mut self.shapes);
+        std::mem::swap(&mut iterator.state.shapes, &mut self.state.shapes);
+        std::mem::swap(&mut iterator.tracer, &mut self.tracer);
+
+        result
+    }
+
+    #[cfg(not(coloring_in_tokens))]
+    pub fn child<'me, T>(
+        &'me mut self,
+        tokens: Spanned<&'me [TokenNode]>,
+        block: impl FnOnce(&mut TokensIterator<'me>) -> T,
+    ) -> T {
+        let mut tracer = Tracer::new();
+        std::mem::swap(&mut tracer, &mut self.tracer);
+
+        let mut iterator = TokensIterator {
+            state: TokensIteratorState {
+                tokens: tokens.item,
+                span: tokens.span,
+                skip_ws: false,
+                index: 0,
+                seen: indexmap::IndexSet::new(),
+            },
+            tracer,
+        };
+
+        let result = block(&mut iterator);
+
+        std::mem::swap(&mut iterator.tracer, &mut self.tracer);
+
+        result
+    }
+
+    pub fn with_tracer(&mut self, block: impl FnOnce(&mut TokensIteratorState, &mut Tracer)) {
+        let state = &mut self.state;
+        let tracer = &mut self.tracer;
+
+        block(state, tracer)
+    }
+
+    #[cfg(coloring_in_tokens)]
+    pub fn color_frame<T>(
+        &mut self,
+        desc: &'static str,
+        block: impl FnOnce(&mut TokensIterator) -> T,
+    ) -> T {
+        self.with_tracer(|_, tracer| tracer.start(desc));
+
+        let result = block(self);
+
+        self.with_tracer(|_, tracer| {
+            tracer.success();
+        });
+
+        result
+    }
+
+    pub fn color_fallible_frame<T>(
+        &mut self,
+        desc: &'static str,
+        block: impl FnOnce(&mut TokensIterator) -> Result<T, ShellError>,
+    ) -> Result<T, ShellError> {
+        self.with_tracer(|_, tracer| tracer.start(desc));
+
+        if self.at_end() {
+            self.with_tracer(|_, tracer| tracer.eof_frame());
+            return Err(ShellError::unexpected_eof("coloring", Tag::unknown()));
+        }
+
+        let result = block(self);
+
+        self.with_tracer(|_, tracer| match &result {
+            Ok(_) => {
+                tracer.success();
+            }
+
+            Err(err) => tracer.failed(err),
+        });
 
         result
     }
@@ -207,10 +335,12 @@ impl<'content> TokensIterator<'content> {
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
     /// that you'll succeed.
     pub fn checkpoint<'me>(&'me mut self) -> Checkpoint<'content, 'me> {
-        let index = self.index;
+        let state = &mut self.state;
+
+        let index = state.index;
         #[cfg(coloring_in_tokens)]
-        let shape_start = self.shapes.len();
-        let seen = self.seen.clone();
+        let shape_start = state.shapes.len();
+        let seen = state.seen.clone();
 
         Checkpoint {
             iterator: self,
@@ -228,10 +358,12 @@ impl<'content> TokensIterator<'content> {
         &'me mut self,
         block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
     ) -> Result<T, ShellError> {
-        let index = self.index;
+        let state = &mut self.state;
+
+        let index = state.index;
         #[cfg(coloring_in_tokens)]
-        let shape_start = self.shapes.len();
-        let seen = self.seen.clone();
+        let shape_start = state.shapes.len();
+        let seen = state.seen.clone();
 
         let checkpoint = Checkpoint {
             iterator: self,
@@ -255,11 +387,11 @@ impl<'content> TokensIterator<'content> {
         &'me mut self,
         block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
     ) -> (Result<T, ShellError>, Vec<Spanned<FlatShape>>) {
-        let index = self.index;
+        let index = self.state.index;
         let mut shapes = vec![];
 
-        let seen = self.seen.clone();
-        std::mem::swap(&mut self.shapes, &mut shapes);
+        let seen = self.state.seen.clone();
+        std::mem::swap(&mut self.state.shapes, &mut shapes);
 
         let checkpoint = Checkpoint {
             iterator: self,
@@ -274,7 +406,7 @@ impl<'content> TokensIterator<'content> {
         let value = match value {
             Err(err) => {
                 drop(checkpoint);
-                std::mem::swap(&mut self.shapes, &mut shapes);
+                std::mem::swap(&mut self.state.shapes, &mut shapes);
                 return (Err(err), vec![]);
             }
 
@@ -282,12 +414,12 @@ impl<'content> TokensIterator<'content> {
         };
 
         checkpoint.commit();
-        std::mem::swap(&mut self.shapes, &mut shapes);
+        std::mem::swap(&mut self.state.shapes, &mut shapes);
         return (Ok(value), shapes);
     }
 
     fn eof_span(&self) -> Span {
-        Span::new(self.span.end(), self.span.end())
+        Span::new(self.state.span.end(), self.state.span.end())
     }
 
     pub fn typed_span_at_cursor(&mut self) -> Spanned<&'static str> {
@@ -297,6 +429,10 @@ impl<'content> TokensIterator<'content> {
             None => "end".spanned(self.eof_span()),
             Some(node) => node.spanned_type_name(),
         }
+    }
+
+    pub fn whole_span(&self) -> Span {
+        self.state.span
     }
 
     pub fn span_at_cursor(&mut self) -> Span {
@@ -309,11 +445,11 @@ impl<'content> TokensIterator<'content> {
     }
 
     pub fn remove(&mut self, position: usize) {
-        self.seen.insert(position);
+        self.state.seen.insert(position);
     }
 
     pub fn at_end(&self) -> bool {
-        peek(self, self.skip_ws).is_none()
+        peek(self, self.state.skip_ws).is_none()
     }
 
     pub fn at_end_possible_ws(&self) -> bool {
@@ -321,13 +457,15 @@ impl<'content> TokensIterator<'content> {
     }
 
     pub fn advance(&mut self) {
-        self.seen.insert(self.index);
-        self.index += 1;
+        self.state.seen.insert(self.state.index);
+        self.state.index += 1;
     }
 
     pub fn extract<T>(&mut self, f: impl Fn(&TokenNode) -> Option<T>) -> Option<(usize, T)> {
-        for (i, item) in self.tokens.iter().enumerate() {
-            if self.seen.contains(&i) {
+        let state = &mut self.state;
+
+        for (i, item) in state.tokens.iter().enumerate() {
+            if state.seen.contains(&i) {
                 continue;
             }
 
@@ -336,7 +474,7 @@ impl<'content> TokensIterator<'content> {
                     continue;
                 }
                 Some(value) => {
-                    self.seen.insert(i);
+                    state.seen.insert(i);
                     return Some((i, value));
                 }
             }
@@ -346,22 +484,26 @@ impl<'content> TokensIterator<'content> {
     }
 
     pub fn move_to(&mut self, pos: usize) {
-        self.index = pos;
+        self.state.index = pos;
     }
 
     pub fn restart(&mut self) {
-        self.index = 0;
+        self.state.index = 0;
     }
 
     pub fn clone(&self) -> TokensIterator<'content> {
+        let state = &self.state;
         TokensIterator {
-            tokens: self.tokens,
-            span: self.span,
-            index: self.index,
-            seen: self.seen.clone(),
-            skip_ws: self.skip_ws,
-            #[cfg(coloring_in_tokens)]
-            shapes: self.shapes.clone(),
+            state: TokensIteratorState {
+                tokens: state.tokens,
+                span: state.span,
+                index: state.index,
+                seen: state.seen.clone(),
+                skip_ws: state.skip_ws,
+                #[cfg(coloring_in_tokens)]
+                shapes: state.shapes.clone(),
+            },
+            tracer: self.tracer.clone(),
         }
     }
 
@@ -384,10 +526,11 @@ impl<'content> TokensIterator<'content> {
     // Peek the next token, including whitespace, but not EOF
     pub fn peek_any_token<'me, T>(
         &'me mut self,
+        expected: &'static str,
         block: impl FnOnce(&'content TokenNode) -> Result<T, ShellError>,
     ) -> Result<T, ShellError> {
         let peeked = start_next(self, false);
-        let peeked = peeked.not_eof("invariant");
+        let peeked = peeked.not_eof(expected);
 
         match peeked {
             Err(err) => return Err(err),
@@ -403,10 +546,10 @@ impl<'content> TokensIterator<'content> {
 
     fn commit(&mut self, from: usize, to: usize) {
         for index in from..to {
-            self.seen.insert(index);
+            self.state.seen.insert(index);
         }
 
-        self.index = to;
+        self.state.index = to;
     }
 
     pub fn pos(&self, skip_ws: bool) -> Option<usize> {
@@ -424,7 +567,7 @@ impl<'content> Iterator for TokensIterator<'content> {
     type Item = &'content TokenNode;
 
     fn next(&mut self) -> Option<&'content TokenNode> {
-        next(self, self.skip_ws)
+        next(self, self.state.skip_ws)
     }
 }
 
@@ -432,23 +575,25 @@ fn peek<'content, 'me>(
     iterator: &'me TokensIterator<'content>,
     skip_ws: bool,
 ) -> Option<&'me TokenNode> {
-    let mut to = iterator.index;
+    let state = iterator.state();
+
+    let mut to = state.index;
 
     loop {
-        if to >= iterator.tokens.len() {
+        if to >= state.tokens.len() {
             return None;
         }
 
-        if iterator.seen.contains(&to) {
+        if state.seen.contains(&to) {
             to += 1;
             continue;
         }
 
-        if to >= iterator.tokens.len() {
+        if to >= state.tokens.len() {
             return None;
         }
 
-        let node = &iterator.tokens[to];
+        let node = &state.tokens[to];
 
         match node {
             TokenNode::Whitespace(_) if skip_ws => {
@@ -465,23 +610,25 @@ fn peek_pos<'content, 'me>(
     iterator: &'me TokensIterator<'content>,
     skip_ws: bool,
 ) -> Option<usize> {
-    let mut to = iterator.index;
+    let state = iterator.state();
+
+    let mut to = state.index;
 
     loop {
-        if to >= iterator.tokens.len() {
+        if to >= state.tokens.len() {
             return None;
         }
 
-        if iterator.seen.contains(&to) {
+        if state.seen.contains(&to) {
             to += 1;
             continue;
         }
 
-        if to >= iterator.tokens.len() {
+        if to >= state.tokens.len() {
             return None;
         }
 
-        let node = &iterator.tokens[to];
+        let node = &state.tokens[to];
 
         match node {
             TokenNode::Whitespace(_) if skip_ws => {
@@ -496,11 +643,13 @@ fn start_next<'content, 'me>(
     iterator: &'me mut TokensIterator<'content>,
     skip_ws: bool,
 ) -> Peeked<'content, 'me> {
-    let from = iterator.index;
-    let mut to = iterator.index;
+    let state = iterator.state();
+
+    let from = state.index;
+    let mut to = state.index;
 
     loop {
-        if to >= iterator.tokens.len() {
+        if to >= state.tokens.len() {
             return Peeked {
                 node: None,
                 iterator,
@@ -509,12 +658,12 @@ fn start_next<'content, 'me>(
             };
         }
 
-        if iterator.seen.contains(&to) {
+        if state.seen.contains(&to) {
             to += 1;
             continue;
         }
 
-        if to >= iterator.tokens.len() {
+        if to >= state.tokens.len() {
             return Peeked {
                 node: None,
                 iterator,
@@ -523,7 +672,7 @@ fn start_next<'content, 'me>(
             };
         }
 
-        let node = &iterator.tokens[to];
+        let node = &state.tokens[to];
 
         match node {
             TokenNode::Whitespace(_) if skip_ws => {
@@ -547,20 +696,20 @@ fn next<'me, 'content>(
     skip_ws: bool,
 ) -> Option<&'content TokenNode> {
     loop {
-        if iterator.index >= iterator.tokens.len() {
+        if iterator.state().index >= iterator.state().tokens.len() {
             return None;
         }
 
-        if iterator.seen.contains(&iterator.index) {
+        if iterator.state().seen.contains(&iterator.state().index) {
             iterator.advance();
             continue;
         }
 
-        if iterator.index >= iterator.tokens.len() {
+        if iterator.state().index >= iterator.state().tokens.len() {
             return None;
         }
 
-        match &iterator.tokens[iterator.index] {
+        match &iterator.state().tokens[iterator.state().index] {
             TokenNode::Whitespace(_) if skip_ws => {
                 iterator.advance();
             }

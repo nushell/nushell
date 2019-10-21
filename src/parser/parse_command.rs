@@ -90,11 +90,11 @@ pub fn parse_command_tail(
     let mut positional = vec![];
 
     for arg in &config.positional {
-        trace!("Processing positional {:?}", arg);
+        trace!(target: "nu::parse", "Processing positional {:?}", arg);
 
         match arg {
             PositionalType::Mandatory(..) => {
-                if tail.at_end() {
+                if tail.at_end_possible_ws() {
                     return Err(ShellError::argument_error(
                         config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.name().to_string()),
@@ -107,7 +107,7 @@ pub fn parse_command_tail(
             }
 
             PositionalType::Optional(..) => {
-                if tail.at_end() {
+                if tail.at_end_possible_ws() {
                     break;
                 }
             }
@@ -138,7 +138,7 @@ pub fn parse_command_tail(
 
     trace_remaining("after rest", tail.clone(), context.source());
 
-    trace!("Constructed positional={:?} named={:?}", positional, named);
+    trace!(target: "nu::parse", "Constructed positional={:?} named={:?}", positional, named);
 
     let positional = if positional.len() == 0 {
         None
@@ -154,7 +154,7 @@ pub fn parse_command_tail(
         Some(named)
     };
 
-    trace!("Normalized positional={:?} named={:?}", positional, named);
+    trace!(target: "nu::parse", "Normalized positional={:?} named={:?}", positional, named);
 
     Ok(Some((positional, named)))
 }
@@ -391,6 +391,10 @@ impl ColorSyntax for CommandTailShape {
     type Info = ();
     type Input = Signature;
 
+    fn name(&self) -> &'static str {
+        "CommandTailShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         signature: &Signature,
@@ -427,10 +431,7 @@ impl ColorSyntax for CommandTailShape {
                                 token_nodes.move_to(pos);
 
                                 if token_nodes.at_end() {
-                                    // args.insert(pos, shapes);
-                                    // token_nodes.restart();
                                     return Ok(());
-                                    // continue;
                                 }
 
                                 // We still want to color the flag even if the following tokens don't match, so don't
@@ -465,10 +466,7 @@ impl ColorSyntax for CommandTailShape {
                                 token_nodes.move_to(pos);
 
                                 if token_nodes.at_end() {
-                                    // args.insert(pos, shapes);
-                                    // token_nodes.restart();
                                     return Ok(());
-                                    // continue;
                                 }
 
                                 // We still want to color the flag even if the following tokens don't match, so don't
@@ -573,16 +571,14 @@ impl ColorSyntax for CommandTailShape {
             }
         }
 
-        args.spread_shapes(token_nodes.mut_shapes());
+        token_nodes.silently_mutate_shapes(|shapes| args.spread_shapes(shapes));
 
         // Consume any remaining tokens with backoff coloring mode
         color_syntax(&BackoffColoringMode, token_nodes, context);
 
         // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
         // this solution.
-        token_nodes
-            .mut_shapes()
-            .sort_by(|a, b| a.span.start().cmp(&b.span.start()));
+        token_nodes.sort_shapes()
     }
 }
 
@@ -633,7 +629,7 @@ fn extract_optional(
 
 pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'_>, source: &Text) {
     trace!(
-        target: "nu::expand_args",
+        target: "nu::parse",
         "{} = {:?}",
         desc,
         itertools::join(

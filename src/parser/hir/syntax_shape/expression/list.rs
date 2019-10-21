@@ -121,6 +121,10 @@ impl ColorSyntax for ExpressionListShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "ExpressionListShape"
+    }
+
     /// The intent of this method is to fully color an expression list shape infallibly.
     /// This means that if we can't expand a token into an expression, we fall back to
     /// a simpler coloring strategy.
@@ -148,12 +152,12 @@ impl ColorSyntax for ExpressionListShape {
             }
 
             if backoff {
-                let len = token_nodes.shapes().len();
+                let len = token_nodes.state().shapes().len();
 
                 // If we previously encountered a parsing error, use backoff coloring mode
                 color_syntax(&SimplestExpression, token_nodes, context);
 
-                if len == token_nodes.shapes().len() && !token_nodes.at_end() {
+                if len == token_nodes.state().shapes().len() && !token_nodes.at_end() {
                     // This should never happen, but if it does, a panic is better than an infinite loop
                     panic!("Unexpected tokens left that couldn't be colored even with SimplestExpression")
                 }
@@ -222,6 +226,10 @@ impl ColorSyntax for BackoffColoringMode {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "BackoffColoringMode"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &Self::Input,
@@ -233,12 +241,12 @@ impl ColorSyntax for BackoffColoringMode {
                 break;
             }
 
-            let len = token_nodes.shapes().len();
+            let len = token_nodes.state().shapes().len();
             color_syntax(&SimplestExpression, token_nodes, context);
 
-            if len == token_nodes.shapes().len() && !token_nodes.at_end() {
+            if len == token_nodes.state().shapes().len() && !token_nodes.at_end() {
                 // This shouldn't happen, but if it does, a panic is better than an infinite loop
-                panic!("SimplestExpression failed to consume any tokens, but it's not at the end. This is unexpected\n== token nodes==\n{:#?}\n\n== shapes ==\n{:#?}", token_nodes, token_nodes.shapes());
+                panic!("SimplestExpression failed to consume any tokens, but it's not at the end. This is unexpected\n== token nodes==\n{:#?}\n\n== shapes ==\n{:#?}", token_nodes, token_nodes.state().shapes());
             }
         }
     }
@@ -281,6 +289,10 @@ impl ColorSyntax for SimplestExpression {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "SimplestExpression"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -296,7 +308,7 @@ impl ColorSyntax for SimplestExpression {
 
         match atom {
             Err(_) => {}
-            Ok(atom) => atom.color_tokens(token_nodes.mut_shapes()),
+            Ok(atom) => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
         }
     }
 }

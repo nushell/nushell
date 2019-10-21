@@ -66,6 +66,10 @@ impl FallibleColorSyntax for AnyBlockShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "AnyBlockShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -85,13 +89,14 @@ impl FallibleColorSyntax for AnyBlockShape {
         match block {
             // If so, color it as a block
             Some((children, spans)) => {
-                let mut token_nodes = TokensIterator::new(children.item, context.span, false);
-                color_syntax_with(
-                    &DelimitedShape,
-                    &(Delimiter::Brace, spans.0, spans.1),
-                    &mut token_nodes,
-                    context,
-                );
+                token_nodes.child(children, |token_nodes| {
+                    color_syntax_with(
+                        &DelimitedShape,
+                        &(Delimiter::Brace, spans.0, spans.1),
+                        token_nodes,
+                        context,
+                    );
+                });
 
                 return Ok(());
             }
@@ -168,6 +173,10 @@ impl FallibleColorSyntax for ShorthandBlock {
 impl FallibleColorSyntax for ShorthandBlock {
     type Info = ();
     type Input = ();
+
+    fn name(&self) -> &'static str {
+        "ShorthandBlock"
+    }
 
     fn color_syntax<'a, 'b>(
         &self,
@@ -263,6 +272,10 @@ impl FallibleColorSyntax for ShorthandPath {
 impl FallibleColorSyntax for ShorthandPath {
     type Info = ();
     type Input = ();
+
+    fn name(&self) -> &'static str {
+        "ShorthandPath"
+    }
 
     fn color_syntax<'a, 'b>(
         &self,

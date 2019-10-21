@@ -5,8 +5,9 @@ use derive_new::new;
 use getset::Getters;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, new)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Getters, new)]
 pub struct Pipeline {
+    #[get = "pub"]
     pub(crate) parts: Vec<Spanned<PipelineElement>>,
     // pub(crate) post_ws: Option<Tag>,
 }
@@ -24,6 +25,7 @@ impl ToDebug for Pipeline {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
 pub struct PipelineElement {
     pub pipe: Option<Span>,
+    #[get = "pub"]
     pub tokens: Spanned<Vec<TokenNode>>,
 }
 

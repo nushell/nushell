@@ -73,9 +73,7 @@ pub fn interactive_fuzzy_search(lines: &Vec<&str>, max_results: usize) -> Select
                                 searchinput.pop();
                                 selected = 0;
                             }
-                            _ => {
-                                // println!("OTHER InputEvent: {:?}", k);
-                            }
+                            _ => {}
                         },
                         _ => {}
                     }

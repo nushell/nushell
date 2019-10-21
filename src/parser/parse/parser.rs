@@ -310,15 +310,6 @@ pub fn bare(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     let next_char = &input.fragment.chars().nth(0);
     let prev_char = last.fragment.chars().nth(0);
 
-    // if let (Some(prev), Some(next)) = (prev_char, next_char) {
-    //     if prev == '.' && is_member_start(*next) {
-    //         return Err(nom::Err::Error(nom::error::make_error(
-    //             input,
-    //             nom::error::ErrorKind::TakeWhile1,
-    //         )));
-    //     }
-    // }
-
     if let Some(next_char) = next_char {
         if is_external_word_char(*next_char) || is_glob_specific_char(*next_char) {
             return Err(nom::Err::Error(nom::error::make_error(
