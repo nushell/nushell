@@ -5,7 +5,7 @@ use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
 use crate::{Span, Spanned, SpannedItem, Tag, Tagged, Text};
 use ansi_term::Color;
-use log::trace;
+use log::{log_enabled, trace};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -33,23 +33,6 @@ impl Completer for Helper {
         self.context.shell_manager.complete(line, pos, ctx)
     }
 }
-
-/*
-impl Completer for Helper {
-    type Candidate = rustyline::completion::Pair;
-
-    fn complete(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-    ) -> Result<(usize, Vec<rustyline::completion::Pair>), ReadlineError> {
-        let result = self.helper.complete(line, pos, ctx);
-
-        result.map(|(x, y)| (x, y.iter().map(|z| z.into()).collect()))
-    }
-}
-*/
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
@@ -103,14 +86,18 @@ impl Highlighter for Helper {
                 let shapes = {
                     // We just constructed a token list that only contains a pipeline, so it can't fail
                     color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context).unwrap();
+                    tokens.with_tracer(|_, tracer| tracer.finish());
 
-                    tokens.shapes()
+                    tokens.state().shapes()
                 };
 
-                trace!(target: "nu::shapes",
-                    "SHAPES :: {:?}",
-                    shapes.iter().map(|shape| shape.item).collect::<Vec<_>>()
-                );
+                trace!(target: "nu::color_syntax", "{:#?}", tokens.tracer());
+
+                if log_enabled!(target: "nu::color_syntax", log::Level::Trace) {
+                    println!("");
+                    ptree::print_tree(&tokens.tracer().clone().print(Text::from(line))).unwrap();
+                    println!("");
+                }
 
                 for shape in shapes {
                     let styled = paint_flat_shape(&shape, line);
@@ -118,18 +105,6 @@ impl Highlighter for Helper {
                 }
 
                 Cow::Owned(out)
-
-                // loop {
-                //     match iter.next() {
-                //         None => {
-                //             return Cow::Owned(out);
-                //         }
-                //         Some(token) => {
-                //             let styled = paint_pipeline_element(&token, line);
-                //             out.push_str(&styled.to_string());
-                //         }
-                //     }
-                // }
             }
         }
     }

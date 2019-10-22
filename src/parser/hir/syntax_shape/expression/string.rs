@@ -45,6 +45,10 @@ impl FallibleColorSyntax for StringShape {
     type Info = ();
     type Input = FlatShape;
 
+    fn name(&self) -> &'static str {
+        "StringShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         input: &FlatShape,
@@ -63,7 +67,7 @@ impl FallibleColorSyntax for StringShape {
                 item: AtomicToken::String { .. },
                 span,
             } => token_nodes.color_shape((*input).spanned(span)),
-            other => other.color_tokens(token_nodes.mut_shapes()),
+            atom => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
         }
 
         Ok(())

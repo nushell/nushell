@@ -52,6 +52,10 @@ impl FallibleColorSyntax for FilePathShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "FilePathShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -78,7 +82,7 @@ impl FallibleColorSyntax for FilePathShape {
                 token_nodes.color_shape(FlatShape::Path.spanned(atom.span));
             }
 
-            _ => atom.color_tokens(token_nodes.mut_shapes()),
+            _ => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
         }
 
         Ok(())

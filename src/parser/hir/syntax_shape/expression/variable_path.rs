@@ -90,6 +90,10 @@ impl FallibleColorSyntax for VariablePathShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "VariablePathShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -165,6 +169,10 @@ impl FallibleColorSyntax for PathTailShape {
 impl FallibleColorSyntax for PathTailShape {
     type Info = ();
     type Input = ();
+
+    fn name(&self) -> &'static str {
+        "PathTailShape"
+    }
 
     fn color_syntax<'a, 'b>(
         &self,
@@ -334,6 +342,10 @@ impl FallibleColorSyntax for ExpressionContinuationShape {
     type Info = ContinuationInfo;
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "ExpressionContinuationShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -445,6 +457,10 @@ impl FallibleColorSyntax for VariableShape {
 impl FallibleColorSyntax for VariableShape {
     type Info = ();
     type Input = ();
+
+    fn name(&self) -> &'static str {
+        "VariableShape"
+    }
 
     fn color_syntax<'a, 'b>(
         &self,
@@ -658,6 +674,10 @@ impl FallibleColorSyntax for ColumnPathShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "ColumnPathShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -758,6 +778,10 @@ impl FallibleColorSyntax for MemberShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "MemberShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -842,6 +866,10 @@ impl FallibleColorSyntax for ColorableDotShape {
 impl FallibleColorSyntax for ColorableDotShape {
     type Info = ();
     type Input = FlatShape;
+
+    fn name(&self) -> &'static str {
+        "ColorableDotShape"
+    }
 
     fn color_syntax<'a, 'b>(
         &self,
@@ -953,6 +981,10 @@ impl FallibleColorSyntax for InfixShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "InfixShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -971,10 +1003,7 @@ impl FallibleColorSyntax for InfixShape {
             |token, token_span, _| {
                 match token {
                     // If it's an operator (and not `.`), it's a match
-                    RawToken::Operator(operator) if operator != Operator::Dot => {
-                        // token_nodes.color_shape(FlatShape::Operator.spanned(token_span));
-                        Ok(token_span)
-                    }
+                    RawToken::Operator(operator) if operator != Operator::Dot => Ok(token_span),
 
                     // Otherwise, it's not a match
                     _ => Err(ShellError::type_error(

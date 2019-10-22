@@ -14,7 +14,6 @@ pub(crate) use parse::files::Files;
 pub(crate) use parse::flag::{Flag, FlagKind};
 pub(crate) use parse::operator::Operator;
 pub(crate) use parse::parser::{nom_input, pipeline};
-pub(crate) use parse::pipeline::{Pipeline, PipelineElement};
 pub(crate) use parse::text::Text;
 pub(crate) use parse::token_tree::{DelimitedNode, Delimiter, TokenNode};
 pub(crate) use parse::tokens::{RawNumber, RawToken};

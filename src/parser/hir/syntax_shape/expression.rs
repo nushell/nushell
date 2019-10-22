@@ -69,6 +69,10 @@ impl FallibleColorSyntax for AnyExpressionShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "AnyExpressionShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -267,6 +271,10 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "AnyExpressionStartShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -315,7 +323,7 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
                 token_nodes.color_shape(FlatShape::Word.spanned(atom.span));
             }
 
-            _ => atom.color_tokens(token_nodes.mut_shapes()),
+            _ => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
         }
 
         Ok(())
@@ -387,13 +395,17 @@ impl FallibleColorSyntax for BareTailShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "BareTailShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Result<(), ShellError> {
-        let len = token_nodes.shapes().len();
+        let len = token_nodes.state().shapes().len();
 
         loop {
             let word =
@@ -422,7 +434,7 @@ impl FallibleColorSyntax for BareTailShape {
             }
         }
 
-        if token_nodes.shapes().len() > len {
+        if token_nodes.state().shapes().len() > len {
             Ok(())
         } else {
             Err(ShellError::syntax_error(

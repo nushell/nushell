@@ -66,6 +66,11 @@ impl ColorSyntax for DelimitedShape {
 impl ColorSyntax for DelimitedShape {
     type Info = ();
     type Input = (Delimiter, Span, Span);
+
+    fn name(&self) -> &'static str {
+        "DelimitedShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         (delimiter, open, close): &(Delimiter, Span, Span),

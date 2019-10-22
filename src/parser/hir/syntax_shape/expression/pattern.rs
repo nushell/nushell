@@ -41,6 +41,10 @@ impl FallibleColorSyntax for PatternShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "PatternShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),

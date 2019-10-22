@@ -3,9 +3,6 @@ use log::LevelFilter;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    #[cfg(feature1)]
-    println!("feature1 is enabled");
-
     let matches = App::new("nushell")
         .version(clap::crate_version!())
         .arg(

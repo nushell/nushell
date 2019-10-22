@@ -79,6 +79,10 @@ impl FallibleColorSyntax for NumberShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "NumberShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -97,7 +101,7 @@ impl FallibleColorSyntax for NumberShape {
             Spanned { item: Ok(atom), .. } => atom,
         };
 
-        atom.color_tokens(token_nodes.mut_shapes());
+        token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes));
 
         Ok(())
     }
@@ -171,6 +175,10 @@ impl FallibleColorSyntax for IntShape {
     type Info = ();
     type Input = ();
 
+    fn name(&self) -> &'static str {
+        "IntShape"
+    }
+
     fn color_syntax<'a, 'b>(
         &self,
         _input: &(),
@@ -189,7 +197,7 @@ impl FallibleColorSyntax for IntShape {
             Spanned { item: Ok(atom), .. } => atom,
         };
 
-        atom.color_tokens(token_nodes.mut_shapes());
+        token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes));
 
         Ok(())
     }
