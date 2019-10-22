@@ -1,7 +1,6 @@
 use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
 use crate::commands::UnevaluatedCallInfo;
-use crate::data::meta::Span;
 use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
@@ -34,10 +33,12 @@ impl PerItemCommand for Enter {
         match call_info.args.expect_nth(0)? {
             Tagged {
                 item: Value::Primitive(Primitive::Path(location)),
+                tag,
                 ..
             } => {
                 let location_string = location.display().to_string();
                 let location_clone = location_string.clone();
+                let tag_clone = tag.clone();
 
                 if location.starts_with("help") {
                     let spec = location_string.split(":").collect::<Vec<&str>>();
@@ -71,9 +72,8 @@ impl PerItemCommand for Enter {
                             crate::commands::open::fetch(
                                 &full_path,
                                 &location_clone,
-                                Span::unknown(),
-                            )
-                            .await.unwrap();
+                                tag_clone.span,
+                            ).await?;
 
                         match contents {
                             Value::Primitive(Primitive::String(_)) => {
