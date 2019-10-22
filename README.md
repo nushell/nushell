@@ -249,7 +249,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | add column-or-column-path value | Add a new column to the table |
-| count | Show the total number of cells |
+| count | Show the total number of rows |
 | edit column-or-column-path value | Edit an existing column to have a new value |
 | embed column | Creates a new table of one column with the given name, and places the current table inside of it |
 | first amount | Show only the first number of rows |

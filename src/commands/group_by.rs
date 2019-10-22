@@ -40,10 +40,41 @@ fn group_by(
         let values: Vec<Tagged<Value>> = input.values.collect().await;
         let mut groups = indexmap::IndexMap::new();
 
-        for row in values {
-            let key = row.get_data_by_key(&column_name.item).unwrap().as_string()?;
-            let mut group = groups.entry(key).or_insert(vec![]);
-            group.push(row);
+        for value in values {
+            let group_key = value.get_data_by_key(&column_name.item);
+
+            if group_key.is_none() {
+
+                let possibilities = value.data_descriptors();
+
+                let mut possible_matches: Vec<_> = possibilities
+                    .iter()
+                    .map(|x| (natural::distance::levenshtein_distance(x, &column_name.item), x))
+                    .collect();
+
+                possible_matches.sort();
+
+                let err = {
+                    if possible_matches.len() > 0 {
+                        ShellError::labeled_error(
+                            "Unknown column",
+                            format!("did you mean '{}'?", possible_matches[0].1),
+                            &column_name.tag,)
+                    } else {
+                        ShellError::labeled_error(
+                            "Unknown column",
+                            "row does not contain this column",
+                            &column_name.tag,
+                        )
+                    }
+                };
+
+                yield Err(err)
+            } else {
+                let group_key = group_key.unwrap().as_string()?;
+                let mut group = groups.entry(group_key).or_insert(vec![]);
+                group.push(value);
+            }
         }
 
         let mut out = TaggedDictBuilder::new(name.clone());
