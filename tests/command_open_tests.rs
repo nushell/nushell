@@ -226,4 +226,5 @@ fn errors_if_file_not_found() {
     );
 
     assert!(actual.contains("File could not be opened"));
+    assert!(actual.contains("file not found"));
 }
