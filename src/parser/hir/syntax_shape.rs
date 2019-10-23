@@ -985,8 +985,8 @@ impl FallibleColorSyntax for CommandHeadShape {
 
             match atom.item {
                 // If the head is an explicit external command (^cmd), color it as an external command
-                AtomicToken::ExternalCommand { command } => {
-                    token_nodes.color_shape(FlatShape::ExternalCommand.spanned(command));
+                AtomicToken::ExternalCommand { .. } => {
+                    token_nodes.color_shape(FlatShape::ExternalCommand.spanned(atom.span));
                     Ok(CommandHeadKind::External)
                 }
 
