@@ -4,6 +4,59 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
+fn group_by() {
+    Playground::setup("group_by_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_luck,type
+                Andrés,Robalino,1,A
+                Jonathan,Turner,1,B
+                Yehuda,Katz,1,A
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.csv
+                | group-by type
+                | get A
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    })
+}
+
+#[test]
+fn group_by_errors_if_unknown_column_name() {
+    Playground::setup("group_by_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_luck,type
+                Andrés,Robalino,1,A
+                Jonathan,Turner,1,B
+                Yehuda,Katz,1,A
+            "#,
+        )]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.csv
+                | group-by ttype
+            "#
+        ));
+
+        assert!(actual.contains("Unknown column"));
+    })
+}
+
+#[test]
 fn first_gets_first_rows_by_amount() {
     Playground::setup("first_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![

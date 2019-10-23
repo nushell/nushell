@@ -275,6 +275,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
             whole_stream_command(SortBy),
+            whole_stream_command(GroupBy),
             whole_stream_command(Tags),
             whole_stream_command(Count),
             whole_stream_command(First),
