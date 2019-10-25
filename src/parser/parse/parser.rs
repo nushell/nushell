@@ -688,7 +688,7 @@ fn is_start_bare_char(c: char) -> bool {
 
 fn is_bare_char(c: char) -> bool {
     match c {
-        '+' => false,
+        '+' => true,
         _ if c.is_alphanumeric() => true,
         '\\' => true,
         '/' => true,
