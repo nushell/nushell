@@ -274,7 +274,7 @@ impl TokenNode {
                 item: RawToken::Bare,
                 span,
             }) => *span,
-            other => panic!("Expected var, found {:?}", other),
+            other => panic!("Expected bare, found {:?}", other),
         }
     }
 }
