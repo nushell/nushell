@@ -18,7 +18,7 @@ pub struct TokenTreeBuilder {
 }
 
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;
-pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Tagged<CallNode> + 'static>;
+pub type CurriedCall = Box<dyn FnOnce(&mut TokenTreeBuilder) -> Spanned<CallNode> + 'static>;
 
 impl TokenTreeBuilder {
     pub fn build(block: impl FnOnce(&mut Self) -> TokenNode) -> (TokenNode, String) {
@@ -89,12 +89,12 @@ impl TokenTreeBuilder {
             let tokens = input.into_iter().map(|i| i(b)).collect();
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_token_list(tokens, (start, end, None))
+            TokenTreeBuilder::spanned_token_list(tokens, Span::new(start, end))
         })
     }
 
-    pub fn tagged_token_list(input: Vec<TokenNode>, tag: impl Into<Tag>) -> TokenNode {
-        TokenNode::Nodes(input.spanned(tag.into().span))
+    pub fn spanned_token_list(input: Vec<TokenNode>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Nodes(input.spanned(span.into()))
     }
 
     pub fn op(input: impl Into<Operator>) -> CurriedToken {
@@ -287,11 +287,11 @@ impl TokenTreeBuilder {
 
             let end = b.pos;
 
-            TokenTreeBuilder::tagged_call(nodes, (start, end, None))
+            TokenTreeBuilder::spanned_call(nodes, Span::new(start, end))
         })
     }
 
-    pub fn tagged_call(input: Vec<TokenNode>, tag: impl Into<Tag>) -> Tagged<CallNode> {
+    pub fn spanned_call(input: Vec<TokenNode>, span: impl Into<Span>) -> Spanned<CallNode> {
         if input.len() == 0 {
             panic!("BUG: spanned call (TODO)")
         }
@@ -301,7 +301,7 @@ impl TokenTreeBuilder {
         let head = input.next().unwrap();
         let tail = input.collect();
 
-        CallNode::new(Box::new(head), tail).tagged(tag.into())
+        CallNode::new(Box::new(head), tail).spanned(span.into())
     }
 
     fn consume_delimiter(

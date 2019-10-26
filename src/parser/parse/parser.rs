@@ -393,7 +393,7 @@ pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
+pub fn token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNode>>> {
     let start = input.offset;
     let (input, first) = node(input)?;
 
@@ -403,7 +403,7 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Tagged<Vec<TokenNode>>> {
 
     Ok((
         input,
-        make_token_list(first, list, None).tagged((start, end, None)),
+        make_token_list(first, list, None).spanned(Span::new(start, end)),
     ))
 }
 
@@ -511,14 +511,14 @@ pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Tagged<CallNode>> {
+pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Spanned<CallNode>> {
     let left = input.offset;
     let (input, items) = token_list(input)?;
     let right = input.offset;
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_call(items.item, (left, right, input.extra)),
+        TokenTreeBuilder::spanned_call(items.item, Span::new(left, right)),
     ))
 }
 
@@ -598,7 +598,7 @@ pub fn nodes(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::tagged_token_list(tokens.item, tokens.tag),
+        TokenTreeBuilder::spanned_token_list(tokens.item, tokens.span),
     ))
 }
 
@@ -800,30 +800,30 @@ mod tests {
             ">" -> b::token_list(vec![b::op(">")])
         }
 
-        // assert_leaf! {
-        //     parsers [ operator ]
-        //     ">=" -> 0..2 { Operator(Operator::GreaterThanOrEqual) }
-        // }
+        equal_tokens! {
+            <nodes>
+            ">=" -> b::token_list(vec![b::op(">=")])
+        }
 
-        // assert_leaf! {
-        //     parsers [ operator ]
-        //     "<" -> 0..1 { Operator(Operator::LessThan) }
-        // }
+        equal_tokens! {
+            <nodes>
+            "<" -> b::token_list(vec![b::op("<")])
+        }
 
-        // assert_leaf! {
-        //     parsers [ operator ]
-        //     "<=" -> 0..2 { Operator(Operator::LessThanOrEqual) }
-        // }
+        equal_tokens! {
+            <nodes>
+            "<=" -> b::token_list(vec![b::op("<=")])
+        }
 
-        // assert_leaf! {
-        //     parsers [ operator ]
-        //     "==" -> 0..2 { Operator(Operator::Equal) }
-        // }
+        equal_tokens! {
+            <nodes>
+            "==" -> b::token_list(vec![b::op("==")])
+        }
 
-        // assert_leaf! {
-        //     parsers [ operator ]
-        //     "!=" -> 0..2 { Operator(Operator::NotEqual) }
-        // }
+        equal_tokens! {
+            <nodes>
+            "!=" -> b::token_list(vec![b::op("!=")])
+        }
     }
 
     #[test]
@@ -848,12 +848,14 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_path() {
+    fn test_unit_sizes() {
         equal_tokens! {
             <nodes>
             "450MB" -> b::token_list(vec![b::bare("450MB")])
         }
-
+    }
+    #[test]
+    fn test_simple_path() {
         equal_tokens! {
             <nodes>
             "chrome.exe" -> b::token_list(vec![b::bare("chrome"), b::op(Operator::Dot), b::bare("exe")])
@@ -877,23 +879,23 @@ mod tests {
 
     #[test]
     fn test_flag() {
-        // assert_leaf! {
-        //     parsers [ flag ]
-        //     "--hello" -> 0..7 { Flag(Tagged::from_item(FlagKind::Longhand, span(2, 7))) }
-        // }
+        equal_tokens! {
+            <nodes>
+            "--amigos" -> b::token_list(vec![b::flag("arepas")])
+        }
 
-        // assert_leaf! {
-        //     parsers [ flag ]
-        //     "--hello-world" -> 0..13 { Flag(Tagged::from_item(FlagKind::Longhand, span(2, 13))) }
-        // }
+        equal_tokens! {
+            <nodes>
+            "--all-amigos" -> b::token_list(vec![b::flag("all-amigos")])
+        }
     }
 
     #[test]
-    fn test_shorthand() {
-        // assert_leaf! {
-        //     parsers [ shorthand ]
-        //     "-alt" -> 0..4 { Flag(Tagged::from_item(FlagKind::Shorthand, span(1, 4))) }
-        // }
+    fn test_shorthand_flag() {
+        equal_tokens! {
+            <nodes>
+            "-katz" -> b::token_list(vec![b::shorthand("katz")])
+        }
     }
 
     #[test]
@@ -939,13 +941,13 @@ mod tests {
 
         equal_tokens! {
             <nodes>
-            "(  abc def )" -> b::token_list(vec![b::parens(vec![b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" ")])])
+            "(  abc def )" -> b::token_list(vec![b::parens(vec![b::ws("  "), b::bare("abc"), b::sp(), b::bare("def"), b::sp()])])
         }
 
         equal_tokens! {
             <nodes>
             "(  abc def 123 456GB )" -> b::token_list(vec![b::parens(vec![
-                b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" "), b::int(123), b::ws(" "), b::bare("456GB"), b::ws(" ")
+                b::ws("  "), b::bare("abc"), b::sp(), b::bare("def"), b::sp(), b::int(123), b::sp(), b::bare("456GB"), b::sp()
             ])])
         }
     }
@@ -964,13 +966,13 @@ mod tests {
 
         equal_tokens! {
             <nodes>
-            "[  abc def ]" -> b::token_list(vec![b::square(vec![b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" ")])])
+            "[  abc def ]" -> b::token_list(vec![b::square(vec![b::ws("  "), b::bare("abc"), b::sp(), b::bare("def"), b::sp()])])
         }
 
         equal_tokens! {
             <nodes>
             "[  abc def 123 456GB ]" -> b::token_list(vec![b::square(vec![
-                b::ws("  "), b::bare("abc"), b::ws(" "), b::bare("def"), b::ws(" "), b::int(123), b::ws(" "), b::bare("456GB"), b::ws(" ")
+                b::ws("  "), b::bare("abc"), b::sp(), b::bare("def"), b::sp(), b::int(123), b::sp(), b::bare("456GB"), b::sp()
             ])])
         }
     }
@@ -982,6 +984,11 @@ mod tests {
         equal_tokens! {
             <nodes>
             "$it.print" -> b::token_list(vec![b::var("it"), b::op("."), b::bare("print")])
+        }
+
+        equal_tokens! {
+            <nodes>
+            "$it.0" -> b::token_list(vec![b::var("it"), b::op("."), b::int(0)])
         }
 
         equal_tokens! {
@@ -1024,6 +1031,19 @@ mod tests {
                     b::op("."), b::string("world")]
             )
         }
+
+        equal_tokens! {
+            <nodes>
+            r#"$it."are PAS".0"# -> b::token_list(
+                vec![
+                    b::var("it"),
+                    b::op("."),
+                    b::string("are PAS"),
+                    b::op("."),
+                    b::int(0),
+                    ]
+            )
+        }
     }
 
     #[test]
@@ -1061,6 +1081,19 @@ mod tests {
         equal_tokens! {
             <nodes>
             "config --set tabs 2" -> b::token_list(vec![b::bare("config"), b::sp(), b::flag("set"), b::sp(), b::bare("tabs"), b::sp(), b::int(2)])
+        }
+
+        equal_tokens! {
+            <nodes>
+            "inc --patch package.version" -> b::token_list(
+                vec![
+                    b::bare("inc"),
+                    b::sp(),
+                    b::flag("patch"),
+                    b::sp(),
+                    b::bare("package"), b::op("."), b::bare("version")
+                ]
+            )
         }
     }
 
@@ -1114,41 +1147,39 @@ mod tests {
     fn test_patterns() {
         equal_tokens! {
             <pipeline>
-            "cp ../formats/*" -> b::pipeline(vec![vec![b::bare("cp"), b::ws(" "), b::op("."), b::op("."), b::pattern("/formats/*")]])
+            "cp ../formats/*" -> b::pipeline(vec![vec![b::bare("cp"), b::sp(), b::op("."), b::op("."), b::pattern("/formats/*")]])
         }
 
         equal_tokens! {
             <pipeline>
-            "cp * /dev/null" -> b::pipeline(vec![vec![b::bare("cp"), b::ws(" "), b::pattern("*"), b::ws(" "), b::bare("/dev/null")]])
+            "cp * /dev/null" -> b::pipeline(vec![vec![b::bare("cp"), b::sp(), b::pattern("*"), b::sp(), b::bare("/dev/null")]])
         }
     }
 
-    // #[test]
-    // fn test_pseudo_paths() {
-    //     let _ = pretty_env_logger::try_init();
+    #[test]
+    fn test_pseudo_paths() {
+        let _ = pretty_env_logger::try_init();
 
-    //     equal_tokens!(
-    //         r#"sys | where cpu."max ghz" > 1"# ->
-    //         b::pipeline(vec![
-    //             (None, b::call(b::bare("sys"), vec![]), Some(" ")),
-    //             (
-    //                 Some(" "),
-    //                 b::call(
-    //                     b::bare("where"),
-    //                     vec![
-    //                         b::sp(),
-    //                         b::path(b::bare("cpu"), vec![b::string("max ghz")]),
-    //                         b::sp(),
-    //                         b::op(">"),
-    //                         b::sp(),
-    //                         b::int(1)
-    //                     ]
-    //                 ),
-    //                 None
-    //             )
-    //         ])
-    //     );
-    // }
+        equal_tokens!(
+            <pipeline>
+            r#"sys | where cpu."max ghz" > 1"# -> b::pipeline(vec![
+                    vec![
+                        b::bare("sys"), b::sp()
+                    ],
+                    vec![
+                        b::sp(),
+                        b::bare("where"),
+                        b::sp(),
+                        b::bare("cpu"),
+                        b::op("."),
+                        b::string("max ghz"),
+                        b::sp(),
+                        b::op(">"),
+                        b::sp(),
+                        b::int(1)
+                    ]])
+        );
+    }
 
     // #[test]
     // fn test_smoke_pipeline() {

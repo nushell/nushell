@@ -19,14 +19,14 @@ pub enum RawToken {
 impl RawToken {
     pub fn type_name(&self) -> &'static str {
         match self {
-            RawToken::Number(_) => "Number",
+            RawToken::Number(_) => "number",
             RawToken::Operator(..) => "operator",
-            RawToken::String(_) => "String",
+            RawToken::String(_) => "string",
             RawToken::Variable(_) => "variable",
             RawToken::ExternalCommand(_) => "external command",
             RawToken::ExternalWord => "external word",
             RawToken::GlobPattern => "glob pattern",
-            RawToken::Bare => "String",
+            RawToken::Bare => "string",
         }
     }
 }
@@ -72,7 +72,7 @@ impl Token {
 
     pub fn extract_number(&self) -> Option<Spanned<RawNumber>> {
         match self.item {
-            RawToken::Number(number) => Some((number).spanned(self.span)),
+            RawToken::Number(number) => Some(number.spanned(self.span)),
             _ => None,
         }
     }
