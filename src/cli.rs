@@ -306,6 +306,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(SkipWhile),
             per_item_command(Enter),
             per_item_command(Help),
+            per_item_command(History),
             whole_stream_command(Exit),
             whole_stream_command(Autoview),
             whole_stream_command(Pivot),
@@ -413,6 +414,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
+                let _ = rl.save_history(&History::path());
             }
 
             LineResult::CtrlC => {
@@ -440,6 +442,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
             LineResult::Error(line, err) => {
                 rl.add_history_entry(line.clone());
+                let _ = rl.save_history(&History::path());
 
                 context.with_host(|host| {
                     print_err(err, host, &Text::from(line));
