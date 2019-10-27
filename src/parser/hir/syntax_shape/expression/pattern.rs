@@ -1,7 +1,6 @@
 use crate::parser::hir::syntax_shape::{
-    expand_atom, expand_bare, expand_syntax, expression::expand_file_path, parse_single_node,
-    AtomicToken, ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, FallibleColorSyntax,
-    FlatShape,
+    expand_atom, expand_bare, expression::expand_file_path, AtomicToken, ExpandContext,
+    ExpandExpression, ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape,
 };
 use crate::parser::{hir, hir::TokensIterator, Operator, RawToken, TokenNode};
 use crate::prelude::*;
@@ -72,43 +71,17 @@ impl ExpandExpression for PatternShape {
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ShellError> {
-        let pattern = expand_syntax(&BarePatternShape, token_nodes, context);
+        let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::new())?;
 
-        match pattern {
-            Ok(tag) => {
-                return Ok(hir::Expression::pattern(tag));
+        match atom.item {
+            AtomicToken::Word { text: body }
+            | AtomicToken::String { body }
+            | AtomicToken::GlobPattern { pattern: body } => {
+                let path = expand_file_path(body.slice(context.source), context);
+                return Ok(hir::Expression::pattern(path.to_string_lossy(), atom.span));
             }
-            Err(_) => {}
+            _ => return atom.into_hir(context, "pattern"),
         }
-
-        parse_single_node(token_nodes, "Pattern", |token, token_tag, _| {
-            Ok(match token {
-                RawToken::GlobPattern => {
-                    return Err(ShellError::unreachable(
-                        "glob pattern after glob already returned",
-                    ))
-                }
-                RawToken::Operator(..) => {
-                    return Err(ShellError::unreachable("dot after glob already returned"))
-                }
-                RawToken::Bare => {
-                    return Err(ShellError::unreachable("bare after glob already returned"))
-                }
-
-                RawToken::Variable(tag) if tag.slice(context.source) == "it" => {
-                    hir::Expression::it_variable(tag, token_tag)
-                }
-                RawToken::Variable(tag) => hir::Expression::variable(tag, token_tag),
-                RawToken::ExternalCommand(tag) => hir::Expression::external_command(tag, token_tag),
-                RawToken::ExternalWord => return Err(ShellError::invalid_external_word(token_tag)),
-                RawToken::Number(_) => hir::Expression::bare(token_tag),
-
-                RawToken::String(tag) => hir::Expression::file_path(
-                    expand_file_path(tag.slice(context.source), context),
-                    token_tag,
-                ),
-            })
-        })
     }
 }
 

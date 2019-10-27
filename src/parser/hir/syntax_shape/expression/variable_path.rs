@@ -821,7 +821,7 @@ impl ExpandSyntax for MemberShape {
 
         if let Some(peeked) = string {
             let node = peeked.not_eof("column")?.commit();
-            let (outer, inner) = node.expect_string();
+            let (outer, inner) = node.as_string().unwrap();
 
             return Ok(Member::String(outer, inner));
         }

@@ -566,7 +566,7 @@ impl<'content> TokensIterator<'content> {
 impl<'content> Iterator for TokensIterator<'content> {
     type Item = &'content TokenNode;
 
-    fn next(&mut self) -> Option<&'content TokenNode> {
+    fn next(&mut self) -> Option<Self::Item> {
         next(self, self.state.skip_ws)
     }
 }

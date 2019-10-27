@@ -142,7 +142,10 @@ impl<'tokens> SpannedAtomicToken<'tokens> {
                 Expression::external_command(*command, self.span)
             }
             AtomicToken::ExternalWord { text } => Expression::string(*text, self.span),
-            AtomicToken::GlobPattern { pattern } => Expression::pattern(*pattern),
+            AtomicToken::GlobPattern { pattern } => Expression::pattern(
+                expand_file_path(pattern.slice(context.source), context).to_string_lossy(),
+                self.span,
+            ),
             AtomicToken::Word { text } => Expression::string(*text, *text),
             AtomicToken::SquareDelimited { .. } => unimplemented!("into_hir"),
             AtomicToken::ParenDelimited { .. } => unimplemented!("into_hir"),

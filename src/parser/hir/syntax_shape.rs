@@ -497,18 +497,18 @@ pub(crate) fn expand_expr<'a, 'b, T: ExpandExpression>(
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
 ) -> Result<hir::Expression, ShellError> {
-    trace!(target: "nu::expand_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes.state(), context.source));
+    trace!(target: "nu::expand_expression", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes.state(), context.source));
 
-    let result = shape.expand_syntax(token_nodes, context);
+    let result = shape.expand_expr(token_nodes, context);
 
     match result {
         Err(err) => {
-            trace!(target: "nu::expand_syntax", "error :: {} :: {:?}", err, debug_tokens(token_nodes.state(), context.source));
+            trace!(target: "nu::expand_expression", "error :: {} :: {:?}", err, debug_tokens(token_nodes.state(), context.source));
             Err(err)
         }
 
         Ok(result) => {
-            trace!(target: "nu::expand_syntax", "ok :: {:?} :: {:?}", result, debug_tokens(token_nodes.state(), context.source));
+            trace!(target: "nu::expand_expression", "ok :: {:?} :: {:?}", result, debug_tokens(token_nodes.state(), context.source));
             Ok(result)
         }
     }
@@ -719,11 +719,7 @@ impl TestSyntax for BareShape {
         let peeked = token_nodes.peek_any();
 
         match peeked.node {
-            Some(TokenNode::Token(token)) => match token.item {
-                RawToken::Bare => Some(peeked),
-                _ => None,
-            },
-
+            Some(token) if token.is_bare() => Some(peeked),
             _ => None,
         }
     }

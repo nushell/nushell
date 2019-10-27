@@ -3,7 +3,7 @@ use crate::parser::hir::syntax_shape::{
     ExpansionRule, FallibleColorSyntax, FlatShape, TestSyntax,
 };
 use crate::parser::hir::tokens_iterator::Peeked;
-use crate::parser::{hir, hir::TokensIterator, RawToken, TokenNode};
+use crate::parser::{hir, hir::TokensIterator, RawToken};
 use crate::prelude::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -118,11 +118,7 @@ impl TestSyntax for StringShape {
         let peeked = token_nodes.peek_any();
 
         match peeked.node {
-            Some(TokenNode::Token(token)) => match token.item {
-                RawToken::String(_) => Some(peeked),
-                _ => None,
-            },
-
+            Some(token) if token.is_string() => Some(peeked),
             _ => None,
         }
     }

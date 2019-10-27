@@ -227,8 +227,8 @@ impl Expression {
         RawExpression::Literal(Literal::Bare).spanned(span)
     }
 
-    pub(crate) fn pattern(span: impl Into<Span>) -> Expression {
-        RawExpression::Literal(Literal::GlobPattern).spanned(span.into())
+    pub(crate) fn pattern(inner: impl Into<String>, outer: impl Into<Span>) -> Expression {
+        RawExpression::Literal(Literal::GlobPattern(inner.into())).spanned(outer.into())
     }
 
     pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
@@ -297,7 +297,7 @@ pub enum Literal {
     Number(Number),
     Size(Number, Unit),
     String(Span),
-    GlobPattern,
+    GlobPattern(String),
     Bare,
 }
 
@@ -315,7 +315,7 @@ impl std::fmt::Display for Tagged<&Literal> {
             Literal::Number(number) => write!(f, "{}", number),
             Literal::Size(number, unit) => write!(f, "{}{}", number, unit.as_str()),
             Literal::String(_) => write!(f, "String{{ {}..{} }}", span.start(), span.end()),
-            Literal::GlobPattern => write!(f, "Glob{{ {}..{} }}", span.start(), span.end()),
+            Literal::GlobPattern(_) => write!(f, "Glob{{ {}..{} }}", span.start(), span.end()),
             Literal::Bare => write!(f, "Bare{{ {}..{} }}", span.start(), span.end()),
         }
     }
@@ -327,7 +327,7 @@ impl ToDebug for Spanned<&Literal> {
             Literal::Number(number) => write!(f, "{:?}", number),
             Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
             Literal::String(tag) => write!(f, "{}", tag.slice(source)),
-            Literal::GlobPattern => write!(f, "{}", self.span.slice(source)),
+            Literal::GlobPattern(_) => write!(f, "{}", self.span.slice(source)),
             Literal::Bare => write!(f, "{}", self.span.slice(source)),
         }
     }
@@ -340,7 +340,7 @@ impl Literal {
             Literal::Size(..) => "size",
             Literal::String(..) => "string",
             Literal::Bare => "string",
-            Literal::GlobPattern => "pattern",
+            Literal::GlobPattern(_) => "pattern",
         }
     }
 }

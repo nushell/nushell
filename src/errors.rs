@@ -367,6 +367,10 @@ impl ShellError {
     // pub fn string(title: impl Into<String>) -> ShellError {
     //     ProximateShellError::String(StringError::new(title.into(), String::new())).start()
     // }
+    //
+    // pub(crate) fn unreachable(title: impl Into<String>) -> ShellError {
+    //     ShellError::untagged_runtime_error(&format!("BUG: Unreachable: {}", title.into()))
+    // }
 
     pub(crate) fn unimplemented(title: impl Into<String>) -> ShellError {
         ShellError::untagged_runtime_error(&format!("Unimplemented: {}", title.into()))
@@ -374,10 +378,6 @@ impl ShellError {
 
     pub(crate) fn unexpected(title: impl Into<String>) -> ShellError {
         ShellError::untagged_runtime_error(&format!("Unexpected: {}", title.into()))
-    }
-
-    pub(crate) fn unreachable(title: impl Into<String>) -> ShellError {
-        ShellError::untagged_runtime_error(&format!("BUG: Unreachable: {}", title.into()))
     }
 }
 
