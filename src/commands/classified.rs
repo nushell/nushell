@@ -4,7 +4,9 @@ use bytes::{BufMut, BytesMut};
 use derive_new::new;
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
+use itertools::Itertools;
 use log::{log_enabled, trace};
+use std::fmt;
 use std::io::{Error, ErrorKind};
 use subprocess::Exec;
 
@@ -72,26 +74,77 @@ impl ClassifiedInputStream {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ClassifiedPipeline {
-    pub(crate) commands: Vec<ClassifiedCommand>,
+    pub(crate) commands: Spanned<Vec<ClassifiedCommand>>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+impl FormatDebug for ClassifiedPipeline {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        f.say_str(
+            "classified pipeline",
+            self.commands.iter().map(|c| c.debug(source)).join(" | "),
+        )
+    }
+}
+
+impl HasSpan for ClassifiedPipeline {
+    fn span(&self) -> Span {
+        self.commands.span
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
     Internal(InternalCommand),
     #[allow(unused)]
-    Dynamic(hir::Call),
+    Dynamic(Spanned<hir::Call>),
     External(ExternalCommand),
 }
 
-#[derive(new, Debug, Eq, PartialEq)]
+impl FormatDebug for ClassifiedCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            ClassifiedCommand::Expr(expr) => expr.fmt_debug(f, source),
+            ClassifiedCommand::Internal(internal) => internal.fmt_debug(f, source),
+            ClassifiedCommand::Dynamic(dynamic) => dynamic.fmt_debug(f, source),
+            ClassifiedCommand::External(external) => external.fmt_debug(f, source),
+        }
+    }
+}
+
+impl HasSpan for ClassifiedCommand {
+    fn span(&self) -> Span {
+        match self {
+            ClassifiedCommand::Expr(node) => node.span(),
+            ClassifiedCommand::Internal(command) => command.span(),
+            ClassifiedCommand::Dynamic(call) => call.span,
+            ClassifiedCommand::External(command) => command.span(),
+        }
+    }
+}
+
+#[derive(new, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct InternalCommand {
     pub(crate) name: String,
     pub(crate) name_tag: Tag,
-    pub(crate) args: hir::Call,
+    pub(crate) args: Spanned<hir::Call>,
+}
+
+impl HasSpan for InternalCommand {
+    fn span(&self) -> Span {
+        let start = self.name_tag.span;
+
+        start.until(self.args.span)
+    }
+}
+
+impl FormatDebug for InternalCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        f.say("internal", self.args.debug(source))
+    }
 }
 
 #[derive(new, Debug, Eq, PartialEq)]
@@ -122,7 +175,7 @@ impl InternalCommand {
             context.run_command(
                 command,
                 self.name_tag.clone(),
-                self.args,
+                self.args.item,
                 &source,
                 objects,
                 is_first_command,
@@ -201,12 +254,31 @@ impl InternalCommand {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct ExternalCommand {
     pub(crate) name: String,
 
     pub(crate) name_tag: Tag,
-    pub(crate) args: Vec<Tagged<String>>,
+    pub(crate) args: Spanned<Vec<Tagged<String>>>,
+}
+
+impl FormatDebug for ExternalCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+
+        if self.args.item.len() > 0 {
+            write!(f, " ")?;
+            write!(f, "{}", self.args.iter().map(|i| i.debug(source)).join(" "))?;
+        }
+
+        Ok(())
+    }
+}
+
+impl HasSpan for ExternalCommand {
+    fn span(&self) -> Span {
+        self.name_tag.span.until(self.args.span)
+    }
 }
 
 #[derive(Debug)]
@@ -230,7 +302,7 @@ impl ExternalCommand {
         trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
         let mut arg_string = format!("{}", self.name);
-        for arg in &self.args {
+        for arg in &self.args.item {
             arg_string.push_str(&arg);
         }
 
@@ -275,7 +347,7 @@ impl ExternalCommand {
             process = Exec::shell(itertools::join(commands, " && "))
         } else {
             process = Exec::cmd(&self.name);
-            for arg in &self.args {
+            for arg in &self.args.item {
                 let arg_chars: Vec<_> = arg.chars().collect();
                 if arg_chars.len() > 1
                     && arg_chars[0] == '"'

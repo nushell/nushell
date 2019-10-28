@@ -14,8 +14,8 @@ pub enum Operator {
     Dot,
 }
 
-impl ToDebug for Operator {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+impl FormatDebug for Operator {
+    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }

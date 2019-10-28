@@ -1,6 +1,7 @@
 use crate::data::base::Value;
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -11,6 +12,12 @@ pub enum Unit {
     GB,
     TB,
     PB,
+}
+
+impl FormatDebug for Spanned<Unit> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        write!(f, "{}", self.span.slice(source))
+    }
 }
 
 impl Unit {

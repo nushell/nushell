@@ -19,8 +19,8 @@ pub struct UnevaluatedCallInfo {
     pub name_tag: Tag,
 }
 
-impl ToDebug for UnevaluatedCallInfo {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for UnevaluatedCallInfo {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         self.args.fmt_debug(f, source)
     }
 }
@@ -96,8 +96,14 @@ impl RawCommandArgs {
     }
 }
 
-impl ToDebug for CommandArgs {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl std::fmt::Debug for CommandArgs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.call_info.fmt(f)
+    }
+}
+
+impl FormatDebug for CommandArgs {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         self.call_info.fmt_debug(f, source)
     }
 }
@@ -377,7 +383,7 @@ impl EvaluatedCommandArgs {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(String),
     Exit,
@@ -389,8 +395,8 @@ pub enum CommandAction {
     LeaveShell,
 }
 
-impl ToDebug for CommandAction {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+impl FormatDebug for CommandAction {
+    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
         match self {
             CommandAction::ChangePath(s) => write!(f, "action:change-path={}", s),
             CommandAction::Exit => write!(f, "action:exit"),
@@ -408,7 +414,7 @@ impl ToDebug for CommandAction {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ReturnSuccess {
     Value(Tagged<Value>),
     Action(CommandAction),
@@ -416,8 +422,8 @@ pub enum ReturnSuccess {
 
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
 
-impl ToDebug for ReturnValue {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for ReturnValue {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         match self {
             Err(err) => write!(f, "{}", err.debug(source)),
             Ok(ReturnSuccess::Value(v)) => write!(f, "{:?}", v.debug()),

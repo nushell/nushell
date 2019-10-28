@@ -1,6 +1,6 @@
 use crate::parser::hir::syntax_shape::{
     expand_atom, expand_bare, expression::expand_file_path, AtomicToken, ExpandContext,
-    ExpandExpression, ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape,
+    ExpandExpression, ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, ParseError,
 };
 use crate::parser::{hir, hir::TokensIterator, Operator, RawToken, TokenNode};
 use crate::prelude::*;
@@ -66,11 +66,15 @@ impl FallibleColorSyntax for PatternShape {
 }
 
 impl ExpandExpression for PatternShape {
+    fn name(&self) -> &'static str {
+        "glob pattern"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::new())?;
 
         match atom.item {
@@ -91,11 +95,15 @@ pub struct BarePatternShape;
 impl ExpandSyntax for BarePatternShape {
     type Output = Span;
 
+    fn name(&self) -> &'static str {
+        "bare pattern"
+    }
+
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Span, ShellError> {
+    ) -> Result<Span, ParseError> {
         expand_bare(token_nodes, context, |token| match token {
             TokenNode::Token(Spanned {
                 item: RawToken::Bare,

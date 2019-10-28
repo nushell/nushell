@@ -90,40 +90,40 @@ impl<'tokens> SpannedAtomicToken<'tokens> {
         &self,
         context: &ExpandContext,
         expected: &'static str,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         Ok(match &self.item {
             AtomicToken::Eof { .. } => {
-                return Err(ShellError::type_error(
+                return Err(ParseError::mismatch(
                     expected,
                     "eof atomic token".tagged(self.span),
                 ))
             }
             AtomicToken::Error { .. } => {
-                return Err(ShellError::type_error(
+                return Err(ParseError::mismatch(
                     expected,
                     "eof atomic token".tagged(self.span),
                 ))
             }
             AtomicToken::Operator { .. } => {
-                return Err(ShellError::type_error(
-                    expected,
-                    "operator".tagged(self.span),
-                ))
+                return Err(ParseError::mismatch(expected, "operator".tagged(self.span)))
             }
             AtomicToken::ShorthandFlag { .. } => {
-                return Err(ShellError::type_error(
+                return Err(ParseError::mismatch(
                     expected,
                     "shorthand flag".tagged(self.span),
                 ))
             }
             AtomicToken::LonghandFlag { .. } => {
-                return Err(ShellError::type_error(expected, "flag".tagged(self.span)))
+                return Err(ParseError::mismatch(expected, "flag".tagged(self.span)))
             }
             AtomicToken::Whitespace { .. } => {
-                return Err(ShellError::unimplemented("whitespace in AtomicToken"))
+                return Err(ParseError::mismatch(
+                    expected,
+                    "whitespace".tagged(self.span),
+                ))
             }
             AtomicToken::Dot { .. } => {
-                return Err(ShellError::type_error(expected, "dot".tagged(self.span)))
+                return Err(ParseError::mismatch(expected, "dot".tagged(self.span)))
             }
             AtomicToken::Number { number } => {
                 Expression::number(number.to_number(context.source), self.span)
@@ -381,7 +381,7 @@ pub fn expand_atom<'me, 'content>(
     expected: &'static str,
     context: &ExpandContext,
     rule: ExpansionRule,
-) -> Result<SpannedAtomicToken<'content>, ShellError> {
+) -> Result<SpannedAtomicToken<'content>, ParseError> {
     if token_nodes.at_end() {
         match rule.allow_eof {
             true => {
@@ -390,7 +390,7 @@ pub fn expand_atom<'me, 'content>(
                 }
                 .spanned(Span::unknown()))
             }
-            false => return Err(ShellError::unexpected_eof("anything", Tag::unknown())),
+            false => return Err(ParseError::unexpected_eof("anything", Span::unknown())),
         }
     }
 
@@ -515,12 +515,13 @@ pub fn expand_atom<'me, 'content>(
 
             // if whitespace is disallowed, return an error
             WhitespaceHandling::RejectWhitespace => {
-                return Err(ShellError::syntax_error("Unexpected whitespace".tagged(
-                    Tag {
+                return Err(ParseError::mismatch(
+                    expected,
+                    "whitespace".tagged(Tag {
                         span: *span,
                         anchor: None,
-                    },
-                )))
+                    }),
+                ))
             }
         },
 
@@ -544,7 +545,7 @@ pub fn expand_atom<'me, 'content>(
             RawToken::Operator(_) if !rule.allow_operator => return Err(err.error()),
             // rule.allow_external_command
             RawToken::ExternalCommand(_) if !rule.allow_external_command => {
-                return Err(ShellError::type_error(
+                return Err(ParseError::mismatch(
                     expected,
                     token.type_name().tagged(Tag {
                         span: token_span,
@@ -554,10 +555,13 @@ pub fn expand_atom<'me, 'content>(
             }
             // rule.allow_external_word
             RawToken::ExternalWord if !rule.allow_external_word => {
-                return Err(ShellError::invalid_external_word(Tag {
-                    span: token_span,
-                    anchor: None,
-                }))
+                return Err(ParseError::mismatch(
+                    expected,
+                    "external word".tagged(Tag {
+                        span: token_span,
+                        anchor: None,
+                    }),
+                ))
             }
 
             RawToken::Number(number) => AtomicToken::Number { number }.spanned(token_span),

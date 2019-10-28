@@ -6,7 +6,7 @@ use crate::parser::hir::syntax_shape::*;
 use crate::parser::hir::TokensIterator;
 use crate::parser::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder as b};
 use crate::parser::TokenNode;
-use crate::{Span, SpannedItem, Tag, Text};
+use crate::{HasSpan, Span, SpannedItem, Tag, Text};
 use pretty_assertions::assert_eq;
 use std::fmt::Debug;
 
@@ -63,7 +63,9 @@ fn test_parse_command() {
         vec![b::bare("ls"), b::sp(), b::pattern("*.txt")],
         |tokens| {
             let bare = tokens[0].expect_bare();
-            let pattern = tokens[2].expect_pattern();
+            let pat = tokens[2].expect_pattern();
+
+            eprintln!("{:?} {:?} {:?}", bare, pat, bare.until(pat));
 
             ClassifiedCommand::Internal(InternalCommand::new(
                 "ls".to_string(),
@@ -73,9 +75,10 @@ fn test_parse_command() {
                 },
                 hir::Call {
                     head: Box::new(hir::RawExpression::Command(bare).spanned(bare)),
-                    positional: Some(vec![hir::Expression::pattern("*.txt", pattern)]),
+                    positional: Some(vec![hir::Expression::pattern("*.txt", pat)]),
                     named: None,
-                },
+                }
+                .spanned(bare.until(pat)),
             ))
             // hir::Expression::path(
             //     hir::Expression::variable(inner_var, outer_var),
@@ -86,7 +89,7 @@ fn test_parse_command() {
     );
 }
 
-fn parse_tokens<T: Eq + Debug>(
+fn parse_tokens<T: Eq + HasSpan + Clone + Debug + 'static>(
     shape: impl ExpandSyntax<Output = T>,
     tokens: Vec<CurriedToken>,
     expected: impl FnOnce(&[TokenNode]) -> T,
@@ -96,19 +99,19 @@ fn parse_tokens<T: Eq + Debug>(
 
     ExpandContext::with_empty(&Text::from(source), |context| {
         let tokens = tokens.expect_list();
-        let mut iterator = TokensIterator::all(tokens, *context.span());
+        let mut iterator = TokensIterator::all(tokens.item, tokens.span);
 
         let expr = expand_syntax(&shape, &mut iterator, &context);
 
         let expr = match expr {
             Ok(expr) => expr,
             Err(err) => {
-                crate::cli::print_err(err, &BasicHost, context.source().clone());
+                crate::cli::print_err(err.into(), &BasicHost, context.source().clone());
                 panic!("Parse failed");
             }
         };
 
-        assert_eq!(expr, expected(tokens));
+        assert_eq!(expr, expected(tokens.item));
     })
 }
 

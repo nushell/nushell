@@ -71,9 +71,8 @@ impl Context {
     pub(crate) fn expand_context<'context>(
         &'context self,
         source: &'context Text,
-        span: Span,
     ) -> ExpandContext<'context> {
-        ExpandContext::new(&self.registry, span, source, self.shell_manager.homedir())
+        ExpandContext::new(&self.registry, source, self.shell_manager.homedir())
     }
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {

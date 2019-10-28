@@ -24,7 +24,6 @@ pub(crate) use self::external_command::ExternalCommand;
 pub(crate) use self::named::NamedArguments;
 pub(crate) use self::path::Path;
 pub(crate) use self::syntax_shape::ExpandContext;
-pub(crate) use self::tokens_iterator::debug::debug_tokens;
 pub(crate) use self::tokens_iterator::TokensIterator;
 
 pub use self::syntax_shape::SyntaxShape;
@@ -50,8 +49,8 @@ impl Call {
     }
 }
 
-impl ToDebug for Call {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for Call {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         write!(f, "({}", self.head.debug(source))?;
 
         if let Some(positional) = &self.positional {
@@ -242,10 +241,14 @@ impl Expression {
     pub(crate) fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
         RawExpression::Variable(Variable::It(inner.into())).spanned(outer)
     }
+
+    pub(crate) fn tagged_type_name(&self) -> Tagged<&'static str> {
+        self.item.type_name().tagged(self.span)
+    }
 }
 
-impl ToDebug for Expression {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for Spanned<RawExpression> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         match &self.item {
             RawExpression::Literal(l) => l.spanned(self.span).fmt_debug(f, source),
             RawExpression::FilePath(p) => write!(f, "{}", p.display()),
@@ -256,7 +259,7 @@ impl ToDebug for Expression {
             RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
             RawExpression::Binary(b) => write!(f, "{}", b.debug(source)),
             RawExpression::ExternalCommand(c) => write!(f, "^{}", c.name().slice(source)),
-            RawExpression::Block(exprs) => {
+            RawExpression::Block(exprs) => f.say_block("block", |f| {
                 write!(f, "{{ ")?;
 
                 for expr in exprs {
@@ -264,8 +267,8 @@ impl ToDebug for Expression {
                 }
 
                 write!(f, "}}")
-            }
-            RawExpression::List(exprs) => {
+            }),
+            RawExpression::List(exprs) => f.say_block("list", |f| {
                 write!(f, "[ ")?;
 
                 for expr in exprs {
@@ -273,7 +276,7 @@ impl ToDebug for Expression {
                 }
 
                 write!(f, "]")
-            }
+            }),
             RawExpression::Path(p) => write!(f, "{}", p.debug(source)),
             RawExpression::Boolean(true) => write!(f, "$yes"),
             RawExpression::Boolean(false) => write!(f, "$no"),
@@ -321,14 +324,14 @@ impl std::fmt::Display for Tagged<&Literal> {
     }
 }
 
-impl ToDebug for Spanned<&Literal> {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for Spanned<&Literal> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         match self.item {
-            Literal::Number(number) => write!(f, "{:?}", number),
-            Literal::Size(number, unit) => write!(f, "{:?}{:?}", *number, unit),
-            Literal::String(tag) => write!(f, "{}", tag.slice(source)),
-            Literal::GlobPattern(_) => write!(f, "{}", self.span.slice(source)),
-            Literal::Bare => write!(f, "{}", self.span.slice(source)),
+            Literal::Number(..) => f.say_str("number", self.span.slice(source)),
+            Literal::Size(..) => f.say_str("size", self.span.slice(source)),
+            Literal::String(..) => f.say_str("string", self.span.slice(source)),
+            Literal::GlobPattern(..) => f.say_str("glob", self.span.slice(source)),
+            Literal::Bare => f.say_str("word", self.span.slice(source)),
         }
     }
 }
@@ -357,5 +360,11 @@ impl std::fmt::Display for Variable {
             Variable::It(_) => write!(f, "$it"),
             Variable::Other(span) => write!(f, "${{ {}..{} }}", span.start(), span.end()),
         }
+    }
+}
+
+impl FormatDebug for Spanned<Variable> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        write!(f, "{}", self.span.slice(source))
     }
 }

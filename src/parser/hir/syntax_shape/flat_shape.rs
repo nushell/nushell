@@ -1,5 +1,5 @@
 use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, RawToken, TokenNode};
-use crate::{Span, Spanned, SpannedItem, Text};
+use crate::{HasSpan, Span, Spanned, SpannedItem, Text};
 
 #[derive(Debug, Copy, Clone)]
 pub enum FlatShape {

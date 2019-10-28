@@ -23,8 +23,8 @@ impl RawToken {
             RawToken::Operator(..) => "operator",
             RawToken::String(_) => "string",
             RawToken::Variable(_) => "variable",
-            RawToken::ExternalCommand(_) => "external command",
-            RawToken::ExternalWord => "external word",
+            RawToken::ExternalCommand(_) => "syntax error",
+            RawToken::ExternalWord => "syntax error",
             RawToken::GlobPattern => "glob pattern",
             RawToken::Bare => "string",
         }
@@ -35,6 +35,15 @@ impl RawToken {
 pub enum RawNumber {
     Int(Span),
     Decimal(Span),
+}
+
+impl FormatDebug for RawNumber {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            RawNumber::Int(span) => f.say_str("int", span.slice(source)),
+            RawNumber::Decimal(span) => f.say_str("decimal", span.slice(source)),
+        }
+    }
 }
 
 impl RawNumber {
