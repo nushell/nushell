@@ -177,6 +177,18 @@ fn evaluate_reference(
                 let config = crate::data::config::read(tag.clone(), &None)?;
                 Ok(Value::row(config).tagged(tag))
             }
+            x if x == "nu:path" => {
+                let mut table = vec![];
+                match std::env::var_os("PATH") {
+                    Some(paths) => {
+                        for path in std::env::split_paths(&paths) {
+                            table.push(Value::path(path).tagged(&tag));
+                        }
+                    }
+                    _ => {}
+                }
+                Ok(Value::table(&table).tagged(tag))
+            }
             x => Ok(scope
                 .vars
                 .get(x)
