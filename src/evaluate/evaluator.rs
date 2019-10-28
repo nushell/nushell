@@ -5,6 +5,7 @@ use crate::parser::{
     CommandRegistry, Text,
 };
 use crate::prelude::*;
+use crate::TaggedDictBuilder;
 use derive_new::new;
 use indexmap::IndexMap;
 use log::trace;
@@ -164,11 +165,24 @@ fn evaluate_reference(
     trace!("Evaluating {} with Scope {}", name, scope);
     match name {
         hir::Variable::It(_) => Ok(scope.it.item.clone().tagged(tag)),
-        hir::Variable::Other(inner) => Ok(scope
-            .vars
-            .get(inner.slice(source))
-            .map(|v| v.clone())
-            .unwrap_or_else(|| Value::nothing().tagged(tag))),
+        hir::Variable::Other(inner) => match inner.slice(source) {
+            x if x == "nu:env" => {
+                let mut dict = TaggedDictBuilder::new(&tag);
+                for v in std::env::vars() {
+                    dict.insert(v.0, Value::string(v.1));
+                }
+                Ok(dict.into_tagged_value())
+            }
+            x if x == "nu:config" => {
+                let config = crate::data::config::read(tag.clone(), &None)?;
+                Ok(Value::row(config).tagged(tag))
+            }
+            x => Ok(scope
+                .vars
+                .get(x)
+                .map(|v| v.clone())
+                .unwrap_or_else(|| Value::nothing().tagged(tag))),
+        },
     }
 }
 
