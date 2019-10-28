@@ -589,17 +589,22 @@ impl Command {
             out.to_output_stream()
         } else {
             let nothing = Value::nothing().tagged(Tag::unknown());
+
             let call_info = raw_args
                 .clone()
                 .call_info
-                .evaluate(&registry, &Scope::it_value(nothing.clone()))
-                .unwrap();
+                .evaluate(&registry, &Scope::it_value(nothing.clone()));
 
-            match command
-                .run(&call_info, &registry, &raw_args, nothing)
-                .into()
-            {
-                Ok(o) => o,
+            match call_info {
+                Ok(call_info) => {
+                    match command
+                        .run(&call_info, &registry, &raw_args, nothing)
+                        .into()
+                    {
+                        Ok(o) => o,
+                        Err(e) => OutputStream::one(Err(e)),
+                    }
+                }
                 Err(e) => OutputStream::one(Err(e)),
             }
         }
