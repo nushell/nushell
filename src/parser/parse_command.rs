@@ -407,7 +407,7 @@ impl ColorSyntax for CommandTailShape {
         for (name, kind) in &signature.named {
             trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
 
-            match kind {
+            match &kind.0 {
                 NamedType::Switch => {
                     match token_nodes.extract(|t| t.as_flag(name, context.source())) {
                         Some((pos, flag)) => args.insert(pos, vec![flag.color()]),
@@ -502,7 +502,7 @@ impl ColorSyntax for CommandTailShape {
         for arg in &signature.positional {
             trace!("Processing positional {:?}", arg);
 
-            match arg {
+            match &arg.0 {
                 PositionalType::Mandatory(..) => {
                     if token_nodes.at_end() {
                         break;
@@ -527,7 +527,7 @@ impl ColorSyntax for CommandTailShape {
                         color_syntax(&MaybeSpaceShape, token_nodes, context);
 
                         // If no match, we should roll back any whitespace we chomped
-                        color_fallible_syntax(&arg.syntax_type(), token_nodes, context)?;
+                        color_fallible_syntax(&arg.0.syntax_type(), token_nodes, context)?;
 
                         Ok(())
                     });
@@ -539,7 +539,7 @@ impl ColorSyntax for CommandTailShape {
 
         trace_remaining("after positional", token_nodes.clone(), context.source());
 
-        if let Some(syntax_type) = signature.rest_positional {
+        if let Some((syntax_type, _)) = signature.rest_positional {
             loop {
                 if token_nodes.at_end_possible_ws() {
                     break;
