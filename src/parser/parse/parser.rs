@@ -666,7 +666,7 @@ fn is_glob_specific_char(c: char) -> bool {
 }
 
 fn is_start_glob_char(c: char) -> bool {
-    is_start_bare_char(c) || is_glob_specific_char(c)
+    is_start_bare_char(c) || is_glob_specific_char(c) || c == '.'
 }
 
 fn is_glob_char(c: char) -> bool {
@@ -1147,7 +1147,7 @@ mod tests {
     fn test_patterns() {
         equal_tokens! {
             <pipeline>
-            "cp ../formats/*" -> b::pipeline(vec![vec![b::bare("cp"), b::sp(), b::op("."), b::op("."), b::pattern("/formats/*")]])
+            "cp ../formats/*" -> b::pipeline(vec![vec![b::bare("cp"), b::sp(), b::pattern("../formats/*")]])
         }
 
         equal_tokens! {
