@@ -12,7 +12,7 @@ impl PerItemCommand for Help {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("help").rest(SyntaxShape::Any)
+        Signature::build("help").rest(SyntaxShape::Any, "the name of command(s) to get help on")
     }
 
     fn usage(&self) -> &str {
@@ -65,8 +65,8 @@ impl PerItemCommand for Help {
                             one_liner.push_str("{flags} ");
                         }
 
-                        for positional in signature.positional {
-                            match positional {
+                        for positional in &signature.positional {
+                            match &positional.0 {
                                 PositionalType::Mandatory(name, _m) => {
                                     one_liner.push_str(&format!("<{}> ", name));
                                 }
@@ -77,25 +77,66 @@ impl PerItemCommand for Help {
                         }
 
                         if signature.rest_positional.is_some() {
-                            one_liner.push_str(" ...args");
+                            one_liner.push_str(&format!(" ...args",));
                         }
+
                         long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
 
+                        if signature.positional.len() > 0 || signature.rest_positional.is_some() {
+                            long_desc.push_str("\nparameters:\n");
+                            for positional in signature.positional {
+                                match positional.0 {
+                                    PositionalType::Mandatory(name, _m) => {
+                                        long_desc
+                                            .push_str(&format!("  <{}> {}\n", name, positional.1));
+                                    }
+                                    PositionalType::Optional(name, _o) => {
+                                        long_desc
+                                            .push_str(&format!("  ({}) {}\n", name, positional.1));
+                                    }
+                                }
+                            }
+                            if signature.rest_positional.is_some() {
+                                long_desc.push_str(&format!(
+                                    "  ...args{} {}\n",
+                                    if signature.rest_positional.is_some() {
+                                        ":"
+                                    } else {
+                                        ""
+                                    },
+                                    signature.rest_positional.unwrap().1
+                                ));
+                            }
+                        }
                         if signature.named.len() > 0 {
                             long_desc.push_str("\nflags:\n");
                             for (flag, ty) in signature.named {
-                                match ty {
+                                match ty.0 {
                                     NamedType::Switch => {
-                                        long_desc.push_str(&format!("  --{}\n", flag));
+                                        long_desc.push_str(&format!(
+                                            "  --{}{} {}\n",
+                                            flag,
+                                            if ty.1.len() > 0 { ":" } else { "" },
+                                            ty.1
+                                        ));
                                     }
                                     NamedType::Mandatory(m) => {
                                         long_desc.push_str(&format!(
-                                            "  --{} <{}> (required parameter)\n",
-                                            flag, m
+                                            "  --{} <{}> (required parameter){} {}\n",
+                                            flag,
+                                            m,
+                                            if ty.1.len() > 0 { ":" } else { "" },
+                                            ty.1
                                         ));
                                     }
                                     NamedType::Optional(o) => {
-                                        long_desc.push_str(&format!("  --{} <{}>\n", flag, o));
+                                        long_desc.push_str(&format!(
+                                            "  --{} <{}>{} {}\n",
+                                            flag,
+                                            o,
+                                            if ty.1.len() > 0 { ":" } else { "" },
+                                            ty.1
+                                        ));
                                     }
                                 }
                             }

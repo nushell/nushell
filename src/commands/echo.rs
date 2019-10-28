@@ -12,7 +12,7 @@ impl PerItemCommand for Echo {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("echo").rest(SyntaxShape::Any)
+        Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")
     }
 
     fn usage(&self) -> &str {

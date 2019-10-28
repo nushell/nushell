@@ -17,7 +17,7 @@ impl Plugin for Skip {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("skip")
             .desc("Skip a number of rows")
-            .rest(SyntaxShape::Number)
+            .rest(SyntaxShape::Number, "the number of rows to skip")
             .filter())
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

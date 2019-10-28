@@ -21,13 +21,16 @@ impl PerItemCommand for Remove {
 
     fn signature(&self) -> Signature {
         Signature::build("rm")
-            .required("path", SyntaxShape::Pattern)
-            .switch("trash")
-            .switch("recursive")
+            .required("path", SyntaxShape::Pattern, "the file path to remove")
+            .switch(
+                "trash",
+                "use the platform's recycle bin instead of permanently deleting",
+            )
+            .switch("recursive", "delete subdirectories recursively")
     }
 
     fn usage(&self) -> &str {
-        "Remove a file. Append '--recursive' to remove directories and '--trash' for seding it to system recycle bin"
+        "Remove a file"
     }
 
     fn run(

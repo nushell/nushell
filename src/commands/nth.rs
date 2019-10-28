@@ -16,7 +16,11 @@ impl WholeStreamCommand for Nth {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nth").required("row number", SyntaxShape::Any)
+        Signature::build("nth").required(
+            "row number",
+            SyntaxShape::Any,
+            "the number of the row to return",
+        )
     }
 
     fn usage(&self) -> &str {

@@ -16,7 +16,10 @@ impl WholeStreamCommand for ToTSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-tsv").switch("headerless")
+        Signature::build("to-tsv").switch(
+            "headerless",
+            "do not output the column names as the first row",
+        )
     }
 
     fn usage(&self) -> &str {

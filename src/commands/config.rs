@@ -26,12 +26,16 @@ impl WholeStreamCommand for Config {
 
     fn signature(&self) -> Signature {
         Signature::build("config")
-            .named("load", SyntaxShape::Path)
-            .named("set", SyntaxShape::Any)
-            .named("get", SyntaxShape::Any)
-            .named("remove", SyntaxShape::Any)
-            .switch("clear")
-            .switch("path")
+            .named(
+                "load",
+                SyntaxShape::Path,
+                "load the config from the path give",
+            )
+            .named("set", SyntaxShape::Any, "set a value in the config")
+            .named("get", SyntaxShape::Any, "get a value from the config")
+            .named("remove", SyntaxShape::Any, "remove a value from the config")
+            .switch("clear", "clear the config")
+            .switch("path", "return the path to the config file")
     }
 
     fn usage(&self) -> &str {

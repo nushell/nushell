@@ -16,7 +16,11 @@ impl WholeStreamCommand for First {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("first").optional("rows", SyntaxShape::Int)
+        Signature::build("first").optional(
+            "rows",
+            SyntaxShape::Int,
+            "starting from the front, the number of rows to return",
+        )
     }
 
     fn usage(&self) -> &str {

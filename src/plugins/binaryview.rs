@@ -16,7 +16,7 @@ impl Plugin for BinaryView {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("binaryview")
             .desc("Autoview of binary data.")
-            .switch("lores"))
+            .switch("lores", "use low resolution output mode"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {

@@ -28,7 +28,7 @@ impl Plugin for Embed {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("embed")
             .desc("Embeds a new field to the table.")
-            .optional("field", SyntaxShape::String)
+            .optional("field", SyntaxShape::String, "the name of the new column")
             .filter())
     }
 

@@ -128,11 +128,11 @@ impl Str {
 impl Plugin for Str {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("str")
-            .desc("Apply string function. Optional use the field of a table")
-            .switch("downcase")
-            .switch("upcase")
-            .switch("to-int")
-            .rest(SyntaxShape::ColumnPath)
+            .desc("Apply string function. Optional use the column of a table")
+            .switch("downcase", "convert string to lowercase")
+            .switch("upcase", "convert string to uppercase")
+            .switch("to-int", "convert string to integer")
+            .rest(SyntaxShape::ColumnPath, "the column(s) to convert")
             .filter())
     }
 

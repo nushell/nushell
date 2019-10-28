@@ -16,8 +16,12 @@ impl PerItemCommand for Open {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::Path)
-            .switch("raw")
+            .required(
+                "path",
+                SyntaxShape::Path,
+                "the file path to load values from",
+            )
+            .switch("raw", "load content as a string insead of a table")
     }
 
     fn usage(&self) -> &str {
