@@ -20,9 +20,16 @@ impl PerItemCommand for Move {
 
     fn signature(&self) -> Signature {
         Signature::build("mv")
-            .required("source", SyntaxShape::Pattern)
-            .required("destination", SyntaxShape::Path)
-            .named("file", SyntaxShape::Any)
+            .required(
+                "source",
+                SyntaxShape::Pattern,
+                "the location to move files/directories from",
+            )
+            .required(
+                "destination",
+                SyntaxShape::Path,
+                "the location to move files/directories to",
+            )
     }
 
     fn usage(&self) -> &str {

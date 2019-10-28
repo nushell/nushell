@@ -48,8 +48,16 @@ impl Plugin for Edit {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("edit")
             .desc("Edit an existing column to have a new value.")
-            .required("Field", SyntaxShape::ColumnPath)
-            .required("Value", SyntaxShape::String)
+            .required(
+                "Field",
+                SyntaxShape::ColumnPath,
+                "the name of the column to edit",
+            )
+            .required(
+                "Value",
+                SyntaxShape::String,
+                "the new value to give the cell(s)",
+            )
             .filter())
     }
 

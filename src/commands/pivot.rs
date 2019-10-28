@@ -21,9 +21,12 @@ impl WholeStreamCommand for Pivot {
 
     fn signature(&self) -> Signature {
         Signature::build("pivot")
-            .switch("header-row")
-            .switch("ignore-titles")
-            .rest(SyntaxShape::String)
+            .switch("header-row", "treat the first row as column names")
+            .switch("ignore-titles", "don't pivot the column names into values")
+            .rest(
+                SyntaxShape::String,
+                "the names to give columns once pivoted",
+            )
     }
 
     fn usage(&self) -> &str {

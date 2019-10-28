@@ -21,9 +21,13 @@ impl WholeStreamCommand for SplitColumn {
 
     fn signature(&self) -> Signature {
         Signature::build("split-column")
-            .required("separator", SyntaxShape::Any)
-            .switch("collapse-empty")
-            .rest(SyntaxShape::Member)
+            .required(
+                "separator",
+                SyntaxShape::Any,
+                "the character that denotes what separates columns",
+            )
+            .switch("collapse-empty", "remove empty columns")
+            .rest(SyntaxShape::Member, "column names to give the new columns")
     }
 
     fn usage(&self) -> &str {

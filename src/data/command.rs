@@ -45,12 +45,12 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
     let mut sig = TaggedListBuilder::new(&tag);
 
     for arg in signature.positional.iter() {
-        let is_required = match arg {
+        let is_required = match arg.0 {
             PositionalType::Mandatory(_, _) => true,
             PositionalType::Optional(_, _) => false,
         };
 
-        sig.insert_tagged(for_spec(arg.name(), "argument", is_required, &tag));
+        sig.insert_tagged(for_spec(arg.0.name(), "argument", is_required, &tag));
     }
 
     if let Some(_) = signature.rest_positional {
@@ -59,7 +59,7 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
     }
 
     for (name, ty) in signature.named.iter() {
-        match ty {
+        match ty.0 {
             NamedType::Mandatory(_) => sig.insert_tagged(for_spec(name, "flag", true, &tag)),
             NamedType::Optional(_) => sig.insert_tagged(for_spec(name, "flag", false, &tag)),
             NamedType::Switch => sig.insert_tagged(for_spec(name, "switch", false, &tag)),

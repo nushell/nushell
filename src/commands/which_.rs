@@ -13,7 +13,11 @@ impl WholeStreamCommand for Which {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("which").required("name", SyntaxShape::Any)
+        Signature::build("which").required(
+            "name",
+            SyntaxShape::Any,
+            "the name of the command to find the path to",
+        )
     }
 
     fn usage(&self) -> &str {

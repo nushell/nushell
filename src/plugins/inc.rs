@@ -137,10 +137,10 @@ impl Plugin for Inc {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("inc")
             .desc("Increment a value or version. Optionally use the column of a table.")
-            .switch("major")
-            .switch("minor")
-            .switch("patch")
-            .rest(SyntaxShape::ColumnPath)
+            .switch("major", "increment the major version (eg 1.2.1 -> 2.0.0)")
+            .switch("minor", "increment the minor version (eg 1.2.1 -> 1.3.0)")
+            .switch("patch", "increment the patch version (eg 1.2.1 -> 1.2.2)")
+            .rest(SyntaxShape::ColumnPath, "the column(s) to update")
             .filter())
     }
 

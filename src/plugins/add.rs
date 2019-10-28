@@ -53,10 +53,13 @@ impl Add {
 impl Plugin for Add {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("add")
-            .desc("Add a new field to the table.")
-            .required("Field", SyntaxShape::ColumnPath)
-            .required("Value", SyntaxShape::String)
-            .rest(SyntaxShape::String)
+            .desc("Add a new column to the table.")
+            .required("column", SyntaxShape::ColumnPath, "the column name to add")
+            .required(
+                "value",
+                SyntaxShape::String,
+                "the value to give the cell(s)",
+            )
             .filter())
     }
 

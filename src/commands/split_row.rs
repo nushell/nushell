@@ -17,7 +17,11 @@ impl WholeStreamCommand for SplitRow {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-row").required("separator", SyntaxShape::Any)
+        Signature::build("split-row").required(
+            "separator",
+            SyntaxShape::Any,
+            "the character that denotes what separates rows",
+        )
     }
 
     fn usage(&self) -> &str {

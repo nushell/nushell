@@ -17,7 +17,7 @@ impl WholeStreamCommand for Pick {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pick").rest(SyntaxShape::Any)
+        Signature::build("pick").rest(SyntaxShape::Any, "the columns to select from the table")
     }
 
     fn usage(&self) -> &str {

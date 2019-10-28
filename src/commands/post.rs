@@ -25,13 +25,25 @@ impl PerItemCommand for Post {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::Any)
-            .required("body", SyntaxShape::Any)
-            .named("user", SyntaxShape::Any)
-            .named("password", SyntaxShape::Any)
-            .named("content-type", SyntaxShape::Any)
-            .named("content-length", SyntaxShape::Any)
-            .switch("raw")
+            .required("path", SyntaxShape::Any, "the URL to post to")
+            .required("body", SyntaxShape::Any, "the contents of the post body")
+            .named("user", SyntaxShape::Any, "the username when authenticating")
+            .named(
+                "password",
+                SyntaxShape::Any,
+                "the password when authenticating",
+            )
+            .named(
+                "content-type",
+                SyntaxShape::Any,
+                "the MIME type of content to post",
+            )
+            .named(
+                "content-length",
+                SyntaxShape::Any,
+                "the length of the content being posted",
+            )
+            .switch("raw", "return values as a string instead of a table")
     }
 
     fn usage(&self) -> &str {

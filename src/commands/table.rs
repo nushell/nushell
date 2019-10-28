@@ -11,7 +11,11 @@ impl WholeStreamCommand for Table {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("table").named("start_number", SyntaxShape::Number)
+        Signature::build("table").named(
+            "start_number",
+            SyntaxShape::Number,
+            "row number to start viewing from",
+        )
     }
 
     fn usage(&self) -> &str {

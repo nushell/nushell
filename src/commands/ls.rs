@@ -16,7 +16,11 @@ impl WholeStreamCommand for LS {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ls").optional("path", SyntaxShape::Pattern)
+        Signature::build("ls").optional(
+            "path",
+            SyntaxShape::Pattern,
+            "a path to get the directory contents from",
+        )
     }
 
     fn usage(&self) -> &str {

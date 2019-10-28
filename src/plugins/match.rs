@@ -22,8 +22,8 @@ impl Plugin for Match {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("match")
             .desc("filter rows by regex")
-            .required("member", SyntaxShape::Member)
-            .required("regex", SyntaxShape::String)
+            .required("member", SyntaxShape::Member, "the column name to match")
+            .required("regex", SyntaxShape::String, "the regex to match with")
             .filter())
     }
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {

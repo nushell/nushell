@@ -19,8 +19,12 @@ impl PerItemCommand for Fetch {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::Path)
-            .switch("raw")
+            .required(
+                "path",
+                SyntaxShape::Path,
+                "the URL to fetch the contents from",
+            )
+            .switch("raw", "fetch contents as text rather than a table")
     }
 
     fn usage(&self) -> &str {

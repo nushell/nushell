@@ -16,7 +16,10 @@ impl WholeStreamCommand for ToCSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("to-csv").switch("headerless")
+        Signature::build("to-csv").switch(
+            "headerless",
+            "do not output the columns names as the first row",
+        )
     }
 
     fn usage(&self) -> &str {

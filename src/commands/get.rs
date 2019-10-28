@@ -20,8 +20,15 @@ impl WholeStreamCommand for Get {
 
     fn signature(&self) -> Signature {
         Signature::build("get")
-            .required("member", SyntaxShape::ColumnPath)
-            .rest(SyntaxShape::ColumnPath)
+            .required(
+                "member",
+                SyntaxShape::ColumnPath,
+                "the path to the data to get",
+            )
+            .rest(
+                SyntaxShape::ColumnPath,
+                "optionally return additional data by path",
+            )
     }
 
     fn usage(&self) -> &str {

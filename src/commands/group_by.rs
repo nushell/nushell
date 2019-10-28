@@ -16,7 +16,11 @@ impl WholeStreamCommand for GroupBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("group-by").required("column_name", SyntaxShape::String)
+        Signature::build("group-by").required(
+            "column_name",
+            SyntaxShape::String,
+            "the name of the column to group by",
+        )
     }
 
     fn usage(&self) -> &str {
