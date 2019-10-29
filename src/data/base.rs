@@ -817,6 +817,7 @@ impl Tagged<Value> {
     pub(crate) fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self.item() {
             Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
+            Value::Primitive(Primitive::String(path_str)) => Ok(PathBuf::from(&path_str).clone()),
             other => Err(ShellError::type_error(
                 "Path",
                 other.type_name().tagged(self.tag()),
