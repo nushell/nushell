@@ -57,6 +57,22 @@ fn add_plugin() {
 }
 
 #[test]
+fn read_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | read "{Name}={Value}"
+            | nth 1
+            | get Value
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "StupidLongName");
+}
+
+#[test]
 fn edit_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(

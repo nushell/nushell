@@ -1,0 +1,3 @@
+VAR1=Chill
+VAR2=StupidLongName
+VAR3=AlsoChill

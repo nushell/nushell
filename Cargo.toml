@@ -74,8 +74,8 @@ natural = "0.3.0"
 serde_urlencoded = "0.6.1"
 sublime_fuzzy = "0.5"
 trash = "1.0.0"
+regex = "1"
 
-regex = {version = "1", optional = true }
 neso = { version = "0.5.0", optional = true }
 crossterm = { version = "0.10.2", optional = true }
 syntect = {version = "3.2.0", optional = true }
@@ -135,6 +135,10 @@ path = "src/plugins/add.rs"
 [[bin]]
 name = "nu_plugin_edit"
 path = "src/plugins/edit.rs"
+
+[[bin]]
+name = "nu_plugin_read"
+path = "src/plugins/read.rs"
 
 [[bin]]
 name = "nu_plugin_str"
