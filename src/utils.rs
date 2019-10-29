@@ -449,6 +449,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("fileA.txt"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("jonathan.xml"),
                     at: 0
                 },
