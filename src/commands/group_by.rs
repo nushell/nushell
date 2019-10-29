@@ -36,59 +36,154 @@ impl WholeStreamCommand for GroupBy {
     }
 }
 
-fn group_by(
+pub fn group_by(
     GroupByArgs { column_name }: GroupByArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
-        let mut groups = indexmap::IndexMap::new();
 
-        for value in values {
-            let group_key = value.get_data_by_key(&column_name.item);
-
-            if group_key.is_none() {
-
-                let possibilities = value.data_descriptors();
-
-                let mut possible_matches: Vec<_> = possibilities
-                    .iter()
-                    .map(|x| (natural::distance::levenshtein_distance(x, &column_name.item), x))
-                    .collect();
-
-                possible_matches.sort();
-
-                let err = {
-                    if possible_matches.len() > 0 {
-                        ShellError::labeled_error(
-                            "Unknown column",
-                            format!("did you mean '{}'?", possible_matches[0].1),
-                            &column_name.tag,)
-                    } else {
-                        ShellError::labeled_error(
-                            "Unknown column",
-                            "row does not contain this column",
-                            &column_name.tag,
-                        )
-                    }
-                };
-
-                yield Err(err)
-            } else {
-                let group_key = group_key.unwrap().as_string()?;
-                let mut group = groups.entry(group_key).or_insert(vec![]);
-                group.push(value);
+        if values.is_empty() {
+            yield Err(ShellError::labeled_error(
+                    "Expected table from pipeline",
+                    "requires a table input",
+                    column_name.span()
+                ))
+        } else {
+            match group(&column_name, values, name) {
+                Ok(grouped) => yield ReturnSuccess::value(grouped),
+                Err(err) => yield Err(err)
             }
         }
-
-        let mut out = TaggedDictBuilder::new(name.clone());
-
-        for (k,v) in groups.iter() {
-            out.insert(k, Value::table(v));
-        }
-
-        yield ReturnSuccess::value(out)
     };
 
     Ok(stream.to_output_stream())
+}
+
+pub fn group(
+    column_name: &Tagged<String>,
+    values: Vec<Tagged<Value>>,
+    tag: impl Into<Tag>,
+) -> Result<Tagged<Value>, ShellError> {
+    let tag = tag.into();
+
+    let mut groups = indexmap::IndexMap::new();
+
+    for value in values {
+        let group_key = value.get_data_by_key(column_name);
+
+        if group_key.is_none() {
+            let possibilities = value.data_descriptors();
+
+            let mut possible_matches: Vec<_> = possibilities
+                .iter()
+                .map(|x| (natural::distance::levenshtein_distance(x, column_name), x))
+                .collect();
+
+            possible_matches.sort();
+
+            if possible_matches.len() > 0 {
+                return Err(ShellError::labeled_error(
+                    "Unknown column",
+                    format!("did you mean '{}'?", possible_matches[0].1),
+                    column_name.tag(),
+                ));
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Unknown column",
+                    "row does not contain this column",
+                    column_name.tag(),
+                ));
+            }
+        }
+
+        let group_key = group_key.unwrap().as_string()?;
+        let group = groups.entry(group_key).or_insert(vec![]);
+        group.push(value);
+    }
+
+    let mut out = TaggedDictBuilder::new(&tag);
+
+    for (k, v) in groups.iter() {
+        out.insert(k, Value::table(v));
+    }
+
+    Ok(out.into_tagged_value())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::commands::group_by::group;
+    use crate::data::meta::*;
+    use crate::Value;
+    use indexmap::IndexMap;
+
+    fn string(input: impl Into<String>) -> Tagged<Value> {
+        Value::string(input.into()).tagged_unknown()
+    }
+
+    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
+        Value::row(entries).tagged_unknown()
+    }
+
+    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
+        Value::table(list).tagged_unknown()
+    }
+
+    #[test]
+    fn groups_table_by_key() {
+        let for_key = String::from("date").tagged_unknown();
+
+        let nu_releases = vec![
+            row(
+                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")},
+            ),
+        ];
+
+        assert_eq!(
+            group(&for_key, nu_releases, Tag::unknown()).unwrap(),
+            row(indexmap! {
+                "August 23-2019".into() =>  table(&vec![
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")})
+                ]),
+                "October 10-2019".into() =>  table(&vec![
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")})
+                ]),
+                "Sept 24-2019".into() =>  table(&vec![
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
+                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")}),
+                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")})
+                ]),
+            })
+        );
+    }
 }

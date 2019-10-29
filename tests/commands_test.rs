@@ -9,10 +9,10 @@ fn group_by() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
             r#"
-                first_name,last_name,rusty_luck,type
-                Andrés,Robalino,1,A
-                Jonathan,Turner,1,B
-                Yehuda,Katz,1,A
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
             "#,
         )]);
 
@@ -20,8 +20,8 @@ fn group_by() {
             cwd: dirs.test(), h::pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | group-by type
-                | get A
+                | group-by rusty_at
+                | get "10/11/2013"
                 | count
                 | echo $it
             "#
@@ -37,10 +37,10 @@ fn group_by_errors_if_unknown_column_name() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.csv",
             r#"
-                first_name,last_name,rusty_luck,type
-                Andrés,Robalino,1,A
-                Jonathan,Turner,1,B
-                Yehuda,Katz,1,A
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
             "#,
         )]);
 
@@ -53,6 +53,58 @@ fn group_by_errors_if_unknown_column_name() {
         ));
 
         assert!(actual.contains("Unknown column"));
+    })
+}
+
+#[test]
+fn split_by() {
+    Playground::setup("split_by_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.csv
+                | group-by rusty_at
+                | split-by type
+                | get A."10/11/2013"
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    })
+}
+
+#[test]
+fn split_by_errors_if_no_table_given_as_input() {
+    Playground::setup("split_by_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | get name
+                | split-by type
+            "#
+        ));
+
+        assert!(actual.contains("Expected table from pipeline"));
     })
 }
 
