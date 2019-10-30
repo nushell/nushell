@@ -475,6 +475,13 @@ impl Value {
         }
     }
 
+    pub(crate) fn get_data_by_index(&self, idx: usize) -> Option<&Tagged<Value>> {
+        match self {
+            Value::Table(value_set) => value_set.get(idx),
+            _ => None,
+        }
+    }
+
     pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
         match self {
             Value::Row(o) => o.get_data_by_key(name),
@@ -526,7 +533,15 @@ impl Value {
     ) -> Option<Tagged<&Value>> {
         let mut current = self;
         for p in path {
-            match current.get_data_by_key(p) {
+            let value = if p.chars().all(char::is_numeric) {
+                current.get_data_by_index(p.chars().fold(0 as usize, |acc, c| {
+                    c.to_digit(10).unwrap_or(0) as usize + acc
+                }))
+            } else {
+                current.get_data_by_key(p)
+            };
+
+            match value {
                 Some(v) => current = v,
                 None => return None,
             }
@@ -960,7 +975,7 @@ mod tests {
 
         let (version, tag) = string("0.4.0").into_parts();
 
-        let row = Value::row(indexmap! {
+        let value = Value::row(indexmap! {
             "package".into() =>
                 row(indexmap! {
                     "name".into()    =>     string("nu"),
@@ -969,7 +984,7 @@ mod tests {
         });
 
         assert_eq!(
-            **row.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value.get_data_by_column_path(tag, &field_path).unwrap(),
             version
         )
     }
@@ -980,7 +995,7 @@ mod tests {
 
         let (name, tag) = string("Andrés N. Robalino").into_parts();
 
-        let row = Value::row(indexmap! {
+        let value = Value::row(indexmap! {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
@@ -993,9 +1008,35 @@ mod tests {
         });
 
         assert_eq!(
-            **row.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value.get_data_by_column_path(tag, &field_path).unwrap(),
             name
         )
+    }
+
+    #[test]
+    fn column_path_that_contains_just_a_numbers_gets_a_row_from_a_table() {
+        let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
+
+        let (_, tag) = string("Andrés N. Robalino").into_parts();
+
+        let value = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+                "authors".into() => table(&vec![
+                    row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
+                    row(indexmap!{"name".into() => string("Jonathan Turner")}),
+                    row(indexmap!{"name".into() => string("Yehuda Katz")})
+                ])
+            })
+        });
+
+        assert_eq!(
+            **value.get_data_by_column_path(tag, &field_path).unwrap(),
+            Value::row(indexmap! {
+                "name".into() => string("Andrés N. Robalino")
+            })
+        );
     }
 
     #[test]
