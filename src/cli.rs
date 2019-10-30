@@ -264,6 +264,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Lines),
             whole_stream_command(Reject),
             whole_stream_command(Reverse),
+            whole_stream_command(Append),
+            whole_stream_command(Prepend),
             whole_stream_command(Trim),
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),

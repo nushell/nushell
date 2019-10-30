@@ -73,6 +73,38 @@ fn read_plugin() {
 }
 
 #[test]
+fn prepend_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | lines
+            | prepend "testme"
+            | nth 0
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "testme");
+}
+
+#[test]
+fn append_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | lines
+            | append "testme"
+            | nth 3
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "testme");
+}
+
+#[test]
 fn edit_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
