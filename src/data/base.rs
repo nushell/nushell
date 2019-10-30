@@ -530,7 +530,8 @@ impl Value {
         &self,
         tag: Tag,
         path: &Vec<Tagged<String>>,
-    ) -> Option<Tagged<&Value>> {
+        callback: Box<dyn FnOnce((&Value, &Tagged<String>)) -> ShellError>,
+    ) -> Result<Option<Tagged<&Value>>, ShellError> {
         let mut current = self;
         for p in path {
             let value = if p.chars().all(char::is_numeric) {
@@ -543,11 +544,11 @@ impl Value {
 
             match value {
                 Some(v) => current = v,
-                None => return None,
+                None => return Err(callback((&current.clone(), &p.clone()))),
             }
         }
 
-        Some(current.tagged(tag))
+        Ok(Some(current.tagged(tag)))
     }
 
     pub fn insert_data_at_path(
@@ -927,6 +928,7 @@ fn coerce_compare_primitive(
 mod tests {
 
     use crate::data::meta::*;
+    use crate::ShellError;
     use crate::Value;
     use indexmap::IndexMap;
 
@@ -940,6 +942,10 @@ mod tests {
 
     fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
         Value::table(list).tagged_unknown()
+    }
+
+    fn error_callback() -> impl FnOnce((&Value, &Tagged<String>)) -> ShellError {
+        move |(_obj_source, _column_path_tried)| ShellError::unimplemented("will never be called.")
     }
 
     fn column_path(paths: &Vec<Tagged<Value>>) -> Tagged<Vec<Tagged<String>>> {
@@ -984,7 +990,10 @@ mod tests {
         });
 
         assert_eq!(
-            **value.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
             version
         )
     }
@@ -1008,7 +1017,10 @@ mod tests {
         });
 
         assert_eq!(
-            **value.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
             name
         )
     }
@@ -1032,7 +1044,10 @@ mod tests {
         });
 
         assert_eq!(
-            **value.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
             Value::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })

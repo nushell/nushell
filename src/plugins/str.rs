@@ -1,6 +1,6 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, TaggedItem, Value,
+    did_you_mean, serve_plugin, tag_for_tagged_list, CallInfo, Plugin, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, Signature, SyntaxShape, Tagged, TaggedItem, Value,
 };
 
 #[derive(Debug, Eq, PartialEq)]
@@ -92,13 +92,50 @@ impl Str {
             Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
             Value::Row(_) => match self.field {
                 Some(ref f) => {
-                    let replacement = match value.item.get_data_by_column_path(value.tag(), f) {
-                        Some(result) => self.strutils(result.map(|x| x.clone()))?,
-                        None => return Ok(Value::nothing().tagged(value.tag)),
+                    let fields = f.clone();
+
+                    let replace_for = value.item.get_data_by_column_path(
+                        value.tag(),
+                        &f,
+                        Box::new(move |(obj_source, column_path_tried)| {
+                            //let fields = f.clone();
+
+                            match did_you_mean(&obj_source, &column_path_tried) {
+                                Some(suggestions) => {
+                                    return ShellError::labeled_error(
+                                        "Unknown column",
+                                        format!("did you mean '{}'?", suggestions[0].1),
+                                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                                    )
+                                }
+                                None => {
+                                    return ShellError::labeled_error(
+                                        "Unknown column",
+                                        "row does not contain this column",
+                                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                                    )
+                                }
+                            }
+                        }),
+                    );
+
+                    let replacement = match replace_for {
+                        Ok(got) => match got {
+                            Some(result) => self.strutils(result.map(|x| x.clone()))?,
+                            None => {
+                                return Err(ShellError::labeled_error(
+                                    "inc could not find field to replace",
+                                    "column name",
+                                    value.tag(),
+                                ))
+                            }
+                        },
+                        Err(reason) => return Err(reason),
                     };
+
                     match value.item.replace_data_at_column_path(
                         value.tag(),
-                        f,
+                        &f,
                         replacement.item.clone(),
                     ) {
                         Some(v) => return Ok(v),

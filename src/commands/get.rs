@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::meta::tag_for_tagged_list;
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use crate::utils::did_you_mean;
 use log::trace;
 
 pub struct Get;
@@ -50,56 +50,51 @@ pub fn get_column_path(
     path: &ColumnPath,
     obj: &Tagged<Value>,
 ) -> Result<Tagged<Value>, ShellError> {
-    let mut current = Some(obj);
-    for p in path.iter() {
-        if let Some(obj) = current {
-            current = match obj.get_data_by_key(&p) {
-                Some(v) => Some(v),
-                None =>
-                // Before we give up, see if they gave us a path that matches a field name by itself
-                {
-                    let possibilities = obj.data_descriptors();
+    let fields = path.clone();
 
-                    let mut possible_matches: Vec<_> = possibilities
-                        .iter()
-                        .map(|x| (natural::distance::levenshtein_distance(x, &p), x))
-                        .collect();
-
-                    possible_matches.sort();
-
-                    if possible_matches.len() > 0 {
-                        return Err(ShellError::labeled_error(
-                            "Unknown column",
-                            format!("did you mean '{}'?", possible_matches[0].1),
-                            tag_for_tagged_list(path.iter().map(|p| p.tag())),
-                        ));
-                    } else {
-                        return Err(ShellError::labeled_error(
-                            "Unknown column",
-                            "row does not contain this column",
-                            tag_for_tagged_list(path.iter().map(|p| p.tag())),
-                        ));
-                    }
+    let value = obj.get_data_by_column_path(
+        obj.tag(),
+        path,
+        Box::new(move |(obj_source, column_path_tried)| {
+            match did_you_mean(&obj_source, &column_path_tried) {
+                Some(suggestions) => {
+                    return ShellError::labeled_error(
+                        "Unknown column",
+                        format!("did you mean '{}'?", suggestions[0].1),
+                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                    )
+                }
+                None => {
+                    return ShellError::labeled_error(
+                        "Unknown column",
+                        "row does not contain this column",
+                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                    )
                 }
             }
-        }
-    }
+        }),
+    );
 
-    match current {
-        Some(v) => Ok(v.clone()),
-        None => match obj {
-            // If its None check for certain values.
-            Tagged {
-                item: Value::Primitive(Primitive::String(_)),
-                ..
-            } => Ok(obj.clone()),
-            Tagged {
-                item: Value::Primitive(Primitive::Path(_)),
-                ..
-            } => Ok(obj.clone()),
-            _ => Ok(Value::nothing().tagged(&obj.tag)),
+    let res = match value {
+        Ok(fetched) => match fetched {
+            Some(Tagged { item: v, tag }) => Ok((v.clone()).tagged(&tag)),
+            None => match obj {
+                // If its None check for certain values.
+                Tagged {
+                    item: Value::Primitive(Primitive::String(_)),
+                    ..
+                } => Ok(obj.clone()),
+                Tagged {
+                    item: Value::Primitive(Primitive::Path(_)),
+                    ..
+                } => Ok(obj.clone()),
+                _ => Ok(Value::nothing().tagged(&obj.tag)),
+            },
         },
-    }
+        Err(reason) => Err(reason),
+    };
+
+    res
 }
 
 pub fn get(
@@ -118,26 +113,30 @@ pub fn get(
 
             let member = vec![member.clone()];
 
-            let fields = vec![&member, &fields]
+            let column_paths = vec![&member, &fields]
                 .into_iter()
                 .flatten()
                 .collect::<Vec<&ColumnPath>>();
 
-            for column_path in &fields {
-                match get_column_path(column_path, &item) {
-                    Ok(Tagged {
-                        item: Value::Table(l),
-                        ..
-                    }) => {
-                        for item in l {
-                            result.push_back(ReturnSuccess::value(item.clone()));
+            for path in column_paths {
+                let res = get_column_path(&path, &item);
+
+                match res {
+                    Ok(got) => match got {
+                        Tagged {
+                            item: Value::Table(rows),
+                            ..
+                        } => {
+                            for item in rows {
+                                result.push_back(ReturnSuccess::value(item.clone()));
+                            }
                         }
-                    }
-                    Ok(x) => result.push_back(ReturnSuccess::value(x.clone())),
-                    Err(x) => result.push_back(Err(x)),
+                        other => result
+                            .push_back(ReturnSuccess::value((*other).clone().tagged(&item.tag))),
+                    },
+                    Err(reason) => result.push_back(Err(reason)),
                 }
             }
-
             result
         })
         .flatten();
