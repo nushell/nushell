@@ -1,6 +1,7 @@
 #[macro_use]
 pub(crate) mod macros;
 
+pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
 pub(crate) mod cd;
@@ -45,6 +46,7 @@ pub(crate) mod pick;
 pub(crate) mod pivot;
 pub(crate) mod plugin;
 pub(crate) mod post;
+pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
 pub(crate) mod reject;
@@ -79,6 +81,7 @@ pub(crate) use command::{
     UnevaluatedCallInfo, WholeStreamCommand,
 };
 
+pub(crate) use append::Append;
 pub(crate) use classified::ClassifiedCommand;
 pub(crate) use config::Config;
 pub(crate) use count::Count;
@@ -119,6 +122,7 @@ pub(crate) use open::Open;
 pub(crate) use pick::Pick;
 pub(crate) use pivot::Pivot;
 pub(crate) use post::Post;
+pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::PWD;
 pub(crate) use reject::Reject;
