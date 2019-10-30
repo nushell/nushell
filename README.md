@@ -249,6 +249,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | add column-or-column-path value | Add a new column to the table |
+| append row-data | Append a row to the end of the table |
 | count | Show the total number of rows |
 | edit column-or-column-path value | Edit an existing column to have a new value |
 | embed column | Creates a new table of one column with the given name, and places the current table inside of it |
@@ -260,6 +261,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | nth row-number | Return only the selected row |
 | pick ...columns | Down-select table to only these columns |
 | pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
+| prepend row-data | Prepend a row to the beginning of the table |
 | reject ...columns | Remove the given columns from the table |
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
@@ -293,6 +295,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
+| read pattern | Convert text to a table by matching the given pattern |
 | size | Gather word count statistics on the text |
 | split-column sep ...column-names | Split row contents across multiple columns via the separator, optionally give the columns names |
 | split-row sep | Split row contents over multiple rows via the separator |
