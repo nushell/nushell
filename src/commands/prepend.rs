@@ -43,7 +43,5 @@ fn prepend(
     let mut prepend: VecDeque<Tagged<Value>> = VecDeque::new();
     prepend.push_back(row);
 
-    Ok(OutputStream::from_input(
-        prepend.chain(input.values),
-    ))
+    Ok(OutputStream::from_input(prepend.chain(input.values)))
 }

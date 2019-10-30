@@ -43,7 +43,5 @@ fn append(
     let mut after: VecDeque<Tagged<Value>> = VecDeque::new();
     after.push_back(row);
 
-    Ok(OutputStream::from_input(
-        input.values.chain(after),
-    ))
+    Ok(OutputStream::from_input(input.values.chain(after)))
 }
