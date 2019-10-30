@@ -14,7 +14,7 @@ documentation = "https://book.nushell.sh"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = { git = "https://github.com/kkawakam/rustyline.git" }
+rustyline = "5.0.4"
 chrono = { version = "0.4.9", features = ["serde"] }
 derive-new = "0.5.8"
 prettytable-rs = "0.8.0"
