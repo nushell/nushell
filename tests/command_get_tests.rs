@@ -2,6 +2,7 @@ mod helpers;
 
 use helpers as h;
 use helpers::{Playground, Stub::*};
+
 #[test]
 fn get() {
     Playground::setup("get_test_1", |dirs, sandbox| {
@@ -88,7 +89,7 @@ fn fetches_more_than_one_column_member_path() {
 
 #[test]
 fn errors_fetching_by_index_out_of_bounds_from_table() {
-    Playground::setup("get_test_2", |dirs, sandbox| {
+    Playground::setup("get_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -113,7 +114,7 @@ fn errors_fetching_by_index_out_of_bounds_from_table() {
 
 #[test]
 fn requires_at_least_one_column_member_path() {
-    Playground::setup("first_test_4", |dirs, sandbox| {
+    Playground::setup("get_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt")]);
 
         let actual = nu_error!(
