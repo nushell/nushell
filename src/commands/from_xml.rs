@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromXML;
@@ -34,7 +34,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
 
         let mut children_values = vec![];
         for c in n.children() {
-            children_values.push(from_node_to_value(&c, tag));
+            children_values.push(from_node_to_value(&c, &tag));
         }
 
         let children_values: Vec<Tagged<Value>> = children_values
@@ -55,7 +55,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             .collect();
 
         let mut collected = TaggedDictBuilder::new(tag);
-        collected.insert(name.clone(), Value::List(children_values));
+        collected.insert(name.clone(), Value::Table(children_values));
 
         collected.into_tagged_value()
     } else if n.is_comment() {
@@ -83,10 +83,10 @@ pub fn from_xml_string_to_value(
 
 fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
+    let tag = args.name_tag();
     let input = args.input;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         let mut concat_string = String::new();
@@ -94,7 +94,7 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -103,17 +103,17 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    &tag,
                     "value originates from here",
-                    value_tag.span,
+                    &value_tag,
                 )),
 
             }
         }
 
-        match from_xml_string_to_value(concat_string, span) {
+        match from_xml_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }
@@ -124,13 +124,83 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as XML",
                     "input cannot be parsed as XML",
-                    span,
+                    &tag,
                     "value originates from here",
-                    last_tag.span,
+                    &last_tag,
                 ))
             } ,
         }
     };
 
     Ok(stream.to_output_stream())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::commands::from_xml;
+    use crate::data::meta::*;
+    use crate::Value;
+    use indexmap::IndexMap;
+
+    fn string(input: impl Into<String>) -> Tagged<Value> {
+        Value::string(input.into()).tagged_unknown()
+    }
+
+    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
+        Value::row(entries).tagged_unknown()
+    }
+
+    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
+        Value::table(list).tagged_unknown()
+    }
+
+    fn parse(xml: &str) -> Tagged<Value> {
+        from_xml::from_xml_string_to_value(xml.to_string(), Tag::unknown()).unwrap()
+    }
+
+    #[test]
+    fn parses_empty_element() {
+        let source = "<nu></nu>";
+
+        assert_eq!(
+            parse(source),
+            row(indexmap! {
+                "nu".into() => table(&vec![])
+            })
+        );
+    }
+
+    #[test]
+    fn parses_element_with_text() {
+        let source = "<nu>La era de los tres caballeros</nu>";
+
+        assert_eq!(
+            parse(source),
+            row(indexmap! {
+                "nu".into() => table(&vec![string("La era de los tres caballeros")])
+            })
+        );
+    }
+
+    #[test]
+    fn parses_element_with_elements() {
+        let source = "\
+<nu>
+    <dev>Andrés</dev>
+    <dev>Jonathan</dev>
+    <dev>Yehuda</dev>
+</nu>";
+
+        assert_eq!(
+            parse(source),
+            row(indexmap! {
+                "nu".into() => table(&vec![
+                    row(indexmap! {"dev".into() => table(&vec![string("Andrés")])}),
+                    row(indexmap! {"dev".into() => table(&vec![string("Jonathan")])}),
+                    row(indexmap! {"dev".into() => table(&vec![string("Yehuda")])})
+                ])
+            })
+        );
+    }
 }

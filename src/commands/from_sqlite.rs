@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::errors::ShellError;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use rusqlite::{types::ValueRef, Connection, Row, NO_PARAMS};
 use std::io::Write;
@@ -76,11 +76,11 @@ pub fn convert_sqlite_file_to_nu_value(
             "table_name".to_string(),
             Value::Primitive(Primitive::String(table_name)).tagged(tag.clone()),
         );
-        meta_dict.insert_tagged("table_values", Value::List(out).tagged(tag.clone()));
+        meta_dict.insert_tagged("table_values", Value::Table(out).tagged(tag.clone()));
         meta_out.push(meta_dict.into_tagged_value());
     }
     let tag = tag.into();
-    Ok(Value::List(meta_out).tagged(tag))
+    Ok(Value::Table(meta_out).tagged(tag))
 }
 
 fn convert_sqlite_row_to_nu_value(
@@ -106,7 +106,7 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone
             // this unwrap is safe because we know the ValueRef is Text.
             Value::Primitive(Primitive::String(t.as_str().unwrap().to_string())).tagged(tag)
         }
-        ValueRef::Blob(u) => Value::Binary(u.to_owned()).tagged(tag),
+        ValueRef::Blob(u) => Value::binary(u.to_owned()).tagged(tag),
     }
 }
 
@@ -128,19 +128,19 @@ pub fn from_sqlite_bytes_to_value(
 
 fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
+    let tag = args.name_tag();
     let input = args.input;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         for value in values {
             let value_tag = value.tag();
             match value.item {
-                Value::Binary(vb) =>
-                    match from_sqlite_bytes_to_value(vb, span) {
+                Value::Primitive(Primitive::Binary(vb)) =>
+                    match from_sqlite_bytes_to_value(vb, tag.clone()) {
                         Ok(x) => match x {
-                            Tagged { item: Value::List(list), .. } => {
+                            Tagged { item: Value::Table(list), .. } => {
                                 for l in list {
                                     yield ReturnSuccess::value(l);
                                 }
@@ -151,18 +151,18 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could not parse as SQLite",
                                 "input cannot be parsed as SQLite",
-                                span,
+                                &tag,
                                 "value originates from here",
-                                value_tag.span,
+                                value_tag,
                             ))
                         }
                     }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    &tag,
                     "value originates from here",
-                    value_tag.span,
+                    value_tag,
                 )),
 
             }

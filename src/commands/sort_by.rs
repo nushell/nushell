@@ -15,7 +15,7 @@ impl WholeStreamCommand for SortBy {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sort-by").rest(SyntaxType::String)
+        Signature::build("sort-by").rest(SyntaxShape::String, "the column(s) to sort by")
     }
 
     fn usage(&self) -> &str {
@@ -35,7 +35,7 @@ fn sort_by(
     SortByArgs { rest }: SortByArgs,
     mut context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::new(async_stream_block! {
+    Ok(OutputStream::new(async_stream! {
         let mut vec = context.input.drain_vec().await;
 
         let calc_key = |item: &Tagged<Value>| {

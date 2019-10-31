@@ -26,11 +26,7 @@ fn moves_a_file() {
 #[test]
 fn overwrites_if_moving_to_existing_file() {
     Playground::setup("mv_test_2", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![
-                EmptyFile("andres.txt"),
-                EmptyFile("jonathan.txt")
-        ]);
+        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jonathan.txt")]);
 
         let original = dirs.test().join("andres.txt");
         let expected = dirs.test().join("jonathan.txt");
@@ -142,7 +138,7 @@ fn moves_using_path_with_wildcard() {
                 EmptyFile("sgml_description.json"),
                 EmptyFile("sample.ini"),
                 EmptyFile("utf16.ini"),
-                EmptyFile("yehuda.ini")
+                EmptyFile("yehuda.ini"),
             ])
             .mkdir("work_dir")
             .mkdir("expected");
@@ -150,10 +146,7 @@ fn moves_using_path_with_wildcard() {
         let work_dir = dirs.test().join("work_dir");
         let expected = dirs.test().join("expected");
 
-        nu!(
-            cwd: work_dir,
-            "mv ../originals/*.ini ../expected"
-        );
+        nu!(cwd: work_dir, "mv ../originals/*.ini ../expected");
 
         assert!(h::files_exist_at(
             vec!["yehuda.ini", "jonathan.ini", "sample.ini", "andres.ini",],
@@ -170,7 +163,7 @@ fn moves_using_a_glob() {
             .with_files(vec![
                 EmptyFile("arepa.txt"),
                 EmptyFile("empanada.txt"),
-                EmptyFile("taquiza.txt")
+                EmptyFile("taquiza.txt"),
             ])
             .mkdir("work_dir")
             .mkdir("expected");
@@ -179,10 +172,7 @@ fn moves_using_a_glob() {
         let work_dir = dirs.test().join("work_dir");
         let expected = dirs.test().join("expected");
 
-        nu!(
-            cwd: work_dir,
-            "mv ../meals/* ../expected"
-        );
+        nu!(cwd: work_dir, "mv ../meals/* ../expected");
 
         assert!(meal_dir.exists());
         assert!(h::files_exist_at(

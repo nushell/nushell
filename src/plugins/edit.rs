@@ -1,10 +1,12 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxType, Tagged, Value,
+    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature, SyntaxShape,
+    Tagged, Value,
 };
 
+pub type ColumnPath = Tagged<Vec<Tagged<String>>>;
+
 struct Edit {
-    field: Option<String>,
+    field: Option<ColumnPath>,
     value: Option<Value>,
 }
 impl Edit {
@@ -18,23 +20,26 @@ impl Edit {
     fn edit(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
-            (obj @ Value::Object(_), Some(v)) => match &self.field {
-                Some(f) => match obj.replace_data_at_path(value_tag, &f, v) {
+            (obj @ Value::Row(_), Some(v)) => match &self.field {
+                Some(f) => match obj.replace_data_at_column_path(value_tag, &f, v) {
                     Some(v) => return Ok(v),
                     None => {
-                        return Err(ShellError::string(
-                            "edit could not find place to insert field",
+                        return Err(ShellError::labeled_error(
+                            "edit could not find place to insert column",
+                            "column name",
+                            &f.tag,
                         ))
                     }
                 },
-                None => Err(ShellError::string(
-                    "edit needs a field when adding a value to an object",
+                None => Err(ShellError::untagged_runtime_error(
+                    "edit needs a column when changing a value in a table",
                 )),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            _ => Err(ShellError::labeled_error(
+                "Unrecognized type in stream",
+                "original value",
+                value_tag,
+            )),
         }
     }
 }
@@ -42,27 +47,30 @@ impl Edit {
 impl Plugin for Edit {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("edit")
-            .desc("Edit an existing field to have a new value.")
-            .required("Field", SyntaxType::String)
-            .required("Value", SyntaxType::String)
+            .desc("Edit an existing column to have a new value.")
+            .required(
+                "Field",
+                SyntaxShape::ColumnPath,
+                "the name of the column to edit",
+            )
+            .required(
+                "Value",
+                SyntaxShape::String,
+                "the new value to give the cell(s)",
+            )
             .filter())
     }
 
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
+                table @ Tagged {
+                    item: Value::Table(_),
                     ..
                 } => {
-                    self.field = Some(s.clone());
+                    self.field = Some(table.as_column_path()?);
                 }
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )))
-                }
+                value => return Err(ShellError::type_error("table", value.tagged_type_name())),
             }
             match &args[1] {
                 Tagged { item: v, .. } => {

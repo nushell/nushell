@@ -1,6 +1,6 @@
 use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
+use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 use std::path::PathBuf;
@@ -11,6 +11,7 @@ pub struct Remove;
 pub struct RemoveArgs {
     pub target: Tagged<PathBuf>,
     pub recursive: Tagged<bool>,
+    pub trash: Tagged<bool>,
 }
 
 impl PerItemCommand for Remove {
@@ -20,12 +21,16 @@ impl PerItemCommand for Remove {
 
     fn signature(&self) -> Signature {
         Signature::build("rm")
-            .required("path", SyntaxType::Path)
-            .switch("recursive")
+            .required("path", SyntaxShape::Pattern, "the file path to remove")
+            .switch(
+                "trash",
+                "use the platform's recycle bin instead of permanently deleting",
+            )
+            .switch("recursive", "delete subdirectories recursively")
     }
 
     fn usage(&self) -> &str {
-        "Remove a file, (for removing directory append '--recursive')"
+        "Remove a file"
     }
 
     fn run(

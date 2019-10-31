@@ -7,7 +7,7 @@ pub struct First;
 
 #[derive(Deserialize)]
 pub struct FirstArgs {
-    amount: Tagged<u64>,
+    rows: Option<Tagged<u64>>,
 }
 
 impl WholeStreamCommand for First {
@@ -16,8 +16,11 @@ impl WholeStreamCommand for First {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("first")
-            .required("amount", SyntaxType::Literal)
+        Signature::build("first").optional(
+            "rows",
+            SyntaxShape::Int,
+            "starting from the front, the number of rows to return",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -34,8 +37,16 @@ impl WholeStreamCommand for First {
 }
 
 fn first(
-    FirstArgs { amount }: FirstArgs,
+    FirstArgs { rows }: FirstArgs,
     context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::from_input(context.input.values.take(*amount)))
+    let rows_desired = if let Some(quantity) = rows {
+        *quantity
+    } else {
+        1
+    };
+
+    Ok(OutputStream::from_input(
+        context.input.values.take(rows_desired),
+    ))
 }

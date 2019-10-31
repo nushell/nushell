@@ -5,7 +5,6 @@ pub mod clipboard {
     use crate::errors::ShellError;
     use crate::prelude::*;
     use futures::stream::StreamExt;
-    use futures_async_stream::async_stream_block;
 
     use clipboard::{ClipboardContext, ClipboardProvider};
 
@@ -40,10 +39,13 @@ pub mod clipboard {
         ClipArgs {}: ClipArgs,
         RunnableContext { input, name, .. }: RunnableContext,
     ) -> Result<OutputStream, ShellError> {
-        let stream = async_stream_block! {
+        let stream = async_stream! {
             let values: Vec<Tagged<Value>> = input.values.collect().await;
 
-            inner_clip(values, name).await;
+            let mut clip_stream = inner_clip(values, name).await;
+            while let Some(value) = clip_stream.next().await {
+                yield value;
+            }
         };
 
         let stream: BoxStream<'static, ReturnValue> = stream.boxed();
@@ -51,7 +53,7 @@ pub mod clipboard {
         Ok(OutputStream::from(stream))
     }
 
-    async fn inner_clip(input: Vec<Tagged<Value>>, name: Span) -> OutputStream {
+    async fn inner_clip(input: Vec<Tagged<Value>>, name: Tag) -> OutputStream {
         let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
         let mut new_copy_data = String::new();
 

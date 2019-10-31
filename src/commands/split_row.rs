@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::{Primitive, Value};
 use crate::errors::ShellError;
-use crate::object::{Primitive, Value};
 use crate::prelude::*;
 use log::trace;
 
@@ -17,8 +17,11 @@ impl WholeStreamCommand for SplitRow {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("split-row")
-            .required("separator", SyntaxType::Any)
+        Signature::build("split-row").required(
+            "separator",
+            SyntaxShape::Any,
+            "the character that denotes what separates rows",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -61,9 +64,9 @@ fn split_row(
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name,
+                    &name,
                     "value originates from here",
-                    v.span(),
+                    v.tag(),
                 )));
                 result
             }

@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::base::reject_fields;
 use crate::errors::ShellError;
-use crate::object::base::reject_fields;
 use crate::prelude::*;
 
 #[derive(Deserialize)]
@@ -16,7 +16,7 @@ impl WholeStreamCommand for Reject {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("reject").rest(SyntaxType::Member)
+        Signature::build("reject").rest(SyntaxShape::Member, "the names of columns to remove")
     }
 
     fn usage(&self) -> &str {

@@ -37,7 +37,7 @@ impl<'de> ConfigDeserializer<'de> {
         let value: Option<Tagged<Value>> = if name == "rest" {
             let positional = self.call.args.slice_from(self.position);
             self.position += positional.len();
-            Some(Value::List(positional).tagged_unknown()) // TODO: correct span
+            Some(Value::Table(positional).tagged_unknown()) // TODO: correct tag
         } else {
             if self.call.args.has(name) {
                 self.call.args.get(name).map(|x| x.clone())
@@ -52,9 +52,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         self.stack.push(DeserializerItem {
             key_struct_field: Some((name.to_string(), name)),
-            val: value.unwrap_or_else(|| {
-                Value::nothing().tagged(Tag::unknown_origin(self.call.name_span))
-            }),
+            val: value.unwrap_or_else(|| Value::nothing().tagged(&self.call.name_tag)),
         });
 
         Ok(())
@@ -240,14 +238,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         trace!("<Vec> Extracting {:?} for vec", value.val);
 
         match value.val.into_parts() {
-            (Value::List(items), _) => {
+            (Value::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
-            (other, tag) => Err(ShellError::type_error(
-                "Vec",
-                other.type_name().tagged(tag),
-            )),
+            (other, tag) => Err(ShellError::type_error("Vec", other.type_name().tagged(tag))),
         }
     }
     fn deserialize_tuple<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -255,10 +250,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         V: Visitor<'de>,
     {
         let value = self.pop();
-        trace!("<Tuple> Extracting {:?} for tuple with {} elements", value.val, len);
+        trace!(
+            "<Tuple> Extracting {:?} for tuple with {} elements",
+            value.val,
+            len
+        );
 
         match value.val.into_parts() {
-            (Value::List(items), _) => {
+            (Value::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
@@ -298,7 +297,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             val: T,
             name: &'static str,
             fields: &'static [&'static str],
-            visitor: V
+            visitor: V,
         ) -> Result<V::Value, ShellError>
         where
             T: serde::Serialize,
@@ -311,9 +310,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             return Ok(r);
         }
         trace!(
-            "deserializing struct {:?} {:?} (stack={:?})",
+            "deserializing struct {:?} {:?} (saw_root={} stack={:?})",
             name,
             fields,
+            self.saw_root,
             self.stack
         );
 
@@ -327,7 +327,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let type_name = std::any::type_name::<V::Value>();
         let tagged_val_name = std::any::type_name::<Tagged<Value>>();
 
-        if name == tagged_val_name {
+        trace!(
+            "type_name={} tagged_val_name={}",
+            type_name,
+            tagged_val_name
+        );
+
+        if type_name == tagged_val_name {
             return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
         }
 
@@ -364,7 +370,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             } => {
                 let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
                 visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
-            },
+            }
             Tagged {
                 item: Value::Primitive(Primitive::String(string)),
                 ..
@@ -398,21 +404,20 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     }
 }
 
-struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> {
+struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> {
     de: &'a mut ConfigDeserializer<'de>,
     vals: I,
 }
 
-impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
+impl<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
     fn new(de: &'a mut ConfigDeserializer<'de>, vals: I) -> Self {
-        SeqDeserializer {
-            de,
-            vals,
-        }
+        SeqDeserializer { de, vals }
     }
 }
 
-impl<'a, 'de: 'a, I: Iterator<Item=Tagged<Value>>> de::SeqAccess<'de> for SeqDeserializer<'a, 'de, I> {
+impl<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> de::SeqAccess<'de>
+    for SeqDeserializer<'a, 'de, I>
+{
     type Error = ShellError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -441,10 +446,7 @@ struct StructDeserializer<'a, 'de: 'a> {
 
 impl<'a, 'de: 'a> StructDeserializer<'a, 'de> {
     fn new(de: &'a mut ConfigDeserializer<'de>, fields: &'static [&'static str]) -> Self {
-        StructDeserializer {
-            de,
-            fields,
-        }
+        StructDeserializer { de, fields }
     }
 }
 
@@ -468,5 +470,29 @@ impl<'a, 'de: 'a> de::SeqAccess<'de> for StructDeserializer<'a, 'de> {
 
     fn size_hint(&self) -> Option<usize> {
         return Some(self.fields.len());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::any::type_name;
+    #[test]
+    fn check_type_name_properties() {
+        // This ensures that certain properties for the
+        // std::any::type_name function hold, that
+        // this code relies on. The type_name docs explicitly
+        // mention that the actual format of the output
+        // is unspecified and change is likely.
+        // This test makes sure that such change is detected
+        // by this test failing, and not things silently breaking.
+        // Specifically, we rely on this behaviour further above
+        // in the file to special case Tagged<Value> parsing.
+        let tuple = type_name::<()>();
+        let tagged_tuple = type_name::<Tagged<()>>();
+        let tagged_value = type_name::<Tagged<Value>>();
+        assert!(tuple != tagged_tuple);
+        assert!(tuple != tagged_value);
+        assert!(tagged_tuple != tagged_value);
     }
 }

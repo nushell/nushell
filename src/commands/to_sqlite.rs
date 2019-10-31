@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Dictionary, Primitive, Value};
+use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 use hex::encode;
 use rusqlite::{Connection, NO_PARAMS};
@@ -27,6 +27,10 @@ impl WholeStreamCommand for ToSQLite {
     ) -> Result<OutputStream, ShellError> {
         to_sqlite(args, registry)
     }
+
+    fn is_binary(&self) -> bool {
+        true
+    }
 }
 
 pub struct ToDB;
@@ -51,6 +55,10 @@ impl WholeStreamCommand for ToDB {
     ) -> Result<OutputStream, ShellError> {
         to_sqlite(args, registry)
     }
+
+    fn is_binary(&self) -> bool {
+        true
+    }
 }
 
 fn comma_concat(acc: String, current: String) -> String {
@@ -63,7 +71,7 @@ fn comma_concat(acc: String, current: String) -> String {
 
 fn get_columns(rows: &Vec<Tagged<Value>>) -> Result<String, std::io::Error> {
     match &rows[0].item {
-        Value::Object(d) => Ok(d
+        Value::Row(d) => Ok(d
             .entries
             .iter()
             .map(|(k, _v)| k.clone())
@@ -77,17 +85,18 @@ fn get_columns(rows: &Vec<Tagged<Value>>) -> Result<String, std::io::Error> {
 
 fn nu_value_to_sqlite_string(v: Value) -> String {
     match v {
-        Value::Binary(u) => format!("x'{}'", encode(u)),
         Value::Primitive(p) => match p {
             Primitive::Nothing => "NULL".into(),
             Primitive::Int(i) => format!("{}", i),
             Primitive::Decimal(f) => format!("{}", f),
             Primitive::Bytes(u) => format!("{}", u),
+            Primitive::Pattern(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::String(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::Boolean(true) => "1".into(),
             Primitive::Boolean(_) => "0".into(),
             Primitive::Date(d) => format!("'{}'", d),
             Primitive::Path(p) => format!("'{}'", p.display().to_string().replace("'", "''")),
+            Primitive::Binary(u) => format!("x'{}'", encode(u)),
             Primitive::BeginningOfStream => "NULL".into(),
             Primitive::EndOfStream => "NULL".into(),
         },
@@ -99,7 +108,7 @@ fn get_insert_values(rows: Vec<Tagged<Value>>) -> Result<String, std::io::Error>
     let values: Result<Vec<_>, _> = rows
         .into_iter()
         .map(|value| match value.item {
-            Value::Object(d) => Ok(format!(
+            Value::Row(d) => Ok(format!(
                 "({})",
                 d.entries
                     .iter()
@@ -131,7 +140,7 @@ fn generate_statements(table: Dictionary) -> Result<(String, String), std::io::E
     };
     let (columns, insert_values) = match table.entries.get("table_values") {
         Some(Tagged {
-            item: Value::List(l),
+            item: Value::Table(l),
             ..
         }) => (get_columns(l), get_insert_values(l.to_vec())),
         _ => {
@@ -161,7 +170,7 @@ fn sqlite_input_stream_to_bytes(
     let tag = values[0].tag.clone();
     for value in values.into_iter() {
         match value.item() {
-            Value::Object(d) => {
+            Value::Row(d) => {
                 let (create, insert) = generate_statements(d.to_owned())?;
                 match conn
                     .execute(&create, NO_PARAMS)
@@ -179,33 +188,33 @@ fn sqlite_input_stream_to_bytes(
             other => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("Expected object, found {:?}", other),
+                    format!("Expected row, found {:?}", other),
                 ))
             }
         }
     }
     let mut out = Vec::new();
     tempfile.read_to_end(&mut out)?;
-    Ok(Value::Binary(out).tagged(tag))
+    Ok(Value::binary(out).tagged(tag))
 }
 
 fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_span = args.name_span();
-    let stream = async_stream_block! {
-        let values: Vec<_> = args.input.into_vec().await;
-        match sqlite_input_stream_to_bytes(values) {
-            Ok(out) => {
-                yield ReturnSuccess::value(out)
-            }
-            Err(_) => {
+    let name_tag = args.name_tag();
+    let stream = async_stream! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+
+        match sqlite_input_stream_to_bytes(input) {
+            Ok(out) => yield ReturnSuccess::value(out),
+            _ => {
                 yield Err(ShellError::labeled_error(
-                    "Expected an object with SQLite-compatible structure from pipeline",
+                    "Expected a table with SQLite-compatible structure.tag() from pipeline",
                     "requires SQLite-compatible input",
-                    name_span,
-                    ))
-            }
-        };
+                    name_tag,
+                ))
+            },
+        }
     };
+
     Ok(stream.to_output_stream())
 }

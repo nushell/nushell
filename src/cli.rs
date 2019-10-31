@@ -1,4 +1,3 @@
-use crate::commands::autoview;
 use crate::commands::classified::{
     ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
     StreamNext,
@@ -7,22 +6,29 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
+use crate::data::config;
+use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
+use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 use crate::git::current_branch;
-use crate::object::Value;
 use crate::parser::registry::Signature;
-use crate::parser::{hir, CallNode, Pipeline, PipelineElement, TokenNode};
+use crate::parser::{
+    hir,
+    hir::syntax_shape::{expand_syntax, PipelineShape},
+    hir::{expand_external_tokens::expand_external_tokens, tokens_iterator::TokensIterator},
+    TokenNode,
+};
 use crate::prelude::*;
 
 use log::{debug, trace};
-use regex::Regex;
 use rustyline::error::ReadlineError;
 use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
 use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
@@ -60,6 +66,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     let result = match reader.read_line(&mut input) {
         Ok(count) => {
             trace!("processing response ({} bytes)", count);
+            trace!("response: {}", input);
 
             let response = serde_json::from_str::<JsonRpc<Result<Signature, ShellError>>>(&input);
             match response {
@@ -69,28 +76,39 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
                         trace!("processing {:?}", params);
 
-                        if params.is_filter {
-                            let fname = fname.to_string();
-                            let name = params.name.clone();
-                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
-                                name, fname, params,
-                            ))]);
-                            Ok(())
+                        let name = params.name.clone();
+                        let fname = fname.to_string();
+
+                        if let Some(_) = context.get_command(&name) {
+                            trace!("plugin {:?} already loaded.", &name);
                         } else {
-                            let fname = fname.to_string();
-                            let name = params.name.clone();
-                            context.add_commands(vec![whole_stream_command(PluginSink::new(
-                                name, fname, params,
-                            ))]);
-                            Ok(())
+                            if params.is_filter {
+                                context.add_commands(vec![whole_stream_command(
+                                    PluginCommand::new(name, fname, params),
+                                )]);
+                            } else {
+                                context.add_commands(vec![whole_stream_command(PluginSink::new(
+                                    name, fname, params,
+                                ))]);
+                            };
                         }
+                        Ok(())
                     }
                     Err(e) => Err(e),
                 },
-                Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
+                Err(e) => {
+                    trace!("incompatible plugin {:?}", input);
+                    Err(ShellError::untagged_runtime_error(format!(
+                        "Error: {:?}",
+                        e
+                    )))
+                }
             }
         }
-        Err(e) => Err(ShellError::string(format!("Error: {:?}", e))),
+        Err(e) => Err(ShellError::untagged_runtime_error(format!(
+            "Error: {:?}",
+            e
+        ))),
     };
 
     let _ = child.wait();
@@ -98,38 +116,12 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
     result
 }
 
-fn load_plugins_in_dir(path: &std::path::PathBuf, context: &mut Context) -> Result<(), ShellError> {
-    let re_bin = Regex::new(r"^nu_plugin_[A-Za-z_]+$")?;
-    let re_exe = Regex::new(r"^nu_plugin_[A-Za-z_]+\.(exe|bat)$")?;
+fn search_paths() -> Vec<std::path::PathBuf> {
+    let mut search_paths = Vec::new();
 
-    trace!("Looking for plugins in {:?}", path);
-
-    match std::fs::read_dir(path) {
-        Ok(p) => {
-            for entry in p {
-                let entry = entry?;
-                let filename = entry.file_name();
-                let f_name = filename.to_string_lossy();
-
-                if re_bin.is_match(&f_name) || re_exe.is_match(&f_name) {
-                    let mut load_path = path.clone();
-                    trace!("Found {:?}", f_name);
-                    load_path.push(f_name.to_string());
-                    load_plugin(&load_path, context)?;
-                }
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     match env::var_os("PATH") {
         Some(paths) => {
-            for path in env::split_paths(&paths) {
-                let _ = load_plugins_in_dir(&path, context);
-            }
+            search_paths = env::split_paths(&paths).collect::<Vec<_>>();
         }
         None => println!("PATH is not defined in the environment."),
     }
@@ -140,7 +132,10 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
         path.push("debug");
-        let _ = load_plugins_in_dir(&path, context);
+
+        if path.exists() {
+            search_paths.push(path);
+        }
     }
 
     #[cfg(not(debug_assertions))]
@@ -150,10 +145,102 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         path.push("target");
         path.push("release");
 
-        let _ = load_plugins_in_dir(&path, context);
+        if path.exists() {
+            search_paths.push(path);
+        }
+    }
+
+    // permit Nu finding and picking up development plugins
+    // if there are any first.
+    search_paths.reverse();
+    search_paths
+}
+
+fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
+    let opts = glob::MatchOptions {
+        case_sensitive: false,
+        require_literal_separator: false,
+        require_literal_leading_dot: false,
+    };
+
+    for path in search_paths() {
+        let mut pattern = path.to_path_buf();
+
+        pattern.push(std::path::Path::new("nu_plugin_[a-z]*"));
+
+        match glob::glob_with(&pattern.to_string_lossy(), opts) {
+            Err(_) => {}
+            Ok(binaries) => {
+                for bin in binaries.filter_map(Result::ok) {
+                    if !bin.is_file() {
+                        continue;
+                    }
+
+                    let bin_name = {
+                        if let Some(name) = bin.file_name() {
+                            match name.to_str() {
+                                Some(raw) => raw,
+                                None => continue,
+                            }
+                        } else {
+                            continue;
+                        }
+                    };
+
+                    let is_valid_name = {
+                        #[cfg(windows)]
+                        {
+                            bin_name
+                                .chars()
+                                .all(|c| c.is_ascii_alphabetic() || c == '_' || c == '.')
+                        }
+
+                        #[cfg(not(windows))]
+                        {
+                            bin_name
+                                .chars()
+                                .all(|c| c.is_ascii_alphabetic() || c == '_')
+                        }
+                    };
+
+                    let is_executable = {
+                        #[cfg(windows)]
+                        {
+                            bin_name.ends_with(".exe") || bin_name.ends_with(".bat")
+                        }
+
+                        #[cfg(not(windows))]
+                        {
+                            true
+                        }
+                    };
+
+                    if is_valid_name && is_executable {
+                        trace!("Trying {:?}", bin.display());
+
+                        // we are ok if this plugin load fails
+                        let _ = load_plugin(&bin, context);
+                    }
+                }
+            }
+        }
     }
 
     Ok(())
+}
+
+pub struct History;
+
+impl History {
+    pub fn path() -> PathBuf {
+        const FNAME: &str = "history.txt";
+        config::user_data()
+            .map(|mut p| {
+                p.push(FNAME);
+                p
+            })
+            .unwrap_or(PathBuf::from(FNAME))
+    }
 }
 
 pub async fn cli() -> Result<(), Box<dyn Error>> {
@@ -163,7 +250,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         use crate::commands::*;
 
         context.add_commands(vec![
-            whole_stream_command(PS),
+            whole_stream_command(PWD),
             whole_stream_command(LS),
             whole_stream_command(CD),
             whole_stream_command(Size),
@@ -171,15 +258,15 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Next),
             whole_stream_command(Previous),
             whole_stream_command(Debug),
-            whole_stream_command(Lines),
             whole_stream_command(Shells),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
             whole_stream_command(Lines),
             whole_stream_command(Reject),
             whole_stream_command(Reverse),
+            whole_stream_command(Append),
+            whole_stream_command(Prepend),
             whole_stream_command(Trim),
-            whole_stream_command(ToArray),
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
             whole_stream_command(ToJSON),
@@ -187,43 +274,50 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(ToDB),
             whole_stream_command(ToTOML),
             whole_stream_command(ToTSV),
+            whole_stream_command(ToURL),
             whole_stream_command(ToYAML),
             whole_stream_command(SortBy),
+            whole_stream_command(GroupBy),
             whole_stream_command(Tags),
+            whole_stream_command(Count),
             whole_stream_command(First),
             whole_stream_command(Last),
-            whole_stream_command(FromArray),
-            whole_stream_command(FromArray),
+            whole_stream_command(Env),
             whole_stream_command(FromCSV),
             whole_stream_command(FromTSV),
+            whole_stream_command(FromSSV),
             whole_stream_command(FromINI),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
             whole_stream_command(FromDB),
             whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
+            whole_stream_command(FromURL),
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),
             whole_stream_command(Pick),
             whole_stream_command(Get),
             per_item_command(Remove),
+            per_item_command(Fetch),
             per_item_command(Open),
             per_item_command(Post),
             per_item_command(Where),
+            per_item_command(Echo),
             whole_stream_command(Config),
             whole_stream_command(SkipWhile),
             per_item_command(Enter),
             per_item_command(Help),
+            per_item_command(History),
             whole_stream_command(Exit),
             whole_stream_command(Autoview),
+            whole_stream_command(Pivot),
             per_item_command(Cpy),
             whole_stream_command(Date),
             per_item_command(Mkdir),
             per_item_command(Move),
             whole_stream_command(Save),
             whole_stream_command(Table),
-            whole_stream_command(VTable),
             whole_stream_command(Version),
             whole_stream_command(Which),
         ]);
@@ -235,6 +329,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             )]);
         }
     }
+
     let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
@@ -246,28 +341,25 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     }
 
     // we are ok if history does not exist
-    let _ = rl.load_history("history.txt");
+    let _ = rl.load_history(&History::path());
 
-    let ctrl_c = Arc::new(AtomicBool::new(false));
-    let cc = ctrl_c.clone();
+    let cc = context.ctrl_c.clone();
     ctrlc::set_handler(move || {
         cc.store(true, Ordering::SeqCst);
     })
     .expect("Error setting Ctrl-C handler");
     let mut ctrlcbreak = false;
     loop {
-        if ctrl_c.load(Ordering::SeqCst) {
-            ctrl_c.store(false, Ordering::SeqCst);
+        if context.ctrl_c.load(Ordering::SeqCst) {
+            context.ctrl_c.store(false, Ordering::SeqCst);
             continue;
         }
 
         let cwd = context.shell_manager.path();
 
-        rl.set_helper(Some(crate::shell::Helper::new(
-            context.shell_manager.clone(),
-        )));
+        rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
-        let edit_mode = crate::object::config::config(Span::unknown())?
+        let edit_mode = config::config(Tag::unknown())?
             .get("edit_mode")
             .map(|s| match s.as_string().unwrap().as_ref() {
                 "vi" => EditMode::Vi,
@@ -278,22 +370,70 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         rl.set_edit_mode(edit_mode);
 
-        let readline = rl.readline(&format!(
+        // Register Ctrl-r for history fuzzy search
+        // rustyline doesn't support custom commands, so we override Ctrl-D (EOF)
+        // https://github.com/nushell/nushell/issues/689
+        #[cfg(all(not(windows), feature = "crossterm"))]
+        rl.bind_sequence(rustyline::KeyPress::Ctrl('R'), rustyline::Cmd::EndOfFile);
+        // Redefine Ctrl-D to same command as Ctrl-C
+        rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
+
+        let prompt = &format!(
             "{}{}> ",
             cwd,
             match current_branch() {
                 Some(s) => format!("({})", s),
                 None => "".to_string(),
             }
-        ));
+        );
+        let mut initial_command = Some(String::new());
+        let mut readline = Err(ReadlineError::Eof);
+        while let Some(ref cmd) = initial_command {
+            readline = rl.readline_with_initial(prompt, (&cmd, ""));
+            if let Err(ReadlineError::Eof) = &readline {
+                // Fuzzy search in history
+                let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
+                let selection = interactive_fuzzy_search(&lines, 5); // Clears last line with prompt
+                match selection {
+                    SelectionResult::Selected(line) => {
+                        println!("{}{}", &prompt, &line); // TODO: colorize prompt
+                        readline = Ok(line.clone());
+                        initial_command = None;
+                    }
+                    SelectionResult::Edit(line) => {
+                        initial_command = Some(line);
+                    }
+                    SelectionResult::NoSelection => {
+                        readline = Ok("".to_string());
+                        initial_command = None;
+                    }
+                }
+            } else {
+                initial_command = None;
+            }
+        }
 
         match process_line(readline, &mut context).await {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
+                let _ = rl.save_history(&History::path());
             }
 
             LineResult::CtrlC => {
+                let config_ctrlc_exit = config::config(Tag::unknown())?
+                    .get("ctrlc_exit")
+                    .map(|s| match s.as_string().unwrap().as_ref() {
+                        "true" => true,
+                        _ => false,
+                    })
+                    .unwrap_or(false); // default behavior is to allow CTRL-C spamming similar to other shells
+
+                if !config_ctrlc_exit {
+                    continue;
+                }
+
                 if ctrlcbreak {
+                    let _ = rl.save_history(&History::path());
                     std::process::exit(0);
                 } else {
                     context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
@@ -302,21 +442,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            LineResult::Error(mut line, err) => {
+            LineResult::Error(line, err) => {
                 rl.add_history_entry(line.clone());
-                let diag = err.to_diagnostic();
+                let _ = rl.save_history(&History::path());
+
                 context.with_host(|host| {
-                    let writer = host.err_termcolor();
-                    line.push_str(" ");
-                    let files = crate::parser::Files::new(line);
-                    let _ = std::panic::catch_unwind(move || {
-                        let _ = language_reporting::emit(
-                            &mut writer.lock(),
-                            &files,
-                            &diag,
-                            &language_reporting::DefaultConfig,
-                        );
-                    });
+                    print_err(err, host, &Text::from(line));
                 })
             }
 
@@ -328,9 +459,17 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     }
 
     // we are ok if we can not save history
-    let _ = rl.save_history("history.txt");
+    let _ = rl.save_history(&History::path());
 
     Ok(())
+}
+
+fn chomp_newline(s: &str) -> &str {
+    if s.ends_with('\n') {
+        &s[..s.len() - 1]
+    } else {
+        s
+    }
 }
 
 enum LineResult {
@@ -345,9 +484,11 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
         Ok(line) => {
+            let line = chomp_newline(line);
+
             let result = match crate::parser::parse(&line) {
                 Err(err) => {
-                    return LineResult::Error(line.clone(), err);
+                    return LineResult::Error(line.to_string(), err);
                 }
 
                 Ok(val) => val,
@@ -358,7 +499,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             let mut pipeline = match classify_pipeline(&result, ctx, &Text::from(line)) {
                 Ok(pipeline) => pipeline,
-                Err(err) => return LineResult::Error(line.clone(), err),
+                Err(err) => return LineResult::Error(line.to_string(), err),
             };
 
             match pipeline.commands.last() {
@@ -366,8 +507,8 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 _ => pipeline
                     .commands
                     .push(ClassifiedCommand::Internal(InternalCommand {
-                        command: whole_stream_command(autoview::Autoview),
-                        name_span: Span::unknown(),
+                        name: "autoview".to_string(),
+                        name_tag: Tag::unknown(),
                         args: hir::Call::new(
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,
@@ -379,6 +520,44 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             let mut input = ClassifiedInputStream::new();
 
             let mut iter = pipeline.commands.into_iter().peekable();
+            let mut is_first_command = true;
+
+            // Check the config to see if we need to update the path
+            // TODO: make sure config is cached so we don't path this load every call
+            let config = crate::data::config::read(Tag::unknown(), &None).unwrap();
+            if config.contains_key("path") {
+                // Override the path with what they give us from config
+                let value = config.get("path");
+
+                match value {
+                    Some(value) => match value {
+                        Tagged {
+                            item: Value::Table(table),
+                            ..
+                        } => {
+                            let mut paths = vec![];
+                            for val in table {
+                                let path_str = val.as_string();
+                                match path_str {
+                                    Err(_) => {}
+                                    Ok(path_str) => {
+                                        paths.push(PathBuf::from(path_str));
+                                    }
+                                }
+                            }
+                            let path_os_string = std::env::join_paths(&paths);
+                            match path_os_string {
+                                Ok(path_os_string) => {
+                                    std::env::set_var("PATH", path_os_string);
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                        _ => {}
+                    },
+                    None => {}
+                }
+            }
 
             loop {
                 let item: Option<ClassifiedCommand> = iter.next();
@@ -387,16 +566,24 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 input = match (item, next) {
                     (None, _) => break,
 
+                    (Some(ClassifiedCommand::Dynamic(_)), _)
+                    | (_, Some(ClassifiedCommand::Dynamic(_))) => {
+                        return LineResult::Error(
+                            line.to_string(),
+                            ShellError::unimplemented("Dynamic commands"),
+                        )
+                    }
+
                     (Some(ClassifiedCommand::Expr(_)), _) => {
                         return LineResult::Error(
-                            line.clone(),
+                            line.to_string(),
                             ShellError::unimplemented("Expression-only commands"),
                         )
                     }
 
                     (_, Some(ClassifiedCommand::Expr(_))) => {
                         return LineResult::Error(
-                            line.clone(),
+                            line.to_string(),
                             ShellError::unimplemented("Expression-only commands"),
                         )
                     }
@@ -404,22 +591,46 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, Text::from(line)).await {
+                    ) => match left.run(ctx, input, Text::from(line), is_first_command) {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.clone(), err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input, Text::from(line)).await {
+                        match left.run(ctx, input, Text::from(line), is_first_command) {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left.run(ctx, input, Text::from(line)).await {
-                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                        match left.run(ctx, input, Text::from(line), is_first_command) {
+                            Ok(val) => {
+                                use futures::stream::TryStreamExt;
+
+                                let mut output_stream: OutputStream = val.into();
+                                loop {
+                                    match output_stream.try_next().await {
+                                        Ok(Some(ReturnSuccess::Value(Tagged {
+                                            item: Value::Error(e),
+                                            ..
+                                        }))) => {
+                                            return LineResult::Error(line.to_string(), e);
+                                        }
+                                        Ok(Some(_item)) => {
+                                            if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                                break;
+                                            }
+                                        }
+                                        _ => {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                return LineResult::Success(line.to_string());
+                            }
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
@@ -428,32 +639,31 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         Some(ClassifiedCommand::External(_)),
                     ) => match left.run(ctx, input, StreamNext::External).await {
                         Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.clone(), err),
+                        Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::External(left)), Some(_)) => {
                         match left.run(ctx, input, StreamNext::Internal).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::External(left)), None) => {
                         match left.run(ctx, input, StreamNext::Last).await {
                             Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.clone(), err),
+                            Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
-                }
+                };
+
+                is_first_command = false;
             }
 
-            LineResult::Success(line.clone())
+            LineResult::Success(line.to_string())
         }
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
-        Err(ReadlineError::Eof) => {
-            println!("CTRL-D");
-            LineResult::Break
-        }
+        Err(ReadlineError::Eof) => LineResult::Break,
         Err(err) => {
             println!("Error: {:?}", err);
             LineResult::Break
@@ -466,98 +676,52 @@ fn classify_pipeline(
     context: &Context,
     source: &Text,
 ) -> Result<ClassifiedPipeline, ShellError> {
-    let pipeline = pipeline.as_pipeline()?;
+    let mut pipeline_list = vec![pipeline.clone()];
+    let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.span());
 
-    let Pipeline { parts, .. } = pipeline;
-
-    let commands: Result<Vec<_>, ShellError> = parts
-        .iter()
-        .map(|item| classify_command(&item, context, &source))
-        .collect();
-
-    Ok(ClassifiedPipeline {
-        commands: commands?,
-    })
-}
-
-fn classify_command(
-    command: &PipelineElement,
-    context: &Context,
-    source: &Text,
-) -> Result<ClassifiedCommand, ShellError> {
-    let call = command.call();
-
-    match call {
-        // If the command starts with `^`, treat it as an external command no matter what
-        call if call.head().is_external() => {
-            let name_span = call.head().expect_external();
-            let name = name_span.slice(source);
-
-            Ok(external_command(call, source, name.tagged(name_span)))
-        }
-
-        // Otherwise, if the command is a bare word, we'll need to triage it
-        call if call.head().is_bare() => {
-            let head = call.head();
-            let name = head.source(source);
-
-            match context.has_command(name) {
-                // if the command is in the registry, it's an internal command
-                true => {
-                    let command = context.get_command(name);
-                    let config = command.signature();
-
-                    trace!(target: "nu::build_pipeline", "classifying {:?}", config);
-
-                    let args: hir::Call = config.parse_args(call, &context, source)?;
-
-                    trace!(target: "nu::build_pipeline", "args :: {}", args.debug(source));
-
-                    Ok(ClassifiedCommand::Internal(InternalCommand {
-                        command,
-                        name_span: head.span().clone(),
-                        args,
-                    }))
-                }
-
-                // otherwise, it's an external command
-                false => Ok(external_command(call, source, name.tagged(head.span()))),
-            }
-        }
-
-        // If the command is something else (like a number or a variable), that is currently unsupported.
-        // We might support `$somevar` as a curried command in the future.
-        call => Err(ShellError::invalid_command(call.head().span())),
-    }
+    expand_syntax(
+        &PipelineShape,
+        &mut iterator,
+        &context.expand_context(source, pipeline.span()),
+    )
 }
 
 // Classify this command as an external command, which doesn't give special meaning
 // to nu syntactic constructs, and passes all arguments to the external command as
 // strings.
-fn external_command(
-    call: &Tagged<CallNode>,
+pub(crate) fn external_command(
+    tokens: &mut TokensIterator,
     source: &Text,
     name: Tagged<&str>,
-) -> ClassifiedCommand {
-    let arg_list_strings: Vec<Tagged<String>> = match call.children() {
-        Some(args) => args
+) -> Result<ClassifiedCommand, ShellError> {
+    let arg_list_strings = expand_external_tokens(tokens, source)?;
+
+    Ok(ClassifiedCommand::External(ExternalCommand {
+        name: name.to_string(),
+        name_tag: name.tag(),
+        args: arg_list_strings
             .iter()
-            .filter_map(|i| match i {
-                TokenNode::Whitespace(_) => None,
-                other => Some(Tagged::from_simple_spanned_item(
-                    other.as_external_arg(source),
-                    other.span(),
-                )),
+            .map(|x| Tagged {
+                tag: x.span.into(),
+                item: x.item.clone(),
             })
             .collect(),
-        None => vec![],
-    };
+    }))
+}
 
-    let (name, tag) = name.into_parts();
+pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
+    let diag = err.to_diagnostic();
 
-    ClassifiedCommand::External(ExternalCommand {
-        name: name.to_string(),
-        name_span: tag.span,
-        args: arg_list_strings,
-    })
+    let writer = host.err_termcolor();
+    let mut source = source.to_string();
+    source.push_str(" ");
+    let files = crate::parser::Files::new(source);
+    let _ = std::panic::catch_unwind(move || {
+        let _ = language_reporting::emit(
+            &mut writer.lock(),
+            &files,
+            &diag,
+            &language_reporting::DefaultConfig,
+        );
+    });
 }

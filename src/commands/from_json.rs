@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromJSON;
@@ -15,8 +15,7 @@ impl WholeStreamCommand for FromJSON {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-json")
-            .switch("objects")
+        Signature::build("from-json").switch("objects", "treat each line as a separate value")
     }
 
     fn usage(&self) -> &str {
@@ -36,24 +35,24 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -
     let tag = tag.into();
 
     match v {
-        serde_hjson::Value::Null => Value::Primitive(Primitive::Nothing).tagged(tag),
-        serde_hjson::Value::Bool(b) => Value::boolean(*b).tagged(tag),
-        serde_hjson::Value::F64(n) => Value::number(n).tagged(tag),
-        serde_hjson::Value::U64(n) => Value::number(n).tagged(tag),
-        serde_hjson::Value::I64(n) => Value::number(n).tagged(tag),
+        serde_hjson::Value::Null => Value::Primitive(Primitive::Nothing).tagged(&tag),
+        serde_hjson::Value::Bool(b) => Value::boolean(*b).tagged(&tag),
+        serde_hjson::Value::F64(n) => Value::number(n).tagged(&tag),
+        serde_hjson::Value::U64(n) => Value::number(n).tagged(&tag),
+        serde_hjson::Value::I64(n) => Value::number(n).tagged(&tag),
         serde_hjson::Value::String(s) => {
-            Value::Primitive(Primitive::String(String::from(s))).tagged(tag)
+            Value::Primitive(Primitive::String(String::from(s))).tagged(&tag)
         }
-        serde_hjson::Value::Array(a) => Value::List(
+        serde_hjson::Value::Array(a) => Value::Table(
             a.iter()
-                .map(|x| convert_json_value_to_nu_value(x, tag))
+                .map(|x| convert_json_value_to_nu_value(x, &tag))
                 .collect(),
         )
         .tagged(tag),
         serde_hjson::Value::Object(o) => {
-            let mut collected = TaggedDictBuilder::new(tag);
+            let mut collected = TaggedDictBuilder::new(&tag);
             for (k, v) in o.iter() {
-                collected.insert_tagged(k.clone(), convert_json_value_to_nu_value(v, tag));
+                collected.insert_tagged(k.clone(), convert_json_value_to_nu_value(v, &tag));
             }
 
             collected.into_tagged_value()
@@ -73,9 +72,9 @@ fn from_json(
     FromJSONArgs { objects }: FromJSONArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = name;
+    let name_tag = name;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         let mut concat_string = String::new();
@@ -83,7 +82,7 @@ fn from_json(
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -92,9 +91,9 @@ fn from_json(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name_span,
+                    &name_tag,
                     "value originates from here",
-                    value_tag.span,
+                    &value_tag,
                 )),
 
             }
@@ -107,26 +106,26 @@ fn from_json(
                     continue;
                 }
 
-                match from_json_string_to_value(json_str.to_string(), name_span) {
+                match from_json_string_to_value(json_str.to_string(), &name_tag) {
                     Ok(x) =>
                         yield ReturnSuccess::value(x),
                     Err(_) => {
-                        if let Some(last_tag) = latest_tag {
+                        if let Some(ref last_tag) = latest_tag {
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could nnot parse as JSON",
                                 "input cannot be parsed as JSON",
-                                name_span,
+                                &name_tag,
                                 "value originates from here",
-                                last_tag.span))
+                                last_tag))
                         }
                     }
                 }
             }
         } else {
-            match from_json_string_to_value(concat_string, name_span) {
+            match from_json_string_to_value(concat_string, name_tag.clone()) {
                 Ok(x) =>
                     match x {
-                        Tagged { item: Value::List(list), .. } => {
+                        Tagged { item: Value::Table(list), .. } => {
                             for l in list {
                                 yield ReturnSuccess::value(l);
                             }
@@ -138,9 +137,9 @@ fn from_json(
                         yield Err(ShellError::labeled_error_with_secondary(
                             "Could not parse as JSON",
                             "input cannot be parsed as JSON",
-                            name_span,
+                            name_tag,
                             "value originates from here",
-                            last_tag.span))
+                            last_tag))
                     }
                 }
             }

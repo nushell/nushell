@@ -35,7 +35,7 @@ fn converts_structured_table_to_csv_text() {
                 | to-csv
                 | lines
                 | nth 1
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -63,7 +63,7 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
                 | split-column "," a b c d origin
                 | last 1
                 | to-csv --headerless
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -218,8 +218,8 @@ fn converts_structured_table_to_json_text() {
                 | split-column "," name luck
                 | pick name
                 | to-json
-                | nth 0
                 | from-json
+                | nth 0
                 | get name
                 | echo $it
             "#
@@ -261,7 +261,7 @@ fn converts_structured_table_to_tsv_text() {
                 | to-tsv
                 | lines
                 | nth 1
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -289,7 +289,7 @@ fn converts_structured_table_to_tsv_text_skipping_headers_after_conversion() {
                 | split-column "\t" a b c d origin
                 | last 1
                 | to-tsv --headerless
-                | echo "$it"
+                | echo $it
             "#
         ));
 
@@ -352,6 +352,90 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
         ));
 
         assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn converts_from_ssv_text_to_structured_table() {
+    Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv
+                | nth 0
+                | get IP
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "172.30.78.158");
+    })
+}
+
+#[test]
+fn converts_from_ssv_text_to_structured_table_with_separator_specified() {
+    Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --minimum-spaces 3
+                | nth 0
+                | get IP
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "172.30.78.158");
+    })
+}
+
+#[test]
+fn converts_from_ssv_text_skipping_headers_to_structured_table() {
+    Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless
+                | nth 2
+                | get Column2
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "component=apiserver,provider=kubernetes");
     })
 }
 
@@ -424,6 +508,22 @@ fn can_convert_table_to_yaml_text_and_from_yaml_text_back_into_table() {
 }
 
 #[test]
+fn can_encode_and_decode_urlencoding() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+            r#"
+                open sample.url
+                | to-url
+                | from-url
+                | get cheese
+                | echo $it
+            "#
+    ));
+
+    assert_eq!(actual, "comté");
+}
+
+#[test]
 fn can_sort_by_column() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
@@ -477,6 +577,31 @@ fn can_sum() {
     ));
 
     assert_eq!(actual, "203")
+}
+
+#[test]
+fn can_average_numbers() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open sgml_description.json
+            | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+            | average
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "101.5000000000000")
+}
+
+#[test]
+fn can_average_bytes() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "ls | sort-by name | skip 1 | first 2 | get size | average | echo $it"
+    );
+
+    assert_eq!(actual, "1600.000000000000");
 }
 
 #[test]

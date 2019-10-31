@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, Value};
+use crate::data::{Primitive, Value};
 use crate::prelude::*;
 
 pub struct ToTOML;
@@ -38,21 +38,23 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
             toml::Value::String("<Beginning of Stream>".to_string())
         }
         Value::Primitive(Primitive::Decimal(f)) => {
-            toml::Value::Float(f.tagged(v.tag).coerce_into("converting to TOML float")?)
+            toml::Value::Float(f.tagged(&v.tag).coerce_into("converting to TOML float")?)
         }
         Value::Primitive(Primitive::Int(i)) => {
-            toml::Value::Integer(i.tagged(v.tag).coerce_into("converting to TOML integer")?)
+            toml::Value::Integer(i.tagged(&v.tag).coerce_into("converting to TOML integer")?)
         }
         Value::Primitive(Primitive::Nothing) => toml::Value::String("<Nothing>".to_string()),
+        Value::Primitive(Primitive::Pattern(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
 
-        Value::List(l) => toml::Value::Array(collect_values(l)?),
+        Value::Table(l) => toml::Value::Array(collect_values(l)?),
+        Value::Error(e) => return Err(e.clone()),
         Value::Block(_) => toml::Value::String("<Block>".to_string()),
-        Value::Binary(b) => {
+        Value::Primitive(Primitive::Binary(b)) => {
             toml::Value::Array(b.iter().map(|x| toml::Value::Integer(*x as i64)).collect())
         }
-        Value::Object(o) => {
+        Value::Row(o) => {
             let mut m = toml::map::Map::new();
             for (k, v) in o.entries.iter() {
                 m.insert(k.clone(), value_to_toml_value(v)?);
@@ -74,24 +76,42 @@ fn collect_values(input: &Vec<Tagged<Value>>) -> Result<Vec<toml::Value>, ShellE
 
 fn to_toml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_span = args.name_span();
-    let out = args.input;
+    let name_tag = args.name_tag();
+    let stream = async_stream! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
-    Ok(out
-        .values
-        .map(move |a| match toml::to_string(&value_to_toml_value(&a)?) {
-            Ok(val) => {
-                return ReturnSuccess::value(
-                    Value::Primitive(Primitive::String(val)).simple_spanned(name_span),
-                )
+        let to_process_input = if input.len() > 1 {
+            let tag = input[0].tag.clone();
+            vec![Tagged { item: Value::Table(input), tag } ]
+        } else if input.len() == 1 {
+            input
+        } else {
+            vec![]
+        };
+
+        for value in to_process_input {
+            match value_to_toml_value(&value) {
+                Ok(toml_value) => {
+                    match toml::to_string(&toml_value) {
+                        Ok(x) => yield ReturnSuccess::value(
+                            Value::Primitive(Primitive::String(x)).tagged(&name_tag),
+                        ),
+                        _ => yield Err(ShellError::labeled_error_with_secondary(
+                            "Expected a table with TOML-compatible structure.tag() from pipeline",
+                            "requires TOML-compatible input",
+                            &name_tag,
+                            "originates from here".to_string(),
+                            value.tag(),
+                        )),
+                    }
+                }
+                _ => yield Err(ShellError::labeled_error(
+                    "Expected a table with TOML-compatible structure from pipeline",
+                    "requires TOML-compatible input",
+                    &name_tag))
             }
-            _ => Err(ShellError::labeled_error_with_secondary(
-                "Expected an object with TOML-compatible structure from pipeline",
-                "requires TOML-compatible input",
-                name_span,
-                format!("{} originates from here", a.item.type_name()),
-                a.span(),
-            )),
-        })
-        .to_output_stream())
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

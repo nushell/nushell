@@ -1,5 +1,7 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
-use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, SpanSource, Tagged, Value};
+use nu::{
+    serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature, Tagged, Value,
+};
 use pretty_hex::*;
 
 struct BinaryView;
@@ -14,16 +16,15 @@ impl Plugin for BinaryView {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("binaryview")
             .desc("Autoview of binary data.")
-            .switch("lores"))
+            .switch("lores", "use low resolution output mode"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
         for v in input {
-            let value_origin = v.origin();
+            let value_anchor = v.anchor();
             match v.item {
-                Value::Binary(b) => {
-                    let source = value_origin.and_then(|x| call_info.source_map.get(&x));
-                    let _ = view_binary(&b, source, call_info.args.has("lores"));
+                Value::Primitive(Primitive::Binary(b)) => {
+                    let _ = view_binary(&b, value_anchor.as_ref(), call_info.args.has("lores"));
                 }
                 _ => {}
             }
@@ -33,7 +34,7 @@ impl Plugin for BinaryView {
 
 fn view_binary(
     b: &[u8],
-    source: Option<&SpanSource>,
+    source: Option<&AnchorLocation>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
@@ -252,7 +253,7 @@ fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
 
 pub fn view_contents(
     buffer: &[u8],
-    _source: Option<&SpanSource>,
+    _source: Option<&AnchorLocation>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_image_buffer = load_from_png_buffer(buffer);
@@ -339,12 +340,12 @@ pub fn view_contents(
 #[cfg(feature = "rawkey")]
 pub fn view_contents_interactive(
     buffer: &[u8],
-    source: Option<&SpanSource>,
+    source: Option<&AnchorLocation>,
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use rawkey::{KeyCode, RawKey};
 
-    let sav_path = if let Some(SpanSource::File(f)) = source {
+    let sav_path = if let Some(AnchorLocation::File(f)) = source {
         let mut path = std::path::PathBuf::from(f);
         path.set_extension("sav");
         Some(path)
@@ -435,7 +436,7 @@ pub fn view_contents_interactive(
     let cursor = cursor();
     let _ = cursor.show();
 
-    let screen = RawScreen::disable_raw_mode();
+    let _screen = RawScreen::disable_raw_mode();
 
     Ok(())
 }

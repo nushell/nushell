@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use csv::ReaderBuilder;
 
@@ -17,7 +17,7 @@ impl WholeStreamCommand for FromCSV {
 
     fn signature(&self) -> Signature {
         Signature::build("from-csv")
-            .switch("headerless")
+            .switch("headerless", "don't treat the first row as column names")
     }
 
     fn usage(&self) -> &str {
@@ -63,12 +63,12 @@ pub fn from_csv_string_to_value(
         if let Some(row_values) = iter.next() {
             let row_values = row_values?;
 
-            let mut row = TaggedDictBuilder::new(tag);
+            let mut row = TaggedDictBuilder::new(tag.clone());
 
             for (idx, entry) in row_values.iter().enumerate() {
                 row.insert_tagged(
                     fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(tag),
+                    Value::Primitive(Primitive::String(String::from(entry))).tagged(&tag),
                 );
             }
 
@@ -78,7 +78,7 @@ pub fn from_csv_string_to_value(
         }
     }
 
-    Ok(Tagged::from_item(Value::List(rows), tag))
+    Ok(Value::Table(rows).tagged(&tag))
 }
 
 fn from_csv(
@@ -87,9 +87,9 @@ fn from_csv(
     }: FromCSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = name;
+    let name_tag = name;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         let mut concat_string = String::new();
@@ -97,7 +97,7 @@ fn from_csv(
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -106,17 +106,17 @@ fn from_csv(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    name_span,
+                    name_tag.clone(),
                     "value originates from here",
-                    value_tag.span,
+                    value_tag.clone(),
                 )),
 
             }
         }
 
-        match from_csv_string_to_value(concat_string, skip_headers, name_span) {
+        match from_csv_string_to_value(concat_string, skip_headers, name_tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }
@@ -127,9 +127,9 @@ fn from_csv(
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as CSV",
                     "input cannot be parsed as CSV",
-                    name_span,
+                    name_tag.clone(),
                     "value originates from here",
-                    last_tag.span,
+                    last_tag.clone(),
                 ))
             } ,
         }

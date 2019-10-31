@@ -1,4 +1,4 @@
-use crate::object::base::Value;
+use crate::data::base::Value;
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -36,12 +36,6 @@ impl Unit {
             Unit::TB => size * 1024 * 1024 * 1024 * 1024,
             Unit::PB => size * 1024 * 1024 * 1024 * 1024 * 1024,
         })
-    }
-}
-
-impl From<&str> for Unit {
-    fn from(input: &str) -> Unit {
-        Unit::from_str(input).unwrap()
     }
 }
 

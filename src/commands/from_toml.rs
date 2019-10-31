@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 
 pub struct FromTOML;
@@ -34,9 +34,9 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> T
         toml::Value::Integer(n) => Value::number(n).tagged(tag),
         toml::Value::Float(n) => Value::number(n).tagged(tag),
         toml::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
-        toml::Value::Array(a) => Value::List(
+        toml::Value::Array(a) => Value::Table(
             a.iter()
-                .map(|x| convert_toml_value_to_nu_value(x, tag))
+                .map(|x| convert_toml_value_to_nu_value(x, &tag))
                 .collect(),
         )
         .tagged(tag),
@@ -44,10 +44,10 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> T
             Value::Primitive(Primitive::String(dt.to_string())).tagged(tag)
         }
         toml::Value::Table(t) => {
-            let mut collected = TaggedDictBuilder::new(tag);
+            let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
-                collected.insert_tagged(k.clone(), convert_toml_value_to_nu_value(v, tag));
+                collected.insert_tagged(k.clone(), convert_toml_value_to_nu_value(v, &tag));
             }
 
             collected.into_tagged_value()
@@ -68,10 +68,10 @@ pub fn from_toml(
     registry: &CommandRegistry,
 ) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
+    let tag = args.name_tag();
     let input = args.input;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         let mut concat_string = String::new();
@@ -79,7 +79,7 @@ pub fn from_toml(
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -88,17 +88,17 @@ pub fn from_toml(
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    &tag,
                     "value originates from here",
-                    value_tag.span,
+                    &value_tag,
                 )),
 
             }
         }
 
-        match from_toml_string_to_value(concat_string, span) {
+        match from_toml_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }
@@ -109,9 +109,9 @@ pub fn from_toml(
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as TOML",
                     "input cannot be parsed as TOML",
-                    span,
+                    &tag,
                     "value originates from here",
-                    last_tag.span,
+                    last_tag,
                 ))
             } ,
         }

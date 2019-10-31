@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
+use crate::data::base::select_fields;
 use crate::errors::ShellError;
-use crate::object::base::select_fields;
 use crate::prelude::*;
 
 #[derive(Deserialize)]
@@ -17,7 +17,7 @@ impl WholeStreamCommand for Pick {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("pick").rest(SyntaxType::Any)
+        Signature::build("pick").rest(SyntaxShape::Any, "the columns to select from the table")
     }
 
     fn usage(&self) -> &str {

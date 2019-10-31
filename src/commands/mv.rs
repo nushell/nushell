@@ -1,6 +1,6 @@
 use crate::commands::command::RunnablePerItemContext;
 use crate::errors::ShellError;
-use crate::parser::hir::SyntaxType;
+use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 use std::path::PathBuf;
@@ -20,9 +20,16 @@ impl PerItemCommand for Move {
 
     fn signature(&self) -> Signature {
         Signature::build("mv")
-            .required("source", SyntaxType::Path)
-            .required("destination", SyntaxType::Path)
-            .named("file", SyntaxType::Any)
+            .required(
+                "source",
+                SyntaxShape::Pattern,
+                "the location to move files/directories from",
+            )
+            .required(
+                "destination",
+                SyntaxShape::Path,
+                "the location to move files/directories to",
+            )
     }
 
     fn usage(&self) -> &str {

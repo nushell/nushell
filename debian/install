@@ -1,0 +1,11 @@
+target/release/nu usr/bin
+target/release/nu_plugin_binaryview usr/bin
+target/release/nu_plugin_edit       usr/bin
+target/release/nu_plugin_inc        usr/bin
+target/release/nu_plugin_skip       usr/bin
+target/release/nu_plugin_str        usr/bin
+target/release/nu_plugin_sum        usr/bin
+target/release/nu_plugin_sys        usr/bin
+target/release/nu_plugin_textview   usr/bin
+target/release/nu_plugin_tree       usr/bin
+target/release/nu_plugin_docker       usr/bin

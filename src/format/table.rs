@@ -1,5 +1,5 @@
+use crate::data::Value;
 use crate::format::RenderView;
-use crate::object::Value;
 use crate::prelude::*;
 use derive_new::new;
 use textwrap::fill;
@@ -16,6 +16,11 @@ pub struct TableView {
     entries: Vec<Vec<(String, &'static str)>>,
 }
 
+enum TableMode {
+    Light,
+    Normal,
+}
+
 impl TableView {
     fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
         let mut ret = vec![];
@@ -29,7 +34,7 @@ impl TableView {
         ret
     }
 
-    pub fn from_list(values: &[Tagged<Value>]) -> Option<TableView> {
+    pub fn from_list(values: &[Tagged<Value>], starting_idx: usize) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }
@@ -37,7 +42,7 @@ impl TableView {
         let mut headers = TableView::merge_descriptors(values);
 
         if headers.len() == 0 {
-            headers.push("value".to_string());
+            headers.push("<value>".to_string());
         }
 
         let mut entries = vec![];
@@ -45,7 +50,7 @@ impl TableView {
         for (idx, value) in values.iter().enumerate() {
             let mut row: Vec<(String, &'static str)> = match value {
                 Tagged {
-                    item: Value::Object(..),
+                    item: Value::Row(..),
                     ..
                 } => headers
                     .iter()
@@ -63,7 +68,7 @@ impl TableView {
 
             if values.len() > 1 {
                 // Indices are black, bold, right-aligned:
-                row.insert(0, (format!("{}", idx.to_string()), "Fdbr"));
+                row.insert(0, (format!("{}", (starting_idx + idx).to_string()), "Fdbr"));
             }
 
             entries.push(row);
@@ -198,15 +203,36 @@ impl RenderView for TableView {
         }
 
         let mut table = Table::new();
-        table.set_format(
-            FormatBuilder::new()
-                .column_separator('│')
-                .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
-                .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
-                .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
-                .padding(1, 1)
-                .build(),
-        );
+
+        let table_mode = crate::data::config::config(Tag::unknown())?
+            .get("table_mode")
+            .map(|s| match s.as_string().unwrap().as_ref() {
+                "light" => TableMode::Light,
+                _ => TableMode::Normal,
+            })
+            .unwrap_or(TableMode::Normal);
+
+        match table_mode {
+            TableMode::Light => {
+                table.set_format(
+                    FormatBuilder::new()
+                        .separator(LinePosition::Title, LineSeparator::new('─', '─', ' ', ' '))
+                        .padding(1, 1)
+                        .build(),
+                );
+            }
+            _ => {
+                table.set_format(
+                    FormatBuilder::new()
+                        .column_separator('│')
+                        .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
+                        .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
+                        .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
+                        .padding(1, 1)
+                        .build(),
+                );
+            }
+        }
 
         let header: Vec<Cell> = self
             .headers

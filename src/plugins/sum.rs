@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tag, Tagged, Value,
+    Tagged, TaggedItem, Value,
 };
 
 struct Sum {
@@ -18,46 +18,49 @@ impl Sum {
                 match &self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Int(j)),
-                        tag: Tag { span, .. },
+                        tag,
                     }) => {
                         //TODO: handle overflow
-                        self.total =
-                            Some(Tagged::from_simple_spanned_item(Value::int(i + j), span));
+                        self.total = Some(Value::int(i + j).tagged(tag));
                         Ok(())
                     }
                     None => {
                         self.total = Some(value.clone());
                         Ok(())
                     }
-                    _ => Err(ShellError::string(format!(
-                        "Could not sum non-integer or unrelated types"
-                    ))),
+                    _ => Err(ShellError::labeled_error(
+                        "Could not sum non-integer or unrelated types",
+                        "source",
+                        value.tag,
+                    )),
                 }
             }
             Value::Primitive(Primitive::Bytes(b)) => {
-                match self.total {
+                match &self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Bytes(j)),
-                        tag: Tag { span, .. },
+                        tag,
                     }) => {
                         //TODO: handle overflow
-                        self.total =
-                            Some(Tagged::from_simple_spanned_item(Value::bytes(b + j), span));
+                        self.total = Some(Value::bytes(b + j).tagged(tag));
                         Ok(())
                     }
                     None => {
                         self.total = Some(value);
                         Ok(())
                     }
-                    _ => Err(ShellError::string(format!(
-                        "Could not sum non-integer or unrelated types"
-                    ))),
+                    _ => Err(ShellError::labeled_error(
+                        "Could not sum non-integer or unrelated types",
+                        "source",
+                        value.tag,
+                    )),
                 }
             }
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            x => Err(ShellError::labeled_error(
+                format!("Unrecognized type in stream: {:?}", x),
+                "source",
+                value.tag,
+            )),
         }
     }
 }

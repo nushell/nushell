@@ -17,7 +17,7 @@ impl PerItemCommand for Mkdir {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("mkdir").rest(SyntaxType::Path)
+        Signature::build("mkdir").rest(SyntaxShape::Path, "the name(s) of the path(s) to create")
     }
 
     fn usage(&self) -> &str {

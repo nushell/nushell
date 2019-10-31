@@ -1,8 +1,7 @@
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, SourceMap, SpanSource,
-    Tagged, Value,
+    serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature, Tagged, Value,
 };
 
 use syntect::easy::HighlightLines;
@@ -29,8 +28,8 @@ impl Plugin for TextView {
         Ok(Signature::build("textview").desc("Autoview of text data."))
     }
 
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
-        view_text_value(&input[0], &call_info.source_map);
+    fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {
+        view_text_value(&input[0]);
     }
 }
 
@@ -150,7 +149,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                             KeyEvent::Esc => {
                                 break;
                             }
-                            KeyEvent::Up => {
+                            KeyEvent::Up | KeyEvent::Char('k') => {
                                 if starting_row > 0 {
                                     starting_row -= 1;
                                     max_bottom_line = paint_textview(
@@ -160,19 +159,19 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                                     );
                                 }
                             }
-                            KeyEvent::Down => {
+                            KeyEvent::Down | KeyEvent::Char('j') => {
                                 if starting_row < (max_bottom_line - height) {
                                     starting_row += 1;
                                 }
                                 max_bottom_line =
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
-                            KeyEvent::PageUp => {
+                            KeyEvent::PageUp | KeyEvent::Ctrl('b') => {
                                 starting_row -= std::cmp::min(height, starting_row);
                                 max_bottom_line =
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
-                            KeyEvent::PageDown | KeyEvent::Char(' ') => {
+                            KeyEvent::PageDown | KeyEvent::Ctrl('f') | KeyEvent::Char(' ') => {
                                 if starting_row < (max_bottom_line - height) {
                                     starting_row += height;
 
@@ -215,20 +214,18 @@ fn scroll_view(s: &str) {
     scroll_view_lines_if_needed(v, false);
 }
 
-fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
-    let value_origin = value.origin();
+fn view_text_value(value: &Tagged<Value>) {
+    let value_anchor = value.anchor();
     match value.item {
         Value::Primitive(Primitive::String(ref s)) => {
-            let source = value_origin.and_then(|x| source_map.get(&x));
-
-            if let Some(source) = source {
+            if let Some(source) = value_anchor {
                 let extension: Option<String> = match source {
-                    SpanSource::File(file) => {
-                        let path = Path::new(file);
+                    AnchorLocation::File(file) => {
+                        let path = Path::new(&file);
                         path.extension().map(|x| x.to_string_lossy().to_string())
                     }
-                    SpanSource::Url(url) => {
-                        let url = url::Url::parse(url);
+                    AnchorLocation::Url(url) => {
+                        let url = url::Url::parse(&url);
                         if let Ok(url) = url {
                             let url = url.clone();
                             if let Some(mut segments) = url.path_segments() {
@@ -246,7 +243,7 @@ fn view_text_value(value: &Tagged<Value>, source_map: &SourceMap) {
                         }
                     }
                     //FIXME: this probably isn't correct
-                    SpanSource::Source(_source) => None,
+                    AnchorLocation::Source(_source) => None,
                 };
 
                 match extension {

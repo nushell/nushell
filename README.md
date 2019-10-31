@@ -1,25 +1,36 @@
 [![Crates.io](https://img.shields.io/crates/v/nu.svg)](https://crates.io/crates/nu)
-[![Build Status](https://dev.azure.com/nushell/nushell/_apis/build/status/nushell.nushell?branchName=master)](https://dev.azure.com/nushell/nushell/_build/latest?definitionId=2&branchName=master) 
+[![Build Status](https://dev.azure.com/nushell/nushell/_apis/build/status/nushell.nushell?branchName=master)](https://dev.azure.com/nushell/nushell/_build/latest?definitionId=2&branchName=master)
 [![Discord](https://img.shields.io/discord/601130461678272522.svg?logo=discord)](https://discord.gg/NtAbbGn)
+[![The Changelog #363](https://img.shields.io/badge/The%20Changelog-%23363-61c192.svg)](https://changelog.com/podcast/363)
 
-            
+
 # Nu Shell
 
-A modern shell for the GitHub era
+A modern shell for the GitHub era.
 
-![Example of nushell](images/nushell-autocomplete4.gif "Example of nushell")
+![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
 
 # Status
 
-This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be instable for some commands. Future releases will work fill out missing features and improve stability. Its design is also subject to change as it matures.
+This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be unstable for some commands. Future releases will work to fill out missing features and improve stability. Its design is also subject to change as it matures.
 
-Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and MacOS), correctly passing through stdin, stdout and stderr, so things like your daily git workflows and even `vim` will work just fine.
+Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and macOS), correctly passing through stdin, stdout, and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
-There is also a [book](https://book.nushell.sh) about Nu, currently in progress.
+# Learning more
+
+There are a few good resources to learn about Nu. There is a [book](https://book.nushell.sh) about Nu that is currently in progress. The book focuses on using Nu and its core concepts.
+
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help you get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
+
+We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come and chat with us.
+
+Try it in Gitpod.
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
 
 # Installation
 
-## Local 
+## Local
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
 
@@ -27,30 +38,25 @@ To build Nu, you will need to use the **nightly** version of the compiler.
 
 Required dependencies:
 
-* libssl (only needed on Linux)
-  * on Debian/Ubuntu: `apt install libssl-dev`
+* pkg-config and libssl (only needed on Linux)
+  * on Debian/Ubuntu: `apt install pkg-config libssl-dev`
 
 Optional dependencies:
 
 * To use Nu with all possible optional features enabled, you'll also need the following:
   * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
-To install Nu via cargo:
+To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the beta compiler via `rustup install beta`):
 
 ```
-cargo +nightly install nu
+cargo +beta install nu
 ```
 
-You can also install Nu with all the bells and whistles:
+You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://book.nushell.sh/en/installation#dependencies) for your platform):
 
 ```
-cargo +nightly install nu --features raw-key,clipboard
+cargo +beta install nu --all-features
 ```
-
-The following optional features are currently supported:
-
-* **raw-key** - direct keyboard input, which creates a smoother experience in viewing text and binaries
-* **clipboard** - integration with the native clipboard via the `clip` command
 
 ## Docker
 
@@ -70,13 +76,13 @@ To build the base image:
 
 ```bash
 $ docker build -f docker/Dockerfile.nu-base -t nushell/nu-base .
-``` 
+```
 
 And then to build the smaller container (using a Multistage build):
 
 ```bash
 $ docker build -f docker/Dockerfile -t nushell/nu .
-``` 
+```
 
 Either way, you can run either container as follows:
 
@@ -86,35 +92,44 @@ $ docker run -it nushell/nu
 /> exit
 ```
 
-The second container is a bit smaller, if size is important to you.
+The second container is a bit smaller if the size is important to you.
+
+## Packaging status
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
+
+### Fedora
+
+[COPR repo](https://copr.fedorainfracloud.org/coprs/atim/nushell/): `sudo dnf copr enable atim/nushell -y && sudo dnf install nushell -y`
 
 # Philosophy
 
-Nu draws inspiration from projects like PowerShell, functional programming languages, and modern cli tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a list of objects, where each object represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
+Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
 
 ## Pipelines
 
-In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories
+In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories:
 
 * Commands that produce a stream (eg, `ls`)
 * Commands that filter a stream (eg, `where type == "Directory"`)
-* Commands that consumes the output of the pipeline (eg, `autoview`)
+* Commands that consume the output of the pipeline (eg, `autoview`)
 
 Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing left to right.
 
 ```
 /home/jonathan/Source/nushell(master)> ls | where type == "Directory" | autoview
---------+-----------+----------+--------+--------------+----------------
- name   | type      | readonly | size   | accessed     | modified
---------+-----------+----------+--------+--------------+----------------
- target | Directory |          | 4.1 KB | 19 hours ago | 19 hours ago
- images | Directory |          | 4.1 KB | 2 weeks ago  | a week ago
- tests  | Directory |          | 4.1 KB | 2 weeks ago  | 18 minutes ago
- docs   | Directory |          | 4.1 KB | a week ago   | a week ago
- .git   | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
- src    | Directory |          | 4.1 KB | 2 weeks ago  | 25 minutes ago
- .cargo | Directory |          | 4.1 KB | 2 weeks ago  | 2 weeks ago
---------+-----------+----------+--------+--------------+----------------
+━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
+ #  │ name      │ type      │ readonly │ size   │ accessed     │ modified
+────┼───────────┼───────────┼──────────┼────────┼──────────────┼────────────────
+  0 │ .azure    │ Directory │          │ 4.1 KB │ 2 months ago │ a day ago
+  1 │ target    │ Directory │          │ 4.1 KB │ 3 days ago   │ 3 days ago
+  2 │ images    │ Directory │          │ 4.1 KB │ 2 months ago │ 2 weeks ago
+  3 │ tests     │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
+  4 │ tmp       │ Directory │          │ 4.1 KB │ 2 weeks ago  │ 2 weeks ago
+  5 │ src       │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
+  6 │ assets    │ Directory │          │ 4.1 KB │ a month ago  │ a month ago
+  7 │ docs      │ Directory │          │ 4.1 KB │ 2 months ago │ 2 months ago
+━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
@@ -126,15 +141,16 @@ Because most of the time you'll want to see the output of a pipeline, `autoview`
 Being able to use the same commands and compose them differently is an important philosophy in Nu. For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
 
 ```text
-C:\Code\nushell(master)> ps | where cpu > 0
------------------- +-----+-------+-------+----------
- name              | cmd | cpu   | pid   | status
------------------- +-----+-------+-------+----------
- msedge.exe        |  -  | 0.77  | 26472 | Runnable
- nu.exe            |  -  | 7.83  | 15473 | Runnable
- SearchIndexer.exe |  -  | 82.17 | 23476 | Runnable
- BlueJeans.exe     |  -  | 4.54  | 10000 | Runnable
--------------------+-----+-------+-------+----------
+/home/jonathan/Source/nushell(master)> ps | where cpu > 0
+━━━┯━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━
+ # │ pid   │ name            │ status   │ cpu
+───┼───────┼─────────────────┼──────────┼──────────
+ 0 │   992 │ chrome          │ Sleeping │ 6.988768
+ 1 │  4240 │ chrome          │ Sleeping │ 5.645982
+ 2 │ 13973 │ qemu-system-x86 │ Sleeping │ 4.996551
+ 3 │ 15746 │ nu              │ Sleeping │ 84.59905
+━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━
+
 ```
 
 ## Opening files
@@ -143,36 +159,36 @@ Nu can load file and URL contents as raw text or as structured data (if it recog
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
------------------+------------------+-----------------
- dependencies    | dev-dependencies | package
------------------+------------------+-----------------
- [object Object] | [object Object]  | [object Object]
------------------+------------------+-----------------
+━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
+ bin              │ dependencies   │ dev-dependencies
+──────────────────┼────────────────┼──────────────────
+ [table: 12 rows] │ [table: 1 row] │ [table: 1 row]
+━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━
 ```
 
 We can pipeline this into a command that gets the contents of one of the columns:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
--------------+----------------------------+---------+---------+------+---------
- authors     | description                | edition | license | name | version
--------------+----------------------------+---------+---------+------+---------
- [list List] | A shell for the GitHub era | 2018    | MIT     | nu   | 0.2.0
--------------+----------------------------+---------+---------+------+---------
+━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
+ authors         │ description                │ edition │ license │ name │ version
+─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
+ [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.4.0
+━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
 ```
 
 Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.2.0
+0.4.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
 
 ## Shells
 
-By default, Nu will work inside of a single directory and allow you to navigate around your filesystem. Sometimes, you'll want to work in multiple directories at the same time. For this, Nu offers a way of adding additional working directories that you can jump between. 
+Nu will work inside of a single directory and allow you to navigate around your filesystem by default. Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time.
 
 To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
 
@@ -180,11 +196,11 @@ Finally, to get a list of all the current shells, you can use the `shells` comma
 
 ## Plugins
 
-Nu supports plugins that offer additional functionality to the shell and follow the same object model that built-in commands use. This allows you to extend nu for your needs.
+Nu supports plugins that offer additional functionality to the shell and follow the same structured data model that built-in commands use. This allows you to extend nu for your needs.
 
 There are a few examples in the `plugins` directory.
 
-Plugins are binaries that are available in your path and follow a "nu_plugin_*" naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
+Plugins are binaries that are available in your path and follow a `nu_plugin_*` naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
 # Goals
 
@@ -196,7 +212,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 * Nu's workflow and tools should have the usability in day-to-day experience of using a shell in 2019 (and beyond).
 
-* Nu views data as both structured and unstructured. It is an object shell like PowerShell.
+* Nu views data as both structured and unstructured. It is a structured shell like PowerShell.
 
 * Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
@@ -206,56 +222,63 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | ------------- | ------------- |
 | cd path | Change to a new path |
 | cp source path | Copy files |
+| date (--utc) | Get the current datetime |
+| fetch url | Fetch contents from a url and retrieve data as a table if possible |
+| help | Display help information about commands |
 | ls (path) | View the contents of the current or given path |
 | mkdir path | Make directories, creates intermediary directories as required. |
 | mv source target | Move files or directories. |
-| date (--utc) | Get the current datetime |
+| open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
+| post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | ps | View current processes |
 | sys | View information about the current system |
 | which filename | Finds a program file. |
-| open {filename or url} | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
-| post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
+| version | Display Nu version |
+
+## Shell commands
+| command | description |
+| ------- | ----------- |
 | exit (--now) | Exit the current shell (or all shells) |
 | enter (path) | Create a new shell and begin at this path |
 | p | Go to previous shell |
 | n | Go to next shell |
 | shells | Display the list of current shells |
-| help | Display help information about commands |
-| version | Display Nu version |
 
 ## Filters on tables (structured data)
 | command | description |
 | ------------- | ------------- |
-| pick ...columns | Down-select table to only these columns |
-| reject ...columns | Remove the given columns from the table |
+| add column-or-column-path value | Add a new column to the table |
+| append row-data | Append a row to the end of the table |
+| count | Show the total number of rows |
+| edit column-or-column-path value | Edit an existing column to have a new value |
+| embed column | Creates a new table of one column with the given name, and places the current table inside of it |
+| first amount | Show only the first number of rows |
 | get column-or-column-path | Open column and get data from the corresponding cells |
-| sort-by ...columns | Sort by the given columns |
-| where condition | Filter table to match the condition |
-| inc (field) | Increment a value or version. Optional use the field of a table |
-| add field value | Add a new field to the table |
-| embed field | Embeds a new field to the table |
-| sum | Sum a column of values |
-| edit field value | Edit an existing field to have a new value |
+| group-by column | Creates a new table with the data from the table rows grouped by the column given |
+| inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
+| last amount | Show only the last number of rows |
+| nth row-number | Return only the selected row |
+| pick ...columns | Down-select table to only these columns |
+| pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
+| prepend row-data | Prepend a row to the beginning of the table |
+| reject ...columns | Remove the given columns from the table |
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
 | skip-while condition | Skips rows while the condition matches. |
-| first amount | Show only the first number of rows |
-| last amount | Show only the last number of rows |
-| nth row-number | Return only the selected row |
-| str (field) | Apply string function. Optional use the field of a table |
+| sort-by ...columns | Sort by the given columns |
+| str (column) | Apply string function. Optionally use the column of a table |
+| sum | Sum a column of values |
 | tags | Read the tags (metadata) for values |
-| from-array | Expand an array/list into rows |
-| to-array | Collapse rows into a single list |
-| to-json | Convert table into .json text |
-| to-toml | Convert table into .toml text |
-| to-yaml | Convert table into .yaml text |
-| to-bson | Convert table into .bson text |
-| to-csv | Convert table into .csv text |
 | to-bson | Convert table into .bson binary data |
-| to-tsv | Convert table into .tsv text |
+| to-csv | Convert table into .csv text |
+| to-json | Convert table into .json text |
 | to-sqlite | Convert table to sqlite .db binary data |
-| reverse | Reverse the rows of a table |
+| to-toml | Convert table into .toml text |
+| to-tsv | Convert table into .tsv text |
+| to-url | Convert table to a urlencoded string |
+| to-yaml | Convert table into .yaml text |
+| where condition | Filter table to match the condition |
 
 ## Filters on text (unstructured data)
 | command | description |
@@ -265,13 +288,16 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-ini | Parse text as .ini and create table |
 | from-json | Parse text as .json and create table |
 | from-sqlite | Parse binary data as sqlite .db and create table |
+| from-ssv --minimum-spaces <minimum number of spaces to count as a separator> | Parse text as space-separated values and create table |
 | from-toml | Parse text as .toml and create table |
 | from-tsv  | Parse text as .tsv and create table  |
+| from-url | Parse urlencoded string and create a table |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
+| read pattern | Convert text to a table by matching the given pattern |
 | size | Gather word count statistics on the text |
-| split-column sep ...fields | Split row contents across multiple columns via the separator |
+| split-column sep ...column-names | Split row contents across multiple columns via the separator, optionally give the columns names |
 | split-row sep | Split row contents over multiple rows via the separator |
 | trim | Trim leading and following whitespace from text data |
 | {external-command} $it | Run external command with given arguments, replacing $it with each row text |
@@ -280,13 +306,12 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | autoview | View the contents of the pipeline as a table or list |
-| binaryview | Autoview of binary data |
-| clip | Copy the contents of the pipeline to the copy/paste buffer |
+| binaryview | Autoview of binary data (optional feature) |
+| clip | Copy the contents of the pipeline to the copy/paste buffer (optional feature) |
 | save filename | Save the contents of the pipeline to a file |
 | table | View the contents of the pipeline as a table |
 | textview | Autoview of text data |
-| tree | View the contents of the pipeline as a tree |
-| vtable | View the contents of the pipeline as a vertical (rotated) table |
+| tree | View the contents of the pipeline as a tree (optional feature) |
 
 # License
 

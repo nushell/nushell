@@ -3,8 +3,7 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
-use crate::object::{TaggedDictBuilder, command_dict};
+use crate::data::{command_dict, TaggedDictBuilder};
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use std::ffi::OsStr;
@@ -26,13 +25,16 @@ impl HelpShell {
             let value = command_dict(registry.get_command(&cmd).unwrap(), Tag::unknown());
 
             spec.insert("name", cmd);
-            spec.insert("description", value.get_data_by_key("usage").unwrap().as_string().unwrap());
+            spec.insert(
+                "description",
+                value.get_data_by_key("usage").unwrap().as_string().unwrap(),
+            );
             spec.insert_tagged("details", value);
 
             specs.push(spec.into_tagged_value());
         }
 
-        cmds.insert("help", Value::List(specs));
+        cmds.insert("help", Value::Table(specs));
 
         Ok(HelpShell {
             path: "/help".to_string(),
@@ -47,8 +49,10 @@ impl HelpShell {
         let mut sh = HelpShell::index(&registry)?;
 
         if let Tagged {
-            item: Value::Primitive(Primitive::String(name)), ..
-        } = cmd {
+            item: Value::Primitive(Primitive::String(name)),
+            ..
+        } = cmd
+        {
             sh.set_path(format!("/help/{:}/details", name));
         }
 
@@ -76,7 +80,7 @@ impl HelpShell {
         }
         match viewed {
             Tagged {
-                item: Value::List(l),
+                item: Value::Table(l),
                 ..
             } => {
                 for item in l {
@@ -93,11 +97,11 @@ impl HelpShell {
 }
 
 impl Shell for HelpShell {
-    fn name(&self, source_map: &SourceMap) -> String {
-        let origin_name = self.value.origin_name(source_map);
+    fn name(&self) -> String {
+        let anchor_name = self.value.anchor_name();
         format!(
             "{}",
-            match origin_name {
+            match anchor_name {
                 Some(x) => format!("{{{}}}", x),
                 None => format!("<{}>", self.value.item.type_name(),),
             }
@@ -112,12 +116,20 @@ impl Shell for HelpShell {
         self.path.clone()
     }
 
+    fn pwd(&self, _: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+        Ok(OutputStream::empty())
+    }
+
     fn set_path(&mut self, path: String) {
         let _ = std::env::set_current_dir(&path);
         self.path = path.clone();
     }
 
-    fn ls(&self, _args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
+    fn ls(
+        &self,
+        _pattern: Option<Tagged<PathBuf>>,
+        _context: &RunnableContext,
+    ) -> Result<OutputStream, ShellError> {
         Ok(self
             .commands()
             .map(|x| ReturnSuccess::value(x))
@@ -152,24 +164,19 @@ impl Shell for HelpShell {
         Ok(stream.into())
     }
 
-    fn cp(&self, _args: CopyArgs, _name: Span, _path: &str) -> Result<OutputStream, ShellError> {
+    fn cp(&self, _args: CopyArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 
-    fn mv(&self, _args: MoveArgs, _name: Span, _path: &str) -> Result<OutputStream, ShellError> {
+    fn mv(&self, _args: MoveArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 
-    fn mkdir(
-        &self,
-        _args: MkdirArgs,
-        _name: Span,
-        _path: &str,
-    ) -> Result<OutputStream, ShellError> {
+    fn mkdir(&self, _args: MkdirArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 
-    fn rm(&self, _args: RemoveArgs, _name: Span, _path: &str) -> Result<OutputStream, ShellError> {
+    fn rm(&self, _args: RemoveArgs, _name: Tag, _path: &str) -> Result<OutputStream, ShellError> {
         Ok(OutputStream::empty())
     }
 

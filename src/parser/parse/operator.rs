@@ -11,6 +11,7 @@ pub enum Operator {
     GreaterThan,
     LessThanOrEqual,
     GreaterThanOrEqual,
+    Dot,
 }
 
 impl ToDebug for Operator {
@@ -20,7 +21,6 @@ impl ToDebug for Operator {
 }
 
 impl Operator {
-
     pub fn print(&self) -> String {
         self.as_str().to_string()
     }
@@ -33,6 +33,7 @@ impl Operator {
             Operator::GreaterThan => ">",
             Operator::LessThanOrEqual => "<=",
             Operator::GreaterThanOrEqual => ">=",
+            Operator::Dot => ".",
         }
     }
 }
@@ -53,6 +54,7 @@ impl FromStr for Operator {
             ">" => Ok(Operator::GreaterThan),
             "<=" => Ok(Operator::LessThanOrEqual),
             ">=" => Ok(Operator::GreaterThanOrEqual),
+            "." => Ok(Operator::Dot),
             _ => Err(()),
         }
     }

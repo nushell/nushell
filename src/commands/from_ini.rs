@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use std::collections::HashMap;
 
@@ -45,10 +45,13 @@ fn convert_ini_top_to_nu_value(
     tag: impl Into<Tag>,
 ) -> Tagged<Value> {
     let tag = tag.into();
-    let mut top_level = TaggedDictBuilder::new(tag);
+    let mut top_level = TaggedDictBuilder::new(tag.clone());
 
     for (key, value) in v.iter() {
-        top_level.insert_tagged(key.clone(), convert_ini_second_to_nu_value(value, tag));
+        top_level.insert_tagged(
+            key.clone(),
+            convert_ini_second_to_nu_value(value, tag.clone()),
+        );
     }
 
     top_level.into_tagged_value()
@@ -64,10 +67,10 @@ pub fn from_ini_string_to_value(
 
 fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let span = args.name_span();
+    let tag = args.name_tag();
     let input = args.input;
 
-    let stream = async_stream_block! {
+    let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
 
         let mut concat_string = String::new();
@@ -75,7 +78,7 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         for value in values {
             let value_tag = value.tag();
-            latest_tag = Some(value_tag);
+            latest_tag = Some(value_tag.clone());
             match value.item {
                 Value::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
@@ -84,17 +87,17 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    span,
+                    &tag,
                     "value originates from here",
-                    value_tag.span,
+                    &value_tag,
                 )),
 
             }
         }
 
-        match from_ini_string_to_value(concat_string, span) {
+        match from_ini_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::List(list), .. } => {
+                Tagged { item: Value::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }
@@ -105,9 +108,9 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as INI",
                     "input cannot be parsed as INI",
-                    span,
+                    &tag,
                     "value originates from here",
-                    last_tag.span,
+                    last_tag,
                 ))
             } ,
         }

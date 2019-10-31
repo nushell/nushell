@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use log::trace;
 
 pub struct SkipWhile;
 
@@ -16,7 +17,11 @@ impl WholeStreamCommand for SkipWhile {
 
     fn signature(&self) -> Signature {
         Signature::build("skip-while")
-            .required("condition", SyntaxType::Block)
+            .required(
+                "condition",
+                SyntaxShape::Block,
+                "the condition that must be met to continue skipping",
+            )
             .filter()
     }
 
@@ -38,7 +43,9 @@ pub fn skip_while(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let objects = input.values.skip_while(move |item| {
+        trace!("ITEM = {:?}", item);
         let result = condition.invoke(&item);
+        trace!("RESULT = {:?}", result);
 
         let return_value = match result {
             Ok(ref v) if v.is_true() => true,

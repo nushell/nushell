@@ -4,6 +4,7 @@ use glob::glob;
 pub use std::path::Path;
 pub use std::path::PathBuf;
 
+use app_dirs::{get_app_root, AppDataType};
 use getset::Getters;
 use std::io::Read;
 use tempfile::{tempdir, TempDir};
@@ -92,6 +93,7 @@ macro_rules! nu {
             .write_all(commands.as_bytes())
             .expect("couldn't write to stdin");
 
+
         let output = process
             .wait_with_output()
             .expect("couldn't read from stdout");
@@ -153,6 +155,60 @@ macro_rules! nu_error {
     }};
 }
 
+#[macro_export]
+macro_rules! nu_combined {
+    (cwd: $cwd:expr, $path:expr, $($part:expr),*) => {{
+        use $crate::helpers::DisplayPath;
+
+        let path = format!($path, $(
+            $part.display_path()
+        ),*);
+
+        nu_combined!($cwd, &path)
+    }};
+
+    (cwd: $cwd:expr, $path:expr) => {{
+        nu_combined!($cwd, $path)
+    }};
+
+    ($cwd:expr, $path:expr) => {{
+        pub use std::error::Error;
+        pub use std::io::prelude::*;
+        pub use std::process::{Command, Stdio};
+
+        let commands = &*format!(
+            "
+                            cd {}
+                            {}
+                            exit",
+            $crate::helpers::in_directory($cwd),
+            $crate::helpers::DisplayPath::display_path(&$path)
+        );
+
+        let mut process = Command::new(helpers::executable_path())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("couldn't run test");
+
+        let stdin = process.stdin.as_mut().expect("couldn't open stdin");
+        stdin
+            .write_all(commands.as_bytes())
+            .expect("couldn't write to stdin");
+
+        let output = process
+            .wait_with_output()
+            .expect("couldn't read from stdout/stderr");
+
+        let err = String::from_utf8_lossy(&output.stderr).into_owned();
+        let out = String::from_utf8_lossy(&output.stdout).into_owned();
+        let out = out.replace("\r\n", "");
+        let out = out.replace("\n", "");
+        (out, err)
+    }};
+}
+
 pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
     FileWithContentToBeTrimmed(&'a str, &'a str),
@@ -176,6 +232,10 @@ pub struct Dirs {
 impl Dirs {
     pub fn formats(&self) -> PathBuf {
         PathBuf::from(self.fixtures.join("formats"))
+    }
+
+    pub fn config_path(&self) -> PathBuf {
+        get_app_root(AppDataType::UserConfig, &nu::APP_INFO).unwrap()
     }
 }
 
@@ -227,8 +287,13 @@ impl Playground {
                 playground_root.join(topic).display()
             ));
 
+        let root = dunce::canonicalize(playground_root).expect(&format!(
+            "Couldn't canonicalize tests root path {}",
+            playground_root.display()
+        ));
+
         let dirs = Dirs {
-            root: PathBuf::from(playground_root),
+            root,
             test,
             fixtures,
         };
@@ -307,6 +372,13 @@ pub fn file_contents(full_path: impl AsRef<Path>) -> String {
     contents
 }
 
+pub fn file_contents_binary(full_path: impl AsRef<Path>) -> Vec<u8> {
+    let mut file = std::fs::File::open(full_path.as_ref()).expect("can not open file");
+    let mut contents = Vec::new();
+    file.read_to_end(&mut contents).expect("can not read file");
+    contents
+}
+
 pub fn line_ending() -> String {
     #[cfg(windows)]
     {
@@ -319,15 +391,11 @@ pub fn line_ending() -> String {
     }
 }
 
-pub fn normalize_string(input: &str) -> String {
-    #[cfg(windows)]
-    {
-        input.to_string()
-    }
+pub fn delete_file_at(full_path: impl AsRef<Path>) {
+    let full_path = full_path.as_ref();
 
-    #[cfg(not(windows))]
-    {
-        format!("\"{}\"", input)
+    if full_path.exists() {
+        std::fs::remove_file(full_path).expect("can not delete file");
     }
 }
 
@@ -369,13 +437,13 @@ pub fn in_directory(str: impl AsRef<Path>) -> String {
     str.as_ref().display().to_string()
 }
 
-
 pub fn pipeline(commands: &str) -> String {
-    commands.lines()
-            .skip(1)
-            .map(|line| line.trim())
-            .collect::<Vec<&str>>()
-            .join(" ")
-            .trim_end()
-            .to_string()
+    commands
+        .lines()
+        .skip(1)
+        .map(|line| line.trim())
+        .collect::<Vec<&str>>()
+        .join(" ")
+        .trim_end()
+        .to_string()
 }

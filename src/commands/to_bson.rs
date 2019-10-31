@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::object::{Dictionary, Primitive, Value};
+use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use std::convert::TryInto;
@@ -26,6 +26,10 @@ impl WholeStreamCommand for ToBSON {
     ) -> Result<OutputStream, ShellError> {
         to_bson(args, registry)
     }
+
+    fn is_binary(&self) -> bool {
+        true
+    }
 }
 
 pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
@@ -42,19 +46,21 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
         Value::Primitive(Primitive::BeginningOfStream) => Bson::Null,
         Value::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
         Value::Primitive(Primitive::Int(i)) => {
-            Bson::I64(i.tagged(v.tag).coerce_into("converting to BSON")?)
+            Bson::I64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
         }
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
+        Value::Primitive(Primitive::Pattern(p)) => Bson::String(p.clone()),
         Value::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
-        Value::List(l) => Bson::Array(
+        Value::Table(l) => Bson::Array(
             l.iter()
                 .map(|x| value_to_bson_value(x))
                 .collect::<Result<_, _>>()?,
         ),
         Value::Block(_) => Bson::Null,
-        Value::Binary(b) => Bson::Binary(BinarySubtype::Generic, b.clone()),
-        Value::Object(o) => object_value_to_bson(o)?,
+        Value::Error(e) => return Err(e.clone()),
+        Value::Primitive(Primitive::Binary(b)) => Bson::Binary(BinarySubtype::Generic, b.clone()),
+        Value::Row(o) => object_value_to_bson(o)?,
     })
 }
 
@@ -165,7 +171,7 @@ fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Result<BinarySubty
             _ => unreachable!(),
         }),
         Value::Primitive(Primitive::Int(i)) => Ok(BinarySubtype::UserDefined(
-            i.tagged(tagged_value.tag)
+            i.tagged(&tagged_value.tag)
                 .coerce_into("converting to BSON binary subtype")?,
         )),
         _ => Err(ShellError::type_error(
@@ -185,44 +191,40 @@ fn generic_object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
     Ok(Bson::Document(doc))
 }
 
-fn shell_encode_document(
-    writer: &mut Vec<u8>,
-    doc: Document,
-    span: Span,
-) -> Result<(), ShellError> {
+fn shell_encode_document(writer: &mut Vec<u8>, doc: Document, tag: Tag) -> Result<(), ShellError> {
     match encode_document(writer, &doc) {
         Err(e) => Err(ShellError::labeled_error(
             format!("Failed to encode document due to: {:?}", e),
             "requires BSON-compatible document",
-            span,
+            tag,
         )),
         _ => Ok(()),
     }
 }
 
-fn bson_value_to_bytes(bson: Bson, span: Span) -> Result<Vec<u8>, ShellError> {
+fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
     let mut out = Vec::new();
     match bson {
         Bson::Array(a) => {
             for v in a.into_iter() {
                 match v {
-                    Bson::Document(d) => shell_encode_document(&mut out, d, span)?,
+                    Bson::Document(d) => shell_encode_document(&mut out, d, tag.clone())?,
                     _ => {
                         return Err(ShellError::labeled_error(
                             format!("All top level values must be Documents, got {:?}", v),
                             "requires BSON-compatible document",
-                            span,
+                            &tag,
                         ))
                     }
                 }
             }
         }
-        Bson::Document(d) => shell_encode_document(&mut out, d, span)?,
+        Bson::Document(d) => shell_encode_document(&mut out, d, tag)?,
         _ => {
             return Err(ShellError::labeled_error(
                 format!("All top level values must be Documents, got {:?}", bson),
                 "requires BSON-compatible document",
-                span,
+                tag,
             ))
         }
     }
@@ -231,22 +233,42 @@ fn bson_value_to_bytes(bson: Bson, span: Span) -> Result<Vec<u8>, ShellError> {
 
 fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let name_span = args.name_span();
-    let out = args.input;
+    let name_tag = args.name_tag();
+    let stream = async_stream! {
+        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
 
-    Ok(out
-        .values
-        .map(
-            move |a| match bson_value_to_bytes(value_to_bson_value(&a)?, name_span) {
-                Ok(x) => ReturnSuccess::value(Value::Binary(x).simple_spanned(name_span)),
-                _ => Err(ShellError::labeled_error_with_secondary(
-                    "Expected an object with BSON-compatible structure from pipeline",
-                    "requires BSON-compatible input: Must be Array or Object",
-                    name_span,
-                    format!("{} originates from here", a.item.type_name()),
-                    a.span(),
-                )),
-            },
-        )
-        .to_output_stream())
+        let to_process_input = if input.len() > 1 {
+            let tag = input[0].tag.clone();
+            vec![Tagged { item: Value::Table(input), tag } ]
+        } else if input.len() == 1 {
+            input
+        } else {
+            vec![]
+        };
+
+        for value in to_process_input {
+            match value_to_bson_value(&value) {
+                Ok(bson_value) => {
+                    match bson_value_to_bytes(bson_value, name_tag.clone()) {
+                        Ok(x) => yield ReturnSuccess::value(
+                            Value::binary(x).tagged(&name_tag),
+                        ),
+                        _ => yield Err(ShellError::labeled_error_with_secondary(
+                            "Expected a table with BSON-compatible structure.tag() from pipeline",
+                            "requires BSON-compatible input",
+                            &name_tag,
+                            "originates from here".to_string(),
+                            value.tag(),
+                        )),
+                    }
+                }
+                _ => yield Err(ShellError::labeled_error(
+                    "Expected a table with BSON-compatible structure from pipeline",
+                    "requires BSON-compatible input",
+                    &name_tag))
+            }
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }

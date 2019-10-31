@@ -1,4 +1,14 @@
 #[macro_export]
+macro_rules! return_err {
+    ($expr:expr) => {
+        match $expr {
+            Err(_) => return,
+            Ok(expr) => expr,
+        };
+    };
+}
+
+#[macro_export]
 macro_rules! stream {
     ($($expr:expr),*) => {{
         let mut v = VecDeque::new();
@@ -54,29 +64,28 @@ pub(crate) use crate::commands::command::{
 pub(crate) use crate::commands::PerItemCommand;
 pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
-pub(crate) use crate::context::{Context, SpanSource};
+pub(crate) use crate::context::{AnchorLocation, Context};
+pub(crate) use crate::data::base as value;
+pub(crate) use crate::data::meta::{Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+pub(crate) use crate::data::types::ExtractType;
+pub(crate) use crate::data::{Primitive, Value};
 pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
 pub(crate) use crate::errors::{CoerceInto, ShellError};
-pub(crate) use crate::object::base as value;
-pub(crate) use crate::object::meta::{Tag, Tagged, TaggedItem};
-pub(crate) use crate::object::types::ExtractType;
-pub(crate) use crate::object::{Primitive, Value};
-pub(crate) use crate::parser::hir::SyntaxType;
+pub(crate) use crate::parser::hir::SyntaxShape;
 pub(crate) use crate::parser::parse::parser::Number;
 pub(crate) use crate::parser::registry::Signature;
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
+pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
-pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::stream::{InputStream, OutputStream};
-pub(crate) use crate::traits::{HasSpan, ToDebug};
-pub(crate) use crate::Span;
+pub(crate) use crate::traits::{HasTag, ToDebug};
 pub(crate) use crate::Text;
+pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{FutureExt, Stream, StreamExt};
-pub(crate) use futures_async_stream::async_stream_block;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::{FromPrimitive, ToPrimitive};
 pub(crate) use num_traits::identities::Zero;
@@ -96,6 +105,22 @@ where
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
             values: self.map(ReturnSuccess::value).boxed(),
+        }
+    }
+}
+
+pub trait ToInputStream {
+    fn to_input_stream(self) -> InputStream;
+}
+
+impl<T, U> ToInputStream for T
+where
+    T: Stream<Item = U> + Send + 'static,
+    U: Into<Result<Tagged<Value>, ShellError>>,
+{
+    fn to_input_stream(self) -> InputStream {
+        InputStream {
+            values: self.map(|item| item.into().unwrap()).boxed(),
         }
     }
 }

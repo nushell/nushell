@@ -12,9 +12,13 @@ fn pipeline_helper() {
             | str --to-int
             | sum
             | echo "$it"
-        "#);
+        "#,
+    );
 
-    assert_eq!(actual, r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo "$it""#);
+    assert_eq!(
+        actual,
+        r#"open los_tres_amigos.txt | from-csv | get rusty_luck | str --to-int | sum | echo "$it""#
+    );
 }
 
 #[test]
@@ -34,9 +38,7 @@ fn external_has_correct_quotes() {
         r#"echo "hello world""#
     );
 
-    let actual = h::normalize_string(&actual);
-
-    assert_eq!(actual, r#""hello world""#);
+    assert_eq!(actual, r#"hello world"#);
 }
 
 #[test]
@@ -52,6 +54,54 @@ fn add_plugin() {
     ));
 
     assert_eq!(actual, "1");
+}
+
+#[test]
+fn read_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | read "{Name}={Value}"
+            | nth 1
+            | get Value
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "StupidLongName");
+}
+
+#[test]
+fn prepend_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | lines
+            | prepend "testme"
+            | nth 0
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "testme");
+}
+
+#[test]
+fn append_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | lines
+            | append "testme"
+            | nth 3
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "testme");
 }
 
 #[test]
