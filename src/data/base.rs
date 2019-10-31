@@ -459,11 +459,10 @@ impl Value {
         }
     }
 
-    // TODO: This is basically a legacy construct, I think
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
-            Value::Row(o) => o
+            Value::Row(columns) => columns
                 .entries
                 .keys()
                 .into_iter()
@@ -472,6 +471,13 @@ impl Value {
             Value::Block(_) => vec![],
             Value::Table(_) => vec![],
             Value::Error(_) => vec![],
+        }
+    }
+
+    pub(crate) fn get_data_by_index(&self, idx: usize) -> Option<&Tagged<Value>> {
+        match self {
+            Value::Table(value_set) => value_set.get(idx),
+            _ => None,
         }
     }
 
@@ -523,16 +529,22 @@ impl Value {
         &self,
         tag: Tag,
         path: &Vec<Tagged<String>>,
-    ) -> Option<Tagged<&Value>> {
+        callback: Box<dyn FnOnce((&Value, &Tagged<String>)) -> ShellError>,
+    ) -> Result<Option<Tagged<&Value>>, ShellError> {
         let mut current = self;
         for p in path {
-            match current.get_data_by_key(p) {
+            let value = match p.item().parse::<usize>() {
+                Ok(number) => current.get_data_by_index(number),
+                Err(_) => current.get_data_by_key(p),
+            };
+
+            match value {
                 Some(v) => current = v,
-                None => return None,
+                None => return Err(callback((&current.clone(), &p.clone()))),
             }
         }
 
-        Some(current.tagged(tag))
+        Ok(Some(current.tagged(tag)))
     }
 
     pub fn insert_data_at_path(
@@ -912,6 +924,7 @@ fn coerce_compare_primitive(
 mod tests {
 
     use crate::data::meta::*;
+    use crate::ShellError;
     use crate::Value;
     use indexmap::IndexMap;
 
@@ -925,6 +938,10 @@ mod tests {
 
     fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
         Value::table(list).tagged_unknown()
+    }
+
+    fn error_callback() -> impl FnOnce((&Value, &Tagged<String>)) -> ShellError {
+        move |(_obj_source, _column_path_tried)| ShellError::unimplemented("will never be called.")
     }
 
     fn column_path(paths: &Vec<Tagged<Value>>) -> Tagged<Vec<Tagged<String>>> {
@@ -960,7 +977,7 @@ mod tests {
 
         let (version, tag) = string("0.4.0").into_parts();
 
-        let row = Value::row(indexmap! {
+        let value = Value::row(indexmap! {
             "package".into() =>
                 row(indexmap! {
                     "name".into()    =>     string("nu"),
@@ -969,7 +986,10 @@ mod tests {
         });
 
         assert_eq!(
-            **row.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
             version
         )
     }
@@ -980,7 +1000,7 @@ mod tests {
 
         let (name, tag) = string("Andrés N. Robalino").into_parts();
 
-        let row = Value::row(indexmap! {
+        let value = Value::row(indexmap! {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
@@ -993,9 +1013,41 @@ mod tests {
         });
 
         assert_eq!(
-            **row.get_data_by_column_path(tag, &field_path).unwrap(),
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
             name
         )
+    }
+
+    #[test]
+    fn column_path_that_contains_just_a_numbers_gets_a_row_from_a_table() {
+        let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
+
+        let (_, tag) = string("Andrés N. Robalino").into_parts();
+
+        let value = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+                "authors".into() => table(&vec![
+                    row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
+                    row(indexmap!{"name".into() => string("Jonathan Turner")}),
+                    row(indexmap!{"name".into() => string("Yehuda Katz")})
+                ])
+            })
+        });
+
+        assert_eq!(
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
+            Value::row(indexmap! {
+                "name".into() => string("Andrés N. Robalino")
+            })
+        );
     }
 
     #[test]

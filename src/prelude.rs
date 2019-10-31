@@ -66,7 +66,9 @@ pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::{AnchorLocation, Context};
 pub(crate) use crate::data::base as value;
-pub(crate) use crate::data::meta::{Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+pub(crate) use crate::data::meta::{
+    tag_for_tagged_list, Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem,
+};
 pub(crate) use crate::data::types::ExtractType;
 pub(crate) use crate::data::{Primitive, Value};
 pub(crate) use crate::env::host::handle_unexpected;
