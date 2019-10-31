@@ -52,10 +52,61 @@ fn fetches_by_index_from_a_given_table() {
         assert_eq!(actual, "Andrés N. Robalino <andres@androbtech.com>");
     })
 }
+#[test]
+fn supports_fetching_rows_from_tables_using_columns_named_as_numbers() {
+    Playground::setup("get_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                0 = "nu"
+                1 = "0.4.1"
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get package.1
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "0.4.1");
+    })
+}
+
+#[test]
+fn can_fetch_tables_or_rows_using_numbers_in_column_path() {
+    Playground::setup("get_test_4", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [package]
+                0 = "nu"
+                1 = "0.4.1"
+                2 = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+                description = "When arepas shells are tasty and fun."
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get package.2.1
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "Jonathan Turner <jonathan.d.turner@gmail.com>");
+    })
+}
 
 #[test]
 fn fetches_more_than_one_column_member_path() {
-    Playground::setup("get_test_3", |dirs, sandbox| {
+    Playground::setup("get_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -88,8 +139,31 @@ fn fetches_more_than_one_column_member_path() {
 }
 
 #[test]
+fn errors_fetching_by_column_not_present() {
+    Playground::setup("get_test_6", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [taconushell]
+                sentence_words = ["Yo", "quiero", "taconushell"]
+            "#,
+        )]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get taco
+            "#
+        ));
+
+        assert!(actual.contains("Unknown column"));
+        assert!(actual.contains("did you mean 'taconushell'?"));
+    })
+}
+#[test]
 fn errors_fetching_by_index_out_of_bounds_from_table() {
-    Playground::setup("get_test_4", |dirs, sandbox| {
+    Playground::setup("get_test_7", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -114,7 +188,7 @@ fn errors_fetching_by_index_out_of_bounds_from_table() {
 
 #[test]
 fn requires_at_least_one_column_member_path() {
-    Playground::setup("get_test_5", |dirs, sandbox| {
+    Playground::setup("get_test_8", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt")]);
 
         let actual = nu_error!(

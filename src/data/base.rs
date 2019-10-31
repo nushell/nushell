@@ -533,10 +533,21 @@ impl Value {
     ) -> Result<Option<Tagged<&Value>>, ShellError> {
         let mut current = self;
         for p in path {
+            // note:
+            // This will eventually be refactored once we are able
+            // to parse correctly column_paths and get them deserialized
+            // to values for us.
             let value = match p.item().parse::<usize>() {
-                Ok(number) => current.get_data_by_index(number),
-                Err(_) => current.get_data_by_key(p),
-            };
+                Ok(number) => match current {
+                    Value::Table(_) => current.get_data_by_index(number),
+                    Value::Row(_) => current.get_data_by_key(p),
+                    _ => None,
+                },
+                Err(_) => match self {
+                    Value::Table(_) | Value::Row(_) => current.get_data_by_key(p),
+                    _ => None,
+                },
+            }; // end
 
             match value {
                 Some(v) => current = v,
@@ -1022,7 +1033,7 @@ mod tests {
     }
 
     #[test]
-    fn column_path_that_contains_just_a_numbers_gets_a_row_from_a_table() {
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() {
         let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
@@ -1036,6 +1047,35 @@ mod tests {
                     row(indexmap!{"name".into() => string("Jonathan Turner")}),
                     row(indexmap!{"name".into() => string("Yehuda Katz")})
                 ])
+            })
+        });
+
+        assert_eq!(
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
+            Value::row(indexmap! {
+                "name".into() => string("Andrés N. Robalino")
+            })
+        );
+    }
+
+    #[test]
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() {
+        let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
+
+        let (_, tag) = string("Andrés N. Robalino").into_parts();
+
+        let value = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+                "authors".into() => row(indexmap! {
+                    "0".into() => row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
+                    "1".into() => row(indexmap!{"name".into() => string("Jonathan Turner")}),
+                    "2".into() => row(indexmap!{"name".into() => string("Yehuda Katz")}),
+                })
             })
         });
 
