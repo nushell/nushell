@@ -56,6 +56,26 @@ pub fn get_column_path(
         obj.tag(),
         path,
         Box::new(move |(obj_source, column_path_tried)| {
+            match obj_source {
+                Value::Table(rows) => {
+                    let total = rows.len();
+                    let end_tag = match fields.iter().nth_back(if fields.len() > 2 { 1 } else { 0 })
+                    {
+                        Some(last_field) => last_field.tag(),
+                        None => column_path_tried.tag(),
+                    };
+
+                    return ShellError::labeled_error_with_secondary(
+                        "Row not found",
+                        format!("There isn't a row indexed at '{}'", **column_path_tried),
+                        column_path_tried.tag(),
+                        format!("The table only has {} rows (0..{})", total, total - 1),
+                        end_tag,
+                    );
+                }
+                _ => {}
+            }
+
             match did_you_mean(&obj_source, &column_path_tried) {
                 Some(suggestions) => {
                     return ShellError::labeled_error(

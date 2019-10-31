@@ -98,8 +98,6 @@ impl Str {
                         value.tag(),
                         &f,
                         Box::new(move |(obj_source, column_path_tried)| {
-                            //let fields = f.clone();
-
                             match did_you_mean(&obj_source, &column_path_tried) {
                                 Some(suggestions) => {
                                     return ShellError::labeled_error(

@@ -459,11 +459,10 @@ impl Value {
         }
     }
 
-    // TODO: This is basically a legacy construct, I think
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
-            Value::Row(o) => o
+            Value::Row(columns) => columns
                 .entries
                 .keys()
                 .into_iter()
@@ -534,12 +533,9 @@ impl Value {
     ) -> Result<Option<Tagged<&Value>>, ShellError> {
         let mut current = self;
         for p in path {
-            let value = if p.chars().all(char::is_numeric) {
-                current.get_data_by_index(p.chars().fold(0 as usize, |acc, c| {
-                    c.to_digit(10).unwrap_or(0) as usize + acc
-                }))
-            } else {
-                current.get_data_by_key(p)
+            let value = match p.item().parse::<usize>() {
+                Ok(number) => current.get_data_by_index(number),
+                Err(_) => current.get_data_by_key(p),
             };
 
             match value {
