@@ -2,12 +2,14 @@ use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
     SyntaxShape, Tagged, TaggedItem, Value,
 };
+use std::cmp;
 
 #[derive(Debug, Eq, PartialEq)]
 enum Action {
     Downcase,
     Upcase,
     ToInteger,
+    Substring(String),
 }
 
 pub type ColumnPath = Vec<Tagged<String>>;
@@ -33,6 +35,26 @@ impl Str {
         let applied = match self.action.as_ref() {
             Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
             Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
+            Some(Action::Substring(s)) => {
+                // Index operator isn't perfect: https://users.rust-lang.org/t/how-to-get-a-substring-of-a-string/1351
+                let no_spaces: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+                let v: Vec<&str> = no_spaces.split(',').collect();
+                let start: usize = match v[0] {
+                    "" => 0,
+                    _ => v[0].parse().unwrap(),
+                };
+                let end: usize = match v[1] {
+                    "" => input.len(),
+                    _ => cmp::min(v[1].parse().unwrap(), input.len()),
+                };
+                if start > input.len() - 1 {
+                    Value::string("")
+                } else if start > end {
+                    Value::string(input)
+                } else {
+                    Value::string(&input[start..end])
+                }
+            }
             Some(Action::ToInteger) => match input.trim() {
                 other => match other.parse::<i64>() {
                     Ok(v) => Value::int(v),
@@ -81,8 +103,16 @@ impl Str {
         }
     }
 
+    fn for_substring(&mut self, start_end: String) {
+        if self.permit() {
+            self.action = Some(Action::Substring(start_end));
+        } else {
+            self.log_error("can only apply one");
+        }
+    }
+
     pub fn usage() -> &'static str {
-        "Usage: str field [--downcase|--upcase|--to-int]"
+        "Usage: str field [--downcase|--upcase|--to-int|--substring \"start,end\"]"
     }
 }
 
@@ -132,6 +162,11 @@ impl Plugin for Str {
             .switch("downcase", "convert string to lowercase")
             .switch("upcase", "convert string to uppercase")
             .switch("to-int", "convert string to integer")
+            .named(
+                "substring",
+                SyntaxShape::String,
+                "convert string to portion of original, requires \"start,end\"",
+            )
             .rest(SyntaxShape::ColumnPath, "the column(s) to convert")
             .filter())
     }
@@ -148,20 +183,34 @@ impl Plugin for Str {
         if args.has("to-int") {
             self.for_to_int();
         }
+        if args.has("substring") {
+            if let Some(start_end) = args.get("substring") {
+                match start_end {
+                    Tagged {
+                        item: Value::Primitive(Primitive::String(s)),
+                        ..
+                    } => {
+                        self.for_substring(s.to_string());
+                    }
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Unrecognized type in params",
+                            start_end.type_name(),
+                            &start_end.tag,
+                        ))
+                    }
+                }
+            }
+        }
 
         if let Some(possible_field) = args.nth(0) {
             match possible_field {
                 Tagged {
                     item: Value::Primitive(Primitive::String(s)),
                     tag,
-                } => match self.action {
-                    Some(Action::Downcase)
-                    | Some(Action::Upcase)
-                    | Some(Action::ToInteger)
-                    | None => {
-                        self.for_field(vec![s.clone().tagged(tag)]);
-                    }
-                },
+                } => {
+                    self.for_field(vec![s.clone().tagged(tag)]);
+                }
                 table @ Tagged {
                     item: Value::Table(_),
                     ..
@@ -177,7 +226,6 @@ impl Plugin for Str {
                 }
             }
         }
-
         for param in args.positional_iter() {
             match param {
                 Tagged {
@@ -230,6 +278,14 @@ mod tests {
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
+        }
+
+        fn with_named_parameter(&mut self, name: &str, value: &str) -> &mut Self {
+            self.flags.insert(
+                name.to_string(),
+                Value::string(value).tagged(Tag::unknown()),
+            );
+            self
         }
 
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
@@ -339,6 +395,7 @@ mod tests {
                     .with_long_flag("upcase")
                     .with_long_flag("downcase")
                     .with_long_flag("to-int")
+                    .with_long_flag("substring")
                     .create(),
             )
             .is_err());
@@ -506,6 +563,150 @@ mod tests {
                 item: Value::Primitive(Primitive::Int(i)),
                 ..
             }) => assert_eq!(*i, BigInt::from(10)),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "0,1")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("0")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_exceeding_string_length() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "0,11")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("0123456789")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_returns_blank_if_start_exceeds_length() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "20,30")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_treats_blank_start_as_zero() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", ",5")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("01234")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_treats_blank_end_as_length() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "2,")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("23456789")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_returns_string_if_start_exceeds_end() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "3,1")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("0123456789")),
             _ => {}
         }
     }
