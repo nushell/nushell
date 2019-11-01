@@ -26,13 +26,6 @@ Consumes either a single value or a table and converts the provided data to a st
  0 │ X │ filesystem │ /home/tux/stuff/expr/stuff
  1 │   │ filesystem │ /
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-> shells | str # --to-int
-━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- # │   │ name       │ path
-───┼───┼────────────┼────────────────────────────────
- 0 │ X │ filesystem │ /home/TUX/stuff/expr/stuff
- 1 │   │ filesystem │ /
-━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 > shells | str # --substring "21, 99"
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  # │   │ name       │ path
@@ -47,4 +40,11 @@ Consumes either a single value or a table and converts the provided data to a st
  0 │ X │ filesystem │ TUX/stuff/expr/stuff
  1 │   │ filesystem │
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+> echo "1, 2, 3" | split-row "," | str --to-int | sum
+━━━━━━━━━
+ <value>
+─────────
+       6
+━━━━━━━━━
 ```

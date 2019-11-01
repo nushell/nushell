@@ -9,7 +9,7 @@ enum Action {
     Downcase,
     Upcase,
     ToInteger,
-    Substring(String),
+    Substring(usize, usize),
 }
 
 pub type ColumnPath = Vec<Tagged<String>>;
@@ -35,23 +35,14 @@ impl Str {
         let applied = match self.action.as_ref() {
             Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
             Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
-            Some(Action::Substring(s)) => {
-                // Index operator isn't perfect: https://users.rust-lang.org/t/how-to-get-a-substring-of-a-string/1351
-                let no_spaces: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-                let v: Vec<&str> = no_spaces.split(',').collect();
-                let start: usize = match v[0] {
-                    "" => 0,
-                    _ => v[0].parse().unwrap(),
-                };
-                let end: usize = match v[1] {
-                    "" => input.len(),
-                    _ => cmp::min(v[1].parse().unwrap(), input.len()),
-                };
+            Some(Action::Substring(s, e)) => {
+                let end: usize = cmp::min(*e, input.len());
+                let start: usize = *s;
                 if start > input.len() - 1 {
                     Value::string("")
-                } else if start > end {
-                    Value::string(input)
                 } else {
+                    // Index operator isn't perfect:
+                    // https://users.rust-lang.org/t/how-to-get-a-substring-of-a-string/1351
                     Value::string(&input[start..end])
                 }
             }
@@ -103,9 +94,20 @@ impl Str {
         }
     }
 
-    fn for_substring(&mut self, start_end: String) {
-        if self.permit() {
-            self.action = Some(Action::Substring(start_end));
+    fn for_substring(&mut self, s: String) {
+        let v: Vec<&str> = s.split(',').collect();
+        let start: usize = match v[0] {
+            "" => 0,
+            _ => v[0].trim().parse().unwrap(),
+        };
+        let end: usize = match v[1] {
+            "" => usize::max_value().clone(),
+            _ => v[1].trim().parse().unwrap(),
+        };
+        if start > end {
+            self.log_error("End must be greater than or equal to Start");
+        } else if self.permit() {
+            self.action = Some(Action::Substring(start, end));
         } else {
             self.log_error("can only apply one");
         }
@@ -688,7 +690,7 @@ mod tests {
     }
 
     #[test]
-    fn str_plugin_applies_substring_returns_string_if_start_exceeds_end() {
+    fn str_plugin_applies_substring_returns_error_if_start_exceeds_end() {
         let mut plugin = Str::new();
 
         assert!(plugin
@@ -697,17 +699,7 @@ mod tests {
                     .with_named_parameter("substring", "3,1")
                     .create()
             )
-            .is_ok());
-
-        let subject = unstructured_sample_record("0123456789");
-        let output = plugin.filter(subject).unwrap();
-
-        match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
-                ..
-            }) => assert_eq!(*s, String::from("0123456789")),
-            _ => {}
-        }
+            .is_err());
+        assert_eq!(plugin.error, Some("End must be greater than or equal to Start".to_string()));
     }
 }
