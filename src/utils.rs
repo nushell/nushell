@@ -7,8 +7,10 @@ use std::path::{Component, Path, PathBuf};
 
 pub fn did_you_mean(
     obj_source: &Value,
-    field_tried: &Tagged<String>,
+    field_tried: &Tagged<Value>,
 ) -> Option<Vec<(usize, String)>> {
+    let field_tried = field_tried.as_string().unwrap();
+
     let possibilities = obj_source.data_descriptors();
 
     let mut possible_matches: Vec<_> = possibilities

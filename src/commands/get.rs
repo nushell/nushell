@@ -44,7 +44,7 @@ impl WholeStreamCommand for Get {
     }
 }
 
-pub type ColumnPath = Vec<Tagged<String>>;
+pub type ColumnPath = Vec<Tagged<Value>>;
 
 pub fn get_column_path(
     path: &ColumnPath,
@@ -67,7 +67,13 @@ pub fn get_column_path(
 
                     return ShellError::labeled_error_with_secondary(
                         "Row not found",
-                        format!("There isn't a row indexed at '{}'", **column_path_tried),
+                        format!(
+                            "There isn't a row indexed at '{}'",
+                            match &*column_path_tried {
+                                Value::Primitive(primitive) => primitive.format(None),
+                                _ => String::from(""),
+                            }
+                        ),
                         column_path_tried.tag(),
                         format!("The table only has {} rows (0..{})", total, total - 1),
                         end_tag,

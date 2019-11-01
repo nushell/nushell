@@ -4,7 +4,7 @@ use nu::{
     Tagged, TaggedItem, Value,
 };
 
-pub type ColumnPath = Vec<Tagged<String>>;
+pub type ColumnPath = Vec<Tagged<Value>>;
 
 struct Insert {
     field: Option<ColumnPath>,
@@ -22,14 +22,21 @@ impl Insert {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
             (obj @ Value::Row(_), Some(v)) => match &self.field {
-                Some(f) => match obj.insert_data_at_column_path(value_tag.clone(), &f, v) {
+                Some(f) => match obj.insert_data_at_column_path(value_tag.clone(), f, v) {
                     Some(v) => return Ok(v),
                     None => {
                         return Err(ShellError::labeled_error(
                             format!(
                                 "add could not find place to insert field {:?} {}",
                                 obj,
-                                f.iter().map(|i| &i.item).join(".")
+                                f.iter()
+                                    .map(|i| {
+                                        match &i.item {
+                                            Value::Primitive(primitive) => primitive.format(None),
+                                            _ => String::from(""),
+                                        }
+                                    })
+                                    .join(".")
                             ),
                             "column name",
                             &value_tag,

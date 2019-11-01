@@ -27,7 +27,7 @@ fn get() {
 }
 
 #[test]
-fn fetches_by_index_from_a_given_table() {
+fn fetches_by_index() {
     Playground::setup("get_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
@@ -53,14 +53,13 @@ fn fetches_by_index_from_a_given_table() {
     })
 }
 #[test]
-fn supports_fetching_rows_from_tables_using_columns_named_as_numbers() {
+fn fetches_by_column_path() {
     Playground::setup("get_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
                 [package]
-                0 = "nu"
-                1 = "0.4.1"
+                name = "nu"
             "#,
         )]);
 
@@ -68,25 +67,23 @@ fn supports_fetching_rows_from_tables_using_columns_named_as_numbers() {
             cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.toml
-                | get package.1
+                | get package.name
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "0.4.1");
+        assert_eq!(actual, "nu");
     })
 }
 
 #[test]
-fn can_fetch_tables_or_rows_using_numbers_in_column_path() {
+fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_dot() {
     Playground::setup("get_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
                 [package]
-                0 = "nu"
-                1 = "0.4.1"
-                2 = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+                9999 = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
                 description = "When arepas shells are tasty and fun."
             "#,
         )]);
@@ -95,17 +92,18 @@ fn can_fetch_tables_or_rows_using_numbers_in_column_path() {
             cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.toml
-                | get package.2.1
+                | get package."9999"
+                | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "Jonathan Turner <jonathan.d.turner@gmail.com>");
+        assert_eq!(actual, "3");
     })
 }
 
 #[test]
-fn fetches_more_than_one_column_member_path() {
+fn fetches_more_than_one_column_path() {
     Playground::setup("get_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
@@ -161,9 +159,34 @@ fn errors_fetching_by_column_not_present() {
         assert!(actual.contains("did you mean 'taconushell'?"));
     })
 }
+
 #[test]
-fn errors_fetching_by_index_out_of_bounds_from_table() {
+fn errors_fetching_by_column_using_a_number() {
     Playground::setup("get_test_7", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [spanish_lesson]
+                0 = "can only be fetched with 0 double quoted."
+            "#,
+        )]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get spanish_lesson.0
+            "#
+        ));
+
+        assert!(actual.contains("No rows available"));
+        assert!(actual.contains("Tried getting a row indexed at '0'"));
+        assert!(actual.contains(r#"Not a table. Perhaps you meant to get the column "0" instead?"#))
+    })
+}
+#[test]
+fn errors_fetching_by_index_out_of_bounds() {
+    Playground::setup("get_test_8", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -188,7 +211,7 @@ fn errors_fetching_by_index_out_of_bounds_from_table() {
 
 #[test]
 fn requires_at_least_one_column_member_path() {
-    Playground::setup("get_test_8", |dirs, sandbox| {
+    Playground::setup("get_test_9", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt")]);
 
         let actual = nu_error!(

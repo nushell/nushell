@@ -409,25 +409,17 @@ impl Tagged<Value> {
         ValueDebug { value: self }
     }
 
-    pub fn as_column_path(&self) -> Result<Tagged<Vec<Tagged<String>>>, ShellError> {
-        let mut out: Vec<Tagged<String>> = vec![];
-
+    pub fn as_column_path(&self) -> Result<Tagged<Vec<Tagged<Value>>>, ShellError> {
         match &self.item {
-            Value::Table(table) => {
-                for item in table {
-                    out.push(item.as_string()?.tagged(&item.tag));
-                }
+            Value::Primitive(Primitive::String(s)) => {
+                Ok(vec![Value::string(s).tagged(&self.tag)].tagged(&self.tag))
             }
-
-            other => {
-                return Err(ShellError::type_error(
-                    "column name",
-                    other.type_name().tagged(&self.tag),
-                ))
-            }
+            Value::Table(table) => Ok(table.to_vec().tagged(&self.tag)),
+            other => Err(ShellError::type_error(
+                "column name",
+                other.type_name().tagged(&self.tag),
+            )),
         }
-
-        Ok(out.tagged(&self.tag))
     }
 
     pub(crate) fn as_string(&self) -> Result<String, ShellError> {
@@ -528,30 +520,32 @@ impl Value {
     pub fn get_data_by_column_path(
         &self,
         tag: Tag,
-        path: &Vec<Tagged<String>>,
-        callback: Box<dyn FnOnce((&Value, &Tagged<String>)) -> ShellError>,
+        path: &Vec<Tagged<Value>>,
+        callback: Box<dyn FnOnce((Value, Tagged<Value>)) -> ShellError>,
     ) -> Result<Option<Tagged<&Value>>, ShellError> {
         let mut current = self;
         for p in path {
-            // note:
-            // This will eventually be refactored once we are able
-            // to parse correctly column_paths and get them deserialized
-            // to values for us.
-            let value = match p.item().parse::<usize>() {
-                Ok(number) => match current {
-                    Value::Table(_) => current.get_data_by_index(number),
-                    Value::Row(_) => current.get_data_by_key(p),
-                    _ => None,
-                },
-                Err(_) => match self {
-                    Value::Table(_) | Value::Row(_) => current.get_data_by_key(p),
-                    _ => None,
-                },
-            }; // end
+            let value = match p.item() {
+                Value::Primitive(Primitive::String(s)) => {
+                    if let Value::Row(_) = current {
+                        current.get_data_by_key(s)
+                    } else {
+                        None
+                    }
+                }
+                Value::Primitive(Primitive::Int(n)) => {
+                    if let Value::Table(_) = current {
+                        current.get_data_by_index(n.to_usize().unwrap())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
 
             match value {
                 Some(v) => current = v,
-                None => return Err(callback((&current.clone(), &p.clone()))),
+                None => return Err(callback((current.clone(), p.clone()))),
             }
         }
 
@@ -614,9 +608,21 @@ impl Value {
     pub fn insert_data_at_column_path(
         &self,
         tag: Tag,
-        split_path: &Vec<Tagged<String>>,
+        split_path: &Vec<Tagged<Value>>,
         new_value: Value,
     ) -> Option<Tagged<Value>> {
+        let split_path = split_path
+            .into_iter()
+            .map(|p| match p {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    tag,
+                } => Ok(s.clone().tagged(tag)),
+                o => Err(o),
+            })
+            .filter_map(Result::ok)
+            .collect::<Vec<Tagged<String>>>();
+
         let mut new_obj = self.clone();
 
         if let Value::Row(ref mut o) = new_obj {
@@ -665,14 +671,14 @@ impl Value {
     pub fn replace_data_at_column_path(
         &self,
         tag: Tag,
-        split_path: &Vec<Tagged<String>>,
+        split_path: &Vec<Tagged<Value>>,
         replaced_value: Value,
     ) -> Option<Tagged<Value>> {
         let mut new_obj = self.clone();
         let mut current = &mut new_obj;
 
         for idx in 0..split_path.len() {
-            match current.get_mut_data_by_key(&split_path[idx].item) {
+            match current.get_mut_data_by_key(&split_path[idx].as_string().unwrap()) {
                 Some(next) => {
                     if idx == (split_path.len() - 1) {
                         *next = replaced_value.tagged(&tag);
@@ -943,6 +949,10 @@ mod tests {
         Value::string(input.into()).tagged_unknown()
     }
 
+    fn number(n: i64) -> Tagged<Value> {
+        Value::number(n).tagged_unknown()
+    }
+
     fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
         Value::row(entries).tagged_unknown()
     }
@@ -951,19 +961,12 @@ mod tests {
         Value::table(list).tagged_unknown()
     }
 
-    fn error_callback() -> impl FnOnce((&Value, &Tagged<String>)) -> ShellError {
+    fn error_callback() -> impl FnOnce((Value, Tagged<Value>)) -> ShellError {
         move |(_obj_source, _column_path_tried)| ShellError::unimplemented("will never be called.")
     }
 
-    fn column_path(paths: &Vec<Tagged<Value>>) -> Tagged<Vec<Tagged<String>>> {
-        table(
-            &paths
-                .iter()
-                .map(|p| string(p.as_string().unwrap()))
-                .collect(),
-        )
-        .as_column_path()
-        .unwrap()
+    fn column_path(paths: &Vec<Tagged<Value>>) -> Vec<Tagged<Value>> {
+        table(paths).as_column_path().unwrap().item
     }
 
     #[test]
@@ -1006,35 +1009,8 @@ mod tests {
     }
 
     #[test]
-    fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() {
-        let field_path = column_path(&vec![string("package"), string("authors"), string("name")]);
-
-        let (name, tag) = string("Andrés N. Robalino").into_parts();
-
-        let value = Value::row(indexmap! {
-            "package".into() => row(indexmap! {
-                "name".into() => string("nu"),
-                "version".into() => string("0.4.0"),
-                "authors".into() => table(&vec![
-                    row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
-                    row(indexmap!{"name".into() => string("Jonathan Turner")}),
-                    row(indexmap!{"name".into() => string("Yehuda Katz")})
-                ])
-            })
-        });
-
-        assert_eq!(
-            **value
-                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
-                .unwrap()
-                .unwrap(),
-            name
-        )
-    }
-
-    #[test]
     fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() {
-        let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
+        let field_path = column_path(&vec![string("package"), string("authors"), number(0)]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 

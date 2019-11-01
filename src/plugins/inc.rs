@@ -14,7 +14,7 @@ pub enum SemVerAction {
     Patch,
 }
 
-pub type ColumnPath = Vec<Tagged<String>>;
+pub type ColumnPath = Tagged<Vec<Tagged<Value>>>;
 
 struct Inc {
     field: Option<ColumnPath>,
@@ -100,7 +100,7 @@ impl Inc {
 
                     let replace_for = value.item.get_data_by_column_path(
                         value.tag(),
-                        &f,
+                        f,
                         Box::new(move |(obj_source, column_path_tried)| {
                             match did_you_mean(&obj_source, &column_path_tried) {
                                 Some(suggestions) => {
@@ -191,7 +191,7 @@ impl Plugin for Inc {
                         item: Value::Table(_),
                         ..
                     } => {
-                        self.field = Some(table.as_column_path()?.item().to_vec());
+                        self.field = Some(table.as_column_path()?);
                     }
                     value => return Err(ShellError::type_error("table", value.tagged_type_name())),
                 }
@@ -229,8 +229,8 @@ mod tests {
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, ReturnSuccess, Tag, Tagged, TaggedDictBuilder, TaggedItem,
-        Value,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, Tag, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
     };
 
     struct CallStub {
@@ -344,9 +344,13 @@ mod tests {
             .is_ok());
 
         assert_eq!(
-            plugin
-                .field
-                .map(|f| f.iter().map(|f| f.item.clone()).collect()),
+            plugin.field.map(|f| f
+                .iter()
+                .map(|f| match &f.item {
+                    Value::Primitive(Primitive::String(s)) => s.clone(),
+                    _ => panic!(""),
+                })
+                .collect()),
             Some(vec!["package".to_string(), "version".to_string()])
         );
     }

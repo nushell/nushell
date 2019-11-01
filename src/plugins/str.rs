@@ -12,7 +12,7 @@ enum Action {
     Substring(usize, usize),
 }
 
-pub type ColumnPath = Vec<Tagged<String>>;
+pub type ColumnPath = Tagged<Vec<Tagged<Value>>>;
 
 struct Str {
     field: Option<ColumnPath>,
@@ -132,7 +132,7 @@ impl Str {
 
                     let replace_for = value.item.get_data_by_column_path(
                         value.tag(),
-                        &f,
+                        f,
                         Box::new(move |(obj_source, column_path_tried)| {
                             match did_you_mean(&obj_source, &column_path_tried) {
                                 Some(suggestions) => {
@@ -169,7 +169,7 @@ impl Str {
 
                     match value.item.replace_data_at_column_path(
                         value.tag(),
-                        &f,
+                        f,
                         replacement.item.clone(),
                     ) {
                         Some(v) => return Ok(v),
@@ -246,17 +246,22 @@ impl Plugin for Str {
 
         if let Some(possible_field) = args.nth(0) {
             match possible_field {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
-                    tag,
-                } => {
-                    self.for_field(vec![s.clone().tagged(tag)]);
-                }
+                string @ Tagged {
+                    item: Value::Primitive(Primitive::String(_)),
+                    ..
+                } => match self.action {
+                    Some(Action::Downcase)
+                    | Some(Action::Upcase)
+                    | Some(Action::ToInteger)
+                    | None => {
+                        self.for_field(string.as_column_path()?);
+                    }
+                },
                 table @ Tagged {
                     item: Value::Table(_),
                     ..
                 } => {
-                    self.field = Some(table.as_column_path()?.item);
+                    self.field = Some(table.as_column_path()?);
                 }
                 _ => {
                     return Err(ShellError::labeled_error(
@@ -419,9 +424,13 @@ mod tests {
             .is_ok());
 
         assert_eq!(
-            plugin
-                .field
-                .map(|f| f.into_iter().map(|f| f.item).collect()),
+            plugin.field.map(|f| f
+                .iter()
+                .map(|f| match &f.item {
+                    Value::Primitive(Primitive::String(s)) => s.clone(),
+                    _ => panic!(""),
+                })
+                .collect()),
             Some(vec!["package".to_string(), "description".to_string()])
         )
     }

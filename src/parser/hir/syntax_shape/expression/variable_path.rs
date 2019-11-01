@@ -906,6 +906,16 @@ impl ExpandSyntax for MemberShape {
             return Ok(Member::Bare(node.span()));
         }
 
+        /* KATZ */
+        /* let number = NumberShape.test(token_nodes, context);
+
+        if let Some(peeked) = number {
+            let node = peeked.not_eof("column")?.commit();
+            let (n, span) = node.as_number().unwrap();
+
+            return Ok(Member::Number(n, span))
+        }*/
+
         let string = StringShape.test(token_nodes, context);
 
         if let Some(peeked) = string {
