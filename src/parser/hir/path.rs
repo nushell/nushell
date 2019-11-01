@@ -44,8 +44,8 @@ impl Path {
     }
 }
 
-impl ToDebug for Path {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for Path {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         write!(f, "{}", self.head.debug(source))?;
 
         for part in &self.tail {

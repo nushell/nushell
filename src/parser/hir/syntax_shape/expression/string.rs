@@ -1,6 +1,6 @@
 use crate::parser::hir::syntax_shape::{
     expand_atom, expand_variable, parse_single_node, AtomicToken, ExpandContext, ExpandExpression,
-    ExpansionRule, FallibleColorSyntax, FlatShape, TestSyntax,
+    ExpansionRule, FallibleColorSyntax, FlatShape, ParseError, TestSyntax,
 };
 use crate::parser::hir::tokens_iterator::Peeked;
 use crate::parser::{hir, hir::TokensIterator, RawToken};
@@ -75,31 +75,23 @@ impl FallibleColorSyntax for StringShape {
 }
 
 impl ExpandExpression for StringShape {
+    fn name(&self) -> &'static str {
+        "string"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
-        parse_single_node(token_nodes, "String", |token, token_span, _| {
+    ) -> Result<hir::Expression, ParseError> {
+        parse_single_node(token_nodes, "String", |token, token_span, err| {
             Ok(match token {
-                RawToken::GlobPattern => {
-                    return Err(ShellError::type_error(
-                        "String",
-                        "glob pattern".tagged(token_span),
-                    ))
-                }
-                RawToken::Operator(..) => {
-                    return Err(ShellError::type_error(
-                        "String",
-                        "operator".tagged(token_span),
-                    ))
+                RawToken::GlobPattern | RawToken::Operator(..) | RawToken::ExternalWord => {
+                    return Err(err.error())
                 }
                 RawToken::Variable(span) => expand_variable(span, token_span, &context.source),
                 RawToken::ExternalCommand(span) => {
                     hir::Expression::external_command(span, token_span)
-                }
-                RawToken::ExternalWord => {
-                    return Err(ShellError::invalid_external_word(token_span))
                 }
                 RawToken::Number(_) => hir::Expression::bare(token_span),
                 RawToken::Bare => hir::Expression::bare(token_span),

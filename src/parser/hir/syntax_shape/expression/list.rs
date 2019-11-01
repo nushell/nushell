@@ -1,4 +1,4 @@
-use crate::errors::ShellError;
+use crate::errors::ParseError;
 #[cfg(not(coloring_in_tokens))]
 use crate::parser::hir::syntax_shape::FlatShape;
 use crate::parser::{
@@ -10,24 +10,36 @@ use crate::parser::{
     },
     hir::TokensIterator,
 };
-#[cfg(not(coloring_in_tokens))]
-use crate::Spanned;
+use crate::{DebugFormatter, FormatDebug, Spanned, SpannedItem};
+use std::fmt;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ExpressionListShape;
 
+impl FormatDebug for Spanned<Vec<hir::Expression>> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        FormatDebug::fmt_debug(&self.item, f, source)
+    }
+}
+
 impl ExpandSyntax for ExpressionListShape {
-    type Output = Vec<hir::Expression>;
+    type Output = Spanned<Vec<hir::Expression>>;
+
+    fn name(&self) -> &'static str {
+        "expression list"
+    }
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<Vec<hir::Expression>, ShellError> {
+    ) -> Result<Spanned<Vec<hir::Expression>>, ParseError> {
         let mut exprs = vec![];
 
+        let start = token_nodes.span_at_cursor();
+
         if token_nodes.at_end_possible_ws() {
-            return Ok(exprs);
+            return Ok(exprs.spanned(start));
         }
 
         let expr = expand_expr(&maybe_spaced(AnyExpressionShape), token_nodes, context)?;
@@ -36,7 +48,8 @@ impl ExpandSyntax for ExpressionListShape {
 
         loop {
             if token_nodes.at_end_possible_ws() {
-                return Ok(exprs);
+                let end = token_nodes.span_at_cursor();
+                return Ok(exprs.spanned(start.until(end)));
             }
 
             let expr = expand_expr(&spaced(AnyExpressionShape), token_nodes, context)?;

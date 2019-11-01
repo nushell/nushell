@@ -6,7 +6,8 @@ use crate::parser::{
     hir::syntax_shape::{
         color_fallible_syntax, color_syntax_with, continue_expression, expand_expr, expand_syntax,
         DelimitedShape, ExpandContext, ExpandExpression, ExpressionContinuationShape,
-        ExpressionListShape, FallibleColorSyntax, MemberShape, PathTailShape, VariablePathShape,
+        ExpressionListShape, FallibleColorSyntax, MemberShape, ParseError, PathTailShape,
+        VariablePathShape,
     },
     hir::tokens_iterator::TokensIterator,
     parse::token_tree::Delimiter,
@@ -42,7 +43,7 @@ impl FallibleColorSyntax for AnyBlockShape {
         match block {
             // If so, color it as a block
             Some((children, spans)) => {
-                let mut token_nodes = TokensIterator::new(children.item, context.span, false);
+                let mut token_nodes = TokensIterator::new(children.item, children.span, false);
                 color_syntax_with(
                     &DelimitedShape,
                     &(Delimiter::Brace, spans.0, spans.1),
@@ -109,11 +110,15 @@ impl FallibleColorSyntax for AnyBlockShape {
 }
 
 impl ExpandExpression for AnyBlockShape {
+    fn name(&self) -> &'static str {
+        "any block"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         let block = token_nodes.peek_non_ws().not_eof("block")?;
 
         // is it just a block?
@@ -121,11 +126,11 @@ impl ExpandExpression for AnyBlockShape {
 
         match block {
             Some((block, _tags)) => {
-                let mut iterator = TokensIterator::new(&block.item, context.span, false);
+                let mut iterator = TokensIterator::new(&block.item, block.span, false);
 
                 let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
 
-                return Ok(hir::RawExpression::Block(exprs).spanned(block.span));
+                return Ok(hir::RawExpression::Block(exprs.item).spanned(block.span));
             }
             _ => {}
         }
@@ -204,14 +209,18 @@ impl FallibleColorSyntax for ShorthandBlock {
 }
 
 impl ExpandExpression for ShorthandBlock {
+    fn name(&self) -> &'static str {
+        "shorthand block"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         let path = expand_expr(&ShorthandPath, token_nodes, context)?;
         let start = path.span;
-        let expr = continue_expression(path, token_nodes, context)?;
+        let expr = continue_expression(path, token_nodes, context);
         let end = expr.span;
         let block = hir::RawExpression::Block(vec![expr]).spanned(start.until(end));
 
@@ -317,11 +326,15 @@ impl FallibleColorSyntax for ShorthandPath {
 }
 
 impl ExpandExpression for ShorthandPath {
+    fn name(&self) -> &'static str {
+        "shorthand path"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         // if it's a variable path, that's the head part
         let path = expand_expr(&VariablePathShape, token_nodes, context);
 
@@ -339,7 +352,7 @@ impl ExpandExpression for ShorthandPath {
 
         match tail {
             Err(_) => return Ok(head),
-            Ok((tail, _)) => {
+            Ok(Spanned { item: tail, .. }) => {
                 // For each member that `PathTailShape` expanded, join it onto the existing expression
                 // to form a new path
                 for member in tail {
@@ -446,11 +459,15 @@ impl FallibleColorSyntax for ShorthandHeadShape {
 }
 
 impl ExpandExpression for ShorthandHeadShape {
+    fn name(&self) -> &'static str {
+        "shorthand head"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         // A shorthand path must not be at EOF
         let peeked = token_nodes.peek_non_ws().not_eof("shorthand path")?;
 
@@ -495,7 +512,7 @@ impl ExpandExpression for ShorthandHeadShape {
 
             // Any other token is not a valid bare head
             other => {
-                return Err(ShellError::type_error(
+                return Err(ParseError::mismatch(
                     "shorthand path",
                     other.tagged_type_name(),
                 ))

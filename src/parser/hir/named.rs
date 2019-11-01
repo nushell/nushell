@@ -21,8 +21,8 @@ pub struct NamedArguments {
     pub(crate) named: IndexMap<String, NamedValue>,
 }
 
-impl ToDebug for NamedArguments {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for NamedArguments {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         for (name, value) in &self.named {
             match value {
                 NamedValue::AbsentSwitch => continue,

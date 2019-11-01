@@ -1,4 +1,4 @@
-use crate::errors::ShellError;
+use crate::errors::{ParseError, ShellError};
 use crate::parser::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
 use crate::prelude::*;
 use crate::traits::ToDebug;
@@ -21,8 +21,14 @@ pub enum TokenNode {
     Error(Spanned<ShellError>),
 }
 
-impl ToDebug for TokenNode {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl HasSpan for TokenNode {
+    fn span(&self) -> Span {
+        self.get_span()
+    }
+}
+
+impl FormatDebug for TokenNode {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         write!(f, "{:?}", self.old_debug(&Text::from(source)))
     }
 }
@@ -84,12 +90,12 @@ impl fmt::Debug for DebugTokenNode<'_> {
 
 impl From<&TokenNode> for Span {
     fn from(token: &TokenNode) -> Span {
-        token.span()
+        token.get_span()
     }
 }
 
 impl TokenNode {
-    pub fn span(&self) -> Span {
+    pub fn get_span(&self) -> Span {
         match self {
             TokenNode::Token(t) => t.span,
             TokenNode::Nodes(t) => t.span,
@@ -231,10 +237,10 @@ impl TokenNode {
         }
     }
 
-    pub fn as_pipeline(&self) -> Result<Pipeline, ShellError> {
+    pub fn as_pipeline(&self) -> Result<Pipeline, ParseError> {
         match self {
             TokenNode::Pipeline(Spanned { item, .. }) => Ok(item.clone()),
-            _ => Err(ShellError::type_error("pipeline", self.tagged_type_name())),
+            other => Err(ParseError::mismatch("pipeline", other.tagged_type_name())),
         }
     }
 
@@ -321,9 +327,9 @@ impl TokenNode {
         }
     }
 
-    pub fn expect_list(&self) -> &[TokenNode] {
+    pub fn expect_list(&self) -> Spanned<&[TokenNode]> {
         match self {
-            TokenNode::Nodes(token_nodes) => &token_nodes[..],
+            TokenNode::Nodes(token_nodes) => token_nodes[..].spanned(token_nodes.span),
             other => panic!("Expected list, found {:?}", other),
         }
     }

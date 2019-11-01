@@ -5,6 +5,7 @@ use derive_new::new;
 use getset::Getters;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
@@ -459,5 +460,136 @@ impl language_reporting::ReportingSpan for Span {
 
     fn end(&self) -> usize {
         self.end
+    }
+}
+
+pub trait HasSpan: ToDebug {
+    fn span(&self) -> Span;
+}
+
+pub trait HasFallibleSpan: ToDebug {
+    fn maybe_span(&self) -> Option<Span>;
+}
+
+impl<T: HasSpan> HasFallibleSpan for T {
+    fn maybe_span(&self) -> Option<Span> {
+        Some(HasSpan::span(self))
+    }
+}
+
+impl<T> HasSpan for Spanned<T>
+where
+    Spanned<T>: ToDebug,
+{
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl HasFallibleSpan for Option<Span> {
+    fn maybe_span(&self) -> Option<Span> {
+        *self
+    }
+}
+
+impl FormatDebug for Option<Span> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            Option::None => write!(f, "no span"),
+            Option::Some(span) => FormatDebug::fmt_debug(span, f, source),
+        }
+    }
+}
+
+impl FormatDebug for Span {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        write!(f, "{:?}", self.slice(source))
+    }
+}
+
+impl HasSpan for Span {
+    fn span(&self) -> Span {
+        *self
+    }
+}
+
+impl<T> FormatDebug for Option<Spanned<T>>
+where
+    Spanned<T>: ToDebug,
+{
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            Option::None => write!(f, "nothing"),
+            Option::Some(spanned) => FormatDebug::fmt_debug(spanned, f, source),
+        }
+    }
+}
+
+impl<T> HasFallibleSpan for Option<Spanned<T>>
+where
+    Spanned<T>: ToDebug,
+{
+    fn maybe_span(&self) -> Option<Span> {
+        match self {
+            None => None,
+            Some(value) => Some(value.span),
+        }
+    }
+}
+
+impl<T> FormatDebug for Option<Tagged<T>>
+where
+    Tagged<T>: ToDebug,
+{
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            Option::None => write!(f, "nothing"),
+            Option::Some(item) => FormatDebug::fmt_debug(item, f, source),
+        }
+    }
+}
+
+impl<T> HasFallibleSpan for Option<Tagged<T>>
+where
+    Tagged<T>: ToDebug,
+{
+    fn maybe_span(&self) -> Option<Span> {
+        match self {
+            None => None,
+            Some(value) => Some(value.tag.span),
+        }
+    }
+}
+
+impl<T> HasSpan for Tagged<T>
+where
+    Tagged<T>: ToDebug,
+{
+    fn span(&self) -> Span {
+        self.tag.span
+    }
+}
+
+impl<T: ToDebug> FormatDebug for Vec<T> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        write!(f, "[ ")?;
+        write!(
+            f,
+            "{}",
+            self.iter().map(|item| item.debug(source)).join(" ")
+        )?;
+        write!(f, " ]")
+    }
+}
+
+impl FormatDebug for String {
+    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl FormatDebug for Spanned<String> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
+        write!(f, "{}", self.item)
     }
 }

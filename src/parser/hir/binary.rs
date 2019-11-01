@@ -22,8 +22,8 @@ impl fmt::Display for Binary {
     }
 }
 
-impl ToDebug for Binary {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for Binary {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         write!(f, "{}", self.left.debug(source))?;
         write!(f, " {} ", self.op.debug(source))?;
         write!(f, "{}", self.right.debug(source))?;

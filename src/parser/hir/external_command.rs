@@ -12,8 +12,8 @@ pub struct ExternalCommand {
     pub(crate) name: Span,
 }
 
-impl ToDebug for ExternalCommand {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for ExternalCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         write!(f, "{}", self.name.slice(source))?;
 
         Ok(())
