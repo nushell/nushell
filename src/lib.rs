@@ -30,12 +30,16 @@ pub use crate::env::host::BasicHost;
 pub use crate::parser::hir::SyntaxShape;
 pub use crate::parser::parse::token_tree_builder::TokenTreeBuilder;
 pub use crate::plugin::{serve_plugin, Plugin};
-pub use crate::utils::{AbsoluteFile, AbsolutePath, RelativePath};
+pub use crate::traits::{DebugFormatter, FormatDebug, ToDebug};
+pub use crate::utils::{did_you_mean, AbsoluteFile, AbsolutePath, RelativePath};
 pub use cli::cli;
 pub use data::base::{Primitive, Value};
 pub use data::config::{config_path, APP_INFO};
 pub use data::dict::{Dictionary, TaggedDictBuilder};
-pub use data::meta::{Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+pub use data::meta::{
+    tag_for_tagged_list, HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Tagged,
+    TaggedItem,
+};
 pub use errors::{CoerceInto, ShellError};
 pub use num_traits::cast::ToPrimitive;
 pub use parser::parse::text::Text;

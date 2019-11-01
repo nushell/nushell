@@ -14,13 +14,13 @@ use crate::git::current_branch;
 use crate::parser::registry::Signature;
 use crate::parser::{
     hir,
-    hir::syntax_shape::{expand_syntax, PipelineShape},
-    hir::{expand_external_tokens::expand_external_tokens, tokens_iterator::TokensIterator},
+    hir::syntax_shape::{expand_syntax, ExpandContext, PipelineShape},
+    hir::{expand_external_tokens::ExternalTokensShape, tokens_iterator::TokensIterator},
     TokenNode,
 };
 use crate::prelude::*;
 
-use log::{debug, trace};
+use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
 use std::env;
@@ -506,6 +506,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline
                     .commands
+                    .item
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         name: "autoview".to_string(),
                         name_tag: Tag::unknown(),
@@ -513,13 +514,14 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,
                             None,
-                        ),
+                        )
+                        .spanned_unknown(),
                     })),
             }
 
             let mut input = ClassifiedInputStream::new();
 
-            let mut iter = pipeline.commands.into_iter().peekable();
+            let mut iter = pipeline.commands.item.into_iter().peekable();
             let mut is_first_command = true;
 
             // Check the config to see if we need to update the path
@@ -679,11 +681,20 @@ fn classify_pipeline(
     let mut pipeline_list = vec![pipeline.clone()];
     let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.span());
 
-    expand_syntax(
+    let result = expand_syntax(
         &PipelineShape,
         &mut iterator,
-        &context.expand_context(source, pipeline.span()),
+        &context.expand_context(source),
     )
+    .map_err(|err| err.into());
+
+    if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
+        println!("");
+        ptree::print_tree(&iterator.expand_tracer().print(source.clone())).unwrap();
+        println!("");
+    }
+
+    result
 }
 
 // Classify this command as an external command, which doesn't give special meaning
@@ -691,21 +702,22 @@ fn classify_pipeline(
 // strings.
 pub(crate) fn external_command(
     tokens: &mut TokensIterator,
-    source: &Text,
+    context: &ExpandContext,
     name: Tagged<&str>,
-) -> Result<ClassifiedCommand, ShellError> {
-    let arg_list_strings = expand_external_tokens(tokens, source)?;
+) -> Result<ClassifiedCommand, ParseError> {
+    let Spanned { item, span } = expand_syntax(&ExternalTokensShape, tokens, context)?;
 
     Ok(ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
         name_tag: name.tag(),
-        args: arg_list_strings
+        args: item
             .iter()
             .map(|x| Tagged {
                 tag: x.span.into(),
                 item: x.item.clone(),
             })
-            .collect(),
+            .collect::<Vec<_>>()
+            .spanned(span),
     }))
 }
 

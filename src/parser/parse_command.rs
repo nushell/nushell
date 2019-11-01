@@ -1,4 +1,4 @@
-use crate::errors::{ArgumentError, ShellError};
+use crate::errors::{ArgumentError, ParseError};
 use crate::parser::hir::syntax_shape::{
     color_fallible_syntax, color_syntax, expand_expr, flat_shape::FlatShape, spaced,
     BackoffColoringMode, ColorSyntax, MaybeSpaceShape,
@@ -18,9 +18,9 @@ pub fn parse_command_tail(
     context: &ExpandContext,
     tail: &mut TokensIterator,
     command_span: Span,
-) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ShellError> {
+) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ParseError> {
     let mut named = NamedArguments::new();
-    trace_remaining("nodes", tail.clone(), context.source());
+    trace_remaining("nodes", &tail, context.source());
 
     for (name, kind) in &config.named {
         trace!(target: "nu::parse", "looking for {} : {:?}", name, kind);
@@ -38,7 +38,7 @@ pub fn parse_command_tail(
                         tail.move_to(pos);
 
                         if tail.at_end() {
-                            return Err(ShellError::argument_error(
+                            return Err(ParseError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
                                 flag.span,
@@ -59,7 +59,7 @@ pub fn parse_command_tail(
                         tail.move_to(pos);
 
                         if tail.at_end() {
-                            return Err(ShellError::argument_error(
+                            return Err(ParseError::argument_error(
                                 config.name.clone(),
                                 ArgumentError::MissingValueForName(name.to_string()),
                                 flag.span,
@@ -85,7 +85,7 @@ pub fn parse_command_tail(
         };
     }
 
-    trace_remaining("after named", tail.clone(), context.source());
+    trace_remaining("after named", &tail, context.source());
 
     let mut positional = vec![];
 
@@ -95,7 +95,7 @@ pub fn parse_command_tail(
         match &arg.0 {
             PositionalType::Mandatory(..) => {
                 if tail.at_end_possible_ws() {
-                    return Err(ShellError::argument_error(
+                    return Err(ParseError::argument_error(
                         config.name.clone(),
                         ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
                         Tag {
@@ -118,7 +118,7 @@ pub fn parse_command_tail(
         positional.push(result);
     }
 
-    trace_remaining("after positional", tail.clone(), context.source());
+    trace_remaining("after positional", &tail, context.source());
 
     if let Some((syntax_type, _)) = config.rest_positional {
         let mut out = vec![];
@@ -136,7 +136,7 @@ pub fn parse_command_tail(
         positional.extend(out);
     }
 
-    trace_remaining("after rest", tail.clone(), context.source());
+    trace_remaining("after rest", &tail, context.source());
 
     trace!(target: "nu::parse", "Constructed positional={:?} named={:?}", positional, named);
 
@@ -202,8 +202,6 @@ impl ColorSyntax for CommandTailShape {
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Self::Info {
         let mut args = ColoringArgs::new(token_nodes.len());
-        trace_remaining("nodes", token_nodes.clone(), context.source());
-
         for (name, kind) in &signature.named {
             trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
 
@@ -295,8 +293,6 @@ impl ColorSyntax for CommandTailShape {
             };
         }
 
-        trace_remaining("after named", token_nodes.clone(), context.source());
-
         for arg in &signature.positional {
             trace!("Processing positional {:?}", arg);
 
@@ -340,8 +336,6 @@ impl ColorSyntax for CommandTailShape {
                 }
             }
         }
-
-        trace_remaining("after positional", token_nodes.clone(), context.source());
 
         if let Some((syntax_type, _)) = signature.rest_positional {
             loop {
@@ -402,7 +396,7 @@ impl ColorSyntax for CommandTailShape {
         context: &ExpandContext,
     ) -> Self::Info {
         let mut args = ColoringArgs::new(token_nodes.len());
-        trace_remaining("nodes", token_nodes.clone(), context.source());
+        trace_remaining("nodes", &token_nodes, context.source());
 
         for (name, kind) in &signature.named {
             trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
@@ -497,7 +491,7 @@ impl ColorSyntax for CommandTailShape {
             };
         }
 
-        trace_remaining("after named", token_nodes.clone(), context.source());
+        trace_remaining("after named", &token_nodes, context.source());
 
         for arg in &signature.positional {
             trace!("Processing positional {:?}", arg);
@@ -537,7 +531,7 @@ impl ColorSyntax for CommandTailShape {
             }
         }
 
-        trace_remaining("after positional", token_nodes.clone(), context.source());
+        trace_remaining("after positional", &token_nodes, context.source());
 
         if let Some((syntax_type, _)) = signature.rest_positional {
             loop {
@@ -594,11 +588,11 @@ fn extract_mandatory(
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
     span: Span,
-) -> Result<(usize, Spanned<Flag>), ShellError> {
+) -> Result<(usize, Spanned<Flag>), ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
-        None => Err(ShellError::argument_error(
+        None => Err(ParseError::argument_error(
             config.name.clone(),
             ArgumentError::MissingMandatoryFlag(name.to_string()),
             span,
@@ -615,7 +609,7 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-) -> Result<(Option<(usize, Spanned<Flag>)>), ShellError> {
+) -> Result<(Option<(usize, Spanned<Flag>)>), ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
@@ -627,7 +621,7 @@ fn extract_optional(
     }
 }
 
-pub fn trace_remaining(desc: &'static str, tail: hir::TokensIterator<'_>, source: &Text) {
+pub fn trace_remaining(desc: &'static str, tail: &hir::TokensIterator<'_>, source: &Text) {
     trace!(
         target: "nu::parse",
         "{} = {:?}",

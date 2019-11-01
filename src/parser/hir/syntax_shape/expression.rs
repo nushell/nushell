@@ -12,7 +12,7 @@ use crate::parser::hir::syntax_shape::{
     color_delimited_square, color_fallible_syntax, color_fallible_syntax_with, expand_atom,
     expand_delimited_square, expand_expr, expand_syntax, AtomicToken, BareShape, ColorableDotShape,
     DotShape, ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, ExpressionContinuation,
-    ExpressionContinuationShape, FallibleColorSyntax, FlatShape,
+    ExpressionContinuationShape, FallibleColorSyntax, FlatShape, ParseError,
 };
 use crate::parser::{
     hir,
@@ -25,15 +25,19 @@ use std::path::PathBuf;
 pub struct AnyExpressionShape;
 
 impl ExpandExpression for AnyExpressionShape {
+    fn name(&self) -> &'static str {
+        "any expression"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         // Look for an expression at the cursor
         let head = expand_expr(&AnyExpressionStartShape, token_nodes, context)?;
 
-        continue_expression(head, token_nodes, context)
+        Ok(continue_expression(head, token_nodes, context))
     }
 }
 
@@ -98,14 +102,14 @@ pub(crate) fn continue_expression(
     mut head: hir::Expression,
     token_nodes: &mut TokensIterator<'_>,
     context: &ExpandContext,
-) -> Result<hir::Expression, ShellError> {
+) -> hir::Expression {
     loop {
         // Check to see whether there's any continuation after the head expression
         let continuation = expand_syntax(&ExpressionContinuationShape, token_nodes, context);
 
         match continuation {
             // If there's no continuation, return the head
-            Err(_) => return Ok(head),
+            Err(_) => return head,
             // Otherwise, form a new expression by combining the head with the continuation
             Ok(continuation) => match continuation {
                 // If the continuation is a `.member`, form a path with the new member
@@ -174,11 +178,15 @@ pub(crate) fn continue_coloring_expression(
 pub struct AnyExpressionStartShape;
 
 impl ExpandExpression for AnyExpressionStartShape {
+    fn name(&self) -> &'static str {
+        "any expression start"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         let atom = expand_atom(token_nodes, "expression", context, ExpansionRule::new())?;
 
         match atom.item {
@@ -445,13 +453,17 @@ impl FallibleColorSyntax for BareTailShape {
 }
 
 impl ExpandSyntax for BareTailShape {
+    fn name(&self) -> &'static str {
+        "word continuation"
+    }
+
     type Output = Option<Span>;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Option<Span>, ShellError> {
+    ) -> Result<Option<Span>, ParseError> {
         let mut end: Option<Span> = None;
 
         loop {

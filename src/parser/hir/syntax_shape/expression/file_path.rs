@@ -1,6 +1,7 @@
 use crate::parser::hir::syntax_shape::expression::atom::{expand_atom, AtomicToken, ExpansionRule};
 use crate::parser::hir::syntax_shape::{
     expression::expand_file_path, ExpandContext, ExpandExpression, FallibleColorSyntax, FlatShape,
+    ParseError,
 };
 use crate::parser::{hir, hir::TokensIterator};
 use crate::prelude::*;
@@ -90,11 +91,15 @@ impl FallibleColorSyntax for FilePathShape {
 }
 
 impl ExpandExpression for FilePathShape {
+    fn name(&self) -> &'static str {
+        "file path"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         let atom = expand_atom(token_nodes, "file path", context, ExpansionRule::new())?;
 
         match atom.item {

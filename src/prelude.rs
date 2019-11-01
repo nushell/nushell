@@ -66,12 +66,15 @@ pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::{AnchorLocation, Context};
 pub(crate) use crate::data::base as value;
-pub(crate) use crate::data::meta::{Span, Spanned, SpannedItem, Tag, Tagged, TaggedItem};
+pub(crate) use crate::data::meta::{
+    tag_for_tagged_list, HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Tagged,
+    TaggedItem,
+};
 pub(crate) use crate::data::types::ExtractType;
 pub(crate) use crate::data::{Primitive, Value};
 pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
-pub(crate) use crate::errors::{CoerceInto, ShellError};
+pub(crate) use crate::errors::{CoerceInto, ParseError, ShellError};
 pub(crate) use crate::parser::hir::SyntaxShape;
 pub(crate) use crate::parser::parse::parser::Number;
 pub(crate) use crate::parser::registry::Signature;
@@ -80,7 +83,7 @@ pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
 pub(crate) use crate::stream::{InputStream, OutputStream};
-pub(crate) use crate::traits::{HasTag, ToDebug};
+pub(crate) use crate::traits::{DebugFormatter, FormatDebug, HasTag, ToDebug};
 pub(crate) use crate::Text;
 pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;
@@ -91,8 +94,11 @@ pub(crate) use num_traits::cast::{FromPrimitive, ToPrimitive};
 pub(crate) use num_traits::identities::Zero;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
+pub(crate) use std::fmt::Write;
 pub(crate) use std::future::Future;
 pub(crate) use std::sync::{Arc, Mutex};
+
+pub(crate) use itertools::Itertools;
 
 pub trait FromInputStream {
     fn from_input_stream(self) -> OutputStream;

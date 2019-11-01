@@ -3,7 +3,7 @@ use crate::parser::hir::syntax_shape::{color_fallible_syntax, FlatShape, Pipelin
 use crate::parser::hir::TokensIterator;
 use crate::parser::nom_input;
 use crate::parser::parse::token_tree::TokenNode;
-use crate::{Span, Spanned, SpannedItem, Tag, Tagged, Text};
+use crate::{HasSpan, Spanned, SpannedItem, Tag, Tagged, Text};
 use ansi_term::Color;
 use log::{log_enabled, trace};
 use rustyline::completion::Completer;
@@ -65,9 +65,7 @@ impl Highlighter for Helper {
                 let mut tokens = TokensIterator::all(&tokens[..], v.span());
 
                 let text = Text::from(line);
-                let expand_context = self
-                    .context
-                    .expand_context(&text, Span::new(0, line.len() - 1));
+                let expand_context = self.context.expand_context(&text);
 
                 #[cfg(not(coloring_in_tokens))]
                 let shapes = {
@@ -86,16 +84,17 @@ impl Highlighter for Helper {
                 let shapes = {
                     // We just constructed a token list that only contains a pipeline, so it can't fail
                     color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context).unwrap();
-                    tokens.with_tracer(|_, tracer| tracer.finish());
+                    tokens.with_color_tracer(|_, tracer| tracer.finish());
 
                     tokens.state().shapes()
                 };
 
-                trace!(target: "nu::color_syntax", "{:#?}", tokens.tracer());
+                trace!(target: "nu::color_syntax", "{:#?}", tokens.color_tracer());
 
-                if log_enabled!(target: "nu::color_syntax", log::Level::Trace) {
+                if log_enabled!(target: "nu::color_syntax", log::Level::Debug) {
                     println!("");
-                    ptree::print_tree(&tokens.tracer().clone().print(Text::from(line))).unwrap();
+                    ptree::print_tree(&tokens.color_tracer().clone().print(Text::from(line)))
+                        .unwrap();
                     println!("");
                 }
 

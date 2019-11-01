@@ -1,5 +1,5 @@
 use crate::data::meta::Span;
-use crate::parser::hir::syntax_shape::{ExpandContext, ExpandSyntax};
+use crate::parser::hir::syntax_shape::{ExpandContext, ExpandSyntax, ParseError};
 use crate::parser::parse::tokens::RawNumber;
 use crate::parser::parse::unit::Unit;
 use crate::parser::{hir::TokensIterator, RawToken, TokenNode};
@@ -9,18 +9,34 @@ use nom::bytes::complete::tag;
 use nom::character::complete::digit1;
 use nom::combinator::{all_consuming, opt, value};
 use nom::IResult;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone)]
 pub struct UnitShape;
 
+impl FormatDebug for Spanned<(Spanned<RawNumber>, Spanned<Unit>)> {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        let dict = indexmap::indexmap! {
+            "number" => format!("{}", self.item.0.item.debug(source)),
+            "unit" => format!("{}", self.item.1.debug(source)),
+        };
+
+        f.say_dict("unit", dict)
+    }
+}
+
 impl ExpandSyntax for UnitShape {
     type Output = Spanned<(Spanned<RawNumber>, Spanned<Unit>)>;
+
+    fn name(&self) -> &'static str {
+        "unit"
+    }
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Spanned<(Spanned<RawNumber>, Spanned<Unit>)>, ShellError> {
+    ) -> Result<Spanned<(Spanned<RawNumber>, Spanned<Unit>)>, ParseError> {
         let peeked = token_nodes.peek_any().not_eof("unit")?;
 
         let span = match peeked.node {
@@ -34,12 +50,7 @@ impl ExpandSyntax for UnitShape {
         let unit = unit_size(span.slice(context.source), *span);
 
         let (_, (number, unit)) = match unit {
-            Err(_) => {
-                return Err(ShellError::type_error(
-                    "unit",
-                    "word".tagged(Tag::unknown()),
-                ))
-            }
+            Err(_) => return Err(ParseError::mismatch("unit", "word".tagged(Tag::unknown()))),
             Ok((number, unit)) => (number, unit),
         };
 

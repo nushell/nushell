@@ -1,24 +1,22 @@
 use crate::parser::TokenNode;
-use crate::traits::ToDebug;
-use crate::{Span, Spanned};
+use crate::{DebugFormatter, FormatDebug, Span, Spanned, ToDebug};
 use derive_new::new;
 use getset::Getters;
-use std::fmt;
+use itertools::Itertools;
+use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Getters, new)]
 pub struct Pipeline {
     #[get = "pub"]
     pub(crate) parts: Vec<Spanned<PipelineElement>>,
-    // pub(crate) post_ws: Option<Tag>,
 }
 
-impl ToDebug for Pipeline {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
-        for part in self.parts.iter() {
-            write!(f, "{}", part.debug(source))?;
-        }
-
-        Ok(())
+impl FormatDebug for Pipeline {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        f.say_str(
+            "pipeline",
+            self.parts.iter().map(|p| p.debug(source)).join(" "),
+        )
     }
 }
 
@@ -29,8 +27,8 @@ pub struct PipelineElement {
     pub tokens: Spanned<Vec<TokenNode>>,
 }
 
-impl ToDebug for PipelineElement {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for PipelineElement {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         if let Some(pipe) = self.pipe {
             write!(f, "{}", pipe.slice(source))?;
         }

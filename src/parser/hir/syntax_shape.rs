@@ -11,16 +11,12 @@ use crate::parser::hir::expand_external_tokens::ExternalTokensShape;
 use crate::parser::hir::syntax_shape::block::AnyBlockShape;
 use crate::parser::hir::tokens_iterator::Peeked;
 use crate::parser::parse_command::{parse_command_tail, CommandTailShape};
-use crate::parser::{
-    hir,
-    hir::{debug_tokens, TokensIterator},
-    Operator, RawToken, TokenNode,
-};
+use crate::parser::{hir, hir::TokensIterator, Operator, RawToken, TokenNode};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
-use log::{self, trace};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::{Path, PathBuf};
 
 pub(crate) use self::expression::atom::{expand_atom, AtomicToken, ExpansionRule};
@@ -41,14 +37,15 @@ pub(crate) use self::expression::{continue_expression, AnyExpressionShape};
 pub(crate) use self::flat_shape::FlatShape;
 
 #[cfg(not(coloring_in_tokens))]
+use crate::parser::hir::tokens_iterator::debug::debug_tokens;
+#[cfg(not(coloring_in_tokens))]
 use crate::parser::parse::pipeline::Pipeline;
 #[cfg(not(coloring_in_tokens))]
-use log::log_enabled;
+use log::{log_enabled, trace};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SyntaxShape {
     Any,
-    List,
     String,
     Member,
     ColumnPath,
@@ -74,10 +71,6 @@ impl FallibleColorSyntax for SyntaxShape {
         match self {
             SyntaxShape::Any => {
                 color_fallible_syntax(&AnyExpressionShape, token_nodes, context, shapes)
-            }
-            SyntaxShape::List => {
-                color_syntax(&ExpressionListShape, token_nodes, context, shapes);
-                Ok(())
             }
             SyntaxShape::Int => color_fallible_syntax(&IntShape, token_nodes, context, shapes),
             SyntaxShape::String => color_fallible_syntax_with(
@@ -126,10 +119,6 @@ impl FallibleColorSyntax for SyntaxShape {
     ) -> Result<(), ShellError> {
         match self {
             SyntaxShape::Any => color_fallible_syntax(&AnyExpressionShape, token_nodes, context),
-            SyntaxShape::List => {
-                color_syntax(&ExpressionListShape, token_nodes, context);
-                Ok(())
-            }
             SyntaxShape::Int => color_fallible_syntax(&IntShape, token_nodes, context),
             SyntaxShape::String => {
                 color_fallible_syntax_with(&StringShape, &FlatShape::String, token_nodes, context)
@@ -147,14 +136,27 @@ impl FallibleColorSyntax for SyntaxShape {
 }
 
 impl ExpandExpression for SyntaxShape {
+    fn name(&self) -> &'static str {
+        match self {
+            SyntaxShape::Any => "any",
+            SyntaxShape::Int => "integer",
+            SyntaxShape::String => "string",
+            SyntaxShape::Member => "column name",
+            SyntaxShape::ColumnPath => "column path",
+            SyntaxShape::Number => "number",
+            SyntaxShape::Path => "file path",
+            SyntaxShape::Pattern => "glob pattern",
+            SyntaxShape::Block => "block",
+        }
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         match self {
             SyntaxShape::Any => expand_expr(&AnyExpressionShape, token_nodes, context),
-            SyntaxShape::List => Err(ShellError::unimplemented("SyntaxShape:List")),
             SyntaxShape::Int => expand_expr(&IntShape, token_nodes, context),
             SyntaxShape::String => expand_expr(&StringShape, token_nodes, context),
             SyntaxShape::Member => {
@@ -162,8 +164,9 @@ impl ExpandExpression for SyntaxShape {
                 Ok(syntax.to_expr())
             }
             SyntaxShape::ColumnPath => {
-                let Tagged { item: members, tag } =
-                    expand_syntax(&ColumnPathShape, token_nodes, context)?;
+                let column_path = expand_syntax(&ColumnPathShape, token_nodes, context)?;
+
+                let Tagged { item: members, tag } = column_path.path();
 
                 Ok(hir::Expression::list(
                     members.into_iter().map(|s| s.to_expr()).collect(),
@@ -182,7 +185,6 @@ impl std::fmt::Display for SyntaxShape {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             SyntaxShape::Any => write!(f, "Any"),
-            SyntaxShape::List => write!(f, "List"),
             SyntaxShape::String => write!(f, "String"),
             SyntaxShape::Int => write!(f, "Integer"),
             SyntaxShape::Member => write!(f, "Member"),
@@ -199,8 +201,6 @@ impl std::fmt::Display for SyntaxShape {
 pub struct ExpandContext<'context> {
     #[get = "pub(crate)"]
     registry: &'context CommandRegistry,
-    #[get = "pub(crate)"]
-    span: Span,
     #[get = "pub(crate)"]
     source: &'context Text,
     homedir: Option<PathBuf>,
@@ -221,7 +221,6 @@ impl<'context> ExpandContext<'context> {
 
         callback(ExpandContext {
             registry: &registry,
-            span: Span::unknown(),
             source,
             homedir: None,
         })
@@ -237,11 +236,13 @@ pub trait TestSyntax: std::fmt::Debug + Copy {
 }
 
 pub trait ExpandExpression: std::fmt::Debug + Copy {
+    fn name(&self) -> &'static str;
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError>;
+    ) -> Result<hir::Expression, ParseError>;
 }
 
 #[cfg(coloring_in_tokens)]
@@ -303,35 +304,49 @@ pub trait ColorSyntax: std::fmt::Debug + Copy {
 }
 
 pub(crate) trait ExpandSyntax: std::fmt::Debug + Copy {
-    type Output: std::fmt::Debug;
+    type Output: HasFallibleSpan + Clone + std::fmt::Debug + 'static;
+
+    fn name(&self) -> &'static str;
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError>;
+    ) -> Result<Self::Output, ParseError>;
 }
 
 pub(crate) fn expand_syntax<'a, 'b, T: ExpandSyntax>(
     shape: &T,
     token_nodes: &'b mut TokensIterator<'a>,
     context: &ExpandContext,
-) -> Result<T::Output, ShellError> {
-    trace!(target: "nu::expand_syntax", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes.state(), context.source));
+) -> Result<T::Output, ParseError> {
+    token_nodes.expand_frame(shape.name(), |token_nodes| {
+        shape.expand_syntax(token_nodes, context)
+    })
+}
 
-    let result = shape.expand_syntax(token_nodes, context);
+pub(crate) fn expand_expr<'a, 'b, T: ExpandExpression>(
+    shape: &T,
+    token_nodes: &'b mut TokensIterator<'a>,
+    context: &ExpandContext,
+) -> Result<hir::Expression, ParseError> {
+    token_nodes.expand_expr_frame(shape.name(), |token_nodes| {
+        shape.expand_expr(token_nodes, context)
+    })
+}
 
-    match result {
-        Err(err) => {
-            trace!(target: "nu::expand_syntax", "error :: {} :: {:?}", err, debug_tokens(token_nodes.state(), context.source));
-            Err(err)
-        }
-
-        Ok(result) => {
-            trace!(target: "nu::expand_syntax", "ok :: {:?} :: {:?}", result, debug_tokens(token_nodes.state(), context.source));
-            Ok(result)
-        }
-    }
+#[cfg(coloring_in_tokens)]
+pub fn color_syntax<'a, 'b, T: ColorSyntax<Info = U, Input = ()>, U>(
+    shape: &T,
+    token_nodes: &'b mut TokensIterator<'a>,
+    context: &ExpandContext,
+) -> ((), U) {
+    (
+        (),
+        token_nodes.color_frame(shape.name(), |token_nodes| {
+            shape.color_syntax(&(), token_nodes, context)
+        }),
+    )
 }
 
 #[cfg(not(coloring_in_tokens))]
@@ -361,20 +376,6 @@ pub fn color_syntax<'a, 'b, T: ColorSyntax<Info = U, Input = ()>, U>(
     }
 
     ((), result)
-}
-
-#[cfg(coloring_in_tokens)]
-pub fn color_syntax<'a, 'b, T: ColorSyntax<Info = U, Input = ()>, U>(
-    shape: &T,
-    token_nodes: &'b mut TokensIterator<'a>,
-    context: &ExpandContext,
-) -> ((), U) {
-    (
-        (),
-        token_nodes.color_frame(shape.name(), |token_nodes| {
-            shape.color_syntax(&(), token_nodes, context)
-        }),
-    )
 }
 
 #[cfg(not(coloring_in_tokens))]
@@ -492,36 +493,18 @@ pub fn color_fallible_syntax_with<'a, 'b, T: FallibleColorSyntax<Info = U, Input
     })
 }
 
-pub(crate) fn expand_expr<'a, 'b, T: ExpandExpression>(
-    shape: &T,
-    token_nodes: &'b mut TokensIterator<'a>,
-    context: &ExpandContext,
-) -> Result<hir::Expression, ShellError> {
-    trace!(target: "nu::expand_expression", "before {} :: {:?}", std::any::type_name::<T>(), debug_tokens(token_nodes.state(), context.source));
-
-    let result = shape.expand_expr(token_nodes, context);
-
-    match result {
-        Err(err) => {
-            trace!(target: "nu::expand_expression", "error :: {} :: {:?}", err, debug_tokens(token_nodes.state(), context.source));
-            Err(err)
-        }
-
-        Ok(result) => {
-            trace!(target: "nu::expand_expression", "ok :: {:?} :: {:?}", result, debug_tokens(token_nodes.state(), context.source));
-            Ok(result)
-        }
-    }
-}
-
 impl<T: ExpandExpression> ExpandSyntax for T {
     type Output = hir::Expression;
+
+    fn name(&self) -> &'static str {
+        ExpandExpression::name(self)
+    }
 
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError> {
+    ) -> Result<Self::Output, ParseError> {
         ExpandExpression::expand_expr(self, token_nodes, context)
     }
 }
@@ -537,7 +520,7 @@ pub trait SkipSyntax: std::fmt::Debug + Copy {
 enum BarePathState {
     Initial,
     Seen(Span, Span),
-    Error(ShellError),
+    Error(ParseError),
 }
 
 impl BarePathState {
@@ -549,7 +532,7 @@ impl BarePathState {
         }
     }
 
-    pub fn end(self, peeked: Peeked, reason: impl Into<String>) -> BarePathState {
+    pub fn end(self, peeked: Peeked, reason: &'static str) -> BarePathState {
         match self {
             BarePathState::Initial => BarePathState::Error(peeked.type_error(reason)),
             BarePathState::Seen(start, end) => BarePathState::Seen(start, end),
@@ -557,7 +540,7 @@ impl BarePathState {
         }
     }
 
-    pub fn into_bare(self) -> Result<Span, ShellError> {
+    pub fn into_bare(self) -> Result<Span, ParseError> {
         match self {
             BarePathState::Initial => unreachable!("into_bare in initial state"),
             BarePathState::Seen(start, end) => Ok(start.until(end)),
@@ -570,7 +553,7 @@ pub fn expand_bare<'a, 'b>(
     token_nodes: &'b mut TokensIterator<'a>,
     _context: &ExpandContext,
     predicate: impl Fn(&TokenNode) -> bool,
-) -> Result<Span, ShellError> {
+) -> Result<Span, ParseError> {
     let mut state = BarePathState::Initial;
 
     loop {
@@ -603,11 +586,15 @@ pub struct BarePathShape;
 impl ExpandSyntax for BarePathShape {
     type Output = Span;
 
+    fn name(&self) -> &'static str {
+        "shorthand path"
+    }
+
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Span, ShellError> {
+    ) -> Result<Span, ParseError> {
         expand_bare(token_nodes, context, |token| match token {
             TokenNode::Token(Spanned {
                 item: RawToken::Bare,
@@ -638,19 +625,21 @@ impl FallibleColorSyntax for BareShape {
         _context: &ExpandContext,
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
-        token_nodes.peek_any_token("word", |token| match token {
-            // If it's a bare token, color it
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
-                span,
-            }) => {
-                shapes.push((*input).spanned(*span));
-                Ok(())
-            }
+        token_nodes
+            .peek_any_token("word", |token| match token {
+                // If it's a bare token, color it
+                TokenNode::Token(Spanned {
+                    item: RawToken::Bare,
+                    span,
+                }) => {
+                    shapes.push((*input).spanned(*span));
+                    Ok(())
+                }
 
-            // otherwise, fail
-            other => Err(ShellError::type_error("word", other.tagged_type_name())),
-        })
+                // otherwise, fail
+                other => Err(ParseError::mismatch("word", other.tagged_type_name())),
+            })
+            .map_err(|err| err.into())
     }
 }
 
@@ -677,7 +666,7 @@ impl FallibleColorSyntax for BareShape {
             }) => Ok(span),
 
             // otherwise, fail
-            other => Err(ShellError::type_error("word", other.tagged_type_name())),
+            other => Err(ParseError::mismatch("word", other.tagged_type_name())),
         })?;
 
         token_nodes.color_shape((*input).spanned(*span));
@@ -689,11 +678,15 @@ impl FallibleColorSyntax for BareShape {
 impl ExpandSyntax for BareShape {
     type Output = Spanned<String>;
 
+    fn name(&self) -> &'static str {
+        "word"
+    }
+
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError> {
+    ) -> Result<Self::Output, ParseError> {
         let peeked = token_nodes.peek_any().not_eof("word")?;
 
         match peeked.node {
@@ -705,7 +698,7 @@ impl ExpandSyntax for BareShape {
                 Ok(span.spanned_string(context.source))
             }
 
-            other => Err(ShellError::type_error("word", other.tagged_type_name())),
+            other => Err(ParseError::mismatch("word", other.tagged_type_name())),
         }
     }
 }
@@ -725,12 +718,40 @@ impl TestSyntax for BareShape {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CommandSignature {
     Internal(Spanned<Arc<Command>>),
     LiteralExternal { outer: Span, inner: Span },
     External(Span),
     Expression(hir::Expression),
+}
+
+impl FormatDebug for CommandSignature {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            CommandSignature::Internal(internal) => {
+                f.say_str("internal", internal.span.slice(source))
+            }
+            CommandSignature::LiteralExternal { outer, .. } => {
+                f.say_str("external", outer.slice(source))
+            }
+            CommandSignature::External(external) => {
+                write!(f, "external:{}", external.slice(source))
+            }
+            CommandSignature::Expression(expr) => expr.fmt_debug(f, source),
+        }
+    }
+}
+
+impl HasSpan for CommandSignature {
+    fn span(&self) -> Span {
+        match self {
+            CommandSignature::Internal(spanned) => spanned.span,
+            CommandSignature::LiteralExternal { outer, .. } => *outer,
+            CommandSignature::External(span) => *span,
+            CommandSignature::Expression(expr) => expr.span,
+        }
+    }
 }
 
 impl CommandSignature {
@@ -833,12 +854,17 @@ impl FallibleColorSyntax for PipelineShape {
 #[cfg(coloring_in_tokens)]
 impl ExpandSyntax for PipelineShape {
     type Output = ClassifiedPipeline;
+
+    fn name(&self) -> &'static str {
+        "pipeline"
+    }
+
     fn expand_syntax<'content, 'me>(
         &self,
         iterator: &'me mut TokensIterator<'content>,
         context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError> {
-        let source = context.source;
+    ) -> Result<Self::Output, ParseError> {
+        let start = iterator.span_at_cursor();
 
         let peeked = iterator.peek_any().not_eof("pipeline")?;
         let pipeline = peeked.commit().as_pipeline()?;
@@ -851,25 +877,34 @@ impl ExpandSyntax for PipelineShape {
             let tokens: Spanned<&[TokenNode]> = (&part.item.tokens[..]).spanned(part.span);
 
             let classified = iterator.child(tokens, move |token_nodes| {
-                classify_command(token_nodes, context, &source)
+                expand_syntax(&ClassifiedCommandShape, token_nodes, context)
             })?;
 
             out.push(classified);
         }
 
-        Ok(ClassifiedPipeline { commands: out })
+        let end = iterator.span_at_cursor();
+
+        Ok(ClassifiedPipeline {
+            commands: out.spanned(start.until(end)),
+        })
     }
 }
 
 #[cfg(not(coloring_in_tokens))]
 impl ExpandSyntax for PipelineShape {
     type Output = ClassifiedPipeline;
+
+    fn name(&self) -> &'static str {
+        "pipeline"
+    }
+
     fn expand_syntax<'content, 'me>(
         &self,
         iterator: &'me mut TokensIterator<'content>,
         context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError> {
-        let source = context.source;
+    ) -> Result<Self::Output, ParseError> {
+        let start = iterator.span_at_cursor();
 
         let peeked = iterator.peek_any().not_eof("pipeline")?;
         let pipeline = peeked.commit().as_pipeline()?;
@@ -882,13 +917,17 @@ impl ExpandSyntax for PipelineShape {
             let tokens: Spanned<&[TokenNode]> = (&part.item.tokens[..]).spanned(part.span);
 
             let classified = iterator.child(tokens, move |token_nodes| {
-                classify_command(token_nodes, context, &source)
+                expand_syntax(&ClassifiedCommandShape, token_nodes, context)
             })?;
 
             out.push(classified);
         }
 
-        Ok(ClassifiedPipeline { commands: out })
+        let end = iterator.span_at_cursor();
+
+        Ok(ClassifiedPipeline {
+            commands: out.spanned(start.until(end)),
+        })
     }
 }
 
@@ -1014,11 +1053,15 @@ impl FallibleColorSyntax for CommandHeadShape {
 impl ExpandSyntax for CommandHeadShape {
     type Output = CommandSignature;
 
+    fn name(&self) -> &'static str {
+        "command head"
+    }
+
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<CommandSignature, ShellError> {
+    ) -> Result<CommandSignature, ParseError> {
         let node =
             parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_span, _| {
                 Ok(match token {
@@ -1060,29 +1103,34 @@ pub struct ClassifiedCommandShape;
 impl ExpandSyntax for ClassifiedCommandShape {
     type Output = ClassifiedCommand;
 
+    fn name(&self) -> &'static str {
+        "classified command"
+    }
+
     fn expand_syntax<'a, 'b>(
         &self,
         iterator: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError> {
+    ) -> Result<Self::Output, ParseError> {
+        let start = iterator.span_at_cursor();
         let head = expand_syntax(&CommandHeadShape, iterator, context)?;
 
         match &head {
-            CommandSignature::Expression(expr) => Err(ShellError::syntax_error(
-                "Unexpected expression in command position".tagged(expr.span),
-            )),
+            CommandSignature::Expression(expr) => {
+                Err(ParseError::mismatch("command", expr.tagged_type_name()))
+            }
 
             // If the command starts with `^`, treat it as an external command no matter what
             CommandSignature::External(name) => {
                 let name_str = name.slice(&context.source);
 
-                external_command(iterator, &context.source, name_str.tagged(name))
+                external_command(iterator, context, name_str.tagged(name))
             }
 
             CommandSignature::LiteralExternal { outer, inner } => {
                 let name_str = inner.slice(&context.source);
 
-                external_command(iterator, &context.source, name_str.tagged(outer))
+                external_command(iterator, context, name_str.tagged(outer))
             }
 
             CommandSignature::Internal(command) => {
@@ -1094,11 +1142,14 @@ impl ExpandSyntax for ClassifiedCommandShape {
                     Some((positional, named)) => (positional, named),
                 };
 
+                let end = iterator.span_at_cursor();
+
                 let call = hir::Call {
                     head: Box::new(head.to_expression()),
                     positional,
                     named,
-                };
+                }
+                .spanned(start.until(end));
 
                 Ok(ClassifiedCommand::Internal(InternalCommand::new(
                     command.item.name().to_string(),
@@ -1198,12 +1249,16 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
 }
 
 impl ExpandExpression for InternalCommandHeadShape {
+    fn name(&self) -> &'static str {
+        "internal command head"
+    }
+
     fn expand_expr(
         &self,
         token_nodes: &mut TokensIterator<'_>,
         _context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
-        let peeked_head = token_nodes.peek_non_ws().not_eof("command head4")?;
+    ) -> Result<hir::Expression, ParseError> {
+        let peeked_head = token_nodes.peek_non_ws().not_eof("command head")?;
 
         let expr = match peeked_head.node {
             TokenNode::Token(
@@ -1219,8 +1274,8 @@ impl ExpandExpression for InternalCommandHeadShape {
             }) => hir::RawExpression::Literal(hir::Literal::String(*inner_span)).spanned(*span),
 
             node => {
-                return Err(ShellError::type_error(
-                    "command head5",
+                return Err(ParseError::mismatch(
+                    "command head",
                     node.tagged_type_name(),
                 ))
             }
@@ -1238,16 +1293,16 @@ pub(crate) struct SingleError<'token> {
 }
 
 impl<'token> SingleError<'token> {
-    pub(crate) fn error(&self) -> ShellError {
-        ShellError::type_error(self.expected, self.node.type_name().tagged(self.node.span))
+    pub(crate) fn error(&self) -> ParseError {
+        ParseError::mismatch(self.expected, self.node.type_name().tagged(self.node.span))
     }
 }
 
 fn parse_single_node<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ShellError>,
-) -> Result<T, ShellError> {
+    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ParseError>,
+) -> Result<T, ParseError> {
     token_nodes.peek_any_token(expected, |node| match node {
         TokenNode::Token(token) => callback(
             token.item,
@@ -1258,7 +1313,7 @@ fn parse_single_node<'a, 'b, T>(
             },
         ),
 
-        other => Err(ShellError::type_error(expected, other.tagged_type_name())),
+        other => Err(ParseError::mismatch(expected, other.tagged_type_name())),
     })
 }
 
@@ -1360,22 +1415,21 @@ impl FallibleColorSyntax for WhitespaceShape {
 impl ExpandSyntax for WhitespaceShape {
     type Output = Span;
 
+    fn name(&self) -> &'static str {
+        "whitespace"
+    }
+
     fn expand_syntax<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         _context: &ExpandContext,
-    ) -> Result<Self::Output, ShellError> {
+    ) -> Result<Self::Output, ParseError> {
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
         let span = match peeked.node {
             TokenNode::Whitespace(tag) => *tag,
 
-            other => {
-                return Err(ShellError::type_error(
-                    "whitespace",
-                    other.tagged_type_name(),
-                ))
-            }
+            other => return Err(ParseError::mismatch("whitespace", other.tagged_type_name())),
         };
 
         peeked.commit();
@@ -1390,11 +1444,15 @@ pub struct SpacedExpression<T: ExpandExpression> {
 }
 
 impl<T: ExpandExpression> ExpandExpression for SpacedExpression<T> {
+    fn name(&self) -> &'static str {
+        "spaced expression"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         // TODO: Make the name part of the trait
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
@@ -1404,10 +1462,7 @@ impl<T: ExpandExpression> ExpandExpression for SpacedExpression<T> {
                 expand_expr(&self.inner, token_nodes, context)
             }
 
-            other => Err(ShellError::type_error(
-                "whitespace",
-                other.tagged_type_name(),
-            )),
+            other => Err(ParseError::mismatch("whitespace", other.tagged_type_name())),
         }
     }
 }
@@ -1423,6 +1478,36 @@ pub struct MaybeSpacedExpression<T: ExpandExpression> {
 
 #[derive(Debug, Copy, Clone)]
 pub struct MaybeSpaceShape;
+
+impl ExpandSyntax for MaybeSpaceShape {
+    type Output = Option<Span>;
+
+    fn name(&self) -> &'static str {
+        "maybe space"
+    }
+
+    fn expand_syntax<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+        _context: &ExpandContext,
+    ) -> Result<Self::Output, ParseError> {
+        let peeked = token_nodes.peek_any().not_eof("whitespace");
+
+        let span = match peeked {
+            Err(_) => None,
+            Ok(peeked) => {
+                if let TokenNode::Whitespace(..) = peeked.node {
+                    let node = peeked.commit();
+                    Some(node.span())
+                } else {
+                    None
+                }
+            }
+        };
+
+        Ok(span)
+    }
+}
 
 #[cfg(not(coloring_in_tokens))]
 impl ColorSyntax for MaybeSpaceShape {
@@ -1544,11 +1629,15 @@ impl FallibleColorSyntax for SpaceShape {
 }
 
 impl<T: ExpandExpression> ExpandExpression for MaybeSpacedExpression<T> {
+    fn name(&self) -> &'static str {
+        "maybe space"
+    }
+
     fn expand_expr<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<hir::Expression, ShellError> {
+    ) -> Result<hir::Expression, ParseError> {
         // TODO: Make the name part of the trait
         let peeked = token_nodes.peek_any().not_eof("whitespace")?;
 
@@ -1575,58 +1664,6 @@ fn expand_variable(span: Span, token_span: Span, source: &Text) -> hir::Expressi
         hir::Expression::it_variable(span, token_span)
     } else {
         hir::Expression::variable(span, token_span)
-    }
-}
-
-fn classify_command(
-    mut iterator: &mut TokensIterator,
-    context: &ExpandContext,
-    source: &Text,
-) -> Result<ClassifiedCommand, ShellError> {
-    let head = CommandHeadShape.expand_syntax(&mut iterator, &context)?;
-
-    match &head {
-        CommandSignature::Expression(_) => Err(ShellError::syntax_error(
-            "Unexpected expression in command position".tagged(iterator.whole_span()),
-        )),
-
-        // If the command starts with `^`, treat it as an external command no matter what
-        CommandSignature::External(name) => {
-            let name_str = name.slice(source);
-
-            external_command(&mut iterator, source, name_str.tagged(name))
-        }
-
-        CommandSignature::LiteralExternal { outer, inner } => {
-            let name_str = inner.slice(source);
-
-            external_command(&mut iterator, source, name_str.tagged(outer))
-        }
-
-        CommandSignature::Internal(command) => {
-            let tail =
-                parse_command_tail(&command.signature(), &context, &mut iterator, command.span)?;
-
-            let (positional, named) = match tail {
-                None => (None, None),
-                Some((positional, named)) => (positional, named),
-            };
-
-            let call = hir::Call {
-                head: Box::new(head.to_expression()),
-                positional,
-                named,
-            };
-
-            Ok(ClassifiedCommand::Internal(InternalCommand::new(
-                command.name().to_string(),
-                Tag {
-                    span: command.span,
-                    anchor: None,
-                },
-                call,
-            )))
-        }
     }
 }
 
