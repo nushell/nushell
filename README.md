@@ -248,7 +248,6 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 ## Filters on tables (structured data)
 | command | description |
 | ------------- | ------------- |
-| add column-or-column-path value | Add a new column to the table |
 | append row-data | Append a row to the end of the table |
 | count | Show the total number of rows |
 | edit column-or-column-path value | Edit an existing column to have a new value |
@@ -257,6 +256,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | get column-or-column-path | Open column and get data from the corresponding cells |
 | group-by column | Creates a new table with the data from the table rows grouped by the column given |
 | inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
+| insert column-or-column-path value | Insert a new column to the table |
 | last amount | Show only the last number of rows |
 | nth row-number | Return only the selected row |
 | pick ...columns | Down-select table to only these columns |
