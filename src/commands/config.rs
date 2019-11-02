@@ -4,7 +4,6 @@ use crate::errors::ShellError;
 use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::{self};
 use crate::prelude::*;
-use std::iter::FromIterator;
 use std::path::PathBuf;
 
 pub struct Config;
@@ -64,76 +63,74 @@ pub fn config(
 ) -> Result<OutputStream, ShellError> {
     let name_span = name.clone();
 
-    let configuration = if let Some(supplied) = load {
-        Some(supplied.item().clone())
-    } else {
-        None
+    let stream = async_stream! {
+        let configuration = if let Some(supplied) = load {
+            Some(supplied.item().clone())
+        } else {
+            None
+        };
+
+        let mut result = crate::data::config::read(name_span, &configuration)?;
+
+        if let Some(v) = get {
+            let key = v.to_string();
+            let value = result
+                .get(&key)
+                .ok_or_else(|| ShellError::labeled_error("Missing key in config", "key", v.tag()))?;
+
+            match value {
+                Tagged {
+                    item: Value::Table(list),
+                    ..
+                } => {
+                    for l in list {
+                        yield ReturnSuccess::value(l.clone());
+                    }
+                }
+                x => yield ReturnSuccess::value(x.clone()),
+            }
+        }
+        else if let Some((key, value)) = set {
+            result.insert(key.to_string(), value.clone());
+
+            config::write(&result, &configuration)?;
+
+            yield ReturnSuccess::value(Value::Row(result.into()).tagged(value.tag()));
+        }
+        else if let Tagged { item: true, tag } = clear {
+            result.clear();
+
+            config::write(&result, &configuration)?;
+
+            yield ReturnSuccess::value(Value::Row(result.into()).tagged(tag));
+
+            return;
+        }
+        else if let Tagged { item: true, tag } = path {
+            let path = config::default_path_for(&configuration)?;
+
+            yield ReturnSuccess::value(Value::Primitive(Primitive::Path(path)).tagged(tag));
+        }
+        else if let Some(v) = remove {
+            let key = v.to_string();
+
+            if result.contains_key(&key) {
+                result.swap_remove(&key);
+                config::write(&result, &configuration).unwrap();
+            } else {
+                yield Err(ShellError::labeled_error(
+                    "Key does not exist in config",
+                    "key",
+                    v.tag(),
+                ));
+            }
+
+            yield ReturnSuccess::value(Value::Row(result.into()).tagged(v.tag()));
+        }
+        else {
+            yield ReturnSuccess::value(Value::Row(result.into()).tagged(name));
+        }
     };
 
-    let mut result = crate::data::config::read(name_span, &configuration)?;
-
-    if let Some(v) = get {
-        let key = v.to_string();
-        let value = result
-            .get(&key)
-            .ok_or_else(|| ShellError::labeled_error("Missing key in config", "key", v.tag()))?;
-
-        let mut results = VecDeque::new();
-
-        match value {
-            Tagged {
-                item: Value::Table(list),
-                ..
-            } => {
-                for l in list {
-                    results.push_back(ReturnSuccess::value(l.clone()));
-                }
-            }
-            x => results.push_back(ReturnSuccess::value(x.clone())),
-        }
-
-        return Ok(results.to_output_stream());
-    }
-
-    if let Some((key, value)) = set {
-        result.insert(key.to_string(), value.clone());
-
-        config::write(&result, &configuration)?;
-
-        return Ok(stream![Value::Row(result.into()).tagged(value.tag())].from_input_stream());
-    }
-
-    if let Tagged { item: true, tag } = clear {
-        result.clear();
-
-        config::write(&result, &configuration)?;
-
-        return Ok(stream![Value::Row(result.into()).tagged(tag)].from_input_stream());
-    }
-
-    if let Tagged { item: true, tag } = path {
-        let path = config::default_path_for(&configuration)?;
-
-        return Ok(stream![Value::Primitive(Primitive::Path(path)).tagged(tag)].from_input_stream());
-    }
-
-    if let Some(v) = remove {
-        let key = v.to_string();
-
-        if result.contains_key(&key) {
-            result.swap_remove(&key);
-            config::write(&result, &configuration)?;
-        } else {
-            return Err(ShellError::labeled_error(
-                "Key does not exist in config",
-                "key",
-                v.tag(),
-            ));
-        }
-
-        let obj = VecDeque::from_iter(vec![Value::Row(result.into()).tagged(v.tag())]);
-        return Ok(obj.from_input_stream());
-    }
-
-    return Ok(vec![Value::Row(result.into()).tagged(name)].into());
+    Ok(stream.to_output_stream())
 }
