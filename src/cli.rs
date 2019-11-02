@@ -163,6 +163,8 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
+    set_path_from_config();
+
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
@@ -472,6 +474,43 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
+fn set_path_from_config() {
+    let config = crate::data::config::read(Tag::unknown(), &None).unwrap();
+    if config.contains_key("path") {
+        // Override the path with what they give us from config
+        let value = config.get("path");
+
+        match value {
+            Some(value) => match value {
+                Tagged {
+                    item: Value::Table(table),
+                    ..
+                } => {
+                    let mut paths = vec![];
+                    for val in table {
+                        let path_str = val.as_string();
+                        match path_str {
+                            Err(_) => {}
+                            Ok(path_str) => {
+                                paths.push(PathBuf::from(path_str));
+                            }
+                        }
+                    }
+                    let path_os_string = std::env::join_paths(&paths);
+                    match path_os_string {
+                        Ok(path_os_string) => {
+                            std::env::set_var("PATH", path_os_string);
+                        }
+                        Err(_) => {}
+                    }
+                }
+                _ => {}
+            },
+            None => {}
+        }
+    }
+}
+
 enum LineResult {
     Success(String),
     Error(String, ShellError),
@@ -526,40 +565,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
-            let config = crate::data::config::read(Tag::unknown(), &None).unwrap();
-            if config.contains_key("path") {
-                // Override the path with what they give us from config
-                let value = config.get("path");
-
-                match value {
-                    Some(value) => match value {
-                        Tagged {
-                            item: Value::Table(table),
-                            ..
-                        } => {
-                            let mut paths = vec![];
-                            for val in table {
-                                let path_str = val.as_string();
-                                match path_str {
-                                    Err(_) => {}
-                                    Ok(path_str) => {
-                                        paths.push(PathBuf::from(path_str));
-                                    }
-                                }
-                            }
-                            let path_os_string = std::env::join_paths(&paths);
-                            match path_os_string {
-                                Ok(path_os_string) => {
-                                    std::env::set_var("PATH", path_os_string);
-                                }
-                                Err(_) => {}
-                            }
-                        }
-                        _ => {}
-                    },
-                    None => {}
-                }
-            }
+            set_path_from_config();
 
             loop {
                 let item: Option<ClassifiedCommand> = iter.next();
