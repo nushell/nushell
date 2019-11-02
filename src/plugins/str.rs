@@ -700,6 +700,9 @@ mod tests {
                     .create()
             )
             .is_err());
-        assert_eq!(plugin.error, Some("End must be greater than or equal to Start".to_string()));
+        assert_eq!(
+            plugin.error,
+            Some("End must be greater than or equal to Start".to_string())
+        );
     }
 }
