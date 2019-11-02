@@ -12,6 +12,7 @@ pub struct Config;
 pub struct ConfigArgs {
     load: Option<Tagged<PathBuf>>,
     set: Option<(Tagged<String>, Tagged<Value>)>,
+    set_into: Option<Tagged<String>>,
     get: Option<Tagged<String>>,
     clear: Tagged<bool>,
     remove: Option<Tagged<String>>,
@@ -30,7 +31,16 @@ impl WholeStreamCommand for Config {
                 SyntaxShape::Path,
                 "load the config from the path give",
             )
-            .named("set", SyntaxShape::Any, "set a value in the config")
+            .named(
+                "set",
+                SyntaxShape::Any,
+                "set a value in the config, eg) --set [key value]",
+            )
+            .named(
+                "set_into",
+                SyntaxShape::Member,
+                "sets a variable from values in the pipeline",
+            )
             .named("get", SyntaxShape::Any, "get a value from the config")
             .named("remove", SyntaxShape::Any, "remove a value from the config")
             .switch("clear", "clear the config")
@@ -54,12 +64,13 @@ pub fn config(
     ConfigArgs {
         load,
         set,
+        set_into,
         get,
         clear,
         remove,
         path,
     }: ConfigArgs,
-    RunnableContext { name, .. }: RunnableContext,
+    RunnableContext { name, input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let name_span = name.clone();
 
@@ -96,6 +107,32 @@ pub fn config(
             config::write(&result, &configuration)?;
 
             yield ReturnSuccess::value(Value::Row(result.into()).tagged(value.tag()));
+        }
+        else if let Some(v) = set_into {
+            let rows: Vec<Tagged<Value>> = input.values.collect().await;
+            let key = v.to_string();
+
+            if rows.len() == 0 {
+                yield Err(ShellError::labeled_error("No values given for set_into", "needs value(s) from pipeline", v.tag()));
+            } else if rows.len() == 1 {
+                // A single value
+                let value = &rows[0];
+
+                result.insert(key.to_string(), value.clone());
+
+                config::write(&result, &configuration)?;
+
+                yield ReturnSuccess::value(Value::Row(result.into()).tagged(name));
+            } else {
+                // Take in the pipeline as a table
+                let value = Value::Table(rows).tagged(name.clone());
+
+                result.insert(key.to_string(), value.clone());
+
+                config::write(&result, &configuration)?;
+
+                yield ReturnSuccess::value(Value::Row(result.into()).tagged(name));
+            }
         }
         else if let Tagged { item: true, tag } = clear {
             result.clear();
