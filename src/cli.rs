@@ -163,7 +163,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
-    set_path_from_config();
+    set_env_from_config();
 
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
@@ -474,8 +474,35 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-fn set_path_from_config() {
+fn set_env_from_config() {
     let config = crate::data::config::read(Tag::unknown(), &None).unwrap();
+
+    if config.contains_key("env") {
+        // Clear the existing vars, we're about to replace them
+        for (key, _value) in std::env::vars() {
+            std::env::remove_var(key);
+        }
+
+        let value = config.get("env");
+
+        match value {
+            Some(Tagged {
+                item: Value::Row(r),
+                ..
+            }) => {
+                for (k, v) in &r.entries {
+                    match v.as_string() {
+                        Ok(value_string) => {
+                            std::env::set_var(k, value_string);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     if config.contains_key("path") {
         // Override the path with what they give us from config
         let value = config.get("path");
@@ -565,7 +592,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
-            set_path_from_config();
+            set_env_from_config();
 
             loop {
                 let item: Option<ClassifiedCommand> = iter.next();

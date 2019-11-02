@@ -169,7 +169,9 @@ fn evaluate_reference(
             x if x == "nu:env" => {
                 let mut dict = TaggedDictBuilder::new(&tag);
                 for v in std::env::vars() {
-                    dict.insert(v.0, Value::string(v.1));
+                    if v.0 != "PATH" && v.0 != "Path" {
+                        dict.insert(v.0, Value::string(v.1));
+                    }
                 }
                 Ok(dict.into_tagged_value())
             }
