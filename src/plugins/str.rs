@@ -41,9 +41,13 @@ impl Str {
                 if start > input.len() - 1 {
                     Value::string("")
                 } else {
-                    // Index operator isn't perfect:
-                    // https://users.rust-lang.org/t/how-to-get-a-substring-of-a-string/1351
-                    Value::string(&input[start..end])
+                    Value::string(
+                        &input
+                            .chars()
+                            .skip(start)
+                            .take(end - start)
+                            .collect::<String>(),
+                    )
                 }
             }
             Some(Action::ToInteger) => match input.trim() {
