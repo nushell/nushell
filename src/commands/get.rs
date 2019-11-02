@@ -10,7 +10,6 @@ pub struct Get;
 #[derive(Deserialize)]
 pub struct GetArgs {
     member: ColumnPath,
-    rest: Vec<ColumnPath>,
 }
 
 impl WholeStreamCommand for Get {
@@ -118,13 +117,10 @@ pub fn get_column_path(
 }
 
 pub fn get(
-    GetArgs {
-        member,
-        rest: fields,
-    }: GetArgs,
+    GetArgs { member }: GetArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    trace!("get {:?} {:?}", member, fields);
+    trace!("get {:?}", member);
 
     let stream = input
         .values
@@ -133,12 +129,7 @@ pub fn get(
 
             let member = vec![member.clone()];
 
-            let column_paths = vec![&member, &fields]
-                .into_iter()
-                .flatten()
-                .collect::<Vec<&ColumnPath>>();
-
-            for path in column_paths {
+            for path in member {
                 let res = get_column_path(&path, &item);
 
                 match res {
