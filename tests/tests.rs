@@ -42,12 +42,12 @@ fn external_has_correct_quotes() {
 }
 
 #[test]
-fn add_plugin() {
+fn insert_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open cargo_sample.toml
-            | add dev-dependencies.newdep "1"
+            | insert dev-dependencies.newdep "1"
             | get dev-dependencies.newdep
             | echo $it
         "#

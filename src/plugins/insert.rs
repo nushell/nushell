@@ -6,19 +6,19 @@ use nu::{
 
 pub type ColumnPath = Vec<Tagged<String>>;
 
-struct Add {
+struct Insert {
     field: Option<ColumnPath>,
     value: Option<Value>,
 }
-impl Add {
-    fn new() -> Add {
-        Add {
+impl Insert {
+    fn new() -> Insert {
+        Insert {
             field: None,
             value: None,
         }
     }
 
-    fn add(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
+    fn insert(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
             (obj @ Value::Row(_), Some(v)) => match &self.field {
@@ -50,11 +50,15 @@ impl Add {
     }
 }
 
-impl Plugin for Add {
+impl Plugin for Insert {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("add")
-            .desc("Add a new column to the table.")
-            .required("column", SyntaxShape::ColumnPath, "the column name to add")
+        Ok(Signature::build("insert")
+            .desc("Insert a new column to the table.")
+            .required(
+                "column",
+                SyntaxShape::ColumnPath,
+                "the column name to insert",
+            )
             .required(
                 "value",
                 SyntaxShape::String,
@@ -86,10 +90,10 @@ impl Plugin for Add {
     }
 
     fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(vec![ReturnSuccess::value(self.add(input)?)])
+        Ok(vec![ReturnSuccess::value(self.insert(input)?)])
     }
 }
 
 fn main() {
-    serve_plugin(&mut Add::new());
+    serve_plugin(&mut Insert::new());
 }
