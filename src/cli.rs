@@ -322,6 +322,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Table),
             whole_stream_command(Version),
             whole_stream_command(Which),
+            #[cfg(data_processing_primitives)]
+            whole_stream_command(SplitBy),
         ]);
 
         #[cfg(feature = "clipboard")]

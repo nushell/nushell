@@ -57,6 +57,10 @@ pub(crate) mod shells;
 pub(crate) mod size;
 pub(crate) mod skip_while;
 pub(crate) mod sort_by;
+
+#[cfg(data_processing_primitives)]
+pub(crate) mod split_by;
+
 pub(crate) mod split_column;
 pub(crate) mod split_row;
 pub(crate) mod table;
@@ -133,6 +137,10 @@ pub(crate) use shells::Shells;
 pub(crate) use size::Size;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
+
+#[cfg(data_processing_primitives)]
+pub(crate) use split_by::SplitBy;
+
 pub(crate) use split_column::SplitColumn;
 pub(crate) use split_row::SplitRow;
 pub(crate) use table::Table;
