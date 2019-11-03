@@ -7,6 +7,8 @@ pub struct FromSSV;
 #[derive(Deserialize)]
 pub struct FromSSVArgs {
     headerless: bool,
+    #[serde(rename(deserialize = "aligned-columns"))]
+    aligned_columns: bool,
     #[serde(rename(deserialize = "minimum-spaces"))]
     minimum_spaces: Option<Tagged<usize>>,
 }
@@ -22,6 +24,7 @@ impl WholeStreamCommand for FromSSV {
     fn signature(&self) -> Signature {
         Signature::build(STRING_REPRESENTATION)
             .switch("headerless", "don't treat the first row as column names")
+            .switch("aligned-columns", "assume columns are aligned")
             .named(
                 "minimum-spaces",
                 SyntaxShape::Int,
@@ -45,58 +48,94 @@ impl WholeStreamCommand for FromSSV {
 fn string_to_table(
     s: &str,
     headerless: bool,
+    aligned_columns: bool,
     split_at: usize,
 ) -> Option<Vec<Vec<(String, String)>>> {
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
-    let headers_raw = lines.next()?;
+    if aligned_columns {
+        let headers_raw = lines.next()?;
 
-    let headers = headers_raw
-        .trim()
-        .split(&separator)
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| (headers_raw.find(s).unwrap(), s.to_owned()));
+        let headers = headers_raw
+            .trim()
+            .split(&separator)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| (headers_raw.find(s).unwrap(), s.to_owned()));
 
-    let columns = if headerless {
-        headers
-            .enumerate()
-            .map(|(header_no, (string_index, _))| {
-                (string_index, format!("Column{}", header_no + 1))
-            })
-            .collect::<Vec<(usize, String)>>()
-    } else {
-        headers.collect::<Vec<(usize, String)>>()
-    };
+        let columns = if headerless {
+            headers
+                .enumerate()
+                .map(|(header_no, (string_index, _))| {
+                    (string_index, format!("Column{}", header_no + 1))
+                })
+                .collect::<Vec<(usize, String)>>()
+        } else {
+            headers.collect::<Vec<(usize, String)>>()
+        };
 
-    Some(
-        lines
-            .map(|l| {
-                columns
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, (start, col))| {
-                        (match columns.get(i + 1) {
-                            Some((end, _)) => l.get(*start..*end),
-                            None => l.get(*start..),
+        Some(
+            lines
+                .map(|l| {
+                    columns
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, (start, col))| {
+                            (match columns.get(i + 1) {
+                                Some((end, _)) => l.get(*start..*end),
+                                None => l.get(*start..),
+                            })
+                            .and_then(|s| Some((col.clone(), String::from(s.trim()))))
                         })
-                        .and_then(|s| Some((col.clone(), String::from(s.trim()))))
-                    })
-                    .collect()
-            })
-            .collect(),
-    )
+                        .collect()
+                })
+                .collect(),
+        )
+    } else {
+        let headers = lines
+            .next()?
+            .split(&separator)
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_owned())
+            .collect::<Vec<String>>();
+
+        let header_row = if headerless {
+            (1..=headers.len())
+                .map(|i| format!("Column{}", i))
+                .collect::<Vec<String>>()
+        } else {
+            headers
+        };
+
+        Some(
+            lines
+                .map(|l| {
+                    header_row
+                        .iter()
+                        .zip(
+                            l.split(&separator)
+                                .map(|s| s.trim())
+                                .filter(|s| !s.is_empty()),
+                        )
+                        .map(|(a, b)| (String::from(a), String::from(b)))
+                        .collect()
+                })
+                .collect(),
+        )
+    }
 }
 
 fn from_ssv_string_to_value(
     s: &str,
     headerless: bool,
+    aligned_columns: bool,
     split_at: usize,
     tag: impl Into<Tag>,
 ) -> Option<Tagged<Value>> {
     let tag = tag.into();
-    let rows = string_to_table(s, headerless, split_at)?
+    let rows = string_to_table(s, headerless, aligned_columns, split_at)?
         .iter()
         .map(|row| {
             let mut tagged_dict = TaggedDictBuilder::new(&tag);
@@ -116,6 +155,7 @@ fn from_ssv_string_to_value(
 fn from_ssv(
     FromSSVArgs {
         headerless,
+        aligned_columns,
         minimum_spaces,
     }: FromSSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
@@ -146,7 +186,7 @@ fn from_ssv(
             }
         }
 
-        match from_ssv_string_to_value(&concat_string, headerless, split_at, name.clone()) {
+        match from_ssv_string_to_value(&concat_string, headerless, aligned_columns, split_at, name.clone()) {
             Some(x) => match x {
                 Tagged { item: Value::Table(list), ..} => {
                     for l in list { yield ReturnSuccess::value(l) }
@@ -185,7 +225,7 @@ mod tests {
 
             3       4
         "#;
-        let result = string_to_table(input, false, 1);
+        let result = string_to_table(input, false, true, 1);
         assert_eq!(
             result,
             Some(vec![
@@ -202,7 +242,7 @@ mod tests {
             1
             2
         "#;
-        let result = string_to_table(input, false, 1);
+        let result = string_to_table(input, false, true, 1);
         assert_eq!(
             result,
             Some(vec![vec![owned("a", "1")], vec![owned("a", "2")]])
@@ -216,7 +256,7 @@ mod tests {
             1 2
             3 4
         "#;
-        let result = string_to_table(input, true, 1);
+        let result = string_to_table(input, true, true, 1);
         assert_eq!(
             result,
             Some(vec![
@@ -229,7 +269,7 @@ mod tests {
     #[test]
     fn it_returns_none_given_an_empty_string() {
         let input = "";
-        let result = string_to_table(input, true, 1);
+        let result = string_to_table(input, true, true, 1);
         assert!(result.is_none());
     }
 
@@ -241,7 +281,7 @@ mod tests {
             3          four
         "#;
 
-        let result = string_to_table(input, false, 3);
+        let result = string_to_table(input, false, true, 3);
         assert_eq!(
             result,
             Some(vec![
@@ -263,7 +303,7 @@ mod tests {
 
         let trimmed = |s: &str| s.trim() == s;
 
-        let result = string_to_table(input, false, 2).unwrap();
+        let result = string_to_table(input, false, true, 2).unwrap();
         assert!(result
             .iter()
             .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b))))
@@ -278,7 +318,7 @@ mod tests {
             val7             val8
         "#;
 
-        let result = string_to_table(input, false, 2).unwrap();
+        let result = string_to_table(input, false, true, 2).unwrap();
         assert_eq!(
             result,
             vec![
@@ -308,7 +348,7 @@ mod tests {
             val1   val2   trailing value that should be included
         "#;
 
-        let result = string_to_table(input, false, 2).unwrap();
+        let result = string_to_table(input, false, true, 2).unwrap();
         assert_eq!(
             result,
             vec![vec![
