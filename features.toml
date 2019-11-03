@@ -11,3 +11,11 @@ This is laying the groundwork for merging coloring and parsing. It also makes to
 work with coloring, which is pretty useful on its own.
 """
 enabled = false
+
+[data_processing_primitives]
+
+description = "Groundwork so tables can be data processed"
+reason = """
+These will allow take tables and be able to transform, process, and explore.
+"""
+enabled = false

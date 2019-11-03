@@ -56,6 +56,7 @@ fn group_by_errors_if_unknown_column_name() {
     })
 }
 
+#[cfg(data_processing_primitives)]
 #[test]
 fn split_by() {
     Playground::setup("split_by_test_1", |dirs, sandbox| {
@@ -85,6 +86,7 @@ fn split_by() {
     })
 }
 
+#[cfg(data_processing_primitives)]
 #[test]
 fn split_by_errors_if_no_table_given_as_input() {
     Playground::setup("split_by_test_2", |dirs, sandbox| {

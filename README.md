@@ -262,7 +262,6 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
 | reject ...columns | Remove the given columns from the table |
 | reverse | Reverses the table. |
-| split-by column | Creates a new table with the data from the inner tables splitted by the column given |
 | skip amount | Skip a number of rows |
 | skip-while condition | Skips rows while the condition matches. |
 | sort-by ...columns | Sort by the given columns |
