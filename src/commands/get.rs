@@ -82,21 +82,36 @@ pub fn get_column_path(
                 _ => {}
             }
 
-            match did_you_mean(&obj_source, &column_path_tried) {
-                Some(suggestions) => {
+            match &column_path_tried {
+                Tagged {
+                    item: Value::Primitive(Primitive::Int(index)),
+                    ..
+                } => {
                     return ShellError::labeled_error(
-                        "Unknown column",
-                        format!("did you mean '{}'?", suggestions[0].1),
-                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                        "No rows available",
+                        format!(
+                            "Not a table. Perhaps you meant to get the column '{}' instead?",
+                            index
+                        ),
+                        column_path_tried.tag(),
                     )
                 }
-                None => {
-                    return ShellError::labeled_error(
-                        "Unknown column",
-                        "row does not contain this column",
-                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
-                    )
-                }
+                _ => match did_you_mean(&obj_source, &column_path_tried) {
+                    Some(suggestions) => {
+                        return ShellError::labeled_error(
+                            "Unknown column",
+                            format!("did you mean '{}'?", suggestions[0].1),
+                            tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                        )
+                    }
+                    None => {
+                        return ShellError::labeled_error(
+                            "Unknown column",
+                            "row does not contain this column",
+                            tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                        )
+                    }
+                },
             }
         }),
     );

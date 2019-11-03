@@ -523,24 +523,30 @@ impl Value {
         path: &Vec<Tagged<Value>>,
         callback: Box<dyn FnOnce((Value, Tagged<Value>)) -> ShellError>,
     ) -> Result<Option<Tagged<&Value>>, ShellError> {
+        let mut column_path = vec![];
+
+        for value in path {
+            column_path.push(
+                Value::string(value.as_string().unwrap_or("".to_string())).tagged(&value.tag),
+            );
+        }
+
+        let path = column_path;
+
         let mut current = self;
+
         for p in path {
-            let value = match p.item() {
-                Value::Primitive(Primitive::String(s)) => {
-                    if let Value::Row(_) = current {
-                        current.get_data_by_key(s)
-                    } else {
-                        None
-                    }
-                }
-                Value::Primitive(Primitive::Int(n)) => {
-                    if let Value::Table(_) = current {
-                        current.get_data_by_index(n.to_usize().unwrap())
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
+            let value = p.as_string().unwrap_or("".to_string());
+            let value = match value.parse::<usize>() {
+                Ok(number) => match current {
+                    Value::Table(_) => current.get_data_by_index(number),
+                    Value::Row(_) => current.get_data_by_key(&value),
+                    _ => None,
+                },
+                Err(_) => match self {
+                    Value::Table(_) | Value::Row(_) => current.get_data_by_key(&value),
+                    _ => None,
+                },
             };
 
             match value {

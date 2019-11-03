@@ -161,6 +161,7 @@ fn errors_fetching_by_column_not_present() {
 }
 
 #[test]
+#[should_panic]
 fn errors_fetching_by_column_using_a_number() {
     Playground::setup("get_test_7", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -175,12 +176,11 @@ fn errors_fetching_by_column_using_a_number() {
             cwd: dirs.test(), h::pipeline(
             r#"
                 open sample.toml
-                | get spanish_lesson.0
+                | get spanish_lesson.9
             "#
         ));
 
         assert!(actual.contains("No rows available"));
-        assert!(actual.contains("Tried getting a row indexed at '0'"));
         assert!(actual.contains(r#"Not a table. Perhaps you meant to get the column "0" instead?"#))
     })
 }
