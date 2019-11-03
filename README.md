@@ -32,7 +32,7 @@ Try it in Gitpod.
 
 ## Local
 
-Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7 support.
+Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
 To build Nu, you will need to use the **beta** version of the compiler.
 
