@@ -105,6 +105,17 @@ impl<T> Tagged<T> {
         mapped.tagged(tag)
     }
 
+    pub fn map_anchored(self, anchor: &Option<AnchorLocation>) -> Tagged<T> {
+        let mut tag = self.tag;
+
+        tag.anchor = anchor.clone();
+
+        Tagged {
+            item: self.item,
+            tag: tag,
+        }
+    }
+
     pub fn tag(&self) -> Tag {
         self.tag.clone()
     }
@@ -417,16 +428,6 @@ impl Span {
     pub fn spanned_string<'a>(&self, source: &'a str) -> Spanned<String> {
         self.slice(source).to_string().spanned(*self)
     }
-
-    /*
-    pub fn unknown_with_uuid(uuid: Uuid) -> Span {
-        Span {
-            start: 0,
-            end: 0,
-            source: Some(uuid),
-        }
-    }
-    */
 
     pub fn start(&self) -> usize {
         self.start
