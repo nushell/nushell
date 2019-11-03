@@ -97,7 +97,7 @@ pub fn get_column_path(
 
     let res = match value {
         Ok(fetched) => match fetched {
-            Some(Tagged { item: v, tag }) => Ok((v.clone()).tagged(&tag)),
+            Some(Tagged { item: v, .. }) => Ok((v.clone()).tagged(&obj.tag)),
             None => match obj {
                 // If its None check for certain values.
                 Tagged {
@@ -147,8 +147,14 @@ pub fn get(
                             item: Value::Table(rows),
                             ..
                         } => {
-                            for item in rows {
-                                result.push_back(ReturnSuccess::value(item.clone()));
+                            for row in rows {
+                                result.push_back(ReturnSuccess::value(
+                                    Tagged {
+                                        item: row.item,
+                                        tag: Tag::from(&item.tag),
+                                    }
+                                    .map_anchored(&item.tag.anchor),
+                                ))
                             }
                         }
                         other => result
