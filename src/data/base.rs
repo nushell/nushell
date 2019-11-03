@@ -558,59 +558,6 @@ impl Value {
         Ok(Some(current.tagged(tag)))
     }
 
-    pub fn insert_data_at_path(
-        &self,
-        tag: Tag,
-        path: &str,
-        new_value: Value,
-    ) -> Option<Tagged<Value>> {
-        let mut new_obj = self.clone();
-
-        let split_path: Vec<_> = path.split(".").collect();
-
-        if let Value::Row(ref mut o) = new_obj {
-            let mut current = o;
-
-            if split_path.len() == 1 {
-                // Special case for inserting at the top level
-                current
-                    .entries
-                    .insert(path.to_string(), new_value.tagged(&tag));
-                return Some(new_obj.tagged(&tag));
-            }
-
-            for idx in 0..split_path.len() {
-                match current.entries.get_mut(split_path[idx]) {
-                    Some(next) => {
-                        if idx == (split_path.len() - 2) {
-                            match &mut next.item {
-                                Value::Row(o) => {
-                                    o.entries.insert(
-                                        split_path[idx + 1].to_string(),
-                                        new_value.tagged(&tag),
-                                    );
-                                }
-                                _ => {}
-                            }
-
-                            return Some(new_obj.tagged(&tag));
-                        } else {
-                            match next.item {
-                                Value::Row(ref mut o) => {
-                                    current = o;
-                                }
-                                _ => return None,
-                            }
-                        }
-                    }
-                    _ => return None,
-                }
-            }
-        }
-
-        None
-    }
-
     pub fn insert_data_at_column_path(
         &self,
         tag: Tag,
@@ -680,11 +627,23 @@ impl Value {
         split_path: &Vec<Tagged<Value>>,
         replaced_value: Value,
     ) -> Option<Tagged<Value>> {
+        let split_path = split_path
+            .into_iter()
+            .map(|p| match p {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    tag,
+                } => Ok(s.clone().tagged(tag)),
+                o => Err(o),
+            })
+            .filter_map(Result::ok)
+            .collect::<Vec<Tagged<String>>>();
+
         let mut new_obj = self.clone();
         let mut current = &mut new_obj;
 
         for idx in 0..split_path.len() {
-            match current.get_mut_data_by_key(&split_path[idx].as_string().unwrap()) {
+            match current.get_mut_data_by_key(&split_path[idx].item) {
                 Some(next) => {
                     if idx == (split_path.len() - 1) {
                         *next = replaced_value.tagged(&tag);

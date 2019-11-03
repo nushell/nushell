@@ -1,6 +1,7 @@
 use crate::parser::hir::syntax_shape::{
     expand_atom, parse_single_node, ExpandContext, ExpandExpression, ExpansionRule,
-    FallibleColorSyntax, FlatShape, TestSyntax, ParseError};
+    FallibleColorSyntax, FlatShape, ParseError, TestSyntax,
+};
 use crate::parser::hir::tokens_iterator::Peeked;
 use crate::parser::{
     hir,

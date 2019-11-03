@@ -249,14 +249,9 @@ impl Plugin for Str {
                 string @ Tagged {
                     item: Value::Primitive(Primitive::String(_)),
                     ..
-                } => match self.action {
-                    Some(Action::Downcase)
-                    | Some(Action::Upcase)
-                    | Some(Action::ToInteger)
-                    | None => {
-                        self.for_field(string.as_column_path()?);
-                    }
-                },
+                } => {
+                    self.for_field(string.as_column_path()?);
+                }
                 table @ Tagged {
                     item: Value::Table(_),
                     ..
