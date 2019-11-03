@@ -3,7 +3,7 @@ use nu::{
     Tagged, Value,
 };
 
-pub type ColumnPath = Tagged<Vec<Tagged<String>>>;
+pub type ColumnPath = Tagged<Vec<Tagged<Value>>>;
 
 struct Edit {
     field: Option<ColumnPath>,

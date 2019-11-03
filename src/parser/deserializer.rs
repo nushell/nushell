@@ -61,7 +61,7 @@ impl<'de> ConfigDeserializer<'de> {
     pub fn top(&mut self) -> &DeserializerItem {
         let value = self.stack.last();
         trace!("inspecting top value :: {:?}", value);
-        value.expect("Can't get top elemant of an empty stack")
+        value.expect("Can't get top element of an empty stack")
     }
 
     pub fn pop(&mut self) -> DeserializerItem {
@@ -486,8 +486,8 @@ mod tests {
         // is unspecified and change is likely.
         // This test makes sure that such change is detected
         // by this test failing, and not things silently breaking.
-        // Specifically, we rely on this behaviour further above
-        // in the file to special case Tagged<Value> parsing.
+        // Specifically, we rely on this behavior further above
+        // in the file for the Tagged<Value> special case parsing.
         let tuple = type_name::<()>();
         let tagged_tuple = type_name::<Tagged<()>>();
         let tagged_value = type_name::<Tagged<Value>>();

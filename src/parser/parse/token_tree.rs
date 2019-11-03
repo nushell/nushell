@@ -171,6 +171,16 @@ impl TokenNode {
         }
     }
 
+    pub fn is_number(&self) -> bool {
+        match self {
+            TokenNode::Token(Spanned {
+                item: RawToken::Number(_),
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
     pub fn as_string(&self) -> Option<(Span, Span)> {
         match self {
             TokenNode::Token(Spanned {

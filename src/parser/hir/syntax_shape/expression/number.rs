@@ -1,7 +1,8 @@
 use crate::parser::hir::syntax_shape::{
     expand_atom, parse_single_node, ExpandContext, ExpandExpression, ExpansionRule,
-    FallibleColorSyntax, FlatShape, ParseError,
+    FallibleColorSyntax, FlatShape, ParseError, TestSyntax,
 };
+use crate::parser::hir::tokens_iterator::Peeked;
 use crate::parser::{
     hir,
     hir::{RawNumber, TokensIterator},
@@ -210,5 +211,20 @@ impl FallibleColorSyntax for IntShape {
         token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes));
 
         Ok(())
+    }
+}
+
+impl TestSyntax for NumberShape {
+    fn test<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+        _context: &ExpandContext,
+    ) -> Option<Peeked<'a, 'b>> {
+        let peeked = token_nodes.peek_any();
+
+        match peeked.node {
+            Some(token) if token.is_number() => Some(peeked),
+            _ => None,
+        }
     }
 }
