@@ -96,7 +96,7 @@ pub fn autoview(
                                 named_args.insert_optional("start_number", Some(Expression::number(current_idx, Tag::unknown())));
                                 command_args.call_info.args.named = Some(named_args);
 
-                                let result = table.run(command_args, &context.commands, false);
+                                let result = table.run(command_args, &context.commands);
                                 result.collect::<Vec<_>>().await;
 
                                 if finished {
@@ -117,7 +117,7 @@ pub fn autoview(
                                     if let Some(text) = text {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(Value::string(s).tagged(Tag { anchor, span }));
-                                        let result = text.run(raw.with_input(stream.into()), &context.commands, false);
+                                        let result = text.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
                                         println!("{}", s);
@@ -134,7 +134,7 @@ pub fn autoview(
                                     if let Some(binary) = binary {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x.clone());
-                                        let result = binary.run(raw.with_input(stream.into()), &context.commands, false);
+                                        let result = binary.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
                                         use pretty_hex::*;
@@ -149,7 +149,7 @@ pub fn autoview(
                                     if let Some(table) = table {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x.clone());
-                                        let result = table.run(raw.with_input(stream.into()), &context.commands, false);
+                                        let result = table.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
                                         println!("{:?}", item);

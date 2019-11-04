@@ -544,20 +544,13 @@ impl Command {
         }
     }
 
-    pub fn run(
-        &self,
-        args: CommandArgs,
-        registry: &registry::CommandRegistry,
-        is_first_command: bool,
-    ) -> OutputStream {
+    pub fn run(&self, args: CommandArgs, registry: &registry::CommandRegistry) -> OutputStream {
         match self {
             Command::WholeStream(command) => match command.run(args, registry) {
                 Ok(stream) => stream,
                 Err(err) => OutputStream::one(Err(err)),
             },
-            Command::PerItem(command) => {
-                self.run_helper(command.clone(), args, registry.clone(), is_first_command)
-            }
+            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
         }
     }
 
@@ -566,7 +559,6 @@ impl Command {
         command: Arc<dyn PerItemCommand>,
         args: CommandArgs,
         registry: CommandRegistry,
-        is_first_command: bool,
     ) -> OutputStream {
         let raw_args = RawCommandArgs {
             host: args.host,
@@ -575,45 +567,23 @@ impl Command {
             call_info: args.call_info,
         };
 
-        if !is_first_command {
-            let out = args
-                .input
-                .values
-                .map(move |x| {
-                    let call_info = raw_args
-                        .clone()
-                        .call_info
-                        .evaluate(&registry, &Scope::it_value(x.clone()))
-                        .unwrap();
-                    match command.run(&call_info, &registry, &raw_args, x) {
-                        Ok(o) => o,
-                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
-                    }
-                })
-                .flatten();
-
-            out.to_output_stream()
-        } else {
-            let nothing = Value::nothing().tagged(Tag::unknown());
-
-            let call_info = raw_args
-                .clone()
-                .call_info
-                .evaluate(&registry, &Scope::it_value(nothing.clone()));
-
-            match call_info {
-                Ok(call_info) => {
-                    match command
-                        .run(&call_info, &registry, &raw_args, nothing)
-                        .into()
-                    {
-                        Ok(o) => o,
-                        Err(e) => OutputStream::one(Err(e)),
-                    }
+        let out = args
+            .input
+            .values
+            .map(move |x| {
+                let call_info = raw_args
+                    .clone()
+                    .call_info
+                    .evaluate(&registry, &Scope::it_value(x.clone()))
+                    .unwrap();
+                match command.run(&call_info, &registry, &raw_args, x) {
+                    Ok(o) => o,
+                    Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
                 }
-                Err(e) => OutputStream::one(Err(e)),
-            }
-        }
+            })
+            .flatten();
+
+        out.to_output_stream()
     }
 
     pub fn is_binary(&self) -> bool {
