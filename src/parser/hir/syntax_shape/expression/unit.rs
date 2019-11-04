@@ -50,7 +50,7 @@ impl ExpandSyntax for UnitShape {
         let unit = unit_size(span.slice(context.source), *span);
 
         let (_, (number, unit)) = match unit {
-            Err(_) => return Err(ParseError::mismatch("unit", "word".tagged(Tag::unknown()))),
+            Err(_) => return Err(ParseError::mismatch("unit", "word".spanned(*span))),
             Ok((number, unit)) => (number, unit),
         };
 

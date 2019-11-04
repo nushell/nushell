@@ -29,7 +29,7 @@ impl FallibleColorSyntax for PatternShape {
                     Ok(())
                 }
 
-                _ => Err(ShellError::type_error("pattern", atom.tagged_type_name())),
+                _ => Err(ShellError::type_error("pattern", atom.spanned_type_name())),
             }
         })
     }
@@ -59,7 +59,10 @@ impl FallibleColorSyntax for PatternShape {
                     Ok(())
                 }
 
-                _ => Err(ShellError::type_error("pattern", atom.tagged_type_name())),
+                other => Err(ShellError::type_error(
+                    "pattern",
+                    other.type_name().spanned(atom.span),
+                )),
             }
         })
     }

@@ -217,7 +217,7 @@ impl ExpandExpression for ExternalHeadShape {
                     | AtomicToken::Pipeline { .. } => {
                         return Err(ParseError::mismatch(
                             "external command name",
-                            atom.tagged_type_name(),
+                            "pipeline".spanned(atom.span),
                         ))
                     }
                     AtomicToken::ExternalCommand { command } => {
@@ -293,7 +293,7 @@ impl ExpandExpression for ExternalContinuationShape {
                     | AtomicToken::Pipeline { .. } => {
                         return Err(ParseError::mismatch(
                             "external argument",
-                            atom.tagged_type_name(),
+                            "pipeline".spanned(atom.span),
                         ))
                     }
                 }),

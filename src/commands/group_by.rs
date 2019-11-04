@@ -70,7 +70,7 @@ pub fn group(
     let mut groups = indexmap::IndexMap::new();
 
     for value in values {
-        let group_key = value.get_data_by_key(column_name);
+        let group_key = value.get_data_by_key(column_name.borrow_spanned());
 
         if group_key.is_none() {
             let possibilities = value.data_descriptors();

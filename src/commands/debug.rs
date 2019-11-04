@@ -32,7 +32,7 @@ pub fn debug(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStr
     Ok(input
         .values
         .map(|v| {
-            println!("{:?}", v);
+            outln!("{:?}", v);
             ReturnSuccess::value(v)
         })
         .to_output_stream())

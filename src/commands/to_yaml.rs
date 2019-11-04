@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
+use crate::RawPathMember;
 
 pub struct ToYAML;
 
@@ -47,6 +48,25 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
         Value::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
         Value::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
+        Value::Primitive(Primitive::ColumnPath(path)) => {
+            let mut out = vec![];
+
+            for member in path.iter() {
+                match &member.item {
+                    RawPathMember::String(string) => {
+                        out.push(serde_yaml::Value::String(string.clone()))
+                    }
+                    RawPathMember::Int(int) => out.push(serde_yaml::Value::Number(
+                        serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
+                            int.tagged(&member.span),
+                            "converting to YAML number",
+                        )?),
+                    )),
+                }
+            }
+
+            serde_yaml::Value::Sequence(out)
+        }
         Value::Primitive(Primitive::Path(s)) => serde_yaml::Value::String(s.display().to_string()),
 
         Value::Table(l) => {

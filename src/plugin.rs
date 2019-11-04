@@ -143,8 +143,8 @@ fn send_response<T: Serialize>(result: T) {
     let response_raw = serde_json::to_string(&response);
 
     match response_raw {
-        Ok(response) => println!("{}", response),
-        Err(err) => println!("{}", err),
+        Ok(response) => outln!("{}", response),
+        Err(err) => outln!("{}", err),
     }
 }
 #[derive(Debug, Serialize, Deserialize)]

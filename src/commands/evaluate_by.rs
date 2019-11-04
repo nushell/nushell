@@ -71,7 +71,11 @@ fn fetch(
 ) -> Box<dyn Fn(Tagged<Value>, Tag) -> Option<Tagged<Value>> + 'static> {
     Box::new(move |value: Tagged<Value>, tag| match key {
         Some(ref key_given) => {
-            if let Some(Tagged { item, .. }) = value.get_data_by_key(&key_given) {
+            if let Some(Tagged {
+                item,
+                tag: Tag { span, .. },
+            }) = value.get_data_by_key(key_given[..].spanned(tag.span))
+            {
                 Some(item.clone().tagged(tag))
             } else {
                 None

@@ -147,7 +147,10 @@ impl TokenNode {
                 item: RawToken::Variable(inner_span),
                 span: outer_span,
             }) => Ok((*outer_span, *inner_span)),
-            _ => Err(ShellError::type_error("variable", self.tagged_type_name())),
+            _ => Err(ShellError::type_error(
+                "variable",
+                self.type_name().spanned(self.span()),
+            )),
         }
     }
 
@@ -195,6 +198,26 @@ impl TokenNode {
         match self {
             TokenNode::Token(Spanned {
                 item: RawToken::GlobPattern,
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_word(&self) -> bool {
+        match self {
+            TokenNode::Token(Spanned {
+                item: RawToken::Bare,
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_int(&self) -> bool {
+        match self {
+            TokenNode::Token(Spanned {
+                item: RawToken::Number(RawNumber::Int(_)),
                 ..
             }) => true,
             _ => false,
@@ -250,7 +273,10 @@ impl TokenNode {
     pub fn as_pipeline(&self) -> Result<Pipeline, ParseError> {
         match self {
             TokenNode::Pipeline(Spanned { item, .. }) => Ok(item.clone()),
-            other => Err(ParseError::mismatch("pipeline", other.tagged_type_name())),
+            other => Err(ParseError::mismatch(
+                "pipeline",
+                other.type_name().spanned(other.span()),
+            )),
         }
     }
 

@@ -11,7 +11,6 @@ use crate::parser::{
     },
     hir::tokens_iterator::TokensIterator,
     parse::token_tree::Delimiter,
-    RawToken, TokenNode,
 };
 use crate::{Span, Spanned, SpannedItem};
 
@@ -381,8 +380,11 @@ impl FallibleColorSyntax for ShorthandHeadShape {
         _context: &ExpandContext,
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
+        use crate::parser::parse::token_tree::TokenNode;
+        use crate::parser::parse::tokens::RawToken;
+
         // A shorthand path must not be at EOF
-        let peeked = token_nodes.peek_non_ws().not_eof("shorthand path")?;
+        let peeked = token_nodes.peek_non_ws().not_eof("shorthand path head")?;
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
@@ -407,7 +409,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
 
             other => Err(ShellError::type_error(
                 "shorthand head",
-                other.tagged_type_name(),
+                other.spanned_type_name(),
             )),
         }
     }
@@ -427,7 +429,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         // A shorthand path must not be at EOF
-        let peeked = token_nodes.peek_non_ws().not_eof("shorthand path")?;
+        let peeked = token_nodes.peek_non_ws().not_eof("shorthand path head")?;
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
@@ -468,56 +470,14 @@ impl ExpandExpression for ShorthandHeadShape {
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ParseError> {
-        // A shorthand path must not be at EOF
-        let peeked = token_nodes.peek_non_ws().not_eof("shorthand path")?;
+        let head = expand_syntax(&MemberShape, token_nodes, context)?;
+        let head = head.to_path_member(context.source);
 
-        match peeked.node {
-            // If the head of a shorthand path is a bare token, it expands to `$it.bare`
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
-                span,
-            }) => {
-                // Commit the peeked token
-                peeked.commit();
+        // Synthesize an `$it` expression
+        let it = synthetic_it();
+        let span = head.span;
 
-                // Synthesize an `$it` expression
-                let it = synthetic_it();
-
-                // Make a path out of `$it` and the bare token as a member
-                Ok(hir::Expression::path(
-                    it,
-                    vec![span.spanned_string(context.source)],
-                    *span,
-                ))
-            }
-
-            // If the head of a shorthand path is a string, it expands to `$it."some string"`
-            TokenNode::Token(Spanned {
-                item: RawToken::String(inner),
-                span: outer,
-            }) => {
-                // Commit the peeked token
-                peeked.commit();
-
-                // Synthesize an `$it` expression
-                let it = synthetic_it();
-
-                // Make a path out of `$it` and the bare token as a member
-                Ok(hir::Expression::path(
-                    it,
-                    vec![inner.string(context.source).spanned(*outer)],
-                    *outer,
-                ))
-            }
-
-            // Any other token is not a valid bare head
-            other => {
-                return Err(ParseError::mismatch(
-                    "shorthand path",
-                    other.tagged_type_name(),
-                ))
-            }
-        }
+        Ok(hir::Expression::path(it, vec![head], span))
     }
 }
 

@@ -35,10 +35,7 @@ impl ExpandExpression for NumberShape {
                 RawToken::ExternalWord => {
                     return Err(ParseError::mismatch(
                         "number",
-                        "syntax error".tagged(Tag {
-                            span: token_span,
-                            anchor: None,
-                        }),
+                        "syntax error".spanned(token_span),
                     ))
                 }
                 RawToken::Variable(tag) => hir::Expression::variable(tag, token_span),

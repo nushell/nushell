@@ -31,7 +31,7 @@ pub(crate) use self::expression::string::StringShape;
 pub(crate) use self::expression::unit::UnitShape;
 pub(crate) use self::expression::variable_path::{
     ColorableDotShape, ColumnPathShape, DotShape, ExpressionContinuation,
-    ExpressionContinuationShape, MemberShape, PathTailShape, VariablePathShape,
+    ExpressionContinuationShape, Member, MemberShape, PathTailShape, VariablePathShape,
 };
 pub(crate) use self::expression::{continue_expression, AnyExpressionShape};
 pub(crate) use self::flat_shape::FlatShape;
@@ -138,15 +138,15 @@ impl FallibleColorSyntax for SyntaxShape {
 impl ExpandExpression for SyntaxShape {
     fn name(&self) -> &'static str {
         match self {
-            SyntaxShape::Any => "any",
-            SyntaxShape::Int => "integer",
-            SyntaxShape::String => "string",
-            SyntaxShape::Member => "column name",
-            SyntaxShape::ColumnPath => "column path",
-            SyntaxShape::Number => "number",
-            SyntaxShape::Path => "file path",
-            SyntaxShape::Pattern => "glob pattern",
-            SyntaxShape::Block => "block",
+            SyntaxShape::Any => "shape[any]",
+            SyntaxShape::Int => "shape[integer]",
+            SyntaxShape::String => "shape[string]",
+            SyntaxShape::Member => "shape[column name]",
+            SyntaxShape::ColumnPath => "shape[column path]",
+            SyntaxShape::Number => "shape[number]",
+            SyntaxShape::Path => "shape[file path]",
+            SyntaxShape::Pattern => "shape[glob pattern]",
+            SyntaxShape::Block => "shape[block]",
         }
     }
 
@@ -165,13 +165,12 @@ impl ExpandExpression for SyntaxShape {
             }
             SyntaxShape::ColumnPath => {
                 let column_path = expand_syntax(&ColumnPathShape, token_nodes, context)?;
-
-                let Tagged { item: members, tag } = column_path.path();
-
-                Ok(hir::Expression::list(
-                    members.into_iter().map(|s| s.to_expr()).collect(),
+                let Tagged {
+                    item: column_path,
                     tag,
-                ))
+                } = column_path;
+
+                Ok(hir::Expression::column_path(column_path, tag.span))
             }
             SyntaxShape::Number => expand_expr(&NumberShape, token_nodes, context),
             SyntaxShape::Path => expand_expr(&FilePathShape, token_nodes, context),
@@ -587,7 +586,7 @@ impl ExpandSyntax for BarePathShape {
     type Output = Span;
 
     fn name(&self) -> &'static str {
-        "shorthand path"
+        "bare path"
     }
 
     fn expand_syntax<'a, 'b>(
@@ -637,7 +636,7 @@ impl FallibleColorSyntax for BareShape {
                 }
 
                 // otherwise, fail
-                other => Err(ParseError::mismatch("word", other.tagged_type_name())),
+                other => Err(ParseError::mismatch("word", other.spanned_type_name())),
             })
             .map_err(|err| err.into())
     }
@@ -666,7 +665,10 @@ impl FallibleColorSyntax for BareShape {
             }) => Ok(span),
 
             // otherwise, fail
-            other => Err(ParseError::mismatch("word", other.tagged_type_name())),
+            other => Err(ParseError::mismatch(
+                "word",
+                other.type_name().spanned(other.span()),
+            )),
         })?;
 
         token_nodes.color_shape((*input).spanned(*span));
@@ -698,7 +700,10 @@ impl ExpandSyntax for BareShape {
                 Ok(span.spanned_string(context.source))
             }
 
-            other => Err(ParseError::mismatch("word", other.tagged_type_name())),
+            other => Err(ParseError::mismatch(
+                "word",
+                other.type_name().spanned(other.span()),
+            )),
         }
     }
 }
@@ -986,7 +991,7 @@ impl FallibleColorSyntax for CommandHeadShape {
 
                 // Otherwise, we're not actually looking at a command
                 _ => Err(ShellError::syntax_error(
-                    "No command at the head".tagged(atom.span),
+                    "No command at the head".spanned(atom.span),
                 )),
             }
         })
@@ -1043,7 +1048,7 @@ impl FallibleColorSyntax for CommandHeadShape {
 
                 // Otherwise, we're not actually looking at a command
                 _ => Err(ShellError::syntax_error(
-                    "No command at the head".tagged(atom.span),
+                    "No command at the head".spanned(atom.span),
                 )),
             }
         })
@@ -1081,7 +1086,7 @@ impl ExpandSyntax for CommandHeadShape {
                     _ => {
                         return Err(ShellError::type_error(
                             "command head2",
-                            token.type_name().tagged(token_span),
+                            token.type_name().spanned(token_span),
                         ))
                     }
                 })
@@ -1116,9 +1121,10 @@ impl ExpandSyntax for ClassifiedCommandShape {
         let head = expand_syntax(&CommandHeadShape, iterator, context)?;
 
         match &head {
-            CommandSignature::Expression(expr) => {
-                Err(ParseError::mismatch("command", expr.tagged_type_name()))
-            }
+            CommandSignature::Expression(expr) => Err(ParseError::mismatch(
+                "command",
+                expr.type_name().spanned(expr.span),
+            )),
 
             // If the command starts with `^`, treat it as an external command no matter what
             CommandSignature::External(name) => {
@@ -1276,7 +1282,7 @@ impl ExpandExpression for InternalCommandHeadShape {
             node => {
                 return Err(ParseError::mismatch(
                     "command head",
-                    node.tagged_type_name(),
+                    node.type_name().spanned(node.span()),
                 ))
             }
         };
@@ -1294,7 +1300,7 @@ pub(crate) struct SingleError<'token> {
 
 impl<'token> SingleError<'token> {
     pub(crate) fn error(&self) -> ParseError {
-        ParseError::mismatch(self.expected, self.node.type_name().tagged(self.node.span))
+        ParseError::mismatch(self.expected, self.node.type_name().spanned(self.node.span))
     }
 }
 
@@ -1313,7 +1319,10 @@ fn parse_single_node<'a, 'b, T>(
             },
         ),
 
-        other => Err(ParseError::mismatch(expected, other.tagged_type_name())),
+        other => Err(ParseError::mismatch(
+            expected,
+            other.type_name().spanned(other.span()),
+        )),
     })
 }
 
@@ -1334,7 +1343,12 @@ fn parse_single_node_skipping_ws<'a, 'b, T>(
             },
         )?,
 
-        other => return Err(ShellError::type_error(expected, other.tagged_type_name())),
+        other => {
+            return Err(ShellError::type_error(
+                expected,
+                other.type_name().spanned(other.span()),
+            ))
+        }
     };
 
     peeked.commit();
@@ -1429,7 +1443,12 @@ impl ExpandSyntax for WhitespaceShape {
         let span = match peeked.node {
             TokenNode::Whitespace(tag) => *tag,
 
-            other => return Err(ParseError::mismatch("whitespace", other.tagged_type_name())),
+            other => {
+                return Err(ParseError::mismatch(
+                    "whitespace",
+                    other.type_name().spanned(other.span()),
+                ))
+            }
         };
 
         peeked.commit();
@@ -1462,7 +1481,10 @@ impl<T: ExpandExpression> ExpandExpression for SpacedExpression<T> {
                 expand_expr(&self.inner, token_nodes, context)
             }
 
-            other => Err(ParseError::mismatch("whitespace", other.tagged_type_name())),
+            other => Err(ParseError::mismatch(
+                "whitespace",
+                other.type_name().spanned(other.span()),
+            )),
         }
     }
 }
@@ -1590,7 +1612,7 @@ impl FallibleColorSyntax for SpaceShape {
 
             other => Err(ShellError::type_error(
                 "whitespace",
-                other.tagged_type_name(),
+                other.spanned_type_name(),
             )),
         }
     }
@@ -1622,7 +1644,7 @@ impl FallibleColorSyntax for SpaceShape {
 
             other => Err(ShellError::type_error(
                 "whitespace",
-                other.tagged_type_name(),
+                other.type_name().spanned(other.span()),
             )),
         }
     }

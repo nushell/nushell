@@ -108,7 +108,7 @@ pub fn split(
                                         other => {
                                             return Err(ShellError::type_error(
                                                 "a table value",
-                                                other.tagged_type_name(),
+                                                other.spanned_type_name(),
                                             ))
                                         }
                                     }
@@ -117,7 +117,7 @@ pub fn split(
                             _ => {
                                 return Err(ShellError::type_error(
                                     "a table value",
-                                    group.tagged_type_name(),
+                                    group.spanned_type_name(),
                                 ))
                             }
                         }
@@ -125,7 +125,7 @@ pub fn split(
                     ref other => {
                         return Err(ShellError::type_error(
                             "a table value",
-                            other.tagged_type_name(),
+                            other.spanned_type_name(),
                         ))
                     }
                 }
@@ -134,7 +134,7 @@ pub fn split(
         _ => {
             return Err(ShellError::type_error(
                 "a table value",
-                value.tagged_type_name(),
+                value.spanned_type_name(),
             ))
         }
     }

@@ -23,6 +23,21 @@ impl<T> Spanned<T> {
     }
 }
 
+impl Spanned<String> {
+    pub fn items<'a, U>(
+        items: impl Iterator<Item = &'a Spanned<String>>,
+    ) -> impl Iterator<Item = &'a str> {
+        items.into_iter().map(|item| &item.item[..])
+    }
+}
+
+impl Spanned<String> {
+    pub fn borrow_spanned(&self) -> Spanned<&str> {
+        let span = self.span;
+        self.item[..].spanned(span)
+    }
+}
+
 pub trait SpannedItem: Sized {
     fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned {
@@ -51,6 +66,17 @@ impl<T> std::ops::Deref for Spanned<T> {
 pub struct Tagged<T> {
     pub tag: Tag,
     pub item: T,
+}
+
+impl Tagged<String> {
+    pub fn borrow_spanned(&self) -> Spanned<&str> {
+        let span = self.tag.span;
+        self.item[..].spanned(span)
+    }
+
+    pub fn borrow_tagged(&self) -> Tagged<&str> {
+        self.item[..].tagged(self.tag.clone())
+    }
 }
 
 impl<T> HasTag for Tagged<T> {
@@ -113,6 +139,13 @@ impl<T> Tagged<T> {
         Tagged {
             item: self.item,
             tag: tag,
+        }
+    }
+
+    pub fn transpose(&self) -> Tagged<&T> {
+        Tagged {
+            item: &self.item,
+            tag: self.tag.clone(),
         }
     }
 
@@ -351,6 +384,23 @@ pub fn tag_for_tagged_list(mut iter: impl Iterator<Item = Tag>) -> Tag {
 
     let first = match first {
         None => return Tag::unknown(),
+        Some(first) => first,
+    };
+
+    let last = iter.last();
+
+    match last {
+        None => first,
+        Some(last) => first.until(last),
+    }
+}
+
+#[allow(unused)]
+pub fn span_for_spanned_list(mut iter: impl Iterator<Item = Span>) -> Span {
+    let first = iter.next();
+
+    let first = match first {
+        None => return Span::unknown(),
         Some(first) => first,
     };
 

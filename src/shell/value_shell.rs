@@ -40,7 +40,7 @@ impl ValueShell {
         for p in full_path.iter() {
             match p {
                 x if x == sep => {}
-                step => match viewed.get_data_by_key(step.to_str().unwrap()) {
+                step => match viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown()) {
                     Some(v) => {
                         viewed = v.clone();
                     }

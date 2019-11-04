@@ -1,14 +1,11 @@
-use itertools::Itertools;
 use nu::{
-    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature, SyntaxShape,
-    Tagged, TaggedItem, Value,
+    serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    ShellTypeName, Signature, SpannedItem, SyntaxShape, Tagged, Value,
 };
-
-pub type ColumnPath = Vec<Tagged<Value>>;
 
 struct Insert {
     field: Option<ColumnPath>,
-    value: Option<Value>,
+    value: Option<Tagged<Value>>,
 }
 impl Insert {
     fn new() -> Insert {
@@ -20,38 +17,19 @@ impl Insert {
 
     fn insert(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         let value_tag = value.tag();
-        match (value.item, self.value.clone()) {
-            (obj @ Value::Row(_), Some(v)) => match &self.field {
-                Some(f) => match obj.insert_data_at_column_path(value_tag.clone(), f, v) {
-                    Some(v) => return Ok(v),
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            format!(
-                                "add could not find place to insert field {:?} {}",
-                                obj,
-                                f.iter()
-                                    .map(|i| {
-                                        match &i.item {
-                                            Value::Primitive(primitive) => primitive.format(None),
-                                            _ => String::from(""),
-                                        }
-                                    })
-                                    .join(".")
-                            ),
-                            "column name",
-                            &value_tag,
-                        ))
-                    }
+
+        match (&value, &self.value, &self.field) {
+            (
+                obj @ Tagged {
+                    item: Value::Row(_),
+                    ..
                 },
-                None => Err(ShellError::labeled_error(
-                    "add needs a column name when adding a value to a table",
-                    "column name",
-                    value_tag,
-                )),
-            },
-            (value, _) => Err(ShellError::type_error(
+                Some(v),
+                Some(field),
+            ) => obj.clone().insert_data_at_column_path(field, v.clone()),
+            (value, ..) => Err(ShellError::type_error(
                 "row",
-                value.type_name().tagged(value_tag),
+                value.type_name().spanned(value_tag),
             )),
         }
     }
@@ -78,16 +56,21 @@ impl Plugin for Insert {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
                 table @ Tagged {
-                    item: Value::Table(_),
+                    item: Value::Primitive(Primitive::ColumnPath(_)),
                     ..
                 } => {
                     self.field = Some(table.as_column_path()?.item);
                 }
 
-                value => return Err(ShellError::type_error("table", value.tagged_type_name())),
+                value => {
+                    return Err(ShellError::type_error(
+                        "table",
+                        value.type_name().spanned(value.span()),
+                    ))
+                }
             }
             match &args[1] {
-                Tagged { item: v, .. } => {
+                v @ Tagged { .. } => {
                     self.value = Some(v.clone());
                 }
             }

@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
+use crate::RawPathMember;
 
 pub struct ToTOML;
 
@@ -48,6 +49,17 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
         Value::Primitive(Primitive::Pattern(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::String(s)) => toml::Value::String(s.clone()),
         Value::Primitive(Primitive::Path(s)) => toml::Value::String(s.display().to_string()),
+        Value::Primitive(Primitive::ColumnPath(path)) => toml::Value::Array(
+            path.iter()
+                .map(|x| match &x.item {
+                    RawPathMember::String(string) => Ok(toml::Value::String(string.clone())),
+                    RawPathMember::Int(int) => Ok(toml::Value::Integer(
+                        int.tagged(&v.tag)
+                            .coerce_into("converting to TOML integer")?,
+                    )),
+                })
+                .collect::<Result<Vec<toml::Value>, ShellError>>()?,
+        ),
 
         Value::Table(l) => toml::Value::Array(collect_values(l)?),
         Value::Error(e) => return Err(e.clone()),

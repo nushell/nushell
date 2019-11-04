@@ -68,7 +68,7 @@ impl CallInfo {
 #[derive(Getters)]
 #[get = "pub(crate)"]
 pub struct CommandArgs {
-    pub host: Arc<Mutex<dyn Host>>,
+    pub host: Arc<Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
@@ -78,7 +78,7 @@ pub struct CommandArgs {
 #[derive(Getters, Clone)]
 #[get = "pub(crate)"]
 pub struct RawCommandArgs {
-    pub host: Arc<Mutex<dyn Host>>,
+    pub host: Arc<Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
@@ -93,6 +93,10 @@ impl RawCommandArgs {
             call_info: self.call_info,
             input: input.into(),
         }
+    }
+
+    pub fn source(&self) -> Text {
+        self.call_info.source.clone()
     }
 }
 
@@ -128,13 +132,18 @@ impl CommandArgs {
         ))
     }
 
-    pub fn process<'de, T: Deserialize<'de>>(
+    pub fn source(&self) -> Text {
+        self.call_info.source.clone()
+    }
+
+    pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
         self,
         registry: &CommandRegistry,
-        callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
-    ) -> Result<RunnableArgs<T>, ShellError> {
+        callback: fn(T, RunnableContext) -> Result<O, ShellError>,
+    ) -> Result<RunnableArgs<T, O>, ShellError> {
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
+        let source = self.source();
         let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
         let call_info = args.call_info.clone();
@@ -147,6 +156,7 @@ impl CommandArgs {
             context: RunnableContext {
                 input,
                 commands: registry.clone(),
+                source,
                 shell_manager,
                 name: name_tag,
                 host,
@@ -170,6 +180,7 @@ impl CommandArgs {
 
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
+        let source = self.source();
         let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
         let call_info = args.call_info.clone();
@@ -183,6 +194,7 @@ impl CommandArgs {
             context: RunnableContext {
                 input,
                 commands: registry.clone(),
+                source,
                 shell_manager,
                 name: name_tag,
                 host,
@@ -208,7 +220,8 @@ impl RunnablePerItemContext {
 pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
-    pub host: Arc<Mutex<dyn Host>>,
+    pub host: Arc<Mutex<Box<dyn Host>>>,
+    pub source: Text,
     pub ctrl_c: Arc<AtomicBool>,
     pub commands: CommandRegistry,
     pub name: Tag,
@@ -232,15 +245,15 @@ impl<T> RunnablePerItemArgs<T> {
     }
 }
 
-pub struct RunnableArgs<T> {
+pub struct RunnableArgs<T, O: ToOutputStream> {
     args: T,
     context: RunnableContext,
-    callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
+    callback: fn(T, RunnableContext) -> Result<O, ShellError>,
 }
 
-impl<T> RunnableArgs<T> {
+impl<T, O: ToOutputStream> RunnableArgs<T, O> {
     pub fn run(self) -> Result<OutputStream, ShellError> {
-        (self.callback)(self.args, self.context)
+        (self.callback)(self.args, self.context).map(|v| v.to_output_stream())
     }
 }
 
@@ -387,6 +400,7 @@ impl EvaluatedCommandArgs {
 pub enum CommandAction {
     ChangePath(String),
     Exit,
+    Error(ShellError),
     EnterShell(String),
     EnterValueShell(Tagged<Value>),
     EnterHelpShell(Tagged<Value>),
@@ -396,16 +410,17 @@ pub enum CommandAction {
 }
 
 impl FormatDebug for CommandAction {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         match self {
             CommandAction::ChangePath(s) => write!(f, "action:change-path={}", s),
             CommandAction::Exit => write!(f, "action:exit"),
+            CommandAction::Error(_) => write!(f, "action:error"),
             CommandAction::EnterShell(s) => write!(f, "action:enter-shell={}", s),
             CommandAction::EnterValueShell(t) => {
-                write!(f, "action:enter-value-shell={:?}", t.debug())
+                write!(f, "action:enter-value-shell={}", t.debug(source))
             }
             CommandAction::EnterHelpShell(t) => {
-                write!(f, "action:enter-help-shell={:?}", t.debug())
+                write!(f, "action:enter-help-shell={}", t.debug(source))
             }
             CommandAction::PreviousShell => write!(f, "action:previous-shell"),
             CommandAction::NextShell => write!(f, "action:next-shell"),
@@ -417,6 +432,7 @@ impl FormatDebug for CommandAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ReturnSuccess {
     Value(Tagged<Value>),
+    DebugValue(Tagged<Value>),
     Action(CommandAction),
 }
 
@@ -426,7 +442,8 @@ impl FormatDebug for ReturnValue {
     fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         match self {
             Err(err) => write!(f, "{}", err.debug(source)),
-            Ok(ReturnSuccess::Value(v)) => write!(f, "{:?}", v.debug()),
+            Ok(ReturnSuccess::Value(v)) => write!(f, "{}", v.debug(source)),
+            Ok(ReturnSuccess::DebugValue(v)) => v.fmt_debug(f, source),
             Ok(ReturnSuccess::Action(a)) => write!(f, "{}", a.debug(source)),
         }
     }
@@ -445,6 +462,10 @@ impl ReturnSuccess {
 
     pub fn value(input: impl Into<Tagged<Value>>) -> ReturnValue {
         Ok(ReturnSuccess::Value(input.into()))
+    }
+
+    pub fn debug_value(input: impl Into<Tagged<Value>>) -> ReturnValue {
+        Ok(ReturnSuccess::DebugValue(input.into()))
     }
 
     pub fn action(input: CommandAction) -> ReturnValue {

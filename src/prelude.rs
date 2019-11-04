@@ -23,12 +23,13 @@ macro_rules! stream {
 
 #[macro_export]
 macro_rules! trace_stream {
-    (target: $target:tt, $desc:tt = $expr:expr) => {{
+    (target: $target:tt, source: $source:expr, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
+            let source = $source.clone();
 
-            let objects = $expr.values.inspect(|o| {
-                trace!(target: $target, "{} = {:#?}", $desc, o.debug());
+            let objects = $expr.values.inspect(move |o| {
+                trace!(target: $target, "{} = {}", $desc, o.debug(&source));
             });
 
             $crate::stream::InputStream::from_stream(objects.boxed())
@@ -57,6 +58,38 @@ macro_rules! trace_out_stream {
     }};
 }
 
+// These macros exist to differentiate between intentional writing to stdout
+// and stray printlns left by accident
+
+#[macro_export]
+macro_rules! outln {
+    ($($tokens:tt)*) => { println!($($tokens)*) }
+}
+
+#[macro_export]
+macro_rules! errln {
+    ($($tokens:tt)*) => { eprintln!($($tokens)*) }
+}
+
+#[macro_export]
+macro_rules! dict {
+    ($( $key:expr => $value:expr ),*) => {
+        $crate::data::dict::TaggedDictBuilder::build(Tag::unknown(), |d| {
+            $(
+                d.insert($key, $value);
+            )*
+        })
+    };
+
+    ([tag] => $tag:expr, $( $key:expr => $value:expr ),*) => {
+        $crate::data::dict::TaggedDictBuilder::build($tag, |d| {
+            $(
+                d.insert($key, $value);
+            )*
+        })
+    }
+}
+
 pub(crate) use crate::cli::MaybeOwned;
 pub(crate) use crate::commands::command::{
     CallInfo, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
@@ -67,7 +100,7 @@ pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::{AnchorLocation, Context};
 pub(crate) use crate::data::base as value;
 pub(crate) use crate::data::meta::{
-    tag_for_tagged_list, HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Tagged,
+    span_for_spanned_list, HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Tagged,
     TaggedItem,
 };
 pub(crate) use crate::data::types::ExtractType;
@@ -83,7 +116,10 @@ pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
 pub(crate) use crate::stream::{InputStream, OutputStream};
-pub(crate) use crate::traits::{DebugFormatter, FormatDebug, HasTag, ToDebug};
+pub(crate) use crate::traits::{
+    DebugDoc, DebugDocBuilder, DebugFormatter, FormatDebug, HasTag, PrettyDebug, PrettyType,
+    ShellTypeName, SpannedTypeName, ToDebug,
+};
 pub(crate) use crate::Text;
 pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;

@@ -1,6 +1,7 @@
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
 use csv::WriterBuilder;
+use indexmap::{indexset, IndexSet};
 
 fn from_value_to_delimited_string(
     tagged_value: &Tagged<Value>,
@@ -46,15 +47,16 @@ fn from_value_to_delimited_string(
                 .from_writer(vec![]);
 
             let merged_descriptors = merge_descriptors(&list);
-            wtr.write_record(&merged_descriptors)
+
+            wtr.write_record(merged_descriptors.iter().map(|item| &item.item[..]))
                 .expect("can not write.");
 
             for l in list {
                 let mut row = vec![];
                 for desc in &merged_descriptors {
-                    match l.item.get_data_by_key(&desc) {
+                    match l.item.get_data_by_key(desc.borrow_spanned()) {
                         Some(s) => {
-                            row.push(to_string_tagged_value(s)?);
+                            row.push(to_string_tagged_value(&s)?);
                         }
                         None => {
                             row.push(String::new());
@@ -127,12 +129,14 @@ fn to_string_tagged_value(v: &Tagged<Value>) -> Result<String, ShellError> {
     }
 }
 
-fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
-    let mut ret = vec![];
+fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<Spanned<String>> {
+    let mut ret: Vec<Spanned<String>> = vec![];
+    let mut seen: IndexSet<String> = indexset! {};
     for value in values {
         for desc in value.data_descriptors() {
-            if !ret.contains(&desc) {
-                ret.push(desc);
+            if !seen.contains(&desc[..]) {
+                seen.insert(desc.clone());
+                ret.push(desc.spanned(value.tag.span));
             }
         }
     }

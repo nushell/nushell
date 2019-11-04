@@ -237,7 +237,7 @@ pub fn filter_plugin(
                             Err(e) => {
                                 let mut result = VecDeque::new();
                                 result.push_back(Err(ShellError::untagged_runtime_error(format!(
-                                    "Error while processing filter response: {:?} {}",
+                                    "Error while processing filter response: {:?}\n== input ==\n{}",
                                     e, input
                                 ))));
                                 result

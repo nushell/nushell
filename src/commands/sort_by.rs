@@ -40,7 +40,7 @@ fn sort_by(
 
         let calc_key = |item: &Tagged<Value>| {
             rest.iter()
-                .map(|f| item.get_data_by_key(f).map(|i| i.clone()))
+                .map(|f| item.get_data_by_key(f.borrow_spanned()).map(|i| i.clone()))
                 .collect::<Vec<Option<Tagged<Value>>>>()
         };
         vec.sort_by_cached_key(calc_key);

@@ -88,7 +88,8 @@ pub fn histogram(
                     for percentage in start.into_iter() {
 
                         let mut fact = TaggedDictBuilder::new(&name);
-                        fact.insert_tagged(&column, group_labels.get(idx).unwrap().clone());
+                        let value: Tagged<String> = group_labels.get(idx).unwrap().clone();
+                        fact.insert_tagged(&column, Value::string(value.item).tagged(value.tag));
 
                         if let Tagged { item: Value::Primitive(Primitive::Int(ref num)), .. } = percentage.clone() {
                             fact.insert(&frequency_column_name, std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>());

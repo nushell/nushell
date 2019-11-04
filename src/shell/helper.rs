@@ -106,10 +106,10 @@ impl Highlighter for Helper {
                 trace!(target: "nu::color_syntax", "{:#?}", tokens.color_tracer());
 
                 if log_enabled!(target: "nu::color_syntax", log::Level::Debug) {
-                    println!("");
+                    outln!("");
                     ptree::print_tree(&tokens.color_tracer().clone().print(Text::from(line)))
                         .unwrap();
-                    println!("");
+                    outln!("");
                 }
 
                 for shape in shapes {

@@ -1,6 +1,7 @@
 use crate::data::Value;
 use crate::format::RenderView;
 use crate::prelude::*;
+use crate::traits::{DebugDocBuilder, DebugDocBuilder as b, PrettyDebug};
 use derive_new::new;
 use textwrap::fill;
 
@@ -57,63 +58,33 @@ impl TableView {
         let mut entries = vec![];
 
         for (idx, value) in values.iter().enumerate() {
-            // let mut row: Vec<(String, &'static str)> = match value {
-            //     Tagged {
-            //         item: Value::Row(..),
-            //         ..
-            //     } => headers
-            //         .iter()
-            //         .enumerate()
-            //         .map(|(i, d)| {
-            //             let data = value.get_data(d);
-            //             return (
-            //                 data.borrow().format_leaf(Some(&headers[i])),
-            //                 data.borrow().style_leaf(),
-            //             );
-            //         })
-            //         .collect(),
-            //     x => vec![(x.format_leaf(None), x.style_leaf())],
-            // };
-
-            let mut row: Vec<(String, &'static str)> = headers
-                .iter()
-                .enumerate()
-                .map(|(i, d)| {
-                    if d == "<value>" {
-                        match value {
-                            Tagged {
-                                item: Value::Row(..),
-                                ..
-                            } => (
-                                Value::nothing().format_leaf(None),
-                                Value::nothing().style_leaf(),
-                            ),
-                            _ => (value.format_leaf(None), value.style_leaf()),
-                        }
-                    } else {
-                        match value {
-                            Tagged {
-                                item: Value::Row(..),
-                                ..
-                            } => {
-                                let data = value.get_data(d);
-                                (
-                                    data.borrow().format_leaf(Some(&headers[i])),
-                                    data.borrow().style_leaf(),
-                                )
-                            }
-                            _ => (
-                                Value::nothing().format_leaf(None),
-                                Value::nothing().style_leaf(),
-                            ),
-                        }
-                    }
-                })
-                .collect();
+            let mut row: Vec<(DebugDocBuilder, &'static str)> = match value {
+                Tagged {
+                    item: Value::Row(..),
+                    ..
+                } => headers
+                    .iter()
+                    .enumerate()
+                    .map(|(i, d)| {
+                        let data = value.get_data(d);
+                        return (
+                            data.borrow().format_for_column(&headers[i]),
+                            data.borrow().style_leaf(),
+                        );
+                    })
+                    .collect(),
+                x => vec![(x.format_leaf(), x.style_leaf())],
+            };
 
             if values.len() > 1 {
                 // Indices are black, bold, right-aligned:
-                row.insert(0, (format!("{}", (starting_idx + idx).to_string()), "Fdbr"));
+                row.insert(
+                    0,
+                    (
+                        b::primitive(format!("{}", (starting_idx + idx).to_string())),
+                        "Fdbr",
+                    ),
+                );
             }
 
             entries.push(row);
@@ -125,10 +96,13 @@ impl TableView {
             headers.insert(0, format!("#"));
         }
 
+        // Different platforms want different amounts of buffer, not sure why
+        let termwidth = std::cmp::max(textwrap::termwidth(), 20);
+
         for head in 0..headers.len() {
             let mut current_col_max = 0;
             for row in 0..values.len() {
-                let value_length = entries[row][head].0.chars().count();
+                let value_length = entries[row][head].0.plain_string(termwidth).chars().count();
                 if value_length > current_col_max {
                     current_col_max = value_length;
                 }
@@ -139,9 +113,6 @@ impl TableView {
                 headers[head].chars().count(),
             ));
         }
-
-        // Different platforms want different amounts of buffer, not sure why
-        let termwidth = std::cmp::max(textwrap::termwidth(), 20);
 
         // Make sure we have enough space for the columns we have
         let max_num_of_columns = termwidth / 10;
@@ -155,7 +126,7 @@ impl TableView {
 
             headers.push("...".to_string());
             for row in 0..entries.len() {
-                entries[row].push(("...".to_string(), "c")); // ellipsis is centred
+                entries[row].push((b::description("..."), "c")); // ellipsis is centred
             }
         }
 
@@ -227,18 +198,52 @@ impl TableView {
             99999
         };
 
+        let mut out_entries: Vec<Vec<(String, &'static str)>> = Vec::with_capacity(entries.len());
+
+        for row in entries.iter() {
+            let mut out_row = Vec::with_capacity(row.len());
+
+            for _ in row {
+                out_row.push((String::new(), "Fdbr"));
+            }
+
+            out_entries.push(out_row);
+        }
+
         // Wrap cells as needed
         for head in 0..headers.len() {
             if max_per_column[head] > max_naive_column_width {
-                headers[head] = fill(&headers[head], max_column_width);
-                for row in 0..entries.len() {
-                    entries[row][head].0 = fill(&entries[row][head].0, max_column_width);
+                if true_width(&headers[head]) > max_column_width {
+                    headers[head] = fill(&headers[head], max_column_width);
+                }
+
+                for (i, row) in entries.iter().enumerate() {
+                    let column = &row[head].0;
+                    let column = column.plain_string(max_column_width);
+
+                    out_entries[i][head] = (column, row[head].1);
+                }
+            } else {
+                for (i, row) in entries.iter().enumerate() {
+                    let column = &row[head].0;
+                    let column = column.plain_string(max_column_width);
+
+                    out_entries[i][head] = (column, row[head].1);
                 }
             }
         }
 
-        Some(TableView { headers, entries })
+        Some(TableView {
+            headers,
+            entries: out_entries,
+        })
     }
+}
+
+fn true_width(string: &str) -> usize {
+    let stripped = console::strip_ansi_codes(string);
+
+    stripped.lines().map(|line| line.len()).max().unwrap_or(0)
 }
 
 impl RenderView for TableView {

@@ -44,7 +44,11 @@ impl PerItemCommand for Help {
                         short_desc.insert("name", cmd);
                         short_desc.insert(
                             "description",
-                            value.get_data_by_key("usage").unwrap().as_string().unwrap(),
+                            value
+                                .get_data_by_key("usage".spanned_unknown())
+                                .unwrap()
+                                .as_string()
+                                .unwrap(),
                         );
 
                         help.push_back(ReturnSuccess::value(short_desc.into_tagged_value()));

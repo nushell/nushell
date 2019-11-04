@@ -9,6 +9,7 @@ use crate::context::Context;
 use crate::data::config;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
+use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::parser::registry::Signature;
@@ -260,7 +261,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Nth),
             whole_stream_command(Next),
             whole_stream_command(Previous),
-            whole_stream_command(Debug),
+            // whole_stream_command(Debug),
             whole_stream_command(Shells),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
@@ -325,7 +326,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(SplitBy),
             whole_stream_command(Table),
             whole_stream_command(Version),
+            whole_stream_command(What),
             whole_stream_command(Which),
+            whole_stream_command(DebugValue),
         ]);
 
         cfg_if::cfg_if! {
@@ -419,13 +422,47 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
             readline = rl.readline_with_initial(&prompt, (&cmd, ""));
-            initial_command = None;
+            if let Err(ReadlineError::Eof) = &readline {
+                // Fuzzy search in history
+                let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
+                let selection = interactive_fuzzy_search(&lines, 5); // Clears last line with prompt
+                match selection {
+                    SelectionResult::Selected(line) => {
+                        outln!("{}{}", &prompt, &line); // TODO: colorize prompt
+                        readline = Ok(line.clone());
+                        initial_command = None;
+                    }
+                    SelectionResult::Edit(line) => {
+                        initial_command = Some(line);
+                    }
+                    SelectionResult::NoSelection => {
+                        readline = Ok("".to_string());
+                        initial_command = None;
+                    }
+                }
+            } else {
+                initial_command = None;
+            }
         }
 
-        match process_line(readline, &mut context).await {
+        let line = process_line(readline, &mut context).await;
+
+        match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
                 let _ = rl.save_history(&History::path());
+                context.maybe_print_errors(Text::from(line));
+            }
+
+            LineResult::Error(line, err) => {
+                rl.add_history_entry(line.clone());
+                let _ = rl.save_history(&History::path());
+
+                context.with_host(|host| {
+                    print_err(err, host, &Text::from(line.clone()));
+                });
+
+                context.maybe_print_errors(Text::from(line.clone()));
             }
 
             LineResult::CtrlC => {
@@ -449,15 +486,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     ctrlcbreak = true;
                     continue;
                 }
-            }
-
-            LineResult::Error(line, err) => {
-                rl.add_history_entry(line.clone());
-                let _ = rl.save_history(&History::path());
-
-                context.with_host(|host| {
-                    print_err(err, host, &Text::from(line));
-                })
             }
 
             LineResult::Break => {
@@ -703,7 +731,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => LineResult::Break,
         Err(err) => {
-            println!("Error: {:?}", err);
+            outln!("Error: {:?}", err);
             LineResult::Break
         }
     }
@@ -725,9 +753,9 @@ fn classify_pipeline(
     .map_err(|err| err.into());
 
     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
-        println!("");
+        outln!("");
         ptree::print_tree(&iterator.expand_tracer().print(source.clone())).unwrap();
-        println!("");
+        outln!("");
     }
 
     result

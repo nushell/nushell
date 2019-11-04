@@ -1,12 +1,10 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature, SyntaxShape,
-    Tagged, Value,
+    serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    ShellTypeName, Signature, SpannedItem, SyntaxShape, Tagged, TaggedItem, Value,
 };
 
-pub type ColumnPath = Tagged<Vec<Tagged<Value>>>;
-
 struct Edit {
-    field: Option<ColumnPath>,
+    field: Option<Tagged<ColumnPath>>,
     value: Option<Value>,
 }
 impl Edit {
@@ -21,7 +19,7 @@ impl Edit {
         let value_tag = value.tag();
         match (value.item, self.value.clone()) {
             (obj @ Value::Row(_), Some(v)) => match &self.field {
-                Some(f) => match obj.replace_data_at_column_path(value_tag, &f, v) {
+                Some(f) => match obj.tagged(value_tag).replace_data_at_column_path(&f, v) {
                     Some(v) => return Ok(v),
                     None => {
                         return Err(ShellError::labeled_error(
@@ -65,12 +63,17 @@ impl Plugin for Edit {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
                 table @ Tagged {
-                    item: Value::Table(_),
+                    item: Value::Primitive(Primitive::ColumnPath(_)),
                     ..
                 } => {
                     self.field = Some(table.as_column_path()?);
                 }
-                value => return Err(ShellError::type_error("table", value.tagged_type_name())),
+                value => {
+                    return Err(ShellError::type_error(
+                        "table",
+                        value.type_name().spanned(value.span()),
+                    ))
+                }
             }
             match &args[1] {
                 Tagged { item: v, .. } => {

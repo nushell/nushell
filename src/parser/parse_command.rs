@@ -10,7 +10,7 @@ use crate::parser::{
     Flag,
 };
 use crate::traits::ToDebug;
-use crate::{Span, Spanned, Tag, Text};
+use crate::{Span, Spanned, SpannedItem, Text};
 use log::trace;
 
 pub fn parse_command_tail(
@@ -39,9 +39,8 @@ pub fn parse_command_tail(
 
                         if tail.at_end() {
                             return Err(ParseError::argument_error(
-                                config.name.clone(),
+                                config.name.clone().spanned(flag.span),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.span,
                             ));
                         }
 
@@ -60,9 +59,8 @@ pub fn parse_command_tail(
 
                         if tail.at_end() {
                             return Err(ParseError::argument_error(
-                                config.name.clone(),
+                                config.name.clone().spanned(flag.span),
                                 ArgumentError::MissingValueForName(name.to_string()),
-                                flag.span,
                             ));
                         }
 
@@ -96,12 +94,8 @@ pub fn parse_command_tail(
             PositionalType::Mandatory(..) => {
                 if tail.at_end_possible_ws() {
                     return Err(ParseError::argument_error(
-                        config.name.clone(),
+                        config.name.clone().spanned(command_span),
                         ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
-                        Tag {
-                            span: command_span,
-                            anchor: None,
-                        },
                     ));
                 }
             }
@@ -593,9 +587,8 @@ fn extract_mandatory(
 
     match flag {
         None => Err(ParseError::argument_error(
-            config.name.clone(),
+            config.name.clone().spanned(span),
             ArgumentError::MissingMandatoryFlag(name.to_string()),
-            span,
         )),
 
         Some((pos, flag)) => {

@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
+use crate::RawPathMember;
 
 pub struct ToJSON;
 
@@ -50,6 +51,19 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
         Value::Primitive(Primitive::Nothing) => serde_json::Value::Null,
         Value::Primitive(Primitive::Pattern(s)) => serde_json::Value::String(s.clone()),
         Value::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
+        Value::Primitive(Primitive::ColumnPath(path)) => serde_json::Value::Array(
+            path.iter()
+                .map(|x| match &x.item {
+                    RawPathMember::String(string) => Ok(serde_json::Value::String(string.clone())),
+                    RawPathMember::Int(int) => Ok(serde_json::Value::Number(
+                        serde_json::Number::from(CoerceInto::<i64>::coerce_into(
+                            int.tagged(&v.tag),
+                            "converting to JSON number",
+                        )?),
+                    )),
+                })
+                .collect::<Result<Vec<serde_json::Value>, ShellError>>()?,
+        ),
         Value::Primitive(Primitive::Path(s)) => serde_json::Value::String(s.display().to_string()),
 
         Value::Table(l) => serde_json::Value::Array(json_list(l)?),

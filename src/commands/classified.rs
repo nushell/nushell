@@ -165,8 +165,7 @@ impl InternalCommand {
             trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
-        let objects: InputStream =
-            trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
+        let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", source: source, "input" = input.objects);
 
         let command = context.expect_command(&self.name);
 
@@ -180,11 +179,14 @@ impl InternalCommand {
             )
         };
 
-        let result = trace_out_stream!(target: "nu::trace_stream::internal", source: &source, "output" = result);
+        let result = trace_out_stream!(target: "nu::trace_stream::internal", source: source, "output" = result);
         let mut result = result.values;
         let mut context = context.clone();
 
         let stream = async_stream! {
+            let mut soft_errs: Vec<ShellError> = vec![];
+            let mut yielded = false;
+
             while let Some(item) = result.next().await {
                 match item {
                     Ok(ReturnSuccess::Action(action)) => match action {
@@ -192,6 +194,10 @@ impl InternalCommand {
                             context.shell_manager.set_path(path);
                         }
                         CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
+                        CommandAction::Error(err) => {
+                            context.error(err);
+                            break;
+                        }
                         CommandAction::EnterHelpShell(value) => {
                             match value {
                                 Tagged {
@@ -237,11 +243,28 @@ impl InternalCommand {
                     },
 
                     Ok(ReturnSuccess::Value(v)) => {
+                        yielded = true;
                         yield Ok(v);
                     }
 
-                    Err(x) => {
-                        yield Ok(Value::Error(x).tagged_unknown());
+                    Ok(ReturnSuccess::DebugValue(v)) => {
+                        yielded = true;
+
+                        let doc = v.item.pretty_doc();
+                        let mut buffer = termcolor::Buffer::ansi();
+
+                        doc.render_raw(
+                            context.with_host(|host| host.width() - 5),
+                            &mut crate::parser::debug::TermColored::new(&mut buffer),
+                        ).unwrap();
+
+                        let value = String::from_utf8_lossy(buffer.as_slice());
+
+                        yield Ok(Value::string(value).tagged_unknown())
+                    }
+
+                    Err(err) => {
+                        context.error(err);
                         break;
                     }
                 }
