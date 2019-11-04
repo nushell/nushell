@@ -58,8 +58,12 @@ pub(crate) mod size;
 pub(crate) mod skip_while;
 pub(crate) mod sort_by;
 
-#[cfg(data_processing_primitives)]
-pub(crate) mod split_by;
+cfg_if::cfg_if! {
+    if #[cfg(data_processing_primitives)] {
+        pub(crate) mod split_by;
+        pub(crate) mod reduce_by;
+    }
+}
 
 pub(crate) mod split_column;
 pub(crate) mod split_row;
@@ -138,8 +142,12 @@ pub(crate) use size::Size;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
 
-#[cfg(data_processing_primitives)]
-pub(crate) use split_by::SplitBy;
+cfg_if::cfg_if! {
+    if #[cfg(data_processing_primitives)] {
+        pub(crate) use split_by::SplitBy;
+        pub(crate) use reduce_by::ReduceBy;
+    }
+}
 
 pub(crate) use split_column::SplitColumn;
 pub(crate) use split_row::SplitRow;
