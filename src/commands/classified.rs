@@ -54,7 +54,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: VecDeque::new().into(),
+            objects: vec![Value::nothing().tagged(Tag::unknown())].into(),
             stdin: None,
         }
     }
@@ -158,7 +158,6 @@ impl InternalCommand {
         context: &mut Context,
         input: ClassifiedInputStream,
         source: Text,
-        is_first_command: bool,
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
             trace!(target: "nu::run::internal", "->");
@@ -178,7 +177,6 @@ impl InternalCommand {
                 self.args.item,
                 &source,
                 objects,
-                is_first_command,
             )
         };
 

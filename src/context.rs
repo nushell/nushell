@@ -112,10 +112,9 @@ impl Context {
         args: hir::Call,
         source: &Text,
         input: InputStream,
-        is_first_command: bool,
     ) -> OutputStream {
         let command_args = self.command_args(args, input, source, name_tag);
-        command.run(command_args, self.registry(), is_first_command)
+        command.run(command_args, self.registry())
     }
 
     fn call_info(&self, args: hir::Call, source: &Text, name_tag: Tag) -> UnevaluatedCallInfo {

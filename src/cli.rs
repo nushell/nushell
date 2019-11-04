@@ -588,9 +588,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             }
 
             let mut input = ClassifiedInputStream::new();
-
             let mut iter = pipeline.commands.item.into_iter().peekable();
-            let mut is_first_command = true;
 
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
@@ -628,20 +626,20 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     (
                         Some(ClassifiedCommand::Internal(left)),
                         Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, Text::from(line), is_first_command) {
+                    ) => match left.run(ctx, input, Text::from(line)) {
                         Ok(val) => ClassifiedInputStream::from_input_stream(val),
                         Err(err) => return LineResult::Error(line.to_string(), err),
                     },
 
                     (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input, Text::from(line), is_first_command) {
+                        match left.run(ctx, input, Text::from(line)) {
                             Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
                     (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match left.run(ctx, input, Text::from(line), is_first_command) {
+                        match left.run(ctx, input, Text::from(line)) {
                             Ok(val) => {
                                 use futures::stream::TryStreamExt;
 
@@ -693,8 +691,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         }
                     }
                 };
-
-                is_first_command = false;
             }
 
             LineResult::Success(line.to_string())
