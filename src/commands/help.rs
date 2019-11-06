@@ -61,9 +61,6 @@ impl PerItemCommand for Help {
                         let mut one_liner = String::new();
                         one_liner.push_str(&signature.name);
                         one_liner.push_str(" ");
-                        if signature.named.len() > 0 {
-                            one_liner.push_str("{flags} ");
-                        }
 
                         for positional in &signature.positional {
                             match &positional.0 {
@@ -78,6 +75,10 @@ impl PerItemCommand for Help {
 
                         if signature.rest_positional.is_some() {
                             one_liner.push_str(&format!(" ...args",));
+                        }
+
+                        if signature.named.len() > 0 {
+                            one_liner.push_str("{flags} ");
                         }
 
                         long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
