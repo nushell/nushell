@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y libssl-dev \
 
 ARG RELEASE=false
 WORKDIR /code
-COPY ./rust-toolchain ./rust-toolchain
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain "stable"
 ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup update
 COPY . /code
 RUN echo "##vso[task.prependpath]/root/.cargo/bin" && \
     rustc -Vv && \
