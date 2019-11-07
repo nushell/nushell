@@ -34,7 +34,7 @@ Try it in Gitpod.
 
 Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
-To build Nu, you will need to use the **beta** version of the compiler.
+To build Nu, you will need to use the **latest stable (1.39 or later)** version of the compiler.
 
 Required dependencies:
 
@@ -46,16 +46,16 @@ Optional dependencies:
 * To use Nu with all possible optional features enabled, you'll also need the following:
   * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
-To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the beta compiler via `rustup install beta`):
+To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the beta compiler via `rustup install stable`):
 
 ```
-cargo +beta install nu
+cargo install nu
 ```
 
 You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://book.nushell.sh/en/installation#dependencies) for your platform):
 
 ```
-cargo +beta install nu --all-features
+cargo install nu --all-features
 ```
 
 ## Docker
