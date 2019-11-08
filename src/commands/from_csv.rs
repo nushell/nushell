@@ -18,7 +18,11 @@ impl WholeStreamCommand for FromCSV {
 
     fn signature(&self) -> Signature {
         Signature::build("from-csv")
-            .named("separator", SyntaxShape::String, "a character to separate columns, defaults to ','")
+            .named(
+                "separator",
+                SyntaxShape::String,
+                "a character to separate columns, defaults to ','",
+            )
             .switch("headerless", "don't treat the first row as column names")
     }
 
@@ -94,20 +98,22 @@ fn from_csv(
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
     let sep = match separator {
-        Some(Tagged { item: Value::Primitive(Primitive::String(s)), tag, .. }) => {
+        Some(Tagged {
+            item: Value::Primitive(Primitive::String(s)),
+            tag,
+            ..
+        }) => {
             let vec_s: Vec<char> = s.chars().collect();
             if vec_s.len() != 1 {
                 return Err(ShellError::labeled_error(
                     "Expected a single separator char from --separator",
                     "requires a single character string input",
                     tag,
-                ))
+                ));
             };
             vec_s[0]
         }
-        _ => {
-            ','
-        }
+        _ => ',',
     };
 
     let stream = async_stream! {
