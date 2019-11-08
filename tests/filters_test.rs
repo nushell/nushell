@@ -101,6 +101,35 @@ fn converts_from_csv_text_to_structured_table() {
 }
 
 #[test]
+fn converts_from_csv_text_with_separator_to_structured_table() {
+    Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name;last_name;rusty_luck
+                Andrés;Robalino;1
+                Jonathan;Turner;1
+                Yehuda;Katz;1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv --separator ';'
+                | get rusty_luck
+                | str --to-int
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
 fn converts_from_csv_text_skipping_headers_to_structured_table() {
     Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
