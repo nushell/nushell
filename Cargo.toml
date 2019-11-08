@@ -152,7 +152,6 @@ path = "src/plugins/skip.rs"
 [[bin]]
 name = "nu_plugin_match"
 path = "src/plugins/match.rs"
-required-features = ["regex"]
 
 [[bin]]
 name = "nu_plugin_sys"
