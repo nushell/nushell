@@ -8,6 +8,7 @@ pub struct FromCSV;
 #[derive(Deserialize)]
 pub struct FromCSVArgs {
     headerless: bool,
+    separator: Option<Tagged<Value>>,
 }
 
 impl WholeStreamCommand for FromCSV {
@@ -17,6 +18,11 @@ impl WholeStreamCommand for FromCSV {
 
     fn signature(&self) -> Signature {
         Signature::build("from-csv")
+            .named(
+                "separator",
+                SyntaxShape::String,
+                "a character to separate columns, defaults to ','",
+            )
             .switch("headerless", "don't treat the first row as column names")
     }
 
@@ -36,10 +42,12 @@ impl WholeStreamCommand for FromCSV {
 pub fn from_csv_string_to_value(
     s: String,
     headerless: bool,
+    separator: char,
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, csv::Error> {
     let mut reader = ReaderBuilder::new()
         .has_headers(false)
+        .delimiter(separator as u8)
         .from_reader(s.as_bytes());
     let tag = tag.into();
 
@@ -84,10 +92,29 @@ pub fn from_csv_string_to_value(
 fn from_csv(
     FromCSVArgs {
         headerless: skip_headers,
+        separator,
     }: FromCSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
+    let sep = match separator {
+        Some(Tagged {
+            item: Value::Primitive(Primitive::String(s)),
+            tag,
+            ..
+        }) => {
+            let vec_s: Vec<char> = s.chars().collect();
+            if vec_s.len() != 1 {
+                return Err(ShellError::labeled_error(
+                    "Expected a single separator char from --separator",
+                    "requires a single character string input",
+                    tag,
+                ));
+            };
+            vec_s[0]
+        }
+        _ => ',',
+    };
 
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
@@ -114,7 +141,7 @@ fn from_csv(
             }
         }
 
-        match from_csv_string_to_value(concat_string, skip_headers, name_tag.clone()) {
+        match from_csv_string_to_value(concat_string, skip_headers, sep, name_tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
