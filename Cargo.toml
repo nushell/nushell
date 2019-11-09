@@ -138,8 +138,8 @@ name = "nu_plugin_edit"
 path = "src/plugins/edit.rs"
 
 [[bin]]
-name = "nu_plugin_read"
-path = "src/plugins/read.rs"
+name = "nu_plugin_parse"
+path = "src/plugins/parse.rs"
 
 [[bin]]
 name = "nu_plugin_str"

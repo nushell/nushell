@@ -10,19 +10,19 @@ use nom::{
 use regex::Regex;
 
 #[derive(Debug)]
-enum ReadCommand {
+enum ParseCommand {
     Text(String),
     Column(String),
 }
 
-fn read(input: &str) -> IResult<&str, Vec<ReadCommand>> {
+fn parse(input: &str) -> IResult<&str, Vec<ParseCommand>> {
     let mut output = vec![];
 
     let mut loop_input = input;
     loop {
         let (input, before) = take_while(|c| c != '{')(loop_input)?;
         if before.len() > 0 {
-            output.push(ReadCommand::Text(before.to_string()));
+            output.push(ParseCommand::Text(before.to_string()));
         }
         if input != "" {
             // Look for column as we're now at one
@@ -30,7 +30,7 @@ fn read(input: &str) -> IResult<&str, Vec<ReadCommand>> {
             let (input, column) = take_while(|c| c != '}')(input)?;
             let (input, _) = tag("}")(input)?;
 
-            output.push(ReadCommand::Column(column.to_string()));
+            output.push(ParseCommand::Column(column.to_string()));
             loop_input = input;
         } else {
             loop_input = input;
@@ -43,12 +43,12 @@ fn read(input: &str) -> IResult<&str, Vec<ReadCommand>> {
     Ok((loop_input, output))
 }
 
-fn column_names(commands: &[ReadCommand]) -> Vec<String> {
+fn column_names(commands: &[ParseCommand]) -> Vec<String> {
     let mut output = vec![];
 
     for command in commands {
         match command {
-            ReadCommand::Column(c) => {
+            ParseCommand::Column(c) => {
                 output.push(c.clone());
             }
             _ => {}
@@ -58,15 +58,15 @@ fn column_names(commands: &[ReadCommand]) -> Vec<String> {
     output
 }
 
-fn build_regex(commands: &[ReadCommand]) -> String {
+fn build_regex(commands: &[ParseCommand]) -> String {
     let mut output = String::new();
 
     for command in commands {
         match command {
-            ReadCommand::Text(s) => {
+            ParseCommand::Text(s) => {
                 output.push_str(&s.replace("(", "\\("));
             }
-            ReadCommand::Column(_) => {
+            ParseCommand::Column(_) => {
                 output.push_str("(.*)");
             }
         }
@@ -74,23 +74,23 @@ fn build_regex(commands: &[ReadCommand]) -> String {
 
     return output;
 }
-struct Read {
+struct Parse {
     regex: Regex,
     column_names: Vec<String>,
 }
 
-impl Read {
+impl Parse {
     fn new() -> Self {
-        Read {
+        Parse {
             regex: Regex::new("").unwrap(),
             column_names: vec![],
         }
     }
 }
 
-impl Plugin for Read {
+impl Plugin for Parse {
     fn config(&mut self) -> Result<Signature, ShellError> {
-        Ok(Signature::build("read")
+        Ok(Signature::build("parse")
             .desc("Parse columns from string data using a simple pattern")
             .required(
                 "pattern",
@@ -107,17 +107,17 @@ impl Plugin for Read {
                     ..
                 } => {
                     //self.pattern = s.clone();
-                    let read_pattern = read(&pattern).unwrap();
-                    let read_regex = build_regex(&read_pattern.1);
+                    let parse_pattern = parse(&pattern).unwrap();
+                    let parse_regex = build_regex(&parse_pattern.1);
 
-                    self.column_names = column_names(&read_pattern.1);
+                    self.column_names = column_names(&parse_pattern.1);
 
-                    self.regex = Regex::new(&read_regex).unwrap();
+                    self.regex = Regex::new(&parse_regex).unwrap();
                 }
                 Tagged { tag, .. } => {
                     return Err(ShellError::labeled_error(
                         "Unrecognized type in params",
-                        "value",
+                        "expected a string",
                         tag,
                     ));
                 }
@@ -152,5 +152,5 @@ impl Plugin for Read {
 }
 
 fn main() {
-    serve_plugin(&mut Read::new());
+    serve_plugin(&mut Parse::new());
 }
