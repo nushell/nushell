@@ -62,7 +62,7 @@ fn read_plugin() {
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open fileA.txt
-            | read "{Name}={Value}"
+            | parse "{Name}={Value}"
             | nth 1
             | get Value
             | echo $it

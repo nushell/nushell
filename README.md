@@ -295,7 +295,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
-| read pattern | Convert text to a table by matching the given pattern |
+| parse pattern | Convert text to a table by matching the given pattern |
 | size | Gather word count statistics on the text |
 | split-column sep ...column-names | Split row contents across multiple columns via the separator, optionally give the columns names |
 | split-row sep | Split row contents over multiple rows via the separator |
