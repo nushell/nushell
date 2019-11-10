@@ -422,7 +422,7 @@ impl Tagged<Value> {
         }
     }
 
-    pub(crate) fn as_string(&self) -> Result<String, ShellError> {
+    pub fn as_string(&self) -> Result<String, ShellError> {
         match &self.item {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
