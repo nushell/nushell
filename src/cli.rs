@@ -23,7 +23,6 @@ use crate::prelude::*;
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
-use std::env;
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -119,13 +118,6 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 fn search_paths() -> Vec<std::path::PathBuf> {
     let mut search_paths = Vec::new();
 
-    match env::var_os("PATH") {
-        Some(paths) => {
-            search_paths = env::split_paths(&paths).collect::<Vec<_>>();
-        }
-        None => println!("PATH is not defined in the environment."),
-    }
-
     #[cfg(debug_assertions)]
     {
         // Use our debug plugins in debug mode
@@ -140,6 +132,15 @@ fn search_paths() -> Vec<std::path::PathBuf> {
 
     #[cfg(not(debug_assertions))]
     {
+        use std::env;
+
+        match env::var_os("PATH") {
+            Some(paths) => {
+                search_paths = env::split_paths(&paths).collect::<Vec<_>>();
+            }
+            None => println!("PATH is not defined in the environment."),
+        }
+
         // Use our release plugins in release mode
         let mut path = std::path::PathBuf::from(".");
         path.push("target");
