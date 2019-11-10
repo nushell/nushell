@@ -57,7 +57,7 @@ fn insert_plugin() {
 }
 
 #[test]
-fn read_plugin() {
+fn parse_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
@@ -70,6 +70,21 @@ fn read_plugin() {
     ));
 
     assert_eq!(actual, "StupidLongName");
+}
+
+#[test]
+fn format_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+        open cargo_sample.toml
+            | get package
+            | format "{name} has license {license}"
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "nu has license ISC");
 }
 
 #[test]
