@@ -38,7 +38,7 @@ jobs:
     env:
       DOCKER_REGISTRY: quay.io/nushell
       DOCKER_PASSWORD: ${{ secrets.DOCKER_REGISTRY }}
-      DOCKER_USER: nushell+action # TBD
+      DOCKER_USER: ${{ secrets.DOCKER_USER }}
     strategy:
       matrix:
         tag:
