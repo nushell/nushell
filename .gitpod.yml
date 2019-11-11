@@ -1,7 +1,7 @@
 image:
   file: .gitpod.Dockerfile
 tasks:
-  - init: cargo install --path .
+  - init: cargo install nu
     command: nu
 github:
   prebuilds:
