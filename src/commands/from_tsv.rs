@@ -39,53 +39,36 @@ pub fn from_tsv_string_to_value(
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, csv::Error> {
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(!headerless)
         .delimiter(b'\t')
         .from_reader(s.as_bytes());
     let tag = tag.into();
 
-    let mut fields: VecDeque<String> = VecDeque::new();
-    let mut iter = reader.records();
+    let headers = if headerless {
+        (1..=reader.headers()?.len())
+            .map(|i| format!("Column{}", i))
+            .collect::<Vec<String>>()
+    } else {
+        reader.headers()?.iter().map(String::from).collect()
+    };
+
     let mut rows = vec![];
-
-    if let Some(result) = iter.next() {
-        let line = result?;
-
-        for (idx, item) in line.iter().enumerate() {
-            if headerless {
-                fields.push_back(format!("Column{}", idx + 1));
-            } else {
-                fields.push_back(item.to_string());
-            }
+    for row in reader.records() {
+        let mut tagged_row = TaggedDictBuilder::new(&tag);
+        for (value, header) in row?.iter().zip(headers.iter()) {
+            tagged_row.insert_tagged(
+                header,
+                Value::Primitive(Primitive::String(String::from(value))).tagged(&tag),
+            )
         }
-    }
-
-    loop {
-        if let Some(row_values) = iter.next() {
-            let row_values = row_values?;
-
-            let mut row = TaggedDictBuilder::new(&tag);
-
-            for (idx, entry) in row_values.iter().enumerate() {
-                row.insert_tagged(
-                    fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(&tag),
-                );
-            }
-
-            rows.push(row.into_tagged_value());
-        } else {
-            break;
-        }
+        rows.push(tagged_row.into_tagged_value());
     }
 
     Ok(Value::Table(rows).tagged(&tag))
 }
 
 fn from_tsv(
-    FromTSVArgs {
-        headerless: skip_headers,
-    }: FromTSVArgs,
+    FromTSVArgs { headerless }: FromTSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
@@ -115,7 +98,7 @@ fn from_tsv(
             }
         }
 
-        match from_tsv_string_to_value(concat_string, skip_headers, name_tag.clone()) {
+        match from_tsv_string_to_value(concat_string, headerless, name_tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
