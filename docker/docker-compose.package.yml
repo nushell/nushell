@@ -2,7 +2,7 @@ version: '3'
 
 services:
   nushell:
-    image: ${REGISTRY}/nu:${TAG}
+    image: ${DOCKER_REGISTRY}/nu:${DOCKER_TAG}
     build:
       context: ..
       dockerfile: docker/Package${PATCH}.Dockerfile
