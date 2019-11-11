@@ -27,7 +27,7 @@ impl WholeStreamCommand for FromCSV {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as .csv and create table"
+        "Parse text as .csv and create table."
     }
 
     fn run(
@@ -46,44 +46,29 @@ pub fn from_csv_string_to_value(
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, csv::Error> {
     let mut reader = ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(!headerless)
         .delimiter(separator as u8)
         .from_reader(s.as_bytes());
     let tag = tag.into();
 
-    let mut fields: VecDeque<String> = VecDeque::new();
-    let mut iter = reader.records();
+    let headers = if headerless {
+        (1..=reader.headers()?.len())
+            .map(|i| format!("Column{}", i))
+            .collect::<Vec<String>>()
+    } else {
+        reader.headers()?.iter().map(String::from).collect()
+    };
+
     let mut rows = vec![];
-
-    if let Some(result) = iter.next() {
-        let line = result?;
-
-        for (idx, item) in line.iter().enumerate() {
-            if headerless {
-                fields.push_back(format!("Column{}", idx + 1));
-            } else {
-                fields.push_back(item.to_string());
-            }
+    for row in reader.records() {
+        let mut tagged_row = TaggedDictBuilder::new(&tag);
+        for (value, header) in row?.iter().zip(headers.iter()) {
+            tagged_row.insert_tagged(
+                header,
+                Value::Primitive(Primitive::String(String::from(value))).tagged(&tag),
+            )
         }
-    }
-
-    loop {
-        if let Some(row_values) = iter.next() {
-            let row_values = row_values?;
-
-            let mut row = TaggedDictBuilder::new(tag.clone());
-
-            for (idx, entry) in row_values.iter().enumerate() {
-                row.insert_tagged(
-                    fields.get(idx).unwrap(),
-                    Value::Primitive(Primitive::String(String::from(entry))).tagged(&tag),
-                );
-            }
-
-            rows.push(row.into_tagged_value());
-        } else {
-            break;
-        }
+        rows.push(tagged_row.into_tagged_value());
     }
 
     Ok(Value::Table(rows).tagged(&tag))
@@ -91,7 +76,7 @@ pub fn from_csv_string_to_value(
 
 fn from_csv(
     FromCSVArgs {
-        headerless: skip_headers,
+        headerless,
         separator,
     }: FromCSVArgs,
     RunnableContext { input, name, .. }: RunnableContext,
@@ -141,7 +126,7 @@ fn from_csv(
             }
         }
 
-        match from_csv_string_to_value(concat_string, skip_headers, sep, name_tag.clone()) {
+        match from_csv_string_to_value(concat_string, headerless, sep, name_tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {
