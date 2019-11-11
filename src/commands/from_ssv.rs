@@ -45,6 +45,149 @@ impl WholeStreamCommand for FromSSV {
     }
 }
 
+enum HeaderOptions<'a> {
+    WithHeaders(&'a str),
+    WithoutHeaders,
+}
+
+fn parse_aligned_columns<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    headers: HeaderOptions,
+    separator: &str,
+) -> Vec<Vec<(String, String)>> {
+    fn construct<'a>(
+        lines: impl Iterator<Item = &'a str>,
+        headers: Vec<(String, usize)>,
+    ) -> Vec<Vec<(String, String)>> {
+        lines
+            .map(|l| {
+                headers
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (header_name, start_position))| {
+                        let val = match headers.get(i + 1) {
+                            Some((_, end)) => {
+                                if *end < l.len() {
+                                    l.get(*start_position..*end)
+                                } else {
+                                    l.get(*start_position..)
+                                }
+                            }
+                            None => l.get(*start_position..),
+                        }
+                        .unwrap_or("")
+                        .trim()
+                        .into();
+                        (header_name.clone(), val)
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    let find_indices = |line: &str| {
+        let values = line
+            .split(&separator)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        values
+            .fold(
+                (0, vec![]),
+                |(current_pos, mut indices), value| match line[current_pos..].find(value) {
+                    None => (current_pos, indices),
+                    Some(index) => {
+                        let absolute_index = current_pos + index;
+                        indices.push(absolute_index);
+                        (absolute_index + value.len(), indices)
+                    }
+                },
+            )
+            .1
+    };
+
+    let parse_with_headers = |lines, headers_raw: &str| {
+        let indices = find_indices(headers_raw);
+        let headers = headers_raw
+            .split(&separator)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .zip(indices);
+
+        let columns = headers.collect::<Vec<(String, usize)>>();
+
+        construct(lines, columns)
+    };
+
+    let parse_without_headers = |ls: Vec<&str>| {
+        let mut indices = ls
+            .iter()
+            .flat_map(|s| find_indices(*s))
+            .collect::<Vec<usize>>();
+
+        indices.sort();
+        indices.dedup();
+
+        let headers: Vec<(String, usize)> = indices
+            .iter()
+            .enumerate()
+            .map(|(i, position)| (format!("Column{}", i + 1), *position))
+            .collect();
+
+        construct(ls.iter().map(|s| s.to_owned()), headers)
+    };
+
+    match headers {
+        HeaderOptions::WithHeaders(headers_raw) => parse_with_headers(lines, headers_raw),
+        HeaderOptions::WithoutHeaders => parse_without_headers(lines.collect()),
+    }
+}
+
+fn parse_separated_columns<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    headers: HeaderOptions,
+    separator: &str,
+) -> Vec<Vec<(String, String)>> {
+    fn collect<'a>(
+        headers: Vec<String>,
+        rows: impl Iterator<Item = &'a str>,
+        separator: &str,
+    ) -> Vec<Vec<(String, String)>> {
+        rows.map(|r| {
+            headers
+                .iter()
+                .zip(r.split(separator).map(str::trim).filter(|s| !s.is_empty()))
+                .map(|(a, b)| (a.to_owned(), b.to_owned()))
+                .collect()
+        })
+        .collect()
+    }
+
+    let parse_with_headers = |lines, headers_raw: &str| {
+        let headers = headers_raw
+            .split(&separator)
+            .map(str::trim)
+            .map(|s| s.to_owned())
+            .filter(|s| !s.is_empty())
+            .collect();
+        collect(headers, lines, separator)
+    };
+
+    let parse_without_headers = |ls: Vec<&str>| {
+        let num_columns = ls.iter().map(|r| r.len()).max().unwrap_or(0);
+
+        let headers = (1..=num_columns)
+            .map(|i| format!("Column{}", i))
+            .collect::<Vec<String>>();
+        collect(headers, ls.iter().map(|s| s.as_ref()), separator)
+    };
+
+    match headers {
+        HeaderOptions::WithHeaders(headers_raw) => parse_with_headers(lines, headers_raw),
+        HeaderOptions::WithoutHeaders => parse_without_headers(lines.collect()),
+    }
+}
+
 fn string_to_table(
     s: &str,
     headerless: bool,
@@ -54,76 +197,23 @@ fn string_to_table(
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
-    if aligned_columns {
-        let headers_raw = lines.next()?;
-
-        let headers = headers_raw
-            .trim()
-            .split(&separator)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(|s| (headers_raw.find(s).unwrap(), s.to_owned()));
-
-        let columns = if headerless {
-            headers
-                .enumerate()
-                .map(|(header_no, (string_index, _))| {
-                    (string_index, format!("Column{}", header_no + 1))
-                })
-                .collect::<Vec<(usize, String)>>()
-        } else {
-            headers.collect::<Vec<(usize, String)>>()
-        };
-
-        Some(
-            lines
-                .map(|l| {
-                    columns
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(i, (start, col))| {
-                            (match columns.get(i + 1) {
-                                Some((end, _)) => l.get(*start..*end),
-                                None => l.get(*start..),
-                            })
-                            .and_then(|s| Some((col.clone(), String::from(s.trim()))))
-                        })
-                        .collect()
-                })
-                .collect(),
-        )
+    let (ls, header_options) = if headerless {
+        (lines, HeaderOptions::WithoutHeaders)
     } else {
-        let headers = lines
-            .next()?
-            .split(&separator)
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_owned())
-            .collect::<Vec<String>>();
+        let headers = lines.next()?;
+        (lines, HeaderOptions::WithHeaders(headers))
+    };
 
-        let header_row = if headerless {
-            (1..=headers.len())
-                .map(|i| format!("Column{}", i))
-                .collect::<Vec<String>>()
-        } else {
-            headers
-        };
+    let f = if aligned_columns {
+        parse_aligned_columns
+    } else {
+        parse_separated_columns
+    };
 
-        Some(
-            lines
-                .map(|l| {
-                    header_row
-                        .iter()
-                        .zip(
-                            l.split(&separator)
-                                .map(|s| s.trim())
-                                .filter(|s| !s.is_empty()),
-                        )
-                        .map(|(a, b)| (String::from(a), String::from(b)))
-                        .collect()
-                })
-                .collect(),
-        )
+    let parsed = f(ls, header_options, &separator);
+    match parsed.len() {
+        0 => None,
+        _ => Some(parsed),
     }
 }
 
@@ -250,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn it_ignores_headers_when_headerless() {
+    fn it_uses_first_row_as_data_when_headerless() {
         let input = r#"
             a b
             1 2
@@ -260,6 +350,7 @@ mod tests {
         assert_eq!(
             result,
             Some(vec![
+                vec![owned("Column1", "a"), owned("Column2", "b")],
                 vec![owned("Column1", "1"), owned("Column2", "2")],
                 vec![owned("Column1", "3"), owned("Column2", "4")]
             ])
@@ -356,5 +447,58 @@ mod tests {
                 owned("col B", "val2   trailing value that should be included"),
             ],]
         )
+    }
+
+    #[test]
+    fn it_handles_empty_values_when_headerless_and_aligned_columns() {
+        let input = r#"
+            a multi-word value  b           d
+            1                        3-3    4
+                                                       last
+        "#;
+
+        let result = string_to_table(input, true, true, 2).unwrap();
+        assert_eq!(
+            result,
+            vec![
+                vec![
+                    owned("Column1", "a multi-word value"),
+                    owned("Column2", "b"),
+                    owned("Column3", ""),
+                    owned("Column4", "d"),
+                    owned("Column5", "")
+                ],
+                vec![
+                    owned("Column1", "1"),
+                    owned("Column2", ""),
+                    owned("Column3", "3-3"),
+                    owned("Column4", "4"),
+                    owned("Column5", "")
+                ],
+                vec![
+                    owned("Column1", ""),
+                    owned("Column2", ""),
+                    owned("Column3", ""),
+                    owned("Column4", ""),
+                    owned("Column5", "last")
+                ],
+            ]
+        )
+    }
+
+    #[test]
+    fn input_is_parsed_correctly_if_either_option_works() {
+        let input =             r#"
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#;
+
+        let aligned_columns_headerless = string_to_table(input, true, true, 2).unwrap();
+        let separator_headerless = string_to_table(input, true, false, 2).unwrap();
+        let aligned_columns_with_headers = string_to_table(input, false, true, 2).unwrap();
+        let separator_with_headers = string_to_table(input, false, false, 2).unwrap();
+        assert_eq!(aligned_columns_headerless, separator_headerless);
+        assert_eq!(aligned_columns_with_headers, separator_with_headers);
     }
 }

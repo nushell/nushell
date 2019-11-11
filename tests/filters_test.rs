@@ -450,7 +450,18 @@ fn converts_from_ssv_text_treating_first_line_as_data_with_flag() {
             "#,
         )]);
 
-        let actual = nu!(
+        let aligned_columns = nu!(
+        cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless --aligned-columns
+                | first
+                | get Column1
+                | echo $it
+            "#
+        ));
+
+        let separator_based = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
                 open oc_get_svc.txt
@@ -461,7 +472,8 @@ fn converts_from_ssv_text_treating_first_line_as_data_with_flag() {
             "#
         ));
 
-        assert_eq!(actual, "docker-registry");
+        assert_eq!(aligned_columns, separator_based);
+        assert_eq!(separator_based, "docker-registry");
     })
 }
 
