@@ -1,29 +1,28 @@
 use crate::commands::WholeStreamCommand;
 use crate::parser::hir::SyntaxShape;
 use crate::prelude::*;
-use num_traits::cast::ToPrimitive;
-pub struct ReduceBy;
+pub struct EvaluateBy;
 
 #[derive(Deserialize)]
-pub struct ReduceByArgs {
-    reduce_with: Option<Tagged<String>>,
+pub struct EvaluateByArgs {
+    evaluate_with: Option<Tagged<String>>,
 }
 
-impl WholeStreamCommand for ReduceBy {
+impl WholeStreamCommand for EvaluateBy {
     fn name(&self) -> &str {
-        "reduce-by"
+        "evaluate-by"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("reduce-by").named(
-            "reduce_with",
+        Signature::build("evaluate-by").named(
+            "evaluate_with",
             SyntaxShape::String,
-            "the command to reduce by with",
+            "the name of the column to evaluate by",
         )
     }
 
     fn usage(&self) -> &str {
-        "Creates a new table with the data from the tables rows reduced by the command given."
+        "Creates a new table with the data from the tables rows evaluated by the column given."
     }
 
     fn run(
@@ -31,16 +30,17 @@ impl WholeStreamCommand for ReduceBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, reduce_by)?.run()
+        args.process(registry, evaluate_by)?.run()
     }
 }
 
-pub fn reduce_by(
-    ReduceByArgs { reduce_with }: ReduceByArgs,
+pub fn evaluate_by(
+    EvaluateByArgs { evaluate_with }: EvaluateByArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
+
 
         if values.is_empty() {
             yield Err(ShellError::labeled_error(
@@ -50,14 +50,14 @@ pub fn reduce_by(
                 ))
         } else {
 
-            let reduce_with = if let Some(reducer) = reduce_with {
-                Some(reducer.item().clone())
+            let evaluate_with = if let Some(evaluator) = evaluate_with {
+                Some(evaluator.item().clone())
             } else {
                 None
             };
 
-            match reduce(&values[0], reduce_with, name) {
-                Ok(reduced) => yield ReturnSuccess::value(reduced),
+            match evaluate(&values[0], evaluate_with, name) {
+                Ok(evaluated) => yield ReturnSuccess::value(evaluated),
                 Err(err) => yield Err(err)
             }
         }
@@ -66,47 +66,31 @@ pub fn reduce_by(
     Ok(stream.to_output_stream())
 }
 
-fn sum(data: Vec<Tagged<Value>>) -> i32 {
-    data.into_iter().fold(0, |acc, value| match value {
-        Tagged {
-            item: Value::Primitive(Primitive::Int(n)),
-            ..
-        } => acc + n.to_i32().unwrap(),
-        _ => acc,
+fn fetch(
+    key: Option<String>,
+) -> Box<dyn Fn(Tagged<Value>, Tag) -> Option<Tagged<Value>> + 'static> {
+    Box::new(move |value: Tagged<Value>, tag| match key {
+        Some(ref key_given) => {
+            if let Some(Tagged { item, .. }) = value.get_data_by_key(&key_given) {
+                Some(item.clone().tagged(tag))
+            } else {
+                None
+            }
+        }
+        None => Some(Value::int(1).tagged(tag)),
     })
 }
 
-fn formula(
-    acc_begin: i32,
-    calculator: Box<dyn Fn(Vec<Tagged<Value>>) -> i32 + 'static>,
-) -> Box<dyn Fn(i32, Vec<Tagged<Value>>) -> i32 + 'static> {
-    Box::new(move |acc, datax| -> i32 {
-        let result = acc * acc_begin;
-        result + calculator(datax)
-    })
-}
-
-fn reducer_for(command: Reduce) -> Box<dyn Fn(i32, Vec<Tagged<Value>>) -> i32 + 'static> {
-    match command {
-        Reduce::Sum | Reduce::Default => Box::new(formula(0, Box::new(sum))),
-    }
-}
-
-pub enum Reduce {
-    Sum,
-    Default,
-}
-
-pub fn reduce(
+pub fn evaluate(
     values: &Tagged<Value>,
-    reducer: Option<String>,
+    evaluator: Option<String>,
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, ShellError> {
     let tag = tag.into();
 
-    let reduce_with = match reducer {
-        Some(cmd) if cmd == "sum" => reducer_for(Reduce::Sum),
-        Some(_) | None => reducer_for(Reduce::Default),
+    let evaluate_with = match evaluator {
+        Some(keyfn) => fetch(Some(keyfn)),
+        None => fetch(None),
     };
 
     let results: Tagged<Value> = match values {
@@ -116,36 +100,35 @@ pub fn reduce(
         } => {
             let datasets: Vec<_> = datasets
                 .into_iter()
-                .map(|subsets| {
-                    let mut acc = 0;
-                    match subsets {
-                        Tagged {
-                            item: Value::Table(data),
-                            ..
-                        } => {
-                            let data = data
-                                .into_iter()
-                                .map(|d| {
-                                    if let Tagged {
-                                        item: Value::Table(x),
-                                        ..
-                                    } = d
-                                    {
-                                        acc = reduce_with(acc, x.clone());
-                                        Value::number(acc).tagged(&tag)
-                                    } else {
-                                        Value::number(0).tagged(&tag)
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-                            Value::Table(data).tagged(&tag)
-                        }
-                        _ => Value::Table(vec![]).tagged(&tag),
+                .map(|subsets| match subsets {
+                    Tagged {
+                        item: Value::Table(subsets),
+                        ..
+                    } => {
+                        let subsets: Vec<_> = subsets
+                            .clone()
+                            .into_iter()
+                            .map(|data| match data {
+                                Tagged {
+                                    item: Value::Table(data),
+                                    ..
+                                } => {
+                                    let data: Vec<_> = data
+                                        .into_iter()
+                                        .map(|x| evaluate_with(x.clone(), tag.clone()).unwrap())
+                                        .collect();
+                                    Value::Table(data).tagged(&tag)
+                                }
+                                _ => Value::Table(vec![]).tagged(&tag),
+                            })
+                            .collect();
+                        Value::Table(subsets).tagged(&tag)
                     }
+                    _ => Value::Table(vec![]).tagged(&tag),
                 })
                 .collect();
 
-            Value::Table(datasets).tagged(&tag)
+            Value::Table(datasets.clone()).tagged(&tag)
         }
         _ => Value::Table(vec![]).tagged(&tag),
     };
@@ -156,9 +139,8 @@ pub fn reduce(
 #[cfg(test)]
 mod tests {
 
-    use crate::commands::evaluate_by::evaluate;
+    use crate::commands::evaluate_by::{evaluate, fetch};
     use crate::commands::group_by::group;
-    use crate::commands::reduce_by::{reduce, reducer_for, Reduce};
     use crate::commands::t_sort_by::t_sort;
     use crate::data::meta::*;
     use crate::prelude::*;
@@ -191,10 +173,6 @@ mod tests {
             Tag::unknown(),
         )
         .unwrap()
-    }
-
-    fn nu_releases_evaluated_by_default_one() -> Tagged<Value> {
-        evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap()
     }
 
     fn nu_releases_grouped_by_date() -> Tagged<Value> {
@@ -235,23 +213,48 @@ mod tests {
     }
 
     #[test]
-    fn reducer_computes_given_a_sum_command() {
-        let subject = vec![int(1), int(1), int(1)];
+    fn evaluator_fetches_by_column_if_supplied_a_column_name() {
+        let subject = row(indexmap! { "name".into() => string("andres") });
 
-        let action = reducer_for(Reduce::Sum);
+        let evaluator = fetch(Some(String::from("name")));
 
-        assert_eq!(action(0, subject), 3);
+        assert_eq!(evaluator(subject, Tag::unknown()), Some(string("andres")));
     }
 
     #[test]
-    fn reducer_computes() {
+    fn evaluator_returns_1_if_no_column_name_given() {
+        let subject = row(indexmap! { "name".into() => string("andres") });
+        let evaluator = fetch(None);
+
         assert_eq!(
-            reduce(
-                &nu_releases_evaluated_by_default_one(),
-                Some(String::from("sum")),
-                Tag::unknown()
-            ),
-            Ok(table(&vec![table(&vec![int(3), int(3), int(3)])]))
+            evaluator(subject, Tag::unknown()),
+            Some(Value::int(1).tagged_unknown())
+        );
+    }
+
+    #[test]
+    fn evaluates_the_tables() {
+        assert_eq!(
+            evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap(),
+            table(&vec![table(&vec![
+                table(&vec![int(1), int(1), int(1)]),
+                table(&vec![int(1), int(1), int(1)]),
+                table(&vec![int(1), int(1), int(1)]),
+            ]),])
+        );
+    }
+
+    #[test]
+    fn evaluates_the_tables_with_custom_evaluator() {
+        let eval = String::from("name");
+
+        assert_eq!(
+            evaluate(&nu_releases_sorted_by_date(), Some(eval), Tag::unknown()).unwrap(),
+            table(&vec![table(&vec![
+                table(&vec![string("AR"), string("JT"), string("YK")]),
+                table(&vec![string("AR"), string("YK"), string("JT")]),
+                table(&vec![string("YK"), string("JT"), string("AR")]),
+            ]),])
         );
     }
 }

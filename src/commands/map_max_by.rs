@@ -2,28 +2,28 @@ use crate::commands::WholeStreamCommand;
 use crate::parser::hir::SyntaxShape;
 use crate::prelude::*;
 use num_traits::cast::ToPrimitive;
-pub struct ReduceBy;
+pub struct MapMaxBy;
 
 #[derive(Deserialize)]
-pub struct ReduceByArgs {
-    reduce_with: Option<Tagged<String>>,
+pub struct MapMaxByArgs {
+    column_name: Option<Tagged<String>>,
 }
 
-impl WholeStreamCommand for ReduceBy {
+impl WholeStreamCommand for MapMaxBy {
     fn name(&self) -> &str {
-        "reduce-by"
+        "map-max-by"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("reduce-by").named(
-            "reduce_with",
+        Signature::build("map-max-by").named(
+            "column_name",
             SyntaxShape::String,
-            "the command to reduce by with",
+            "the name of the column to map-max the table's rows",
         )
     }
 
     fn usage(&self) -> &str {
-        "Creates a new table with the data from the tables rows reduced by the command given."
+        "Creates a new table with the data from the tables rows maxed by the column given."
     }
 
     fn run(
@@ -31,16 +31,17 @@ impl WholeStreamCommand for ReduceBy {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, reduce_by)?.run()
+        args.process(registry, map_max_by)?.run()
     }
 }
 
-pub fn reduce_by(
-    ReduceByArgs { reduce_with }: ReduceByArgs,
+pub fn map_max_by(
+    MapMaxByArgs { column_name }: MapMaxByArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values: Vec<Tagged<Value>> = input.values.collect().await;
+
 
         if values.is_empty() {
             yield Err(ShellError::labeled_error(
@@ -50,14 +51,14 @@ pub fn reduce_by(
                 ))
         } else {
 
-            let reduce_with = if let Some(reducer) = reduce_with {
-                Some(reducer.item().clone())
+            let map_by_column = if let Some(column_to_map) = column_name {
+                Some(column_to_map.item().clone())
             } else {
                 None
             };
 
-            match reduce(&values[0], reduce_with, name) {
-                Ok(reduced) => yield ReturnSuccess::value(reduced),
+            match map_max(&values[0], map_by_column, name) {
+                Ok(table_maxed) => yield ReturnSuccess::value(table_maxed),
                 Err(err) => yield Err(err)
             }
         }
@@ -66,48 +67,12 @@ pub fn reduce_by(
     Ok(stream.to_output_stream())
 }
 
-fn sum(data: Vec<Tagged<Value>>) -> i32 {
-    data.into_iter().fold(0, |acc, value| match value {
-        Tagged {
-            item: Value::Primitive(Primitive::Int(n)),
-            ..
-        } => acc + n.to_i32().unwrap(),
-        _ => acc,
-    })
-}
-
-fn formula(
-    acc_begin: i32,
-    calculator: Box<dyn Fn(Vec<Tagged<Value>>) -> i32 + 'static>,
-) -> Box<dyn Fn(i32, Vec<Tagged<Value>>) -> i32 + 'static> {
-    Box::new(move |acc, datax| -> i32 {
-        let result = acc * acc_begin;
-        result + calculator(datax)
-    })
-}
-
-fn reducer_for(command: Reduce) -> Box<dyn Fn(i32, Vec<Tagged<Value>>) -> i32 + 'static> {
-    match command {
-        Reduce::Sum | Reduce::Default => Box::new(formula(0, Box::new(sum))),
-    }
-}
-
-pub enum Reduce {
-    Sum,
-    Default,
-}
-
-pub fn reduce(
+pub fn map_max(
     values: &Tagged<Value>,
-    reducer: Option<String>,
+    _map_by_column_name: Option<String>,
     tag: impl Into<Tag>,
 ) -> Result<Tagged<Value>, ShellError> {
     let tag = tag.into();
-
-    let reduce_with = match reducer {
-        Some(cmd) if cmd == "sum" => reducer_for(Reduce::Sum),
-        Some(_) | None => reducer_for(Reduce::Default),
-    };
 
     let results: Tagged<Value> = match values {
         Tagged {
@@ -117,37 +82,47 @@ pub fn reduce(
             let datasets: Vec<_> = datasets
                 .into_iter()
                 .map(|subsets| {
-                    let mut acc = 0;
                     match subsets {
                         Tagged {
                             item: Value::Table(data),
                             ..
                         } => {
-                            let data = data
-                                .into_iter()
-                                .map(|d| {
-                                    if let Tagged {
-                                        item: Value::Table(x),
-                                        ..
-                                    } = d
-                                    {
-                                        acc = reduce_with(acc, x.clone());
-                                        Value::number(acc).tagged(&tag)
+                            let data = data.into_iter().fold(0, |acc, value| match value {
+                                Tagged {
+                                    item: Value::Primitive(Primitive::Int(n)),
+                                    ..
+                                } => {
+                                    if n.to_i32().unwrap() > acc {
+                                        n.to_i32().unwrap()
                                     } else {
-                                        Value::number(0).tagged(&tag)
+                                        acc
                                     }
-                                })
-                                .collect::<Vec<_>>();
-                            Value::Table(data).tagged(&tag)
+                                }
+                                _ => acc,
+                            });
+                            Value::number(data).tagged(&tag)
                         }
-                        _ => Value::Table(vec![]).tagged(&tag),
+                        _ => Value::number(0).tagged(&tag),
                     }
                 })
                 .collect();
 
-            Value::Table(datasets).tagged(&tag)
+            let datasets = datasets.iter().fold(0, |max, value| match value {
+                Tagged {
+                    item: Value::Primitive(Primitive::Int(n)),
+                    ..
+                } => {
+                    if n.to_i32().unwrap() > max {
+                        n.to_i32().unwrap()
+                    } else {
+                        max
+                    }
+                }
+                _ => max,
+            });
+            Value::number(datasets).tagged(&tag)
         }
-        _ => Value::Table(vec![]).tagged(&tag),
+        _ => Value::number(-1).tagged(&tag),
     };
 
     Ok(results)
@@ -158,7 +133,8 @@ mod tests {
 
     use crate::commands::evaluate_by::evaluate;
     use crate::commands::group_by::group;
-    use crate::commands::reduce_by::{reduce, reducer_for, Reduce};
+    use crate::commands::map_max_by::map_max;
+    use crate::commands::reduce_by::reduce;
     use crate::commands::t_sort_by::t_sort;
     use crate::data::meta::*;
     use crate::prelude::*;
@@ -177,8 +153,17 @@ mod tests {
         Value::row(entries).tagged_unknown()
     }
 
-    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
-        Value::table(list).tagged_unknown()
+    fn nu_releases_evaluated_by_default_one() -> Tagged<Value> {
+        evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap()
+    }
+
+    fn nu_releases_reduced_by_sum() -> Tagged<Value> {
+        reduce(
+            &nu_releases_evaluated_by_default_one(),
+            Some(String::from("sum")),
+            Tag::unknown(),
+        )
+        .unwrap()
     }
 
     fn nu_releases_sorted_by_date() -> Tagged<Value> {
@@ -191,10 +176,6 @@ mod tests {
             Tag::unknown(),
         )
         .unwrap()
-    }
-
-    fn nu_releases_evaluated_by_default_one() -> Tagged<Value> {
-        evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap()
     }
 
     fn nu_releases_grouped_by_date() -> Tagged<Value> {
@@ -231,27 +212,16 @@ mod tests {
             row(
                 indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")},
             ),
+            row(
+                indexmap! {"name".into() => string("JK"), "country".into() => string("US"), "date".into() => string("August 23-2019")},
+            ),
         ]
     }
-
     #[test]
-    fn reducer_computes_given_a_sum_command() {
-        let subject = vec![int(1), int(1), int(1)];
-
-        let action = reducer_for(Reduce::Sum);
-
-        assert_eq!(action(0, subject), 3);
-    }
-
-    #[test]
-    fn reducer_computes() {
+    fn maps_and_gets_max_value() {
         assert_eq!(
-            reduce(
-                &nu_releases_evaluated_by_default_one(),
-                Some(String::from("sum")),
-                Tag::unknown()
-            ),
-            Ok(table(&vec![table(&vec![int(3), int(3), int(3)])]))
+            map_max(&nu_releases_reduced_by_sum(), None, Tag::unknown()).unwrap(),
+            int(4)
         );
     }
 }

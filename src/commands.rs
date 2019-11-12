@@ -62,6 +62,10 @@ cfg_if::cfg_if! {
     if #[cfg(data_processing_primitives)] {
         pub(crate) mod split_by;
         pub(crate) mod reduce_by;
+        pub(crate) mod evaluate_by;
+        pub(crate) mod t_sort_by;
+        pub(crate) mod map_max_by;
+        pub(crate) mod histogram;
     }
 }
 
@@ -146,6 +150,10 @@ cfg_if::cfg_if! {
     if #[cfg(data_processing_primitives)] {
         pub(crate) use split_by::SplitBy;
         pub(crate) use reduce_by::ReduceBy;
+        pub(crate) use evaluate_by::EvaluateBy;
+        pub(crate) use t_sort_by::TSortBy;
+        pub(crate) use map_max_by::MapMaxBy;
+        pub(crate) use histogram::Histogram;
     }
 }
 

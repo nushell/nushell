@@ -330,6 +330,10 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 context.add_commands(vec![
                 whole_stream_command(SplitBy),
                 whole_stream_command(ReduceBy),
+                whole_stream_command(EvaluateBy),
+                whole_stream_command(TSortBy),
+                whole_stream_command(MapMaxBy),
+                whole_stream_command(Histogram),
                 ]);
             }
         }
