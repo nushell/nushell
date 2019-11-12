@@ -28,7 +28,7 @@ byte-unit = "3.0.3"
 base64 = "0.11"
 futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
 async-stream = "0.1.2"
-futures_codec = "=0.3.0"
+futures_codec = "0.2.5"
 num-traits = "0.2.8"
 term = "0.5.2"
 bytes = "0.4.12"
