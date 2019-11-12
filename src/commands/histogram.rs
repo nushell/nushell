@@ -1,10 +1,10 @@
-use crate::commands::WholeStreamCommand;
+use crate::commands::evaluate_by::evaluate;
 use crate::commands::group_by::group;
+use crate::commands::map_max_by::map_max;
+use crate::commands::reduce_by::reduce;
 use crate::commands::t_sort_by::columns_sorted;
 use crate::commands::t_sort_by::t_sort;
-use crate::commands::evaluate_by::evaluate;
-use crate::commands::reduce_by::reduce;
-use crate::commands::map_max_by::map_max;
+use crate::commands::WholeStreamCommand;
 use crate::data::TaggedDictBuilder;
 use crate::errors::ShellError;
 use crate::prelude::*;
@@ -15,6 +15,7 @@ pub struct Histogram;
 #[derive(Deserialize)]
 pub struct HistogramArgs {
     column_name: Tagged<String>,
+    rest: Vec<Tagged<String>>,
 }
 
 impl WholeStreamCommand for Histogram {
@@ -23,11 +24,16 @@ impl WholeStreamCommand for Histogram {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("histogram").required(
-            "column_name",
-            SyntaxShape::String,
-            "the name of the column to graph by",
-        )
+        Signature::build("histogram")
+            .required(
+                "column_name",
+                SyntaxShape::String,
+                "the name of the column to graph by",
+            )
+            .rest(
+                SyntaxShape::Member,
+                "column name to give the histogram's frequency column",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -44,7 +50,7 @@ impl WholeStreamCommand for Histogram {
 }
 
 pub fn histogram(
-    HistogramArgs { column_name }: HistogramArgs,
+    HistogramArgs { column_name, rest }: HistogramArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
@@ -68,13 +74,24 @@ pub fn histogram(
 
                 let mut idx = 0;
 
+                let column_names_supplied: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
+
+                let frequency_column_name = if column_names_supplied.is_empty() {
+                    "frecuency".to_string()
+                } else {
+                    column_names_supplied[0].clone()
+                };
+
+                let column = (*column_name).clone();
+
                 if let Tagged { item: Value::Table(start), .. } = datasets.get(0).unwrap() {
                     for percentage in start.into_iter() {
+
                         let mut fact = TaggedDictBuilder::new(&name);
-                        fact.insert_tagged("committer", group_labels.get(idx).unwrap().clone());
+                        fact.insert_tagged(&column, group_labels.get(idx).unwrap().clone());
 
                         if let Tagged { item: Value::Primitive(Primitive::Int(ref num)), .. } = percentage.clone() {
-                            fact.insert("activity", std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>());
+                            fact.insert(&frequency_column_name, std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>());
                         }
 
                         idx = idx + 1;
@@ -104,38 +121,36 @@ fn percentages(
         } => {
             let datasets: Vec<_> = datasets
                 .into_iter()
-                .map(|subsets| {
-                    match subsets {
-                        Tagged {
-                            item: Value::Table(data),
-                            ..
-                        } => {
-                            let data = data
-                                .into_iter()
-                                .map(|d| match d {
-                                    Tagged {
-                                        item: Value::Primitive(Primitive::Int(n)),
-                                        ..
-                                    } => {
-                                        let max = match max {
-                                            Tagged {
-                                                item: Value::Primitive(Primitive::Int(ref maxima)),
-                                                ..
-                                            } => maxima.to_i32().unwrap(),
-                                            _ => 0,
-                                        };
+                .map(|subsets| match subsets {
+                    Tagged {
+                        item: Value::Table(data),
+                        ..
+                    } => {
+                        let data = data
+                            .into_iter()
+                            .map(|d| match d {
+                                Tagged {
+                                    item: Value::Primitive(Primitive::Int(n)),
+                                    ..
+                                } => {
+                                    let max = match max {
+                                        Tagged {
+                                            item: Value::Primitive(Primitive::Int(ref maxima)),
+                                            ..
+                                        } => maxima.to_i32().unwrap(),
+                                        _ => 0,
+                                    };
 
-                                        let n = { n.to_i32().unwrap() * 100 / max };
+                                    let n = { n.to_i32().unwrap() * 100 / max };
 
-                                        Value::number(n).tagged(&tag)
-                                    }
-                                    _ => Value::number(0).tagged(&tag),
-                                })
-                                .collect::<Vec<_>>();
-                            Value::Table(data).tagged(&tag)
-                        }
-                        _ => Value::Table(vec![]).tagged(&tag),
+                                    Value::number(n).tagged(&tag)
+                                }
+                                _ => Value::number(0).tagged(&tag),
+                            })
+                            .collect::<Vec<_>>();
+                        Value::Table(data).tagged(&tag)
                     }
+                    _ => Value::Table(vec![]).tagged(&tag),
                 })
                 .collect();
 

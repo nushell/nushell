@@ -256,6 +256,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | format pattern | Format table row data as a string following the given pattern |
 | get column-or-column-path | Open column and get data from the corresponding cells |
 | group-by column | Creates a new table with the data from the table rows grouped by the column given |
+| histogram column ...column-names | Creates a new table with a histogram based on the column name passed in, optionally give the frequency column name
 | inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
 | insert column-or-column-path value | Insert a new column to the table |
 | last amount | Show only the last number of rows |
@@ -267,6 +268,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
 | skip-while condition | Skips rows while the condition matches. |
+| split-by column | Creates a new table with the data from the inner tables splitted by the column given |
 | sort-by ...columns | Sort by the given columns |
 | str (column) | Apply string function. Optionally use the column of a table |
 | sum | Sum a column of values |

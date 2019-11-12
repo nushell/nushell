@@ -16,6 +16,8 @@ pub(crate) mod debug;
 pub(crate) mod echo;
 pub(crate) mod enter;
 pub(crate) mod env;
+#[allow(unused)]
+pub(crate) mod evaluate_by;
 pub(crate) mod exit;
 pub(crate) mod fetch;
 pub(crate) mod first;
@@ -33,10 +35,13 @@ pub(crate) mod from_yaml;
 pub(crate) mod get;
 pub(crate) mod group_by;
 pub(crate) mod help;
+pub(crate) mod histogram;
 pub(crate) mod history;
 pub(crate) mod last;
 pub(crate) mod lines;
 pub(crate) mod ls;
+#[allow(unused)]
+pub(crate) mod map_max_by;
 pub(crate) mod mkdir;
 pub(crate) mod mv;
 pub(crate) mod next;
@@ -49,6 +54,8 @@ pub(crate) mod post;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
+#[allow(unused)]
+pub(crate) mod reduce_by;
 pub(crate) mod reject;
 pub(crate) mod reverse;
 pub(crate) mod rm;
@@ -57,20 +64,11 @@ pub(crate) mod shells;
 pub(crate) mod size;
 pub(crate) mod skip_while;
 pub(crate) mod sort_by;
-
-cfg_if::cfg_if! {
-    if #[cfg(data_processing_primitives)] {
-        pub(crate) mod split_by;
-        pub(crate) mod reduce_by;
-        pub(crate) mod evaluate_by;
-        pub(crate) mod t_sort_by;
-        pub(crate) mod map_max_by;
-        pub(crate) mod histogram;
-    }
-}
-
+pub(crate) mod split_by;
 pub(crate) mod split_column;
 pub(crate) mod split_row;
+#[allow(unused)]
+pub(crate) mod t_sort_by;
 pub(crate) mod table;
 pub(crate) mod tags;
 pub(crate) mod to_bson;
@@ -103,6 +101,8 @@ pub(crate) use debug::Debug;
 pub(crate) use echo::Echo;
 pub(crate) use enter::Enter;
 pub(crate) use env::Env;
+#[allow(unused)]
+pub(crate) use evaluate_by::EvaluateBy;
 pub(crate) use exit::Exit;
 pub(crate) use fetch::Fetch;
 pub(crate) use first::First;
@@ -122,10 +122,13 @@ pub(crate) use from_yaml::FromYML;
 pub(crate) use get::Get;
 pub(crate) use group_by::GroupBy;
 pub(crate) use help::Help;
+pub(crate) use histogram::Histogram;
 pub(crate) use history::History;
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::LS;
+#[allow(unused)]
+pub(crate) use map_max_by::MapMaxBy;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
 pub(crate) use next::Next;
@@ -137,6 +140,8 @@ pub(crate) use post::Post;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::PWD;
+#[allow(unused)]
+pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;
 pub(crate) use reverse::Reverse;
 pub(crate) use rm::Remove;
@@ -145,20 +150,11 @@ pub(crate) use shells::Shells;
 pub(crate) use size::Size;
 pub(crate) use skip_while::SkipWhile;
 pub(crate) use sort_by::SortBy;
-
-cfg_if::cfg_if! {
-    if #[cfg(data_processing_primitives)] {
-        pub(crate) use split_by::SplitBy;
-        pub(crate) use reduce_by::ReduceBy;
-        pub(crate) use evaluate_by::EvaluateBy;
-        pub(crate) use t_sort_by::TSortBy;
-        pub(crate) use map_max_by::MapMaxBy;
-        pub(crate) use histogram::Histogram;
-    }
-}
-
+pub(crate) use split_by::SplitBy;
 pub(crate) use split_column::SplitColumn;
 pub(crate) use split_row::SplitRow;
+#[allow(unused)]
+pub(crate) use t_sort_by::TSortBy;
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
 pub(crate) use to_bson::ToBSON;

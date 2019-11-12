@@ -81,29 +81,27 @@ pub fn map_max(
         } => {
             let datasets: Vec<_> = datasets
                 .into_iter()
-                .map(|subsets| {
-                    match subsets {
-                        Tagged {
-                            item: Value::Table(data),
-                            ..
-                        } => {
-                            let data = data.into_iter().fold(0, |acc, value| match value {
-                                Tagged {
-                                    item: Value::Primitive(Primitive::Int(n)),
-                                    ..
-                                } => {
-                                    if n.to_i32().unwrap() > acc {
-                                        n.to_i32().unwrap()
-                                    } else {
-                                        acc
-                                    }
+                .map(|subsets| match subsets {
+                    Tagged {
+                        item: Value::Table(data),
+                        ..
+                    } => {
+                        let data = data.into_iter().fold(0, |acc, value| match value {
+                            Tagged {
+                                item: Value::Primitive(Primitive::Int(n)),
+                                ..
+                            } => {
+                                if n.to_i32().unwrap() > acc {
+                                    n.to_i32().unwrap()
+                                } else {
+                                    acc
                                 }
-                                _ => acc,
-                            });
-                            Value::number(data).tagged(&tag)
-                        }
-                        _ => Value::number(0).tagged(&tag),
+                            }
+                            _ => acc,
+                        });
+                        Value::number(data).tagged(&tag)
                     }
+                    _ => Value::number(0).tagged(&tag),
                 })
                 .collect();
 

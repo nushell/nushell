@@ -57,25 +57,25 @@ fn t_sort_by(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     Ok(OutputStream::new(async_stream! {
-            let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Tagged<Value>> = input.values.collect().await;
 
-            let column_grouped_by_name = if let Some(grouped_by) = group_by {
-                Some(grouped_by.item().clone())
-            } else {
-                None
-            };
+        let column_grouped_by_name = if let Some(grouped_by) = group_by {
+            Some(grouped_by.item().clone())
+        } else {
+            None
+        };
 
-            if show_columns {
-                for label in columns_sorted(column_grouped_by_name, &values[0], &name).iter() {
-                     yield ReturnSuccess::value(label.clone());
-                }
-            } else {
-                match t_sort(column_grouped_by_name, None, &values[0], name) {
-                    Ok(sorted) => yield ReturnSuccess::value(sorted),
-                    Err(err) => yield Err(err)
-                }
+        if show_columns {
+            for label in columns_sorted(column_grouped_by_name, &values[0], &name).iter() {
+                 yield ReturnSuccess::value(label.clone());
             }
-        }))
+        } else {
+            match t_sort(column_grouped_by_name, None, &values[0], name) {
+                Ok(sorted) => yield ReturnSuccess::value(sorted),
+                Err(err) => yield Err(err)
+            }
+        }
+    }))
 }
 
 pub fn columns_sorted(
@@ -125,7 +125,7 @@ pub fn columns_sorted(
 
             keys.into_iter().map(|k| k.tagged(&origin_tag)).collect()
         }
-        _ => vec![Value::string("default").tagged(&origin_tag)]
+        _ => vec![Value::string("default").tagged(&origin_tag)],
     }
 }
 
@@ -238,7 +238,7 @@ mod tests {
     use crate::data::meta::*;
     use crate::Value;
     use indexmap::IndexMap;
-    
+
     fn string(input: impl Into<String>) -> Tagged<Value> {
         Value::string(input.into()).tagged_unknown()
     }
@@ -305,7 +305,7 @@ mod tests {
             ]
         )
     }
-    
+
     #[test]
     fn sorts_the_tables() {
         let group_by = String::from("date");
