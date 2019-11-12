@@ -430,6 +430,7 @@ impl Tagged<Value> {
             Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
             Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+            Value::Primitive(Primitive::Date(x)) => Ok(format!("{}", x.to_rfc3339())),
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::labeled_error(
                 "Expected string",

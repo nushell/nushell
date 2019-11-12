@@ -150,6 +150,7 @@ pub fn split(
 #[cfg(test)]
 mod tests {
 
+    use crate::commands::group_by::group;
     use crate::commands::split_by::split;
     use crate::data::meta::*;
     use crate::Value;
@@ -167,30 +168,49 @@ mod tests {
         Value::table(list).tagged_unknown()
     }
 
+    fn nu_releases_grouped_by_date() -> Tagged<Value> {
+        let key = String::from("date").tagged_unknown();
+        group(&key, nu_releases_commiters(), Tag::unknown()).unwrap()
+    }
+
+    fn nu_releases_commiters() -> Vec<Tagged<Value>> {
+        vec![
+            row(
+                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")},
+            ),
+            row(
+                indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")},
+            ),
+        ]
+    }
+
     #[test]
     fn splits_inner_tables_by_key() {
         let for_key = String::from("country").tagged_unknown();
 
-        let nu_releases = row(indexmap! {
-            "August 23-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")})
-            ]),
-            "Sept 24-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")})
-            ]),
-            "October 10-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")})
-            ])
-        });
-
         assert_eq!(
-            split(&for_key, &nu_releases, Tag::unknown()).unwrap(),
+            split(&for_key, &nu_releases_grouped_by_date(), Tag::unknown()).unwrap(),
             Value::row(indexmap! {
                 "EC".into() => row(indexmap! {
                     "August 23-2019".into() => table(&vec![
@@ -235,18 +255,12 @@ mod tests {
 
         let nu_releases = row(indexmap! {
             "August 23-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
-                    row(indexmap!{"name".into() => string("YK"),  "country".into() => string("US"), "date".into() => string("August 23-2019")})
+                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")})
             ]),
             "Sept 24-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => Value::string("JT").tagged(Tag::from(Span::new(5,10))), "date".into() => string("Sept 24-2019")}),
-                    row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")})
+                    row(indexmap!{"name".into() => Value::string("JT").tagged(Tag::from(Span::new(5,10))), "date".into() => string("Sept 24-2019")})
             ]),
             "October 10-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")}),
-                    row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")})
             ])
         });

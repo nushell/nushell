@@ -301,6 +301,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromYML),
             whole_stream_command(Pick),
             whole_stream_command(Get),
+            whole_stream_command(Histogram),
             per_item_command(Remove),
             per_item_command(Fetch),
             per_item_command(Open),
@@ -320,12 +321,22 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             per_item_command(Mkdir),
             per_item_command(Move),
             whole_stream_command(Save),
+            whole_stream_command(SplitBy),
             whole_stream_command(Table),
             whole_stream_command(Version),
             whole_stream_command(Which),
-            #[cfg(data_processing_primitives)]
-            whole_stream_command(SplitBy),
         ]);
+
+        cfg_if::cfg_if! {
+            if #[cfg(data_processing_primitives)] {
+                context.add_commands(vec![
+                whole_stream_command(ReduceBy),
+                whole_stream_command(EvaluateBy),
+                whole_stream_command(TSortBy),
+                whole_stream_command(MapMaxBy),
+                ]);
+            }
+        }
 
         #[cfg(feature = "clipboard")]
         {
