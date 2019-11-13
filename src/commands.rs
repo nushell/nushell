@@ -1,6 +1,8 @@
 #[macro_use]
 pub(crate) mod macros;
 
+mod from_structured_data;
+
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;

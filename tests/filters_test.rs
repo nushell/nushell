@@ -135,7 +135,6 @@ fn converts_from_csv_text_skipping_headers_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                first_name,last_name,rusty_luck
                 Andrés,Robalino,1
                 Jonathan,Turner,1
                 Yehuda,Katz,1
@@ -361,7 +360,6 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                first Name	Last Name	rusty_luck
                 Andrés	Robalino	1
                 Jonathan	Turner	1
                 Yehuda	Katz	1
@@ -441,30 +439,41 @@ fn converts_from_ssv_text_to_structured_table_with_separator_specified() {
 }
 
 #[test]
-fn converts_from_ssv_text_skipping_headers_to_structured_table() {
+fn converts_from_ssv_text_treating_first_line_as_data_with_flag() {
     Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "oc_get_svc.txt",
             r#"
-                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
                 kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
                 kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
             "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(), h::pipeline(
+        let aligned_columns = nu!(
+        cwd: dirs.test(), h::pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv --headerless
-                | nth 2
-                | get Column2
+                | from-ssv --headerless --aligned-columns
+                | first
+                | get Column1
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "component=apiserver,provider=kubernetes");
+        let separator_based = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless
+                | first
+                | get Column1
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(aligned_columns, separator_based);
+        assert_eq!(separator_based, "docker-registry");
     })
 }
 
