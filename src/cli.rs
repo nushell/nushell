@@ -320,6 +320,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Date),
             per_item_command(Mkdir),
             per_item_command(Move),
+            whole_stream_command(Read),
             whole_stream_command(Save),
             whole_stream_command(SplitBy),
             whole_stream_command(Table),

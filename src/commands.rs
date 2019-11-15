@@ -56,6 +56,7 @@ pub(crate) mod post;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
+pub(crate) mod read;
 #[allow(unused)]
 pub(crate) mod reduce_by;
 pub(crate) mod reject;
@@ -142,6 +143,7 @@ pub(crate) use post::Post;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::PWD;
+pub(crate) use read::Read;
 #[allow(unused)]
 pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;

@@ -231,6 +231,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
 | post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
 | ps | View current processes |
+| read | Reads from standard input |
 | sys | View information about the current system |
 | which filename | Finds a program file. |
 | rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
