@@ -19,7 +19,10 @@ pub(crate) struct Helper {
 
 impl Helper {
     pub(crate) fn new(context: Context) -> Helper {
-        Helper { context, colored_prompt: String::new() }
+        Helper {
+            context,
+            colored_prompt: String::new(),
+        }
     }
 }
 
@@ -42,7 +45,11 @@ impl Hinter for Helper {
 }
 
 impl Highlighter for Helper {
-    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(&'s self, prompt: &'p str, default: bool) -> Cow<'b, str> {
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
+        &'s self,
+        prompt: &'p str,
+        default: bool,
+    ) -> Cow<'b, str> {
         use std::borrow::Cow::Borrowed;
 
         if default {

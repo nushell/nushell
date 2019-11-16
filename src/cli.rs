@@ -398,10 +398,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let prompt = {
             #[cfg(feature = "starship-prompt")]
             {
-                let bytes = strip_ansi_escapes::strip(&starship::print::get_prompt(starship::context::Context::new_with_dir(
-                    clap::ArgMatches::default(),
-                    cwd.clone(),
-                ))).unwrap();
+                let bytes = strip_ansi_escapes::strip(&starship::print::get_prompt(
+                    starship::context::Context::new_with_dir(
+                        clap::ArgMatches::default(),
+                        cwd.clone(),
+                    ),
+                ))
+                .unwrap();
 
                 String::from_utf8_lossy(&bytes).to_string()
             }
