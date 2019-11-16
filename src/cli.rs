@@ -398,15 +398,17 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let prompt = {
             #[cfg(feature = "starship-prompt")]
             {
-                &starship::print::get_prompt(starship::context::Context::new_with_dir(
+                let bytes = strip_ansi_escapes::strip(&starship::print::get_prompt(starship::context::Context::new_with_dir(
                     clap::ArgMatches::default(),
-                    cwd,
-                ))
+                    cwd.clone(),
+                ))).unwrap();
+
+                String::from_utf8_lossy(&bytes).to_string()
             }
             #[cfg(not(feature = "starship-prompt"))]
             {
                 &format!(
-                    "{}{}\x1b[m> ",
+                    "{}{}> ",
                     cwd,
                     match current_branch() {
                         Some(s) => format!("({})", s),
@@ -415,10 +417,33 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 )
             }
         };
+
+        let colored_prompt = {
+            #[cfg(feature = "starship-prompt")]
+            {
+                starship::print::get_prompt(starship::context::Context::new_with_dir(
+                    clap::ArgMatches::default(),
+                    cwd,
+                ))
+            }
+            #[cfg(not(feature = "starship-prompt"))]
+            {
+                format!(
+                    "{}{}\x1b[m]> ",
+                    cwd,
+                    match current_branch() {
+                        Some(s) => format!("({})", s),
+                        None => "".to_string(),
+                    }
+                )
+            }
+        };
+
+        rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;
         let mut initial_command = Some(String::new());
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
-            readline = rl.readline_with_initial(prompt, (&cmd, ""));
+            readline = rl.readline_with_initial(&prompt, (&cmd, ""));
             if let Err(ReadlineError::Eof) = &readline {
                 // Fuzzy search in history
                 let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
