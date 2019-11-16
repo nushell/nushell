@@ -609,7 +609,7 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-) -> Result<(Option<(usize, Spanned<Flag>)>), ParseError> {
+) -> Result<Option<(usize, Spanned<Flag>)>, ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {

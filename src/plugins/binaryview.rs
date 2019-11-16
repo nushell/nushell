@@ -211,7 +211,7 @@ struct RawImageBuffer {
     buffer: Vec<u8>,
 }
 
-fn load_from_png_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
+fn load_from_png_buffer(buffer: &[u8]) -> Option<RawImageBuffer> {
     use image::ImageDecoder;
 
     let decoder = image::png::PNGDecoder::new(buffer);
@@ -231,7 +231,7 @@ fn load_from_png_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
-fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
+fn load_from_jpg_buffer(buffer: &[u8]) -> Option<RawImageBuffer> {
     use image::ImageDecoder;
 
     let decoder = image::jpeg::JPEGDecoder::new(buffer);
