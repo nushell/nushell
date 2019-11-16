@@ -395,32 +395,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         // Redefine Ctrl-D to same command as Ctrl-C
         rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
 
-        let prompt = {
-            #[cfg(feature = "starship-prompt")]
-            {
-                let bytes = strip_ansi_escapes::strip(&starship::print::get_prompt(
-                    starship::context::Context::new_with_dir(
-                        clap::ArgMatches::default(),
-                        cwd.clone(),
-                    ),
-                ))
-                .unwrap();
-
-                String::from_utf8_lossy(&bytes).to_string()
-            }
-            #[cfg(not(feature = "starship-prompt"))]
-            {
-                &format!(
-                    "{}{}> ",
-                    cwd,
-                    match current_branch() {
-                        Some(s) => format!("({})", s),
-                        None => "".to_string(),
-                    }
-                )
-            }
-        };
-
         let colored_prompt = {
             #[cfg(feature = "starship-prompt")]
             {
@@ -432,7 +406,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             #[cfg(not(feature = "starship-prompt"))]
             {
                 format!(
-                    "{}{}\x1b[m]> ",
+                    "\x1b[32m{}{}\x1b[m> ",
                     cwd,
                     match current_branch() {
                         Some(s) => format!("({})", s),
@@ -440,6 +414,12 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     }
                 )
             }
+        };
+
+        let prompt = {
+            let bytes = strip_ansi_escapes::strip(&colored_prompt).unwrap();
+
+            String::from_utf8_lossy(&bytes).to_string()
         };
 
         rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;
