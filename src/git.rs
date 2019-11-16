@@ -1,3 +1,5 @@
+#![cfg(not(feature = "starship-prompt"))]
+
 use git2::{Repository, RepositoryOpenFlags};
 use std::ffi::OsString;
 

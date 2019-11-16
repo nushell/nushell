@@ -87,6 +87,7 @@ rawkey = {version = "0.1.2", optional = true }
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"], optional = true }
+starship = { version = "0.26.4", optional = true}
 
 [features]
 default = ["textview", "sys", "ps"]
@@ -95,8 +96,8 @@ textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
+starship-prompt = ["starship"]
 # trace = ["nom-tracable/trace"]
-all = ["raw-key", "textview", "binaryview", "sys", "ps", "clipboard"]
 
 [dependencies.rusqlite]
 version = "0.20.0"
