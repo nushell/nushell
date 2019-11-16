@@ -86,12 +86,19 @@ fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>,
     };
 
     let (input, unit) = all_consuming(alt((
-        value(Unit::B, alt((tag("B"), tag("b")))),
-        value(Unit::KB, alt((tag("KB"), tag("kb"), tag("Kb")))),
-        value(Unit::MB, alt((tag("MB"), tag("mb"), tag("Mb")))),
-        value(Unit::GB, alt((tag("GB"), tag("gb"), tag("Gb")))),
-        value(Unit::TB, alt((tag("TB"), tag("tb"), tag("Tb")))),
-        value(Unit::PB, alt((tag("PB"), tag("pb"), tag("Pb")))),
+        value(Unit::Byte, alt((tag("B"), tag("b")))),
+        value(Unit::Kilobyte, alt((tag("KB"), tag("kb"), tag("Kb")))),
+        value(Unit::Megabyte, alt((tag("MB"), tag("mb"), tag("Mb")))),
+        value(Unit::Gigabyte, alt((tag("GB"), tag("gb"), tag("Gb")))),
+        value(Unit::Terabyte, alt((tag("TB"), tag("tb"), tag("Tb")))),
+        value(Unit::Petabyte, alt((tag("PB"), tag("pb"), tag("Pb")))),
+        value(Unit::Second, tag("s")),
+        value(Unit::Minute, tag("m")),
+        value(Unit::Hour, tag("h")),
+        value(Unit::Day, tag("d")),
+        value(Unit::Week, tag("w")),
+        value(Unit::Month, tag("M")),
+        value(Unit::Year, tag("y")),
     )))(input)?;
 
     let start_span = number.span.end();

@@ -856,6 +856,7 @@ enum CompareValues {
     Ints(BigInt, BigInt),
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
+    Date(DateTime<Utc>, DateTime<Utc>),
 }
 
 impl CompareValues {
@@ -864,6 +865,7 @@ impl CompareValues {
             CompareValues::Ints(left, right) => left.cmp(right),
             CompareValues::Decimals(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
+            CompareValues::Date(left, right) => right.cmp(left),
         }
     }
 }
@@ -900,6 +902,7 @@ fn coerce_compare_primitive(
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
+        (Date(left), Date(right)) => CompareValues::Date(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),
     })
 }
