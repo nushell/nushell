@@ -14,11 +14,15 @@ use std::borrow::Cow::{self, Owned};
 
 pub(crate) struct Helper {
     context: Context,
+    pub colored_prompt: String,
 }
 
 impl Helper {
     pub(crate) fn new(context: Context) -> Helper {
-        Helper { context }
+        Helper {
+            context,
+            colored_prompt: String::new(),
+        }
     }
 }
 
@@ -41,8 +45,18 @@ impl Hinter for Helper {
 }
 
 impl Highlighter for Helper {
-    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(&'s self, prompt: &'p str, _: bool) -> Cow<'b, str> {
-        Owned("\x1b[32m".to_owned() + &prompt + "\x1b[m")
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
+        &'s self,
+        prompt: &'p str,
+        default: bool,
+    ) -> Cow<'b, str> {
+        use std::borrow::Cow::Borrowed;
+
+        if default {
+            Borrowed(&self.colored_prompt)
+        } else {
+            Borrowed(prompt)
+        }
     }
 
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
