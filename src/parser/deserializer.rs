@@ -52,7 +52,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         self.stack.push(DeserializerItem {
             key_struct_field: Some((name.to_string(), name)),
-            val: value.unwrap_or_else(|| Value::nothing().tagged(self.call.name_tag)),
+            val: value.unwrap_or_else(|| Value::nothing().tagged(&self.call.name_tag)),
         });
 
         Ok(())
@@ -61,7 +61,7 @@ impl<'de> ConfigDeserializer<'de> {
     pub fn top(&mut self) -> &DeserializerItem {
         let value = self.stack.last();
         trace!("inspecting top value :: {:?}", value);
-        value.expect("Can't get top elemant of an empty stack")
+        value.expect("Can't get top element of an empty stack")
     }
 
     pub fn pop(&mut self) -> DeserializerItem {
@@ -310,9 +310,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             return Ok(r);
         }
         trace!(
-            "deserializing struct {:?} {:?} (stack={:?})",
+            "deserializing struct {:?} {:?} (saw_root={} stack={:?})",
             name,
             fields,
+            self.saw_root,
             self.stack
         );
 
@@ -325,6 +326,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
         let type_name = std::any::type_name::<V::Value>();
         let tagged_val_name = std::any::type_name::<Tagged<Value>>();
+
+        trace!(
+            "type_name={} tagged_val_name={}",
+            type_name,
+            tagged_val_name
+        );
 
         if type_name == tagged_val_name {
             return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
@@ -479,8 +486,8 @@ mod tests {
         // is unspecified and change is likely.
         // This test makes sure that such change is detected
         // by this test failing, and not things silently breaking.
-        // Specifically, we rely on this behaviour further above
-        // in the file to special case Tagged<Value> parsing.
+        // Specifically, we rely on this behavior further above
+        // in the file for the Tagged<Value> special case parsing.
         let tuple = type_name::<()>();
         let tagged_tuple = type_name::<Tagged<()>>();
         let tagged_value = type_name::<Tagged<Value>>();

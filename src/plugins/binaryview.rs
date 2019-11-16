@@ -16,7 +16,7 @@ impl Plugin for BinaryView {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("binaryview")
             .desc("Autoview of binary data.")
-            .switch("lores"))
+            .switch("lores", "use low resolution output mode"))
     }
 
     fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
@@ -24,8 +24,7 @@ impl Plugin for BinaryView {
             let value_anchor = v.anchor();
             match v.item {
                 Value::Primitive(Primitive::Binary(b)) => {
-                    let source = call_info.source_map.get(&value_anchor);
-                    let _ = view_binary(&b, source, call_info.args.has("lores"));
+                    let _ = view_binary(&b, value_anchor.as_ref(), call_info.args.has("lores"));
                 }
                 _ => {}
             }
@@ -212,7 +211,7 @@ struct RawImageBuffer {
     buffer: Vec<u8>,
 }
 
-fn load_from_png_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
+fn load_from_png_buffer(buffer: &[u8]) -> Option<RawImageBuffer> {
     use image::ImageDecoder;
 
     let decoder = image::png::PNGDecoder::new(buffer);
@@ -232,7 +231,7 @@ fn load_from_png_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
     })
 }
 
-fn load_from_jpg_buffer(buffer: &[u8]) -> Option<(RawImageBuffer)> {
+fn load_from_jpg_buffer(buffer: &[u8]) -> Option<RawImageBuffer> {
     use image::ImageDecoder;
 
     let decoder = image::jpeg::JPEGDecoder::new(buffer);

@@ -58,7 +58,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    tag,
+                    &tag,
                     "value originates from here",
                     v.tag(),
                 )));

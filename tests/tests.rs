@@ -42,18 +42,81 @@ fn external_has_correct_quotes() {
 }
 
 #[test]
-fn add_plugin() {
+fn insert_plugin() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
         r#"
             open cargo_sample.toml
-            | add dev-dependencies.newdep "1"
+            | insert dev-dependencies.newdep "1"
             | get dev-dependencies.newdep
             | echo $it
         "#
     ));
 
     assert_eq!(actual, "1");
+}
+
+#[test]
+fn parse_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | parse "{Name}={Value}"
+            | nth 1
+            | get Value
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "StupidLongName");
+}
+
+#[test]
+fn format_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+        open cargo_sample.toml
+            | get package
+            | format "{name} has license {license}"
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "nu has license ISC");
+}
+
+#[test]
+fn prepend_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | lines
+            | prepend "testme"
+            | nth 0
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "testme");
+}
+
+#[test]
+fn append_plugin() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open fileA.txt
+            | lines
+            | append "testme"
+            | nth 3
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "testme");
 }
 
 #[test]

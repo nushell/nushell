@@ -1,4 +1,3 @@
-use crate::context::{AnchorLocation, SourceMap};
 use crate::data::Value;
 use crate::errors::ShellError;
 use crate::evaluate::Scope;
@@ -11,18 +10,17 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::Deref;
 use std::path::PathBuf;
-use uuid::Uuid;
+use std::sync::atomic::AtomicBool;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub source: Text,
-    pub source_map: SourceMap,
     pub name_tag: Tag,
 }
 
-impl ToDebug for UnevaluatedCallInfo {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for UnevaluatedCallInfo {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         self.args.fmt_debug(f, source)
     }
 }
@@ -37,7 +35,6 @@ impl UnevaluatedCallInfo {
 
         Ok(CallInfo {
             args,
-            source_map: self.source_map,
             name_tag: self.name_tag,
         })
     }
@@ -46,7 +43,6 @@ impl UnevaluatedCallInfo {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CallInfo {
     pub args: registry::EvaluatedArgs,
-    pub source_map: SourceMap,
     pub name_tag: Tag,
 }
 
@@ -62,7 +58,7 @@ impl CallInfo {
             args: T::deserialize(&mut deserializer)?,
             context: RunnablePerItemContext {
                 shell_manager: shell_manager.clone(),
-                name: self.name_tag,
+                name: self.name_tag.clone(),
             },
             callback,
         })
@@ -73,6 +69,7 @@ impl CallInfo {
 #[get = "pub(crate)"]
 pub struct CommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
+    pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
     pub input: InputStream,
@@ -82,6 +79,7 @@ pub struct CommandArgs {
 #[get = "pub(crate)"]
 pub struct RawCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
+    pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
 }
@@ -90,6 +88,7 @@ impl RawCommandArgs {
     pub fn with_input(self, input: Vec<Tagged<Value>>) -> CommandArgs {
         CommandArgs {
             host: self.host,
+            ctrl_c: self.ctrl_c,
             shell_manager: self.shell_manager,
             call_info: self.call_info,
             input: input.into(),
@@ -97,8 +96,14 @@ impl RawCommandArgs {
     }
 }
 
-impl ToDebug for CommandArgs {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl std::fmt::Debug for CommandArgs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.call_info.fmt(f)
+    }
+}
+
+impl FormatDebug for CommandArgs {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         self.call_info.fmt_debug(f, source)
     }
 }
@@ -109,12 +114,14 @@ impl CommandArgs {
         registry: &registry::CommandRegistry,
     ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let host = self.host.clone();
+        let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
         let call_info = self.call_info.evaluate(registry, &Scope::empty())?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
+            ctrl_c,
             shell_manager,
             call_info,
             input,
@@ -127,12 +134,13 @@ impl CommandArgs {
         callback: fn(T, RunnableContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnableArgs<T>, ShellError> {
         let shell_manager = self.shell_manager.clone();
-        let source_map = self.call_info.source_map.clone();
         let host = self.host.clone();
+        let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
+        let call_info = args.call_info.clone();
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
+        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
         Ok(RunnableArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -141,8 +149,8 @@ impl CommandArgs {
                 commands: registry.clone(),
                 shell_manager,
                 name: name_tag,
-                source_map,
                 host,
+                ctrl_c,
             },
             callback,
         })
@@ -155,17 +163,20 @@ impl CommandArgs {
     ) -> Result<RunnableRawArgs<T>, ShellError> {
         let raw_args = RawCommandArgs {
             host: self.host.clone(),
+            ctrl_c: self.ctrl_c.clone(),
             shell_manager: self.shell_manager.clone(),
             call_info: self.call_info.clone(),
         };
 
         let shell_manager = self.shell_manager.clone();
-        let source_map = self.call_info.source_map.clone();
         let host = self.host.clone();
+        let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
+        let call_info = args.call_info.clone();
+
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(args.call_info);
+        let mut deserializer = ConfigDeserializer::from_call_info(call_info.clone());
 
         Ok(RunnableRawArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -174,8 +185,8 @@ impl CommandArgs {
                 commands: registry.clone(),
                 shell_manager,
                 name: name_tag,
-                source_map,
                 host,
+                ctrl_c,
             },
             raw_args,
             callback,
@@ -198,18 +209,12 @@ pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
     pub host: Arc<Mutex<dyn Host>>,
+    pub ctrl_c: Arc<AtomicBool>,
     pub commands: CommandRegistry,
-    pub source_map: SourceMap,
     pub name: Tag,
 }
 
 impl RunnableContext {
-    pub fn expect_command(&self, name: &str) -> Arc<Command> {
-        self.commands
-            .get_command(name)
-            .expect(&format!("Expected command {}", name))
-    }
-
     pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         self.commands.get_command(name)
     }
@@ -270,6 +275,7 @@ impl Deref for EvaluatedWholeStreamCommandArgs {
 impl EvaluatedWholeStreamCommandArgs {
     pub fn new(
         host: Arc<Mutex<dyn Host>>,
+        ctrl_c: Arc<AtomicBool>,
         shell_manager: ShellManager,
         call_info: CallInfo,
         input: impl Into<InputStream>,
@@ -277,6 +283,7 @@ impl EvaluatedWholeStreamCommandArgs {
         EvaluatedWholeStreamCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
+                ctrl_c,
                 shell_manager,
                 call_info,
             },
@@ -285,7 +292,7 @@ impl EvaluatedWholeStreamCommandArgs {
     }
 
     pub fn name_tag(&self) -> Tag {
-        self.args.call_info.name_tag
+        self.args.call_info.name_tag.clone()
     }
 
     pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
@@ -317,12 +324,14 @@ impl Deref for EvaluatedFilterCommandArgs {
 impl EvaluatedFilterCommandArgs {
     pub fn new(
         host: Arc<Mutex<dyn Host>>,
+        ctrl_c: Arc<AtomicBool>,
         shell_manager: ShellManager,
         call_info: CallInfo,
     ) -> EvaluatedFilterCommandArgs {
         EvaluatedFilterCommandArgs {
             args: EvaluatedCommandArgs {
                 host,
+                ctrl_c,
                 shell_manager,
                 call_info,
             },
@@ -334,6 +343,7 @@ impl EvaluatedFilterCommandArgs {
 #[get = "pub(crate)"]
 pub struct EvaluatedCommandArgs {
     pub host: Arc<Mutex<dyn Host>>,
+    pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
 }
@@ -373,10 +383,9 @@ impl EvaluatedCommandArgs {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CommandAction {
     ChangePath(String),
-    AddAnchorLocation(Uuid, AnchorLocation),
     Exit,
     EnterShell(String),
     EnterValueShell(Tagged<Value>),
@@ -386,13 +395,10 @@ pub enum CommandAction {
     LeaveShell,
 }
 
-impl ToDebug for CommandAction {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+impl FormatDebug for CommandAction {
+    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
         match self {
             CommandAction::ChangePath(s) => write!(f, "action:change-path={}", s),
-            CommandAction::AddAnchorLocation(u, source) => {
-                write!(f, "action:add-span-source={}@{:?}", u, source)
-            }
             CommandAction::Exit => write!(f, "action:exit"),
             CommandAction::EnterShell(s) => write!(f, "action:enter-shell={}", s),
             CommandAction::EnterValueShell(t) => {
@@ -408,7 +414,7 @@ impl ToDebug for CommandAction {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ReturnSuccess {
     Value(Tagged<Value>),
     Action(CommandAction),
@@ -416,8 +422,8 @@ pub enum ReturnSuccess {
 
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
 
-impl ToDebug for ReturnValue {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, source: &str) -> fmt::Result {
+impl FormatDebug for ReturnValue {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
         match self {
             Err(err) => write!(f, "{}", err.debug(source)),
             Ok(ReturnSuccess::Value(v)) => write!(f, "{:?}", v.debug()),
@@ -507,6 +513,15 @@ pub enum Command {
     PerItem(Arc<dyn PerItemCommand>),
 }
 
+impl std::fmt::Debug for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Command::WholeStream(command) => write!(f, "WholeStream({})", command.name()),
+            Command::PerItem(command) => write!(f, "PerItem({})", command.name()),
+        }
+    }
+}
+
 impl Command {
     pub fn name(&self) -> &str {
         match self {
@@ -529,20 +544,13 @@ impl Command {
         }
     }
 
-    pub fn run(
-        &self,
-        args: CommandArgs,
-        registry: &registry::CommandRegistry,
-        is_first_command: bool,
-    ) -> OutputStream {
+    pub fn run(&self, args: CommandArgs, registry: &registry::CommandRegistry) -> OutputStream {
         match self {
             Command::WholeStream(command) => match command.run(args, registry) {
                 Ok(stream) => stream,
                 Err(err) => OutputStream::one(Err(err)),
             },
-            Command::PerItem(command) => {
-                self.run_helper(command.clone(), args, registry.clone(), is_first_command)
-            }
+            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
         }
     }
 
@@ -551,48 +559,31 @@ impl Command {
         command: Arc<dyn PerItemCommand>,
         args: CommandArgs,
         registry: CommandRegistry,
-        is_first_command: bool,
     ) -> OutputStream {
         let raw_args = RawCommandArgs {
             host: args.host,
+            ctrl_c: args.ctrl_c,
             shell_manager: args.shell_manager,
             call_info: args.call_info,
         };
 
-        if !is_first_command {
-            let out = args
-                .input
-                .values
-                .map(move |x| {
-                    let call_info = raw_args
-                        .clone()
-                        .call_info
-                        .evaluate(&registry, &Scope::it_value(x.clone()))
-                        .unwrap();
-                    match command.run(&call_info, &registry, &raw_args, x) {
-                        Ok(o) => o,
-                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
-                    }
-                })
-                .flatten();
+        let out = args
+            .input
+            .values
+            .map(move |x| {
+                let call_info = raw_args
+                    .clone()
+                    .call_info
+                    .evaluate(&registry, &Scope::it_value(x.clone()))
+                    .unwrap();
+                match command.run(&call_info, &registry, &raw_args, x) {
+                    Ok(o) => o,
+                    Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
+                }
+            })
+            .flatten();
 
-            out.to_output_stream()
-        } else {
-            let nothing = Value::nothing().tagged(Tag::unknown());
-            let call_info = raw_args
-                .clone()
-                .call_info
-                .evaluate(&registry, &Scope::it_value(nothing.clone()))
-                .unwrap();
-
-            match command
-                .run(&call_info, &registry, &raw_args, nothing)
-                .into()
-            {
-                Ok(o) => o,
-                Err(e) => OutputStream::one(Err(e)),
-            }
-        }
+        out.to_output_stream()
     }
 
     pub fn is_binary(&self) -> bool {
@@ -624,6 +615,7 @@ impl WholeStreamCommand for FnFilterCommand {
     ) -> Result<OutputStream, ShellError> {
         let CommandArgs {
             host,
+            ctrl_c,
             shell_manager,
             call_info,
             input,
@@ -641,8 +633,12 @@ impl WholeStreamCommand for FnFilterCommand {
                 Ok(args) => args,
             };
 
-            let args =
-                EvaluatedFilterCommandArgs::new(host.clone(), shell_manager.clone(), call_info);
+            let args = EvaluatedFilterCommandArgs::new(
+                host.clone(),
+                ctrl_c.clone(),
+                shell_manager.clone(),
+                call_info,
+            );
 
             match func(args) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,

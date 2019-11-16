@@ -32,9 +32,9 @@ Try it in Gitpod.
 
 ## Local
 
-Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).
+Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
-To build Nu, you will need to use the **nightly** version of the compiler.
+To build Nu, you will need to use the **latest stable (1.39 or later)** version of the compiler.
 
 Required dependencies:
 
@@ -46,16 +46,16 @@ Optional dependencies:
 * To use Nu with all possible optional features enabled, you'll also need the following:
   * on Linux (on Debian/Ubuntu): `apt install libxcb-composite0-dev libx11-dev`
 
-To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the nightly compiler via `rustup install nightly`):
+To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs/) and the latest stable compiler via `rustup install stable`):
 
 ```
-cargo +nightly install nu
+cargo install nu
 ```
 
 You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://book.nushell.sh/en/installation#dependencies) for your platform):
 
 ```
-cargo +nightly install nu --all-features
+cargo install nu --all-features
 ```
 
 ## Docker
@@ -173,7 +173,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 ━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
  authors         │ description                │ edition │ license │ name │ version
 ─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
- [table: 3 rows] │ A shell for the GitHub era │ 2018    │ ISC     │ nu   │ 0.3.0
+ [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.5.0
 ━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
 ```
 
@@ -181,7 +181,7 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.3.0
+0.5.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
@@ -200,7 +200,7 @@ Nu supports plugins that offer additional functionality to the shell and follow 
 
 There are a few examples in the `plugins` directory.
 
-Plugins are binaries that are available in your path and follow a "nu_plugin_*" naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
+Plugins are binaries that are available in your path and follow a `nu_plugin_*` naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
 # Goals
 
@@ -248,20 +248,27 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 ## Filters on tables (structured data)
 | command | description |
 | ------------- | ------------- |
-| add column-or-column-path value | Add a new column to the table |
+| append row-data | Append a row to the end of the table |
+| count | Show the total number of rows |
 | edit column-or-column-path value | Edit an existing column to have a new value |
 | embed column | Creates a new table of one column with the given name, and places the current table inside of it |
 | first amount | Show only the first number of rows |
+| format pattern | Format table row data as a string following the given pattern |
 | get column-or-column-path | Open column and get data from the corresponding cells |
+| group-by column | Creates a new table with the data from the table rows grouped by the column given |
+| histogram column ...column-names | Creates a new table with a histogram based on the column name passed in, optionally give the frequency column name
 | inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
+| insert column-or-column-path value | Insert a new column to the table |
 | last amount | Show only the last number of rows |
 | nth row-number | Return only the selected row |
 | pick ...columns | Down-select table to only these columns |
 | pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
+| prepend row-data | Prepend a row to the beginning of the table |
 | reject ...columns | Remove the given columns from the table |
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
 | skip-while condition | Skips rows while the condition matches. |
+| split-by column | Creates a new table with the data from the inner tables splitted by the column given |
 | sort-by ...columns | Sort by the given columns |
 | str (column) | Apply string function. Optionally use the column of a table |
 | sum | Sum a column of values |
@@ -284,12 +291,14 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | from-ini | Parse text as .ini and create table |
 | from-json | Parse text as .json and create table |
 | from-sqlite | Parse binary data as sqlite .db and create table |
+| from-ssv --minimum-spaces <minimum number of spaces to count as a separator> | Parse text as space-separated values and create table |
 | from-toml | Parse text as .toml and create table |
 | from-tsv  | Parse text as .tsv and create table  |
 | from-url | Parse urlencoded string and create a table |
 | from-xml | Parse text as .xml and create a table |
 | from-yaml | Parse text as a .yaml/.yml and create a table |
 | lines | Split single string into rows, one per line |
+| parse pattern | Convert text to a table by matching the given pattern |
 | size | Gather word count statistics on the text |
 | split-column sep ...column-names | Split row contents across multiple columns via the separator, optionally give the columns names |
 | split-row sep | Split row contents over multiple rows via the separator |

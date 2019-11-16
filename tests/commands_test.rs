@@ -4,25 +4,25 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
-fn first_gets_first_rows_by_amount() {
-    Playground::setup("first_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("los.1.txt"),
-            EmptyFile("tres.1.txt"),
-            EmptyFile("amigos.1.txt"),
-            EmptyFile("arepas.1.clu"),
-        ]);
+fn group_by() {
+    Playground::setup("group_by_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
+            "#,
+        )]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                ls
-                | get name
-                | first 2
-                | split-column "."
-                | get Column2
-                | str --to-int
-                | sum
+                open los_tres_caballeros.csv
+                | group-by rusty_at
+                | get "10/11/2013"
+                | count
                 | echo $it
             "#
         ));
@@ -32,87 +32,218 @@ fn first_gets_first_rows_by_amount() {
 }
 
 #[test]
-fn first_requires_an_amount() {
-    Playground::setup("first_test_2", |dirs, _| {
+fn histogram() {
+    Playground::setup("histogram_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_at
+                Andrés,Robalino,Ecuador
+                Jonathan,Turner,Estados Unidos
+                Yehuda,Katz,Estados Unidos
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.csv
+                | histogram rusty_at countries
+                | where rusty_at == "Ecuador"
+                | get countries
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "**************************************************");
+        // 50%
+    })
+}
+
+#[test]
+fn group_by_errors_if_unknown_column_name() {
+    Playground::setup("group_by_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
+            "#,
+        )]);
+
         let actual = nu_error!(
-            cwd: dirs.test(), "ls | first"
-        );
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.csv
+                | group-by ttype
+            "#
+        ));
 
-        assert!(actual.contains("requires amount parameter"));
+        assert!(actual.contains("Unknown column"));
     })
 }
 
 #[test]
-fn get() {
-    Playground::setup("get_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            "sample.toml",
+fn split_by() {
+    Playground::setup("split_by_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
             r#"
-                nu_party_venue = "zion"
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
             "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open sample.toml
-                | get nu_party_venue
+                open los_tres_caballeros.csv
+                | group-by rusty_at
+                | split-by type
+                | get A."10/11/2013"
+                | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "zion");
+        assert_eq!(actual, "2");
     })
 }
 
 #[test]
-fn get_more_than_one_member() {
-    Playground::setup("get_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            "sample.toml",
+fn split_by_errors_if_no_table_given_as_input() {
+    Playground::setup("split_by_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(), h::pipeline(
             r#"
-                [[fortune_tellers]]
-                name = "Andrés N. Robalino"
-                arepas = 1
-                broken_builds = 0
+                ls
+                | get name
+                | split-by type
+            "#
+        ));
 
-                [[fortune_tellers]]
-                name = "Jonathan Turner"
-                arepas = 1
-                broken_builds = 1
+        assert!(actual.contains("Expected table from pipeline"));
+    })
+}
 
-                [[fortune_tellers]]
-                name = "Yehuda Katz"
-                arepas = 1
-                broken_builds = 1
-            "#,
-        )]);
+#[test]
+fn first_gets_first_rows_by_amount() {
+    Playground::setup("first_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
 
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
-                open sample.toml
-                | get fortune_tellers
-                | get arepas broken_builds
-                | sum
+                ls
+                | first 3
+                | count
                 | echo $it
             "#
         ));
 
-        assert_eq!(actual, "5");
+        assert_eq!(actual, "3");
     })
 }
 
 #[test]
-fn get_requires_at_least_one_member() {
+fn first_gets_all_rows_if_amount_higher_than_all_rows() {
+    Playground::setup("first_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | first 99
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "4");
+    })
+}
+
+#[test]
+fn first_gets_first_row_when_no_amount_given() {
     Playground::setup("first_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt")]);
+        sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        let actual = nu_error!(
-            cwd: dirs.test(), "ls | get"
-        );
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | first
+                | count
+                | echo $it
+            "#
+        ));
 
-        assert!(actual.contains("requires member parameter"));
+        assert_eq!(actual, "1");
+    })
+}
+
+#[test]
+fn last_gets_last_rows_by_amount() {
+    Playground::setup("last_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("los.txt"),
+            EmptyFile("tres.txt"),
+            EmptyFile("amigos.txt"),
+            EmptyFile("arepas.clu"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | last 3
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn last_gets_last_row_when_no_amount_given() {
+    Playground::setup("last_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | last
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "1");
     })
 }
 
@@ -161,6 +292,33 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
 
         let actual = h::file_contents(&subject_file);
         assert!(actual.contains("0.2.0"));
+    })
+}
+
+#[test]
+fn it_arg_works_with_many_inputs_to_external_command() {
+    Playground::setup("it_arg_works_with_many_inputs", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            FileWithContent("file1", "text"),
+            FileWithContent("file2", " and more text"),
+        ]);
+
+        let (stdout, stderr) = nu_combined!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                echo hello world
+                | split-row " "
+                | ^echo $it
+            "#
+        ));
+
+        #[cfg(windows)]
+        assert_eq!("hello world", stdout);
+
+        #[cfg(not(windows))]
+        assert_eq!("helloworld", stdout);
+
+        assert!(!stderr.contains("No such file or directory"));
     })
 }
 

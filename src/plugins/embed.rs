@@ -1,6 +1,9 @@
+#[macro_use]
+extern crate indexmap;
+
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tag, Tagged, TaggedDictBuilder, Value,
+    SyntaxShape, Tag, Tagged, TaggedItem, Value,
 };
 
 struct Embed {
@@ -16,20 +19,8 @@ impl Embed {
     }
 
     fn embed(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
-        match value {
-            Tagged { item, tag } => match &self.field {
-                Some(_) => {
-                    self.values.push(Tagged {
-                        item: item,
-                        tag: tag,
-                    });
-                    Ok(())
-                }
-                None => Err(ShellError::string(
-                    "embed needs a field when embedding a value",
-                )),
-            },
-        }
+        self.values.push(value);
+        Ok(())
     }
 }
 
@@ -37,8 +28,7 @@ impl Plugin for Embed {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("embed")
             .desc("Embeds a new field to the table.")
-            .required("Field", SyntaxShape::String)
-            .rest(SyntaxShape::String)
+            .optional("field", SyntaxShape::String, "the name of the new column")
             .filter())
     }
 
@@ -52,12 +42,7 @@ impl Plugin for Embed {
                     self.field = Some(s.clone());
                     self.values = Vec::new();
                 }
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        args[0]
-                    )))
-                }
+                value => return Err(ShellError::type_error("string", value.tagged_type_name())),
             }
         }
 
@@ -70,15 +55,15 @@ impl Plugin for Embed {
     }
 
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
-        let mut root = TaggedDictBuilder::new(Tag::unknown());
-        root.insert_tagged(
-            self.field.as_ref().unwrap(),
-            Tagged {
-                item: Value::Table(self.values.clone()),
-                tag: Tag::unknown(),
-            },
-        );
-        Ok(vec![ReturnSuccess::value(root.into_tagged_value())])
+        let row = Value::row(indexmap! {
+            match &self.field {
+                Some(key) => key.clone(),
+                None => "root".into(),
+            } => Value::table(&self.values).tagged(Tag::unknown()),
+        })
+        .tagged(Tag::unknown());
+
+        Ok(vec![ReturnSuccess::value(row)])
     }
 }
 

@@ -101,12 +101,40 @@ fn converts_from_csv_text_to_structured_table() {
 }
 
 #[test]
+fn converts_from_csv_text_with_separator_to_structured_table() {
+    Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name;last_name;rusty_luck
+                Andrés;Robalino;1
+                Jonathan;Turner;1
+                Yehuda;Katz;1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv --separator ';'
+                | get rusty_luck
+                | str --to-int
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
 fn converts_from_csv_text_skipping_headers_to_structured_table() {
     Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                first_name,last_name,rusty_luck
                 Andrés,Robalino,1
                 Jonathan,Turner,1
                 Yehuda,Katz,1
@@ -332,7 +360,6 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
-                first Name	Last Name	rusty_luck
                 Andrés	Robalino	1
                 Jonathan	Turner	1
                 Yehuda	Katz	1
@@ -352,6 +379,101 @@ fn converts_from_tsv_text_skipping_headers_to_structured_table() {
         ));
 
         assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn converts_from_ssv_text_to_structured_table() {
+    Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv
+                | nth 0
+                | get IP
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "172.30.78.158");
+    })
+}
+
+#[test]
+fn converts_from_ssv_text_to_structured_table_with_separator_specified() {
+    Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --minimum-spaces 3
+                | nth 0
+                | get IP
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "172.30.78.158");
+    })
+}
+
+#[test]
+fn converts_from_ssv_text_treating_first_line_as_data_with_flag() {
+    Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let aligned_columns = nu!(
+        cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless --aligned-columns
+                | first
+                | get Column1
+                | echo $it
+            "#
+        ));
+
+        let separator_based = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless
+                | first
+                | get Column1
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(aligned_columns, separator_based);
+        assert_eq!(separator_based, "docker-registry");
     })
 }
 
@@ -493,6 +615,31 @@ fn can_sum() {
     ));
 
     assert_eq!(actual, "203")
+}
+
+#[test]
+fn can_average_numbers() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open sgml_description.json
+            | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+            | average
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "101.5000000000000")
+}
+
+#[test]
+fn can_average_bytes() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "ls | sort-by name | skip 1 | first 2 | get size | average | echo $it"
+    );
+
+    assert_eq!(actual, "1600.000000000000");
 }
 
 #[test]

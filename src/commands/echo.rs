@@ -12,7 +12,7 @@ impl PerItemCommand for Echo {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("echo").rest(SyntaxShape::Any)
+        Signature::build("echo").rest(SyntaxShape::Any, "the values to echo")
     }
 
     fn usage(&self) -> &str {
@@ -35,38 +35,34 @@ fn run(
     _registry: &CommandRegistry,
     _raw_args: &RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let name = call_info.name_tag;
-
-    let mut output = String::new();
-
-    let mut first = true;
+    let mut output = vec![];
 
     if let Some(ref positional) = call_info.args.positional {
         for i in positional {
             match i.as_string() {
                 Ok(s) => {
-                    if !first {
-                        output.push_str(" ");
-                    } else {
-                        first = false;
+                    output.push(Ok(ReturnSuccess::Value(
+                        Value::string(s).tagged(i.tag.clone()),
+                    )));
+                }
+                _ => match i {
+                    Tagged {
+                        item: Value::Table(table),
+                        ..
+                    } => {
+                        for item in table {
+                            output.push(Ok(ReturnSuccess::Value(item.clone())));
+                        }
                     }
-
-                    output.push_str(&s);
-                }
-                _ => {
-                    return Err(ShellError::labeled_error(
-                        "Expect a string from pipeline",
-                        "not a string-compatible value",
-                        i.tag(),
-                    ));
-                }
+                    _ => {
+                        output.push(Ok(ReturnSuccess::Value(i.clone())));
+                    }
+                },
             }
         }
     }
 
-    let stream = VecDeque::from(vec![Ok(ReturnSuccess::Value(
-        Value::string(output).tagged(name),
-    ))]);
+    let stream = VecDeque::from(output);
 
     Ok(stream.to_output_stream())
 }

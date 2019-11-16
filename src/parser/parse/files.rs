@@ -1,7 +1,7 @@
-use crate::Tag;
+use crate::Span;
 use derive_new::new;
 use language_reporting::{FileName, Location};
-use uuid::Uuid;
+use log::trace;
 
 #[derive(new, Debug, Clone)]
 pub struct Files {
@@ -9,20 +9,20 @@ pub struct Files {
 }
 
 impl language_reporting::ReportingFiles for Files {
-    type Span = Tag;
-    type FileId = Uuid;
+    type Span = Span;
+    type FileId = usize;
 
     fn byte_span(
         &self,
-        file: Self::FileId,
+        _file: Self::FileId,
         from_index: usize,
         to_index: usize,
     ) -> Option<Self::Span> {
-        Some(Tag::from((from_index, to_index, file)))
+        Some(Span::new(from_index, to_index))
     }
 
-    fn file_id(&self, tag: Self::Span) -> Self::FileId {
-        tag.anchor
+    fn file_id(&self, _tag: Self::Span) -> Self::FileId {
+        0
     }
 
     fn file_name(&self, _file: Self::FileId) -> FileName {
@@ -38,8 +38,18 @@ impl language_reporting::ReportingFiles for Files {
         let mut seen_lines = 0;
         let mut seen_bytes = 0;
 
-        for (pos, _) in source.match_indices('\n') {
-            if pos > byte_index {
+        for (pos, slice) in source.match_indices('\n') {
+            trace!(
+                "SEARCH={} SEEN={} POS={} SLICE={:?} LEN={} ALL={:?}",
+                byte_index,
+                seen_bytes,
+                pos,
+                slice,
+                source.len(),
+                source
+            );
+
+            if pos >= byte_index {
                 return Some(language_reporting::Location::new(
                     seen_lines,
                     byte_index - seen_bytes,
@@ -53,18 +63,18 @@ impl language_reporting::ReportingFiles for Files {
         if seen_lines == 0 {
             Some(language_reporting::Location::new(0, byte_index))
         } else {
-            None
+            panic!("byte index {} wasn't valid", byte_index);
         }
     }
 
-    fn line_span(&self, file: Self::FileId, lineno: usize) -> Option<Self::Span> {
+    fn line_span(&self, _file: Self::FileId, lineno: usize) -> Option<Self::Span> {
         let source = &self.snippet;
         let mut seen_lines = 0;
         let mut seen_bytes = 0;
 
         for (pos, _) in source.match_indices('\n') {
             if seen_lines == lineno {
-                return Some(Tag::from((seen_bytes, pos, file)));
+                return Some(Span::new(seen_bytes, pos + 1));
             } else {
                 seen_lines += 1;
                 seen_bytes = pos + 1;
@@ -72,18 +82,20 @@ impl language_reporting::ReportingFiles for Files {
         }
 
         if seen_lines == 0 {
-            Some(Tag::from((0, self.snippet.len() - 1, file)))
+            Some(Span::new(0, self.snippet.len() - 1))
         } else {
             None
         }
     }
 
-    fn source(&self, tag: Self::Span) -> Option<String> {
-        if tag.span.start > tag.span.end {
+    fn source(&self, span: Self::Span) -> Option<String> {
+        trace!("source(tag={:?}) snippet={:?}", span, self.snippet);
+
+        if span.start() > span.end() {
             return None;
-        } else if tag.span.end >= self.snippet.len() {
+        } else if span.end() > self.snippet.len() {
             return None;
         }
-        Some(tag.slice(&self.snippet).to_string())
+        Some(span.slice(&self.snippet).to_string())
     }
 }

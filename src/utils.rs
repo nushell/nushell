@@ -5,6 +5,32 @@ use std::fmt;
 use std::ops::Div;
 use std::path::{Component, Path, PathBuf};
 
+pub fn did_you_mean(
+    obj_source: &Value,
+    field_tried: &Tagged<Value>,
+) -> Option<Vec<(usize, String)>> {
+    let field_tried = field_tried.as_string().unwrap();
+
+    let possibilities = obj_source.data_descriptors();
+
+    let mut possible_matches: Vec<_> = possibilities
+        .into_iter()
+        .map(|x| {
+            let word = x.clone();
+            let distance = natural::distance::levenshtein_distance(&word, &field_tried);
+
+            (distance, word)
+        })
+        .collect();
+
+    if possible_matches.len() > 0 {
+        possible_matches.sort();
+        return Some(possible_matches);
+    }
+
+    None
+}
+
 pub struct AbsoluteFile {
     inner: PathBuf,
 }
@@ -446,6 +472,10 @@ mod tests {
                 },
                 Res {
                     loc: fixtures().join("cargo_sample.toml"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("fileA.txt"),
                     at: 0
                 },
                 Res {

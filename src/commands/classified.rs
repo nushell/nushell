@@ -1,12 +1,13 @@
-use crate::commands::Command;
 use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
+use derive_new::new;
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
+use itertools::Itertools;
 use log::{log_enabled, trace};
+use std::fmt;
 use std::io::{Error, ErrorKind};
-use std::sync::Arc;
 use subprocess::Exec;
 
 /// A simple `Codec` implementation that splits up data into lines.
@@ -53,7 +54,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: VecDeque::new().into(),
+            objects: vec![Value::nothing().tagged(Tag::unknown())].into(),
             stdin: None,
         }
     }
@@ -73,125 +74,212 @@ impl ClassifiedInputStream {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct ClassifiedPipeline {
-    pub(crate) commands: Vec<ClassifiedCommand>,
+    pub(crate) commands: Spanned<Vec<ClassifiedCommand>>,
 }
 
+impl FormatDebug for ClassifiedPipeline {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        f.say_str(
+            "classified pipeline",
+            self.commands.iter().map(|c| c.debug(source)).join(" | "),
+        )
+    }
+}
+
+impl HasSpan for ClassifiedPipeline {
+    fn span(&self) -> Span {
+        self.commands.span
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
     Internal(InternalCommand),
+    #[allow(unused)]
+    Dynamic(Spanned<hir::Call>),
     External(ExternalCommand),
 }
 
+impl FormatDebug for ClassifiedCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        match self {
+            ClassifiedCommand::Expr(expr) => expr.fmt_debug(f, source),
+            ClassifiedCommand::Internal(internal) => internal.fmt_debug(f, source),
+            ClassifiedCommand::Dynamic(dynamic) => dynamic.fmt_debug(f, source),
+            ClassifiedCommand::External(external) => external.fmt_debug(f, source),
+        }
+    }
+}
+
+impl HasSpan for ClassifiedCommand {
+    fn span(&self) -> Span {
+        match self {
+            ClassifiedCommand::Expr(node) => node.span(),
+            ClassifiedCommand::Internal(command) => command.span(),
+            ClassifiedCommand::Dynamic(call) => call.span,
+            ClassifiedCommand::External(command) => command.span(),
+        }
+    }
+}
+
+#[derive(new, Debug, Clone, Eq, PartialEq)]
 pub(crate) struct InternalCommand {
-    pub(crate) command: Arc<Command>,
+    pub(crate) name: String,
     pub(crate) name_tag: Tag,
+    pub(crate) args: Spanned<hir::Call>,
+}
+
+impl HasSpan for InternalCommand {
+    fn span(&self) -> Span {
+        let start = self.name_tag.span;
+
+        start.until(self.args.span)
+    }
+}
+
+impl FormatDebug for InternalCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        f.say("internal", self.args.debug(source))
+    }
+}
+
+#[derive(new, Debug, Eq, PartialEq)]
+pub(crate) struct DynamicCommand {
     pub(crate) args: hir::Call,
 }
 
 impl InternalCommand {
-    pub(crate) async fn run(
+    pub(crate) fn run(
         self,
         context: &mut Context,
         input: ClassifiedInputStream,
         source: Text,
-        is_first_command: bool,
     ) -> Result<InputStream, ShellError> {
         if log_enabled!(log::Level::Trace) {
             trace!(target: "nu::run::internal", "->");
-            trace!(target: "nu::run::internal", "{}", self.command.name());
+            trace!(target: "nu::run::internal", "{}", self.name);
             trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
         let objects: InputStream =
             trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
-        let result = context.run_command(
-            self.command,
-            self.name_tag.clone(),
-            context.source_map.clone(),
-            self.args,
-            &source,
-            objects,
-            is_first_command,
-        );
+        let command = context.expect_command(&self.name);
+
+        let result = {
+            context.run_command(
+                command,
+                self.name_tag.clone(),
+                self.args.item,
+                &source,
+                objects,
+            )
+        };
 
         let result = trace_out_stream!(target: "nu::trace_stream::internal", source: &source, "output" = result);
         let mut result = result.values;
+        let mut context = context.clone();
 
-        let mut stream = VecDeque::new();
-        while let Some(item) = result.next().await {
-            match item? {
-                ReturnSuccess::Action(action) => match action {
-                    CommandAction::ChangePath(path) => {
-                        context.shell_manager.set_path(path);
-                    }
-                    CommandAction::AddAnchorLocation(uuid, anchor_location) => {
-                        context.add_anchor_location(uuid, anchor_location);
-                    }
-                    CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
-                    CommandAction::EnterHelpShell(value) => {
-                        match value {
-                            Tagged {
-                                item: Value::Primitive(Primitive::String(cmd)),
-                                tag,
-                            } => {
-                                context.shell_manager.insert_at_current(Box::new(
-                                    HelpShell::for_command(
-                                        Value::string(cmd).tagged(tag),
-                                        &context.registry(),
-                                    )?,
-                                ));
-                            }
-                            _ => {
-                                context.shell_manager.insert_at_current(Box::new(
-                                    HelpShell::index(&context.registry())?,
-                                ));
+        let stream = async_stream! {
+            while let Some(item) = result.next().await {
+                match item {
+                    Ok(ReturnSuccess::Action(action)) => match action {
+                        CommandAction::ChangePath(path) => {
+                            context.shell_manager.set_path(path);
+                        }
+                        CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
+                        CommandAction::EnterHelpShell(value) => {
+                            match value {
+                                Tagged {
+                                    item: Value::Primitive(Primitive::String(cmd)),
+                                    tag,
+                                } => {
+                                    context.shell_manager.insert_at_current(Box::new(
+                                        HelpShell::for_command(
+                                            Value::string(cmd).tagged(tag),
+                                            &context.registry(),
+                                        ).unwrap(),
+                                    ));
+                                }
+                                _ => {
+                                    context.shell_manager.insert_at_current(Box::new(
+                                        HelpShell::index(&context.registry()).unwrap(),
+                                    ));
+                                }
                             }
                         }
-                    }
-                    CommandAction::EnterValueShell(value) => {
-                        context
-                            .shell_manager
-                            .insert_at_current(Box::new(ValueShell::new(value)));
-                    }
-                    CommandAction::EnterShell(location) => {
-                        context.shell_manager.insert_at_current(Box::new(
-                            FilesystemShell::with_location(location, context.registry().clone())?,
-                        ));
-                    }
-                    CommandAction::PreviousShell => {
-                        context.shell_manager.prev();
-                    }
-                    CommandAction::NextShell => {
-                        context.shell_manager.next();
-                    }
-                    CommandAction::LeaveShell => {
-                        context.shell_manager.remove_at_current();
-                        if context.shell_manager.is_empty() {
-                            std::process::exit(0); // TODO: save history.txt
+                        CommandAction::EnterValueShell(value) => {
+                            context
+                                .shell_manager
+                                .insert_at_current(Box::new(ValueShell::new(value)));
                         }
-                    }
-                },
+                        CommandAction::EnterShell(location) => {
+                            context.shell_manager.insert_at_current(Box::new(
+                                FilesystemShell::with_location(location, context.registry().clone()).unwrap(),
+                            ));
+                        }
+                        CommandAction::PreviousShell => {
+                            context.shell_manager.prev();
+                        }
+                        CommandAction::NextShell => {
+                            context.shell_manager.next();
+                        }
+                        CommandAction::LeaveShell => {
+                            context.shell_manager.remove_at_current();
+                            if context.shell_manager.is_empty() {
+                                std::process::exit(0); // TODO: save history.txt
+                            }
+                        }
+                    },
 
-                ReturnSuccess::Value(v) => {
-                    stream.push_back(v);
+                    Ok(ReturnSuccess::Value(v)) => {
+                        yield Ok(v);
+                    }
+
+                    Err(x) => {
+                        yield Ok(Value::Error(x).tagged_unknown());
+                        break;
+                    }
                 }
             }
-        }
+        };
 
-        Ok(stream.into())
+        Ok(stream.to_input_stream())
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct ExternalCommand {
     pub(crate) name: String,
 
     pub(crate) name_tag: Tag,
-    pub(crate) args: Vec<Tagged<String>>,
+    pub(crate) args: Spanned<Vec<Tagged<String>>>,
 }
 
+impl FormatDebug for ExternalCommand {
+    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+
+        if self.args.item.len() > 0 {
+            write!(f, " ")?;
+            write!(f, "{}", self.args.iter().map(|i| i.debug(source)).join(" "))?;
+        }
+
+        Ok(())
+    }
+}
+
+impl HasSpan for ExternalCommand {
+    fn span(&self) -> Span {
+        self.name_tag.span.until(self.args.span)
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum StreamNext {
     Last,
     External,
@@ -207,58 +295,57 @@ impl ExternalCommand {
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
         let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
-        let name_tag = self.name_tag.clone();
 
         trace!(target: "nu::run::external", "-> {}", self.name);
         trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
         let mut arg_string = format!("{}", self.name);
-        for arg in &self.args {
+        for arg in &self.args.item {
             arg_string.push_str(&arg);
         }
 
+        trace!(target: "nu::run::external", "command = {:?}", self.name);
+
         let mut process;
-
-        process = Exec::cmd(&self.name);
-
         if arg_string.contains("$it") {
-            let mut first = true;
-
-            for i in &inputs {
-                if i.as_string().is_err() {
-                    let mut tag = None;
-                    for arg in &self.args {
-                        if arg.item.contains("$it") {
-                            tag = Some(arg.tag());
+            let input_strings = inputs
+                .iter()
+                .map(|i| {
+                    i.as_string().map_err(|_| {
+                        let arg = self.args.iter().find(|arg| arg.item.contains("$it"));
+                        if let Some(arg) = arg {
+                            ShellError::labeled_error(
+                                "External $it needs string data",
+                                "given row instead of string data",
+                                arg.tag(),
+                            )
+                        } else {
+                            ShellError::labeled_error(
+                                "$it needs string data",
+                                "given something else",
+                                self.name_tag.clone(),
+                            )
                         }
-                    }
-                    if let Some(tag) = tag {
-                        return Err(ShellError::labeled_error(
-                            "External $it needs string data",
-                            "given row instead of string data",
-                            tag,
-                        ));
-                    } else {
-                        return Err(ShellError::string("Error: $it needs string data"));
-                    }
-                }
-                if !first {
-                    process = process.arg("&&");
-                    process = process.arg(&self.name);
-                } else {
-                    first = false;
-                }
+                    })
+                })
+                .collect::<Result<Vec<String>, ShellError>>()?;
 
-                for arg in &self.args {
+            let commands = input_strings.iter().map(|i| {
+                let args = self.args.iter().filter_map(|arg| {
                     if arg.chars().all(|c| c.is_whitespace()) {
-                        continue;
+                        None
+                    } else {
+                        Some(arg.replace("$it", &i))
                     }
+                });
 
-                    process = process.arg(&arg.replace("$it", &i.as_string()?));
-                }
-            }
+                format!("{} {}", self.name, itertools::join(args, " "))
+            });
+
+            process = Exec::shell(itertools::join(commands, " && "))
         } else {
-            for arg in &self.args {
+            process = Exec::cmd(&self.name);
+            for arg in &self.args.item {
                 let arg_chars: Vec<_> = arg.chars().collect();
                 if arg_chars.len() > 1
                     && arg_chars[0] == '"'
@@ -275,6 +362,8 @@ impl ExternalCommand {
 
         process = process.cwd(context.shell_manager.path());
 
+        trace!(target: "nu::run::external", "cwd = {:?}", context.shell_manager.path());
+
         let mut process = match stream_next {
             StreamNext::Last => process,
             StreamNext::External | StreamNext::Internal => {
@@ -282,43 +371,60 @@ impl ExternalCommand {
             }
         };
 
+        trace!(target: "nu::run::external", "set up stdout pipe");
+
         if let Some(stdin) = stdin {
             process = process.stdin(stdin);
         }
 
-        let mut popen = process.popen()?;
+        trace!(target: "nu::run::external", "set up stdin pipe");
+        trace!(target: "nu::run::external", "built process {:?}", process);
 
-        match stream_next {
-            StreamNext::Last => {
-                let _ = popen.detach();
-                loop {
-                    match popen.poll() {
-                        None => {
-                            let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
-                        }
-                        _ => {
-                            let _ = popen.terminate();
-                            break;
+        let popen = process.popen();
+
+        trace!(target: "nu::run::external", "next = {:?}", stream_next);
+
+        let name_tag = self.name_tag.clone();
+        if let Ok(mut popen) = popen {
+            match stream_next {
+                StreamNext::Last => {
+                    let _ = popen.detach();
+                    loop {
+                        match popen.poll() {
+                            None => {
+                                let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
+                            }
+                            _ => {
+                                let _ = popen.terminate();
+                                break;
+                            }
                         }
                     }
+                    Ok(ClassifiedInputStream::new())
                 }
-                Ok(ClassifiedInputStream::new())
+                StreamNext::External => {
+                    let _ = popen.detach();
+                    let stdout = popen.stdout.take().unwrap();
+                    Ok(ClassifiedInputStream::from_stdout(stdout))
+                }
+                StreamNext::Internal => {
+                    let _ = popen.detach();
+                    let stdout = popen.stdout.take().unwrap();
+                    let file = futures::io::AllowStdIo::new(stdout);
+                    let stream = Framed::new(file, LinesCodec {});
+                    let stream =
+                        stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
+                    Ok(ClassifiedInputStream::from_input_stream(
+                        stream.boxed() as BoxStream<'static, Tagged<Value>>
+                    ))
+                }
             }
-            StreamNext::External => {
-                let _ = popen.detach();
-                let stdout = popen.stdout.take().unwrap();
-                Ok(ClassifiedInputStream::from_stdout(stdout))
-            }
-            StreamNext::Internal => {
-                let _ = popen.detach();
-                let stdout = popen.stdout.take().unwrap();
-                let file = futures::io::AllowStdIo::new(stdout);
-                let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| Value::string(line.unwrap()).tagged(name_tag));
-                Ok(ClassifiedInputStream::from_input_stream(
-                    stream.boxed() as BoxStream<'static, Tagged<Value>>
-                ))
-            }
+        } else {
+            return Err(ShellError::labeled_error(
+                "Command not found",
+                "command not found",
+                name_tag,
+            ));
         }
     }
 }

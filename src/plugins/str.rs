@@ -1,17 +1,21 @@
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, Value,
+    did_you_mean, serve_plugin, tag_for_tagged_list, CallInfo, Plugin, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, Signature, SyntaxShape, Tagged, TaggedItem, Value,
 };
+use std::cmp;
 
 #[derive(Debug, Eq, PartialEq)]
 enum Action {
     Downcase,
     Upcase,
     ToInteger,
+    Substring(usize, usize),
 }
 
+pub type ColumnPath = Tagged<Vec<Tagged<Value>>>;
+
 struct Str {
-    field: Option<String>,
+    field: Option<ColumnPath>,
     params: Option<Vec<String>>,
     error: Option<String>,
     action: Option<Action>,
@@ -31,6 +35,21 @@ impl Str {
         let applied = match self.action.as_ref() {
             Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
             Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
+            Some(Action::Substring(s, e)) => {
+                let end: usize = cmp::min(*e, input.len());
+                let start: usize = *s;
+                if start > input.len() - 1 {
+                    Value::string("")
+                } else {
+                    Value::string(
+                        &input
+                            .chars()
+                            .skip(start)
+                            .take(end - start)
+                            .collect::<String>(),
+                    )
+                }
+            }
             Some(Action::ToInteger) => match input.trim() {
                 other => match other.parse::<i64>() {
                     Ok(v) => Value::int(v),
@@ -43,8 +62,8 @@ impl Str {
         Ok(applied)
     }
 
-    fn for_field(&mut self, field: &str) {
-        self.field = Some(String::from(field));
+    fn for_field(&mut self, column_path: ColumnPath) {
+        self.field = Some(column_path);
     }
 
     fn permit(&mut self) -> bool {
@@ -79,43 +98,100 @@ impl Str {
         }
     }
 
+    fn for_substring(&mut self, s: String) {
+        let v: Vec<&str> = s.split(',').collect();
+        let start: usize = match v[0] {
+            "" => 0,
+            _ => v[0].trim().parse().unwrap(),
+        };
+        let end: usize = match v[1] {
+            "" => usize::max_value().clone(),
+            _ => v[1].trim().parse().unwrap(),
+        };
+        if start > end {
+            self.log_error("End must be greater than or equal to Start");
+        } else if self.permit() {
+            self.action = Some(Action::Substring(start, end));
+        } else {
+            self.log_error("can only apply one");
+        }
+    }
+
     pub fn usage() -> &'static str {
-        "Usage: str field [--downcase|--upcase|--to-int]"
+        "Usage: str field [--downcase|--upcase|--to-int|--substring \"start,end\"]"
     }
 }
 
 impl Str {
     fn strutils(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
         match value.item {
-            Value::Primitive(Primitive::String(ref s)) => {
-                Ok(Tagged::from_item(self.apply(&s)?, value.tag()))
-            }
+            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
             Value::Row(_) => match self.field {
                 Some(ref f) => {
-                    let replacement = match value.item.get_data_by_path(value.tag(), f) {
-                        Some(result) => self.strutils(result.map(|x| x.clone()))?,
-                        None => return Ok(Tagged::from_item(Value::nothing(), value.tag)),
+                    let fields = f.clone();
+
+                    let replace_for = value.item.get_data_by_column_path(
+                        value.tag(),
+                        f,
+                        Box::new(move |(obj_source, column_path_tried)| {
+                            match did_you_mean(&obj_source, &column_path_tried) {
+                                Some(suggestions) => {
+                                    return ShellError::labeled_error(
+                                        "Unknown column",
+                                        format!("did you mean '{}'?", suggestions[0].1),
+                                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                                    )
+                                }
+                                None => {
+                                    return ShellError::labeled_error(
+                                        "Unknown column",
+                                        "row does not contain this column",
+                                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                                    )
+                                }
+                            }
+                        }),
+                    );
+
+                    let replacement = match replace_for {
+                        Ok(got) => match got {
+                            Some(result) => self.strutils(result.map(|x| x.clone()))?,
+                            None => {
+                                return Err(ShellError::labeled_error(
+                                    "inc could not find field to replace",
+                                    "column name",
+                                    value.tag(),
+                                ))
+                            }
+                        },
+                        Err(reason) => return Err(reason),
                     };
-                    match value
-                        .item
-                        .replace_data_at_path(value.tag(), f, replacement.item.clone())
-                    {
+
+                    match value.item.replace_data_at_column_path(
+                        value.tag(),
+                        f,
+                        replacement.item.clone(),
+                    ) {
                         Some(v) => return Ok(v),
                         None => {
-                            return Err(ShellError::string("str could not find field to replace"))
+                            return Err(ShellError::type_error(
+                                "column name",
+                                value.tagged_type_name(),
+                            ))
                         }
                     }
                 }
-                None => Err(ShellError::string(format!(
+                None => Err(ShellError::untagged_runtime_error(format!(
                     "{}: {}",
                     "str needs a column when applied to a value in a row",
                     Str::usage()
                 ))),
             },
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            _ => Err(ShellError::labeled_error(
+                "Unrecognized type in stream",
+                value.type_name(),
+                value.tag,
+            )),
         }
     }
 }
@@ -123,11 +199,16 @@ impl Str {
 impl Plugin for Str {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("str")
-            .desc("Apply string function. Optional use the field of a table")
-            .switch("downcase")
-            .switch("upcase")
-            .switch("to-int")
-            .rest(SyntaxShape::Member)
+            .desc("Apply string function. Optional use the column of a table")
+            .switch("downcase", "convert string to lowercase")
+            .switch("upcase", "convert string to uppercase")
+            .switch("to-int", "convert string to integer")
+            .named(
+                "substring",
+                SyntaxShape::String,
+                "convert string to portion of original, requires \"start,end\"",
+            )
+            .rest(SyntaxShape::ColumnPath, "the column(s) to convert")
             .filter())
     }
 
@@ -143,29 +224,49 @@ impl Plugin for Str {
         if args.has("to-int") {
             self.for_to_int();
         }
-
-        if let Some(possible_field) = args.nth(0) {
-            match possible_field {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
-                    ..
-                } => match self.action {
-                    Some(Action::Downcase)
-                    | Some(Action::Upcase)
-                    | Some(Action::ToInteger)
-                    | None => {
-                        self.for_field(&s);
+        if args.has("substring") {
+            if let Some(start_end) = args.get("substring") {
+                match start_end {
+                    Tagged {
+                        item: Value::Primitive(Primitive::String(s)),
+                        ..
+                    } => {
+                        self.for_substring(s.to_string());
                     }
-                },
-                _ => {
-                    return Err(ShellError::string(format!(
-                        "Unrecognized type in params: {:?}",
-                        possible_field
-                    )))
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Unrecognized type in params",
+                            start_end.type_name(),
+                            &start_end.tag,
+                        ))
+                    }
                 }
             }
         }
 
+        if let Some(possible_field) = args.nth(0) {
+            match possible_field {
+                string @ Tagged {
+                    item: Value::Primitive(Primitive::String(_)),
+                    ..
+                } => {
+                    self.for_field(string.as_column_path()?);
+                }
+                table @ Tagged {
+                    item: Value::Table(_),
+                    ..
+                } => {
+                    self.field = Some(table.as_column_path()?);
+                }
+                _ => {
+                    return Err(ShellError::labeled_error(
+                        "Unrecognized type in params",
+                        possible_field.type_name(),
+                        &possible_field.tag,
+                    ))
+                }
+            }
+        }
         for param in args.positional_iter() {
             match param {
                 Tagged {
@@ -178,7 +279,11 @@ impl Plugin for Str {
 
         match &self.error {
             Some(reason) => {
-                return Err(ShellError::string(format!("{}: {}", reason, Str::usage())))
+                return Err(ShellError::untagged_runtime_error(format!(
+                    "{}: {}",
+                    reason,
+                    Str::usage()
+                )))
             }
             None => Ok(vec![]),
         }
@@ -198,13 +303,12 @@ mod tests {
     use super::{Action, Str};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, SourceMap, Tag, Tagged,
-        TaggedDictBuilder, TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, Tag, Tagged, TaggedDictBuilder,
+        TaggedItem, Value,
     };
     use num_bigint::BigInt;
 
     struct CallStub {
-        anchor: uuid::Uuid,
         positionals: Vec<Tagged<Value>>,
         flags: IndexMap<String, Tagged<Value>>,
     }
@@ -212,10 +316,17 @@ mod tests {
     impl CallStub {
         fn new() -> CallStub {
             CallStub {
-                anchor: uuid::Uuid::nil(),
                 positionals: vec![],
                 flags: indexmap::IndexMap::new(),
             }
+        }
+
+        fn with_named_parameter(&mut self, name: &str, value: &str) -> &mut Self {
+            self.flags.insert(
+                name.to_string(),
+                Value::string(value).tagged(Tag::unknown()),
+            );
+            self
         }
 
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
@@ -227,16 +338,20 @@ mod tests {
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
+            let fields: Vec<Tagged<Value>> = name
+                .split(".")
+                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown()))
+                .collect();
+
             self.positionals
-                .push(Value::string(name.to_string()).tagged(Tag::unknown()));
+                .push(Value::Table(fields).tagged(Tag::unknown()));
             self
         }
 
         fn create(&self) -> CallInfo {
             CallInfo {
                 args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
-                source_map: SourceMap::new(),
-                name_tag: Tag::unknown_span(self.anchor),
+                name_tag: Tag::unknown(),
             }
         }
     }
@@ -248,7 +363,7 @@ mod tests {
     }
 
     fn unstructured_sample_record(value: &str) -> Tagged<Value> {
-        Tagged::from_item(Value::string(value), Tag::unknown())
+        Value::string(value).tagged(Tag::unknown())
     }
 
     #[test]
@@ -303,7 +418,16 @@ mod tests {
             )
             .is_ok());
 
-        assert_eq!(plugin.field, Some("package.description".to_string()));
+        assert_eq!(
+            plugin.field.map(|f| f
+                .iter()
+                .map(|f| match &f.item {
+                    Value::Primitive(Primitive::String(s)) => s.clone(),
+                    _ => panic!(""),
+                })
+                .collect()),
+            Some(vec!["package".to_string(), "description".to_string()])
+        )
     }
 
     #[test]
@@ -316,6 +440,7 @@ mod tests {
                     .with_long_flag("upcase")
                     .with_long_flag("downcase")
                     .with_long_flag("to-int")
+                    .with_long_flag("substring")
                     .create(),
             )
             .is_err());
@@ -485,5 +610,142 @@ mod tests {
             }) => assert_eq!(*i, BigInt::from(10)),
             _ => {}
         }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_without_field() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "0,1")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("0")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_exceeding_string_length() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "0,11")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("0123456789")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_returns_blank_if_start_exceeds_length() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "20,30")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_treats_blank_start_as_zero() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", ",5")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("01234")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_treats_blank_end_as_length() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "2,")
+                    .create()
+            )
+            .is_ok());
+
+        let subject = unstructured_sample_record("0123456789");
+        let output = plugin.filter(subject).unwrap();
+
+        match output[0].as_ref().unwrap() {
+            ReturnSuccess::Value(Tagged {
+                item: Value::Primitive(Primitive::String(s)),
+                ..
+            }) => assert_eq!(*s, String::from("23456789")),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn str_plugin_applies_substring_returns_error_if_start_exceeds_end() {
+        let mut plugin = Str::new();
+
+        assert!(plugin
+            .begin_filter(
+                CallStub::new()
+                    .with_named_parameter("substring", "3,1")
+                    .create()
+            )
+            .is_err());
+        assert_eq!(
+            plugin.error,
+            Some("End must be greater than or equal to Start".to_string())
+        );
     }
 }

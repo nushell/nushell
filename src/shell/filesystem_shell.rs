@@ -3,7 +3,6 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
 use crate::data::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
@@ -12,6 +11,8 @@ use crate::utils::FileStructure;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
+use trash as SendToTrash;
 
 pub struct FilesystemShell {
     pub(crate) path: String,
@@ -73,7 +74,7 @@ impl FilesystemShell {
 }
 
 impl Shell for FilesystemShell {
-    fn name(&self, _source_map: &SourceMap) -> String {
+    fn name(&self) -> String {
         "filesystem".to_string()
     }
 
@@ -84,7 +85,7 @@ impl Shell for FilesystemShell {
     fn ls(
         &self,
         pattern: Option<Tagged<PathBuf>>,
-        command_tag: Tag,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
@@ -94,7 +95,8 @@ impl Shell for FilesystemShell {
             _ => {}
         }
 
-        let mut shell_entries = VecDeque::new();
+        let ctrl_c = context.ctrl_c.clone();
+        let name_tag = context.name.clone();
 
         //If it's not a glob, try to display the contents of the entry if it's a directory
         let lossy_path = full_path.to_string_lossy();
@@ -114,24 +116,33 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 e.to_string(),
                                 e.to_string(),
-                                command_tag,
+                                name_tag,
                             ));
                         }
                     }
                     Ok(o) => o,
                 };
-                for entry in entries {
-                    let entry = entry?;
-                    let filepath = entry.path();
-                    let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                        fname
-                    } else {
-                        Path::new(&filepath)
-                    };
-                    let value = dir_entry_dict(filename, &entry.metadata()?, command_tag)?;
-                    shell_entries.push_back(ReturnSuccess::value(value))
-                }
-                return Ok(shell_entries.to_output_stream());
+                let stream = async_stream! {
+                    for entry in entries {
+                        if ctrl_c.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        if let Ok(entry) = entry {
+                            let filepath = entry.path();
+                            if let Ok(metadata) = std::fs::symlink_metadata(&filepath) {
+                                let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                                    fname
+                                } else {
+                                    Path::new(&filepath)
+                                };
+
+                                let value = dir_entry_dict(filename, &metadata, &name_tag)?;
+                                yield ReturnSuccess::value(value);
+                            }
+                        }
+                    }
+                };
+                return Ok(stream.to_output_stream());
             }
         }
 
@@ -145,26 +156,33 @@ impl Shell for FilesystemShell {
                         source.tag(),
                     ));
                 } else {
-                    return Err(ShellError::string("Invalid pattern."));
+                    return Err(ShellError::untagged_runtime_error("Invalid pattern."));
                 }
             }
         };
 
         // Enumerate the entries from the glob and add each
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
-                    fname
-                } else {
-                    Path::new(&entry)
-                };
-                let metadata = std::fs::metadata(&entry)?;
-                let value = dir_entry_dict(filename, &metadata, command_tag)?;
-                shell_entries.push_back(ReturnSuccess::value(value))
-            }
-        }
+        let stream = async_stream! {
+            for entry in entries {
+                if ctrl_c.load(Ordering::SeqCst) {
+                    break;
+                }
+                if let Ok(entry) = entry {
+                    if let Ok(metadata) = std::fs::symlink_metadata(&entry) {
+                        let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
+                            fname
+                        } else {
+                            Path::new(&entry)
+                        };
 
-        Ok(shell_entries.to_output_stream())
+                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag) {
+                            yield ReturnSuccess::value(value);
+                        }
+                    }
+                }
+            }
+        };
+        Ok(stream.to_output_stream())
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
@@ -175,7 +193,7 @@ impl Shell for FilesystemShell {
                     return Err(ShellError::labeled_error(
                         "Can not change to home directory",
                         "can not go to home",
-                        args.call_info.name_tag,
+                        &args.call_info.name_tag,
                     ))
                 }
             },
@@ -605,26 +623,71 @@ impl Shell for FilesystemShell {
                 }
 
                 if entry.is_file() {
-                    match std::fs::rename(&entry, &destination) {
-                        Err(e) => {
-                            return Err(ShellError::labeled_error(
-                                format!(
-                                    "Rename {:?} to {:?} aborted. {:}",
-                                    entry_file_name,
-                                    destination_file_name,
-                                    e.to_string(),
-                                ),
-                                format!(
-                                    "Rename {:?} to {:?} aborted. {:}",
-                                    entry_file_name,
-                                    destination_file_name,
-                                    e.to_string(),
-                                ),
-                                name_tag,
-                            ));
-                        }
-                        Ok(o) => o,
-                    };
+                    #[cfg(not(windows))]
+                    {
+                        match std::fs::rename(&entry, &destination) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    name_tag,
+                                ));
+                            }
+                            Ok(o) => o,
+                        };
+                    }
+                    #[cfg(windows)]
+                    {
+                        match std::fs::copy(&entry, &destination) {
+                            Err(e) => {
+                                return Err(ShellError::labeled_error(
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    format!(
+                                        "Rename {:?} to {:?} aborted. {:}",
+                                        entry_file_name,
+                                        destination_file_name,
+                                        e.to_string(),
+                                    ),
+                                    name_tag,
+                                ));
+                            }
+                            Ok(_) => match std::fs::remove_file(&entry) {
+                                Err(e) => {
+                                    return Err(ShellError::labeled_error(
+                                        format!(
+                                            "Rename {:?} to {:?} aborted. {:}",
+                                            entry_file_name,
+                                            destination_file_name,
+                                            e.to_string(),
+                                        ),
+                                        format!(
+                                            "Rename {:?} to {:?} aborted. {:}",
+                                            entry_file_name,
+                                            destination_file_name,
+                                            e.to_string(),
+                                        ),
+                                        name_tag,
+                                    ));
+                                }
+                                Ok(o) => o,
+                            },
+                        };
+                    }
                 }
 
                 if entry.is_dir() {
@@ -727,26 +790,45 @@ impl Shell for FilesystemShell {
                             }
 
                             if src.is_file() {
-                                match std::fs::rename(src, dst) {
+                                match std::fs::copy(&src, &dst) {
                                     Err(e) => {
                                         return Err(ShellError::labeled_error(
                                             format!(
                                                 "Rename {:?} to {:?} aborted. {:}",
-                                                entry_file_name,
+                                                src,
                                                 destination_file_name,
                                                 e.to_string(),
                                             ),
                                             format!(
                                                 "Rename {:?} to {:?} aborted. {:}",
-                                                entry_file_name,
+                                                src,
                                                 destination_file_name,
                                                 e.to_string(),
                                             ),
                                             name_tag,
                                         ));
                                     }
-                                    Ok(o) => o,
-                                }
+                                    Ok(_) => match std::fs::remove_file(&src) {
+                                        Err(e) => {
+                                            return Err(ShellError::labeled_error(
+                                                format!(
+                                                    "Rename {:?} to {:?} aborted. {:}",
+                                                    entry_file_name,
+                                                    destination_file_name,
+                                                    e.to_string(),
+                                                ),
+                                                format!(
+                                                    "Rename {:?} to {:?} aborted. {:}",
+                                                    entry_file_name,
+                                                    destination_file_name,
+                                                    e.to_string(),
+                                                ),
+                                                name_tag,
+                                            ));
+                                        }
+                                        Ok(o) => o,
+                                    },
+                                };
                             }
                         }
 
@@ -806,26 +888,71 @@ impl Shell for FilesystemShell {
                         to.push(entry_file_name);
 
                         if entry.is_file() {
-                            match std::fs::rename(&entry, &to) {
-                                Err(e) => {
-                                    return Err(ShellError::labeled_error(
-                                        format!(
-                                            "Rename {:?} to {:?} aborted. {:}",
-                                            entry_file_name,
-                                            destination_file_name,
-                                            e.to_string(),
-                                        ),
-                                        format!(
-                                            "Rename {:?} to {:?} aborted. {:}",
-                                            entry_file_name,
-                                            destination_file_name,
-                                            e.to_string(),
-                                        ),
-                                        name_tag,
-                                    ));
-                                }
-                                Ok(o) => o,
-                            };
+                            #[cfg(not(windows))]
+                            {
+                                match std::fs::rename(&entry, &to) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            format!(
+                                                "Rename {:?} to {:?} aborted. {:}",
+                                                entry_file_name,
+                                                destination_file_name,
+                                                e.to_string(),
+                                            ),
+                                            format!(
+                                                "Rename {:?} to {:?} aborted. {:}",
+                                                entry_file_name,
+                                                destination_file_name,
+                                                e.to_string(),
+                                            ),
+                                            name_tag,
+                                        ));
+                                    }
+                                    Ok(o) => o,
+                                };
+                            }
+                            #[cfg(windows)]
+                            {
+                                match std::fs::copy(&entry, &to) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            format!(
+                                                "Rename {:?} to {:?} aborted. {:}",
+                                                entry_file_name,
+                                                destination_file_name,
+                                                e.to_string(),
+                                            ),
+                                            format!(
+                                                "Rename {:?} to {:?} aborted. {:}",
+                                                entry_file_name,
+                                                destination_file_name,
+                                                e.to_string(),
+                                            ),
+                                            name_tag,
+                                        ));
+                                    }
+                                    Ok(_) => match std::fs::remove_file(&entry) {
+                                        Err(e) => {
+                                            return Err(ShellError::labeled_error(
+                                                format!(
+                                                    "Remove {:?} to {:?} aborted. {:}",
+                                                    entry_file_name,
+                                                    destination_file_name,
+                                                    e.to_string(),
+                                                ),
+                                                format!(
+                                                    "Remove {:?} to {:?} aborted. {:}",
+                                                    entry_file_name,
+                                                    destination_file_name,
+                                                    e.to_string(),
+                                                ),
+                                                name_tag,
+                                            ));
+                                        }
+                                        Ok(o) => o,
+                                    },
+                                };
+                            }
                         }
                     }
                 }
@@ -843,7 +970,11 @@ impl Shell for FilesystemShell {
 
     fn rm(
         &self,
-        RemoveArgs { target, recursive }: RemoveArgs,
+        RemoveArgs {
+            target,
+            recursive,
+            trash,
+        }: RemoveArgs,
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
@@ -926,7 +1057,9 @@ impl Shell for FilesystemShell {
                         ));
                     }
 
-                    if path.is_dir() {
+                    if trash.item {
+                        SendToTrash::remove(path).unwrap();
+                    } else if path.is_dir() {
                         std::fs::remove_dir_all(&path)?;
                     } else if path.is_file() {
                         std::fs::remove_file(&path)?;
@@ -957,7 +1090,7 @@ impl Shell for FilesystemShell {
                 return Err(ShellError::labeled_error(
                     "unable to show current directory",
                     "pwd command failed",
-                    args.call_info.name_tag,
+                    &args.call_info.name_tag,
                 ));
             }
         };
@@ -965,7 +1098,7 @@ impl Shell for FilesystemShell {
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::value(
             Value::Primitive(Primitive::String(p.to_string_lossy().to_string()))
-                .tagged(args.call_info.name_tag),
+                .tagged(&args.call_info.name_tag),
         ));
 
         Ok(stream.into())

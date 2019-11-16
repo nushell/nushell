@@ -28,7 +28,6 @@ impl WholeStreamCommand for Tags {
 }
 
 fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let source_map = args.call_info.source_map.clone();
     Ok(args
         .input
         .values
@@ -38,11 +37,11 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
                 let anchor = v.anchor();
                 let span = v.tag().span;
                 let mut dict = TaggedDictBuilder::new(v.tag());
-                dict.insert("start", Value::int(span.start as i64));
-                dict.insert("end", Value::int(span.end as i64));
+                dict.insert("start", Value::int(span.start() as i64));
+                dict.insert("end", Value::int(span.end() as i64));
                 tags.insert_tagged("span", dict.into_tagged_value());
 
-                match source_map.get(&anchor) {
+                match anchor {
                     Some(AnchorLocation::File(source)) => {
                         tags.insert("anchor", Value::string(source));
                     }

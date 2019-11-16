@@ -54,7 +54,7 @@ impl ExtractType for i64 {
             &Tagged {
                 item: Value::Primitive(Primitive::Int(int)),
                 ..
-            } => Ok(int.tagged(value.tag).coerce_into("converting to i64")?),
+            } => Ok(int.tagged(&value.tag).coerce_into("converting to i64")?),
             other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
         }
     }
@@ -68,7 +68,7 @@ impl ExtractType for u64 {
             &Tagged {
                 item: Value::Primitive(Primitive::Int(int)),
                 ..
-            } => Ok(int.tagged(value.tag).coerce_into("converting to u64")?),
+            } => Ok(int.tagged(&value.tag).coerce_into("converting to u64")?),
             other => Err(ShellError::type_error("Integer", other.tagged_type_name())),
         }
     }

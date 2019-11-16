@@ -3,20 +3,19 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::context::SourceMap;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::stream::OutputStream;
 use std::path::PathBuf;
 
 pub trait Shell: std::fmt::Debug {
-    fn name(&self, source_map: &SourceMap) -> String;
+    fn name(&self) -> String;
     fn homedir(&self) -> Option<PathBuf>;
 
     fn ls(
         &self,
         pattern: Option<Tagged<PathBuf>>,
-        command_tag: Tag,
+        context: &RunnableContext,
     ) -> Result<OutputStream, ShellError>;
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError>;
     fn cp(&self, args: CopyArgs, name: Tag, path: &str) -> Result<OutputStream, ShellError>;

@@ -89,6 +89,17 @@ impl Dictionary {
         }
     }
 
+    pub(crate) fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Tagged<Value>> {
+        match self
+            .entries
+            .iter_mut()
+            .find(|(desc_name, _)| *desc_name == name)
+        {
+            Some((_, v)) => Some(v),
+            None => None,
+        }
+    }
+
     pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut debug = f.debug_struct("Dictionary");
 
@@ -103,7 +114,7 @@ impl Dictionary {
 #[derive(Debug)]
 pub struct TaggedListBuilder {
     tag: Tag,
-    list: Vec<Tagged<Value>>,
+    pub list: Vec<Tagged<Value>>,
 }
 
 impl TaggedListBuilder {
@@ -115,7 +126,7 @@ impl TaggedListBuilder {
     }
 
     pub fn push(&mut self, value: impl Into<Value>) {
-        self.list.push(value.into().tagged(self.tag));
+        self.list.push(value.into().tagged(&self.tag));
     }
 
     pub fn insert_tagged(&mut self, value: impl Into<Tagged<Value>>) {
@@ -155,7 +166,7 @@ impl TaggedDictBuilder {
     }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<Value>) {
-        self.dict.insert(key.into(), value.into().tagged(self.tag));
+        self.dict.insert(key.into(), value.into().tagged(&self.tag));
     }
 
     pub fn insert_tagged(&mut self, key: impl Into<String>, value: impl Into<Tagged<Value>>) {

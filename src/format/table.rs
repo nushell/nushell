@@ -23,18 +23,27 @@ enum TableMode {
 
 impl TableView {
     fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
-        let mut ret = vec![];
+        let mut ret: Vec<String> = vec![];
+        let value_column = "<value>".to_string();
         for value in values {
-            for desc in value.data_descriptors() {
-                if !ret.contains(&desc) {
-                    ret.push(desc);
+            let descs = value.data_descriptors();
+
+            if descs.len() == 0 {
+                if !ret.contains(&value_column) {
+                    ret.push("<value>".to_string());
+                }
+            } else {
+                for desc in value.data_descriptors() {
+                    if !ret.contains(&desc) {
+                        ret.push(desc);
+                    }
                 }
             }
         }
         ret
     }
 
-    pub fn from_list(values: &[Tagged<Value>]) -> Option<TableView> {
+    pub fn from_list(values: &[Tagged<Value>], starting_idx: usize) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }
@@ -42,33 +51,69 @@ impl TableView {
         let mut headers = TableView::merge_descriptors(values);
 
         if headers.len() == 0 {
-            headers.push("value".to_string());
+            headers.push("<value>".to_string());
         }
 
         let mut entries = vec![];
 
         for (idx, value) in values.iter().enumerate() {
-            let mut row: Vec<(String, &'static str)> = match value {
-                Tagged {
-                    item: Value::Row(..),
-                    ..
-                } => headers
-                    .iter()
-                    .enumerate()
-                    .map(|(i, d)| {
-                        let data = value.get_data(d);
-                        return (
-                            data.borrow().format_leaf(Some(&headers[i])),
-                            data.borrow().style_leaf(),
-                        );
-                    })
-                    .collect(),
-                x => vec![(x.format_leaf(None), x.style_leaf())],
-            };
+            // let mut row: Vec<(String, &'static str)> = match value {
+            //     Tagged {
+            //         item: Value::Row(..),
+            //         ..
+            //     } => headers
+            //         .iter()
+            //         .enumerate()
+            //         .map(|(i, d)| {
+            //             let data = value.get_data(d);
+            //             return (
+            //                 data.borrow().format_leaf(Some(&headers[i])),
+            //                 data.borrow().style_leaf(),
+            //             );
+            //         })
+            //         .collect(),
+            //     x => vec![(x.format_leaf(None), x.style_leaf())],
+            // };
+
+            let mut row: Vec<(String, &'static str)> = headers
+                .iter()
+                .enumerate()
+                .map(|(i, d)| {
+                    if d == "<value>" {
+                        match value {
+                            Tagged {
+                                item: Value::Row(..),
+                                ..
+                            } => (
+                                Value::nothing().format_leaf(None),
+                                Value::nothing().style_leaf(),
+                            ),
+                            _ => (value.format_leaf(None), value.style_leaf()),
+                        }
+                    } else {
+                        match value {
+                            Tagged {
+                                item: Value::Row(..),
+                                ..
+                            } => {
+                                let data = value.get_data(d);
+                                (
+                                    data.borrow().format_leaf(Some(&headers[i])),
+                                    data.borrow().style_leaf(),
+                                )
+                            }
+                            _ => (
+                                Value::nothing().format_leaf(None),
+                                Value::nothing().style_leaf(),
+                            ),
+                        }
+                    }
+                })
+                .collect();
 
             if values.len() > 1 {
                 // Indices are black, bold, right-aligned:
-                row.insert(0, (format!("{}", idx.to_string()), "Fdbr"));
+                row.insert(0, (format!("{}", (starting_idx + idx).to_string()), "Fdbr"));
             }
 
             entries.push(row);

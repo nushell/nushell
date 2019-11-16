@@ -37,7 +37,7 @@ fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                tag,
+                &tag,
                 "value originates from here",
                 v.tag(),
             )),

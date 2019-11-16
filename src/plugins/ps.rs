@@ -20,7 +20,7 @@ impl Ps {
 
 async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio)> {
     let usage_1 = process.cpu_usage().await?;
-    futures_timer::Delay::new(Duration::from_millis(100)).await?;
+    futures_timer::Delay::new(Duration::from_millis(100)).await;
     let usage_2 = process.cpu_usage().await?;
 
     Ok((process, usage_2 - usage_1))
@@ -40,7 +40,7 @@ async fn ps(tag: Tag) -> Vec<Tagged<Value>> {
     let mut output = vec![];
     while let Some(res) = processes.next().await {
         if let Ok((process, usage)) = res {
-            let mut dict = TaggedDictBuilder::new(tag);
+            let mut dict = TaggedDictBuilder::new(&tag);
             dict.insert("pid", Value::int(process.pid()));
             if let Ok(name) = process.name().await {
                 dict.insert("name", Value::string(name));

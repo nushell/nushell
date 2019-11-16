@@ -12,7 +12,11 @@ impl PerItemCommand for Where {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("where").required("condition", SyntaxShape::Block)
+        Signature::build("where").required(
+            "condition",
+            SyntaxShape::Block,
+            "the condition that must match",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -49,7 +53,7 @@ impl PerItemCommand for Where {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",
                     "where needs a condition",
-                    *tag,
+                    tag,
                 ))
             }
         };

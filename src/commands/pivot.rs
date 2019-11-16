@@ -21,9 +21,12 @@ impl WholeStreamCommand for Pivot {
 
     fn signature(&self) -> Signature {
         Signature::build("pivot")
-            .switch("header-row")
-            .switch("ignore-titles")
-            .rest(SyntaxShape::String)
+            .switch("header-row", "treat the first row as column names")
+            .switch("ignore-titles", "don't pivot the column names into values")
+            .rest(
+                SyntaxShape::String,
+                "the names to give columns once pivoted",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -104,7 +107,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
 
         for desc in descs {
             let mut column_num: usize = 0;
-            let mut dict = TaggedDictBuilder::new(context.name);
+            let mut dict = TaggedDictBuilder::new(&context.name);
 
             if !args.ignore_titles && !args.header_row {
                 dict.insert(headers[column_num].clone(), Value::string(desc.clone()));

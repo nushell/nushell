@@ -1,7 +1,6 @@
 use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
 use crate::commands::UnevaluatedCallInfo;
-use crate::data::meta::Span;
 use crate::errors::ShellError;
 use crate::parser::registry;
 use crate::prelude::*;
@@ -15,7 +14,11 @@ impl PerItemCommand for Enter {
     }
 
     fn signature(&self) -> registry::Signature {
-        Signature::build("enter").required("location", SyntaxShape::Block)
+        Signature::build("enter").required(
+            "location",
+            SyntaxShape::Path,
+            "the location to create a new shell from",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -33,14 +36,16 @@ impl PerItemCommand for Enter {
         let raw_args = raw_args.clone();
         match call_info.args.expect_nth(0)? {
             Tagged {
-                item: Value::Primitive(Primitive::String(location)),
+                item: Value::Primitive(Primitive::Path(location)),
+                tag,
                 ..
             } => {
-                let location = location.to_string();
-                let location_clone = location.to_string();
+                let location_string = location.display().to_string();
+                let location_clone = location_string.clone();
+                let tag_clone = tag.clone();
 
                 if location.starts_with("help") {
-                    let spec = location.split(":").collect::<Vec<&str>>();
+                    let spec = location_string.split(":").collect::<Vec<&str>>();
 
                     let (_, command) = (spec[0], spec[1]);
 
@@ -67,26 +72,16 @@ impl PerItemCommand for Enter {
 
                         let full_path = std::path::PathBuf::from(cwd);
 
-                        let (file_extension, contents, contents_tag, anchor_location) =
+                        let (file_extension, contents, contents_tag) =
                             crate::commands::open::fetch(
                                 &full_path,
                                 &location_clone,
-                                Span::unknown(),
-                            )
-                            .await.unwrap();
-
-                        if contents_tag.anchor != uuid::Uuid::nil() {
-                            // If we have loaded something, track its source
-                            yield ReturnSuccess::action(CommandAction::AddAnchorLocation(
-                                contents_tag.anchor,
-                                anchor_location,
-                            ));
-                        }
-
+                                tag_clone.span,
+                            ).await?;
 
                         match contents {
                             Value::Primitive(Primitive::String(_)) => {
-                                let tagged_contents = contents.tagged(contents_tag);
+                                let tagged_contents = contents.tagged(&contents_tag);
 
                                 if let Some(extension) = file_extension {
                                     let command_name = format!("from-{}", extension);
@@ -95,6 +90,7 @@ impl PerItemCommand for Enter {
                                     {
                                         let new_args = RawCommandArgs {
                                             host: raw_args.host,
+                                            ctrl_c: raw_args.ctrl_c,
                                             shell_manager: raw_args.shell_manager,
                                             call_info: UnevaluatedCallInfo {
                                                 args: crate::parser::hir::Call {
@@ -103,14 +99,12 @@ impl PerItemCommand for Enter {
                                                     named: None,
                                                 },
                                                 source: raw_args.call_info.source,
-                                                source_map: raw_args.call_info.source_map,
                                                 name_tag: raw_args.call_info.name_tag,
                                             },
                                         };
                                         let mut result = converter.run(
                                             new_args.with_input(vec![tagged_contents]),
                                             &registry,
-                                            false
                                         );
                                         let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
                                             result.drain_vec().await;
@@ -123,7 +117,7 @@ impl PerItemCommand for Enter {
                                                     yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
                                                         Tagged {
                                                             item,
-                                                            tag: contents_tag,
+                                                            tag: contents_tag.clone(),
                                                         })));
                                                 }
                                                 x => yield x,

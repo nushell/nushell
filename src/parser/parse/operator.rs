@@ -11,10 +11,11 @@ pub enum Operator {
     GreaterThan,
     LessThanOrEqual,
     GreaterThanOrEqual,
+    Dot,
 }
 
-impl ToDebug for Operator {
-    fn fmt_debug(&self, f: &mut fmt::Formatter, _source: &str) -> fmt::Result {
+impl FormatDebug for Operator {
+    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
@@ -32,6 +33,7 @@ impl Operator {
             Operator::GreaterThan => ">",
             Operator::LessThanOrEqual => "<=",
             Operator::GreaterThanOrEqual => ">=",
+            Operator::Dot => ".",
         }
     }
 }
@@ -52,6 +54,7 @@ impl FromStr for Operator {
             ">" => Ok(Operator::GreaterThan),
             "<=" => Ok(Operator::LessThanOrEqual),
             ">=" => Ok(Operator::GreaterThanOrEqual),
+            "." => Ok(Operator::Dot),
             _ => Err(()),
         }
     }

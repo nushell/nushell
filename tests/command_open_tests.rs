@@ -212,7 +212,7 @@ fn open_can_parse_ini() {
 fn open_can_parse_utf16_ini() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open utf16.ini | get .ShellClassInfo | get IconIndex | echo $it"
+        "open utf16.ini | get '.ShellClassInfo' | get IconIndex | echo $it"
     );
 
     assert_eq!(actual, "-236")
@@ -222,8 +222,9 @@ fn open_can_parse_utf16_ini() {
 fn errors_if_file_not_found() {
     let actual = nu_error!(
         cwd: "tests/fixtures/formats",
-        "open i_dont_exist.txt | echo $it"
+        "open i_dont_exist.txt"
     );
 
     assert!(actual.contains("File could not be opened"));
+    assert!(actual.contains("file not found"));
 }

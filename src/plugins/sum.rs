@@ -21,20 +21,22 @@ impl Sum {
                         tag,
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Value::int(i + j).tagged(*tag));
+                        self.total = Some(Value::int(i + j).tagged(tag));
                         Ok(())
                     }
                     None => {
                         self.total = Some(value.clone());
                         Ok(())
                     }
-                    _ => Err(ShellError::string(format!(
-                        "Could not sum non-integer or unrelated types"
-                    ))),
+                    _ => Err(ShellError::labeled_error(
+                        "Could not sum non-integer or unrelated types",
+                        "source",
+                        value.tag,
+                    )),
                 }
             }
             Value::Primitive(Primitive::Bytes(b)) => {
-                match self.total {
+                match &self.total {
                     Some(Tagged {
                         item: Value::Primitive(Primitive::Bytes(j)),
                         tag,
@@ -47,15 +49,18 @@ impl Sum {
                         self.total = Some(value);
                         Ok(())
                     }
-                    _ => Err(ShellError::string(format!(
-                        "Could not sum non-integer or unrelated types"
-                    ))),
+                    _ => Err(ShellError::labeled_error(
+                        "Could not sum non-integer or unrelated types",
+                        "source",
+                        value.tag,
+                    )),
                 }
             }
-            x => Err(ShellError::string(format!(
-                "Unrecognized type in stream: {:?}",
-                x
-            ))),
+            x => Err(ShellError::labeled_error(
+                format!("Unrecognized type in stream: {:?}", x),
+                "source",
+                value.tag,
+            )),
         }
     }
 }

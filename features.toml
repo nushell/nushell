@@ -1,0 +1,21 @@
+[hintsv1]
+
+description = "Adding hints based upon error states in the syntax highlighter"
+enabled = false
+
+[coloring_in_tokens]
+
+description = "Move coloring into the TokensIterator so they can be atomic with the rest of the iterator"
+reason = """
+This is laying the groundwork for merging coloring and parsing. It also makes token_nodes.atomic() naturally
+work with coloring, which is pretty useful on its own.
+"""
+enabled = false
+
+[data_processing_primitives]
+
+description = "Groundwork so tables can be data processed"
+reason = """
+These will allow take tables and be able to transform, process, and explore.
+"""
+enabled = false

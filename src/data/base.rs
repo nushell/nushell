@@ -8,6 +8,8 @@ use crate::Text;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
+use indexmap::IndexMap;
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
@@ -212,10 +214,18 @@ impl Block {
         let scope = Scope::new(value.clone());
 
         if self.expressions.len() == 0 {
-            return Ok(Value::nothing().tagged(self.tag));
+            return Ok(Value::nothing().tagged(&self.tag));
         }
 
         let mut last = None;
+
+        trace!(
+            "EXPRS = {:?}",
+            self.expressions
+                .iter()
+                .map(|e| format!("{}", e))
+                .collect::<Vec<_>>()
+        );
 
         for expr in self.expressions.iter() {
             last = Some(evaluate_baseline_expr(
@@ -235,6 +245,9 @@ pub enum Value {
     Primitive(Primitive),
     Row(crate::data::Dictionary),
     Table(Vec<Tagged<Value>>),
+
+    // Errors are a type of value too
+    Error(ShellError),
 
     Block(Block),
 }
@@ -284,14 +297,15 @@ impl fmt::Debug for ValueDebug<'_> {
             Value::Row(o) => o.debug(f),
             Value::Table(l) => debug_list(l).fmt(f),
             Value::Block(_) => write!(f, "[[block]]"),
+            Value::Error(_) => write!(f, "[[error]]"),
         }
     }
 }
 
 impl Tagged<Value> {
-    pub(crate) fn tagged_type_name(&self) -> Tagged<String> {
+    pub fn tagged_type_name(&self) -> Tagged<String> {
         let name = self.type_name();
-        Tagged::from_item(name, self.tag())
+        name.tagged(self.tag())
     }
 }
 
@@ -303,7 +317,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Block {
             Value::Block(block) => Ok(block.clone()),
             v => Err(ShellError::type_error(
                 "Block",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -315,11 +329,11 @@ impl std::convert::TryFrom<&Tagged<Value>> for i64 {
     fn try_from(value: &Tagged<Value>) -> Result<i64, ShellError> {
         match value.item() {
             Value::Primitive(Primitive::Int(int)) => {
-                int.tagged(value.tag).coerce_into("converting to i64")
+                int.tagged(&value.tag).coerce_into("converting to i64")
             }
             v => Err(ShellError::type_error(
                 "Integer",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -333,7 +347,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for String {
             Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
             v => Err(ShellError::type_error(
                 "String",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -347,7 +361,7 @@ impl std::convert::TryFrom<&Tagged<Value>> for Vec<u8> {
             Value::Primitive(Primitive::Binary(b)) => Ok(b.clone()),
             v => Err(ShellError::type_error(
                 "Binary",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -361,7 +375,7 @@ impl<'a> std::convert::TryFrom<&'a Tagged<Value>> for &'a crate::data::Dictionar
             Value::Row(d) => Ok(d),
             v => Err(ShellError::type_error(
                 "Dictionary",
-                value.copy_tag(v.type_name()),
+                v.type_name().tagged(value.tag()),
             )),
         }
     }
@@ -383,7 +397,7 @@ impl std::convert::TryFrom<Option<&Tagged<Value>>> for Switch {
                 Value::Primitive(Primitive::Boolean(true)) => Ok(Switch::Present),
                 v => Err(ShellError::type_error(
                     "Boolean",
-                    value.copy_tag(v.type_name()),
+                    v.type_name().tagged(value.tag()),
                 )),
             },
         }
@@ -394,23 +408,54 @@ impl Tagged<Value> {
     pub(crate) fn debug(&self) -> ValueDebug<'_> {
         ValueDebug { value: self }
     }
-}
 
-impl Value {
-    pub(crate) fn type_name(&self) -> String {
-        match self {
-            Value::Primitive(p) => p.type_name(),
-            Value::Row(_) => format!("object"),
-            Value::Table(_) => format!("list"),
-            Value::Block(_) => format!("block"),
+    pub fn as_column_path(&self) -> Result<Tagged<Vec<Tagged<Value>>>, ShellError> {
+        match &self.item {
+            Value::Primitive(Primitive::String(s)) => {
+                Ok(vec![Value::string(s).tagged(&self.tag)].tagged(&self.tag))
+            }
+            Value::Table(table) => Ok(table.to_vec().tagged(&self.tag)),
+            other => Err(ShellError::type_error(
+                "column name",
+                other.type_name().tagged(&self.tag),
+            )),
         }
     }
 
-    // TODO: This is basically a legacy construct, I think
+    pub fn as_string(&self) -> Result<String, ShellError> {
+        match &self.item {
+            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
+            Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
+            Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+            Value::Primitive(Primitive::Date(x)) => Ok(format!("{}", x.to_rfc3339())),
+            // TODO: this should definitely be more general with better errors
+            other => Err(ShellError::labeled_error(
+                "Expected string",
+                other.type_name(),
+                &self.tag,
+            )),
+        }
+    }
+}
+
+impl Value {
+    pub fn type_name(&self) -> String {
+        match self {
+            Value::Primitive(p) => p.type_name(),
+            Value::Row(_) => format!("row"),
+            Value::Table(_) => format!("table"),
+            Value::Block(_) => format!("block"),
+            Value::Error(_) => format!("error"),
+        }
+    }
+
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             Value::Primitive(_) => vec![],
-            Value::Row(o) => o
+            Value::Row(columns) => columns
                 .entries
                 .keys()
                 .into_iter()
@@ -418,6 +463,14 @@ impl Value {
                 .collect(),
             Value::Block(_) => vec![],
             Value::Table(_) => vec![],
+            Value::Error(_) => vec![],
+        }
+    }
+
+    pub(crate) fn get_data_by_index(&self, idx: usize) -> Option<&Tagged<Value>> {
+        match self {
+            Value::Table(value_set) => value_set.get(idx),
+            _ => None,
         }
     }
 
@@ -443,27 +496,88 @@ impl Value {
         }
     }
 
-    pub fn get_data_by_path(&self, tag: Tag, path: &str) -> Option<Tagged<&Value>> {
+    pub(crate) fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Tagged<Value>> {
+        match self {
+            Value::Row(ref mut o) => o.get_mut_data_by_key(name),
+            Value::Table(ref mut l) => {
+                for item in l {
+                    match item {
+                        Tagged {
+                            item: Value::Row(ref mut o),
+                            ..
+                        } => match o.get_mut_data_by_key(name) {
+                            Some(v) => return Some(v),
+                            None => {}
+                        },
+                        _ => {}
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    pub fn get_data_by_column_path(
+        &self,
+        tag: Tag,
+        path: &Vec<Tagged<Value>>,
+        callback: Box<dyn FnOnce((Value, Tagged<Value>)) -> ShellError>,
+    ) -> Result<Option<Tagged<&Value>>, ShellError> {
+        let mut column_path = vec![];
+
+        for value in path {
+            column_path.push(
+                Value::string(value.as_string().unwrap_or("".to_string())).tagged(&value.tag),
+            );
+        }
+
+        let path = column_path;
+
         let mut current = self;
-        for p in path.split(".") {
-            match current.get_data_by_key(p) {
+
+        for p in path {
+            let value = p.as_string().unwrap_or("".to_string());
+            let value = match value.parse::<usize>() {
+                Ok(number) => match current {
+                    Value::Table(_) => current.get_data_by_index(number),
+                    Value::Row(_) => current.get_data_by_key(&value),
+                    _ => None,
+                },
+                Err(_) => match self {
+                    Value::Table(_) | Value::Row(_) => current.get_data_by_key(&value),
+                    _ => None,
+                },
+            };
+
+            match value {
                 Some(v) => current = v,
-                None => return None,
+                None => return Err(callback((current.clone(), p.clone()))),
             }
         }
 
-        Some(Tagged::from_item(current, tag))
+        Ok(Some(current.tagged(tag)))
     }
 
-    pub fn insert_data_at_path(
+    pub fn insert_data_at_column_path(
         &self,
         tag: Tag,
-        path: &str,
+        split_path: &Vec<Tagged<Value>>,
         new_value: Value,
     ) -> Option<Tagged<Value>> {
-        let mut new_obj = self.clone();
+        let split_path = split_path
+            .into_iter()
+            .map(|p| match p {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    tag,
+                } => Ok(s.clone().tagged(tag)),
+                o => Err(o),
+            })
+            .filter_map(Result::ok)
+            .collect::<Vec<Tagged<String>>>();
 
-        let split_path: Vec<_> = path.split(".").collect();
+        let mut new_obj = self.clone();
 
         if let Value::Row(ref mut o) = new_obj {
             let mut current = o;
@@ -472,25 +586,25 @@ impl Value {
                 // Special case for inserting at the top level
                 current
                     .entries
-                    .insert(path.to_string(), Tagged::from_item(new_value, tag));
-                return Some(Tagged::from_item(new_obj, tag));
+                    .insert(split_path[0].item.clone(), new_value.tagged(&tag));
+                return Some(new_obj.tagged(&tag));
             }
 
             for idx in 0..split_path.len() {
-                match current.entries.get_mut(split_path[idx]) {
+                match current.entries.get_mut(&split_path[idx].item) {
                     Some(next) => {
                         if idx == (split_path.len() - 2) {
                             match &mut next.item {
                                 Value::Row(o) => {
                                     o.entries.insert(
                                         split_path[idx + 1].to_string(),
-                                        Tagged::from_item(new_value, tag),
+                                        new_value.tagged(&tag),
                                     );
                                 }
                                 _ => {}
                             }
 
-                            return Some(Tagged::from_item(new_obj, tag));
+                            return Some(new_obj.tagged(&tag));
                         } else {
                             match next.item {
                                 Value::Row(ref mut o) => {
@@ -508,34 +622,39 @@ impl Value {
         None
     }
 
-    pub fn replace_data_at_path(
+    pub fn replace_data_at_column_path(
         &self,
         tag: Tag,
-        path: &str,
+        split_path: &Vec<Tagged<Value>>,
         replaced_value: Value,
     ) -> Option<Tagged<Value>> {
+        let split_path = split_path
+            .into_iter()
+            .map(|p| match p {
+                Tagged {
+                    item: Value::Primitive(Primitive::String(s)),
+                    tag,
+                } => Ok(s.clone().tagged(tag)),
+                o => Err(o),
+            })
+            .filter_map(Result::ok)
+            .collect::<Vec<Tagged<String>>>();
+
         let mut new_obj = self.clone();
+        let mut current = &mut new_obj;
 
-        let split_path: Vec<_> = path.split(".").collect();
-
-        if let Value::Row(ref mut o) = new_obj {
-            let mut current = o;
-            for idx in 0..split_path.len() {
-                match current.entries.get_mut(split_path[idx]) {
-                    Some(next) => {
-                        if idx == (split_path.len() - 1) {
-                            *next = Tagged::from_item(replaced_value, tag);
-                            return Some(Tagged::from_item(new_obj, tag));
-                        } else {
-                            match next.item {
-                                Value::Row(ref mut o) => {
-                                    current = o;
-                                }
-                                _ => return None,
-                            }
-                        }
+        for idx in 0..split_path.len() {
+            match current.get_mut_data_by_key(&split_path[idx].item) {
+                Some(next) => {
+                    if idx == (split_path.len() - 1) {
+                        *next = replaced_value.tagged(&tag);
+                        return Some(new_obj.tagged(&tag));
+                    } else {
+                        current = &mut next.item;
                     }
-                    _ => return None,
+                }
+                None => {
+                    return None;
                 }
             }
         }
@@ -549,6 +668,7 @@ impl Value {
             Value::Row(o) => o.get_data(desc),
             Value::Block(_) => MaybeOwned::Owned(Value::nothing()),
             Value::Table(_) => MaybeOwned::Owned(Value::nothing()),
+            Value::Error(_) => MaybeOwned::Owned(Value::nothing()),
         }
     }
 
@@ -558,7 +678,7 @@ impl Value {
             Value::Block(b) => itertools::join(
                 b.expressions
                     .iter()
-                    .map(|e| e.source(&b.source).to_string()),
+                    .map(|e| e.span.slice(&b.source).to_string()),
                 "; ",
             ),
             Value::Row(_) => format!("[table: 1 row]"),
@@ -567,6 +687,7 @@ impl Value {
                 l.len(),
                 if l.len() == 1 { "row" } else { "rows" }
             ),
+            Value::Error(_) => format!("[error]"),
         }
     }
 
@@ -607,27 +728,20 @@ impl Value {
         }
     }
 
-    pub(crate) fn as_string(&self) -> Result<String, ShellError> {
-        match self {
-            Value::Primitive(Primitive::String(s)) => Ok(s.clone()),
-            Value::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
-            Value::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::string(format!(
-                "Expected string, got {:?}",
-                other
-            ))),
-        }
-    }
-
     pub(crate) fn is_true(&self) -> bool {
         match self {
             Value::Primitive(Primitive::Boolean(true)) => true,
             _ => false,
         }
+    }
+
+    #[allow(unused)]
+    pub fn row(entries: IndexMap<String, Tagged<Value>>) -> Value {
+        Value::Row(entries.into())
+    }
+
+    pub fn table(list: &Vec<Tagged<Value>>) -> Value {
+        Value::Table(list.to_vec())
     }
 
     pub fn string(s: impl Into<String>) -> Value {
@@ -675,9 +789,14 @@ impl Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
 
-    pub fn date_from_str(s: &str) -> Result<Value, ShellError> {
-        let date = DateTime::parse_from_rfc3339(s)
-            .map_err(|err| ShellError::string(&format!("Date parse error: {}", err)))?;
+    pub fn date_from_str(s: Tagged<&str>) -> Result<Value, ShellError> {
+        let date = DateTime::parse_from_rfc3339(s.item).map_err(|err| {
+            ShellError::labeled_error(
+                &format!("Date parse error: {}", err),
+                "original value",
+                s.tag,
+            )
+        })?;
 
         let date = date.with_timezone(&chrono::offset::Utc);
 
@@ -693,6 +812,7 @@ impl Tagged<Value> {
     pub(crate) fn as_path(&self) -> Result<PathBuf, ShellError> {
         match self.item() {
             Value::Primitive(Primitive::Path(path)) => Ok(path.clone()),
+            Value::Primitive(Primitive::String(path_str)) => Ok(PathBuf::from(&path_str).clone()),
             other => Err(ShellError::type_error(
                 "Path",
                 other.type_name().tagged(self.tag()),
@@ -736,6 +856,7 @@ enum CompareValues {
     Ints(BigInt, BigInt),
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
+    Date(DateTime<Utc>, DateTime<Utc>),
 }
 
 impl CompareValues {
@@ -744,6 +865,7 @@ impl CompareValues {
             CompareValues::Ints(left, right) => left.cmp(right),
             CompareValues::Decimals(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
+            CompareValues::Date(left, right) => right.cmp(left),
         }
     }
 }
@@ -780,6 +902,256 @@ fn coerce_compare_primitive(
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
+        (Date(left), Date(right)) => CompareValues::Date(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),
     })
+}
+#[cfg(test)]
+mod tests {
+
+    use crate::data::meta::*;
+    use crate::ShellError;
+    use crate::Value;
+    use indexmap::IndexMap;
+
+    fn string(input: impl Into<String>) -> Tagged<Value> {
+        Value::string(input.into()).tagged_unknown()
+    }
+
+    fn number(n: i64) -> Tagged<Value> {
+        Value::number(n).tagged_unknown()
+    }
+
+    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
+        Value::row(entries).tagged_unknown()
+    }
+
+    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
+        Value::table(list).tagged_unknown()
+    }
+
+    fn error_callback() -> impl FnOnce((Value, Tagged<Value>)) -> ShellError {
+        move |(_obj_source, _column_path_tried)| ShellError::unimplemented("will never be called.")
+    }
+
+    fn column_path(paths: &Vec<Tagged<Value>>) -> Vec<Tagged<Value>> {
+        table(paths).as_column_path().unwrap().item
+    }
+
+    #[test]
+    fn gets_matching_field_from_a_row() {
+        let row = Value::row(indexmap! {
+            "amigos".into() => table(&vec![string("andres"),string("jonathan"),string("yehuda")])
+        });
+
+        assert_eq!(
+            *row.get_data_by_key("amigos").unwrap(),
+            table(&vec![
+                string("andres"),
+                string("jonathan"),
+                string("yehuda")
+            ])
+        );
+    }
+
+    #[test]
+    fn gets_matching_field_from_nested_rows_inside_a_row() {
+        let field_path = column_path(&vec![string("package"), string("version")]);
+
+        let (version, tag) = string("0.4.0").into_parts();
+
+        let value = Value::row(indexmap! {
+            "package".into() =>
+                row(indexmap! {
+                    "name".into()    =>     string("nu"),
+                    "version".into() =>  string("0.4.0")
+                })
+        });
+
+        assert_eq!(
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
+            version
+        )
+    }
+
+    #[test]
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() {
+        let field_path = column_path(&vec![string("package"), string("authors"), number(0)]);
+
+        let (_, tag) = string("Andrés N. Robalino").into_parts();
+
+        let value = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+                "authors".into() => table(&vec![
+                    row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
+                    row(indexmap!{"name".into() => string("Jonathan Turner")}),
+                    row(indexmap!{"name".into() => string("Yehuda Katz")})
+                ])
+            })
+        });
+
+        assert_eq!(
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
+            Value::row(indexmap! {
+                "name".into() => string("Andrés N. Robalino")
+            })
+        );
+    }
+
+    #[test]
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() {
+        let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
+
+        let (_, tag) = string("Andrés N. Robalino").into_parts();
+
+        let value = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "name".into() => string("nu"),
+                "version".into() => string("0.4.0"),
+                "authors".into() => row(indexmap! {
+                    "0".into() => row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
+                    "1".into() => row(indexmap!{"name".into() => string("Jonathan Turner")}),
+                    "2".into() => row(indexmap!{"name".into() => string("Yehuda Katz")}),
+                })
+            })
+        });
+
+        assert_eq!(
+            **value
+                .get_data_by_column_path(tag, &field_path, Box::new(error_callback()))
+                .unwrap()
+                .unwrap(),
+            Value::row(indexmap! {
+                "name".into() => string("Andrés N. Robalino")
+            })
+        );
+    }
+
+    #[test]
+    fn replaces_matching_field_from_a_row() {
+        let field_path = column_path(&vec![string("amigos")]);
+
+        let sample = Value::row(indexmap! {
+            "amigos".into() => table(&vec![
+                string("andres"),
+                string("jonathan"),
+                string("yehuda"),
+            ]),
+        });
+
+        let (replacement, tag) = string("jonas").into_parts();
+
+        let actual = sample
+            .replace_data_at_column_path(tag, &field_path, replacement)
+            .unwrap();
+
+        assert_eq!(actual, row(indexmap! {"amigos".into() => string("jonas")}));
+    }
+
+    #[test]
+    fn replaces_matching_field_from_nested_rows_inside_a_row() {
+        let field_path = column_path(&vec![
+            string("package"),
+            string("authors"),
+            string("los.3.caballeros"),
+        ]);
+
+        let sample = Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "authors".into() => row(indexmap! {
+                    "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.amigos".into() => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.caballeros".into() => table(&vec![string("andres::yehuda::jonathan")])
+                })
+            })
+        });
+
+        let (replacement, tag) = table(&vec![string("yehuda::jonathan::andres")]).into_parts();
+
+        let actual = sample
+            .replace_data_at_column_path(tag.clone(), &field_path, replacement.clone())
+            .unwrap();
+
+        assert_eq!(
+            actual,
+            Value::row(indexmap! {
+            "package".into() => row(indexmap! {
+                "authors".into() => row(indexmap! {
+                    "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.amigos".into()      => table(&vec![string("andres::yehuda::jonathan")]),
+                    "los.3.caballeros".into()  => replacement.tagged(&tag)})})})
+            .tagged(tag)
+        );
+    }
+    #[test]
+    fn replaces_matching_field_from_rows_inside_a_table() {
+        let field_path = column_path(&vec![
+            string("shell_policy"),
+            string("releases"),
+            string("nu.version.arepa"),
+        ]);
+
+        let sample = Value::row(indexmap! {
+            "shell_policy".into() => row(indexmap! {
+                "releases".into() => table(&vec![
+                    row(indexmap! {
+                        "nu.version.arepa".into() => row(indexmap! {
+                            "code".into() => string("0.4.0"), "tag_line".into() => string("GitHub-era")
+                        })
+                    }),
+                    row(indexmap! {
+                        "nu.version.taco".into() => row(indexmap! {
+                            "code".into() => string("0.3.0"), "tag_line".into() => string("GitHub-era")
+                        })
+                    }),
+                    row(indexmap! {
+                        "nu.version.stable".into() => row(indexmap! {
+                            "code".into() => string("0.2.0"), "tag_line".into() => string("GitHub-era")
+                        })
+                    })
+                ])
+            })
+        });
+
+        let (replacement, tag) = row(indexmap! {
+            "code".into() => string("0.5.0"),
+            "tag_line".into() => string("CABALLEROS")
+        })
+        .into_parts();
+
+        let actual = sample
+            .replace_data_at_column_path(tag.clone(), &field_path, replacement.clone())
+            .unwrap();
+
+        assert_eq!(
+            actual,
+            Value::row(indexmap! {
+                "shell_policy".into() => row(indexmap! {
+                    "releases".into() => table(&vec![
+                        row(indexmap! {
+                            "nu.version.arepa".into() => replacement.tagged(&tag)
+                        }),
+                        row(indexmap! {
+                            "nu.version.taco".into() => row(indexmap! {
+                                "code".into() => string("0.3.0"), "tag_line".into() => string("GitHub-era")
+                            })
+                        }),
+                        row(indexmap! {
+                            "nu.version.stable".into() => row(indexmap! {
+                                "code".into() => string("0.2.0"), "tag_line".into() => string("GitHub-era")
+                            })
+                        })
+                    ])
+                })
+            }).tagged(&tag)
+        );
+    }
 }

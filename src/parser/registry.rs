@@ -1,11 +1,11 @@
 // TODO: Temporary redirect
 pub(crate) use crate::context::CommandRegistry;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
-use crate::parser::{hir, hir::SyntaxShape, parse_command, CallNode};
+use crate::parser::{hir, hir::SyntaxShape};
 use crate::prelude::*;
 use derive_new::new;
 use indexmap::IndexMap;
-use log::trace;
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -58,17 +58,19 @@ impl PositionalType {
     }
 }
 
+type Description = String;
+
 #[derive(Debug, Serialize, Deserialize, Clone, new)]
 pub struct Signature {
     pub name: String,
     #[new(default)]
     pub usage: String,
     #[new(default)]
-    pub positional: Vec<PositionalType>,
+    pub positional: Vec<(PositionalType, Description)>,
     #[new(value = "None")]
-    pub rest_positional: Option<SyntaxShape>,
+    pub rest_positional: Option<(SyntaxShape, Description)>,
     #[new(default)]
-    pub named: IndexMap<String, NamedType>,
+    pub named: IndexMap<String, (NamedType, Description)>,
     #[new(value = "false")]
     pub is_filter: bool,
 }
@@ -83,23 +85,42 @@ impl Signature {
         self
     }
 
-    pub fn required(mut self, name: impl Into<String>, ty: impl Into<SyntaxShape>) -> Signature {
-        self.positional
-            .push(PositionalType::Mandatory(name.into(), ty.into()));
+    pub fn required(
+        mut self,
+        name: impl Into<String>,
+        ty: impl Into<SyntaxShape>,
+        desc: impl Into<String>,
+    ) -> Signature {
+        self.positional.push((
+            PositionalType::Mandatory(name.into(), ty.into()),
+            desc.into(),
+        ));
 
         self
     }
 
-    pub fn optional(mut self, name: impl Into<String>, ty: impl Into<SyntaxShape>) -> Signature {
-        self.positional
-            .push(PositionalType::Optional(name.into(), ty.into()));
+    pub fn optional(
+        mut self,
+        name: impl Into<String>,
+        ty: impl Into<SyntaxShape>,
+        desc: impl Into<String>,
+    ) -> Signature {
+        self.positional.push((
+            PositionalType::Optional(name.into(), ty.into()),
+            desc.into(),
+        ));
 
         self
     }
 
-    pub fn named(mut self, name: impl Into<String>, ty: impl Into<SyntaxShape>) -> Signature {
+    pub fn named(
+        mut self,
+        name: impl Into<String>,
+        ty: impl Into<SyntaxShape>,
+        desc: impl Into<String>,
+    ) -> Signature {
         self.named
-            .insert(name.into(), NamedType::Optional(ty.into()));
+            .insert(name.into(), (NamedType::Optional(ty.into()), desc.into()));
 
         self
     }
@@ -108,15 +129,17 @@ impl Signature {
         mut self,
         name: impl Into<String>,
         ty: impl Into<SyntaxShape>,
+        desc: impl Into<String>,
     ) -> Signature {
         self.named
-            .insert(name.into(), NamedType::Mandatory(ty.into()));
+            .insert(name.into(), (NamedType::Mandatory(ty.into()), desc.into()));
 
         self
     }
 
-    pub fn switch(mut self, name: impl Into<String>) -> Signature {
-        self.named.insert(name.into(), NamedType::Switch);
+    pub fn switch(mut self, name: impl Into<String>, desc: impl Into<String>) -> Signature {
+        self.named
+            .insert(name.into(), (NamedType::Switch, desc.into()));
 
         self
     }
@@ -126,8 +149,8 @@ impl Signature {
         self
     }
 
-    pub fn rest(mut self, ty: SyntaxShape) -> Signature {
-        self.rest_positional = Some(ty);
+    pub fn rest(mut self, ty: SyntaxShape, desc: impl Into<String>) -> Signature {
+        self.rest_positional = Some((ty, desc.into()));
         self
     }
 }
@@ -271,21 +294,6 @@ impl<'a> Iterator for PositionalIter<'a> {
     }
 }
 
-impl Signature {
-    pub(crate) fn parse_args(
-        &self,
-        call: &Tagged<CallNode>,
-        context: &Context,
-        source: &Text,
-    ) -> Result<hir::Call, ShellError> {
-        let args = parse_command(self, context, call, source)?;
-
-        trace!("parsed args: {:?}", args);
-
-        Ok(args)
-    }
-}
-
 pub(crate) fn evaluate_args(
     call: &hir::Call,
     registry: &CommandRegistry,
@@ -313,7 +321,7 @@ pub(crate) fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::named::NamedValue::PresentSwitch(tag) => {
-                        results.insert(name.clone(), Value::boolean(true).tagged(*tag));
+                        results.insert(name.clone(), Value::boolean(true).tagged(tag));
                     }
                     hir::named::NamedValue::Value(expr) => {
                         results.insert(

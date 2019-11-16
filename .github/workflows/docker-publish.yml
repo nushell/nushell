@@ -2,7 +2,7 @@ name: Publish consumable Docker images
 
 on:
   push:
-    tags: ['*.*.*']
+    tags: ['v?[0-9]+.[0-9]+.[0-9]+*']
 
 jobs:
   compile:
@@ -14,7 +14,11 @@ jobs:
         - x86_64-unknown-linux-gnu
     steps:
     - uses: actions/checkout@v1
-    - run: cargo install cross
+    - name: Install rust-embedded/cross
+      env: { VERSION: v0.1.16 }
+      run: >-
+        wget -nv https://github.com/rust-embedded/cross/releases/download/${VERSION}/cross-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+        -O- | sudo tar xz -C /usr/local/bin/
     - name: compile for specific target
       env: { arch: '${{ matrix.arch }}' }
       run: |
@@ -31,6 +35,10 @@ jobs:
     name: Build and publish docker images
     needs: compile
     runs-on: ubuntu-latest
+    env:
+      DOCKER_REGISTRY: quay.io/nushell
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_REGISTRY }}
+      DOCKER_USER: ${{ secrets.DOCKER_USER }}
     strategy:
       matrix:
         tag:
@@ -58,41 +66,53 @@ jobs:
     - uses: actions/download-artifact@master
       with: { name: '${{ matrix.arch }}', path: target/release }
     - name: Build and publish exact version
-      run: |
-        REGISTRY=${REGISTRY,,}; export TAG=${GITHUB_REF##*/}-${{ matrix.tag }};
+      run: |-
+        export DOCKER_TAG=${GITHUB_REF##*/}-${{ matrix.tag }}
         export NU_BINS=target/release/$( [ ${{ matrix.plugin }} = true ] && echo nu* || echo nu )
         export PATCH=$([ ${{ matrix.use-patch }} = true ] && echo .${{ matrix.tag }} || echo '')
         chmod +x $NU_BINS
 
-        echo ${{ secrets.DOCKER_REGISTRY }} | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+        echo ${DOCKER_PASSWORD} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_USER} --password-stdin
         docker-compose --file docker/docker-compose.package.yml build
         docker-compose --file docker/docker-compose.package.yml push              # exact version
       env:
         BASE_IMAGE: ${{ matrix.base-image }}
-        REGISTRY: docker.pkg.github.com/${{ github.repository }}
 
     #region semantics tagging
-    - name: Retag and push without suffixing version
-      run: |
+    - name: Retag and push with suffixed version
+      run: |-
         VERSION=${GITHUB_REF##*/}
-        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${{ matrix.tag }}
-        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%%.*}-${{ matrix.tag }}
-        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%.*}-${{ matrix.tag }}
-        docker push ${REGISTRY,,}/nu:${VERSION%.*}-${{ matrix.tag }}              # latest patch
-        docker push ${REGISTRY,,}/nu:${VERSION%%.*}-${{ matrix.tag }}             # latest features
-        docker push ${REGISTRY,,}/nu:${{ matrix.tag }}                            # latest version
-      env: { REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' }
+
+        latest_version=${VERSION%%%.*}-${{ matrix.tag }}
+        latest_feature=${VERSION%%.*}-${{ matrix.tag }}
+        latest_patch=${VERSION%.*}-${{ matrix.tag }}
+        exact_version=${VERSION}-${{ matrix.tag }}
+
+        tags=( ${latest_version} ${latest_feature} ${latest_patch} ${exact_version} )
+
+        for tag in ${tags[@]}; do
+          docker tag ${DOCKER_REGISTRY}/nu:${VERSION}-${{ matrix.tag }} ${DOCKER_REGISTRY}/nu:${tag}
+          docker push ${DOCKER_REGISTRY}/nu:${tag}
+        done
+
+        # latest version
+        docker tag ${DOCKER_REGISTRY}/nu:${VERSION}-${{ matrix.tag }} ${DOCKER_REGISTRY}/nu:${{ matrix.tag }}
+        docker push ${DOCKER_REGISTRY}/nu:${{ matrix.tag }}
+
     - name: Retag and push debian as latest
       if: matrix.tag == 'debian'
-      run: |
+      run: |-
         VERSION=${GITHUB_REF##*/}
-        docker tag ${REGISTRY,,}/nu:${{ matrix.tag }} ${REGISTRY,,}/nu:latest
-        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%.*}
-        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION%%.*}
-        docker tag ${REGISTRY,,}/nu:${VERSION}-${{ matrix.tag }} ${REGISTRY,,}/nu:${VERSION}
-        docker push ${REGISTRY,,}/nu:${VERSION}       # exact version
-        docker push ${REGISTRY,,}/nu:${VERSION%%.*}   # latest features
-        docker push ${REGISTRY,,}/nu:${VERSION%.*}    # latest patch
-        docker push ${REGISTRY,,}/nu:latest           # latest version
-      env: { REGISTRY: 'docker.pkg.github.com/${{ github.repository }}' }
+
+        # ${latest features} ${latest patch} ${exact version}
+        tags=( ${VERSION%%.*} ${VERSION%.*} ${VERSION} )
+
+        for tag in ${tags[@]}; do
+          docker tag ${DOCKER_REGISTRY}/nu:${VERSION}-${{ matrix.tag }} ${DOCKER_REGISTRY}/nu:${tag}
+          docker push ${DOCKER_REGISTRY}/nu:${tag}
+        done
+
+        # latest version
+        docker tag ${DOCKER_REGISTRY}/nu:${{ matrix.tag }} ${DOCKER_REGISTRY}/nu:latest
+        docker push ${DOCKER_REGISTRY}/nu:latest
     #endregion semantics tagging

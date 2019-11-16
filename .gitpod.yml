@@ -1,8 +1,8 @@
 image:
   file: .gitpod.Dockerfile
 tasks:
-  - init: cargo build
-    command: cargo run
+  - init: cargo install nu
+    command: nu
 github:
   prebuilds:
     # enable for the master/default branch (defaults to true)

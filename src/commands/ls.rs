@@ -16,7 +16,11 @@ impl WholeStreamCommand for LS {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ls").optional("path", SyntaxShape::Pattern)
+        Signature::build("ls").optional(
+            "path",
+            SyntaxShape::Pattern,
+            "a path to get the directory contents from",
+        )
     }
 
     fn usage(&self) -> &str {
@@ -34,5 +38,5 @@ impl WholeStreamCommand for LS {
 }
 
 fn ls(LsArgs { path }: LsArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    context.shell_manager.ls(path, context.name)
+    context.shell_manager.ls(path, &context)
 }
