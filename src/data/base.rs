@@ -172,13 +172,7 @@ impl Primitive {
                     _ => format!("{}", byte.format(1)),
                 }
             }
-            Primitive::Duration(sec) => {
-                if *sec == 1 {
-                    format!("{} sec", sec)
-                } else {
-                    format!("{} secs", sec)
-                }
-            } //FIXME: make nicer duration output
+            Primitive::Duration(sec) => format_duration(*sec),
             Primitive::Int(i) => format!("{}", i),
             Primitive::Decimal(decimal) => format!("{}", decimal),
             Primitive::Pattern(s) => format!("{}", s),
@@ -202,6 +196,20 @@ impl Primitive {
             Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Decimal(_) => "r",
             _ => "",
         }
+    }
+}
+
+fn format_duration(sec: u64) -> String {
+    let (minutes, seconds) = (sec / 60, sec % 60);
+    let (hours, minutes) = (minutes / 60, minutes % 60);
+    let (days, hours) = (hours / 24, hours % 24);
+
+    match (days, hours, minutes, seconds) {
+        (0, 0, 0, 1) => format!("1 sec"),
+        (0, 0, 0, s) => format!("{} secs", s),
+        (0, 0, m, s) => format!("{}:{:02}", m, s),
+        (0, h, m, s) => format!("{}:{:02}:{:02}", h, m, s),
+        (d, h, m, s) => format!("{}:{:02}:{:02}:{:02}", d, h, m, s),
     }
 }
 
