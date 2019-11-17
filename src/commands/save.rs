@@ -19,8 +19,8 @@ macro_rules! process_string {
                 }
                 _ => {
                     break $scope Err(ShellError::labeled_error(
-                        "Save requires formatted data",
-                        "consider piping to a converter (see `help commands`)",
+                        "Save requires string data",
+                        "consider converting data to string (see `help commands`)",
                         $name_tag,
                     ));
                 }
