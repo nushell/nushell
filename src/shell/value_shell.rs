@@ -90,6 +90,7 @@ impl Shell for ValueShell {
         &self,
         target: Option<Tagged<PathBuf>>,
         context: &RunnableContext,
+        _full: bool,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
         let name_tag = context.name.clone();

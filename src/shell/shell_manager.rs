@@ -127,10 +127,11 @@ impl ShellManager {
         &self,
         path: Option<Tagged<PathBuf>>,
         context: &RunnableContext,
+        full: bool,
     ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock().unwrap();
 
-        env[self.current_shell()].ls(path, context)
+        env[self.current_shell()].ls(path, context, full)
     }
 
     pub fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
