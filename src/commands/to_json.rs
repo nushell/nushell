@@ -32,6 +32,9 @@ pub fn value_to_json_value(v: &Tagged<Value>) -> Result<serde_json::Value, Shell
         Value::Primitive(Primitive::Bytes(b)) => serde_json::Value::Number(
             serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
         ),
+        Value::Primitive(Primitive::Duration(secs)) => {
+            serde_json::Value::Number(serde_json::Number::from(*secs))
+        }
         Value::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
         Value::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,

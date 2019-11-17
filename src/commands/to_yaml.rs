@@ -32,6 +32,9 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
         Value::Primitive(Primitive::Bytes(b)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().unwrap()))
         }
+        Value::Primitive(Primitive::Duration(secs)) => {
+            serde_yaml::Value::Number(serde_yaml::Number::from(secs.to_f64().unwrap()))
+        }
         Value::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
         Value::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,

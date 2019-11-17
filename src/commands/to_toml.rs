@@ -30,6 +30,7 @@ pub fn value_to_toml_value(v: &Tagged<Value>) -> Result<toml::Value, ShellError>
     Ok(match v.item() {
         Value::Primitive(Primitive::Boolean(b)) => toml::Value::Boolean(*b),
         Value::Primitive(Primitive::Bytes(b)) => toml::Value::Integer(*b as i64),
+        Value::Primitive(Primitive::Duration(d)) => toml::Value::Integer(*d as i64),
         Value::Primitive(Primitive::Date(d)) => toml::Value::String(d.to_string()),
         Value::Primitive(Primitive::EndOfStream) => {
             toml::Value::String("<End of Stream>".to_string())
