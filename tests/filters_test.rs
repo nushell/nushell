@@ -496,6 +496,22 @@ fn can_convert_table_to_bson_and_back_into_table() {
 }
 
 #[test]
+fn can_read_excel_file() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", h::pipeline(
+        r#"
+            open sample_data.xlsx
+            | get SalesOrders
+            | nth 4
+            | get Column2
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "Gill");
+}
+
+#[test]
 fn can_convert_table_to_sqlite_and_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(

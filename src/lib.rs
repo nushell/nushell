@@ -35,7 +35,7 @@ pub use crate::utils::{did_you_mean, AbsoluteFile, AbsolutePath, RelativePath};
 pub use cli::cli;
 pub use data::base::{Primitive, Value};
 pub use data::config::{config_path, APP_INFO};
-pub use data::dict::{Dictionary, TaggedDictBuilder};
+pub use data::dict::{Dictionary, TaggedDictBuilder, TaggedListBuilder};
 pub use data::meta::{
     tag_for_tagged_list, HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Tagged,
     TaggedItem,
