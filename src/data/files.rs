@@ -13,6 +13,7 @@ pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: &std::fs::Metadata,
     tag: impl Into<Tag>,
+    full: bool,
 ) -> Result<Tagged<Value>, ShellError> {
     let mut dict = TaggedDictBuilder::new(tag);
     dict.insert("name", Value::string(filename.to_string_lossy()));
@@ -26,10 +27,19 @@ pub(crate) fn dir_entry_dict(
     };
 
     dict.insert("type", Value::string(format!("{:?}", kind)));
-    dict.insert(
-        "readonly",
-        Value::boolean(metadata.permissions().readonly()),
-    );
+
+    if full {
+        dict.insert(
+            "readonly",
+            Value::boolean(metadata.permissions().readonly()),
+        );
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            dict.insert("mode", Value::int(metadata.permissions().mode()));
+        }
+    }
 
     dict.insert("size", Value::bytes(metadata.len() as u64));
 

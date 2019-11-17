@@ -86,6 +86,7 @@ impl Shell for FilesystemShell {
         &self,
         pattern: Option<Tagged<PathBuf>>,
         context: &RunnableContext,
+        full: bool,
     ) -> Result<OutputStream, ShellError> {
         let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
@@ -136,7 +137,7 @@ impl Shell for FilesystemShell {
                                     Path::new(&filepath)
                                 };
 
-                                let value = dir_entry_dict(filename, &metadata, &name_tag)?;
+                                let value = dir_entry_dict(filename, &metadata, &name_tag, full)?;
                                 yield ReturnSuccess::value(value);
                             }
                         }
@@ -175,7 +176,7 @@ impl Shell for FilesystemShell {
                             Path::new(&entry)
                         };
 
-                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag) {
+                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full) {
                             yield ReturnSuccess::value(value);
                         }
                     }

@@ -129,6 +129,7 @@ impl Shell for HelpShell {
         &self,
         _pattern: Option<Tagged<PathBuf>>,
         _context: &RunnableContext,
+        _full: bool,
     ) -> Result<OutputStream, ShellError> {
         Ok(self
             .commands()
