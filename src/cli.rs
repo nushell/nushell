@@ -9,7 +9,6 @@ use crate::context::Context;
 use crate::data::config;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
-use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::parser::registry::Signature;
@@ -388,14 +387,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         rl.set_edit_mode(edit_mode);
 
-        // Register Ctrl-r for history fuzzy search
-        // rustyline doesn't support custom commands, so we override Ctrl-D (EOF)
-        // https://github.com/nushell/nushell/issues/689
-        #[cfg(all(not(windows), feature = "crossterm"))]
-        rl.bind_sequence(rustyline::KeyPress::Ctrl('R'), rustyline::Cmd::EndOfFile);
-        // Redefine Ctrl-D to same command as Ctrl-C
-        rl.bind_sequence(rustyline::KeyPress::Ctrl('D'), rustyline::Cmd::Interrupt);
-
         let colored_prompt = {
             #[cfg(feature = "starship-prompt")]
             {
@@ -428,27 +419,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
             readline = rl.readline_with_initial(&prompt, (&cmd, ""));
-            if let Err(ReadlineError::Eof) = &readline {
-                // Fuzzy search in history
-                let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
-                let selection = interactive_fuzzy_search(&lines, 5); // Clears last line with prompt
-                match selection {
-                    SelectionResult::Selected(line) => {
-                        println!("{}{}", &prompt, &line); // TODO: colorize prompt
-                        readline = Ok(line.clone());
-                        initial_command = None;
-                    }
-                    SelectionResult::Edit(line) => {
-                        initial_command = Some(line);
-                    }
-                    SelectionResult::NoSelection => {
-                        readline = Ok("".to_string());
-                        initial_command = None;
-                    }
-                }
-            } else {
-                initial_command = None;
-            }
+            initial_command = None;
         }
 
         match process_line(readline, &mut context).await {
