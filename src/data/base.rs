@@ -79,6 +79,7 @@ pub enum Primitive {
     Pattern(String),
     Boolean(bool),
     Date(DateTime<Utc>),
+    Duration(u64), // Duration in seconds
     Path(PathBuf),
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
@@ -111,6 +112,7 @@ impl Primitive {
             Path(_) => "path",
             Int(_) => "int",
             Decimal(_) => "decimal",
+            Duration(_) => "duration",
             Bytes(_) => "bytes",
             Pattern(_) => "pattern",
             String(_) => "string",
@@ -131,6 +133,7 @@ impl Primitive {
             Int(int) => write!(f, "{}", int),
             Path(path) => write!(f, "{}", path.display()),
             Decimal(decimal) => write!(f, "{}", decimal),
+            Duration(secs) => write!(f, "{}", secs),
             Bytes(bytes) => write!(f, "{}", bytes),
             Pattern(string) => write!(f, "{:?}", string),
             String(string) => write!(f, "{:?}", string),
@@ -169,6 +172,13 @@ impl Primitive {
                     _ => format!("{}", byte.format(1)),
                 }
             }
+            Primitive::Duration(sec) => {
+                if *sec == 1 {
+                    format!("{} sec", sec)
+                } else {
+                    format!("{} secs", sec)
+                }
+            } //FIXME: make nicer duration output
             Primitive::Int(i) => format!("{}", i),
             Primitive::Decimal(decimal) => format!("{}", decimal),
             Primitive::Pattern(s) => format!("{}", s),
@@ -785,6 +795,10 @@ impl Value {
         Value::Primitive(Primitive::Boolean(s.into()))
     }
 
+    pub fn duration(secs: u64) -> Value {
+        Value::Primitive(Primitive::Duration(secs))
+    }
+
     pub fn system_date(s: SystemTime) -> Value {
         Value::Primitive(Primitive::Date(s.into()))
     }
@@ -857,6 +871,7 @@ enum CompareValues {
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
     Date(DateTime<Utc>, DateTime<Utc>),
+    DateDuration(DateTime<Utc>, u64),
 }
 
 impl CompareValues {
@@ -865,7 +880,14 @@ impl CompareValues {
             CompareValues::Ints(left, right) => left.cmp(right),
             CompareValues::Decimals(left, right) => left.cmp(right),
             CompareValues::String(left, right) => left.cmp(right),
-            CompareValues::Date(left, right) => right.cmp(left),
+            CompareValues::Date(left, right) => left.cmp(right),
+            CompareValues::DateDuration(left, right) => {
+                use std::time::Duration;
+
+                // Create the datetime we're comparing against, as duration is an offset from now
+                let right: DateTime<Utc> = (SystemTime::now() - Duration::from_secs(*right)).into();
+                right.cmp(left)
+            }
         }
     }
 }
@@ -903,6 +925,7 @@ fn coerce_compare_primitive(
         }
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         (Date(left), Date(right)) => CompareValues::Date(left.clone(), right.clone()),
+        (Date(left), Duration(right)) => CompareValues::DateDuration(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),
     })
 }

@@ -3,8 +3,6 @@ use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
-use std::time::Duration;
-use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum Unit {
@@ -68,31 +66,13 @@ impl Unit {
             Unit::Gigabyte => Value::number(size * 1024 * 1024 * 1024),
             Unit::Terabyte => Value::number(size * 1024 * 1024 * 1024 * 1024),
             Unit::Petabyte => Value::number(size * 1024 * 1024 * 1024 * 1024 * 1024),
-            Unit::Second => Value::system_date(
-                SystemTime::now() - Duration::from_secs(convert_number_to_u64(&size)),
-            ),
-            Unit::Minute => Value::system_date(
-                SystemTime::now() - Duration::from_secs(60 * convert_number_to_u64(&size)),
-            ),
-            Unit::Hour => Value::system_date(
-                SystemTime::now() - Duration::from_secs(60 * 60 * convert_number_to_u64(&size)),
-            ),
-            Unit::Day => Value::system_date(
-                SystemTime::now()
-                    - Duration::from_secs(24 * 60 * 60 * convert_number_to_u64(&size)),
-            ),
-            Unit::Week => Value::system_date(
-                SystemTime::now()
-                    - Duration::from_secs(7 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            ),
-            Unit::Month => Value::system_date(
-                SystemTime::now()
-                    - Duration::from_secs(30 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            ),
-            Unit::Year => Value::system_date(
-                SystemTime::now()
-                    - Duration::from_secs(365 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            ),
+            Unit::Second => Value::duration(convert_number_to_u64(&size)),
+            Unit::Minute => Value::duration(60 * convert_number_to_u64(&size)),
+            Unit::Hour => Value::duration(60 * 60 * convert_number_to_u64(&size)),
+            Unit::Day => Value::duration(24 * 60 * 60 * convert_number_to_u64(&size)),
+            Unit::Week => Value::duration(7 * 24 * 60 * 60 * convert_number_to_u64(&size)),
+            Unit::Month => Value::duration(30 * 24 * 60 * 60 * convert_number_to_u64(&size)),
+            Unit::Year => Value::duration(365 * 24 * 60 * 60 * convert_number_to_u64(&size)),
         }
     }
 }
