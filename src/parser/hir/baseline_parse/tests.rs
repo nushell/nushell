@@ -1,12 +1,13 @@
 use crate::commands::classified::InternalCommand;
 use crate::commands::ClassifiedCommand;
 use crate::env::host::BasicHost;
-use crate::parser::hir;
 use crate::parser::hir::syntax_shape::*;
 use crate::parser::hir::TokensIterator;
+use crate::parser::hir::{self, named::NamedValue, NamedArguments};
 use crate::parser::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder as b};
 use crate::parser::TokenNode;
 use crate::{HasSpan, Span, SpannedItem, Tag, Text};
+use indexmap::IndexMap;
 use pretty_assertions::assert_eq;
 use std::fmt::Debug;
 
@@ -67,6 +68,9 @@ fn test_parse_command() {
 
             eprintln!("{:?} {:?} {:?}", bare, pat, bare.until(pat));
 
+            let mut map = IndexMap::new();
+            map.insert("full".to_string(), NamedValue::AbsentSwitch);
+
             ClassifiedCommand::Internal(InternalCommand::new(
                 "ls".to_string(),
                 Tag {
@@ -76,7 +80,7 @@ fn test_parse_command() {
                 hir::Call {
                     head: Box::new(hir::RawExpression::Command(bare).spanned(bare)),
                     positional: Some(vec![hir::Expression::pattern("*.txt", pat)]),
-                    named: None,
+                    named: Some(NamedArguments { named: map }),
                 }
                 .spanned(bare.until(pat)),
             ))
