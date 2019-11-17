@@ -19,8 +19,8 @@ macro_rules! process_string {
                 }
                 _ => {
                     break $scope Err(ShellError::labeled_error(
-                        "Save could not successfully save",
-                        "unexpected data during save",
+                        "Save requires formatted data",
+                        "consider piping to a converter (see `help commands`)",
                         $name_tag,
                     ));
                 }
@@ -214,9 +214,9 @@ fn save(
         match content {
             Ok(save_data) => match std::fs::write(full_path, save_data) {
                 Ok(o) => o,
-                Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "for command", name)),
+                Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "IO error while saving", name)),
             },
-            Err(e) => yield Err(ShellError::labeled_error(e.to_string(), "for command", name)),
+            Err(e) => yield Err(e),
         }
 
     };
