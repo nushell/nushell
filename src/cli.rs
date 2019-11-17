@@ -297,6 +297,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
             whole_stream_command(FromURL),
+            whole_stream_command(FromXLSX),
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),

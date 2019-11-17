@@ -158,8 +158,8 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                         }
                     }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
-                    "Expected a string from pipeline",
-                    "requires string input",
+                    "Expected binary data from pipeline",
+                    "requires binary data input",
                     &tag,
                     "value originates from here",
                     value_tag,
