@@ -6,15 +6,19 @@ use crate::parser::parse::pipeline::{Pipeline, PipelineElement};
 use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, TokenNode};
 use crate::parser::parse::tokens::{RawNumber, RawToken};
 use crate::parser::CallNode;
-use derive_new::new;
 
-#[derive(new)]
 pub struct TokenTreeBuilder {
-    #[new(default)]
     pos: usize,
-
-    #[new(default)]
     output: String,
+}
+
+impl TokenTreeBuilder {
+    pub fn new() -> TokenTreeBuilder {
+        TokenTreeBuilder {
+            pos: 0,
+            output: String::new(),
+        }
+    }
 }
 
 pub type CurriedToken = Box<dyn FnOnce(&mut TokenTreeBuilder) -> TokenNode + 'static>;

@@ -1,7 +1,6 @@
 use crate::parser::hir::Expression;
 use crate::parser::Flag;
 use crate::prelude::*;
-use derive_new::new;
 use indexmap::IndexMap;
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -15,10 +14,17 @@ pub enum NamedValue {
     Value(Expression),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, new)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NamedArguments {
-    #[new(default)]
     pub(crate) named: IndexMap<String, NamedValue>,
+}
+
+impl NamedArguments {
+    pub fn new() -> NamedArguments {
+        NamedArguments {
+            named: IndexMap::new(),
+        }
+    }
 }
 
 impl FormatDebug for NamedArguments {
