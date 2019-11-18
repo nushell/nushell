@@ -6,16 +6,22 @@ use crate::parser::{
 };
 use crate::prelude::*;
 use crate::TaggedDictBuilder;
-use derive_new::new;
 use indexmap::IndexMap;
 use log::trace;
 use std::fmt;
 
-#[derive(new)]
 pub struct Scope {
     it: Tagged<Value>,
-    #[new(default)]
     vars: IndexMap<String, Tagged<Value>>,
+}
+
+impl Scope {
+    pub fn new(it: Tagged<Value>) -> Scope {
+        Scope {
+            it,
+            vars: IndexMap::new(),
+        }
+    }
 }
 
 impl fmt::Display for Scope {

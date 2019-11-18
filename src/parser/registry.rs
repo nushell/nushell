@@ -60,22 +60,28 @@ impl PositionalType {
 
 type Description = String;
 
-#[derive(Debug, Serialize, Deserialize, Clone, new)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Signature {
     pub name: String,
-    #[new(default)]
     pub usage: String,
-    #[new(default)]
     pub positional: Vec<(PositionalType, Description)>,
-    #[new(value = "None")]
     pub rest_positional: Option<(SyntaxShape, Description)>,
-    #[new(default)]
     pub named: IndexMap<String, (NamedType, Description)>,
-    #[new(value = "false")]
     pub is_filter: bool,
 }
 
 impl Signature {
+    pub fn new(name: String) -> Signature {
+        Signature {
+            name,
+            usage: String::new(),
+            positional: vec![],
+            rest_positional: None,
+            named: IndexMap::new(),
+            is_filter: false,
+        }
+    }
+
     pub fn build(name: impl Into<String>) -> Signature {
         Signature::new(name.into())
     }

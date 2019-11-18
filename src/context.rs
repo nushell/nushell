@@ -1,7 +1,6 @@
 use crate::commands::{Command, UnevaluatedCallInfo};
 use crate::parser::{hir, hir::syntax_shape::ExpandContext};
 use crate::prelude::*;
-use derive_new::new;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -15,10 +14,17 @@ pub enum AnchorLocation {
     Source(Text),
 }
 
-#[derive(Clone, new)]
+#[derive(Clone)]
 pub struct CommandRegistry {
-    #[new(value = "Arc::new(Mutex::new(IndexMap::default()))")]
     registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
+}
+
+impl CommandRegistry {
+    pub fn new() -> CommandRegistry {
+        CommandRegistry {
+            registry: Arc::new(Mutex::new(IndexMap::default())),
+        }
+    }
 }
 
 impl CommandRegistry {
