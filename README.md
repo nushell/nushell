@@ -186,6 +186,25 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
 
+## Configuration
+
+Nu has early support for configuring the shell. It currently supports the following settings:
+
+| Variable        | Type           | Description  |
+| ------------- | ------------- | ----- |
+| path | table of strings | PATH to use to find binaries |
+| env | row | the environment variables to pass to external commands |
+| ctrlc_exit | boolean | whether or not to exit Nu after multiple ctrl-c presses |
+| table_mode | "light" or other | enable lightweight or normal tables |
+| edit_mode | "vi" or "emacs" | changes line editing to "vi" or "emacs" mode |
+
+To set one of these variables, you can use `config --set`. For example:
+
+```
+> config --set [edit_mode "vi"]
+> config --set [path $nu:path]
+```
+
 ## Shells
 
 Nu will work inside of a single directory and allow you to navigate around your filesystem by default. Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time.
