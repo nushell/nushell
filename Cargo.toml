@@ -78,6 +78,7 @@ regex = "1"
 cfg-if = "0.1"
 strip-ansi-escapes = "0.1.0"
 calamine = "0.16"
+umask = "0.1"
 
 neso = { version = "0.5.0", optional = true }
 crossterm = { version = "0.10.2", optional = true }
