@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn input_is_parsed_correctly_if_either_option_works() {
-        let input =             r#"
+        let input = r#"
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
                 kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
                 kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP

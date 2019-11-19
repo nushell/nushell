@@ -2,7 +2,7 @@ use crate::data::{Primitive, TaggedDictBuilder, Value};
 use crate::prelude::*;
 use csv::ReaderBuilder;
 
-fn from_stuctured_string_to_value(
+fn from_delimited_string_to_value(
     s: String,
     headerless: bool,
     separator: char,
@@ -37,7 +37,7 @@ fn from_stuctured_string_to_value(
     Ok(Value::Table(rows).tagged(&tag))
 }
 
-pub fn from_structured_data(
+pub fn from_delimited_data(
     headerless: bool,
     sep: char,
     format_name: &'static str,
@@ -70,7 +70,7 @@ pub fn from_structured_data(
             }
         }
 
-        match from_stuctured_string_to_value(concat_string, headerless, sep, name_tag.clone()) {
+        match from_delimited_string_to_value(concat_string, headerless, sep, name_tag.clone()) {
             Ok(x) => match x {
                 Tagged { item: Value::Table(list), .. } => {
                     for l in list {

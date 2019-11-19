@@ -92,6 +92,10 @@ error: Expected a string from pipeline
 ━━━┷━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━
 ```
 
+The string '\t' can be used to separate on tabs. Note that this is the same as using the from-tsv command.
+
+Newlines '\n' are not acceptable separators.
+
 Note that separators are currently provided as strings and need to be wrapped in quotes.
 
 ```shell
