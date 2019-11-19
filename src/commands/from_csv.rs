@@ -1,4 +1,4 @@
-use crate::commands::from_structured_data::from_structured_data;
+use crate::commands::from_delimited_data::from_delimited_data;
 use crate::commands::WholeStreamCommand;
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
@@ -52,18 +52,22 @@ fn from_csv(
             tag,
             ..
         }) => {
-            let vec_s: Vec<char> = s.chars().collect();
-            if vec_s.len() != 1 {
-                return Err(ShellError::labeled_error(
-                    "Expected a single separator char from --separator",
-                    "requires a single character string input",
-                    tag,
-                ));
-            };
-            vec_s[0]
+            if s == r"\t" {
+                '\t'
+            } else {
+                let vec_s: Vec<char> = s.chars().collect();
+                if vec_s.len() != 1 {
+                    return Err(ShellError::labeled_error(
+                        "Expected a single separator char from --separator",
+                        "requires a single character string input",
+                        tag,
+                    ));
+                };
+                vec_s[0]
+            }
         }
         _ => ',',
     };
 
-    from_structured_data(headerless, sep, "CSV", runnable_context)
+    from_delimited_data(headerless, sep, "CSV", runnable_context)
 }

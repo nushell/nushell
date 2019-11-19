@@ -130,6 +130,35 @@ fn converts_from_csv_text_with_separator_to_structured_table() {
 }
 
 #[test]
+fn converts_from_csv_text_with_tab_separator_to_structured_table() {
+    Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name	last_name	rusty_luck
+                Andrés	Robalino	1
+                Jonathan	Turner	1
+                Yehuda	Katz	1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv --separator '\t'
+                | get rusty_luck
+                | str --to-int
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
 fn converts_from_csv_text_skipping_headers_to_structured_table() {
     Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
@@ -262,6 +291,16 @@ fn can_convert_table_to_tsv_text_and_from_tsv_text_back_into_table() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
         "open caco3_plastics.tsv | to-tsv | from-tsv | first 1 | get origin | echo $it"
+    );
+
+    assert_eq!(actual, "SPAIN");
+}
+
+#[test]
+fn can_convert_table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r"open caco3_plastics.tsv | to-tsv | from-csv --separator '\t' | first 1 | get origin | echo $it"
     );
 
     assert_eq!(actual, "SPAIN");

@@ -1,4 +1,4 @@
-use crate::commands::from_structured_data::from_structured_data;
+use crate::commands::from_delimited_data::from_delimited_data;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 
@@ -36,5 +36,5 @@ fn from_tsv(
     FromTSVArgs { headerless }: FromTSVArgs,
     runnable_context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    from_structured_data(headerless, '\t', "TSV", runnable_context)
+    from_delimited_data(headerless, '\t', "TSV", runnable_context)
 }
