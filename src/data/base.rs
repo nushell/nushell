@@ -150,10 +150,10 @@ impl CompareValues {
 }
 
 pub(crate) fn coerce_compare(
-    left: &Value,
-    right: &Value,
+    left: &UntaggedValue,
+    right: &UntaggedValue,
 ) -> Result<CompareValues, (&'static str, &'static str)> {
-    match (&left.value, &right.value) {
+    match (left, right) {
         (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
             coerce_compare_primitive(left, right)
         }

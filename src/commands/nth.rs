@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
-use nu_protocol::{Signature, SyntaxShape};
 use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]

@@ -1,9 +1,12 @@
 use super::ClassifiedInputStream;
+use crate::data::value;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use log::trace;
+use nu_errors::ShellError;
+use nu_protocol::Value;
 use std::io::{Error, ErrorKind};
 use subprocess::Exec;
 
@@ -105,7 +108,7 @@ impl Command {
             let input_strings = inputs
                 .iter()
                 .map(|i| {
-                    i.as_string().map_err(|_| {
+                    i.as_string().map(|s| s.to_string()).map_err(|_| {
                         let arg = self.args.iter().find(|arg| arg.arg.contains("$it"));
                         if let Some(arg) = arg {
                             ShellError::labeled_error(
@@ -206,9 +209,8 @@ impl Command {
                     let stdout = popen.stdout.take().unwrap();
                     let file = futures::io::AllowStdIo::new(stdout);
                     let stream = Framed::new(file, LinesCodec {});
-                    let stream = stream.map(move |line| {
-                        UntaggedValue::string(line.unwrap()).into_value(&name_tag)
-                    });
+                    let stream =
+                        stream.map(move |line| value::string(line.unwrap()).into_value(&name_tag));
                     Ok(ClassifiedInputStream::from_input_stream(
                         stream.boxed() as BoxStream<'static, Value>
                     ))

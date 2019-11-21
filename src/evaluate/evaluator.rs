@@ -1,13 +1,7 @@
 use crate::context::CommandRegistry;
 use crate::data::base::Block;
 use crate::data::value;
-use crate::errors::ArgumentError;
 use crate::evaluate::operator::apply_operator;
-use crate::parser::hir::path::{ColumnPath, UnspannedPathMember};
-use crate::parser::{
-    hir::{self, Expression, RawExpression},
-    CommandRegistry,
-};
 use crate::prelude::*;
 use crate::TaggedDictBuilder;
 use log::trace;

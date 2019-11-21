@@ -1,7 +1,10 @@
-use crate::parser::hir;
+use crate::data::value;
 use crate::prelude::*;
 use derive_new::new;
 use log::{log_enabled, trace};
+use nu_errors::ShellError;
+use nu_parser::hir;
+use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 
 use super::ClassifiedInputStream;
 
@@ -77,7 +80,7 @@ impl Command {
                                 } => {
                                     context.shell_manager.insert_at_current(Box::new(
                                         HelpShell::for_command(
-                                            UntaggedValue::string(cmd).into_value(tag),
+                                            value::string(cmd).into_value(tag),
                                             &context.registry(),
                                         ).unwrap(),
                                     ));
@@ -126,12 +129,12 @@ impl Command {
 
                         doc.render_raw(
                             context.with_host(|host| host.width() - 5),
-                            &mut crate::parser::debug::TermColored::new(&mut buffer),
+                            &mut nu_source::TermColored::new(&mut buffer),
                         ).unwrap();
 
                         let value = String::from_utf8_lossy(buffer.as_slice());
 
-                        yield Ok(UntaggedValue::string(value).into_untagged_value())
+                        yield Ok(value::string(value).into_untagged_value())
                     }
 
                     Err(err) => {

@@ -98,8 +98,8 @@ pub fn nothing() -> UntaggedValue {
 
 pub fn compare_values(
     operator: &Operator,
-    left: &Value,
-    right: &Value,
+    left: &UntaggedValue,
+    right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
     match operator {
         _ => {

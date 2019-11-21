@@ -1,5 +1,5 @@
-use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
+use nu_parser::{hir, TokenNode};
 
 mod dynamic;
 mod external;
@@ -11,7 +11,6 @@ pub(crate) use dynamic::Command as DynamicCommand;
 #[allow(unused_imports)]
 pub(crate) use external::{Command as ExternalCommand, ExternalArg, ExternalArgs, StreamNext};
 pub(crate) use internal::Command as InternalCommand;
-pub(crate) use pipeline::Pipeline as ClassifiedPipeline;
 
 pub(crate) struct ClassifiedInputStream {
     pub(crate) objects: InputStream,
@@ -21,7 +20,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: vec![UntaggedValue::nothing().into_untagged_value()].into(),
+            objects: vec![crate::data::value::nothing().into_untagged_value()].into(),
             stdin: None,
         }
     }

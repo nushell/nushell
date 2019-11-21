@@ -1,6 +1,6 @@
-use crate::data::base::{Primitive, UntaggedValue, Value};
-use crate::parser::Operator;
-use crate::traits::ShellTypeName;
+use crate::data::value;
+use nu_parser::Operator;
+use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 pub fn apply_operator(
@@ -14,12 +14,10 @@ pub fn apply_operator(
         | Operator::LessThan
         | Operator::GreaterThan
         | Operator::LessThanOrEqual
-        | Operator::GreaterThanOrEqual => left.compare(op, right).map(UntaggedValue::boolean),
-        Operator::Dot => Ok(UntaggedValue::boolean(false)),
-        Operator::Contains => contains(left, right).map(UntaggedValue::boolean),
-        Operator::NotContains => contains(left, right)
-            .map(Not::not)
-            .map(UntaggedValue::boolean),
+        | Operator::GreaterThanOrEqual => left.compare(op, right).map(value::boolean),
+        Operator::Dot => Ok(value::boolean(false)),
+        Operator::Contains => contains(left, right).map(value::boolean),
+        Operator::NotContains => contains(left, right).map(Not::not).map(value::boolean),
     }
 }
 

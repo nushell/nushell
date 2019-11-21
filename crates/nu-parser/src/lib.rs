@@ -1,5 +1,4 @@
 pub mod commands;
-pub mod debug;
 pub mod hir;
 pub mod parse;
 pub mod parse_command;

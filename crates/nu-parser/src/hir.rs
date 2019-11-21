@@ -13,13 +13,7 @@ use crate::parse::parser::Number;
 use crate::parse::unit::Unit;
 use derive_new::new;
 use getset::Getters;
-#[cfg(not(coloring_in_tokens))]
-use nu_errors::ShellError;
-#[cfg(not(coloring_in_tokens))]
-use nu_protocol::{EvaluatedArgs, Scope};
 use nu_protocol::{PathMember, ShellTypeName};
-#[cfg(not(coloring_in_tokens))]
-use nu_source::Text;
 use nu_source::{
     b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span, Spanned, SpannedItem,
 };
