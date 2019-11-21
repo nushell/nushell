@@ -1,7 +1,7 @@
-use crate::Span;
 use derive_new::new;
 use language_reporting::{FileName, Location};
 use log::trace;
+use nu_source::Span;
 
 #[derive(new, Debug, Clone)]
 pub struct Files {

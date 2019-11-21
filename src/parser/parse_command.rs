@@ -9,9 +9,9 @@ use crate::parser::{
     hir::{self, ExpandContext, NamedArguments},
     Flag,
 };
-use crate::traits::ToDebug;
-use crate::{Span, Spanned, SpannedItem, Text};
 use log::trace;
+use nu_source::{PrettyDebugWithSource, Text};
+use nu_source::{Span, Spanned, SpannedItem};
 
 pub fn parse_command_tail(
     config: &Signature,
@@ -571,9 +571,7 @@ impl ColorSyntax for CommandTailShape {
 }
 
 fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Text) -> Option<Flag> {
-    tokens
-        .extract(|t| t.as_flag(name, source))
-        .map(|(_pos, flag)| flag.item)
+    tokens.extract(|t| t.as_flag(name, source)).map(|f| f.1)
 }
 
 fn extract_mandatory(
@@ -582,7 +580,7 @@ fn extract_mandatory(
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
     span: Span,
-) -> Result<(usize, Spanned<Flag>), ParseError> {
+) -> Result<(usize, Flag), ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
@@ -602,7 +600,7 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-) -> Result<Option<(usize, Spanned<Flag>)>, ParseError> {
+) -> Result<Option<(usize, Flag)>, ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
@@ -622,7 +620,7 @@ pub fn trace_remaining(desc: &'static str, tail: &hir::TokensIterator<'_>, sourc
         itertools::join(
             tail.debug_remaining()
                 .iter()
-                .map(|i| format!("%{}%", i.debug(&source))),
+                .map(|i| format!("%{}%", i.debug(source))),
             " "
         )
     );

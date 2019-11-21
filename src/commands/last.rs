@@ -2,6 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::parser::CommandRegistry;
 use crate::prelude::*;
+use nu_source::Tagged;
 
 pub struct Last;
 
@@ -50,7 +51,7 @@ fn last(LastArgs { rows }: LastArgs, context: RunnableContext) -> Result<OutputS
         if count < v.len() {
             let k = v.len() - count;
             for x in v[k..].iter() {
-                let y: Tagged<Value> = x.clone();
+                let y: Value = x.clone();
                 yield ReturnSuccess::value(y)
             }
         }

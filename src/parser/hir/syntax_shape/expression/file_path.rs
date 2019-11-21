@@ -1,4 +1,6 @@
-use crate::parser::hir::syntax_shape::expression::atom::{expand_atom, AtomicToken, ExpansionRule};
+use crate::parser::hir::syntax_shape::expression::atom::{
+    expand_atom, ExpansionRule, UnspannedAtomicToken,
+};
 use crate::parser::hir::syntax_shape::{
     expression::expand_file_path, ExpandContext, ExpandExpression, FallibleColorSyntax, FlatShape,
     ParseError,
@@ -19,7 +21,7 @@ impl FallibleColorSyntax for FilePathShape {
         _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
+        shapes: &mut Vec<nu_source::Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         let atom = expand_atom(
             token_nodes,
@@ -33,11 +35,11 @@ impl FallibleColorSyntax for FilePathShape {
             Ok(atom) => atom,
         };
 
-        match atom.item {
-            AtomicToken::Word { .. }
-            | AtomicToken::String { .. }
-            | AtomicToken::Number { .. }
-            | AtomicToken::Size { .. } => {
+        match &atom.unspanned {
+            UnspannedAtomicToken::Word { .. }
+            | UnspannedAtomicToken::String { .. }
+            | UnspannedAtomicToken::Number { .. }
+            | UnspannedAtomicToken::Size { .. } => {
                 shapes.push(FlatShape::Path.spanned(atom.span));
             }
 
@@ -75,11 +77,11 @@ impl FallibleColorSyntax for FilePathShape {
             Ok(atom) => atom,
         };
 
-        match atom.item {
-            AtomicToken::Word { .. }
-            | AtomicToken::String { .. }
-            | AtomicToken::Number { .. }
-            | AtomicToken::Size { .. } => {
+        match atom.unspanned {
+            UnspannedAtomicToken::Word { .. }
+            | UnspannedAtomicToken::String { .. }
+            | UnspannedAtomicToken::Number { .. }
+            | UnspannedAtomicToken::Size { .. } => {
                 token_nodes.color_shape(FlatShape::Path.spanned(atom.span));
             }
 
@@ -102,13 +104,13 @@ impl ExpandExpression for FilePathShape {
     ) -> Result<hir::Expression, ParseError> {
         let atom = expand_atom(token_nodes, "file path", context, ExpansionRule::new())?;
 
-        match atom.item {
-            AtomicToken::Word { text: body } | AtomicToken::String { body } => {
+        match atom.unspanned {
+            UnspannedAtomicToken::Word { text: body } | UnspannedAtomicToken::String { body } => {
                 let path = expand_file_path(body.slice(context.source), context);
                 return Ok(hir::Expression::file_path(path, atom.span));
             }
 
-            AtomicToken::Number { .. } | AtomicToken::Size { .. } => {
+            UnspannedAtomicToken::Number { .. } | UnspannedAtomicToken::Size { .. } => {
                 let path = atom.span.slice(context.source);
                 return Ok(hir::Expression::file_path(path, atom.span));
             }

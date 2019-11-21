@@ -1,13 +1,15 @@
 use crate::commands::classified::{
-    ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
-    StreamNext,
+    ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalArg, ExternalArgs,
+    ExternalCommand, InternalCommand, StreamNext,
 };
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
-use crate::data::config;
-use crate::data::Value;
+use crate::data::{
+    base::{UntaggedValue, Value},
+    config,
+};
 pub(crate) use crate::errors::ShellError;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
@@ -19,6 +21,7 @@ use crate::parser::{
     TokenNode,
 };
 use crate::prelude::*;
+use nu_source::{Spanned, Tagged};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
@@ -381,7 +384,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         let edit_mode = config::config(Tag::unknown())?
             .get("edit_mode")
-            .map(|s| match s.as_string().unwrap().as_ref() {
+            .map(|s| match s.value.expect_string() {
                 "vi" => EditMode::Vi,
                 "emacs" => EditMode::Emacs,
                 _ => EditMode::Emacs,
@@ -448,7 +451,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             LineResult::CtrlC => {
                 let config_ctrlc_exit = config::config(Tag::unknown())?
                     .get("ctrlc_exit")
-                    .map(|s| match s.as_string().unwrap().as_ref() {
+                    .map(|s| match s.value.expect_string() {
                         "true" => true,
                         _ => false,
                     })
@@ -501,8 +504,8 @@ fn set_env_from_config() {
         let value = config.get("env");
 
         match value {
-            Some(Tagged {
-                item: Value::Row(r),
+            Some(Value {
+                value: UntaggedValue::Row(r),
                 ..
             }) => {
                 for (k, v) in &r.entries {
@@ -524,8 +527,8 @@ fn set_env_from_config() {
 
         match value {
             Some(value) => match value {
-                Tagged {
-                    item: Value::Table(table),
+                Value {
+                    value: UntaggedValue::Table(table),
                     ..
                 } => {
                     let mut paths = vec![];
@@ -583,11 +586,11 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Err(err) => return LineResult::Error(line.to_string(), err),
             };
 
-            match pipeline.commands.last() {
+            match pipeline.commands.list.last() {
                 Some(ClassifiedCommand::External(_)) => {}
                 _ => pipeline
                     .commands
-                    .item
+                    .list
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         name: "autoview".to_string(),
                         name_tag: Tag::unknown(),
@@ -595,13 +598,13 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Box::new(hir::Expression::synthetic_string("autoview")),
                             None,
                             None,
-                        )
-                        .spanned_unknown(),
+                            Span::unknown(),
+                        ),
                     })),
             }
 
             let mut input = ClassifiedInputStream::new();
-            let mut iter = pipeline.commands.item.into_iter().peekable();
+            let mut iter = pipeline.commands.list.into_iter().peekable();
 
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
@@ -659,8 +662,8 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                                 let mut output_stream: OutputStream = val.into();
                                 loop {
                                     match output_stream.try_next().await {
-                                        Ok(Some(ReturnSuccess::Value(Tagged {
-                                            item: Value::Error(e),
+                                        Ok(Some(ReturnSuccess::Value(Value {
+                                            value: UntaggedValue::Error(e),
                                             ..
                                         }))) => {
                                             return LineResult::Error(line.to_string(), e);
@@ -723,7 +726,7 @@ fn classify_pipeline(
     source: &Text,
 ) -> Result<ClassifiedPipeline, ShellError> {
     let mut pipeline_list = vec![pipeline.clone()];
-    let mut iterator = TokensIterator::all(&mut pipeline_list, pipeline.span());
+    let mut iterator = TokensIterator::all(&mut pipeline_list, source.clone(), pipeline.span());
 
     let result = expand_syntax(
         &PipelineShape,
@@ -749,19 +752,21 @@ pub(crate) fn external_command(
     context: &ExpandContext,
     name: Tagged<&str>,
 ) -> Result<ClassifiedCommand, ParseError> {
-    let Spanned { item, span } = expand_syntax(&ExternalTokensShape, tokens, context)?;
+    let Spanned { item, span } = expand_syntax(&ExternalTokensShape, tokens, context)?.tokens;
 
     Ok(ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
         name_tag: name.tag(),
-        args: item
-            .iter()
-            .map(|x| Tagged {
-                tag: x.span.into(),
-                item: x.item.clone(),
-            })
-            .collect::<Vec<_>>()
-            .spanned(span),
+        args: ExternalArgs {
+            list: item
+                .iter()
+                .map(|x| ExternalArg {
+                    tag: x.span.into(),
+                    arg: x.item.clone(),
+                })
+                .collect(),
+            span,
+        },
     }))
 }
 

@@ -4,6 +4,7 @@ use crate::errors::ShellError;
 use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::{self};
 use crate::prelude::*;
+use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub struct Config;
@@ -11,7 +12,7 @@ pub struct Config;
 #[derive(Deserialize)]
 pub struct ConfigArgs {
     load: Option<Tagged<PathBuf>>,
-    set: Option<(Tagged<String>, Tagged<Value>)>,
+    set: Option<(Tagged<String>, Value)>,
     set_into: Option<Tagged<String>>,
     get: Option<Tagged<String>>,
     clear: Tagged<bool>,
@@ -90,11 +91,12 @@ pub fn config(
                 .ok_or_else(|| ShellError::labeled_error("Missing key in config", "key", v.tag()))?;
 
             match value {
-                Tagged {
-                    item: Value::Table(list),
+                Value {
+                    value: UntaggedValue::Table(list),
                     ..
                 } => {
                     for l in list {
+                        let value = l.clone();
                         yield ReturnSuccess::value(l.clone());
                     }
                 }
@@ -106,10 +108,10 @@ pub fn config(
 
             config::write(&result, &configuration)?;
 
-            yield ReturnSuccess::value(Value::Row(result.into()).tagged(value.tag()));
+            yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(&value.tag));
         }
         else if let Some(v) = set_into {
-            let rows: Vec<Tagged<Value>> = input.values.collect().await;
+            let rows: Vec<Value> = input.values.collect().await;
             let key = v.to_string();
 
             if rows.len() == 0 {
@@ -122,16 +124,16 @@ pub fn config(
 
                 config::write(&result, &configuration)?;
 
-                yield ReturnSuccess::value(Value::Row(result.into()).tagged(name));
+                yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(name));
             } else {
                 // Take in the pipeline as a table
-                let value = Value::Table(rows).tagged(name.clone());
+                let value = UntaggedValue::Table(rows).into_value(name.clone());
 
                 result.insert(key.to_string(), value.clone());
 
                 config::write(&result, &configuration)?;
 
-                yield ReturnSuccess::value(Value::Row(result.into()).tagged(name));
+                yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(name));
             }
         }
         else if let Tagged { item: true, tag } = clear {
@@ -139,14 +141,14 @@ pub fn config(
 
             config::write(&result, &configuration)?;
 
-            yield ReturnSuccess::value(Value::Row(result.into()).tagged(tag));
+            yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(tag));
 
             return;
         }
         else if let Tagged { item: true, tag } = path {
             let path = config::default_path_for(&configuration)?;
 
-            yield ReturnSuccess::value(Value::Primitive(Primitive::Path(path)).tagged(tag));
+            yield ReturnSuccess::value(UntaggedValue::Primitive(Primitive::Path(path)).into_value(tag));
         }
         else if let Some(v) = remove {
             let key = v.to_string();
@@ -162,10 +164,10 @@ pub fn config(
                 ));
             }
 
-            yield ReturnSuccess::value(Value::Row(result.into()).tagged(v.tag()));
+            yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(v.tag()));
         }
         else {
-            yield ReturnSuccess::value(Value::Row(result.into()).tagged(name));
+            yield ReturnSuccess::value(UntaggedValue::Row(result.into()).into_value(name));
         }
     };
 

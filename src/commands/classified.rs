@@ -4,9 +4,8 @@ use bytes::{BufMut, BytesMut};
 use derive_new::new;
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
-use itertools::Itertools;
 use log::{log_enabled, trace};
-use std::fmt;
+use nu_source::PrettyDebug;
 use std::io::{Error, ErrorKind};
 use subprocess::Exec;
 
@@ -54,7 +53,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: vec![Value::nothing().tagged(Tag::unknown())].into(),
+            objects: vec![UntaggedValue::nothing().into_value(Tag::unknown())].into(),
             stdin: None,
         }
     }
@@ -75,16 +74,42 @@ impl ClassifiedInputStream {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ClassifiedPipeline {
-    pub(crate) commands: Spanned<Vec<ClassifiedCommand>>,
+pub struct Commands {
+    pub list: Vec<ClassifiedCommand>,
+    pub span: Span,
 }
 
-impl FormatDebug for ClassifiedPipeline {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        f.say_str(
-            "classified pipeline",
-            self.commands.iter().map(|c| c.debug(source)).join(" | "),
+impl std::ops::Deref for Commands {
+    type Target = [ClassifiedCommand];
+
+    fn deref(&self) -> &Self::Target {
+        &self.list
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ClassifiedPipeline {
+    pub commands: Commands,
+}
+
+impl ClassifiedPipeline {
+    pub fn commands(list: Vec<ClassifiedCommand>, span: impl Into<Span>) -> ClassifiedPipeline {
+        ClassifiedPipeline {
+            commands: Commands {
+                list,
+                span: span.into(),
+            },
+        }
+    }
+}
+
+impl PrettyDebugWithSource for ClassifiedPipeline {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::intersperse(
+            self.commands.iter().map(|c| c.pretty_debug(source)),
+            b::operator(" | "),
         )
+        .or(b::delimit("<", b::description("empty pipeline"), ">"))
     }
 }
 
@@ -95,22 +120,22 @@ impl HasSpan for ClassifiedPipeline {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) enum ClassifiedCommand {
+pub enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
-    Internal(InternalCommand),
     #[allow(unused)]
-    Dynamic(Spanned<hir::Call>),
+    Dynamic(hir::Call),
+    Internal(InternalCommand),
     External(ExternalCommand),
 }
 
-impl FormatDebug for ClassifiedCommand {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+impl PrettyDebugWithSource for ClassifiedCommand {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            ClassifiedCommand::Expr(expr) => expr.fmt_debug(f, source),
-            ClassifiedCommand::Internal(internal) => internal.fmt_debug(f, source),
-            ClassifiedCommand::Dynamic(dynamic) => dynamic.fmt_debug(f, source),
-            ClassifiedCommand::External(external) => external.fmt_debug(f, source),
+            ClassifiedCommand::Expr(token) => b::typed("command", token.pretty_debug(source)),
+            ClassifiedCommand::Dynamic(call) => b::typed("command", call.pretty_debug(source)),
+            ClassifiedCommand::Internal(internal) => internal.pretty_debug(source),
+            ClassifiedCommand::External(external) => external.pretty_debug(source),
         }
     }
 }
@@ -127,10 +152,19 @@ impl HasSpan for ClassifiedCommand {
 }
 
 #[derive(new, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct InternalCommand {
+pub struct InternalCommand {
     pub(crate) name: String,
     pub(crate) name_tag: Tag,
-    pub(crate) args: Spanned<hir::Call>,
+    pub(crate) args: hir::Call,
+}
+
+impl PrettyDebugWithSource for InternalCommand {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed(
+            "internal command",
+            b::description(&self.name) + b::space() + self.args.pretty_debug(source),
+        )
+    }
 }
 
 impl HasSpan for InternalCommand {
@@ -138,12 +172,6 @@ impl HasSpan for InternalCommand {
         let start = self.name_tag.span;
 
         start.until(self.args.span)
-    }
-}
-
-impl FormatDebug for InternalCommand {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        f.say("internal", self.args.debug(source))
     }
 }
 
@@ -165,21 +193,15 @@ impl InternalCommand {
             trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
-        let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", source: source, "input" = input.objects);
+        let objects: InputStream =
+            trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
         let command = context.expect_command(&self.name);
 
-        let result = {
-            context.run_command(
-                command,
-                self.name_tag.clone(),
-                self.args.item,
-                &source,
-                objects,
-            )
-        };
+        let result =
+            { context.run_command(command, self.name_tag.clone(), self.args, &source, objects) };
 
-        let result = trace_out_stream!(target: "nu::trace_stream::internal", source: source, "output" = result);
+        let result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
         let mut result = result.values;
         let mut context = context.clone();
 
@@ -200,13 +222,13 @@ impl InternalCommand {
                         }
                         CommandAction::EnterHelpShell(value) => {
                             match value {
-                                Tagged {
-                                    item: Value::Primitive(Primitive::String(cmd)),
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::String(cmd)),
                                     tag,
                                 } => {
                                     context.shell_manager.insert_at_current(Box::new(
                                         HelpShell::for_command(
-                                            Value::string(cmd).tagged(tag),
+                                            UntaggedValue::string(cmd).into_value(tag),
                                             &context.registry(),
                                         ).unwrap(),
                                     ));
@@ -250,7 +272,7 @@ impl InternalCommand {
                     Ok(ReturnSuccess::DebugValue(v)) => {
                         yielded = true;
 
-                        let doc = v.item.pretty_doc();
+                        let doc = PrettyDebug::pretty_doc(&v);
                         let mut buffer = termcolor::Buffer::ansi();
 
                         doc.render_raw(
@@ -260,7 +282,7 @@ impl InternalCommand {
 
                         let value = String::from_utf8_lossy(buffer.as_slice());
 
-                        yield Ok(Value::string(value).tagged_unknown())
+                        yield Ok(UntaggedValue::string(value).into_untagged_value())
                     }
 
                     Err(err) => {
@@ -276,23 +298,60 @@ impl InternalCommand {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct ExternalCommand {
+pub struct ExternalArg {
+    pub arg: String,
+    pub tag: Tag,
+}
+
+impl std::ops::Deref for ExternalArg {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.arg
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ExternalArgs {
+    pub list: Vec<ExternalArg>,
+    pub span: Span,
+}
+
+impl ExternalArgs {
+    pub fn iter(&self) -> impl Iterator<Item = &ExternalArg> {
+        self.list.iter()
+    }
+}
+
+impl std::ops::Deref for ExternalArgs {
+    type Target = [ExternalArg];
+
+    fn deref(&self) -> &[ExternalArg] {
+        &self.list
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ExternalCommand {
     pub(crate) name: String,
 
     pub(crate) name_tag: Tag,
-    pub(crate) args: Spanned<Vec<Tagged<String>>>,
+    pub(crate) args: ExternalArgs,
 }
 
-impl FormatDebug for ExternalCommand {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.name)?;
-
-        if self.args.item.len() > 0 {
-            write!(f, " ")?;
-            write!(f, "{}", self.args.iter().map(|i| i.debug(source)).join(" "))?;
-        }
-
-        Ok(())
+impl PrettyDebug for ExternalCommand {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::typed(
+            "external command",
+            b::description(&self.name)
+                + b::preceded(
+                    b::space(),
+                    b::intersperse(
+                        self.args.iter().map(|a| b::primitive(format!("{}", a.arg))),
+                        b::space(),
+                    ),
+                ),
+        )
     }
 }
 
@@ -317,13 +376,13 @@ impl ExternalCommand {
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
-        let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
+        let inputs: Vec<Value> = input.objects.into_vec().await;
 
         trace!(target: "nu::run::external", "-> {}", self.name);
         trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
         let mut arg_string = format!("{}", self.name);
-        for arg in &self.args.item {
+        for arg in self.args.iter() {
             arg_string.push_str(&arg);
         }
 
@@ -334,13 +393,13 @@ impl ExternalCommand {
             let input_strings = inputs
                 .iter()
                 .map(|i| {
-                    i.as_string().map_err(|_| {
-                        let arg = self.args.iter().find(|arg| arg.item.contains("$it"));
+                    i.as_string().map(|s| s.to_string()).map_err(|_| {
+                        let arg = self.args.iter().find(|arg| arg.contains("$it"));
                         if let Some(arg) = arg {
                             ShellError::labeled_error(
                                 "External $it needs string data",
                                 "given row instead of string data",
-                                arg.tag(),
+                                &arg.tag,
                             )
                         } else {
                             ShellError::labeled_error(
@@ -368,7 +427,7 @@ impl ExternalCommand {
             process = Exec::shell(itertools::join(commands, " && "))
         } else {
             process = Exec::cmd(&self.name);
-            for arg in &self.args.item {
+            for arg in self.args.iter() {
                 let arg_chars: Vec<_> = arg.chars().collect();
                 if arg_chars.len() > 1
                     && arg_chars[0] == '"'
@@ -378,7 +437,7 @@ impl ExternalCommand {
                     let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                     process = process.arg(new_arg);
                 } else {
-                    process = process.arg(arg.item.clone());
+                    process = process.arg(arg.arg.clone());
                 }
             }
         }
@@ -435,10 +494,11 @@ impl ExternalCommand {
                     let stdout = popen.stdout.take().unwrap();
                     let file = futures::io::AllowStdIo::new(stdout);
                     let stream = Framed::new(file, LinesCodec {});
-                    let stream =
-                        stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
+                    let stream = stream.map(move |line| {
+                        UntaggedValue::string(line.unwrap()).into_value(&name_tag)
+                    });
                     Ok(ClassifiedInputStream::from_input_stream(
-                        stream.boxed() as BoxStream<'static, Tagged<Value>>
+                        stream.boxed() as BoxStream<'static, Value>
                     ))
                 }
             }

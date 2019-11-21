@@ -42,17 +42,18 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     if let Some(v) = &args.call_info.args.positional {
         if v.len() > 0 {
             match &v[0] {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => match which::which(&s) {
                     Ok(ok) => {
-                        which_out
-                            .push_back(Value::Primitive(Primitive::Path(ok)).tagged(tag.clone()));
+                        which_out.push_back(
+                            UntaggedValue::Primitive(Primitive::Path(ok)).into_value(tag.clone()),
+                        );
                     }
                     _ => {}
                 },
-                Tagged { tag, .. } => {
+                Value { tag, .. } => {
                     return Err(ShellError::labeled_error(
                         "Expected a filename to find",
                         "needs a filename",

@@ -23,13 +23,17 @@ macro_rules! stream {
 
 #[macro_export]
 macro_rules! trace_stream {
-    (target: $target:tt, source: $source:expr, $desc:tt = $expr:expr) => {{
+    (target: $target:tt, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
-            let source = $source.clone();
 
             let objects = $expr.values.inspect(move |o| {
-                trace!(target: $target, "{} = {}", $desc, o.debug(&source));
+                trace!(
+                    target: $target,
+                    "{} = {}",
+                    $desc,
+                    nu_source::PrettyDebug::plain_string(o, 70)
+                );
             });
 
             $crate::stream::InputStream::from_stream(objects.boxed())
@@ -41,14 +45,20 @@ macro_rules! trace_stream {
 
 #[macro_export]
 macro_rules! trace_out_stream {
-    (target: $target:tt, source: $source:expr, $desc:tt = $expr:expr) => {{
+    (target: $target:tt, $desc:tt = $expr:expr) => {{
         if log::log_enabled!(target: $target, log::Level::Trace) {
             use futures::stream::StreamExt;
 
-            let source = $source.clone();
-
             let objects = $expr.values.inspect(move |o| {
-                trace!(target: $target, "{} = {}", $desc, o.debug(&source));
+                trace!(
+                    target: $target,
+                    "{} = {}",
+                    $desc,
+                    match o {
+                        Err(err) => format!("{:?}", err),
+                        Ok(value) => value.display(),
+                    }
+                );
             });
 
             $crate::stream::OutputStream::new(objects)
@@ -76,7 +86,7 @@ macro_rules! dict {
     ($( $key:expr => $value:expr ),*) => {
         $crate::data::dict::TaggedDictBuilder::build(Tag::unknown(), |d| {
             $(
-                d.insert($key, $value);
+                d.insert_untagged($key, $value);
             )*
         })
     };
@@ -84,7 +94,7 @@ macro_rules! dict {
     ([tag] => $tag:expr, $( $key:expr => $value:expr ),*) => {
         $crate::data::dict::TaggedDictBuilder::build($tag, |d| {
             $(
-                d.insert($key, $value);
+                d.insert_untagged($key, $value);
             )*
         })
     }
@@ -97,14 +107,10 @@ pub(crate) use crate::commands::command::{
 pub(crate) use crate::commands::PerItemCommand;
 pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
-pub(crate) use crate::context::{AnchorLocation, Context};
-pub(crate) use crate::data::base as value;
-pub(crate) use crate::data::meta::{
-    span_for_spanned_list, HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Tagged,
-    TaggedItem,
-};
+pub(crate) use crate::context::Context;
+pub(crate) use crate::data::base::{UntaggedValue, Value};
 pub(crate) use crate::data::types::ExtractType;
-pub(crate) use crate::data::{Primitive, Value};
+pub(crate) use crate::data::Primitive;
 pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
 pub(crate) use crate::errors::{CoerceInto, ParseError, ShellError};
@@ -116,21 +122,20 @@ pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
 pub(crate) use crate::stream::{InputStream, OutputStream};
-pub(crate) use crate::traits::{
-    DebugDoc, DebugDocBuilder, DebugFormatter, FormatDebug, HasTag, PrettyDebug, PrettyType,
-    ShellTypeName, SpannedTypeName, ToDebug,
-};
-pub(crate) use crate::Text;
+pub(crate) use crate::traits::{ShellTypeName, SpannedTypeName};
 pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{FutureExt, Stream, StreamExt};
+pub(crate) use nu_source::{
+    b, AnchorLocation, DebugDocBuilder, HasFallibleSpan, HasSpan, PrettyDebug,
+    PrettyDebugWithSource, Span, SpannedItem, Tag, TaggedItem, Text,
+};
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::{FromPrimitive, ToPrimitive};
 pub(crate) use num_traits::identities::Zero;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
-pub(crate) use std::fmt::Write;
 pub(crate) use std::future::Future;
 pub(crate) use std::sync::{Arc, Mutex};
 
@@ -142,7 +147,7 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Stream<Item = Tagged<Value>> + Send + 'static,
+    T: Stream<Item = Value> + Send + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
@@ -158,7 +163,7 @@ pub trait ToInputStream {
 impl<T, U> ToInputStream for T
 where
     T: Stream<Item = U> + Send + 'static,
-    U: Into<Result<Tagged<Value>, ShellError>>,
+    U: Into<Result<Value, ShellError>>,
 {
     fn to_input_stream(self) -> InputStream {
         InputStream {

@@ -1,18 +1,15 @@
-use crate::commands::{Command, UnevaluatedCallInfo};
+use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
+use crate::env::host::Host;
+use crate::errors::ShellError;
 use crate::parser::{hir, hir::syntax_shape::ExpandContext};
-use crate::prelude::*;
+use crate::shell::shell_manager::ShellManager;
+use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
+use nu_source::Tag;
+use nu_source::Text;
 use std::error::Error;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum AnchorLocation {
-    Url(String),
-    File(String),
-    Source(Text),
-}
 
 #[derive(Clone)]
 pub struct CommandRegistry {

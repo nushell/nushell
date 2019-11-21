@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_source::Tagged;
 
 pub struct SortBy;
 
@@ -38,10 +39,10 @@ fn sort_by(
     Ok(OutputStream::new(async_stream! {
         let mut vec = context.input.drain_vec().await;
 
-        let calc_key = |item: &Tagged<Value>| {
+        let calc_key = |item: &crate::data::base::Value| {
             rest.iter()
                 .map(|f| item.get_data_by_key(f.borrow_spanned()).map(|i| i.clone()))
-                .collect::<Vec<Option<Tagged<Value>>>>()
+                .collect::<Vec<Option<crate::data::base::Value>>>()
         };
         vec.sort_by_cached_key(calc_key);
 

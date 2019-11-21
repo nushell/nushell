@@ -8,6 +8,7 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
+use nu_source::Tagged;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
@@ -1098,8 +1099,8 @@ impl Shell for FilesystemShell {
 
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::value(
-            Value::Primitive(Primitive::String(p.to_string_lossy().to_string()))
-                .tagged(&args.call_info.name_tag),
+            UntaggedValue::Primitive(Primitive::String(p.to_string_lossy().to_string()))
+                .into_value(&args.call_info.name_tag),
         ));
 
         Ok(stream.into())

@@ -1,7 +1,6 @@
 use crate::parser::TokenNode;
-use crate::traits::{DebugFormatter, FormatDebug, ToDebug};
+use crate::prelude::*;
 use getset::Getters;
-use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters)]
 pub struct CallNode {
@@ -9,6 +8,24 @@ pub struct CallNode {
     head: Box<TokenNode>,
     #[get = "pub(crate)"]
     children: Option<Vec<TokenNode>>,
+}
+
+impl PrettyDebugWithSource for CallNode {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed(
+            "call",
+            self.head.pretty_debug(source)
+                + b::preceded(
+                    b::space(),
+                    b::intersperse(
+                        self.children.iter().flat_map(|children| {
+                            children.iter().map(|child| child.pretty_debug(source))
+                        }),
+                        b::space(),
+                    ),
+                ),
+        )
+    }
 }
 
 impl CallNode {
@@ -24,19 +41,5 @@ impl CallNode {
                 children: Some(children),
             }
         }
-    }
-}
-
-impl FormatDebug for CallNode {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.head.debug(source))?;
-
-        if let Some(children) = &self.children {
-            for child in children {
-                write!(f, "{}", child.debug(source))?
-            }
-        }
-
-        Ok(())
     }
 }

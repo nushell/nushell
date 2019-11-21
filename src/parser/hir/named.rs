@@ -4,7 +4,6 @@ use crate::prelude::*;
 use indexmap::IndexMap;
 use log::trace;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum NamedValue {
@@ -12,6 +11,17 @@ pub enum NamedValue {
     PresentSwitch(Tag),
     AbsentValue,
     Value(Expression),
+}
+
+impl PrettyDebugWithSource for NamedValue {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match self {
+            NamedValue::AbsentSwitch => b::typed("switch", b::description("absent")),
+            NamedValue::PresentSwitch(_) => b::typed("switch", b::description("present")),
+            NamedValue::AbsentValue => b::description("absent"),
+            NamedValue::Value(value) => value.pretty_debug(source),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -24,21 +34,6 @@ impl NamedArguments {
         NamedArguments {
             named: IndexMap::new(),
         }
-    }
-}
-
-impl FormatDebug for NamedArguments {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        for (name, value) in &self.named {
-            match value {
-                NamedValue::AbsentSwitch => continue,
-                NamedValue::PresentSwitch(tag) => write!(f, " --{}", tag.slice(source))?,
-                NamedValue::AbsentValue => continue,
-                NamedValue::Value(expr) => write!(f, " --{} {}", name, expr.debug(source))?,
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -68,5 +63,20 @@ impl NamedArguments {
 
     pub fn insert_mandatory(&mut self, name: impl Into<String>, expr: Expression) {
         self.named.insert(name.into(), NamedValue::Value(expr));
+    }
+}
+
+impl PrettyDebugWithSource for NamedArguments {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::delimit(
+            "(",
+            b::intersperse(
+                self.named
+                    .iter()
+                    .map(|(key, value)| b::key(key) + b::equals() + value.pretty_debug(source)),
+                b::space(),
+            ),
+            ")",
+        )
     }
 }

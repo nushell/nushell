@@ -1,13 +1,15 @@
+use crate::data::base::Block;
 use crate::prelude::*;
 use crate::ColumnPath;
 use log::trace;
+use nu_source::Tagged;
 use serde::de;
 use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
     key_struct_field: Option<(String, &'de str)>,
-    val: Tagged<Value>,
+    val: Value,
 }
 
 pub struct ConfigDeserializer<'de> {
@@ -27,7 +29,7 @@ impl<'de> ConfigDeserializer<'de> {
         }
     }
 
-    pub fn push_val(&mut self, val: Tagged<Value>) {
+    pub fn push_val(&mut self, val: Value) {
         self.stack.push(DeserializerItem {
             key_struct_field: None,
             val,
@@ -35,10 +37,10 @@ impl<'de> ConfigDeserializer<'de> {
     }
 
     pub fn push(&mut self, name: &'static str) -> Result<(), ShellError> {
-        let value: Option<Tagged<Value>> = if name == "rest" {
+        let value: Option<Value> = if name == "rest" {
             let positional = self.call.args.slice_from(self.position);
             self.position += positional.len();
-            Some(Value::Table(positional).tagged_unknown()) // TODO: correct tag
+            Some(UntaggedValue::Table(positional).into_untagged_value()) // TODO: correct tag
         } else {
             if self.call.args.has(name) {
                 self.call.args.get(name).map(|x| x.clone())
@@ -53,7 +55,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         self.stack.push(DeserializerItem {
             key_struct_field: Some((name.to_string(), name)),
-            val: value.unwrap_or_else(|| Value::nothing().tagged(&self.call.name_tag)),
+            val: value.unwrap_or_else(|| UntaggedValue::nothing().into_value(&self.call.name_tag)),
         });
 
         Ok(())
@@ -90,12 +92,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         trace!("Extracting {:?} for bool", value.val);
 
         match &value.val {
-            Tagged {
-                item: Value::Primitive(Primitive::Boolean(b)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
             } => visitor.visit_bool(*b),
-            Tagged {
-                item: Value::Primitive(Primitive::Nothing),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
             } => visitor.visit_bool(false),
             other => Err(ShellError::type_error(
@@ -202,8 +204,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let value = self.top();
         let name = std::any::type_name::<V::Value>();
         trace!("<Option> Extracting {:?} for Option<{}>", value, name);
-        match value.val.item() {
-            Value::Primitive(Primitive::Nothing) => visitor.visit_none(),
+        match &value.val.value {
+            UntaggedValue::Primitive(Primitive::Nothing) => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
     }
@@ -242,7 +244,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         trace!("<Vec> Extracting {:?} for vec", value.val);
 
         match value.val.into_parts() {
-            (Value::Table(items), _) => {
+            (UntaggedValue::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
@@ -264,7 +266,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         );
 
         match value.val.into_parts() {
-            (Value::Table(items), _) => {
+            (UntaggedValue::Table(items), _) => {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
@@ -316,6 +318,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             let r = json_de.deserialize_struct(name, fields, visitor)?;
             return Ok(r);
         }
+
         trace!(
             "deserializing struct {:?} {:?} (saw_root={} stack={:?})",
             name,
@@ -332,7 +335,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let value = self.pop();
 
         let type_name = std::any::type_name::<V::Value>();
-        let tagged_val_name = std::any::type_name::<Tagged<Value>>();
+        let tagged_val_name = std::any::type_name::<Value>();
 
         trace!(
             "name={} type_name={} tagged_val_name={}",
@@ -342,13 +345,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         );
 
         if type_name == tagged_val_name {
-            return visit::<Tagged<Value>, _>(value.val, name, fields, visitor);
+            return visit::<Value, _>(value.val, name, fields, visitor);
         }
 
         if name == "Block" {
             let block = match value.val {
-                Tagged {
-                    item: Value::Block(block),
+                Value {
+                    value: UntaggedValue::Block(block),
                     ..
                 } => block,
                 other => {
@@ -358,13 +361,13 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     ))
                 }
             };
-            return visit::<value::Block, _>(block, name, fields, visitor);
+            return visit::<Block, _>(block, name, fields, visitor);
         }
 
         if name == "ColumnPath" {
             let path = match value.val {
-                Tagged {
-                    item: Value::Primitive(Primitive::ColumnPath(path)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::ColumnPath(path)),
                     ..
                 } => path,
                 other => {
@@ -382,27 +385,27 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
 
         let tag = value.val.tag();
         match value.val {
-            Tagged {
-                item: Value::Primitive(Primitive::Boolean(b)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Boolean(b)),
                 ..
             } => visit::<Tagged<bool>, _>(b.tagged(tag), name, fields, visitor),
-            Tagged {
-                item: Value::Primitive(Primitive::Nothing),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
             } => visit::<Tagged<bool>, _>(false.tagged(tag), name, fields, visitor),
-            Tagged {
-                item: Value::Primitive(Primitive::Path(p)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Path(p)),
                 ..
             } => visit::<Tagged<PathBuf>, _>(p.clone().tagged(tag), name, fields, visitor),
-            Tagged {
-                item: Value::Primitive(Primitive::Int(int)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..
             } => {
                 let i: i64 = int.tagged(value.val.tag).coerce_into("converting to i64")?;
                 visit::<Tagged<i64>, _>(i.tagged(tag), name, fields, visitor)
             }
-            Tagged {
-                item: Value::Primitive(Primitive::String(string)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::String(string)),
                 ..
             } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
 
@@ -439,20 +442,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
     }
 }
 
-struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> {
+struct SeqDeserializer<'a, 'de: 'a, I: Iterator<Item = Value>> {
     de: &'a mut ConfigDeserializer<'de>,
     vals: I,
 }
 
-impl<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> SeqDeserializer<'a, 'de, I> {
+impl<'a, 'de: 'a, I: Iterator<Item = Value>> SeqDeserializer<'a, 'de, I> {
     fn new(de: &'a mut ConfigDeserializer<'de>, vals: I) -> Self {
         SeqDeserializer { de, vals }
     }
 }
 
-impl<'a, 'de: 'a, I: Iterator<Item = Tagged<Value>>> de::SeqAccess<'de>
-    for SeqDeserializer<'a, 'de, I>
-{
+impl<'a, 'de: 'a, I: Iterator<Item = Value>> de::SeqAccess<'de> for SeqDeserializer<'a, 'de, I> {
     type Error = ShellError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -522,10 +523,10 @@ mod tests {
         // This test makes sure that such change is detected
         // by this test failing, and not things silently breaking.
         // Specifically, we rely on this behavior further above
-        // in the file for the Tagged<Value> special case parsing.
+        // in the file for the Value special case parsing.
         let tuple = type_name::<()>();
         let tagged_tuple = type_name::<Tagged<()>>();
-        let tagged_value = type_name::<Tagged<Value>>();
+        let tagged_value = type_name::<Value>();
         assert!(tuple != tagged_tuple);
         assert!(tuple != tagged_value);
         assert!(tagged_tuple != tagged_value);

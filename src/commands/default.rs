@@ -2,11 +2,12 @@ use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::parser::CommandRegistry;
 use crate::prelude::*;
+use nu_source::Tagged;
 
 #[derive(Deserialize)]
 struct DefaultArgs {
     column: Tagged<String>,
-    value: Tagged<Value>,
+    value: Value,
 }
 
 pub struct Default;
@@ -49,15 +50,15 @@ fn default(
             let mut result = VecDeque::new();
 
             let should_add = match item {
-                Tagged {
-                    item: Value::Row(ref r),
+                Value {
+                    value: UntaggedValue::Row(ref r),
                     ..
                 } => r.get_data(&column.item).borrow().is_none(),
                 _ => false,
             };
 
             if should_add {
-                match item.insert_data_at_path(&column.item, value.item.clone()) {
+                match item.insert_data_at_path(&column.item, value.clone()) {
                     Some(new_value) => result.push_back(ReturnSuccess::value(new_value)),
                     None => result.push_back(ReturnSuccess::value(item)),
                 }

@@ -4,43 +4,43 @@ use crate::parser::registry::{NamedType, PositionalType, Signature};
 use crate::prelude::*;
 use std::ops::Deref;
 
-pub(crate) fn command_dict(command: Arc<Command>, tag: impl Into<Tag>) -> Tagged<Value> {
+pub(crate) fn command_dict(command: Arc<Command>, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     let mut cmd_dict = TaggedDictBuilder::new(&tag);
 
-    cmd_dict.insert("name", Value::string(command.name()));
+    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
 
-    cmd_dict.insert(
+    cmd_dict.insert_untagged(
         "type",
-        Value::string(match command.deref() {
+        UntaggedValue::string(match command.deref() {
             Command::WholeStream(_) => "Command",
             Command::PerItem(_) => "Filter",
         }),
     );
 
-    cmd_dict.insert_tagged("signature", signature_dict(command.signature(), tag));
-    cmd_dict.insert("usage", Value::string(command.usage()));
+    cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
+    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
 
-    cmd_dict.into_tagged_value()
+    cmd_dict.into_value()
 }
 
-fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Tagged<Value> {
+fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     let mut spec = TaggedDictBuilder::new(tag);
 
-    spec.insert("name", Value::string(name));
-    spec.insert("type", Value::string(ty));
-    spec.insert(
+    spec.insert_untagged("name", UntaggedValue::string(name));
+    spec.insert_untagged("type", UntaggedValue::string(ty));
+    spec.insert_untagged(
         "required",
-        Value::string(if required { "yes" } else { "no" }),
+        UntaggedValue::string(if required { "yes" } else { "no" }),
     );
 
-    spec.into_tagged_value()
+    spec.into_value()
 }
 
-fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
+fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
     let mut sig = TaggedListBuilder::new(&tag);
 
@@ -50,21 +50,21 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Tagged<Value> {
             PositionalType::Optional(_, _) => false,
         };
 
-        sig.insert_tagged(for_spec(arg.0.name(), "argument", is_required, &tag));
+        sig.push_value(for_spec(arg.0.name(), "argument", is_required, &tag));
     }
 
     if let Some(_) = signature.rest_positional {
         let is_required = false;
-        sig.insert_tagged(for_spec("rest", "argument", is_required, &tag));
+        sig.push_value(for_spec("rest", "argument", is_required, &tag));
     }
 
     for (name, ty) in signature.named.iter() {
         match ty.0 {
-            NamedType::Mandatory(_) => sig.insert_tagged(for_spec(name, "flag", true, &tag)),
-            NamedType::Optional(_) => sig.insert_tagged(for_spec(name, "flag", false, &tag)),
-            NamedType::Switch => sig.insert_tagged(for_spec(name, "switch", false, &tag)),
+            NamedType::Mandatory(_) => sig.push_value(for_spec(name, "flag", true, &tag)),
+            NamedType::Optional(_) => sig.push_value(for_spec(name, "flag", false, &tag)),
+            NamedType::Switch => sig.push_value(for_spec(name, "switch", false, &tag)),
         }
     }
 
-    sig.into_tagged_value()
+    sig.into_value()
 }

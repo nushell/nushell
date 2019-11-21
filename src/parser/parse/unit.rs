@@ -1,7 +1,6 @@
-use crate::data::base::Value;
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -24,16 +23,16 @@ pub enum Unit {
     Year,
 }
 
+impl PrettyDebug for Unit {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::keyword(format!("{:?}", self))
+    }
+}
+
 fn convert_number_to_u64(number: &Number) -> u64 {
     match number {
         Number::Int(big_int) => big_int.to_u64().unwrap(),
         Number::Decimal(big_decimal) => big_decimal.to_u64().unwrap(),
-    }
-}
-
-impl FormatDebug for Spanned<Unit> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.span.slice(source))
     }
 }
 
@@ -56,23 +55,27 @@ impl Unit {
         }
     }
 
-    pub(crate) fn compute(&self, size: &Number) -> Value {
+    pub(crate) fn compute(&self, size: &Number) -> UntaggedValue {
         let size = size.clone();
 
-        match self {
-            Unit::Byte => Value::number(size),
-            Unit::Kilobyte => Value::number(size * 1024),
-            Unit::Megabyte => Value::number(size * 1024 * 1024),
-            Unit::Gigabyte => Value::number(size * 1024 * 1024 * 1024),
-            Unit::Terabyte => Value::number(size * 1024 * 1024 * 1024 * 1024),
-            Unit::Petabyte => Value::number(size * 1024 * 1024 * 1024 * 1024 * 1024),
-            Unit::Second => Value::duration(convert_number_to_u64(&size)),
-            Unit::Minute => Value::duration(60 * convert_number_to_u64(&size)),
-            Unit::Hour => Value::duration(60 * 60 * convert_number_to_u64(&size)),
-            Unit::Day => Value::duration(24 * 60 * 60 * convert_number_to_u64(&size)),
-            Unit::Week => Value::duration(7 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            Unit::Month => Value::duration(30 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            Unit::Year => Value::duration(365 * 24 * 60 * 60 * convert_number_to_u64(&size)),
+        match &self {
+            Unit::Byte => UntaggedValue::number(size),
+            Unit::Kilobyte => UntaggedValue::number(size * 1024),
+            Unit::Megabyte => UntaggedValue::number(size * 1024 * 1024),
+            Unit::Gigabyte => UntaggedValue::number(size * 1024 * 1024 * 1024),
+            Unit::Terabyte => UntaggedValue::number(size * 1024 * 1024 * 1024 * 1024),
+            Unit::Petabyte => UntaggedValue::number(size * 1024 * 1024 * 1024 * 1024 * 1024),
+            Unit::Second => UntaggedValue::duration(convert_number_to_u64(&size)),
+            Unit::Minute => UntaggedValue::duration(60 * convert_number_to_u64(&size)),
+            Unit::Hour => UntaggedValue::duration(60 * 60 * convert_number_to_u64(&size)),
+            Unit::Day => UntaggedValue::duration(24 * 60 * 60 * convert_number_to_u64(&size)),
+            Unit::Week => UntaggedValue::duration(7 * 24 * 60 * 60 * convert_number_to_u64(&size)),
+            Unit::Month => {
+                UntaggedValue::duration(30 * 24 * 60 * 60 * convert_number_to_u64(&size))
+            }
+            Unit::Year => {
+                UntaggedValue::duration(365 * 24 * 60 * 60 * convert_number_to_u64(&size))
+            }
         }
     }
 }

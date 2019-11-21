@@ -14,23 +14,23 @@ pub struct TreeView {
 impl TreeView {
     fn from_value_helper(value: &Value, mut builder: &mut TreeBuilder) {
         match value {
-            Value::Primitive(p) => {
+            UntaggedValue::Primitive(p) => {
                 let _ = builder.add_empty_child(p.format(None));
             }
-            Value::Row(o) => {
+            UntaggedValue::Row(o) => {
                 for (k, v) in o.entries.iter() {
                     builder = builder.begin_child(k.clone());
                     Self::from_value_helper(v, builder);
                     builder = builder.end_child();
                 }
             }
-            Value::Table(l) => {
+            UntaggedValue::Table(l) => {
                 for elem in l.iter() {
                     Self::from_value_helper(elem, builder);
                 }
             }
-            Value::Block(_) => {}
-            Value::Binary(_) => {}
+            UntaggedValue::Block(_) => {}
+            UntaggedValue::Binary(_) => {}
         }
     }
 
@@ -82,7 +82,7 @@ impl Plugin for TreeViewer {
         Ok(Signature::build("tree").desc("View the contents of the pipeline as a tree."))
     }
 
-    fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {
+    fn sink(&mut self, _call_info: CallInfo, input: Vec<Value>) {
         if input.len() > 0 {
             for i in input.iter() {
                 let view = TreeView::from_value(&i);

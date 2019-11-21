@@ -27,40 +27,37 @@ impl WholeStreamCommand for FromINI {
     }
 }
 
-fn convert_ini_second_to_nu_value(
-    v: &HashMap<String, String>,
-    tag: impl Into<Tag>,
-) -> Tagged<Value> {
+fn convert_ini_second_to_nu_value(v: &HashMap<String, String>, tag: impl Into<Tag>) -> Value {
     let mut second = TaggedDictBuilder::new(tag);
 
     for (key, value) in v.into_iter() {
-        second.insert(key.clone(), Primitive::String(value.clone()));
+        second.insert_untagged(key.clone(), Primitive::String(value.clone()));
     }
 
-    second.into_tagged_value()
+    second.into_value()
 }
 
 fn convert_ini_top_to_nu_value(
     v: &HashMap<String, HashMap<String, String>>,
     tag: impl Into<Tag>,
-) -> Tagged<Value> {
+) -> Value {
     let tag = tag.into();
     let mut top_level = TaggedDictBuilder::new(tag.clone());
 
     for (key, value) in v.iter() {
-        top_level.insert_tagged(
+        top_level.insert_value(
             key.clone(),
             convert_ini_second_to_nu_value(value, tag.clone()),
         );
     }
 
-    top_level.into_tagged_value()
+    top_level.into_value()
 }
 
 pub fn from_ini_string_to_value(
     s: String,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, serde_ini::de::Error> {
+) -> Result<Value, serde_ini::de::Error> {
     let v: HashMap<String, HashMap<String, String>> = serde_ini::from_str(&s)?;
     Ok(convert_ini_top_to_nu_value(&v, tag))
 }
@@ -68,28 +65,29 @@ pub fn from_ini_string_to_value(
 fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
+    let span = tag.span;
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
 
         for value in values {
-            let value_tag = value.tag();
-            latest_tag = Some(value_tag.clone());
-            match value.item {
-                Value::Primitive(Primitive::String(s)) => {
+            latest_tag = Some(value.tag.clone());
+            let value_span = value.tag.span;
+            match &value.value {
+                UntaggedValue::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
                     concat_string.push_str("\n");
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    &tag,
+                    span,
                     "value originates from here",
-                    &value_tag,
+                    value_span,
                 )),
 
             }
@@ -97,7 +95,7 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         match from_ini_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::Table(list), .. } => {
+                Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

@@ -1,7 +1,9 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::base::UntaggedValue;
 use crate::data::TaggedDictBuilder;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_source::Tagged;
 
 pub struct GroupBy;
 
@@ -41,7 +43,7 @@ pub fn group_by(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         if values.is_empty() {
             yield Err(ShellError::labeled_error(
@@ -62,9 +64,9 @@ pub fn group_by(
 
 pub fn group(
     column_name: &Tagged<String>,
-    values: Vec<Tagged<Value>>,
+    values: Vec<Value>,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, ShellError> {
+) -> Result<Value, ShellError> {
     let tag = tag.into();
 
     let mut groups = indexmap::IndexMap::new();
@@ -105,33 +107,32 @@ pub fn group(
     let mut out = TaggedDictBuilder::new(&tag);
 
     for (k, v) in groups.iter() {
-        out.insert(k, Value::table(v));
+        out.insert_untagged(k, UntaggedValue::table(v));
     }
 
-    Ok(out.into_tagged_value())
+    Ok(out.into_value())
 }
 
 #[cfg(test)]
 mod tests {
-
     use crate::commands::group_by::group;
-    use crate::data::meta::*;
-    use crate::Value;
+    use crate::data::base::{UntaggedValue, Value};
     use indexmap::IndexMap;
+    use nu_source::*;
 
-    fn string(input: impl Into<String>) -> Tagged<Value> {
-        Value::string(input.into()).tagged_unknown()
+    fn string(input: impl Into<String>) -> Value {
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
-    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
-        Value::row(entries).tagged_unknown()
+    fn row(entries: IndexMap<String, Value>) -> Value {
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
-        Value::table(list).tagged_unknown()
+    fn table(list: &Vec<Value>) -> Value {
+        UntaggedValue::table(list).into_untagged_value()
     }
 
-    fn nu_releases_commiters() -> Vec<Tagged<Value>> {
+    fn nu_releases_commiters() -> Vec<Value> {
         vec![
             row(
                 indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},

@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::TaggedDictBuilder;
 use crate::errors::ExpectedRange;
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
+use nu_source::SpannedItem;
 use std::str::FromStr;
 
 pub struct FromBSON;
@@ -29,7 +30,7 @@ impl WholeStreamCommand for FromBSON {
     }
 }
 
-fn bson_array(input: &Vec<Bson>, tag: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
+fn bson_array(input: &Vec<Bson>, tag: Tag) -> Result<Vec<Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
@@ -39,109 +40,114 @@ fn bson_array(input: &Vec<Bson>, tag: Tag) -> Result<Vec<Tagged<Value>>, ShellEr
     Ok(out)
 }
 
-fn convert_bson_value_to_nu_value(
-    v: &Bson,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, ShellError> {
+fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
+    let span = tag.span;
 
     Ok(match v {
-        Bson::FloatingPoint(n) => Value::Primitive(Primitive::from(*n)).tagged(&tag),
-        Bson::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(&tag),
-        Bson::Array(a) => Value::Table(bson_array(a, tag.clone())?).tagged(&tag),
+        Bson::FloatingPoint(n) => UntaggedValue::Primitive(Primitive::from(*n)).into_value(&tag),
+        Bson::String(s) => {
+            UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(&tag)
+        }
+        Bson::Array(a) => UntaggedValue::Table(bson_array(a, tag.clone())?).into_value(&tag),
         Bson::Document(doc) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
             for (k, v) in doc.iter() {
-                collected.insert_tagged(k.clone(), convert_bson_value_to_nu_value(v, &tag)?);
+                collected.insert_value(k.clone(), convert_bson_value_to_nu_value(v, &tag)?);
             }
 
-            collected.into_tagged_value()
+            collected.into_value()
         }
-        Bson::Boolean(b) => Value::Primitive(Primitive::Boolean(*b)).tagged(&tag),
-        Bson::Null => Value::Primitive(Primitive::Nothing).tagged(&tag),
+        Bson::Boolean(b) => UntaggedValue::Primitive(Primitive::Boolean(*b)).into_value(&tag),
+        Bson::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag),
         Bson::RegExp(r, opts) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged(
+            collected.insert_value(
                 "$regex".to_string(),
-                Value::Primitive(Primitive::String(String::from(r))).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(String::from(r))).into_value(&tag),
             );
-            collected.insert_tagged(
+            collected.insert_value(
                 "$options".to_string(),
-                Value::Primitive(Primitive::String(String::from(opts))).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(String::from(opts))).into_value(&tag),
             );
-            collected.into_tagged_value()
+            collected.into_value()
         }
-        Bson::I32(n) => Value::number(n).tagged(&tag),
-        Bson::I64(n) => Value::number(n).tagged(&tag),
+        Bson::I32(n) => UntaggedValue::number(n).into_value(&tag),
+        Bson::I64(n) => UntaggedValue::number(n).into_value(&tag),
         Bson::Decimal128(n) => {
             // TODO: this really isn't great, and we should update this to do a higher
             // fidelity translation
             let decimal = BigDecimal::from_str(&format!("{}", n)).map_err(|_| {
                 ShellError::range_error(
                     ExpectedRange::BigDecimal,
-                    &n.tagged(&tag),
+                    &n.spanned(span),
                     format!("converting BSON Decimal128 to BigDecimal"),
                 )
             })?;
-            Value::Primitive(Primitive::Decimal(decimal)).tagged(&tag)
+            UntaggedValue::Primitive(Primitive::Decimal(decimal)).into_value(&tag)
         }
         Bson::JavaScriptCode(js) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged(
+            collected.insert_value(
                 "$javascript".to_string(),
-                Value::Primitive(Primitive::String(String::from(js))).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(String::from(js))).into_value(&tag),
             );
-            collected.into_tagged_value()
+            collected.into_value()
         }
         Bson::JavaScriptCodeWithScope(js, doc) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged(
+            collected.insert_value(
                 "$javascript".to_string(),
-                Value::Primitive(Primitive::String(String::from(js))).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(String::from(js))).into_value(&tag),
             );
-            collected.insert_tagged(
+            collected.insert_value(
                 "$scope".to_string(),
                 convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag.clone())?,
             );
-            collected.into_tagged_value()
+            collected.into_value()
         }
         Bson::TimeStamp(ts) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged("$timestamp".to_string(), Value::number(ts).tagged(&tag));
-            collected.into_tagged_value()
+            collected.insert_value(
+                "$timestamp".to_string(),
+                UntaggedValue::number(ts).into_value(&tag),
+            );
+            collected.into_value()
         }
         Bson::Binary(bst, bytes) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged(
+            collected.insert_value(
                 "$binary_subtype".to_string(),
                 match bst {
-                    BinarySubtype::UserDefined(u) => Value::number(u),
-                    _ => Value::Primitive(Primitive::String(binary_subtype_to_string(*bst))),
+                    BinarySubtype::UserDefined(u) => UntaggedValue::number(u),
+                    _ => {
+                        UntaggedValue::Primitive(Primitive::String(binary_subtype_to_string(*bst)))
+                    }
                 }
-                .tagged(&tag),
+                .into_value(&tag),
             );
-            collected.insert_tagged(
+            collected.insert_value(
                 "$binary".to_string(),
-                Value::Primitive(Primitive::Binary(bytes.to_owned())).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::Binary(bytes.to_owned())).into_value(&tag),
             );
-            collected.into_tagged_value()
+            collected.into_value()
         }
         Bson::ObjectId(obj_id) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged(
+            collected.insert_value(
                 "$object_id".to_string(),
-                Value::Primitive(Primitive::String(obj_id.to_hex())).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(obj_id.to_hex())).into_value(&tag),
             );
-            collected.into_tagged_value()
+            collected.into_value()
         }
-        Bson::UtcDatetime(dt) => Value::Primitive(Primitive::Date(*dt)).tagged(&tag),
+        Bson::UtcDatetime(dt) => UntaggedValue::Primitive(Primitive::Date(*dt)).into_value(&tag),
         Bson::Symbol(s) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_tagged(
+            collected.insert_value(
                 "$symbol".to_string(),
-                Value::Primitive(Primitive::String(String::from(s))).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(&tag),
             );
-            collected.into_tagged_value()
+            collected.into_value()
         }
     })
 }
@@ -183,10 +189,7 @@ impl std::io::Read for BytesReader {
     }
 }
 
-pub fn from_bson_bytes_to_value(
-    bytes: Vec<u8>,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, ShellError> {
+pub fn from_bson_bytes_to_value(bytes: Vec<u8>, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let mut docs = Vec::new();
     let mut b_reader = BytesReader::new(bytes);
     while let Ok(v) = decode_document(&mut b_reader) {
@@ -202,12 +205,12 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         for value in values {
-            let value_tag = value.tag();
-            match value.item {
-                Value::Primitive(Primitive::Binary(vb)) =>
+            let value_tag = &value.tag;
+            match value.value {
+                UntaggedValue::Primitive(Primitive::Binary(vb)) =>
                     match from_bson_bytes_to_value(vb, tag.clone()) {
                         Ok(x) => yield ReturnSuccess::value(x),
                         Err(_) => {

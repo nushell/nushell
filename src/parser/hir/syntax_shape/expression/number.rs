@@ -6,9 +6,10 @@ use crate::parser::hir::tokens_iterator::Peeked;
 use crate::parser::{
     hir,
     hir::{RawNumber, TokensIterator},
-    RawToken,
+    UnspannedToken,
 };
 use crate::prelude::*;
+use nu_source::Spanned;
 
 #[derive(Debug, Copy, Clone)]
 pub struct NumberShape;
@@ -25,25 +26,25 @@ impl ExpandExpression for NumberShape {
     ) -> Result<hir::Expression, ParseError> {
         parse_single_node(token_nodes, "Number", |token, token_span, err| {
             Ok(match token {
-                RawToken::GlobPattern | RawToken::Operator(..) => return Err(err.error()),
-                RawToken::Variable(tag) if tag.slice(context.source) == "it" => {
+                UnspannedToken::GlobPattern | UnspannedToken::Operator(..) => return Err(err.error()),
+                UnspannedToken::Variable(tag) if tag.slice(context.source) == "it" => {
                     hir::Expression::it_variable(tag, token_span)
                 }
-                RawToken::ExternalCommand(tag) => {
+                UnspannedToken::ExternalCommand(tag) => {
                     hir::Expression::external_command(tag, token_span)
                 }
-                RawToken::ExternalWord => {
+                UnspannedToken::ExternalWord => {
                     return Err(ParseError::mismatch(
                         "number",
                         "syntax error".spanned(token_span),
                     ))
                 }
-                RawToken::Variable(tag) => hir::Expression::variable(tag, token_span),
-                RawToken::Number(number) => {
+                UnspannedToken::Variable(tag) => hir::Expression::variable(tag, token_span),
+                UnspannedToken::Number(number) => {
                     hir::Expression::number(number.to_number(context.source), token_span)
                 }
-                RawToken::Bare => hir::Expression::bare(token_span),
-                RawToken::String(tag) => hir::Expression::string(tag, token_span),
+                UnspannedToken::Bare => hir::Expression::bare(token_span),
+                UnspannedToken::String(tag) => hir::Expression::string(tag, token_span),
             })
         })
     }
@@ -127,22 +128,22 @@ impl ExpandExpression for IntShape {
     ) -> Result<hir::Expression, ParseError> {
         parse_single_node(token_nodes, "Integer", |token, token_span, err| {
             Ok(match token {
-                RawToken::GlobPattern | RawToken::Operator(..) | RawToken::ExternalWord => {
-                    return Err(err.error())
-                }
-                RawToken::Variable(span) if span.slice(context.source) == "it" => {
+                UnspannedToken::GlobPattern
+                | UnspannedToken::Operator(..)
+                | UnspannedToken::ExternalWord => return Err(err.error()),
+                UnspannedToken::Variable(span) if span.slice(context.source) == "it" => {
                     hir::Expression::it_variable(span, token_span)
                 }
-                RawToken::ExternalCommand(span) => {
+                UnspannedToken::ExternalCommand(span) => {
                     hir::Expression::external_command(span, token_span)
                 }
-                RawToken::Variable(span) => hir::Expression::variable(span, token_span),
-                RawToken::Number(number @ RawNumber::Int(_)) => {
+                UnspannedToken::Variable(span) => hir::Expression::variable(span, token_span),
+                UnspannedToken::Number(number @ RawNumber::Int(_)) => {
                     hir::Expression::number(number.to_number(context.source), token_span)
                 }
-                RawToken::Number(_) => return Err(err.error()),
-                RawToken::Bare => hir::Expression::bare(token_span),
-                RawToken::String(span) => hir::Expression::string(span, token_span),
+                UnspannedToken::Number(_) => return Err(err.error()),
+                UnspannedToken::Bare => hir::Expression::bare(token_span),
+                UnspannedToken::String(span) => hir::Expression::string(span, token_span),
             })
         })
     }

@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
-use crate::RawPathMember;
+use crate::UnspannedPathMember;
 
 pub struct ToYAML;
 
@@ -27,36 +27,39 @@ impl WholeStreamCommand for ToYAML {
     }
 }
 
-pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, ShellError> {
-    Ok(match v.item() {
-        Value::Primitive(Primitive::Boolean(b)) => serde_yaml::Value::Bool(*b),
-        Value::Primitive(Primitive::Bytes(b)) => {
+pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
+    Ok(match &v.value {
+        UntaggedValue::Primitive(Primitive::Boolean(b)) => serde_yaml::Value::Bool(*b),
+        UntaggedValue::Primitive(Primitive::Bytes(b)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().unwrap()))
         }
-        Value::Primitive(Primitive::Duration(secs)) => {
+        UntaggedValue::Primitive(Primitive::Duration(secs)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(secs.to_f64().unwrap()))
         }
-        Value::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
-        Value::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
-        Value::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,
-        Value::Primitive(Primitive::Decimal(f)) => {
+        UntaggedValue::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
+        UntaggedValue::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
+        UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,
+        UntaggedValue::Primitive(Primitive::Decimal(f)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(f.to_f64().unwrap()))
         }
-        Value::Primitive(Primitive::Int(i)) => serde_yaml::Value::Number(serde_yaml::Number::from(
-            CoerceInto::<i64>::coerce_into(i.tagged(&v.tag), "converting to YAML number")?,
-        )),
-        Value::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
-        Value::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
-        Value::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
-        Value::Primitive(Primitive::ColumnPath(path)) => {
+        UntaggedValue::Primitive(Primitive::Int(i)) => {
+            serde_yaml::Value::Number(serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
+                i.tagged(&v.tag),
+                "converting to YAML number",
+            )?))
+        }
+        UntaggedValue::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
+        UntaggedValue::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
             let mut out = vec![];
 
             for member in path.iter() {
-                match &member.item {
-                    RawPathMember::String(string) => {
+                match &member.unspanned {
+                    UnspannedPathMember::String(string) => {
                         out.push(serde_yaml::Value::String(string.clone()))
                     }
-                    RawPathMember::Int(int) => out.push(serde_yaml::Value::Number(
+                    UnspannedPathMember::Int(int) => out.push(serde_yaml::Value::Number(
                         serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
                             int.tagged(&member.span),
                             "converting to YAML number",
@@ -67,9 +70,11 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
 
             serde_yaml::Value::Sequence(out)
         }
-        Value::Primitive(Primitive::Path(s)) => serde_yaml::Value::String(s.display().to_string()),
+        UntaggedValue::Primitive(Primitive::Path(s)) => {
+            serde_yaml::Value::String(s.display().to_string())
+        }
 
-        Value::Table(l) => {
+        UntaggedValue::Table(l) => {
             let mut out = vec![];
 
             for value in l {
@@ -78,14 +83,14 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
 
             serde_yaml::Value::Sequence(out)
         }
-        Value::Error(e) => return Err(e.clone()),
-        Value::Block(_) => serde_yaml::Value::Null,
-        Value::Primitive(Primitive::Binary(b)) => serde_yaml::Value::Sequence(
+        UntaggedValue::Error(e) => return Err(e.clone()),
+        UntaggedValue::Block(_) => serde_yaml::Value::Null,
+        UntaggedValue::Primitive(Primitive::Binary(b)) => serde_yaml::Value::Sequence(
             b.iter()
                 .map(|x| serde_yaml::Value::Number(serde_yaml::Number::from(*x)))
                 .collect(),
         ),
-        Value::Row(o) => {
+        UntaggedValue::Row(o) => {
             let mut m = serde_yaml::Mapping::new();
             for (k, v) in o.entries.iter() {
                 m.insert(
@@ -101,12 +106,14 @@ pub fn value_to_yaml_value(v: &Tagged<Value>) -> Result<serde_yaml::Value, Shell
 fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_tag = args.name_tag();
+    let name_span = name_tag.span;
+
     let stream = async_stream! {
-        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag.clone();
-            vec![Tagged { item: Value::Table(input), tag } ]
+            vec![Value { value: UntaggedValue::Table(input), tag } ]
         } else if input.len() == 1 {
             input
         } else {
@@ -114,18 +121,20 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         };
 
         for value in to_process_input {
+            let value_span = value.tag.span;
+
             match value_to_yaml_value(&value) {
                 Ok(yaml_value) => {
                     match serde_yaml::to_string(&yaml_value) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::Primitive(Primitive::String(x)).tagged(&name_tag),
+                            UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with YAML-compatible structure.tag() from pipeline",
                             "requires YAML-compatible input",
-                            &name_tag,
+                            name_span,
                             "originates from here".to_string(),
-                            value.tag(),
+                            value_span,
                         )),
                     }
                 }

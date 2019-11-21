@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{Primitive, TaggedDictBuilder};
 use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
+use nu_source::Tagged;
 
 #[derive(Deserialize)]
 struct SplitColumnArgs {
@@ -51,10 +52,12 @@ fn split_column(
     }: SplitColumnArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
+    let name_span = name.span;
+
     Ok(input
         .values
-        .map(move |v| match v.item {
-            Value::Primitive(Primitive::String(ref s)) => {
+        .map(move |v| match v.value {
+            UntaggedValue::Primitive(Primitive::String(ref s)) => {
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
 
@@ -75,32 +78,38 @@ fn split_column(
                         gen_columns.push(format!("Column{}", i + 1));
                     }
 
-                    let mut dict = TaggedDictBuilder::new(v.tag());
+                    let mut dict = TaggedDictBuilder::new(&v.tag);
                     for (&k, v) in split_result.iter().zip(gen_columns.iter()) {
-                        dict.insert(v.clone(), Primitive::String(k.into()));
+                        dict.insert_untagged(v.clone(), Primitive::String(k.into()));
                     }
 
-                    ReturnSuccess::value(dict.into_tagged_value())
+                    ReturnSuccess::value(dict.into_value())
                 } else if split_result.len() == positional.len() {
-                    let mut dict = TaggedDictBuilder::new(v.tag());
+                    let mut dict = TaggedDictBuilder::new(&v.tag);
                     for (&k, v) in split_result.iter().zip(positional.iter()) {
-                        dict.insert(v, Value::Primitive(Primitive::String(k.into())));
+                        dict.insert_untagged(
+                            v,
+                            UntaggedValue::Primitive(Primitive::String(k.into())),
+                        );
                     }
-                    ReturnSuccess::value(dict.into_tagged_value())
+                    ReturnSuccess::value(dict.into_value())
                 } else {
-                    let mut dict = TaggedDictBuilder::new(v.tag());
+                    let mut dict = TaggedDictBuilder::new(&v.tag);
                     for (&k, v) in split_result.iter().zip(positional.iter()) {
-                        dict.insert(v, Value::Primitive(Primitive::String(k.into())));
+                        dict.insert_untagged(
+                            v,
+                            UntaggedValue::Primitive(Primitive::String(k.into())),
+                        );
                     }
-                    ReturnSuccess::value(dict.into_tagged_value())
+                    ReturnSuccess::value(dict.into_value())
                 }
             }
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                &name,
+                name_span,
                 "value originates from here",
-                v.tag(),
+                v.tag.span,
             )),
         })
         .to_output_stream())

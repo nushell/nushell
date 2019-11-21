@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Value;
+
 use crate::errors::ShellError;
 use crate::prelude::*;
 use futures::StreamExt;
@@ -41,8 +41,8 @@ pub fn what(
         pin_mut!(values);
 
         while let Some(row) = values.next().await {
-            let name = row.format_leaf().pretty_debug().plain_string(100000);
-            yield ReturnSuccess::value(Value::string(name).tagged(Tag::unknown_anchor(row.tag.span)));
+            let name = row.format_leaf().plain_string(100000);
+            yield ReturnSuccess::value(UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)));
         }
     };
 

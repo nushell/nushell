@@ -1,24 +1,37 @@
 use crate::parser::hir::Expression;
 use crate::prelude::*;
-use crate::traits::{DebugDocBuilder as b, PrettyDebug};
 use derive_new::new;
 use getset::{Getters, MutGetters};
+use nu_source::{b, span_for_spanned_list, PrettyDebug};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum RawPathMember {
+pub enum UnspannedPathMember {
     String(String),
     Int(BigInt),
 }
 
-pub type PathMember = Spanned<RawPathMember>;
+impl UnspannedPathMember {
+    pub fn into_path_member(self, span: impl Into<Span>) -> PathMember {
+        PathMember {
+            unspanned: self,
+            span: span.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+pub struct PathMember {
+    pub unspanned: UnspannedPathMember,
+    pub span: Span,
+}
 
 impl PrettyDebug for &PathMember {
-    fn pretty_debug(&self) -> DebugDocBuilder {
-        match &self.item {
-            RawPathMember::String(string) => b::primitive(format!("{:?}", string)),
-            RawPathMember::Int(int) => b::primitive(format!("{}", int)),
+    fn pretty(&self) -> DebugDocBuilder {
+        match &self.unspanned {
+            UnspannedPathMember::String(string) => b::primitive(format!("{:?}", string)),
+            UnspannedPathMember::Int(int) => b::primitive(format!("{}", int)),
         }
     }
 }
@@ -42,12 +55,9 @@ impl ColumnPath {
 }
 
 impl PrettyDebug for ColumnPath {
-    fn pretty_debug(&self) -> DebugDocBuilder {
-        let members: Vec<DebugDocBuilder> = self
-            .members
-            .iter()
-            .map(|member| member.pretty_debug())
-            .collect();
+    fn pretty(&self) -> DebugDocBuilder {
+        let members: Vec<DebugDocBuilder> =
+            self.members.iter().map(|member| member.pretty()).collect();
 
         b::delimit(
             "(",
@@ -55,12 +65,6 @@ impl PrettyDebug for ColumnPath {
             ")",
         )
         .nest()
-    }
-}
-
-impl FormatDebug for ColumnPath {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        self.members.fmt_debug(f, source)
     }
 }
 
@@ -74,31 +78,22 @@ impl HasFallibleSpan for ColumnPath {
     }
 }
 
-impl fmt::Display for RawPathMember {
+impl fmt::Display for UnspannedPathMember {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RawPathMember::String(string) => write!(f, "{}", string),
-            RawPathMember::Int(int) => write!(f, "{}", int),
+            UnspannedPathMember::String(string) => write!(f, "{}", string),
+            UnspannedPathMember::Int(int) => write!(f, "{}", int),
         }
     }
 }
 
 impl PathMember {
     pub fn string(string: impl Into<String>, span: impl Into<Span>) -> PathMember {
-        RawPathMember::String(string.into()).spanned(span.into())
+        UnspannedPathMember::String(string.into()).into_path_member(span)
     }
 
     pub fn int(int: impl Into<BigInt>, span: impl Into<Span>) -> PathMember {
-        RawPathMember::Int(int.into()).spanned(span.into())
-    }
-}
-
-impl FormatDebug for PathMember {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
-        match &self.item {
-            RawPathMember::String(string) => f.say_str("member", &string),
-            RawPathMember::Int(int) => f.say_block("member", |f| write!(f, "{}", int)),
-        }
+        UnspannedPathMember::Int(int.into()).into_path_member(span)
     }
 }
 
@@ -123,12 +118,20 @@ pub struct Path {
     tail: Vec<PathMember>,
 }
 
+impl PrettyDebugWithSource for Path {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        self.head.pretty_debug(source)
+            + b::operator(".")
+            + b::intersperse(self.tail.iter().map(|m| m.pretty()), b::operator("."))
+    }
+}
+
 impl fmt::Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.head)?;
 
         for entry in &self.tail {
-            write!(f, ".{}", entry.item)?;
+            write!(f, ".{}", entry.unspanned)?;
         }
 
         Ok(())
@@ -138,17 +141,5 @@ impl fmt::Display for Path {
 impl Path {
     pub(crate) fn parts(self) -> (Expression, Vec<PathMember>) {
         (self.head, self.tail)
-    }
-}
-
-impl FormatDebug for Path {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.head.debug(source))?;
-
-        for part in &self.tail {
-            write!(f, ".{}", part.item)?;
-        }
-
-        Ok(())
     }
 }

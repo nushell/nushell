@@ -93,9 +93,9 @@ pub fn autoview(
 
                                 let raw = raw.clone();
 
-                                let input: Vec<Tagged<Value>> = new_input.into();
+                                let input: Vec<Value> = new_input.into();
 
-                                if input.len() > 0 && input.iter().all(|value| value.is_error()) {
+                                if input.len() > 0 && input.iter().all(|value| value.value.is_error()) {
                                     let first = &input[0];
 
                                     let mut host = context.host.clone();
@@ -107,7 +107,7 @@ pub fn autoview(
                                         Ok(val) => val
                                     };
 
-                                    crate::cli::print_err(first.item.expect_error(), &*host, &context.source);
+                                    crate::cli::print_err(first.value.expect_error(), &*host, &context.source);
                                     return;
                                 }
 
@@ -131,30 +131,30 @@ pub fn autoview(
                     _ => {
                         if let ReturnSuccess::Value(x) = x {
                             match x {
-                                Tagged {
-                                    item: Value::Primitive(Primitive::String(ref s)),
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::String(ref s)),
                                     tag: Tag { anchor, span },
                                 } if anchor.is_some() => {
                                     if let Some(text) = text {
                                         let mut stream = VecDeque::new();
-                                        stream.push_back(Value::string(s).tagged(Tag { anchor, span }));
+                                        stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
                                         outln!("{}", s);
                                     }
                                 }
-                                Tagged {
-                                    item: Value::Primitive(Primitive::String(s)),
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::String(s)),
                                     ..
                                 } => {
                                     outln!("{}", s);
                                 }
 
-                                Tagged { item: Value::Primitive(Primitive::Binary(ref b)), .. } => {
+                                Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {
                                     if let Some(binary) = binary {
                                         let mut stream = VecDeque::new();
-                                        stream.push_back(x.clone());
+                                        stream.push_back(x);
                                         let result = binary.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
@@ -163,13 +163,13 @@ pub fn autoview(
                                     }
                                 }
 
-                                Tagged { item: Value::Error(e), .. } => {
+                                Value { value: UntaggedValue::Error(e), .. } => {
                                     yield Err(e);
                                 }
-                                Tagged { item: ref item, .. } => {
+                                Value { value: ref item, .. } => {
                                     if let Some(table) = table {
                                         let mut stream = VecDeque::new();
-                                        stream.push_back(x.clone());
+                                        stream.push_back(x);
                                         let result = table.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
@@ -188,7 +188,7 @@ pub fn autoview(
 
         // Needed for async_stream to type check
         if false {
-            yield ReturnSuccess::value(Value::nothing().tagged_unknown());
+            yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
         }
     }))
 }

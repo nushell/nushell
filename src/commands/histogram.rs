@@ -8,6 +8,7 @@ use crate::commands::WholeStreamCommand;
 use crate::data::TaggedDictBuilder;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_source::Tagged;
 use num_traits::cast::ToPrimitive;
 
 pub struct Histogram;
@@ -54,7 +55,7 @@ pub fn histogram(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let Tagged { item: group_by, .. } = column_name.clone();
 
@@ -67,8 +68,8 @@ pub fn histogram(
         let percents = percentages(&reduced, maxima, &name)?;
 
         match percents {
-            Tagged {
-                item: Value::Table(datasets),
+            Value {
+                value: UntaggedValue::Table(datasets),
                 ..
             } => {
 
@@ -84,20 +85,21 @@ pub fn histogram(
 
                 let column = (*column_name).clone();
 
-                if let Tagged { item: Value::Table(start), .. } = datasets.get(0).unwrap() {
+                if let Value { value: UntaggedValue::Table(start), .. } = datasets.get(0).unwrap() {
                     for percentage in start.into_iter() {
 
                         let mut fact = TaggedDictBuilder::new(&name);
                         let value: Tagged<String> = group_labels.get(idx).unwrap().clone();
-                        fact.insert_tagged(&column, Value::string(value.item).tagged(value.tag));
+                        fact.insert_value(&column, UntaggedValue::string(value.item).into_value(value.tag));
 
-                        if let Tagged { item: Value::Primitive(Primitive::Int(ref num)), .. } = percentage.clone() {
-                            fact.insert(&frequency_column_name, std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>());
+                        if let Value { value: UntaggedValue::Primitive(Primitive::Int(ref num)), .. } = percentage.clone() {
+                            let string = std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>();
+                            fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
                         }
 
                         idx = idx + 1;
 
-                        yield ReturnSuccess::value(fact.into_tagged_value());
+                        yield ReturnSuccess::value(fact.into_value());
                     }
                 }
             }
@@ -108,54 +110,53 @@ pub fn histogram(
     Ok(stream.to_output_stream())
 }
 
-fn percentages(
-    values: &Tagged<Value>,
-    max: Tagged<Value>,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, ShellError> {
+fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value, ShellError> {
     let tag = tag.into();
 
-    let results: Tagged<Value> = match values {
-        Tagged {
-            item: Value::Table(datasets),
+    let results: Value = match values {
+        Value {
+            value: UntaggedValue::Table(datasets),
             ..
         } => {
             let datasets: Vec<_> = datasets
                 .into_iter()
                 .map(|subsets| match subsets {
-                    Tagged {
-                        item: Value::Table(data),
+                    Value {
+                        value: UntaggedValue::Table(data),
                         ..
                     } => {
-                        let data = data
-                            .into_iter()
-                            .map(|d| match d {
-                                Tagged {
-                                    item: Value::Primitive(Primitive::Int(n)),
-                                    ..
-                                } => {
-                                    let max = match max {
-                                        Tagged {
-                                            item: Value::Primitive(Primitive::Int(ref maxima)),
+                        let data =
+                                data.into_iter()
+                                    .map(|d| match d {
+                                        Value {
+                                            value: UntaggedValue::Primitive(Primitive::Int(n)),
                                             ..
-                                        } => maxima.to_i32().unwrap(),
-                                        _ => 0,
-                                    };
+                                        } => {
+                                            let max = match max {
+                                                Value {
+                                                    value:
+                                                        UntaggedValue::Primitive(Primitive::Int(
+                                                            ref maxima,
+                                                        )),
+                                                    ..
+                                                } => maxima.to_i32().unwrap(),
+                                                _ => 0,
+                                            };
 
-                                    let n = { n.to_i32().unwrap() * 100 / max };
+                                            let n = { n.to_i32().unwrap() * 100 / max };
 
-                                    Value::number(n).tagged(&tag)
-                                }
-                                _ => Value::number(0).tagged(&tag),
-                            })
-                            .collect::<Vec<_>>();
-                        Value::Table(data).tagged(&tag)
+                                            UntaggedValue::number(n).into_value(&tag)
+                                        }
+                                        _ => UntaggedValue::number(0).into_value(&tag),
+                                    })
+                                    .collect::<Vec<_>>();
+                        UntaggedValue::Table(data).into_value(&tag)
                     }
-                    _ => Value::Table(vec![]).tagged(&tag),
+                    _ => UntaggedValue::Table(vec![]).into_value(&tag),
                 })
                 .collect();
 
-            Value::Table(datasets).tagged(&tag)
+            UntaggedValue::Table(datasets).into_value(&tag)
         }
         other => other.clone(),
     };

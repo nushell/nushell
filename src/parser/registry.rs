@@ -21,6 +21,21 @@ pub enum PositionalType {
     Optional(String, SyntaxShape),
 }
 
+impl PrettyDebug for PositionalType {
+    fn pretty(&self) -> DebugDocBuilder {
+        match self {
+            PositionalType::Mandatory(string, shape) => {
+                b::description(string) + b::delimit("(", shape.pretty(), ")").as_kind().group()
+            }
+            PositionalType::Optional(string, shape) => {
+                b::description(string)
+                    + b::operator("?")
+                    + b::delimit("(", shape.pretty(), ")").as_kind().group()
+            }
+        }
+    }
+}
+
 impl PositionalType {
     pub fn mandatory(name: &str, ty: SyntaxShape) -> PositionalType {
         PositionalType::Mandatory(name.to_string(), ty)
@@ -67,6 +82,24 @@ pub struct Signature {
     pub rest_positional: Option<(SyntaxShape, Description)>,
     pub named: IndexMap<String, (NamedType, Description)>,
     pub is_filter: bool,
+}
+
+impl PrettyDebugWithSource for Signature {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed(
+            "signature",
+            b::description(&self.name)
+                + b::preceded(
+                    b::space(),
+                    b::intersperse(
+                        self.positional
+                            .iter()
+                            .map(|(ty, _)| ty.pretty_debug(source)),
+                        b::space(),
+                    ),
+                ),
+        )
+    }
 }
 
 impl Signature {
@@ -162,12 +195,12 @@ impl Signature {
 
 #[derive(Debug, Default, new, Serialize, Deserialize, Clone)]
 pub struct EvaluatedArgs {
-    pub positional: Option<Vec<Tagged<Value>>>,
-    pub named: Option<IndexMap<String, Tagged<Value>>>,
+    pub positional: Option<Vec<Value>>,
+    pub named: Option<IndexMap<String, Value>>,
 }
 
 impl EvaluatedArgs {
-    pub fn slice_from(&self, from: usize) -> Vec<Tagged<Value>> {
+    pub fn slice_from(&self, from: usize) -> Vec<Value> {
         let positional = &self.positional;
 
         match positional {
@@ -178,14 +211,14 @@ impl EvaluatedArgs {
 }
 
 impl EvaluatedArgs {
-    pub fn nth(&self, pos: usize) -> Option<&Tagged<Value>> {
+    pub fn nth(&self, pos: usize) -> Option<&Value> {
         match &self.positional {
             None => None,
             Some(array) => array.iter().nth(pos),
         }
     }
 
-    pub fn expect_nth(&self, pos: usize) -> Result<&Tagged<Value>, ShellError> {
+    pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
         match &self.positional {
             None => Err(ShellError::unimplemented("Better error: expect_nth")),
             Some(array) => match array.iter().nth(pos) {
@@ -209,7 +242,7 @@ impl EvaluatedArgs {
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Tagged<Value>> {
+    pub fn get(&self, name: &str) -> Option<&Value> {
         match &self.named {
             None => None,
             Some(named) => named.get(name),
@@ -229,11 +262,11 @@ impl EvaluatedArgs {
 
 pub enum PositionalIter<'a> {
     Empty,
-    Array(std::slice::Iter<'a, Tagged<Value>>),
+    Array(std::slice::Iter<'a, Value>),
 }
 
 impl<'a> Iterator for PositionalIter<'a> {
-    type Item = &'a Tagged<Value>;
+    type Item = &'a Value;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -261,7 +294,7 @@ pub(crate) fn evaluate_args(
 
     let positional = positional?;
 
-    let named: Result<Option<IndexMap<String, Tagged<Value>>>, ShellError> = call
+    let named: Result<Option<IndexMap<String, Value>>, ShellError> = call
         .named()
         .as_ref()
         .map(|n| {
@@ -270,7 +303,7 @@ pub(crate) fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::named::NamedValue::PresentSwitch(tag) => {
-                        results.insert(name.clone(), Value::boolean(true).tagged(tag));
+                        results.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
                     }
                     hir::named::NamedValue::Value(expr) => {
                         results.insert(

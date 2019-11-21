@@ -3,6 +3,7 @@ use crate::prelude::*;
 
 use derive_new::new;
 use getset::Getters;
+use nu_source::Spanned;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -16,18 +17,23 @@ pub struct Binary {
     right: Expression,
 }
 
-impl fmt::Display for Binary {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({} {} {})", self.op.as_str(), self.left, self.right)
+impl PrettyDebugWithSource for Binary {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::delimit(
+            "<",
+            self.left.pretty_debug(source)
+                + b::space()
+                + b::keyword(self.op.span.slice(source))
+                + b::space()
+                + self.right.pretty_debug(source),
+            ">",
+        )
+        .group()
     }
 }
 
-impl FormatDebug for Binary {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.left.debug(source))?;
-        write!(f, " {} ", self.op.debug(source))?;
-        write!(f, "{}", self.right.debug(source))?;
-
-        Ok(())
+impl fmt::Display for Binary {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {})", self.op.as_str(), self.left, self.right)
     }
 }

@@ -1,6 +1,6 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tagged, TaggedDictBuilder, Value,
+    SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 
 use nom::{
@@ -102,8 +102,8 @@ impl Plugin for Parse {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(pattern)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(pattern)),
                     ..
                 } => {
                     //self.pattern = s.clone();
@@ -114,7 +114,7 @@ impl Plugin for Parse {
 
                     self.regex = Regex::new(&parse_regex).unwrap();
                 }
-                Tagged { tag, .. } => {
+                Value { tag, .. } => {
                     return Err(ShellError::labeled_error(
                         "Unrecognized type in params",
                         "expected a string",
@@ -126,12 +126,12 @@ impl Plugin for Parse {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         let mut results = vec![];
         match &input {
-            Tagged {
+            Value {
                 tag,
-                item: Value::Primitive(Primitive::String(s)),
+                value: UntaggedValue::Primitive(Primitive::String(s)),
             } => {
                 //self.full_input.push_str(&s);
 
@@ -139,10 +139,13 @@ impl Plugin for Parse {
                     let mut dict = TaggedDictBuilder::new(tag);
 
                     for (idx, column_name) in self.column_names.iter().enumerate() {
-                        dict.insert(column_name, Value::string(&cap[idx + 1].to_string()));
+                        dict.insert_untagged(
+                            column_name,
+                            UntaggedValue::string(&cap[idx + 1].to_string()),
+                        );
                     }
 
-                    results.push(ReturnSuccess::value(dict.into_tagged_value()));
+                    results.push(ReturnSuccess::value(dict.into_value()));
                 }
             }
             _ => {}

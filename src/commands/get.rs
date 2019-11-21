@@ -7,6 +7,7 @@ use crate::utils::did_you_mean;
 use crate::ColumnPath;
 use futures_util::pin_mut;
 use log::trace;
+use nu_source::{span_for_spanned_list, PrettyDebug};
 
 pub struct Get;
 
@@ -40,31 +41,31 @@ impl WholeStreamCommand for Get {
     }
 }
 
-pub fn get_column_path(
-    path: &ColumnPath,
-    obj: &Tagged<Value>,
-) -> Result<Tagged<Value>, ShellError> {
+pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellError> {
     let fields = path.clone();
 
-    let value = obj.get_data_by_column_path(
+    obj.get_data_by_column_path(
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
-            match obj_source {
-                Value::Table(rows) => {
+            match &obj_source.value {
+                UntaggedValue::Table(rows) => {
                     let total = rows.len();
                     let end_tag = match fields
                         .members()
                         .iter()
                         .nth_back(if fields.members().len() > 2 { 1 } else { 0 })
                     {
-                        Some(last_field) => last_field.span(),
-                        None => column_path_tried.span(),
+                        Some(last_field) => last_field.span,
+                        None => column_path_tried.span,
                     };
 
                     return ShellError::labeled_error_with_secondary(
                         "Row not found",
-                        format!("There isn't a row indexed at {}", **column_path_tried),
-                        column_path_tried.span(),
+                        format!(
+                            "There isn't a row indexed at {}",
+                            column_path_tried.display()
+                        ),
+                        column_path_tried.span,
                         if total == 1 {
                             format!("The table only has 1 row")
                         } else {
@@ -81,7 +82,7 @@ pub fn get_column_path(
                     return ShellError::labeled_error(
                         "Unknown column",
                         format!("did you mean '{}'?", suggestions[0].1),
-                        span_for_spanned_list(fields.members().iter().map(|p| p.span())),
+                        span_for_spanned_list(fields.members().iter().map(|p| p.span)),
                     )
                 }
                 None => {}
@@ -89,14 +90,7 @@ pub fn get_column_path(
 
             return error;
         }),
-    );
-
-    let res = match value {
-        Ok(Tagged { item: v, tag }) => Ok((v.clone()).tagged(&tag)),
-        Err(reason) => Err(reason),
-    };
-
-    res
+    )
 }
 
 pub fn get(
@@ -112,7 +106,7 @@ pub fn get(
             let mut index = 0;
 
             while let Some(row) = values.next().await {
-                shapes.add(&row.item, index);
+                shapes.add(&row, index);
                 index += 1;
             }
 
@@ -144,8 +138,8 @@ pub fn get(
 
                     match res {
                         Ok(got) => match got {
-                            Tagged {
-                                item: Value::Table(rows),
+                            Value {
+                                value: UntaggedValue::Table(rows),
                                 ..
                             } => {
                                 for item in rows {
@@ -154,8 +148,9 @@ pub fn get(
                             }
                             other => result.push_back(ReturnSuccess::value(other.clone())),
                         },
-                        Err(reason) => result
-                            .push_back(ReturnSuccess::value(Value::Error(reason).tagged_unknown())),
+                        Err(reason) => result.push_back(ReturnSuccess::value(
+                            UntaggedValue::Error(reason).into_untagged_value(),
+                        )),
                     }
                 }
 

@@ -79,11 +79,11 @@ pub fn filter_plugin(
         .spawn()
         .expect("Failed to spawn child process");
 
-    let mut bos: VecDeque<Tagged<Value>> = VecDeque::new();
-    bos.push_back(Value::Primitive(Primitive::BeginningOfStream).tagged_unknown());
+    let mut bos: VecDeque<Value> = VecDeque::new();
+    bos.push_back(UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value());
 
-    let mut eos: VecDeque<Tagged<Value>> = VecDeque::new();
-    eos.push_back(Value::Primitive(Primitive::EndOfStream).tagged_unknown());
+    let mut eos: VecDeque<Value> = VecDeque::new();
+    eos.push_back(UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value());
 
     let call_info = args.call_info.clone();
 
@@ -93,8 +93,8 @@ pub fn filter_plugin(
         .chain(args.input.values)
         .chain(eos)
         .map(move |v| match v {
-            Tagged {
-                item: Value::Primitive(Primitive::BeginningOfStream),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::BeginningOfStream),
                 ..
             } => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -146,8 +146,8 @@ pub fn filter_plugin(
                     }
                 }
             }
-            Tagged {
-                item: Value::Primitive(Primitive::EndOfStream),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::EndOfStream),
                 ..
             } => {
                 let stdin = child.stdin.as_mut().expect("Failed to open stdin");
@@ -298,7 +298,7 @@ pub fn sink_plugin(
     let call_info = args.call_info.clone();
 
     let stream = async_stream! {
-        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.values.collect().await;
 
         let request = JsonRpc::new("sink", (call_info.clone(), input));
         let request_raw = serde_json::to_string(&request).unwrap();
@@ -315,7 +315,7 @@ pub fn sink_plugin(
 
         // Needed for async_stream to type check
         if false {
-            yield ReturnSuccess::value(Value::nothing().tagged_unknown());
+            yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
         }
     };
     Ok(OutputStream::new(stream))

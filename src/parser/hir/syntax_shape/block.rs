@@ -7,12 +7,14 @@ use crate::parser::{
         color_fallible_syntax, color_syntax_with, continue_expression, expand_expr, expand_syntax,
         DelimitedShape, ExpandContext, ExpandExpression, ExpressionContinuationShape,
         ExpressionListShape, FallibleColorSyntax, MemberShape, ParseError, PathTailShape,
-        VariablePathShape,
+        PathTailSyntax, VariablePathShape,
     },
     hir::tokens_iterator::TokensIterator,
     parse::token_tree::Delimiter,
 };
-use crate::{Span, Spanned, SpannedItem};
+use nu_source::Span;
+#[cfg(not(coloring_in_tokens))]
+use nu_source::Spanned;
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyBlockShape;
@@ -42,7 +44,12 @@ impl FallibleColorSyntax for AnyBlockShape {
         match block {
             // If so, color it as a block
             Some((children, spans)) => {
-                let mut token_nodes = TokensIterator::new(children.item, children.span, false);
+                let mut token_nodes = TokensIterator::new(
+                    children.item,
+                    children.span,
+                    context.source.clone(),
+                    false,
+                );
                 color_syntax_with(
                     &DelimitedShape,
                     &(Delimiter::Brace, spans.0, spans.1),
@@ -89,7 +96,7 @@ impl FallibleColorSyntax for AnyBlockShape {
         match block {
             // If so, color it as a block
             Some((children, spans)) => {
-                token_nodes.child(children, |token_nodes| {
+                token_nodes.child(children, context.source.clone(), |token_nodes| {
                     color_syntax_with(
                         &DelimitedShape,
                         &(Delimiter::Brace, spans.0, spans.1),
@@ -125,11 +132,12 @@ impl ExpandExpression for AnyBlockShape {
 
         match block {
             Some((block, _tags)) => {
-                let mut iterator = TokensIterator::new(&block.item, block.span, false);
+                let mut iterator =
+                    TokensIterator::new(&block.item, block.span, context.source.clone(), false);
 
-                let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?;
+                let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?.exprs;
 
-                return Ok(hir::RawExpression::Block(exprs.item).spanned(block.span));
+                return Ok(hir::RawExpression::Block(exprs.item).into_expr(block.span));
             }
             _ => {}
         }
@@ -221,7 +229,7 @@ impl ExpandExpression for ShorthandBlock {
         let start = path.span;
         let expr = continue_expression(path, token_nodes, context);
         let end = expr.span;
-        let block = hir::RawExpression::Block(vec![expr]).spanned(start.until(end));
+        let block = hir::RawExpression::Block(vec![expr]).into_expr(start.until(end));
 
         Ok(block)
     }
@@ -351,7 +359,7 @@ impl ExpandExpression for ShorthandPath {
 
         match tail {
             Err(_) => return Ok(head),
-            Ok(Spanned { item: tail, .. }) => {
+            Ok(PathTailSyntax { tail, .. }) => {
                 // For each member that `PathTailShape` expanded, join it onto the existing expression
                 // to form a new path
                 for member in tail {
@@ -381,15 +389,16 @@ impl FallibleColorSyntax for ShorthandHeadShape {
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
         use crate::parser::parse::token_tree::TokenNode;
-        use crate::parser::parse::tokens::RawToken;
+        use crate::parser::parse::tokens::{Token, UnspannedToken};
+        use nu_source::SpannedItem;
 
         // A shorthand path must not be at EOF
         let peeked = token_nodes.peek_non_ws().not_eof("shorthand path head")?;
 
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 span,
             }) => {
                 peeked.commit();
@@ -398,8 +407,8 @@ impl FallibleColorSyntax for ShorthandHeadShape {
             }
 
             // If the head of a shorthand path is a string, it expands to `$it."some string"`
-            TokenNode::Token(Spanned {
-                item: RawToken::String(_),
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::String(_),
                 span: outer,
             }) => {
                 peeked.commit();
@@ -434,7 +443,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
         match peeked.node {
             // If the head of a shorthand path is a bare token, it expands to `$it.bare`
             TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+                item: UnspannedToken::Bare,
                 span,
             }) => {
                 peeked.commit();
@@ -444,7 +453,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
 
             // If the head of a shorthand path is a string, it expands to `$it."some string"`
             TokenNode::Token(Spanned {
-                item: RawToken::String(_),
+                item: UnspannedToken::String(_),
                 span: outer,
             }) => {
                 peeked.commit();

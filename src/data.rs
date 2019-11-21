@@ -4,7 +4,6 @@ pub(crate) mod config;
 pub(crate) mod dict;
 pub(crate) mod files;
 pub(crate) mod into;
-pub(crate) mod meta;
 pub(crate) mod types;
 
 pub(crate) use base::{Primitive, Value};

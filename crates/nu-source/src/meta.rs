@@ -1,12 +1,23 @@
-use crate::context::AnchorLocation;
-use crate::parser::parse::parser::TracableContext;
-use crate::prelude::*;
+use crate::pretty::{b, DebugDocBuilder, PrettyDebugWithSource};
+use crate::text::Text;
+use crate::tracable::TracableContext;
+
 use derive_new::new;
 use getset::Getters;
 use serde::Deserialize;
 use serde::Serialize;
-use std::fmt;
 use std::path::{Path, PathBuf};
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AnchorLocation {
+    Url(String),
+    File(String),
+    Source(Text),
+}
+
+pub trait HasTag {
+    fn tag(&self) -> Tag;
+}
 
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Spanned<T> {
@@ -62,6 +73,7 @@ impl<T> std::ops::Deref for Spanned<T> {
         &self.item
     }
 }
+
 #[derive(new, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Tagged<T> {
     pub tag: Tag,
@@ -76,6 +88,12 @@ impl Tagged<String> {
 
     pub fn borrow_tagged(&self) -> Tagged<&str> {
         self.item[..].tagged(self.tag.clone())
+    }
+}
+
+impl<T> Tagged<Vec<T>> {
+    pub fn items(&self) -> impl Iterator<Item = &T> {
+        self.item.iter()
     }
 }
 
@@ -184,14 +202,8 @@ impl From<&Tag> for Tag {
     }
 }
 
-impl From<nom_locate::LocatedSpanEx<&str, TracableContext>> for Span {
-    fn from(input: nom_locate::LocatedSpanEx<&str, TracableContext>) -> Span {
-        Span::new(input.offset, input.offset + input.fragment.len())
-    }
-}
-
-impl From<nom_locate::LocatedSpanEx<&str, u64>> for Span {
-    fn from(input: nom_locate::LocatedSpanEx<&str, u64>) -> Span {
+impl<T> From<nom_locate::LocatedSpanEx<&str, T>> for Span {
+    fn from(input: nom_locate::LocatedSpanEx<&str, T>) -> Span {
         Span::new(input.offset, input.offset + input.fragment.len())
     }
 }
@@ -330,6 +342,10 @@ impl Tag {
         }
     }
 
+    pub fn anchor(&self) -> Option<AnchorLocation> {
+        self.anchor.clone()
+    }
+
     pub fn until(&self, other: impl Into<Tag>) -> Tag {
         let other = other.into();
         debug_assert!(
@@ -376,6 +392,14 @@ impl Tag {
     pub fn tagged_string<'a>(&self, source: &'a str) -> Tagged<String> {
         self.span.slice(source).to_string().tagged(self)
     }
+
+    pub fn anchor_name(&self) -> Option<String> {
+        match self.anchor {
+            Some(AnchorLocation::File(ref file)) => Some(file.clone()),
+            Some(AnchorLocation::Url(ref url)) => Some(url.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[allow(unused)]
@@ -416,6 +440,12 @@ pub fn span_for_spanned_list(mut iter: impl Iterator<Item = Span>) -> Span {
 pub struct Span {
     start: usize,
     end: usize,
+}
+
+impl From<&Span> for Span {
+    fn from(span: &Span) -> Span {
+        *span
+    }
 }
 
 impl From<Option<Span>> for Span {
@@ -514,11 +544,11 @@ impl language_reporting::ReportingSpan for Span {
     }
 }
 
-pub trait HasSpan: ToDebug {
+pub trait HasSpan: PrettyDebugWithSource {
     fn span(&self) -> Span;
 }
 
-pub trait HasFallibleSpan: ToDebug {
+pub trait HasFallibleSpan: PrettyDebugWithSource {
     fn maybe_span(&self) -> Option<Span>;
 }
 
@@ -530,10 +560,19 @@ impl<T: HasSpan> HasFallibleSpan for T {
 
 impl<T> HasSpan for Spanned<T>
 where
-    Spanned<T>: ToDebug,
+    Spanned<T>: PrettyDebugWithSource,
 {
     fn span(&self) -> Span {
         self.span
+    }
+}
+
+impl PrettyDebugWithSource for Option<Span> {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match self {
+            None => b::description("no span"),
+            Some(span) => span.pretty_debug(source),
+        }
     }
 }
 
@@ -543,18 +582,12 @@ impl HasFallibleSpan for Option<Span> {
     }
 }
 
-impl FormatDebug for Option<Span> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        match self {
-            Option::None => write!(f, "no span"),
-            Option::Some(span) => FormatDebug::fmt_debug(span, f, source),
-        }
-    }
-}
-
-impl FormatDebug for Span {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{:?}", self.slice(source))
+impl PrettyDebugWithSource for Span {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed(
+            "spanned",
+            b::keyword("for") + b::space() + b::description(format!("{:?}", source)),
+        )
     }
 }
 
@@ -564,21 +597,21 @@ impl HasSpan for Span {
     }
 }
 
-impl<T> FormatDebug for Option<Spanned<T>>
+impl<T> PrettyDebugWithSource for Option<Spanned<T>>
 where
-    Spanned<T>: ToDebug,
+    Spanned<T>: PrettyDebugWithSource,
 {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            Option::None => write!(f, "nothing"),
-            Option::Some(spanned) => FormatDebug::fmt_debug(spanned, f, source),
+            None => b::description("nothing"),
+            Some(v) => v.pretty_debug(source),
         }
     }
 }
 
 impl<T> HasFallibleSpan for Option<Spanned<T>>
 where
-    Spanned<T>: ToDebug,
+    Spanned<T>: PrettyDebugWithSource,
 {
     fn maybe_span(&self) -> Option<Span> {
         match self {
@@ -588,21 +621,21 @@ where
     }
 }
 
-impl<T> FormatDebug for Option<Tagged<T>>
+impl<T> PrettyDebugWithSource for Option<Tagged<T>>
 where
-    Tagged<T>: ToDebug,
+    Tagged<T>: PrettyDebugWithSource,
 {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            Option::None => write!(f, "nothing"),
-            Option::Some(item) => FormatDebug::fmt_debug(item, f, source),
+            None => b::description("nothing"),
+            Some(d) => d.pretty_debug(source),
         }
     }
 }
 
 impl<T> HasFallibleSpan for Option<Tagged<T>>
 where
-    Tagged<T>: ToDebug,
+    Tagged<T>: PrettyDebugWithSource,
 {
     fn maybe_span(&self) -> Option<Span> {
         match self {
@@ -614,33 +647,9 @@ where
 
 impl<T> HasSpan for Tagged<T>
 where
-    Tagged<T>: ToDebug,
+    Tagged<T>: PrettyDebugWithSource,
 {
     fn span(&self) -> Span {
         self.tag.span
-    }
-}
-
-impl<T: ToDebug> FormatDebug for Vec<T> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "[ ")?;
-        write!(
-            f,
-            "{}",
-            self.iter().map(|item| item.debug(source)).join(" ")
-        )?;
-        write!(f, " ]")
-    }
-}
-
-impl FormatDebug for String {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl FormatDebug for Spanned<String> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
-        write!(f, "{}", self.item)
     }
 }

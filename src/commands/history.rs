@@ -26,7 +26,7 @@ impl PerItemCommand for History {
         call_info: &CallInfo,
         _registry: &CommandRegistry,
         _raw_args: &RawCommandArgs,
-        _input: Tagged<Value>,
+        _input: Value,
     ) -> Result<OutputStream, ShellError> {
         let tag = call_info.name_tag.clone();
 
@@ -37,7 +37,7 @@ impl PerItemCommand for History {
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     if let Ok(line) = line {
-                        yield ReturnSuccess::value(Value::string(line).tagged(tag.clone()));
+                        yield ReturnSuccess::value(UntaggedValue::string(line).into_value(tag.clone()));
                     }
                 }
             } else {

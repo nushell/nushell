@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
-use crate::RawPathMember;
+use crate::UnspannedPathMember;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use std::convert::TryInto;
 
@@ -33,46 +33,48 @@ impl WholeStreamCommand for ToBSON {
     }
 }
 
-pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
-    Ok(match &v.item {
-        Value::Primitive(Primitive::Boolean(b)) => Bson::Boolean(*b),
+pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
+    Ok(match &v.value {
+        UntaggedValue::Primitive(Primitive::Boolean(b)) => Bson::Boolean(*b),
         // FIXME: What about really big decimals?
-        Value::Primitive(Primitive::Bytes(decimal)) => Bson::FloatingPoint(
+        UntaggedValue::Primitive(Primitive::Bytes(decimal)) => Bson::FloatingPoint(
             (decimal)
                 .to_f64()
                 .expect("Unimplemented BUG: What about big decimals?"),
         ),
-        Value::Primitive(Primitive::Duration(secs)) => Bson::I64(*secs as i64),
-        Value::Primitive(Primitive::Date(d)) => Bson::UtcDatetime(*d),
-        Value::Primitive(Primitive::EndOfStream) => Bson::Null,
-        Value::Primitive(Primitive::BeginningOfStream) => Bson::Null,
-        Value::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
-        Value::Primitive(Primitive::Int(i)) => {
+        UntaggedValue::Primitive(Primitive::Duration(secs)) => Bson::I64(*secs as i64),
+        UntaggedValue::Primitive(Primitive::Date(d)) => Bson::UtcDatetime(*d),
+        UntaggedValue::Primitive(Primitive::EndOfStream) => Bson::Null,
+        UntaggedValue::Primitive(Primitive::BeginningOfStream) => Bson::Null,
+        UntaggedValue::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
+        UntaggedValue::Primitive(Primitive::Int(i)) => {
             Bson::I64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
         }
-        Value::Primitive(Primitive::Nothing) => Bson::Null,
-        Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
-        Value::Primitive(Primitive::ColumnPath(path)) => Bson::Array(
+        UntaggedValue::Primitive(Primitive::Nothing) => Bson::Null,
+        UntaggedValue::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => Bson::Array(
             path.iter()
-                .map(|x| match &x.item {
-                    RawPathMember::String(string) => Ok(Bson::String(string.clone())),
-                    RawPathMember::Int(int) => Ok(Bson::I64(
+                .map(|x| match &x.unspanned {
+                    UnspannedPathMember::String(string) => Ok(Bson::String(string.clone())),
+                    UnspannedPathMember::Int(int) => Ok(Bson::I64(
                         int.tagged(&v.tag).coerce_into("converting to BSON")?,
                     )),
                 })
                 .collect::<Result<Vec<Bson>, ShellError>>()?,
         ),
-        Value::Primitive(Primitive::Pattern(p)) => Bson::String(p.clone()),
-        Value::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
-        Value::Table(l) => Bson::Array(
+        UntaggedValue::Primitive(Primitive::Pattern(p)) => Bson::String(p.clone()),
+        UntaggedValue::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
+        UntaggedValue::Table(l) => Bson::Array(
             l.iter()
                 .map(|x| value_to_bson_value(x))
                 .collect::<Result<_, _>>()?,
         ),
-        Value::Block(_) => Bson::Null,
-        Value::Error(e) => return Err(e.clone()),
-        Value::Primitive(Primitive::Binary(b)) => Bson::Binary(BinarySubtype::Generic, b.clone()),
-        Value::Row(o) => object_value_to_bson(o)?,
+        UntaggedValue::Block(_) => Bson::Null,
+        UntaggedValue::Error(e) => return Err(e.clone()),
+        UntaggedValue::Primitive(Primitive::Binary(b)) => {
+            Bson::Binary(BinarySubtype::Generic, b.clone())
+        }
+        UntaggedValue::Row(o) => object_value_to_bson(o)?,
     })
 }
 
@@ -171,9 +173,9 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
     }
 }
 
-fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Result<BinarySubtype, ShellError> {
-    match tagged_value.item() {
-        Value::Primitive(Primitive::String(s)) => Ok(match s.as_ref() {
+fn get_binary_subtype<'a>(tagged_value: &'a Value) -> Result<BinarySubtype, ShellError> {
+    match &tagged_value.value {
+        UntaggedValue::Primitive(Primitive::String(s)) => Ok(match s.as_ref() {
             "generic" => BinarySubtype::Generic,
             "function" => BinarySubtype::Function,
             "binary_old" => BinarySubtype::BinaryOld,
@@ -182,7 +184,7 @@ fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Result<BinarySubty
             "md5" => BinarySubtype::Md5,
             _ => unreachable!(),
         }),
-        Value::Primitive(Primitive::Int(i)) => Ok(BinarySubtype::UserDefined(
+        UntaggedValue::Primitive(Primitive::Int(i)) => Ok(BinarySubtype::UserDefined(
             i.tagged(&tagged_value.tag)
                 .coerce_into("converting to BSON binary subtype")?,
         )),
@@ -246,12 +248,14 @@ fn bson_value_to_bytes(bson: Bson, tag: Tag) -> Result<Vec<u8>, ShellError> {
 fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let name_tag = args.name_tag();
+    let name_span = name_tag.span;
+
     let stream = async_stream! {
-        let input: Vec<Tagged<Value>> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.values.collect().await;
 
         let to_process_input = if input.len() > 1 {
             let tag = input[0].tag.clone();
-            vec![Tagged { item: Value::Table(input), tag } ]
+            vec![Value { value: UntaggedValue::Table(input), tag } ]
         } else if input.len() == 1 {
             input
         } else {
@@ -261,16 +265,18 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
         for value in to_process_input {
             match value_to_bson_value(&value) {
                 Ok(bson_value) => {
+                    let value_span = value.tag.span;
+
                     match bson_value_to_bytes(bson_value, name_tag.clone()) {
                         Ok(x) => yield ReturnSuccess::value(
-                            Value::binary(x).tagged(&name_tag),
+                            UntaggedValue::binary(x).into_value(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with BSON-compatible structure.tag() from pipeline",
                             "requires BSON-compatible input",
-                            &name_tag,
+                            name_span,
                             "originates from here".to_string(),
-                            value.tag(),
+                            value_span,
                         )),
                     }
                 }

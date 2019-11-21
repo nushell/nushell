@@ -10,20 +10,33 @@ use crate::parser::{
     },
     hir::TokensIterator,
 };
-use crate::{DebugFormatter, FormatDebug, Spanned, SpannedItem};
-use std::fmt;
+use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span, Spanned, SpannedItem};
+
+#[derive(Debug, Clone)]
+pub struct ExpressionListSyntax {
+    pub exprs: Spanned<Vec<hir::Expression>>,
+}
+
+impl HasSpan for ExpressionListSyntax {
+    fn span(&self) -> Span {
+        self.exprs.span
+    }
+}
+
+impl PrettyDebugWithSource for ExpressionListSyntax {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::intersperse(
+            self.exprs.iter().map(|e| e.pretty_debug(source)),
+            b::space(),
+        )
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct ExpressionListShape;
 
-impl FormatDebug for Spanned<Vec<hir::Expression>> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        FormatDebug::fmt_debug(&self.item, f, source)
-    }
-}
-
 impl ExpandSyntax for ExpressionListShape {
-    type Output = Spanned<Vec<hir::Expression>>;
+    type Output = ExpressionListSyntax;
 
     fn name(&self) -> &'static str {
         "expression list"
@@ -33,13 +46,15 @@ impl ExpandSyntax for ExpressionListShape {
         &self,
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
-    ) -> Result<Spanned<Vec<hir::Expression>>, ParseError> {
+    ) -> Result<ExpressionListSyntax, ParseError> {
         let mut exprs = vec![];
 
         let start = token_nodes.span_at_cursor();
 
         if token_nodes.at_end_possible_ws() {
-            return Ok(exprs.spanned(start));
+            return Ok(ExpressionListSyntax {
+                exprs: exprs.spanned(start),
+            });
         }
 
         let expr = expand_expr(&maybe_spaced(AnyExpressionShape), token_nodes, context)?;
@@ -49,7 +64,9 @@ impl ExpandSyntax for ExpressionListShape {
         loop {
             if token_nodes.at_end_possible_ws() {
                 let end = token_nodes.span_at_cursor();
-                return Ok(exprs.spanned(start.until(end)));
+                return Ok(ExpressionListSyntax {
+                    exprs: exprs.spanned(start.until(end)),
+                });
             }
 
             let expr = expand_expr(&spaced(AnyExpressionShape), token_nodes, context)?;

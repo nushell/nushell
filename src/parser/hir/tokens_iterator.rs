@@ -7,9 +7,9 @@ use crate::parser::hir::syntax_shape::FlatShape;
 use crate::parser::hir::Expression;
 use crate::parser::TokenNode;
 use crate::prelude::*;
-use crate::{Span, Spanned, SpannedItem};
 #[allow(unused)]
 use getset::{Getters, MutGetters};
+use nu_source::Spanned;
 
 cfg_if::cfg_if! {
     if #[cfg(coloring_in_tokens)] {
@@ -158,25 +158,46 @@ impl<'content> TokensIterator<'content> {
     pub fn new(
         items: &'content [TokenNode],
         span: Span,
+        source: Text,
         skip_ws: bool,
     ) -> TokensIterator<'content> {
-        TokensIterator {
-            state: TokensIteratorState {
-                tokens: items,
-                span,
-                skip_ws,
-                index: 0,
-                seen: indexmap::IndexSet::new(),
-                #[cfg(coloring_in_tokens)]
-                shapes: vec![],
-            },
-            color_tracer: ColorTracer::new(),
-            expand_tracer: ExpandTracer::new(),
+        cfg_if::cfg_if! {
+            if #[cfg(coloring_in_tokens)] {
+                TokensIterator {
+                    state: TokensIteratorState {
+                        tokens: items,
+                        span,
+                        skip_ws,
+                        index: 0,
+                        seen: indexmap::IndexSet::new(),
+                        shapes: vec![],
+                    },
+                    color_tracer: ColorTracer::new(source.clone()),
+                    expand_tracer: ExpandTracer::new(source.clone()),
+                }
+            } else {
+                TokensIterator {
+                    state: TokensIteratorState {
+                        tokens: items,
+                        span,
+                        skip_ws,
+                        index: 0,
+                        seen: indexmap::IndexSet::new(),
+                    },
+                    color_tracer: ColorTracer::new(source.clone()),
+                    expand_tracer: ExpandTracer::new(source.clone()),
+                }
+            }
+
         }
     }
 
-    pub fn all(tokens: &'content [TokenNode], span: Span) -> TokensIterator<'content> {
-        TokensIterator::new(tokens, span, false)
+    pub fn all(
+        tokens: &'content [TokenNode],
+        source: Text,
+        span: Span,
+    ) -> TokensIterator<'content> {
+        TokensIterator::new(tokens, span, source, false)
     }
 
     pub fn len(&self) -> usize {
@@ -238,29 +259,46 @@ impl<'content> TokensIterator<'content> {
     pub fn child<'me, T>(
         &'me mut self,
         tokens: Spanned<&'me [TokenNode]>,
+        source: Text,
         block: impl FnOnce(&mut TokensIterator<'me>) -> T,
     ) -> T {
         let mut shapes = vec![];
         std::mem::swap(&mut shapes, &mut self.state.shapes);
 
-        let mut color_tracer = ColorTracer::new();
+        let mut color_tracer = ColorTracer::new(source.clone());
         std::mem::swap(&mut color_tracer, &mut self.color_tracer);
 
-        let mut expand_tracer = ExpandTracer::new();
+        let mut expand_tracer = ExpandTracer::new(source.clone());
         std::mem::swap(&mut expand_tracer, &mut self.expand_tracer);
 
-        let mut iterator = TokensIterator {
-            state: TokensIteratorState {
-                tokens: tokens.item,
-                span: tokens.span,
-                skip_ws: false,
-                index: 0,
-                seen: indexmap::IndexSet::new(),
-                shapes,
-            },
-            color_tracer,
-            expand_tracer,
-        };
+        cfg_if::cfg_if! {
+            if #[cfg(coloring_in_tokens)] {
+                let mut iterator = TokensIterator {
+                    state: TokensIteratorState {
+                        tokens: tokens.item,
+                        span: tokens.span,
+                        skip_ws: false,
+                        index: 0,
+                        seen: indexmap::IndexSet::new(),
+                        shapes,
+                    },
+                    color_tracer,
+                    expand_tracer,
+                };
+            } else {
+                let mut iterator = TokensIterator {
+                    state: TokensIteratorState {
+                        tokens: tokens.item,
+                        span: tokens.span,
+                        skip_ws: false,
+                        index: 0,
+                        seen: indexmap::IndexSet::new(),
+                    },
+                    color_tracer,
+                    expand_tracer,
+                };
+            }
+        }
 
         let result = block(&mut iterator);
 
@@ -275,12 +313,13 @@ impl<'content> TokensIterator<'content> {
     pub fn child<'me, T>(
         &'me mut self,
         tokens: Spanned<&'me [TokenNode]>,
+        source: Text,
         block: impl FnOnce(&mut TokensIterator<'me>) -> T,
     ) -> T {
-        let mut color_tracer = ColorTracer::new();
+        let mut color_tracer = ColorTracer::new(source.clone());
         std::mem::swap(&mut color_tracer, &mut self.color_tracer);
 
-        let mut expand_tracer = ExpandTracer::new();
+        let mut expand_tracer = ExpandTracer::new(source.clone());
         std::mem::swap(&mut expand_tracer, &mut self.expand_tracer);
 
         let mut iterator = TokensIterator {
@@ -346,7 +385,7 @@ impl<'content> TokensIterator<'content> {
         block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ParseError>,
     ) -> Result<T, ParseError>
     where
-        T: std::fmt::Debug + FormatDebug + Clone + HasFallibleSpan + 'static,
+        T: std::fmt::Debug + Clone + HasFallibleSpan + 'static,
     {
         self.with_expand_tracer(|_, tracer| tracer.start(desc));
 
@@ -354,7 +393,7 @@ impl<'content> TokensIterator<'content> {
 
         self.with_expand_tracer(|_, tracer| match &result {
             Ok(result) => {
-                tracer.add_result(Box::new(result.clone()));
+                tracer.add_result(result.clone());
                 tracer.success();
             }
 

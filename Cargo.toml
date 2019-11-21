@@ -11,9 +11,15 @@ repository = "https://github.com/nushell/nushell"
 homepage = "https://www.nushell.sh"
 documentation = "https://book.nushell.sh"
 
+[workspace]
+
+members = ["crates/nu-source"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+nu-source = { path = "./crates/nu-source" }
+
 rustyline = "5.0.4"
 chrono = { version = "0.4.9", features = ["serde"] }
 derive-new = "0.5.8"
@@ -80,7 +86,7 @@ strip-ansi-escapes = "0.1.0"
 calamine = "0.16"
 umask = "0.1"
 futures-util = "0.3.0"
-pretty = { version = "0.5.2" }
+pretty = "0.5.2"
 termcolor = "1.0.5"
 console = "0.9.1"
 
@@ -95,7 +101,6 @@ clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"], optional = true }
 starship = { version = "0.26.4", optional = true}
-
 
 [features]
 default = ["textview", "sys", "ps"]

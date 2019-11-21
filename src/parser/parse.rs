@@ -4,7 +4,6 @@ pub(crate) mod flag;
 pub(crate) mod operator;
 pub(crate) mod parser;
 pub(crate) mod pipeline;
-pub(crate) mod text;
 pub(crate) mod token_tree;
 pub(crate) mod token_tree_builder;
 pub(crate) mod tokens;

@@ -5,7 +5,7 @@ use crate::prelude::*;
 
 #[derive(Deserialize)]
 struct PrependArgs {
-    row: Tagged<Value>,
+    row: Value,
 }
 
 pub struct Prepend;
@@ -40,7 +40,7 @@ fn prepend(
     PrependArgs { row }: PrependArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let mut prepend: VecDeque<Tagged<Value>> = VecDeque::new();
+    let mut prepend: VecDeque<Value> = VecDeque::new();
     prepend.push_back(row);
 
     Ok(OutputStream::from_input(prepend.chain(input.values)))

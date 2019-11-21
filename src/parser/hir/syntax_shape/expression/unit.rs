@@ -1,32 +1,42 @@
-use crate::data::meta::Span;
 use crate::parser::hir::syntax_shape::{ExpandContext, ExpandSyntax, ParseError};
 use crate::parser::parse::tokens::RawNumber;
+use crate::parser::parse::tokens::Token;
 use crate::parser::parse::unit::Unit;
-use crate::parser::{hir::TokensIterator, RawToken, TokenNode};
+use crate::parser::{hir::TokensIterator, TokenNode, UnspannedToken};
 use crate::prelude::*;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::digit1;
 use nom::combinator::{all_consuming, opt, value};
 use nom::IResult;
-use std::fmt;
+use nu_source::{Span, Spanned};
+
+#[derive(Debug, Clone)]
+pub struct UnitSyntax {
+    pub unit: (RawNumber, Spanned<Unit>),
+    pub span: Span,
+}
+
+impl PrettyDebugWithSource for UnitSyntax {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed(
+            "unit",
+            self.unit.0.pretty_debug(source) + b::space() + self.unit.1.pretty_debug(source),
+        )
+    }
+}
+
+impl HasSpan for UnitSyntax {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct UnitShape;
 
-impl FormatDebug for Spanned<(Spanned<RawNumber>, Spanned<Unit>)> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        let dict = indexmap::indexmap! {
-            "number" => format!("{}", self.item.0.item.debug(source)),
-            "unit" => format!("{}", self.item.1.debug(source)),
-        };
-
-        f.say_dict("unit", dict)
-    }
-}
-
 impl ExpandSyntax for UnitShape {
-    type Output = Spanned<(Spanned<RawNumber>, Spanned<Unit>)>;
+    type Output = UnitSyntax;
 
     fn name(&self) -> &'static str {
         "unit"
@@ -36,30 +46,33 @@ impl ExpandSyntax for UnitShape {
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
-    ) -> Result<Spanned<(Spanned<RawNumber>, Spanned<Unit>)>, ParseError> {
+    ) -> Result<UnitSyntax, ParseError> {
         let peeked = token_nodes.peek_any().not_eof("unit")?;
 
         let span = match peeked.node {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 span,
-            }) => span,
+            }) => *span,
             _ => return Err(peeked.type_error("unit")),
         };
 
-        let unit = unit_size(span.slice(context.source), *span);
+        let unit = unit_size(span.slice(context.source), span);
 
         let (_, (number, unit)) = match unit {
-            Err(_) => return Err(ParseError::mismatch("unit", "word".spanned(*span))),
+            Err(_) => return Err(ParseError::mismatch("unit", "word".spanned(span))),
             Ok((number, unit)) => (number, unit),
         };
 
         peeked.commit();
-        Ok((number, unit).spanned(*span))
+        Ok(UnitSyntax {
+            unit: (number, unit),
+            span,
+        })
     }
 }
 
-fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>, Spanned<Unit>)> {
+fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (RawNumber, Spanned<Unit>)> {
     let (input, digits) = digit1(input)?;
 
     let (input, dot) = opt(tag("."))(input)?;
@@ -101,7 +114,7 @@ fn unit_size(input: &str, bare_span: Span) -> IResult<&str, (Spanned<RawNumber>,
         value(Unit::Year, tag("y")),
     )))(input)?;
 
-    let start_span = number.span.end();
+    let start_span = number.span().end();
 
     Ok((
         input,

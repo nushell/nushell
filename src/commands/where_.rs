@@ -28,13 +28,13 @@ impl PerItemCommand for Where {
         call_info: &CallInfo,
         _registry: &registry::CommandRegistry,
         _raw_args: &RawCommandArgs,
-        input: Tagged<Value>,
+        input: Value,
     ) -> Result<OutputStream, ShellError> {
         let input_clone = input.clone();
         let condition = call_info.args.expect_nth(0)?;
         let stream = match condition {
-            Tagged {
-                item: Value::Block(block),
+            Value {
+                value: UntaggedValue::Block(block),
                 ..
             } => {
                 let result = block.invoke(&input_clone);
@@ -49,7 +49,7 @@ impl PerItemCommand for Where {
                     Err(e) => return Err(e),
                 }
             }
-            Tagged { tag, .. } => {
+            Value { tag, .. } => {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",
                     "where needs a condition",

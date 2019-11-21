@@ -1,8 +1,8 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
 use nu::{
-    outln, serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature,
-    Tagged, Value,
+    outln, serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, UntaggedValue, Value,
 };
+use nu_source::AnchorLocation;
 use pretty_hex::*;
 
 struct BinaryView;
@@ -20,11 +20,11 @@ impl Plugin for BinaryView {
             .switch("lores", "use low resolution output mode"))
     }
 
-    fn sink(&mut self, call_info: CallInfo, input: Vec<Tagged<Value>>) {
+    fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
         for v in input {
             let value_anchor = v.anchor();
-            match v.item {
-                Value::Primitive(Primitive::Binary(b)) => {
+            match &v.value {
+                UntaggedValue::Primitive(Primitive::Binary(b)) => {
                     let _ = view_binary(&b, value_anchor.as_ref(), call_info.args.has("lores"));
                 }
                 _ => {}

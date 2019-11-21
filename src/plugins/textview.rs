@@ -1,9 +1,9 @@
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
 use nu::{
-    outln, serve_plugin, AnchorLocation, CallInfo, Plugin, Primitive, ShellError, Signature,
-    Tagged, Value,
+    outln, serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, UntaggedValue, Value,
 };
+use nu_source::AnchorLocation;
 
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, ThemeSet};
@@ -30,7 +30,7 @@ impl Plugin for TextView {
         Ok(Signature::build("textview").desc("Autoview of text data."))
     }
 
-    fn sink(&mut self, _call_info: CallInfo, input: Vec<Tagged<Value>>) {
+    fn sink(&mut self, _call_info: CallInfo, input: Vec<Value>) {
         view_text_value(&input[0]);
     }
 }
@@ -216,10 +216,10 @@ fn scroll_view(s: &str) {
     scroll_view_lines_if_needed(v, false);
 }
 
-fn view_text_value(value: &Tagged<Value>) {
+fn view_text_value(value: &Value) {
     let value_anchor = value.anchor();
-    match value.item {
-        Value::Primitive(Primitive::String(ref s)) => {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::String(ref s)) => {
             if let Some(source) = value_anchor {
                 let extension: Option<String> = match source {
                     AnchorLocation::File(file) => {

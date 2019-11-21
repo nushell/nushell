@@ -2,15 +2,16 @@ use crate::data::{Primitive, Value};
 use crate::prelude::*;
 use csv::WriterBuilder;
 use indexmap::{indexset, IndexSet};
+use nu_source::Spanned;
 
 fn from_value_to_delimited_string(
-    tagged_value: &Tagged<Value>,
+    tagged_value: &Value,
     separator: char,
 ) -> Result<String, ShellError> {
-    let v = &tagged_value.item;
+    let v = &tagged_value.value;
 
     match v {
-        Value::Row(o) => {
+        UntaggedValue::Row(o) => {
             let mut wtr = WriterBuilder::new()
                 .delimiter(separator as u8)
                 .from_writer(vec![]);
@@ -41,7 +42,7 @@ fn from_value_to_delimited_string(
                 )
             })?);
         }
-        Value::Table(list) => {
+        UntaggedValue::Table(list) => {
             let mut wtr = WriterBuilder::new()
                 .delimiter(separator as u8)
                 .from_writer(vec![]);
@@ -54,7 +55,7 @@ fn from_value_to_delimited_string(
             for l in list {
                 let mut row = vec![];
                 for desc in &merged_descriptors {
-                    match l.item.get_data_by_key(desc.borrow_spanned()) {
+                    match l.get_data_by_key(desc.borrow_spanned()) {
                         Some(s) => {
                             row.push(to_string_tagged_value(&s)?);
                         }
@@ -85,40 +86,56 @@ fn from_value_to_delimited_string(
     }
 }
 
-// NOTE: could this be useful more widely and implemented on Tagged<Value> ?
-pub fn clone_tagged_value(v: &Tagged<Value>) -> Tagged<Value> {
-    match &v.item {
-        Value::Primitive(Primitive::String(s)) => Value::Primitive(Primitive::String(s.clone())),
-        Value::Primitive(Primitive::Nothing) => Value::Primitive(Primitive::Nothing),
-        Value::Primitive(Primitive::Boolean(b)) => Value::Primitive(Primitive::Boolean(b.clone())),
-        Value::Primitive(Primitive::Decimal(f)) => Value::Primitive(Primitive::Decimal(f.clone())),
-        Value::Primitive(Primitive::Int(i)) => Value::Primitive(Primitive::Int(i.clone())),
-        Value::Primitive(Primitive::Path(x)) => Value::Primitive(Primitive::Path(x.clone())),
-        Value::Primitive(Primitive::Bytes(b)) => Value::Primitive(Primitive::Bytes(b.clone())),
-        Value::Primitive(Primitive::Date(d)) => Value::Primitive(Primitive::Date(d.clone())),
-        Value::Row(o) => Value::Row(o.clone()),
-        Value::Table(l) => Value::Table(l.clone()),
-        Value::Block(_) => Value::Primitive(Primitive::Nothing),
-        _ => Value::Primitive(Primitive::Nothing),
+// NOTE: could this be useful more widely and implemented on Value ?
+pub fn clone_tagged_value(v: &Value) -> Value {
+    match &v.value {
+        UntaggedValue::Primitive(Primitive::String(s)) => {
+            UntaggedValue::Primitive(Primitive::String(s.clone()))
+        }
+        UntaggedValue::Primitive(Primitive::Nothing) => {
+            UntaggedValue::Primitive(Primitive::Nothing)
+        }
+        UntaggedValue::Primitive(Primitive::Boolean(b)) => {
+            UntaggedValue::Primitive(Primitive::Boolean(b.clone()))
+        }
+        UntaggedValue::Primitive(Primitive::Decimal(f)) => {
+            UntaggedValue::Primitive(Primitive::Decimal(f.clone()))
+        }
+        UntaggedValue::Primitive(Primitive::Int(i)) => {
+            UntaggedValue::Primitive(Primitive::Int(i.clone()))
+        }
+        UntaggedValue::Primitive(Primitive::Path(x)) => {
+            UntaggedValue::Primitive(Primitive::Path(x.clone()))
+        }
+        UntaggedValue::Primitive(Primitive::Bytes(b)) => {
+            UntaggedValue::Primitive(Primitive::Bytes(b.clone()))
+        }
+        UntaggedValue::Primitive(Primitive::Date(d)) => {
+            UntaggedValue::Primitive(Primitive::Date(d.clone()))
+        }
+        UntaggedValue::Row(o) => UntaggedValue::Row(o.clone()),
+        UntaggedValue::Table(l) => UntaggedValue::Table(l.clone()),
+        UntaggedValue::Block(_) => UntaggedValue::Primitive(Primitive::Nothing),
+        _ => UntaggedValue::Primitive(Primitive::Nothing),
     }
-    .tagged(v.tag.clone())
+    .into_value(v.tag.clone())
 }
 
-// NOTE: could this be useful more widely and implemented on Tagged<Value> ?
-fn to_string_tagged_value(v: &Tagged<Value>) -> Result<String, ShellError> {
-    match &v.item {
-        Value::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
-        Value::Primitive(Primitive::Bytes(b)) => {
+// NOTE: could this be useful more widely and implemented on Value ?
+fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
+    match &v.value {
+        UntaggedValue::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
+        UntaggedValue::Primitive(Primitive::Bytes(b)) => {
             let tmp = format!("{}", b);
             Ok(tmp)
         }
-        Value::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
-        Value::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
-        Value::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
-        Value::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
-        Value::Table(_) => return Ok(String::from("[Table]")),
-        Value::Row(_) => return Ok(String::from("[Row]")),
-        Value::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
+        UntaggedValue::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
+        UntaggedValue::Table(_) => return Ok(String::from("[Table]")),
+        UntaggedValue::Row(_) => return Ok(String::from("[Row]")),
+        UntaggedValue::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
         _ => {
             return Err(ShellError::labeled_error(
                 "Unexpected value",
@@ -129,7 +146,7 @@ fn to_string_tagged_value(v: &Tagged<Value>) -> Result<String, ShellError> {
     }
 }
 
-fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<Spanned<String>> {
+fn merge_descriptors(values: &[Value]) -> Vec<Spanned<String>> {
     let mut ret: Vec<Spanned<String>> = vec![];
     let mut seen: IndexSet<String> = indexset! {};
     for value in values {
@@ -150,13 +167,14 @@ pub fn to_delimited_data(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let name_tag = name;
+    let name_span = name_tag.span;
 
     let stream = async_stream! {
-         let input: Vec<Tagged<Value>> = input.values.collect().await;
+         let input: Vec<Value> = input.values.collect().await;
 
          let to_process_input = if input.len() > 1 {
              let tag = input[0].tag.clone();
-             vec![Tagged { item: Value::Table(input), tag } ]
+             vec![Value { value: UntaggedValue::Table(input), tag } ]
          } else if input.len() == 1 {
              input
          } else {
@@ -171,7 +189,7 @@ pub fn to_delimited_data(
                      } else {
                          x
                      };
-                     yield ReturnSuccess::value(Value::Primitive(Primitive::String(converted)).tagged(&name_tag))
+                     yield ReturnSuccess::value(UntaggedValue::Primitive(Primitive::String(converted)).into_value(&name_tag))
                  }
                  _ => {
                      let expected = format!("Expected a table with {}-compatible structure.tag() from pipeline", format_name);
@@ -179,9 +197,9 @@ pub fn to_delimited_data(
                      yield Err(ShellError::labeled_error_with_secondary(
                          expected,
                          requires,
-                         &name_tag,
+                         name_span,
                          "originates from here".to_string(),
-                         value.tag(),
+                         value.tag.span,
                      ))
                  }
              }

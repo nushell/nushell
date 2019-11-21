@@ -13,13 +13,12 @@ use crate::parser::{registry, Operator, Unit};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
+use nu_source::Spanned;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::path::PathBuf;
 
 use crate::evaluate::Scope;
 use crate::parser::parse::tokens::RawNumber;
-use crate::traits::ToDebug;
 
 pub(crate) use self::binary::Binary;
 pub(crate) use self::external_command::ExternalCommand;
@@ -38,6 +37,27 @@ pub struct Call {
     pub positional: Option<Vec<Expression>>,
     #[get = "pub(crate)"]
     pub named: Option<NamedArguments>,
+    pub span: Span,
+}
+
+impl PrettyDebugWithSource for Call {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::delimit(
+            "(",
+            self.head.pretty_debug(source)
+                + b::preceded_option(
+                    Some(b::space()),
+                    self.positional.as_ref().map(|pos| {
+                        b::intersperse(pos.iter().map(|expr| expr.pretty_debug(source)), b::space())
+                    }),
+                )
+                + b::preceded_option(
+                    Some(b::space()),
+                    self.named.as_ref().map(|named| named.pretty_debug(source)),
+                ),
+            ")",
+        )
+    }
 }
 
 impl Call {
@@ -48,29 +68,6 @@ impl Call {
         source: &Text,
     ) -> Result<registry::EvaluatedArgs, ShellError> {
         registry::evaluate_args(self, registry, scope, source)
-    }
-}
-
-impl FormatDebug for Call {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "({}", self.head.debug(source))?;
-
-        if let Some(positional) = &self.positional {
-            write!(f, " ")?;
-            write!(
-                f,
-                "{}",
-                &itertools::join(positional.iter().map(|p| p.debug(source)), " ")
-            )?;
-        }
-
-        if let Some(named) = &self.named {
-            write!(f, "{}", named.debug(source))?;
-        }
-
-        write!(f, ")")?;
-
-        Ok(())
     }
 }
 
@@ -92,21 +89,8 @@ pub enum RawExpression {
     Boolean(bool),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum Synthetic {
-    String(String),
-}
-
-impl Synthetic {
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            Synthetic::String(_) => "string",
-        }
-    }
-}
-
-impl RawExpression {
-    pub fn type_name(&self) -> &'static str {
+impl ShellTypeName for RawExpression {
+    fn type_name(&self) -> &'static str {
         match self {
             RawExpression::Literal(literal) => literal.type_name(),
             RawExpression::Synthetic(synthetic) => synthetic.type_name(),
@@ -124,14 +108,99 @@ impl RawExpression {
     }
 }
 
-pub type Expression = Spanned<RawExpression>;
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+pub enum Synthetic {
+    String(String),
+}
+
+impl ShellTypeName for Synthetic {
+    fn type_name(&self) -> &'static str {
+        match self {
+            Synthetic::String(_) => "string",
+        }
+    }
+}
+
+impl RawExpression {
+    pub fn into_expr(self, span: impl Into<Span>) -> Expression {
+        Expression {
+            expr: self,
+            span: span.into(),
+        }
+    }
+
+    pub fn into_unspanned_expr(self) -> Expression {
+        Expression {
+            expr: self,
+            span: Span::unknown(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+pub struct Expression {
+    pub expr: RawExpression,
+    pub span: Span,
+}
+
+impl std::ops::Deref for Expression {
+    type Target = RawExpression;
+
+    fn deref(&self) -> &RawExpression {
+        &self.expr
+    }
+}
+
+impl HasSpan for Expression {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl PrettyDebugWithSource for Expression {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match &self.expr {
+            RawExpression::Literal(literal) => literal.spanned(self.span).pretty_debug(source),
+            RawExpression::ExternalWord => {
+                b::typed("external word", b::primitive(self.span.slice(source)))
+            }
+            RawExpression::Synthetic(s) => match s {
+                Synthetic::String(s) => b::typed("synthetic", b::primitive(format!("{:?}", s))),
+            },
+            RawExpression::Variable(_) => b::keyword(self.span.slice(source)),
+            RawExpression::Binary(binary) => binary.pretty_debug(source),
+            RawExpression::Block(_) => b::opaque("block"),
+            RawExpression::List(list) => b::delimit(
+                "[",
+                b::intersperse(
+                    list.iter().map(|item| item.pretty_debug(source)),
+                    b::space(),
+                ),
+                "]",
+            ),
+            RawExpression::Path(path) => path.pretty_debug(source),
+            RawExpression::FilePath(path) => b::typed("path", b::primitive(path.display())),
+            RawExpression::ExternalCommand(external) => b::typed(
+                "external command",
+                b::primitive(external.name.slice(source)),
+            ),
+            RawExpression::Command(command) => {
+                b::typed("command", b::primitive(command.slice(source)))
+            }
+            RawExpression::Boolean(boolean) => match boolean {
+                true => b::primitive("$yes"),
+                false => b::primitive("$no"),
+            },
+        }
+    }
+}
 
 impl std::fmt::Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let span = self.span;
 
-        match &self.item {
-            RawExpression::Literal(literal) => write!(f, "{}", literal.tagged(self.span)),
+        match &self.expr {
+            RawExpression::Literal(literal) => write!(f, "{:?}", literal),
             RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{}", s),
             RawExpression::Command(_) => write!(f, "Command{{ {}..{} }}", span.start(), span.end()),
             RawExpression::ExternalWord => {
@@ -161,7 +230,9 @@ impl std::fmt::Display for Expression {
 
 impl Expression {
     pub(crate) fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
-        RawExpression::Literal(Literal::Number(i.into())).spanned(span.into())
+        let span = span.into();
+
+        RawExpression::Literal(RawLiteral::Number(i.into()).into_literal(span)).into_expr(span)
     }
 
     pub(crate) fn size(
@@ -169,19 +240,27 @@ impl Expression {
         unit: impl Into<Unit>,
         span: impl Into<Span>,
     ) -> Expression {
-        RawExpression::Literal(Literal::Size(i.into(), unit.into())).spanned(span.into())
+        let span = span.into();
+
+        RawExpression::Literal(RawLiteral::Size(i.into(), unit.into()).into_literal(span))
+            .into_expr(span)
     }
 
     pub(crate) fn synthetic_string(s: impl Into<String>) -> Expression {
-        RawExpression::Synthetic(Synthetic::String(s.into())).spanned_unknown()
+        RawExpression::Synthetic(Synthetic::String(s.into())).into_unspanned_expr()
     }
 
     pub(crate) fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::Literal(Literal::String(inner.into())).spanned(outer.into())
+        let outer = outer.into();
+
+        RawExpression::Literal(RawLiteral::String(inner.into()).into_literal(outer))
+            .into_expr(outer)
     }
 
     pub(crate) fn column_path(members: Vec<Member>, span: impl Into<Span>) -> Expression {
-        RawExpression::Literal(Literal::ColumnPath(members)).spanned(span.into())
+        let span = span.into();
+
+        RawExpression::Literal(RawLiteral::ColumnPath(members).into_literal(span)).into_expr(span)
     }
 
     pub(crate) fn path(
@@ -190,11 +269,11 @@ impl Expression {
         span: impl Into<Span>,
     ) -> Expression {
         let tail = tail.into_iter().map(|t| t.into()).collect();
-        RawExpression::Path(Box::new(Path::new(head, tail))).spanned(span.into())
+        RawExpression::Path(Box::new(Path::new(head, tail))).into_expr(span.into())
     }
 
     pub(crate) fn dot_member(head: Expression, next: impl Into<PathMember>) -> Expression {
-        let Spanned { item, span } = head;
+        let Expression { expr: item, span } = head;
         let next = next.into();
 
         let new_span = head.span.until(next.span);
@@ -207,7 +286,7 @@ impl Expression {
                 Expression::path(head, tail, new_span)
             }
 
-            other => Expression::path(other.spanned(span), vec![next], new_span),
+            other => Expression::path(other.into_expr(span), vec![next], new_span),
         }
     }
 
@@ -219,78 +298,46 @@ impl Expression {
         let new_span = left.span.until(right.span);
 
         RawExpression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
-            .spanned(new_span)
+            .into_expr(new_span)
     }
 
     pub(crate) fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
-        RawExpression::FilePath(path.into()).spanned(outer)
+        RawExpression::FilePath(path.into()).into_expr(outer)
     }
 
     pub(crate) fn list(list: Vec<Expression>, span: impl Into<Span>) -> Expression {
-        RawExpression::List(list).spanned(span)
+        RawExpression::List(list).into_expr(span)
     }
 
     pub(crate) fn bare(span: impl Into<Span>) -> Expression {
-        RawExpression::Literal(Literal::Bare).spanned(span)
+        let span = span.into();
+
+        RawExpression::Literal(RawLiteral::Bare.into_literal(span)).into_expr(span)
     }
 
     pub(crate) fn pattern(inner: impl Into<String>, outer: impl Into<Span>) -> Expression {
-        RawExpression::Literal(Literal::GlobPattern(inner.into())).spanned(outer.into())
+        let outer = outer.into();
+
+        RawExpression::Literal(RawLiteral::GlobPattern(inner.into()).into_literal(outer))
+            .into_expr(outer)
     }
 
     pub(crate) fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::Variable(Variable::Other(inner.into())).spanned(outer)
+        RawExpression::Variable(Variable::Other(inner.into())).into_expr(outer)
     }
 
     pub(crate) fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).spanned(outer)
+        RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).into_expr(outer)
     }
 
     pub(crate) fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::Variable(Variable::It(inner.into())).spanned(outer)
-    }
-}
-
-impl FormatDebug for Spanned<RawExpression> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        match &self.item {
-            RawExpression::Literal(l) => l.spanned(self.span).fmt_debug(f, source),
-            RawExpression::FilePath(p) => write!(f, "{}", p.display()),
-            RawExpression::ExternalWord => write!(f, "{}", self.span.slice(source)),
-            RawExpression::Command(tag) => write!(f, "{}", tag.slice(source)),
-            RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{:?}", s),
-            RawExpression::Variable(Variable::It(_)) => write!(f, "$it"),
-            RawExpression::Variable(Variable::Other(s)) => write!(f, "${}", s.slice(source)),
-            RawExpression::Binary(b) => write!(f, "{}", b.debug(source)),
-            RawExpression::ExternalCommand(c) => write!(f, "^{}", c.name().slice(source)),
-            RawExpression::Block(exprs) => f.say_block("block", |f| {
-                write!(f, "{{ ")?;
-
-                for expr in exprs {
-                    write!(f, "{} ", expr.debug(source))?;
-                }
-
-                write!(f, "}}")
-            }),
-            RawExpression::List(exprs) => f.say_block("list", |f| {
-                write!(f, "[ ")?;
-
-                for expr in exprs {
-                    write!(f, "{} ", expr.debug(source))?;
-                }
-
-                write!(f, "]")
-            }),
-            RawExpression::Path(p) => write!(f, "{}", p.debug(source)),
-            RawExpression::Boolean(true) => write!(f, "$yes"),
-            RawExpression::Boolean(false) => write!(f, "$no"),
-        }
+        RawExpression::Variable(Variable::It(inner.into())).into_expr(outer)
     }
 }
 
 impl From<Spanned<Path>> for Expression {
     fn from(path: Spanned<Path>) -> Expression {
-        path.map(|p| RawExpression::Path(Box::new(p)))
+        RawExpression::Path(Box::new(path.item)).into_expr(path.span)
     }
 }
 
@@ -300,7 +347,7 @@ impl From<Spanned<Path>> for Expression {
 /// 2. Can be evaluated without additional context
 /// 3. Evaluation cannot produce an error
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum Literal {
+pub enum RawLiteral {
     Number(Number),
     Size(Number, Unit),
     String(Span),
@@ -309,57 +356,46 @@ pub enum Literal {
     Bare,
 }
 
-impl std::fmt::Display for Tagged<Literal> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", Tagged::new(self.tag.clone(), &self.item))
-    }
-}
-
-impl std::fmt::Display for Tagged<&Literal> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let span = self.tag.span;
-
-        match &self.item {
-            Literal::Number(number) => write!(f, "{}", number),
-            Literal::Size(number, unit) => write!(f, "{}{}", number, unit.as_str()),
-            Literal::String(_) => write!(f, "String{{ {}..{} }}", span.start(), span.end()),
-            Literal::ColumnPath(_) => write!(f, "ColumnPath"),
-            Literal::GlobPattern(_) => write!(f, "Glob{{ {}..{} }}", span.start(), span.end()),
-            Literal::Bare => write!(f, "Bare{{ {}..{} }}", span.start(), span.end()),
+impl RawLiteral {
+    pub fn into_literal(self, span: impl Into<Span>) -> Literal {
+        Literal {
+            literal: self,
+            span: span.into(),
         }
     }
 }
 
-impl FormatDebug for Spanned<&Literal> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        match self.item {
-            Literal::Number(..) => f.say_str("number", self.span.slice(source)),
-            Literal::Size(..) => f.say_str("size", self.span.slice(source)),
-            Literal::String(..) => f.say_str("string", self.span.slice(source)),
-            Literal::ColumnPath(path) => f.say_block("column path", |f| {
-                write!(f, "[ ")?;
-
-                for member in path {
-                    write!(f, "{} ", member.debug(source))?;
-                }
-
-                write!(f, "]")
-            }),
-            Literal::GlobPattern(..) => f.say_str("glob", self.span.slice(source)),
-            Literal::Bare => f.say_str("word", self.span.slice(source)),
-        }
-    }
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+pub struct Literal {
+    pub literal: RawLiteral,
+    pub span: Span,
 }
 
-impl Literal {
+impl ShellTypeName for Literal {
     fn type_name(&self) -> &'static str {
-        match self {
-            Literal::Number(..) => "number",
-            Literal::Size(..) => "size",
-            Literal::String(..) => "string",
-            Literal::ColumnPath(..) => "column path",
-            Literal::Bare => "string",
-            Literal::GlobPattern(_) => "pattern",
+        match &self.literal {
+            RawLiteral::Number(..) => "number",
+            RawLiteral::Size(..) => "size",
+            RawLiteral::String(..) => "string",
+            RawLiteral::ColumnPath(..) => "column path",
+            RawLiteral::Bare => "string",
+            RawLiteral::GlobPattern(_) => "pattern",
+        }
+    }
+}
+
+impl PrettyDebugWithSource for Literal {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match &self.literal {
+            RawLiteral::Number(number) => number.pretty(),
+            RawLiteral::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
+            RawLiteral::String(string) => b::primitive(format!("{:?}", string.slice(source))),
+            RawLiteral::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
+            RawLiteral::ColumnPath(path) => b::typed(
+                "column path",
+                b::intersperse_with_source(path.iter(), b::space(), source),
+            ),
+            RawLiteral::Bare => b::primitive(self.span.slice(source)),
         }
     }
 }
@@ -376,11 +412,5 @@ impl std::fmt::Display for Variable {
             Variable::It(_) => write!(f, "$it"),
             Variable::Other(span) => write!(f, "${{ {}..{} }}", span.start(), span.end()),
         }
-    }
-}
-
-impl FormatDebug for Spanned<Variable> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.span.slice(source))
     }
 }

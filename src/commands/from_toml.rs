@@ -26,39 +26,38 @@ impl WholeStreamCommand for FromTOML {
     }
 }
 
-pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
+pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     match v {
-        toml::Value::Boolean(b) => Value::boolean(*b).tagged(tag),
-        toml::Value::Integer(n) => Value::number(n).tagged(tag),
-        toml::Value::Float(n) => Value::number(n).tagged(tag),
-        toml::Value::String(s) => Value::Primitive(Primitive::String(String::from(s))).tagged(tag),
-        toml::Value::Array(a) => Value::Table(
+        toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
+        toml::Value::Integer(n) => UntaggedValue::number(n).into_value(tag),
+        toml::Value::Float(n) => UntaggedValue::number(n).into_value(tag),
+        toml::Value::String(s) => {
+            UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
+        }
+        toml::Value::Array(a) => UntaggedValue::Table(
             a.iter()
                 .map(|x| convert_toml_value_to_nu_value(x, &tag))
                 .collect(),
         )
-        .tagged(tag),
+        .into_value(tag),
         toml::Value::Datetime(dt) => {
-            Value::Primitive(Primitive::String(dt.to_string())).tagged(tag)
+            UntaggedValue::Primitive(Primitive::String(dt.to_string())).into_value(tag)
         }
         toml::Value::Table(t) => {
             let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
-                collected.insert_tagged(k.clone(), convert_toml_value_to_nu_value(v, &tag));
+                collected.insert_value(k.clone(), convert_toml_value_to_nu_value(v, &tag));
             }
 
-            collected.into_tagged_value()
+            collected.into_value()
         }
     }
 }
 
-pub fn from_toml_string_to_value(
-    s: String,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, toml::de::Error> {
+pub fn from_toml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value, toml::de::Error> {
     let v: toml::Value = s.parse::<toml::Value>()?;
     Ok(convert_toml_value_to_nu_value(&v, tag))
 }
@@ -69,28 +68,29 @@ pub fn from_toml(
 ) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
+    let name_span = tag.span;
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
 
         for value in values {
-            let value_tag = value.tag();
-            latest_tag = Some(value_tag.clone());
-            match value.item {
-                Value::Primitive(Primitive::String(s)) => {
+            latest_tag = Some(value.tag.clone());
+            let value_span = value.tag.span;
+            match value.value {
+                UntaggedValue::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
                     concat_string.push_str("\n");
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    &tag,
+                    name_span,
                     "value originates from here",
-                    &value_tag,
+                    value_span,
                 )),
 
             }
@@ -98,7 +98,7 @@ pub fn from_toml(
 
         match from_toml_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::Table(list), .. } => {
+                Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

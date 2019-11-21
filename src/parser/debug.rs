@@ -1,4 +1,4 @@
-use crate::traits::ShellAnnotation;
+use nu_source::ShellAnnotation;
 use pretty::{Render, RenderAnnotated};
 use std::io;
 use termcolor::WriteColor;

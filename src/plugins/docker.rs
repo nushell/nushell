@@ -15,7 +15,7 @@ impl Docker {
     }
 }
 
-async fn docker(sub_command: &String, name: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
+async fn docker(sub_command: &String, name: Tag) -> Result<Vec<Value>, ShellError> {
     match sub_command.as_str() {
         "ps" => docker_ps(name),
         "images" => docker_images(name),
@@ -27,7 +27,7 @@ async fn docker(sub_command: &String, name: Tag) -> Result<Vec<Tagged<Value>>, S
     }
 }
 
-fn process_docker_output(cmd_output: &str, tag: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
+fn process_docker_output(cmd_output: &str, tag: Tag) -> Result<Vec<Value>, ShellError> {
     let columns: Vec<&str> = cmd_output.lines().collect();
 
     let header: Vec<&str> = columns
@@ -48,16 +48,19 @@ fn process_docker_output(cmd_output: &str, tag: Tag) -> Result<Vec<Tagged<Value>
 
         let mut dict = TaggedDictBuilder::new(&tag);
         for (i, v) in values.iter().enumerate() {
-            dict.insert(header[i].to_string(), Value::string(v.trim().to_string()));
+            dict.insert(
+                header[i].to_string(),
+                UntaggedValue::string(v.trim().to_string()),
+            );
         }
 
-        output.push(dict.into_tagged_value());
+        output.push(dict.into_value());
     }
 
     Ok(output)
 }
 
-pub fn docker_images(tag: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
+pub fn docker_images(tag: Tag) -> Result<Vec<Value>, ShellError> {
     let output = Command::new("docker")
         .arg("images")
         .output()
@@ -69,7 +72,7 @@ pub fn docker_images(tag: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
     out
 }
 
-pub fn docker_ps(tag: Tag) -> Result<Vec<Tagged<Value>>, ShellError> {
+pub fn docker_ps(tag: Tag) -> Result<Vec<Value>, ShellError> {
     let output = Command::new("docker")
         .arg("ps")
         .output()
@@ -91,8 +94,8 @@ impl Plugin for Docker {
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = callinfo.args.positional {
             match &args[0] {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(command)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(command)),
                     ..
                 } => match block_on(docker(&command, args[0].tag())) {
                     Ok(v) => return Ok(v.into_iter().map(ReturnSuccess::value).collect()),
@@ -105,7 +108,7 @@ impl Plugin for Docker {
         Ok(vec![])
     }
 
-    fn filter(&mut self, _: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, _: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 }

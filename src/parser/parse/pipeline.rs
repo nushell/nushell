@@ -1,42 +1,76 @@
 use crate::parser::TokenNode;
-use crate::{DebugFormatter, FormatDebug, Span, Spanned, ToDebug};
+use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
-use itertools::Itertools;
-use std::fmt::{self, Write};
+use nu_source::{DebugDocBuilder, PrettyDebugWithSource, Span, Spanned};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Getters, new)]
 pub struct Pipeline {
     #[get = "pub"]
-    pub(crate) parts: Vec<Spanned<PipelineElement>>,
+    pub(crate) parts: Vec<PipelineElement>,
+    pub(crate) span: Span,
 }
 
-impl FormatDebug for Pipeline {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        f.say_str(
-            "pipeline",
-            self.parts.iter().map(|p| p.debug(source)).join(" "),
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
+pub struct Tokens {
+    pub(crate) tokens: Vec<TokenNode>,
+    pub(crate) span: Span,
+}
+
+impl Tokens {
+    pub fn iter(&self) -> impl Iterator<Item = &TokenNode> {
+        self.tokens.iter()
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters)]
+pub struct PipelineElement {
+    pub pipe: Option<Span>,
+    pub tokens: Tokens,
+}
+
+impl HasSpan for PipelineElement {
+    fn span(&self) -> Span {
+        match self.pipe {
+            Option::None => self.tokens.span,
+            Option::Some(pipe) => pipe.until(self.tokens.span),
+        }
+    }
+}
+
+impl PipelineElement {
+    pub fn new(pipe: Option<Span>, tokens: Spanned<Vec<TokenNode>>) -> PipelineElement {
+        PipelineElement {
+            pipe,
+            tokens: Tokens {
+                tokens: tokens.item,
+                span: tokens.span,
+            },
+        }
+    }
+
+    pub fn tokens(&self) -> &[TokenNode] {
+        &self.tokens.tokens
+    }
+}
+
+impl PrettyDebugWithSource for Pipeline {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::intersperse(
+            self.parts.iter().map(|token| token.pretty_debug(source)),
+            b::operator(" | "),
         )
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
-pub struct PipelineElement {
-    pub pipe: Option<Span>,
-    #[get = "pub"]
-    pub tokens: Spanned<Vec<TokenNode>>,
-}
-
-impl FormatDebug for PipelineElement {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        if let Some(pipe) = self.pipe {
-            write!(f, "{}", pipe.slice(source))?;
-        }
-
-        for token in &self.tokens.item {
-            write!(f, "{}", token.debug(source))?;
-        }
-
-        Ok(())
+impl PrettyDebugWithSource for PipelineElement {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::intersperse(
+            self.tokens.iter().map(|token| match token {
+                TokenNode::Whitespace(_) => b::blank(),
+                token => token.pretty_debug(source),
+            }),
+            b::space(),
+        )
     }
 }

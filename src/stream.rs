@@ -1,22 +1,22 @@
 use crate::prelude::*;
 
 pub struct InputStream {
-    pub(crate) values: BoxStream<'static, Tagged<Value>>,
+    pub(crate) values: BoxStream<'static, Value>,
 }
 
 impl InputStream {
-    pub fn into_vec(self) -> impl Future<Output = Vec<Tagged<Value>>> {
+    pub fn into_vec(self) -> impl Future<Output = Vec<Value>> {
         self.values.collect()
     }
 
-    pub fn drain_vec(&mut self) -> impl Future<Output = Vec<Tagged<Value>>> {
-        let mut values: BoxStream<'static, Tagged<Value>> = VecDeque::new().boxed();
+    pub fn drain_vec(&mut self) -> impl Future<Output = Vec<Value>> {
+        let mut values: BoxStream<'static, Value> = VecDeque::new().boxed();
         std::mem::swap(&mut values, &mut self.values);
 
         values.collect()
     }
 
-    pub fn from_stream(input: impl Stream<Item = Tagged<Value>> + Send + 'static) -> InputStream {
+    pub fn from_stream(input: impl Stream<Item = Value> + Send + 'static) -> InputStream {
         InputStream {
             values: input.boxed(),
         }
@@ -24,7 +24,7 @@ impl InputStream {
 }
 
 impl Stream for InputStream {
-    type Item = Tagged<Value>;
+    type Item = Value;
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,
@@ -34,22 +34,22 @@ impl Stream for InputStream {
     }
 }
 
-impl From<BoxStream<'static, Tagged<Value>>> for InputStream {
-    fn from(input: BoxStream<'static, Tagged<Value>>) -> InputStream {
+impl From<BoxStream<'static, Value>> for InputStream {
+    fn from(input: BoxStream<'static, Value>) -> InputStream {
         InputStream { values: input }
     }
 }
 
-impl From<VecDeque<Tagged<Value>>> for InputStream {
-    fn from(input: VecDeque<Tagged<Value>>) -> InputStream {
+impl From<VecDeque<Value>> for InputStream {
+    fn from(input: VecDeque<Value>) -> InputStream {
         InputStream {
             values: input.boxed(),
         }
     }
 }
 
-impl From<Vec<Tagged<Value>>> for InputStream {
-    fn from(input: Vec<Tagged<Value>>) -> InputStream {
+impl From<Vec<Value>> for InputStream {
+    fn from(input: Vec<Value>) -> InputStream {
         let mut list = VecDeque::default();
         list.extend(input);
 
@@ -81,7 +81,7 @@ impl OutputStream {
         v.into()
     }
 
-    pub fn from_input(input: impl Stream<Item = Tagged<Value>> + Send + 'static) -> OutputStream {
+    pub fn from_input(input: impl Stream<Item = Value> + Send + 'static) -> OutputStream {
         OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
         }
@@ -114,8 +114,8 @@ impl From<InputStream> for OutputStream {
     }
 }
 
-impl From<BoxStream<'static, Tagged<Value>>> for OutputStream {
-    fn from(input: BoxStream<'static, Tagged<Value>>) -> OutputStream {
+impl From<BoxStream<'static, Value>> for OutputStream {
+    fn from(input: BoxStream<'static, Value>) -> OutputStream {
         OutputStream {
             values: input.map(ReturnSuccess::value).boxed(),
         }
@@ -136,8 +136,8 @@ impl From<VecDeque<ReturnValue>> for OutputStream {
     }
 }
 
-impl From<VecDeque<Tagged<Value>>> for OutputStream {
-    fn from(input: VecDeque<Tagged<Value>>) -> OutputStream {
+impl From<VecDeque<Value>> for OutputStream {
+    fn from(input: VecDeque<Value>) -> OutputStream {
         OutputStream {
             values: input
                 .into_iter()
@@ -159,8 +159,8 @@ impl From<Vec<ReturnValue>> for OutputStream {
     }
 }
 
-impl From<Vec<Tagged<Value>>> for OutputStream {
-    fn from(input: Vec<Tagged<Value>>) -> OutputStream {
+impl From<Vec<Value>> for OutputStream {
+    fn from(input: Vec<Value>) -> OutputStream {
         let mut list = VecDeque::default();
         list.extend(input.into_iter().map(ReturnSuccess::value));
 

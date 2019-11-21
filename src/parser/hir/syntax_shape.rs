@@ -10,16 +10,19 @@ use crate::commands::{
 use crate::parser::hir::expand_external_tokens::ExternalTokensShape;
 use crate::parser::hir::syntax_shape::block::AnyBlockShape;
 use crate::parser::hir::tokens_iterator::Peeked;
+use crate::parser::parse::tokens::Token;
 use crate::parser::parse_command::{parse_command_tail, CommandTailShape};
-use crate::parser::{hir, hir::TokensIterator, Operator, RawToken, TokenNode};
+use crate::parser::{hir, hir::TokensIterator, Operator, TokenNode, UnspannedToken};
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
+use nu_source::Spanned;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::path::{Path, PathBuf};
 
-pub(crate) use self::expression::atom::{expand_atom, AtomicToken, ExpansionRule};
+pub(crate) use self::expression::atom::{
+    expand_atom, AtomicToken, ExpansionRule, UnspannedAtomicToken,
+};
 pub(crate) use self::expression::delimited::{
     color_delimited_square, expand_delimited_square, DelimitedShape,
 };
@@ -28,10 +31,11 @@ pub(crate) use self::expression::list::{BackoffColoringMode, ExpressionListShape
 pub(crate) use self::expression::number::{IntShape, NumberShape};
 pub(crate) use self::expression::pattern::{BarePatternShape, PatternShape};
 pub(crate) use self::expression::string::StringShape;
-pub(crate) use self::expression::unit::UnitShape;
+pub(crate) use self::expression::unit::{UnitShape, UnitSyntax};
 pub(crate) use self::expression::variable_path::{
-    ColorableDotShape, ColumnPathShape, DotShape, ExpressionContinuation,
-    ExpressionContinuationShape, Member, MemberShape, PathTailShape, VariablePathShape,
+    ColorableDotShape, ColumnPathShape, ColumnPathSyntax, DotShape, ExpressionContinuation,
+    ExpressionContinuationShape, Member, MemberShape, PathTailShape, PathTailSyntax,
+    VariablePathShape,
 };
 pub(crate) use self::expression::{continue_expression, AnyExpressionShape};
 pub(crate) use self::flat_shape::FlatShape;
@@ -54,6 +58,22 @@ pub enum SyntaxShape {
     Path,
     Pattern,
     Block,
+}
+
+impl PrettyDebug for SyntaxShape {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::kind(match self {
+            SyntaxShape::Any => "any shape",
+            SyntaxShape::String => "string shape",
+            SyntaxShape::Member => "member shape",
+            SyntaxShape::ColumnPath => "column path shape",
+            SyntaxShape::Number => "number shape",
+            SyntaxShape::Int => "integer shape",
+            SyntaxShape::Path => "file path shape",
+            SyntaxShape::Pattern => "pattern shape",
+            SyntaxShape::Block => "block shape",
+        })
+    }
 }
 
 #[cfg(not(coloring_in_tokens))]
@@ -165,8 +185,8 @@ impl ExpandExpression for SyntaxShape {
             }
             SyntaxShape::ColumnPath => {
                 let column_path = expand_syntax(&ColumnPathShape, token_nodes, context)?;
-                let Tagged {
-                    item: column_path,
+                let ColumnPathSyntax {
+                    path: column_path,
                     tag,
                 } = column_path;
 
@@ -595,12 +615,12 @@ impl ExpandSyntax for BarePathShape {
         context: &ExpandContext,
     ) -> Result<Span, ParseError> {
         expand_bare(token_nodes, context, |token| match token {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 ..
             })
-            | TokenNode::Token(Spanned {
-                item: RawToken::Operator(Operator::Dot),
+            | TokenNode::Token(Token {
+                unspanned: UnspannedToken::Operator(Operator::Dot),
                 ..
             }) => true,
 
@@ -627,8 +647,8 @@ impl FallibleColorSyntax for BareShape {
         token_nodes
             .peek_any_token("word", |token| match token {
                 // If it's a bare token, color it
-                TokenNode::Token(Spanned {
-                    item: RawToken::Bare,
+                TokenNode::Token(Token {
+                    unspanned: UnspannedToken::Bare,
                     span,
                 }) => {
                     shapes.push((*input).spanned(*span));
@@ -659,10 +679,7 @@ impl FallibleColorSyntax for BareShape {
     ) -> Result<(), ShellError> {
         let span = token_nodes.peek_any_token("word", |token| match token {
             // If it's a bare token, color it
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
-                span,
-            }) => Ok(span),
+            TokenNode::Token(Token { span, .. }) => Ok(span),
 
             // otherwise, fail
             other => Err(ParseError::mismatch(
@@ -677,8 +694,26 @@ impl FallibleColorSyntax for BareShape {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BareSyntax {
+    pub word: String,
+    pub span: Span,
+}
+
+impl HasSpan for BareSyntax {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl PrettyDebug for BareSyntax {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::primitive(&self.word)
+    }
+}
+
 impl ExpandSyntax for BareShape {
-    type Output = Spanned<String>;
+    type Output = BareSyntax;
 
     fn name(&self) -> &'static str {
         "word"
@@ -692,12 +727,15 @@ impl ExpandSyntax for BareShape {
         let peeked = token_nodes.peek_any().not_eof("word")?;
 
         match peeked.node {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 span,
             }) => {
                 peeked.commit();
-                Ok(span.spanned_string(context.source))
+                Ok(BareSyntax {
+                    word: context.source.to_string(),
+                    span: *span,
+                })
             }
 
             other => Err(ParseError::mismatch(
@@ -731,19 +769,20 @@ pub enum CommandSignature {
     Expression(hir::Expression),
 }
 
-impl FormatDebug for CommandSignature {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+impl PrettyDebugWithSource for CommandSignature {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
             CommandSignature::Internal(internal) => {
-                f.say_str("internal", internal.span.slice(source))
+                b::typed("command", b::description(internal.name()))
             }
             CommandSignature::LiteralExternal { outer, .. } => {
-                f.say_str("external", outer.slice(source))
+                b::typed("command", b::description(outer.slice(source)))
             }
-            CommandSignature::External(external) => {
-                write!(f, "external:{}", external.slice(source))
-            }
-            CommandSignature::Expression(expr) => expr.fmt_debug(f, source),
+            CommandSignature::External(external) => b::typed(
+                "command",
+                b::description("^") + b::description(external.slice(source)),
+            ),
+            CommandSignature::Expression(expr) => b::typed("command", expr.pretty_debug(source)),
         }
     }
 }
@@ -764,14 +803,15 @@ impl CommandSignature {
         match self {
             CommandSignature::Internal(command) => {
                 let span = command.span;
-                hir::RawExpression::Command(span).spanned(span)
+                hir::RawExpression::Command(span).into_expr(span)
             }
             CommandSignature::LiteralExternal { outer, inner } => {
                 hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*inner))
-                    .spanned(*outer)
+                    .into_expr(*outer)
             }
             CommandSignature::External(span) => {
-                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*span)).spanned(*span)
+                hir::RawExpression::ExternalCommand(hir::ExternalCommand::new(*span))
+                    .into_expr(*span)
             }
             CommandSignature::Expression(expr) => expr.clone(),
         }
@@ -806,7 +846,8 @@ impl FallibleColorSyntax for PipelineShape {
             }
 
             // Create a new iterator containing the tokens in the pipeline part to color
-            let mut token_nodes = TokensIterator::new(&part.tokens.item, part.span, false);
+            let mut token_nodes =
+                TokensIterator::new(&part.tokens(), part.span(), context.source.clone(), false);
 
             color_syntax(&MaybeSpaceShape, &mut token_nodes, context, shapes);
             color_syntax(&CommandShape, &mut token_nodes, context, shapes);
@@ -844,9 +885,9 @@ impl FallibleColorSyntax for PipelineShape {
                 token_nodes.color_shape(FlatShape::Pipe.spanned(pipe))
             }
 
-            let tokens: Spanned<&[TokenNode]> = (&part.item.tokens[..]).spanned(part.span);
+            let tokens: Spanned<&[TokenNode]> = (part.tokens()).spanned(part.span());
 
-            token_nodes.child(tokens, move |token_nodes| {
+            token_nodes.child(tokens, context.source.clone(), move |token_nodes| {
                 color_syntax(&MaybeSpaceShape, token_nodes, context);
                 color_syntax(&CommandShape, token_nodes, context);
             });
@@ -879,20 +920,19 @@ impl ExpandSyntax for PipelineShape {
         let mut out = vec![];
 
         for part in parts {
-            let tokens: Spanned<&[TokenNode]> = (&part.item.tokens[..]).spanned(part.span);
+            let tokens: Spanned<&[TokenNode]> = part.tokens().spanned(part.span());
 
-            let classified = iterator.child(tokens, move |token_nodes| {
-                expand_syntax(&ClassifiedCommandShape, token_nodes, context)
-            })?;
+            let classified =
+                iterator.child(tokens, context.source.clone(), move |token_nodes| {
+                    expand_syntax(&ClassifiedCommandShape, token_nodes, context)
+                })?;
 
             out.push(classified);
         }
 
         let end = iterator.span_at_cursor();
 
-        Ok(ClassifiedPipeline {
-            commands: out.spanned(start.until(end)),
-        })
+        Ok(ClassifiedPipeline::commands(out, start.until(end)))
     }
 }
 
@@ -919,20 +959,19 @@ impl ExpandSyntax for PipelineShape {
         let mut out = vec![];
 
         for part in parts {
-            let tokens: Spanned<&[TokenNode]> = (&part.item.tokens[..]).spanned(part.span);
+            let tokens: Spanned<&[TokenNode]> = part.tokens().spanned(part.span());
 
-            let classified = iterator.child(tokens, move |token_nodes| {
-                expand_syntax(&ClassifiedCommandShape, token_nodes, context)
-            })?;
+            let classified =
+                iterator.child(tokens, context.source.clone(), move |token_nodes| {
+                    expand_syntax(&ClassifiedCommandShape, token_nodes, context)
+                })?;
 
             out.push(classified);
         }
 
         let end = iterator.span_at_cursor();
 
-        Ok(ClassifiedPipeline {
-            commands: out.spanned(start.until(end)),
-        })
+        Ok(ClassifiedPipeline::commands(out, start.until(end)))
     }
 }
 
@@ -966,15 +1005,15 @@ impl FallibleColorSyntax for CommandHeadShape {
                 ExpansionRule::permissive(),
             )?;
 
-            match atom.item {
+            match &atom.unspanned {
                 // If the head is an explicit external command (^cmd), color it as an external command
-                AtomicToken::ExternalCommand { .. } => {
+                UnspannedAtomicToken::ExternalCommand { .. } => {
                     shapes.push(FlatShape::ExternalCommand.spanned(atom.span));
                     Ok(CommandHeadKind::External)
                 }
 
                 // If the head is a word, it depends on whether it matches a registered internal command
-                AtomicToken::Word { text } => {
+                UnspannedAtomicToken::Word { text } => {
                     let name = text.slice(context.source);
 
                     if context.registry.has(name) {
@@ -1023,15 +1062,15 @@ impl FallibleColorSyntax for CommandHeadShape {
                 ExpansionRule::permissive(),
             )?;
 
-            match atom.item {
+            match atom.unspanned {
                 // If the head is an explicit external command (^cmd), color it as an external command
-                AtomicToken::ExternalCommand { .. } => {
+                UnspannedAtomicToken::ExternalCommand { .. } => {
                     token_nodes.color_shape(FlatShape::ExternalCommand.spanned(atom.span));
                     Ok(CommandHeadKind::External)
                 }
 
                 // If the head is a word, it depends on whether it matches a registered internal command
-                AtomicToken::Word { text } => {
+                UnspannedAtomicToken::Word { text } => {
                     let name = text.slice(context.source);
 
                     if context.registry.has(name) {
@@ -1070,11 +1109,11 @@ impl ExpandSyntax for CommandHeadShape {
         let node =
             parse_single_node_skipping_ws(token_nodes, "command head1", |token, token_span, _| {
                 Ok(match token {
-                    RawToken::ExternalCommand(span) => CommandSignature::LiteralExternal {
+                    UnspannedToken::ExternalCommand(span) => CommandSignature::LiteralExternal {
                         outer: token_span,
                         inner: span,
                     },
-                    RawToken::Bare => {
+                    UnspannedToken::Bare => {
                         let name = token_span.slice(context.source);
                         if context.registry.has(name) {
                             let command = context.registry.expect_command(name);
@@ -1154,8 +1193,8 @@ impl ExpandSyntax for ClassifiedCommandShape {
                     head: Box::new(head.to_expression()),
                     positional,
                     named,
-                }
-                .spanned(start.until(end));
+                    span: start.until(end),
+                };
 
                 Ok(ClassifiedCommand::Internal(InternalCommand::new(
                     command.item.name().to_string(),
@@ -1193,13 +1232,13 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
         };
 
         let _expr = match peeked_head.node {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 span,
             }) => shapes.push(FlatShape::Word.spanned(*span)),
 
-            TokenNode::Token(Spanned {
-                item: RawToken::String(_inner_tag),
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::String(_inner_tag),
                 span,
             }) => shapes.push(FlatShape::String.spanned(*span)),
 
@@ -1237,13 +1276,13 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
         let node = peeked_head.commit();
 
         let _expr = match node {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 span,
             }) => token_nodes.color_shape(FlatShape::Word.spanned(*span)),
 
-            TokenNode::Token(Spanned {
-                item: RawToken::String(_inner_tag),
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::String(_inner_tag),
                 span,
             }) => token_nodes.color_shape(FlatShape::String.spanned(*span)),
 
@@ -1267,17 +1306,19 @@ impl ExpandExpression for InternalCommandHeadShape {
         let peeked_head = token_nodes.peek_non_ws().not_eof("command head")?;
 
         let expr = match peeked_head.node {
-            TokenNode::Token(
-                spanned @ Spanned {
-                    item: RawToken::Bare,
-                    ..
-                },
-            ) => spanned.map(|_| hir::RawExpression::Literal(hir::Literal::Bare)),
-
-            TokenNode::Token(Spanned {
-                item: RawToken::String(inner_span),
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 span,
-            }) => hir::RawExpression::Literal(hir::Literal::String(*inner_span)).spanned(*span),
+            }) => hir::RawExpression::Literal(hir::RawLiteral::Bare.into_literal(span))
+                .into_expr(span),
+
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::String(inner_span),
+                span,
+            }) => {
+                hir::RawExpression::Literal(hir::RawLiteral::String(*inner_span).into_literal(span))
+                    .into_expr(span)
+            }
 
             node => {
                 return Err(ParseError::mismatch(
@@ -1295,7 +1336,7 @@ impl ExpandExpression for InternalCommandHeadShape {
 
 pub(crate) struct SingleError<'token> {
     expected: &'static str,
-    node: &'token Spanned<RawToken>,
+    node: &'token Token,
 }
 
 impl<'token> SingleError<'token> {
@@ -1307,11 +1348,11 @@ impl<'token> SingleError<'token> {
 fn parse_single_node<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ParseError>,
+    callback: impl FnOnce(UnspannedToken, Span, SingleError) -> Result<T, ParseError>,
 ) -> Result<T, ParseError> {
     token_nodes.peek_any_token(expected, |node| match node {
         TokenNode::Token(token) => callback(
-            token.item,
+            token.unspanned,
             token.span,
             SingleError {
                 expected,
@@ -1329,13 +1370,13 @@ fn parse_single_node<'a, 'b, T>(
 fn parse_single_node_skipping_ws<'a, 'b, T>(
     token_nodes: &'b mut TokensIterator<'a>,
     expected: &'static str,
-    callback: impl FnOnce(RawToken, Span, SingleError) -> Result<T, ShellError>,
+    callback: impl FnOnce(UnspannedToken, Span, SingleError) -> Result<T, ShellError>,
 ) -> Result<T, ShellError> {
     let peeked = token_nodes.peek_non_ws().not_eof(expected)?;
 
     let expr = match peeked.node {
         TokenNode::Token(token) => callback(
-            token.item,
+            token.unspanned,
             token.span,
             SingleError {
                 expected,

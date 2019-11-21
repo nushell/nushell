@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub struct LS;

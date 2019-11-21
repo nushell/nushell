@@ -1,9 +1,12 @@
 use crate::parser::hir::syntax_shape::{
-    expand_atom, expand_bare, expression::expand_file_path, AtomicToken, ExpandContext,
-    ExpandExpression, ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, ParseError,
+    expand_atom, expand_bare, expression::expand_file_path, ExpandContext, ExpandExpression,
+    ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, ParseError, UnspannedAtomicToken,
 };
-use crate::parser::{hir, hir::TokensIterator, Operator, RawToken, TokenNode};
+use crate::parser::parse::tokens::Token;
+use crate::parser::{hir, hir::TokensIterator, Operator, TokenNode, UnspannedToken};
 use crate::prelude::*;
+#[cfg(not(coloring_in_tokens))]
+use nu_source::Spanned;
 
 #[derive(Debug, Copy, Clone)]
 pub struct PatternShape;
@@ -23,8 +26,8 @@ impl FallibleColorSyntax for PatternShape {
         token_nodes.atomic(|token_nodes| {
             let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
 
-            match &atom.item {
-                AtomicToken::GlobPattern { .. } | AtomicToken::Word { .. } => {
+            match &atom.unspanned {
+                UnspannedAtomicToken::GlobPattern { .. } | UnspannedAtomicToken::Word { .. } => {
                     shapes.push(FlatShape::GlobPattern.spanned(atom.span));
                     Ok(())
                 }
@@ -53,8 +56,8 @@ impl FallibleColorSyntax for PatternShape {
         token_nodes.atomic(|token_nodes| {
             let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
 
-            match &atom.item {
-                AtomicToken::GlobPattern { .. } | AtomicToken::Word { .. } => {
+            match &atom.unspanned {
+                UnspannedAtomicToken::GlobPattern { .. } | UnspannedAtomicToken::Word { .. } => {
                     token_nodes.color_shape(FlatShape::GlobPattern.spanned(atom.span));
                     Ok(())
                 }
@@ -80,10 +83,10 @@ impl ExpandExpression for PatternShape {
     ) -> Result<hir::Expression, ParseError> {
         let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::new())?;
 
-        match atom.item {
-            AtomicToken::Word { text: body }
-            | AtomicToken::String { body }
-            | AtomicToken::GlobPattern { pattern: body } => {
+        match atom.unspanned {
+            UnspannedAtomicToken::Word { text: body }
+            | UnspannedAtomicToken::String { body }
+            | UnspannedAtomicToken::GlobPattern { pattern: body } => {
                 let path = expand_file_path(body.slice(context.source), context);
                 return Ok(hir::Expression::pattern(path.to_string_lossy(), atom.span));
             }
@@ -108,16 +111,16 @@ impl ExpandSyntax for BarePatternShape {
         context: &ExpandContext,
     ) -> Result<Span, ParseError> {
         expand_bare(token_nodes, context, |token| match token {
-            TokenNode::Token(Spanned {
-                item: RawToken::Bare,
+            TokenNode::Token(Token {
+                unspanned: UnspannedToken::Bare,
                 ..
             })
-            | TokenNode::Token(Spanned {
-                item: RawToken::Operator(Operator::Dot),
+            | TokenNode::Token(Token {
+                unspanned: UnspannedToken::Operator(Operator::Dot),
                 ..
             })
-            | TokenNode::Token(Spanned {
-                item: RawToken::GlobPattern,
+            | TokenNode::Token(Token {
+                unspanned: UnspannedToken::GlobPattern,
                 ..
             }) => true,
 

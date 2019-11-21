@@ -1,15 +1,14 @@
-use crate::data::meta::Tagged;
-use crate::data::Value;
+use crate::data::base::{UntaggedValue, Value};
 use crate::errors::ShellError;
-use crate::{PathMember, RawPathMember};
+use crate::{PathMember, UnspannedPathMember};
 use std::fmt;
 use std::ops::Div;
 use std::path::{Component, Path, PathBuf};
 
 pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<(usize, String)>> {
-    let field_tried = match &field_tried.item {
-        RawPathMember::String(string) => string.clone(),
-        RawPathMember::Int(int) => format!("{}", int),
+    let field_tried = match &field_tried.unspanned {
+        UnspannedPathMember::String(string) => string.clone(),
+        UnspannedPathMember::Int(int) => format!("{}", int),
     };
 
     let possibilities = obj_source.data_descriptors();
@@ -160,11 +159,11 @@ impl fmt::Display for RelativePath {
 
 pub enum TaggedValueIter<'a> {
     Empty,
-    List(indexmap::map::Iter<'a, String, Tagged<Value>>),
+    List(indexmap::map::Iter<'a, String, Value>),
 }
 
 impl<'a> Iterator for TaggedValueIter<'a> {
-    type Item = (&'a String, &'a Tagged<Value>);
+    type Item = (&'a String, &'a Value);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -174,17 +173,17 @@ impl<'a> Iterator for TaggedValueIter<'a> {
     }
 }
 
-impl Tagged<Value> {
-    fn is_dir(&self) -> bool {
-        match self.item() {
-            Value::Row(_) | Value::Table(_) => true,
+impl Value {
+    fn is_tagged_dir(value: &Value) -> bool {
+        match &value.value {
+            UntaggedValue::Row(_) | UntaggedValue::Table(_) => true,
             _ => false,
         }
     }
 
-    fn entries(&self) -> TaggedValueIter<'_> {
-        match self.item() {
-            Value::Row(o) => {
+    fn tagged_entries(value: &Value) -> TaggedValueIter<'_> {
+        match &value.value {
+            UntaggedValue::Row(o) => {
                 let iter = o.entries.iter();
                 TaggedValueIter::List(iter)
             }
@@ -241,7 +240,7 @@ impl ValueStructure {
         is_there
     }
 
-    pub fn walk_decorate(&mut self, start: &Tagged<Value>) -> Result<(), ShellError> {
+    pub fn walk_decorate(&mut self, start: &Value) -> Result<(), ShellError> {
         self.resources = Vec::<ValueResource>::new();
         self.build(start, 0)?;
         self.resources.sort();
@@ -249,8 +248,8 @@ impl ValueStructure {
         Ok(())
     }
 
-    fn build(&mut self, src: &Tagged<Value>, lvl: usize) -> Result<(), ShellError> {
-        for entry in src.entries() {
+    fn build(&mut self, src: &Value, lvl: usize) -> Result<(), ShellError> {
+        for entry in Value::tagged_entries(src) {
             let value = entry.1;
             let path = entry.0;
 
@@ -259,7 +258,7 @@ impl ValueStructure {
                 loc: PathBuf::from(path),
             });
 
-            if value.is_dir() {
+            if Value::is_tagged_dir(value) {
                 self.build(value, lvl + 1)?;
             }
         }
@@ -348,8 +347,9 @@ impl FileStructure {
 #[cfg(test)]
 mod tests {
     use super::{FileStructure, Res, ValueResource, ValueStructure};
-    use crate::data::meta::{Tag, Tagged};
-    use crate::data::{TaggedDictBuilder, Value};
+    use crate::data::base::{UntaggedValue, Value};
+    use crate::data::TaggedDictBuilder;
+    use nu_source::Tag;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
@@ -365,13 +365,13 @@ mod tests {
         }
     }
 
-    fn structured_sample_record(key: &str, value: &str) -> Tagged<Value> {
+    fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert(key.clone(), Value::string(value));
-        record.into_tagged_value()
+        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.into_value()
     }
 
-    fn sample_nushell_source_code() -> Tagged<Value> {
+    fn sample_nushell_source_code() -> Value {
         /*
             src
              commands
@@ -383,11 +383,11 @@ mod tests {
         let mut src = TaggedDictBuilder::new(Tag::unknown());
         let mut record = TaggedDictBuilder::new(Tag::unknown());
 
-        record.insert_tagged("commands", structured_sample_record("plugins", "sys.rs"));
-        record.insert_tagged("tests", structured_sample_record("helpers", "mod.rs"));
-        src.insert_tagged("src", record.into_tagged_value());
+        record.insert_value("commands", structured_sample_record("plugins", "sys.rs"));
+        record.insert_value("tests", structured_sample_record("helpers", "mod.rs"));
+        src.insert_value("src", record.into_value());
 
-        src.into_tagged_value()
+        src.into_value()
     }
 
     #[test]

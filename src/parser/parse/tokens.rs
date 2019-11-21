@@ -1,11 +1,11 @@
 use crate::parser::Operator;
 use crate::prelude::*;
-use crate::Text;
+use nu_source::{Spanned, Text};
 use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum RawToken {
+pub enum UnspannedToken {
     Number(RawNumber),
     Operator(Operator),
     String(Span),
@@ -16,17 +16,26 @@ pub enum RawToken {
     Bare,
 }
 
-impl RawToken {
-    pub fn type_name(&self) -> &'static str {
+impl UnspannedToken {
+    pub fn into_token(self, span: impl Into<Span>) -> Token {
+        Token {
+            unspanned: self,
+            span: span.into(),
+        }
+    }
+}
+
+impl ShellTypeName for UnspannedToken {
+    fn type_name(&self) -> &'static str {
         match self {
-            RawToken::Number(_) => "number",
-            RawToken::Operator(..) => "operator",
-            RawToken::String(_) => "string",
-            RawToken::Variable(_) => "variable",
-            RawToken::ExternalCommand(_) => "syntax error",
-            RawToken::ExternalWord => "syntax error",
-            RawToken::GlobPattern => "glob pattern",
-            RawToken::Bare => "string",
+            UnspannedToken::Number(_) => "number",
+            UnspannedToken::Operator(..) => "operator",
+            UnspannedToken::String(_) => "string",
+            UnspannedToken::Variable(_) => "variable",
+            UnspannedToken::ExternalCommand(_) => "syntax error",
+            UnspannedToken::ExternalWord => "syntax error",
+            UnspannedToken::GlobPattern => "glob pattern",
+            UnspannedToken::Bare => "string",
         }
     }
 }
@@ -37,26 +46,35 @@ pub enum RawNumber {
     Decimal(Span),
 }
 
-impl FormatDebug for RawNumber {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+impl HasSpan for RawNumber {
+    fn span(&self) -> Span {
         match self {
-            RawNumber::Int(span) => f.say_str("int", span.slice(source)),
-            RawNumber::Decimal(span) => f.say_str("decimal", span.slice(source)),
+            RawNumber::Int(span) => *span,
+            RawNumber::Decimal(span) => *span,
+        }
+    }
+}
+
+impl PrettyDebugWithSource for RawNumber {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match self {
+            RawNumber::Int(span) => b::primitive(span.slice(source)),
+            RawNumber::Decimal(span) => b::primitive(span.slice(source)),
         }
     }
 }
 
 impl RawNumber {
-    pub fn int(span: impl Into<Span>) -> Spanned<RawNumber> {
+    pub fn int(span: impl Into<Span>) -> RawNumber {
         let span = span.into();
 
-        RawNumber::Int(span).spanned(span)
+        RawNumber::Int(span)
     }
 
-    pub fn decimal(span: impl Into<Span>) -> Spanned<RawNumber> {
+    pub fn decimal(span: impl Into<Span>) -> RawNumber {
         let span = span.into();
 
-        RawNumber::Decimal(span).spanned(span)
+        RawNumber::Decimal(span)
     }
 
     pub(crate) fn to_number(self, source: &Text) -> Number {
@@ -69,7 +87,38 @@ impl RawNumber {
     }
 }
 
-pub type Token = Spanned<RawToken>;
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct Token {
+    pub unspanned: UnspannedToken,
+    pub span: Span,
+}
+
+impl std::ops::Deref for Token {
+    type Target = UnspannedToken;
+
+    fn deref(&self) -> &UnspannedToken {
+        &self.unspanned
+    }
+}
+
+impl PrettyDebugWithSource for Token {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match self.unspanned {
+            UnspannedToken::Number(number) => number.pretty_debug(source),
+            UnspannedToken::Operator(operator) => operator.pretty(),
+            UnspannedToken::String(_) => b::primitive(self.span.slice(source)),
+            UnspannedToken::Variable(_) => b::var(self.span.slice(source)),
+            UnspannedToken::ExternalCommand(_) => b::primitive(self.span.slice(source)),
+            UnspannedToken::ExternalWord => {
+                b::typed("external", b::description(self.span.slice(source)))
+            }
+            UnspannedToken::GlobPattern => {
+                b::typed("pattern", b::description(self.span.slice(source)))
+            }
+            UnspannedToken::Bare => b::primitive(self.span.slice(source)),
+        }
+    }
+}
 
 impl Token {
     pub fn debug<'a>(&self, source: &'a Text) -> DebugToken<'a> {
@@ -79,72 +128,72 @@ impl Token {
         }
     }
 
-    pub fn extract_number(&self) -> Option<Spanned<RawNumber>> {
-        match self.item {
-            RawToken::Number(number) => Some(number.spanned(self.span)),
+    pub fn extract_number(&self) -> Option<RawNumber> {
+        match self.unspanned {
+            UnspannedToken::Number(number) => Some(number),
             _ => None,
         }
     }
 
     pub fn extract_int(&self) -> Option<(Span, Span)> {
-        match self.item {
-            RawToken::Number(RawNumber::Int(int)) => Some((int, self.span)),
+        match self.unspanned {
+            UnspannedToken::Number(RawNumber::Int(int)) => Some((int, self.span)),
             _ => None,
         }
     }
 
     pub fn extract_decimal(&self) -> Option<(Span, Span)> {
-        match self.item {
-            RawToken::Number(RawNumber::Decimal(decimal)) => Some((decimal, self.span)),
+        match self.unspanned {
+            UnspannedToken::Number(RawNumber::Decimal(decimal)) => Some((decimal, self.span)),
             _ => None,
         }
     }
 
     pub fn extract_operator(&self) -> Option<Spanned<Operator>> {
-        match self.item {
-            RawToken::Operator(operator) => Some(operator.spanned(self.span)),
+        match self.unspanned {
+            UnspannedToken::Operator(operator) => Some(operator.spanned(self.span)),
             _ => None,
         }
     }
 
     pub fn extract_string(&self) -> Option<(Span, Span)> {
-        match self.item {
-            RawToken::String(span) => Some((span, self.span)),
+        match self.unspanned {
+            UnspannedToken::String(span) => Some((span, self.span)),
             _ => None,
         }
     }
 
     pub fn extract_variable(&self) -> Option<(Span, Span)> {
-        match self.item {
-            RawToken::Variable(span) => Some((span, self.span)),
+        match self.unspanned {
+            UnspannedToken::Variable(span) => Some((span, self.span)),
             _ => None,
         }
     }
 
     pub fn extract_external_command(&self) -> Option<(Span, Span)> {
-        match self.item {
-            RawToken::ExternalCommand(span) => Some((span, self.span)),
+        match self.unspanned {
+            UnspannedToken::ExternalCommand(span) => Some((span, self.span)),
             _ => None,
         }
     }
 
     pub fn extract_external_word(&self) -> Option<Span> {
-        match self.item {
-            RawToken::ExternalWord => Some(self.span),
+        match self.unspanned {
+            UnspannedToken::ExternalWord => Some(self.span),
             _ => None,
         }
     }
 
     pub fn extract_glob_pattern(&self) -> Option<Span> {
-        match self.item {
-            RawToken::GlobPattern => Some(self.span),
+        match self.unspanned {
+            UnspannedToken::GlobPattern => Some(self.span),
             _ => None,
         }
     }
 
     pub fn extract_bare(&self) -> Option<Span> {
-        match self.item {
-            RawToken::Bare => Some(self.span),
+        match self.unspanned {
+            UnspannedToken::Bare => Some(self.span),
             _ => None,
         }
     }

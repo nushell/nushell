@@ -8,7 +8,7 @@ pub struct FromCSV;
 #[derive(Deserialize)]
 pub struct FromCSVArgs {
     headerless: bool,
-    separator: Option<Tagged<Value>>,
+    separator: Option<Value>,
 }
 
 impl WholeStreamCommand for FromCSV {
@@ -47,8 +47,8 @@ fn from_csv(
     runnable_context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let sep = match separator {
-        Some(Tagged {
-            item: Value::Primitive(Primitive::String(s)),
+        Some(Value {
+            value: UntaggedValue::Primitive(Primitive::String(s)),
             tag,
             ..
         }) => {

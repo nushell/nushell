@@ -7,8 +7,8 @@ use crate::parser::hir::{
 };
 use crate::parser::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder as b};
 use crate::parser::TokenNode;
-use crate::{HasSpan, Span, SpannedItem, Tag, Text};
 use indexmap::IndexMap;
+use nu_source::{HasSpan, Span, Tag, Text};
 use pretty_assertions::assert_eq;
 use std::fmt::Debug;
 
@@ -80,17 +80,12 @@ fn test_parse_command() {
                     anchor: None,
                 },
                 hir::Call {
-                    head: Box::new(hir::RawExpression::Command(bare).spanned(bare)),
+                    head: Box::new(hir::RawExpression::Command(bare).into_expr(bare)),
                     positional: Some(vec![hir::Expression::pattern("*.txt", pat)]),
                     named: Some(NamedArguments { named: map }),
-                }
-                .spanned(bare.until(pat)),
+                    span: bare.until(pat),
+                },
             ))
-            // hir::Expression::path(
-            //     hir::Expression::variable(inner_var, outer_var),
-            //     vec!["cpu".tagged(bare)],
-            //     outer_var.until(bare),
-            // )
         },
     );
 }
@@ -102,10 +97,11 @@ fn parse_tokens<T: Eq + HasSpan + Clone + Debug + 'static>(
 ) {
     let tokens = b::token_list(tokens);
     let (tokens, source) = b::build(tokens);
+    let text = Text::from(source);
 
-    ExpandContext::with_empty(&Text::from(source), |context| {
+    ExpandContext::with_empty(&text, |context| {
         let tokens = tokens.expect_list();
-        let mut iterator = TokensIterator::all(tokens.item, tokens.span);
+        let mut iterator = TokensIterator::all(tokens.item, text.clone(), tokens.span);
 
         let expr = expand_syntax(&shape, &mut iterator, &context);
 

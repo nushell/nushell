@@ -1,12 +1,14 @@
 use crate::prelude::*;
 
-use crate::parser::parse::parser::TracableContext;
 use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
+use nu_source::{Spanned, TracableContext};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::Range;
+
+// TODO: Spanned<T> -> HasSpanAndItem<T> ?
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Description {
@@ -14,16 +16,14 @@ pub enum Description {
     Synthetic(String),
 }
 
-impl<T: Into<String>> Into<Description> for Spanned<T> {
-    fn into(self) -> Description {
-        Description::Source(self.map(|s| s.into()))
-    }
-}
-
 impl Description {
+    fn from_spanned(item: Spanned<impl Into<String>>) -> Description {
+        Description::Source(item.map(|s| s.into()))
+    }
+
     fn into_label(self) -> Result<Label<Span>, String> {
         match self {
-            Description::Source(s) => Ok(Label::new_primary(s.span()).with_message(s.item)),
+            Description::Source(s) => Ok(Label::new_primary(s.span).with_message(s.item)),
             Description::Synthetic(s) => Err(s),
         }
     }
@@ -106,12 +106,6 @@ pub struct ShellError {
     cause: Option<Box<ProximateShellError>>,
 }
 
-impl FormatDebug for ShellError {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        self.error.fmt_debug(f, source)
-    }
-}
-
 impl serde::de::Error for ShellError {
     fn custom<T>(msg: T) -> Self
     where
@@ -138,8 +132,8 @@ impl ShellError {
         expr: Spanned<impl Into<String>>,
     ) -> ShellError {
         ProximateShellError::MissingProperty {
-            subpath: subpath.into(),
-            expr: expr.into(),
+            subpath: Description::from_spanned(subpath),
+            expr: Description::from_spanned(expr),
         }
         .start()
     }
@@ -149,7 +143,7 @@ impl ShellError {
         integer: impl Into<Span>,
     ) -> ShellError {
         ProximateShellError::InvalidIntegerIndex {
-            subpath: subpath.into(),
+            subpath: Description::from_spanned(subpath),
             integer: integer.into(),
         }
         .start()
@@ -172,12 +166,12 @@ impl ShellError {
 
     pub(crate) fn range_error(
         expected: impl Into<ExpectedRange>,
-        actual: &Tagged<impl fmt::Debug>,
+        actual: &Spanned<impl fmt::Debug>,
         operation: impl Into<String>,
     ) -> ShellError {
         ProximateShellError::RangeError {
             kind: expected.into(),
-            actual_kind: format!("{:?}", actual.item).spanned(actual.span()),
+            actual_kind: format!("{:?}", actual.item).spanned(actual.span),
             operation: operation.into(),
         }
         .start()
@@ -197,14 +191,6 @@ impl ShellError {
         ProximateShellError::CoerceError {
             left: left.map(|l| l.into()),
             right: right.map(|r| r.into()),
-        }
-        .start()
-    }
-
-    pub(crate) fn missing_value(span: Option<Span>, reason: impl Into<String>) -> ShellError {
-        ProximateShellError::MissingValue {
-            span,
-            reason: reason.into(),
         }
         .start()
     }
@@ -404,28 +390,28 @@ impl ShellError {
     pub fn labeled_error(
         msg: impl Into<String>,
         label: impl Into<String>,
-        tag: impl Into<Tag>,
+        span: impl Into<Span>,
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::new(Severity::Error, msg.into())
-                .with_label(Label::new_primary(tag.into().span).with_message(label.into())),
+                .with_label(Label::new_primary(span.into()).with_message(label.into())),
         )
     }
 
     pub fn labeled_error_with_secondary(
         msg: impl Into<String>,
         primary_label: impl Into<String>,
-        primary_span: impl Into<Tag>,
+        primary_span: impl Into<Span>,
         secondary_label: impl Into<String>,
-        secondary_span: impl Into<Tag>,
+        secondary_span: impl Into<Span>,
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::new_error(msg.into())
                 .with_label(
-                    Label::new_primary(primary_span.into().span).with_message(primary_label.into()),
+                    Label::new_primary(primary_span.into()).with_message(primary_label.into()),
                 )
                 .with_label(
-                    Label::new_secondary(secondary_span.into().span)
+                    Label::new_secondary(secondary_span.into())
                         .with_message(secondary_label.into()),
                 ),
         )
@@ -573,13 +559,6 @@ impl ProximateShellError {
     // }
 }
 
-impl FormatDebug for ProximateShellError {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
-        // TODO: Custom debug for inner spans
-        write!(f, "{:?}", self)
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShellDiagnostic {
     pub(crate) diagnostic: Diagnostic<Span>,
@@ -690,18 +669,6 @@ impl std::convert::From<Box<dyn std::error::Error + Send + Sync>> for ShellError
     }
 }
 
-pub trait ShellErrorUtils<T> {
-    fn unwrap_error(self, desc: impl Into<String>) -> Result<T, ShellError>;
-}
-
-impl<T> ShellErrorUtils<Tagged<T>> for Option<Tagged<T>> {
-    fn unwrap_error(self, desc: impl Into<String>) -> Result<Tagged<T>, ShellError> {
-        match self {
-            Some(value) => Ok(value),
-            None => Err(ShellError::missing_value(None, desc.into())),
-        }
-    }
-}
 pub trait CoerceInto<U> {
     fn coerce_into(self, operation: impl Into<String>) -> Result<U, ShellError>;
 }
@@ -718,26 +685,26 @@ macro_rules! ranged_int {
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<BigInt> {
+        impl CoerceInto<$ty> for nu_source::Tagged<BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<&BigInt> {
+        impl CoerceInto<$ty> for nu_source::Tagged<&BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
@@ -763,26 +730,26 @@ macro_rules! ranged_decimal {
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<BigDecimal> {
+        impl CoerceInto<$ty> for nu_source::Tagged<BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<&BigDecimal> {
+        impl CoerceInto<$ty> for nu_source::Tagged<&BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
