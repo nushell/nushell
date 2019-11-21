@@ -1,5 +1,6 @@
 use crate::data::base::Block;
 use crate::errors::ArgumentError;
+use crate::evaluate::operator::apply_operator;
 use crate::parser::hir::path::{ColumnPath, RawPathMember};
 use crate::parser::{
     hir::{self, Expression, RawExpression},
@@ -79,8 +80,8 @@ pub(crate) fn evaluate_baseline_expr(
 
             trace!("left={:?} right={:?}", left.item, right.item);
 
-            match left.compare(binary.op(), &*right) {
-                Ok(result) => Ok(Value::boolean(result).tagged(tag)),
+            match apply_operator(binary.op(), &*left, &*right) {
+                Ok(result) => Ok(result.tagged(tag)),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(binary.left().span),
                     right_type.spanned(binary.right().span),
