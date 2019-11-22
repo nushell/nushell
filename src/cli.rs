@@ -326,7 +326,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Version),
             whole_stream_command(What),
             whole_stream_command(Which),
-            whole_stream_command(DebugValue),
+            whole_stream_command(Debug),
         ]);
 
         cfg_if::cfg_if! {
