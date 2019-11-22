@@ -392,7 +392,7 @@ impl FallibleColorSyntax for BareTailShape {
             Ok(())
         } else {
             Err(ShellError::syntax_error(
-                "No tokens matched BareTailShape".tagged_unknown(),
+                "No tokens matched BareTailShape".spanned_unknown(),
             ))
         }
     }
@@ -446,7 +446,7 @@ impl FallibleColorSyntax for BareTailShape {
             Ok(())
         } else {
             Err(ShellError::syntax_error(
-                "No tokens matched BareTailShape".tagged_unknown(),
+                "No tokens matched BareTailShape".spanned_unknown(),
             ))
         }
     }

@@ -46,7 +46,9 @@ pub fn autoview(
     Ok(OutputStream::new(async_stream! {
         let mut output_stream: OutputStream = context.input.into();
 
-        match output_stream.try_next().await {
+        let next = output_stream.try_next().await;
+
+        match next {
             Ok(Some(x)) => {
                 match output_stream.try_next().await {
                     Ok(Some(y)) => {
@@ -91,13 +93,32 @@ pub fn autoview(
 
                                 let raw = raw.clone();
 
-                                let mut command_args = raw.with_input(new_input.into());
+                                let input: Vec<Tagged<Value>> = new_input.into();
+
+                                if input.len() > 0 && input.iter().all(|value| value.is_error()) {
+                                    let first = &input[0];
+
+                                    let mut host = context.host.clone();
+                                    let mut host = match host.lock() {
+                                        Err(err) => {
+                                            errln!("Unexpected error acquiring host lock: {:?}", err);
+                                            return;
+                                        }
+                                        Ok(val) => val
+                                    };
+
+                                    crate::cli::print_err(first.item.expect_error(), &*host, &context.source);
+                                    return;
+                                }
+
+                                let mut command_args = raw.with_input(input);
                                 let mut named_args = NamedArguments::new();
                                 named_args.insert_optional("start_number", Some(Expression::number(current_idx, Tag::unknown())));
                                 command_args.call_info.args.named = Some(named_args);
 
                                 let result = table.run(command_args, &context.commands);
                                 result.collect::<Vec<_>>().await;
+
 
                                 if finished {
                                     break;
@@ -120,14 +141,14 @@ pub fn autoview(
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
-                                        println!("{}", s);
+                                        outln!("{}", s);
                                     }
                                 }
                                 Tagged {
                                     item: Value::Primitive(Primitive::String(s)),
                                     ..
                                 } => {
-                                    println!("{}", s);
+                                    outln!("{}", s);
                                 }
 
                                 Tagged { item: Value::Primitive(Primitive::Binary(ref b)), .. } => {
@@ -138,7 +159,7 @@ pub fn autoview(
                                         result.collect::<Vec<_>>().await;
                                     } else {
                                         use pretty_hex::*;
-                                        println!("{:?}", b.hex_dump());
+                                        outln!("{:?}", b.hex_dump());
                                     }
                                 }
 
@@ -152,7 +173,7 @@ pub fn autoview(
                                         let result = table.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
-                                        println!("{:?}", item);
+                                        outln!("{:?}", item);
                                     }
                                 }
                             }
@@ -161,7 +182,7 @@ pub fn autoview(
                 }
             }
             _ => {
-                //println!("<no results>");
+                //outln!("<no results>");
             }
         }
 

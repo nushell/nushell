@@ -7,7 +7,6 @@ use derive_new::new;
 use indexmap::IndexMap;
 
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NamedType {
@@ -178,63 +177,7 @@ impl EvaluatedArgs {
     }
 }
 
-#[derive(new)]
-pub struct DebugEvaluatedPositional<'a> {
-    positional: &'a Option<Vec<Tagged<Value>>>,
-}
-
-impl fmt::Debug for DebugEvaluatedPositional<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.positional {
-            None => write!(f, "None"),
-            Some(positional) => f
-                .debug_list()
-                .entries(positional.iter().map(|p| p.debug()))
-                .finish(),
-        }
-    }
-}
-
-#[derive(new)]
-pub struct DebugEvaluatedNamed<'a> {
-    named: &'a Option<IndexMap<String, Tagged<Value>>>,
-}
-
-impl fmt::Debug for DebugEvaluatedNamed<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.named {
-            None => write!(f, "None"),
-            Some(named) => f
-                .debug_map()
-                .entries(named.iter().map(|(k, v)| (k, v.debug())))
-                .finish(),
-        }
-    }
-}
-
-pub struct DebugEvaluatedArgs<'a> {
-    args: &'a EvaluatedArgs,
-}
-
-impl fmt::Debug for DebugEvaluatedArgs<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = f.debug_struct("Args");
-
-        s.field(
-            "positional",
-            &DebugEvaluatedPositional::new(&self.args.positional),
-        );
-        s.field("named", &DebugEvaluatedNamed::new(&self.args.named));
-
-        s.finish()
-    }
-}
-
 impl EvaluatedArgs {
-    pub fn debug(&self) -> DebugEvaluatedArgs<'_> {
-        DebugEvaluatedArgs { args: self }
-    }
-
     pub fn nth(&self, pos: usize) -> Option<&Tagged<Value>> {
         match &self.positional {
             None => None,

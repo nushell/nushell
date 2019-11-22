@@ -10,7 +10,7 @@ pub(crate) fn format(input: Vec<Value>, host: &mut dyn Host) {
         crate::format::print_view(&view, &mut *host);
 
         if last != i {
-            println!("");
+            outln!("");
         }
     }
 }

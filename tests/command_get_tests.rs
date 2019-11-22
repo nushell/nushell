@@ -203,21 +203,17 @@ fn errors_fetching_by_index_out_of_bounds() {
             "#
         ));
 
-        assert!(actual.contains("Row not found"));
-        assert!(actual.contains("There isn't a row indexed at '3'"));
-        assert!(actual.contains("The table only has 3 rows (0..2)"))
-    })
-}
-
-#[test]
-fn requires_at_least_one_column_member_path() {
-    Playground::setup("get_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt")]);
-
-        let actual = nu_error!(
-            cwd: dirs.test(), "ls | get"
+        assert!(
+            actual.contains("Row not found"),
+            format!("actual: {:?}", actual)
         );
-
-        assert!(actual.contains("requires member parameter"));
+        assert!(
+            actual.contains("There isn't a row indexed at 3"),
+            format!("actual: {:?}", actual)
+        );
+        assert!(
+            actual.contains("The table only has 3 rows (0 to 2)"),
+            format!("actual: {:?}", actual)
+        )
     })
 }

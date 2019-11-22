@@ -1,15 +1,16 @@
 use crate::data::meta::Tagged;
 use crate::data::Value;
 use crate::errors::ShellError;
+use crate::{PathMember, RawPathMember};
 use std::fmt;
 use std::ops::Div;
 use std::path::{Component, Path, PathBuf};
 
-pub fn did_you_mean(
-    obj_source: &Value,
-    field_tried: &Tagged<Value>,
-) -> Option<Vec<(usize, String)>> {
-    let field_tried = field_tried.as_string().unwrap();
+pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<(usize, String)>> {
+    let field_tried = match &field_tried.item {
+        RawPathMember::String(string) => string.clone(),
+        RawPathMember::Int(int) => format!("{}", int),
+    };
 
     let possibilities = obj_source.data_descriptors();
 
@@ -25,10 +26,10 @@ pub fn did_you_mean(
 
     if possible_matches.len() > 0 {
         possible_matches.sort();
-        return Some(possible_matches);
+        Some(possible_matches)
+    } else {
+        None
     }
-
-    None
 }
 
 pub struct AbsoluteFile {

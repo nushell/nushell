@@ -164,6 +164,12 @@ impl Into<Number> for BigDecimal {
     }
 }
 
+impl Into<Number> for BigInt {
+    fn into(self) -> Number {
+        Number::Int(self)
+    }
+}
+
 #[tracable_parser]
 pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     let (input, number) = raw_number(input)?;

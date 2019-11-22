@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
+use crate::RawPathMember;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use std::convert::TryInto;
 
@@ -51,6 +52,16 @@ pub fn value_to_bson_value(v: &Tagged<Value>) -> Result<Bson, ShellError> {
         }
         Value::Primitive(Primitive::Nothing) => Bson::Null,
         Value::Primitive(Primitive::String(s)) => Bson::String(s.clone()),
+        Value::Primitive(Primitive::ColumnPath(path)) => Bson::Array(
+            path.iter()
+                .map(|x| match &x.item {
+                    RawPathMember::String(string) => Ok(Bson::String(string.clone())),
+                    RawPathMember::Int(int) => Ok(Bson::I64(
+                        int.tagged(&v.tag).coerce_into("converting to BSON")?,
+                    )),
+                })
+                .collect::<Result<Vec<Bson>, ShellError>>()?,
+        ),
         Value::Primitive(Primitive::Pattern(p)) => Bson::String(p.clone()),
         Value::Primitive(Primitive::Path(s)) => Bson::String(s.display().to_string()),
         Value::Table(l) => Bson::Array(
@@ -177,7 +188,7 @@ fn get_binary_subtype<'a>(tagged_value: &'a Tagged<Value>) -> Result<BinarySubty
         )),
         _ => Err(ShellError::type_error(
             "bson binary",
-            tagged_value.tagged_type_name(),
+            tagged_value.type_name().spanned(tagged_value.span()),
         )),
     }
 }

@@ -27,7 +27,11 @@ impl HelpShell {
             spec.insert("name", cmd);
             spec.insert(
                 "description",
-                value.get_data_by_key("usage").unwrap().as_string().unwrap(),
+                value
+                    .get_data_by_key("usage".spanned_unknown())
+                    .unwrap()
+                    .as_string()
+                    .unwrap(),
             );
             spec.insert_tagged("details", value);
 
@@ -70,7 +74,7 @@ impl HelpShell {
         for p in full_path.iter() {
             match p {
                 x if x == sep => {}
-                step => match viewed.get_data_by_key(step.to_str().unwrap()) {
+                step => match viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown()) {
                     Some(v) => {
                         viewed = v.clone();
                     }

@@ -1,14 +1,67 @@
 use crate::data::{Primitive, Value};
 use crate::prelude::*;
+use crate::traits::{DebugDocBuilder as b, PrettyDebug};
 use derive_new::new;
+use getset::Getters;
 use indexmap::IndexMap;
+use pretty::{BoxAllocator, DocAllocator};
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialOrd};
-use std::fmt;
 
-#[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, new)]
+#[derive(Debug, Default, Eq, PartialEq, Serialize, Deserialize, Clone, Getters, new)]
 pub struct Dictionary {
+    #[get = "pub"]
     pub entries: IndexMap<String, Tagged<Value>>,
+}
+
+#[derive(Debug, new)]
+struct DebugEntry<'a> {
+    key: &'a str,
+    value: &'a Tagged<Value>,
+}
+
+impl<'a> PrettyDebug for DebugEntry<'a> {
+    fn pretty_debug(&self) -> DebugDocBuilder {
+        (b::key(self.key.to_string()) + b::equals() + self.value.item.pretty_debug().as_value())
+            .group()
+        // BoxAllocator
+        //     .text(self.key.to_string())
+        //     .annotate(ShellAnnotation::style("key"))
+        //     .append(
+        //         BoxAllocator
+        //             .text("=")
+        //             .annotate(ShellAnnotation::style("equals")),
+        //     )
+        //     .append({
+        //         self.value
+        //             .item
+        //             .pretty_debug()
+        //             .inner
+        //             .annotate(ShellAnnotation::style("value"))
+        //     })
+        //     .group()
+        //     .into()
+    }
+}
+
+impl PrettyDebug for Dictionary {
+    fn pretty_debug(&self) -> DebugDocBuilder {
+        BoxAllocator
+            .text("(")
+            .append(
+                BoxAllocator
+                    .intersperse(
+                        self.entries()
+                            .iter()
+                            .map(|(key, value)| DebugEntry::new(key, value).to_doc()),
+                        BoxAllocator.space(),
+                    )
+                    .nest(1)
+                    .group(),
+            )
+            .append(BoxAllocator.text(")"))
+            .into()
+    }
 }
 
 impl PartialOrd for Dictionary {
@@ -78,15 +131,23 @@ impl Dictionary {
         }
     }
 
-    pub(crate) fn get_data_by_key(&self, name: &str) -> Option<&Tagged<Value>> {
-        match self
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.entries.keys()
+    }
+
+    pub(crate) fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Tagged<Value>> {
+        let result = self
             .entries
             .iter()
-            .find(|(desc_name, _)| *desc_name == name)
-        {
-            Some((_, v)) => Some(v),
-            None => None,
-        }
+            .find(|(desc_name, _)| *desc_name == name.item)?
+            .1;
+
+        Some(
+            result
+                .item
+                .clone()
+                .tagged(Tag::new(result.anchor(), name.span)),
+        )
     }
 
     pub(crate) fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Tagged<Value>> {
@@ -100,14 +161,8 @@ impl Dictionary {
         }
     }
 
-    pub(crate) fn debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut debug = f.debug_struct("Dictionary");
-
-        for (desc, value) in self.entries.iter() {
-            debug.field(desc, &value.debug());
-        }
-
-        debug.finish()
+    pub(crate) fn insert_data_at_key(&mut self, name: &str, value: Tagged<Value>) {
+        self.entries.insert(name.to_string(), value);
     }
 }
 
@@ -156,6 +211,12 @@ impl TaggedDictBuilder {
             tag: tag.into(),
             dict: IndexMap::default(),
         }
+    }
+
+    pub fn build(tag: impl Into<Tag>, block: impl FnOnce(&mut TaggedDictBuilder)) -> Tagged<Value> {
+        let mut builder = TaggedDictBuilder::new(tag);
+        block(&mut builder);
+        builder.into_tagged_value()
     }
 
     pub fn with_capacity(tag: impl Into<Tag>, n: usize) -> TaggedDictBuilder {

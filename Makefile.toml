@@ -4,21 +4,12 @@ command = "lalrpop"
 args = ["src/parser/parser.lalrpop"]
 
 [tasks.baseline]
-dependencies = ["lalrpop"]
-
-[tasks.build]
 command = "cargo"
-args = ["build"]
-dependencies = ["lalrpop"]
+args = ["build", "--bins"]
 
 [tasks.run]
 command = "cargo"
-args = ["run", "--release"]
-dependencies = ["baseline"]
-
-[tasks.release]
-command = "cargo"
-args = ["build", "--release"]
+args = ["run"]
 dependencies = ["baseline"]
 
 [tasks.test]

@@ -85,6 +85,7 @@ pub(crate) mod to_url;
 pub(crate) mod to_yaml;
 pub(crate) mod trim;
 pub(crate) mod version;
+pub(crate) mod what;
 pub(crate) mod where_;
 pub(crate) mod which_;
 
@@ -173,5 +174,6 @@ pub(crate) use to_url::ToURL;
 pub(crate) use to_yaml::ToYAML;
 pub(crate) use trim::Trim;
 pub(crate) use version::Version;
+pub(crate) use what::What;
 pub(crate) use where_::Where;
 pub(crate) use which_::Which;

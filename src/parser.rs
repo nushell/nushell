@@ -1,3 +1,4 @@
+pub(crate) mod debug;
 pub(crate) mod deserializer;
 pub(crate) mod hir;
 pub(crate) mod parse;

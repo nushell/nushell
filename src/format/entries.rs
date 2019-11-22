@@ -21,7 +21,7 @@ impl EntriesView {
         for desc in descs {
             let value = value.get_data(&desc);
 
-            let formatted_value = value.borrow().format_leaf(None);
+            let formatted_value = value.borrow().format_leaf().plain_string(75);
 
             entries.push((desc.clone(), formatted_value))
         }
@@ -39,7 +39,7 @@ impl RenderView for EntriesView {
         let max_name_size: usize = self.entries.iter().map(|(n, _)| n.len()).max().unwrap();
 
         for (name, value) in &self.entries {
-            println!("{:width$} : {}", name, value, width = max_name_size)
+            outln!("{:width$} : {}", name, value, width = max_name_size)
         }
 
         Ok(())

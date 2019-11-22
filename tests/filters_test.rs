@@ -525,8 +525,7 @@ fn can_convert_table_to_bson_and_back_into_table() {
             | to-bson
             | from-bson
             | get root
-            | nth 1
-            | get b
+            | get 1.b
             | echo $it
         "#
     ));

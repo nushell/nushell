@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::ColumnPath;
 use log::trace;
 use serde::de;
 use std::path::PathBuf;
@@ -97,7 +98,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 item: Value::Primitive(Primitive::Nothing),
                 ..
             } => visitor.visit_bool(false),
-            other => Err(ShellError::type_error("Boolean", other.tagged_type_name())),
+            other => Err(ShellError::type_error(
+                "Boolean",
+                other.type_name().spanned(other.span()),
+            )),
         }
     }
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
@@ -242,7 +246,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 let de = SeqDeserializer::new(&mut self, items.into_iter());
                 visitor.visit_seq(de)
             }
-            (other, tag) => Err(ShellError::type_error("Vec", other.type_name().tagged(tag))),
+            (other, tag) => Err(ShellError::type_error(
+                "Vec",
+                other.type_name().spanned(tag),
+            )),
         }
     }
     fn deserialize_tuple<V>(mut self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
@@ -263,7 +270,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             }
             (other, tag) => Err(ShellError::type_error(
                 "Tuple",
-                other.type_name().tagged(tag),
+                other.type_name().spanned(tag),
             )),
         }
     }
@@ -328,7 +335,8 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
         let tagged_val_name = std::any::type_name::<Tagged<Value>>();
 
         trace!(
-            "type_name={} tagged_val_name={}",
+            "name={} type_name={} tagged_val_name={}",
+            name,
             type_name,
             tagged_val_name
         );
@@ -343,9 +351,31 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                     item: Value::Block(block),
                     ..
                 } => block,
-                other => return Err(ShellError::type_error("Block", other.tagged_type_name())),
+                other => {
+                    return Err(ShellError::type_error(
+                        "Block",
+                        other.type_name().spanned(other.span()),
+                    ))
+                }
             };
             return visit::<value::Block, _>(block, name, fields, visitor);
+        }
+
+        if name == "ColumnPath" {
+            let path = match value.val {
+                Tagged {
+                    item: Value::Primitive(Primitive::ColumnPath(path)),
+                    ..
+                } => path,
+                other => {
+                    return Err(ShellError::type_error(
+                        "column path",
+                        other.type_name().spanned(other.span()),
+                    ))
+                }
+            };
+
+            return visit::<ColumnPath, _>(path, name, fields, visitor);
         }
 
         trace!("Extracting {:?} for {:?}", value.val, type_name);
@@ -376,7 +406,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 ..
             } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
 
-            other => return Err(ShellError::type_error(name, other.tagged_type_name())),
+            other => {
+                return Err(ShellError::type_error(
+                    name,
+                    other.type_name().spanned(other.span()),
+                ))
+            }
         }
     }
     fn deserialize_enum<V>(

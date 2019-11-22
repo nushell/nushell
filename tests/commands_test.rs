@@ -248,6 +248,67 @@ fn last_gets_last_row_when_no_amount_given() {
 }
 
 #[test]
+fn get() {
+    Playground::setup("get_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                nu_party_venue = "zion"
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get nu_party_venue
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "zion");
+    })
+}
+
+#[test]
+fn get_more_than_one_member() {
+    Playground::setup("get_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+                [[fortune_tellers]]
+                name = "Andrés N. Robalino"
+                arepas = 1
+                broken_builds = 0
+
+                [[fortune_tellers]]
+                name = "Jonathan Turner"
+                arepas = 1
+                broken_builds = 1
+
+                [[fortune_tellers]]
+                name = "Yehuda Katz"
+                arepas = 1
+                broken_builds = 1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open sample.toml
+                | get fortune_tellers
+                | get arepas broken_builds
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "5");
+    })
+}
+
+#[test]
 fn lines() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(

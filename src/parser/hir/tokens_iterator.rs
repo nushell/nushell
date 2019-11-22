@@ -150,7 +150,7 @@ impl<'content, 'me> PeekedNode<'content, 'me> {
 pub fn peek_error(node: &Option<&TokenNode>, eof_span: Span, expected: &'static str) -> ParseError {
     match node {
         None => ParseError::unexpected_eof(expected, eof_span),
-        Some(node) => ParseError::mismatch(expected, node.tagged_type_name()),
+        Some(node) => ParseError::mismatch(expected, node.type_name().spanned(node.span())),
     }
 }
 
@@ -343,7 +343,7 @@ impl<'content> TokensIterator<'content> {
     pub fn expand_frame<T>(
         &mut self,
         desc: &'static str,
-        block: impl FnOnce(&mut TokensIterator) -> Result<T, ParseError>,
+        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ParseError>,
     ) -> Result<T, ParseError>
     where
         T: std::fmt::Debug + FormatDebug + Clone + HasFallibleSpan + 'static,
@@ -436,6 +436,34 @@ impl<'content> TokensIterator<'content> {
         &'me mut self,
         block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
     ) -> Result<T, ShellError> {
+        let state = &mut self.state;
+
+        let index = state.index;
+        #[cfg(coloring_in_tokens)]
+        let shape_start = state.shapes.len();
+        let seen = state.seen.clone();
+
+        let checkpoint = Checkpoint {
+            iterator: self,
+            index,
+            seen,
+            committed: false,
+            #[cfg(coloring_in_tokens)]
+            shape_start,
+        };
+
+        let value = block(checkpoint.iterator)?;
+
+        checkpoint.commit();
+        return Ok(value);
+    }
+
+    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
+    /// that you'll succeed.
+    pub fn atomic_parse<'me, T>(
+        &'me mut self,
+        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ParseError>,
+    ) -> Result<T, ParseError> {
         let state = &mut self.state;
 
         let index = state.index;

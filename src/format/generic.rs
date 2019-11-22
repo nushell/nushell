@@ -30,7 +30,7 @@ impl RenderView for GenericView<'_> {
             }
 
             b @ Value::Block(_) => {
-                let printed = b.format_leaf(None);
+                let printed = b.format_leaf().plain_string(host.width());
                 let view = EntriesView::from_value(&Value::string(printed));
                 view.render_view(host)?;
                 Ok(())

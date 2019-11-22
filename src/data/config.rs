@@ -98,7 +98,7 @@ pub fn read(
         Value::Row(Dictionary { entries }) => Ok(entries),
         other => Err(ShellError::type_error(
             "Dictionary",
-            other.type_name().tagged(&tag),
+            other.type_name().spanned(tag.span),
         )),
     }
 }

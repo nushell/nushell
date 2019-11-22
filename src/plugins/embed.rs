@@ -2,8 +2,8 @@
 extern crate indexmap;
 
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, Tag, Tagged, TaggedItem, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
+    ShellTypeName, Signature, SpannedItem, SyntaxShape, Tag, Tagged, TaggedItem, Value,
 };
 
 struct Embed {
@@ -42,7 +42,12 @@ impl Plugin for Embed {
                     self.field = Some(s.clone());
                     self.values = Vec::new();
                 }
-                value => return Err(ShellError::type_error("string", value.tagged_type_name())),
+                value => {
+                    return Err(ShellError::type_error(
+                        "string",
+                        value.type_name().spanned(value.span()),
+                    ))
+                }
             }
         }
 

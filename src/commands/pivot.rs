@@ -70,7 +70,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
         if args.header_row {
             for i in input.clone() {
                 if let Some(desc) = descs.get(0) {
-                    match i.get_data_by_key(&desc) {
+                    match i.get_data_by_key(desc[..].spanned_unknown()) {
                         Some(x) => {
                             if let Ok(s) = x.as_string() {
                                 headers.push(s);
@@ -115,7 +115,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
             }
 
             for i in input.clone() {
-                match i.get_data_by_key(&desc) {
+                match i.get_data_by_key(desc[..].spanned_unknown()) {
                     Some(x) => {
                         dict.insert_tagged(headers[column_num].clone(), x.clone());
                     }

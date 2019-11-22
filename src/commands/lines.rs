@@ -35,8 +35,6 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     let tag = args.name_tag();
     let input = args.input;
 
-    let input: InputStream = trace_stream!(target: "nu::trace_stream::lines", "input" = input);
-
     let stream = input
         .values
         .map(move |v| match v.item {

@@ -1,6 +1,7 @@
 use nu::{
-    did_you_mean, serve_plugin, tag_for_tagged_list, CallInfo, Plugin, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, Signature, SyntaxShape, Tagged, TaggedItem, Value,
+    did_you_mean, serve_plugin, span_for_spanned_list, CallInfo, ColumnPath, Plugin, Primitive,
+    ReturnSuccess, ReturnValue, ShellError, ShellTypeName, Signature, SpannedItem, SyntaxShape,
+    Tagged, TaggedItem, Value,
 };
 
 enum Action {
@@ -14,10 +15,8 @@ pub enum SemVerAction {
     Patch,
 }
 
-pub type ColumnPath = Tagged<Vec<Tagged<Value>>>;
-
 struct Inc {
-    field: Option<ColumnPath>,
+    field: Option<Tagged<ColumnPath>>,
     error: Option<String>,
     action: Option<Action>,
 }
@@ -89,7 +88,7 @@ impl Inc {
                 } else {
                     return Err(ShellError::type_error(
                         "incrementable value",
-                        value.tagged_type_name(),
+                        value.type_name().spanned(value.span()),
                     ));
                 }
             }
@@ -98,48 +97,32 @@ impl Inc {
                 Some(ref f) => {
                     let fields = f.clone();
 
-                    let replace_for = value.item.get_data_by_column_path(
-                        value.tag(),
-                        f,
-                        Box::new(move |(obj_source, column_path_tried)| {
+                    let replace_for = value.get_data_by_column_path(
+                        &f,
+                        Box::new(move |(obj_source, column_path_tried, _)| {
                             match did_you_mean(&obj_source, &column_path_tried) {
                                 Some(suggestions) => {
                                     return ShellError::labeled_error(
                                         "Unknown column",
                                         format!("did you mean '{}'?", suggestions[0].1),
-                                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                                        span_for_spanned_list(fields.iter().map(|p| p.span)),
                                     )
                                 }
                                 None => {
                                     return ShellError::labeled_error(
                                         "Unknown column",
                                         "row does not contain this column",
-                                        tag_for_tagged_list(fields.iter().map(|p| p.tag())),
+                                        span_for_spanned_list(fields.iter().map(|p| p.span)),
                                     )
                                 }
                             }
                         }),
                     );
 
-                    let replacement = match replace_for {
-                        Ok(got) => match got {
-                            Some(result) => self.inc(result.map(|x| x.clone()))?,
-                            None => {
-                                return Err(ShellError::labeled_error(
-                                    "inc could not find field to replace",
-                                    "column name",
-                                    value.tag(),
-                                ))
-                            }
-                        },
-                        Err(reason) => return Err(reason),
-                    };
+                    let got = replace_for?;
+                    let replacement = self.inc(got.map(|x| x.clone()))?;
 
-                    match value.item.replace_data_at_column_path(
-                        value.tag(),
-                        &f,
-                        replacement.item.clone(),
-                    ) {
+                    match value.replace_data_at_column_path(&f, replacement.item.clone()) {
                         Some(v) => return Ok(v),
                         None => {
                             return Err(ShellError::labeled_error(
@@ -156,7 +139,7 @@ impl Inc {
             },
             _ => Err(ShellError::type_error(
                 "incrementable value",
-                value.tagged_type_name(),
+                value.type_name().spanned(value.span()),
             )),
         }
     }
@@ -188,12 +171,17 @@ impl Plugin for Inc {
             for arg in args {
                 match arg {
                     table @ Tagged {
-                        item: Value::Table(_),
+                        item: Value::Primitive(Primitive::ColumnPath(_)),
                         ..
                     } => {
                         self.field = Some(table.as_column_path()?);
                     }
-                    value => return Err(ShellError::type_error("table", value.tagged_type_name())),
+                    value => {
+                        return Err(ShellError::type_error(
+                            "table",
+                            value.type_name().spanned(value.span()),
+                        ))
+                    }
                 }
             }
         }
@@ -229,8 +217,8 @@ mod tests {
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, Tag, Tagged, TaggedDictBuilder,
-        TaggedItem, Value,
+        CallInfo, EvaluatedArgs, PathMember, Plugin, RawPathMember, ReturnSuccess, SpannedItem,
+        Tag, Tagged, TaggedDictBuilder, TaggedItem, Value,
     };
 
     struct CallStub {
@@ -255,13 +243,13 @@ mod tests {
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
-            let fields: Vec<Tagged<Value>> = name
+            let fields: Vec<PathMember> = name
                 .split(".")
-                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown()))
+                .map(|s| RawPathMember::String(s.to_string()).spanned_unknown())
                 .collect();
 
             self.positionals
-                .push(Value::Table(fields).tagged(Tag::unknown()));
+                .push(Value::column_path(fields).tagged_unknown());
             self
         }
 
@@ -344,14 +332,13 @@ mod tests {
             .is_ok());
 
         assert_eq!(
-            plugin.field.map(|f| f
-                .iter()
-                .map(|f| match &f.item {
-                    Value::Primitive(Primitive::String(s)) => s.clone(),
-                    _ => panic!(""),
-                })
-                .collect()),
-            Some(vec!["package".to_string(), "version".to_string()])
+            plugin
+                .field
+                .map(|f| f.iter().map(|f| f.item.clone()).collect()),
+            Some(vec![
+                RawPathMember::String("package".to_string()),
+                RawPathMember::String("version".to_string())
+            ])
         );
     }
 

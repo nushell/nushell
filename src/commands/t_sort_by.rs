@@ -66,8 +66,8 @@ fn t_sort_by(
         };
 
         if show_columns {
-            for label in columns_sorted(column_grouped_by_name, &values[0], &name).iter() {
-                 yield ReturnSuccess::value(label.clone());
+            for label in columns_sorted(column_grouped_by_name, &values[0], &name).into_iter() {
+                 yield ReturnSuccess::value(Value::string(label.item).tagged(label.tag));
             }
         } else {
             match t_sort(column_grouped_by_name, None, &values[0], name) {
@@ -82,7 +82,7 @@ pub fn columns_sorted(
     _group_by_name: Option<String>,
     value: &Tagged<Value>,
     tag: impl Into<Tag>,
-) -> Vec<Tagged<Value>> {
+) -> Vec<Tagged<String>> {
     let origin_tag = tag.into();
 
     match value {
@@ -110,22 +110,20 @@ pub fn columns_sorted(
 
             keys.sort();
 
-            let keys: Vec<Value> = keys
+            let keys: Vec<String> = keys
                 .into_iter()
-                .map(|k| {
-                    Value::string(match k {
-                        Tagged {
-                            item: Value::Primitive(Primitive::Date(d)),
-                            ..
-                        } => format!("{}", d.format("%B %d-%Y")),
-                        _ => k.as_string().unwrap(),
-                    })
+                .map(|k| match k {
+                    Tagged {
+                        item: Value::Primitive(Primitive::Date(d)),
+                        ..
+                    } => format!("{}", d.format("%B %d-%Y")),
+                    _ => k.as_string().unwrap(),
                 })
                 .collect();
 
             keys.into_iter().map(|k| k.tagged(&origin_tag)).collect()
         }
-        _ => vec![Value::string("default").tagged(&origin_tag)],
+        _ => vec![format!("default").tagged(&origin_tag)],
     }
 }
 
@@ -139,7 +137,8 @@ pub fn t_sort(
 
     match group_by_name {
         Some(column_name) => {
-            let sorted_labels = columns_sorted(Some(column_name), value, &origin_tag);
+            let sorted_labels: Vec<Tagged<String>> =
+                columns_sorted(Some(column_name), value, &origin_tag);
 
             match split_by_name {
                 None => {
@@ -147,70 +146,41 @@ pub fn t_sort(
                     dataset.insert_tagged("default", value.clone());
                     let dataset = dataset.into_tagged_value();
 
-                    let split_labels = match &dataset {
+                    let split_labels: Vec<Tagged<String>> = match &dataset {
                         Tagged {
                             item: Value::Row(rows),
                             ..
                         } => {
-                            let mut keys: Vec<Tagged<Value>> = rows
+                            let mut keys: Vec<Tagged<String>> = rows
                                 .entries
                                 .keys()
-                                .map(|s| s.as_ref())
-                                .map(|k: &str| {
-                                    let date = NaiveDate::parse_from_str(k, "%B %d-%Y");
-
-                                    let date = match date {
-                                        Ok(parsed) => Value::Primitive(Primitive::Date(
-                                            DateTime::<Utc>::from_utc(
-                                                parsed.and_hms(12, 34, 56),
-                                                Utc,
-                                            ),
-                                        )),
-                                        Err(_) => Value::string(k),
-                                    };
-
-                                    date.tagged_unknown()
-                                })
+                                .map(|k| k.clone().tagged_unknown())
                                 .collect();
 
                             keys.sort();
 
-                            let keys: Vec<Value> = keys
-                                .into_iter()
-                                .map(|k| {
-                                    Value::string(match k {
-                                        Tagged {
-                                            item: Value::Primitive(Primitive::Date(d)),
-                                            ..
-                                        } => format!("{}", d.format("%B %d-%Y")),
-                                        _ => k.as_string().unwrap(),
-                                    })
-                                })
-                                .collect();
-
-                            keys.into_iter().map(|k| k.tagged(&origin_tag)).collect()
+                            keys
                         }
                         _ => vec![],
                     };
 
                     let results: Vec<Vec<Tagged<Value>>> = split_labels
-                        .into_iter()
+                        .iter()
                         .map(|split| {
-                            let groups = dataset.get_data_by_key(&split.as_string().unwrap());
+                            let groups = dataset.get_data_by_key(split.borrow_spanned());
 
                             sorted_labels
                                 .clone()
                                 .into_iter()
-                                .map(|label| {
-                                    let label = label.as_string().unwrap();
-
-                                    match groups {
-                                        Some(Tagged {
-                                            item: Value::Row(dict),
-                                            ..
-                                        }) => dict.get_data_by_key(&label).unwrap().clone(),
-                                        _ => Value::Table(vec![]).tagged(&origin_tag),
-                                    }
+                                .map(|label| match &groups {
+                                    Some(Tagged {
+                                        item: Value::Row(dict),
+                                        ..
+                                    }) => dict
+                                        .get_data_by_key(label.borrow_spanned())
+                                        .unwrap()
+                                        .clone(),
+                                    _ => Value::Table(vec![]).tagged(&origin_tag),
                                 })
                                 .collect()
                         })
@@ -299,9 +269,9 @@ mod tests {
                 Tag::unknown()
             ),
             vec![
-                string("August 23-2019"),
-                string("September 24-2019"),
-                string("October 10-2019")
+                format!("August 23-2019").tagged_unknown(),
+                format!("September 24-2019").tagged_unknown(),
+                format!("October 10-2019").tagged_unknown()
             ]
         )
     }

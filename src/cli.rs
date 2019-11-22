@@ -260,7 +260,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Nth),
             whole_stream_command(Next),
             whole_stream_command(Previous),
-            whole_stream_command(Debug),
             whole_stream_command(Shells),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
@@ -325,7 +324,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(SplitBy),
             whole_stream_command(Table),
             whole_stream_command(Version),
+            whole_stream_command(What),
             whole_stream_command(Which),
+            whole_stream_command(Debug),
         ]);
 
         cfg_if::cfg_if! {
@@ -422,10 +423,24 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             initial_command = None;
         }
 
-        match process_line(readline, &mut context).await {
+        let line = process_line(readline, &mut context).await;
+
+        match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
                 let _ = rl.save_history(&History::path());
+                context.maybe_print_errors(Text::from(line));
+            }
+
+            LineResult::Error(line, err) => {
+                rl.add_history_entry(line.clone());
+                let _ = rl.save_history(&History::path());
+
+                context.with_host(|host| {
+                    print_err(err, host, &Text::from(line.clone()));
+                });
+
+                context.maybe_print_errors(Text::from(line.clone()));
             }
 
             LineResult::CtrlC => {
@@ -449,15 +464,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     ctrlcbreak = true;
                     continue;
                 }
-            }
-
-            LineResult::Error(line, err) => {
-                rl.add_history_entry(line.clone());
-                let _ = rl.save_history(&History::path());
-
-                context.with_host(|host| {
-                    print_err(err, host, &Text::from(line));
-                })
             }
 
             LineResult::Break => {
@@ -703,7 +709,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => LineResult::Break,
         Err(err) => {
-            println!("Error: {:?}", err);
+            outln!("Error: {:?}", err);
             LineResult::Break
         }
     }
@@ -725,9 +731,9 @@ fn classify_pipeline(
     .map_err(|err| err.into());
 
     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
-        println!("");
+        outln!("");
         ptree::print_tree(&iterator.expand_tracer().print(source.clone())).unwrap();
-        println!("");
+        outln!("");
     }
 
     result
