@@ -1,0 +1,2 @@
+Welcome to nushell!
+<!--WIP-->
