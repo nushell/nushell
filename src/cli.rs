@@ -9,7 +9,6 @@ use crate::context::Context;
 use crate::data::config;
 use crate::data::Value;
 pub(crate) use crate::errors::ShellError;
-use crate::fuzzysearch::{interactive_fuzzy_search, SelectionResult};
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::parser::registry::Signature;
@@ -261,7 +260,6 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Nth),
             whole_stream_command(Next),
             whole_stream_command(Previous),
-            // whole_stream_command(Debug),
             whole_stream_command(Shells),
             whole_stream_command(SplitColumn),
             whole_stream_command(SplitRow),
@@ -422,27 +420,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let mut readline = Err(ReadlineError::Eof);
         while let Some(ref cmd) = initial_command {
             readline = rl.readline_with_initial(&prompt, (&cmd, ""));
-            if let Err(ReadlineError::Eof) = &readline {
-                // Fuzzy search in history
-                let lines = rl.history().iter().rev().map(|s| s.as_str()).collect();
-                let selection = interactive_fuzzy_search(&lines, 5); // Clears last line with prompt
-                match selection {
-                    SelectionResult::Selected(line) => {
-                        outln!("{}{}", &prompt, &line); // TODO: colorize prompt
-                        readline = Ok(line.clone());
-                        initial_command = None;
-                    }
-                    SelectionResult::Edit(line) => {
-                        initial_command = Some(line);
-                    }
-                    SelectionResult::NoSelection => {
-                        readline = Ok("".to_string());
-                        initial_command = None;
-                    }
-                }
-            } else {
-                initial_command = None;
-            }
+            initial_command = None;
         }
 
         let line = process_line(readline, &mut context).await;

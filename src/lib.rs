@@ -15,7 +15,6 @@ mod env;
 mod errors;
 mod evaluate;
 mod format;
-mod fuzzysearch;
 mod git;
 mod parser;
 mod plugin;
