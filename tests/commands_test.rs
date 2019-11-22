@@ -309,19 +309,6 @@ fn get_more_than_one_member() {
 }
 
 #[test]
-fn get_requires_at_least_one_member() {
-    Playground::setup("first_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt")]);
-
-        let actual = nu!(
-            cwd: dirs.test(), "ls | get"
-        );
-
-        assert!(actual.contains("[row: name"), format!("{:?}", actual));
-    })
-}
-
-#[test]
 fn lines() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", h::pipeline(
