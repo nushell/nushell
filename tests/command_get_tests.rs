@@ -217,19 +217,3 @@ fn errors_fetching_by_index_out_of_bounds() {
         )
     })
 }
-
-#[test]
-fn requires_at_least_one_column_member_path() {
-    Playground::setup("get_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt")]);
-
-        let actual = nu!(
-            cwd: dirs.test(), "ls | get | get type | echo $it"
-        );
-
-        assert_eq!(
-            actual,
-            "[row: name, type, size, created, accessed, modified]"
-        );
-    })
-}
