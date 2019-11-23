@@ -358,26 +358,24 @@ fn save_figures_out_intelligently_where_to_write_out_with_metadata() {
 
 #[test]
 fn it_arg_works_with_many_inputs_to_external_command() {
-    Playground::setup("it_arg_works_with_many_inputs", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            FileWithContent("file1", "text"),
-            FileWithContent("file2", " and more text"),
-        ]);
+    Playground::setup("it_arg_works_with_many_inputs", |dirs, _| {
+        let expected_file = dirs.test().join("results.txt");
 
-        let (stdout, stderr) = nu_combined!(
+        let (_, stderr) = nu_combined!(
             cwd: dirs.test(), h::pipeline(
             r#"
                 echo hello world
                 | split-row " "
                 | ^echo $it
+                | save results.txt
             "#
         ));
 
-        #[cfg(windows)]
-        assert_eq!("hello world", stdout);
-
-        #[cfg(not(windows))]
-        assert_eq!("helloworld", stdout);
+        let actual = h::file_contents(expected_file);
+        assert_eq!(
+            vec!["hello", "world"],
+            actual.lines().map(str::trim).collect::<Vec<_>>()
+        );
 
         assert!(!stderr.contains("No such file or directory"));
     })

@@ -303,10 +303,9 @@ impl HasSpan for ExternalCommand {
 }
 
 #[derive(Debug)]
-pub(crate) enum StreamNext {
-    Last,
-    External,
-    Internal,
+pub(crate) enum OutputDecoding {
+    None,
+    Lines,
 }
 
 impl ExternalCommand {
@@ -314,7 +313,7 @@ impl ExternalCommand {
         self,
         context: &mut Context,
         input: ClassifiedInputStream,
-        stream_next: StreamNext,
+        output_decoding: OutputDecoding,
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
         let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
@@ -387,12 +386,7 @@ impl ExternalCommand {
 
         trace!(target: "nu::run::external", "cwd = {:?}", context.shell_manager.path());
 
-        let mut process = match stream_next {
-            StreamNext::Last => process,
-            StreamNext::External | StreamNext::Internal => {
-                process.stdout(subprocess::Redirection::Pipe)
-            }
-        };
+        process = process.stdout(subprocess::Redirection::Pipe);
 
         trace!(target: "nu::run::external", "set up stdout pipe");
 
@@ -405,43 +399,23 @@ impl ExternalCommand {
 
         let popen = process.popen();
 
-        trace!(target: "nu::run::external", "next = {:?}", stream_next);
+        trace!(target: "nu::run::external", "output_decoding = {:?}", output_decoding);
 
         let name_tag = self.name_tag.clone();
         if let Ok(mut popen) = popen {
-            match stream_next {
-                StreamNext::Last => {
-                    let _ = popen.detach();
-                    loop {
-                        match popen.poll() {
-                            None => {
-                                let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
-                            }
-                            _ => {
-                                let _ = popen.terminate();
-                                break;
-                            }
-                        }
-                    }
-                    Ok(ClassifiedInputStream::new())
-                }
-                StreamNext::External => {
-                    let _ = popen.detach();
-                    let stdout = popen.stdout.take().unwrap();
-                    Ok(ClassifiedInputStream::from_stdout(stdout))
-                }
-                StreamNext::Internal => {
-                    let _ = popen.detach();
-                    let stdout = popen.stdout.take().unwrap();
+            let _ = popen.detach();
+            let stdout = popen.stdout.take().unwrap();
+
+            Ok(match output_decoding {
+                OutputDecoding::None => ClassifiedInputStream::from_stdout(stdout),
+                OutputDecoding::Lines => {
                     let file = futures::io::AllowStdIo::new(stdout);
                     let stream = Framed::new(file, LinesCodec {});
                     let stream =
                         stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
-                    Ok(ClassifiedInputStream::from_input_stream(
-                        stream.boxed() as BoxStream<'static, Tagged<Value>>
-                    ))
+                    ClassifiedInputStream::from_input_stream(stream.boxed())
                 }
-            }
+            })
         } else {
             return Err(ShellError::labeled_error(
                 "Command not found",

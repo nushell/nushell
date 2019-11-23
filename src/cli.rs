@@ -1,6 +1,6 @@
 use crate::commands::classified::{
     ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalCommand, InternalCommand,
-    StreamNext,
+    OutputDecoding,
 };
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
@@ -581,22 +581,19 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 Err(err) => return LineResult::Error(line.to_string(), err),
             };
 
-            match pipeline.commands.last() {
-                Some(ClassifiedCommand::External(_)) => {}
-                _ => pipeline
-                    .commands
-                    .item
-                    .push(ClassifiedCommand::Internal(InternalCommand {
-                        name: "autoview".to_string(),
-                        name_tag: Tag::unknown(),
-                        args: hir::Call::new(
-                            Box::new(hir::Expression::synthetic_string("autoview")),
-                            None,
-                            None,
-                        )
-                        .spanned_unknown(),
-                    })),
-            }
+            pipeline
+                .commands
+                .item
+                .push(ClassifiedCommand::Internal(InternalCommand {
+                    name: "autoview".to_string(),
+                    name_tag: Tag::unknown(),
+                    args: hir::Call::new(
+                        Box::new(hir::Expression::synthetic_string("autoview")),
+                        None,
+                        None,
+                    )
+                    .spanned_unknown(),
+                }));
 
             let mut input = ClassifiedInputStream::new();
             let mut iter = pipeline.commands.item.into_iter().peekable();
@@ -634,21 +631,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         )
                     }
 
-                    (
-                        Some(ClassifiedCommand::Internal(left)),
-                        Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, Text::from(line)) {
-                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.to_string(), err),
-                    },
-
-                    (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match left.run(ctx, input, Text::from(line)) {
-                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.to_string(), err),
-                        }
-                    }
-
                     (Some(ClassifiedCommand::Internal(left)), None) => {
                         match left.run(ctx, input, Text::from(line)) {
                             Ok(val) => {
@@ -680,23 +662,23 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         }
                     }
 
-                    (
-                        Some(ClassifiedCommand::External(left)),
-                        Some(ClassifiedCommand::External(_)),
-                    ) => match left.run(ctx, input, StreamNext::External).await {
-                        Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.to_string(), err),
-                    },
-
-                    (Some(ClassifiedCommand::External(left)), Some(_)) => {
-                        match left.run(ctx, input, StreamNext::Internal).await {
-                            Ok(val) => val,
+                    (Some(ClassifiedCommand::Internal(left)), _) => {
+                        match left.run(ctx, input, Text::from(line)) {
+                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
                             Err(err) => return LineResult::Error(line.to_string(), err),
                         }
                     }
 
-                    (Some(ClassifiedCommand::External(left)), None) => {
-                        match left.run(ctx, input, StreamNext::Last).await {
+                    (
+                        Some(ClassifiedCommand::External(left)),
+                        Some(ClassifiedCommand::Internal(_)),
+                    ) => match left.run(ctx, input, OutputDecoding::Lines).await {
+                        Ok(val) => val,
+                        Err(err) => return LineResult::Error(line.to_string(), err),
+                    },
+
+                    (Some(ClassifiedCommand::External(left)), _) => {
+                        match left.run(ctx, input, OutputDecoding::None).await {
                             Ok(val) => val,
                             Err(err) => return LineResult::Error(line.to_string(), err),
                         }
