@@ -268,6 +268,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | command | description |
 | ------------- | ------------- |
 | append row-data | Append a row to the end of the table |
+| compact ...columns | Remove rows where given columns are empty |
 | count | Show the total number of rows |
 | edit column-or-column-path value | Edit an existing column to have a new value |
 | embed column | Creates a new table of one column with the given name, and places the current table inside of it |
@@ -286,7 +287,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | reject ...columns | Remove the given columns from the table |
 | reverse | Reverses the table. |
 | skip amount | Skip a number of rows |
-| skip-while condition | Skips rows while the condition matches. |
+| skip-while condition | Skips rows while the condition matches |
 | split-by column | Creates a new table with the data from the inner tables splitted by the column given |
 | sort-by ...columns | Sort by the given columns |
 | str (column) | Apply string function. Optionally use the column of a table |

@@ -36,7 +36,7 @@ fn debug_value(
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         while let Some(row) = input.values.next().await {
-            if let Tagged { item: true, .. } = raw {      
+            if let Tagged { item: true, .. } = raw {
                 println!("{:?}", row);
                 yield ReturnSuccess::value(row)
             } else {

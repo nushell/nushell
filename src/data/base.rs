@@ -497,6 +497,17 @@ impl Value {
         }
     }
 
+    pub(crate) fn is_some(&self) -> bool {
+        !self.is_none()
+    }
+
+    pub(crate) fn is_none(&self) -> bool {
+        match self {
+            Value::Primitive(Primitive::Nothing) => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn is_error(&self) -> bool {
         match self {
             Value::Error(_err) => true,
