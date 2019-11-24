@@ -1,6 +1,6 @@
-use crate::commands::classified::{
-    run_external_command, run_internal_command, ClassifiedInputStream, StreamNext,
-};
+use crate::commands::classified::external::{run_external_command, StreamNext};
+use crate::commands::classified::internal::run_internal_command;
+use crate::commands::classified::ClassifiedInputStream;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;

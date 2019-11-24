@@ -14,7 +14,9 @@ pub fn apply_operator(
         | Operator::LessThan
         | Operator::GreaterThan
         | Operator::LessThanOrEqual
-        | Operator::GreaterThanOrEqual => left.compare(op, right).map(value::boolean),
+        | Operator::GreaterThanOrEqual => {
+            value::compare_values(op, left, right).map(value::boolean)
+        }
         Operator::Dot => Ok(value::boolean(false)),
         Operator::Contains => contains(left, right).map(value::boolean),
         Operator::NotContains => contains(left, right).map(Not::not).map(value::boolean),

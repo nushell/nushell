@@ -1,16 +1,12 @@
+use crate::data::value;
 use crate::prelude::*;
-use nu_parser::{hir, TokenNode};
 
 mod dynamic;
-mod external;
-mod internal;
-mod pipeline;
+pub(crate) mod external;
+pub(crate) mod internal;
 
 #[allow(unused_imports)]
 pub(crate) use dynamic::Command as DynamicCommand;
-#[allow(unused_imports)]
-pub(crate) use external::{Command as ExternalCommand, ExternalArg, ExternalArgs, StreamNext};
-pub(crate) use internal::Command as InternalCommand;
 
 pub(crate) struct ClassifiedInputStream {
     pub(crate) objects: InputStream,
@@ -20,7 +16,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: vec![crate::data::value::nothing().into_untagged_value()].into(),
+            objects: vec![value::nothing().into_value(Tag::unknown())].into(),
             stdin: None,
         }
     }
@@ -36,38 +32,6 @@ impl ClassifiedInputStream {
         ClassifiedInputStream {
             objects: VecDeque::new().into(),
             stdin: Some(stdout),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ClassifiedCommand {
-    #[allow(unused)]
-    Expr(TokenNode),
-    #[allow(unused)]
-    Dynamic(hir::Call),
-    Internal(InternalCommand),
-    External(ExternalCommand),
-}
-
-impl PrettyDebugWithSource for ClassifiedCommand {
-    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        match self {
-            ClassifiedCommand::Expr(token) => b::typed("command", token.pretty_debug(source)),
-            ClassifiedCommand::Dynamic(call) => b::typed("command", call.pretty_debug(source)),
-            ClassifiedCommand::Internal(internal) => internal.pretty_debug(source),
-            ClassifiedCommand::External(external) => external.pretty_debug(source),
-        }
-    }
-}
-
-impl HasSpan for ClassifiedCommand {
-    fn span(&self) -> Span {
-        match self {
-            ClassifiedCommand::Expr(node) => node.span(),
-            ClassifiedCommand::Internal(command) => command.span(),
-            ClassifiedCommand::Dynamic(call) => call.span,
-            ClassifiedCommand::External(command) => command.span(),
         }
     }
 }
