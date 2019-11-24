@@ -4,9 +4,7 @@ use crate::prelude::*;
 pub struct Debug;
 
 #[derive(Deserialize)]
-pub struct DebugArgs {
-    raw: Tagged<bool>,
-}
+pub struct DebugArgs {}
 
 impl WholeStreamCommand for Debug {
     fn name(&self) -> &str {
@@ -14,7 +12,7 @@ impl WholeStreamCommand for Debug {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("debug").switch("raw", "print raw data")
+        Signature::build("debug")
     }
 
     fn usage(&self) -> &str {
@@ -31,19 +29,14 @@ impl WholeStreamCommand for Debug {
 }
 
 fn debug_value(
-    DebugArgs { raw }: DebugArgs,
+    _args: DebugArgs,
     RunnableContext { mut input, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> {
+) -> Result<impl ToOutputStream, ShellError> {
     let stream = async_stream! {
         while let Some(row) = input.values.next().await {
-            if let Tagged { item: true, .. } = raw {
-                println!("{:?}", row);
-                yield ReturnSuccess::value(row)
-            } else {
-                yield ReturnSuccess::debug_value(row.clone())
-            }
+            yield ReturnSuccess::debug_value(row.clone())
         }
     };
 
-    Ok(stream.to_output_stream())
+    Ok(stream)
 }

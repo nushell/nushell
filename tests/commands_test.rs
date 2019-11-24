@@ -36,7 +36,7 @@ fn compact_rows_where_given_column_is_empty() {
 }
 #[test]
 fn compact_empty_rows_by_default() {
-    Playground::setup("compact_test_2", |dirs, sandbox| {
+    Playground::setup("compact_test_2", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), h::pipeline(
             r#"
