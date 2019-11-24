@@ -1,3 +1,4 @@
+use super::ClassifiedInputStream;
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
@@ -7,8 +8,6 @@ use log::trace;
 use std::fmt;
 use std::io::{Error, ErrorKind};
 use subprocess::Exec;
-
-use super::ClassifiedInputStream;
 
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}

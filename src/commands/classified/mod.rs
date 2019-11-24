@@ -9,6 +9,7 @@ mod pipeline;
 
 #[allow(unused_imports)]
 pub(crate) use dynamic::Command as DynamicCommand;
+#[allow(unused_imports)]
 pub(crate) use external::{Command as ExternalCommand, StreamNext};
 pub(crate) use internal::Command as InternalCommand;
 pub(crate) use pipeline::Pipeline as ClassifiedPipeline;
