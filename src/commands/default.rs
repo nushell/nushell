@@ -59,7 +59,7 @@ fn default(
             if should_add {
                 match item.insert_data_at_path(&column.item, value.item.clone()) {
                     Some(new_value) => result.push_back(ReturnSuccess::value(new_value)),
-                    None => {}
+                    None => result.push_back(ReturnSuccess::value(item)),
                 }
             } else {
                 result.push_back(ReturnSuccess::value(item));

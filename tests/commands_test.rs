@@ -4,7 +4,7 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
-fn default() {
+fn default_row_data_if_column_missing() {
     Playground::setup("default_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.json",
