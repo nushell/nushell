@@ -30,13 +30,10 @@ impl WholeStreamCommand for Debug {
 
 fn debug_value(
     _args: DebugArgs,
-    RunnableContext { mut input, .. }: RunnableContext,
+    RunnableContext { input, .. }: RunnableContext,
 ) -> Result<impl ToOutputStream, ShellError> {
-    let stream = async_stream! {
-        while let Some(row) = input.values.next().await {
-            yield ReturnSuccess::debug_value(row.clone())
-        }
-    };
-
-    Ok(stream)
+    Ok(input
+        .values
+        .map(|v| ReturnSuccess::value(Value::string(format!("{:?}", v)).tagged_unknown()))
+        .to_output_stream())
 }
