@@ -34,14 +34,14 @@ impl WholeStreamCommand for What {
 
 pub fn what(
     WhatArgs {}: WhatArgs,
-    RunnableContext { input, host, .. }: RunnableContext,
+    RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let values = input.values;
         pin_mut!(values);
 
         while let Some(row) = values.next().await {
-            let name = row.format_type(host.clone().lock().unwrap().width());
+            let name = row.format_leaf().pretty_debug().plain_string(100000);
             yield ReturnSuccess::value(Value::string(name).tagged(Tag::unknown_anchor(row.tag.span)));
         }
     };

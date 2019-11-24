@@ -3,7 +3,7 @@ mod property_get;
 pub(crate) mod shape;
 
 use crate::context::CommandRegistry;
-use crate::data::base::shape::{Column, InlineShape, TypeShape};
+use crate::data::base::shape::{InlineShape, TypeShape};
 use crate::data::TaggedDictBuilder;
 use crate::errors::ShellError;
 use crate::evaluate::{evaluate_baseline_expr, Scope};
@@ -439,6 +439,7 @@ impl Value {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn format_type(&self, width: usize) -> String {
         TypeShape::from_value(self).colored_string(width)
     }
@@ -447,11 +448,11 @@ impl Value {
         InlineShape::from_value(self).format().pretty_debug()
     }
 
-    pub(crate) fn format_for_column(&self, column: impl Into<Column>) -> DebugDocBuilder {
-        InlineShape::from_value(self)
-            .format_for_column(column)
-            .pretty_debug()
-    }
+    // pub(crate) fn format_for_column(&self, column: impl Into<Column>) -> DebugDocBuilder {
+    //     InlineShape::from_value(self)
+    //         .format_for_column(column)
+    //         .pretty_debug()
+    // }
 
     pub(crate) fn style_leaf(&self) -> &'static str {
         match self {

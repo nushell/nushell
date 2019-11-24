@@ -22,6 +22,7 @@ use std::path::PathBuf;
   It also serves as the primary vehicle for pretty-printing.
 */
 
+#[allow(unused)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum TypeShape {
     Nothing,
@@ -281,12 +282,12 @@ impl InlineShape {
         }
     }
 
-    pub fn format_for_column(self, column: impl Into<Column>) -> FormatInlineShape {
-        FormatInlineShape {
-            shape: self,
-            column: Some(column.into()),
-        }
-    }
+    // pub fn format_for_column(self, column: impl Into<Column>) -> FormatInlineShape {
+    //     FormatInlineShape {
+    //         shape: self,
+    //         column: Some(column.into()),
+    //     }
+    // }
 
     pub fn format(self) -> FormatInlineShape {
         FormatInlineShape {
