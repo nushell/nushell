@@ -11,6 +11,7 @@ pub(crate) mod cd;
 pub(crate) mod classified;
 pub(crate) mod clip;
 pub(crate) mod command;
+pub(crate) mod compact;
 pub(crate) mod config;
 pub(crate) mod count;
 pub(crate) mod cp;
@@ -98,6 +99,7 @@ pub(crate) use command::{
 
 pub(crate) use append::Append;
 pub(crate) use classified::ClassifiedCommand;
+pub(crate) use compact::Compact;
 pub(crate) use config::Config;
 pub(crate) use count::Count;
 pub(crate) use cp::Cpy;

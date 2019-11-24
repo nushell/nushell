@@ -4,6 +4,54 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
+fn compact_rows_where_given_column_is_empty() {
+    Playground::setup("compact_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_amigos.json",
+            r#"
+                {
+                    "amigos": [
+                        {"name":   "Yehuda", "rusty_luck": 1},
+                        {"name": "Jonathan", "rusty_luck": 1},
+                        {"name":   "Andres", "rusty_luck": 1},
+                        {"name":"GorbyPuff"}
+                    ]
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_amigos.json
+                | get amigos
+                | compact rusty_luck
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    });
+}
+#[test]
+fn compact_empty_rows_by_default() {
+    Playground::setup("compact_test_2", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                echo "[1,2,3,14,null]"
+                | from-json
+                | compact
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "4");
+    });
+}
+#[test]
 fn group_by() {
     Playground::setup("group_by_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
