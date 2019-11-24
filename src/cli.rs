@@ -310,6 +310,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             per_item_command(Echo),
             whole_stream_command(Config),
             whole_stream_command(Compact),
+            whole_stream_command(Default),
             whole_stream_command(SkipWhile),
             per_item_command(Enter),
             per_item_command(Help),

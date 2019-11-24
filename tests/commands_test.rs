@@ -4,6 +4,38 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
+fn default_row_data_if_column_missing() {
+    Playground::setup("default_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_amigos.json",
+            r#"
+                {
+                    "amigos": [
+                        {"name":   "Yehuda"},
+                        {"name": "Jonathan", "rusty_luck": 0},
+                        {"name":   "Andres", "rusty_luck": 0},
+                        {"name":"GorbyPuff"}
+                    ]
+                }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_amigos.json
+                | get amigos
+                | default rusty_luck 1
+                | get rusty_luck
+                | sum
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    });
+}
+#[test]
 fn compact_rows_where_given_column_is_empty() {
     Playground::setup("compact_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
