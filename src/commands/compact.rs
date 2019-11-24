@@ -41,9 +41,15 @@ pub fn compact(
         let keep = if columns.is_empty() {
             item.is_some()
         } else {
-            columns
-                .iter()
-                .all(|field| item.get_data(field).borrow().is_some())
+            match item {
+                Tagged {
+                    item: Value::Row(ref r),
+                    ..
+                } => columns
+                    .iter()
+                    .all(|field| r.get_data(field).borrow().is_some()),
+                _ => false,
+            }
         };
 
         futures::future::ready(keep)
