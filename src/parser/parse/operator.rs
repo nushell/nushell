@@ -12,6 +12,8 @@ pub enum Operator {
     LessThanOrEqual,
     GreaterThanOrEqual,
     Dot,
+    Contains,
+    NotContains,
 }
 
 impl FormatDebug for Operator {
@@ -34,6 +36,8 @@ impl Operator {
             Operator::LessThanOrEqual => "<=",
             Operator::GreaterThanOrEqual => ">=",
             Operator::Dot => ".",
+            Operator::Contains => "=~",
+            Operator::NotContains => "!~",
         }
     }
 }
@@ -55,6 +59,8 @@ impl FromStr for Operator {
             "<=" => Ok(Operator::LessThanOrEqual),
             ">=" => Ok(Operator::GreaterThanOrEqual),
             "." => Ok(Operator::Dot),
+            "=~" => Ok(Operator::Contains),
+            "!~" => Ok(Operator::NotContains),
             _ => Err(()),
         }
     }
