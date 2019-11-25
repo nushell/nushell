@@ -281,7 +281,7 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 | inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
 | insert column-or-column-path value | Insert a new column to the table |
 | last amount | Show only the last number of rows |
-| nth row-number | Return only the selected row |
+| nth ...row-numbers | Return only the selected rows |
 | pick ...columns | Down-select table to only these columns |
 | pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
 | prepend row-data | Prepend a row to the beginning of the table |

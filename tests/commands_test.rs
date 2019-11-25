@@ -4,6 +4,45 @@ use helpers as h;
 use helpers::{Playground, Stub::*};
 
 #[test]
+fn nth_selects_a_row() {
+    Playground::setup("nth_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | sort-by name
+                | nth 0
+                | get name
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "arepas.txt");
+    });
+}
+
+#[test]
+fn nth_selects_many_rows() {
+    Playground::setup("nth_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | get name
+                | nth 1 0
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    });
+}
+#[test]
 fn default_row_data_if_column_missing() {
     Playground::setup("default_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
