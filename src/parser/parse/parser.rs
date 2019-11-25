@@ -70,15 +70,6 @@ impl PrettyDebug for Number {
     }
 }
 
-impl std::fmt::Display for Number {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Number::Int(int) => write!(f, "{}", int),
-            Number::Decimal(decimal) => write!(f, "{}", decimal),
-        }
-    }
-}
-
 macro_rules! primitive_int {
     ($($ty:ty)*) => {
         $(

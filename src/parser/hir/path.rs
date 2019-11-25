@@ -4,7 +4,6 @@ use derive_new::new;
 use getset::{Getters, MutGetters};
 use nu_source::{b, span_for_spanned_list, PrettyDebug};
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum UnspannedPathMember {
@@ -78,15 +77,6 @@ impl HasFallibleSpan for ColumnPath {
     }
 }
 
-impl fmt::Display for UnspannedPathMember {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UnspannedPathMember::String(string) => write!(f, "{}", string),
-            UnspannedPathMember::Int(int) => write!(f, "{}", int),
-        }
-    }
-}
-
 impl PathMember {
     pub fn string(string: impl Into<String>, span: impl Into<Span>) -> PathMember {
         UnspannedPathMember::String(string.into()).into_path_member(span)
@@ -123,18 +113,6 @@ impl PrettyDebugWithSource for Path {
         self.head.pretty_debug(source)
             + b::operator(".")
             + b::intersperse(self.tail.iter().map(|m| m.pretty()), b::operator("."))
-    }
-}
-
-impl fmt::Display for Path {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.head)?;
-
-        for entry in &self.tail {
-            write!(f, ".{}", entry.unspanned)?;
-        }
-
-        Ok(())
     }
 }
 

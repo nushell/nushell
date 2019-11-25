@@ -130,7 +130,7 @@ impl PerItemCommand for Help {
                                         long_desc.push_str(&format!(
                                             "  --{} <{}> (required parameter){} {}\n",
                                             flag,
-                                            m,
+                                            m.display(),
                                             if ty.1.len() > 0 { ":" } else { "" },
                                             ty.1
                                         ));
@@ -139,7 +139,7 @@ impl PerItemCommand for Help {
                                         long_desc.push_str(&format!(
                                             "  --{} <{}>{} {}\n",
                                             flag,
-                                            o,
+                                            o.display(),
                                             if ty.1.len() > 0 { ":" } else { "" },
                                             ty.1
                                         ));

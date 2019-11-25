@@ -29,6 +29,15 @@ impl Description {
     }
 }
 
+impl PrettyDebug for Description {
+    fn pretty(&self) -> DebugDocBuilder {
+        match self {
+            Description::Source(s) => b::description(&s.item),
+            Description::Synthetic(s) => b::description(s),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ParseErrorReason {
     Eof {
@@ -100,10 +109,163 @@ pub enum ArgumentError {
     InvalidExternalWord,
 }
 
+impl PrettyDebug for ArgumentError {
+    fn pretty(&self) -> DebugDocBuilder {
+        match self {
+            ArgumentError::MissingMandatoryFlag(flag) => {
+                b::description("missing `")
+                    + b::description(flag)
+                    + b::description("` as mandatory flag")
+            }
+            ArgumentError::MissingMandatoryPositional(pos) => {
+                b::description("missing `")
+                    + b::description(pos)
+                    + b::description("` as mandatory positional argument")
+            }
+            ArgumentError::MissingValueForName(name) => {
+                b::description("missing value for flag `")
+                    + b::description(name)
+                    + b::description("`")
+            }
+            ArgumentError::InvalidExternalWord => b::description("invalid word"),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Hash)]
 pub struct ShellError {
     error: ProximateShellError,
     cause: Option<Box<ProximateShellError>>,
+}
+
+impl PrettyDebug for ShellError {
+    fn pretty(&self) -> DebugDocBuilder {
+        match &self.error {
+            ProximateShellError::SyntaxError { problem } => {
+                b::error("Syntax Error")
+                    + b::space()
+                    + b::delimit("(", b::description(&problem.item), ")")
+            }
+            ProximateShellError::UnexpectedEof { .. } => b::error("Unexpected end"),
+            ProximateShellError::TypeError { expected, actual } => {
+                b::error("Type Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("expected:")
+                            + b::space()
+                            + b::description(expected)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("actual:")
+                            + b::space()
+                            + b::option(actual.item.as_ref().map(|actual| b::description(actual))),
+                        ")",
+                    )
+            }
+            ProximateShellError::MissingProperty { subpath, expr } => {
+                b::error("Missing Property")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("expr:")
+                            + b::space()
+                            + expr.pretty()
+                            + b::description(",")
+                            + b::space()
+                            + b::description("subpath:")
+                            + b::space()
+                            + subpath.pretty(),
+                        ")",
+                    )
+            }
+            ProximateShellError::InvalidIntegerIndex { subpath, .. } => {
+                b::error("Invalid integer index")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("subpath:") + b::space() + subpath.pretty(),
+                        ")",
+                    )
+            }
+            ProximateShellError::MissingValue { reason, .. } => {
+                b::error("Missing Value")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("reason:") + b::space() + b::description(reason),
+                        ")",
+                    )
+            }
+            ProximateShellError::ArgumentError { command, error } => {
+                b::error("Argument Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("command:")
+                            + b::space()
+                            + b::description(&command.item)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("error:")
+                            + b::space()
+                            + error.pretty(),
+                        ")",
+                    )
+            }
+            ProximateShellError::RangeError {
+                kind,
+                actual_kind,
+                operation,
+            } => {
+                b::error("Range Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("expected:")
+                            + b::space()
+                            + kind.pretty()
+                            + b::description(",")
+                            + b::space()
+                            + b::description("actual:")
+                            + b::space()
+                            + b::description(&actual_kind.item)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("operation:")
+                            + b::space()
+                            + b::description(operation),
+                        ")",
+                    )
+            }
+            ProximateShellError::Diagnostic(_) => b::error("diagnostic"),
+            ProximateShellError::CoerceError { left, right } => {
+                b::error("Coercion Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("left:")
+                            + b::space()
+                            + b::description(&left.item)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("right:")
+                            + b::space()
+                            + b::description(&right.item),
+                        ")",
+                    )
+            }
+            ProximateShellError::UntaggedRuntimeError { reason } => {
+                b::error("Unknown Error") + b::delimit("(", b::description(reason), ")")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ShellError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.pretty().display())
+    }
 }
 
 impl serde::de::Error for ShellError {
@@ -464,6 +626,12 @@ impl From<Range<usize>> for ExpectedRange {
     }
 }
 
+impl PrettyDebug for ExpectedRange {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::description(self.desc())
+    }
+}
+
 impl ExpectedRange {
     fn desc(&self) -> String {
         match self {
@@ -540,23 +708,6 @@ impl ProximateShellError {
             error: self,
         }
     }
-
-    // pub(crate) fn tag(&self) -> Option<Tag> {
-    //     Some(match self {
-    //         ProximateShellError::SyntaxError { problem } => problem.tag(),
-    //         ProximateShellError::UnexpectedEof { tag, .. } => tag.clone(),
-    //         ProximateShellError::InvalidCommand { command } => command.clone(),
-    //         ProximateShellError::TypeError { actual, .. } => actual.tag.clone(),
-    //         ProximateShellError::MissingProperty { tag, .. } => tag.clone(),
-    //         ProximateShellError::MissingValue { tag, .. } => return tag.clone(),
-    //         ProximateShellError::ArgumentError { tag, .. } => tag.clone(),
-    //         ProximateShellError::RangeError { actual_kind, .. } => actual_kind.tag.clone(),
-    //         ProximateShellError::InvalidIntegerIndex { integer, .. } => integer.into(),
-    //         ProximateShellError::Diagnostic(..) => return None,
-    //         ProximateShellError::UntaggedRuntimeError { .. } => return None,
-    //         ProximateShellError::CoerceError { left, right } => left.tag.until(&right.tag),
-    //     })
-    // }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -605,24 +756,6 @@ impl std::cmp::Ord for ShellDiagnostic {
 pub struct StringError {
     title: String,
     error: String,
-}
-
-impl std::fmt::Display for ShellError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &self.error {
-            ProximateShellError::MissingValue { .. } => write!(f, "MissingValue"),
-            ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
-            ProximateShellError::UnexpectedEof { .. } => write!(f, "UnexpectedEof"),
-            ProximateShellError::RangeError { .. } => write!(f, "RangeError"),
-            ProximateShellError::InvalidIntegerIndex { .. } => write!(f, "InvalidIntegerIndex"),
-            ProximateShellError::SyntaxError { .. } => write!(f, "SyntaxError"),
-            ProximateShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
-            ProximateShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
-            ProximateShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
-            ProximateShellError::CoerceError { .. } => write!(f, "CoerceError"),
-            ProximateShellError::UntaggedRuntimeError { .. } => write!(f, "UntaggedRuntimeError"),
-        }
-    }
 }
 
 impl std::error::Error for ShellError {}

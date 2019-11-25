@@ -245,7 +245,7 @@ impl Block {
             "EXPRS = {:?}",
             self.expressions
                 .iter()
-                .map(|e| format!("{}", e))
+                .map(|e| format!("{:?}", e))
                 .collect::<Vec<_>>()
         );
 

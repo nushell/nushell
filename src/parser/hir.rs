@@ -195,39 +195,6 @@ impl PrettyDebugWithSource for Expression {
     }
 }
 
-impl std::fmt::Display for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let span = self.span;
-
-        match &self.expr {
-            RawExpression::Literal(literal) => write!(f, "{:?}", literal),
-            RawExpression::Synthetic(Synthetic::String(s)) => write!(f, "{}", s),
-            RawExpression::Command(_) => write!(f, "Command{{ {}..{} }}", span.start(), span.end()),
-            RawExpression::ExternalWord => {
-                write!(f, "ExternalWord{{ {}..{} }}", span.start(), span.end())
-            }
-            RawExpression::FilePath(file) => write!(f, "Path{{ {} }}", file.display()),
-            RawExpression::Variable(variable) => write!(f, "{}", variable),
-            RawExpression::List(list) => f
-                .debug_list()
-                .entries(list.iter().map(|e| format!("{}", e)))
-                .finish(),
-            RawExpression::Binary(binary) => write!(f, "{}", binary),
-            RawExpression::Block(items) => {
-                write!(f, "Block")?;
-                f.debug_set()
-                    .entries(items.iter().map(|i| format!("{}", i)))
-                    .finish()
-            }
-            RawExpression::Path(path) => write!(f, "{}", path),
-            RawExpression::Boolean(b) => write!(f, "${}", b),
-            RawExpression::ExternalCommand(..) => {
-                write!(f, "ExternalComment{{ {}..{} }}", span.start(), span.end())
-            }
-        }
-    }
-}
-
 impl Expression {
     pub(crate) fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
         let span = span.into();
@@ -404,13 +371,4 @@ impl PrettyDebugWithSource for Literal {
 pub enum Variable {
     It(Span),
     Other(Span),
-}
-
-impl std::fmt::Display for Variable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Variable::It(_) => write!(f, "$it"),
-            Variable::Other(span) => write!(f, "${{ {}..{} }}", span.start(), span.end()),
-        }
-    }
 }

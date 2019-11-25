@@ -10,8 +10,8 @@ use crate::TaggedDictBuilder;
 use indexmap::IndexMap;
 use log::trace;
 use nu_source::Text;
-use std::fmt;
 
+#[derive(Debug)]
 pub struct Scope {
     it: Value,
     vars: IndexMap<String, Value>,
@@ -23,15 +23,6 @@ impl Scope {
             it,
             vars: IndexMap::new(),
         }
-    }
-}
-
-impl fmt::Display for Scope {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_map()
-            .entry(&"$it", &format!("{:?}", self.it.value))
-            .entries(self.vars.iter().map(|(k, v)| (k, &v.value)))
-            .finish()
     }
 }
 
@@ -177,7 +168,7 @@ fn evaluate_reference(
     source: &Text,
     tag: Tag,
 ) -> Result<Value, ShellError> {
-    trace!("Evaluating {} with Scope {}", name, scope);
+    trace!("Evaluating {:?} with Scope {:?}", name, scope);
     match name {
         hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
         hir::Variable::Other(inner) => match inner.slice(source) {

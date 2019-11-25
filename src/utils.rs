@@ -1,7 +1,7 @@
 use crate::data::base::{UntaggedValue, Value};
 use crate::errors::ShellError;
 use crate::{PathMember, UnspannedPathMember};
-use std::fmt;
+use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use std::ops::Div;
 use std::path::{Component, Path, PathBuf};
 
@@ -69,14 +69,14 @@ impl From<AbsoluteFile> for PathBuf {
     }
 }
 
-impl fmt::Display for AbsoluteFile {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner.display())
-    }
-}
-
 pub struct AbsolutePath {
     inner: PathBuf,
+}
+
+impl PrettyDebug for AbsolutePath {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::primitive(self.inner.display())
+    }
 }
 
 impl AbsolutePath {
@@ -90,12 +90,6 @@ impl AbsolutePath {
         } else {
             panic!("AbsolutePath::new must take an absolute path")
         }
-    }
-}
-
-impl fmt::Display for AbsolutePath {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner.display())
     }
 }
 
@@ -148,12 +142,6 @@ impl<T: AsRef<str>> Div<T> for &RelativePath {
         }
 
         RelativePath::new(result)
-    }
-}
-
-impl fmt::Display for RelativePath {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner.display())
     }
 }
 

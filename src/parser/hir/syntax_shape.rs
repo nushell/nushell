@@ -200,22 +200,6 @@ impl ExpandExpression for SyntaxShape {
     }
 }
 
-impl std::fmt::Display for SyntaxShape {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            SyntaxShape::Any => write!(f, "Any"),
-            SyntaxShape::String => write!(f, "String"),
-            SyntaxShape::Int => write!(f, "Integer"),
-            SyntaxShape::Member => write!(f, "Member"),
-            SyntaxShape::ColumnPath => write!(f, "ColumnPath"),
-            SyntaxShape::Number => write!(f, "Number"),
-            SyntaxShape::Path => write!(f, "Path"),
-            SyntaxShape::Pattern => write!(f, "Pattern"),
-            SyntaxShape::Block => write!(f, "Block"),
-        }
-    }
-}
-
 #[derive(Getters, new)]
 pub struct ExpandContext<'context> {
     #[get = "pub(crate)"]
