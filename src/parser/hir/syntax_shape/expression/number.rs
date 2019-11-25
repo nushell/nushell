@@ -26,7 +26,9 @@ impl ExpandExpression for NumberShape {
     ) -> Result<hir::Expression, ParseError> {
         parse_single_node(token_nodes, "Number", |token, token_span, err| {
             Ok(match token {
-                UnspannedToken::GlobPattern | UnspannedToken::Operator(..) => return Err(err.error()),
+                UnspannedToken::GlobPattern | UnspannedToken::Operator(..) => {
+                    return Err(err.error())
+                }
                 UnspannedToken::Variable(tag) if tag.slice(context.source) == "it" => {
                     hir::Expression::it_variable(tag, token_span)
                 }

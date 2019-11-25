@@ -33,8 +33,6 @@ This pattern is extremely repetitive and can be abstracted:
 
 ```
 
-Do we need Display impls?
-
 Mandatory and Optional in parse_command
 
 trace_remaining?

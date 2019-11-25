@@ -38,7 +38,7 @@ pub(crate) fn dir_entry_dict(
         {
             use std::os::unix::fs::PermissionsExt;
             let mode = metadata.permissions().mode();
-            dict.insert(
+            dict.insert_untagged(
                 "mode",
                 UntaggedValue::string(umask::Mode::from(mode).to_string()),
             );
