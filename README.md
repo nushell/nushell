@@ -173,7 +173,7 @@ We can pipeline this into a command that gets the contents of one of the columns
 ━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
  authors         │ description                │ edition │ license │ name │ version
 ─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
- [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.5.0
+ [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.6.0
 ━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
 ```
 
@@ -181,7 +181,7 @@ Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.5.0
+0.6.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.
