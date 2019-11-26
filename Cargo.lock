@@ -1660,7 +1660,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "app_dirs 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
