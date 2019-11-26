@@ -6,7 +6,8 @@ use nu_source::Tagged;
 
 #[derive(Deserialize)]
 struct NthArgs {
-    amount: Tagged<i64>,
+    row_number: Tagged<u64>,
+    rest: Vec<Tagged<u64>>,
 }
 
 pub struct Nth;
@@ -17,15 +18,17 @@ impl WholeStreamCommand for Nth {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("nth").required(
-            "row number",
-            SyntaxShape::Any,
-            "the number of the row to return",
-        )
+        Signature::build("nth")
+            .required(
+                "row number",
+                SyntaxShape::Any,
+                "the number of the row to return",
+            )
+            .rest(SyntaxShape::Any, "Optionally return more rows")
     }
 
     fn usage(&self) -> &str {
-        "Return only the selected row"
+        "Return only the selected rows"
     }
 
     fn run(
@@ -38,10 +41,35 @@ impl WholeStreamCommand for Nth {
 }
 
 fn nth(
-    NthArgs { amount }: NthArgs,
+    NthArgs {
+        row_number,
+        rest: and_rows,
+    }: NthArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    Ok(OutputStream::from_input(
-        input.values.skip(amount.item as u64).take(1),
-    ))
+    let stream = input
+        .values
+        .enumerate()
+        .map(move |(idx, item)| {
+            let row_number = vec![row_number.clone()];
+
+            let row_numbers = vec![&row_number, &and_rows]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<&Tagged<u64>>>();
+
+            let mut result = VecDeque::new();
+
+            if row_numbers
+                .iter()
+                .any(|requested| requested.item == idx as u64)
+            {
+                result.push_back(ReturnSuccess::value(item.clone()));
+            }
+
+            result
+        })
+        .flatten();
+
+    Ok(stream.to_output_stream())
 }
