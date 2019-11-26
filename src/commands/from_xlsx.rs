@@ -1,8 +1,10 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, Value};
+use crate::data::value;
 use crate::prelude::*;
 use crate::{TaggedDictBuilder, TaggedListBuilder};
 use calamine::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::io::Cursor;
 
 pub struct FromXLSX;
@@ -69,12 +71,12 @@ fn from_xlsx(
                             let mut row_output = TaggedDictBuilder::new(&tag);
                             for (i, cell) in row.iter().enumerate() {
                                 let value = match cell {
-                                    DataType::Empty => UntaggedValue::nothing(),
-                                    DataType::String(s) => UntaggedValue::string(s),
-                                    DataType::Float(f) => UntaggedValue::decimal(*f),
-                                    DataType::Int(i) => UntaggedValue::int(*i),
-                                    DataType::Bool(b) => UntaggedValue::boolean(*b),
-                                    _ => UntaggedValue::nothing(),
+                                    DataType::Empty => value::nothing(),
+                                    DataType::String(s) => value::string(s),
+                                    DataType::Float(f) => value::decimal(*f),
+                                    DataType::Int(i) => value::int(*i),
+                                    DataType::Bool(b) => value::boolean(*b),
+                                    _ => value::nothing(),
                                 };
 
                                 row_output.insert_untagged(&format!("Column{}", i), value);

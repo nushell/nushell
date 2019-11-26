@@ -1,7 +1,10 @@
-use crate::data::Value;
+use crate::data::primitive::format_primitive;
+use crate::data::value::format_leaf;
 use crate::format::{EntriesView, RenderView, TableView};
 use crate::prelude::*;
 use derive_new::new;
+use nu_errors::ShellError;
+use nu_protocol::{UntaggedValue, Value};
 
 // A list is printed one line at a time with an optional separator between groups
 #[derive(new)]
@@ -13,7 +16,7 @@ impl RenderView for GenericView<'_> {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         let tag = &self.value.tag;
         match &self.value.value {
-            UntaggedValue::Primitive(p) => Ok(host.stdout(&p.format(None))),
+            UntaggedValue::Primitive(p) => Ok(host.stdout(&format_primitive(p, None))),
             UntaggedValue::Table(l) => {
                 let view = TableView::from_list(l, 0);
 
@@ -31,8 +34,8 @@ impl RenderView for GenericView<'_> {
             }
 
             b @ UntaggedValue::Block(_) => {
-                let printed = b.format_leaf().plain_string(host.width());
-                let view = EntriesView::from_value(&UntaggedValue::string(printed).into_value(tag));
+                let printed = format_leaf(b).plain_string(host.width());
+                let view = EntriesView::from_value(&value::string(printed).into_value(tag));
                 view.render_view(host)?;
                 Ok(())
             }

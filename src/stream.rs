@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use nu_protocol::{ReturnSuccess, ReturnValue, Value};
 
 pub struct InputStream {
     pub(crate) values: BoxStream<'static, Value>,

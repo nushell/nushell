@@ -6,6 +6,8 @@ use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
+use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -216,7 +218,7 @@ impl Shell for ValueShell {
     fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
         let mut stream = VecDeque::new();
         stream.push_back(ReturnSuccess::value(
-            UntaggedValue::string(self.path()).into_value(&args.call_info.name_tag),
+            value::string(self.path()).into_value(&args.call_info.name_tag),
         ));
         Ok(stream.into())
     }

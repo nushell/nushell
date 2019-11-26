@@ -1,7 +1,7 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
-use nu::{
-    outln, serve_plugin, CallInfo, Plugin, Primitive, ShellError, Signature, UntaggedValue, Value,
-};
+use nu::{serve_plugin, Plugin};
+use nu_errors::ShellError;
+use nu_protocol::{outln, CallInfo, Primitive, Signature, UntaggedValue, Value};
 use nu_source::AnchorLocation;
 use pretty_hex::*;
 

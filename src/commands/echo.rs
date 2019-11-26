@@ -1,8 +1,7 @@
-use crate::data::Value;
-use crate::errors::ShellError;
+use crate::data::value;
 use crate::prelude::*;
-
-use crate::parser::registry::Signature;
+use nu_errors::ShellError;
+use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Echo;
 
@@ -42,7 +41,7 @@ fn run(
             match i.as_string() {
                 Ok(s) => {
                     output.push(Ok(ReturnSuccess::Value(
-                        UntaggedValue::string(s).into_value(i.tag.clone()),
+                        value::string(s).into_value(i.tag.clone()),
                     )));
                 }
                 _ => match i {

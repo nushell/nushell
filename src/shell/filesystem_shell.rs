@@ -8,6 +8,8 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use nu_source::Tagged;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};

@@ -1,7 +1,10 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
+use crate::data::base::property_get::get_data_by_key;
+use crate::data::value;
 use crate::prelude::*;
 use crate::TaggedDictBuilder;
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_errors::ShellError;
 use nu_source::{SpannedItem, Tagged};
 
 pub struct Pivot;
@@ -61,7 +64,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
 
         let descs = merge_descriptors(&input);
 
-        let mut headers = vec![];
+        let mut headers: Vec<String> = vec![];
 
         if args.rest.len() > 0 && args.header_row {
             yield Err(ShellError::labeled_error("Can not provide header names and use header row", "using header row", context.name));
@@ -71,10 +74,10 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
         if args.header_row {
             for i in input.clone() {
                 if let Some(desc) = descs.get(0) {
-                    match i.get_data_by_key(desc[..].spanned_unknown()) {
+                    match get_data_by_key(&i, desc[..].spanned_unknown()) {
                         Some(x) => {
                             if let Ok(s) = x.as_string() {
-                                headers.push(s);
+                                headers.push(s.to_string());
                             } else {
                                 yield Err(ShellError::labeled_error("Header row needs string headers", "used non-string headers", context.name));
                                 return;
@@ -111,17 +114,17 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
             let mut dict = TaggedDictBuilder::new(&context.name);
 
             if !args.ignore_titles && !args.header_row {
-                dict.insert_untagged(headers[column_num].clone(), UntaggedValue::string(desc.clone()));
+                dict.insert_untagged(headers[column_num].clone(), value::string(desc.clone()));
                 column_num += 1
             }
 
             for i in input.clone() {
-                match i.get_data_by_key(desc[..].spanned_unknown()) {
+                match get_data_by_key(&i, desc[..].spanned_unknown()) {
                     Some(x) => {
                         dict.insert_value(headers[column_num].clone(), x.clone());
                     }
                     _ => {
-                        dict.insert_untagged(headers[column_num].clone(), UntaggedValue::nothing());
+                        dict.insert_untagged(headers[column_num].clone(), value::nothing());
                     }
                 }
                 column_num += 1;

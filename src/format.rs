@@ -4,9 +4,9 @@ pub(crate) mod list;
 pub(crate) mod table;
 
 use crate::prelude::*;
+use nu_errors::ShellError;
 
 pub(crate) use entries::EntriesView;
-
 pub(crate) use table::TableView;
 
 pub(crate) trait RenderView {

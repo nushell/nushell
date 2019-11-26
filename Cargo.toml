@@ -13,13 +13,18 @@ documentation = "https://book.nushell.sh"
 
 [workspace]
 
-members = ["crates/nu-source"]
+members = ["crates/nu-errors", "crates/nu-source", "crates/nu-textview", "crates/nu-protocol", "crates/nu-parser"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 nu-source = { path = "./crates/nu-source" }
+nu-protocol = { path = "./crates/nu-protocol" }
+nu-errors = { path = "./crates/nu-errors" }
+nu-parser = { path = "./crates/nu-parser" }
 
+query_interface = "0.3.5"
+typetag = "0.1.4"
 rustyline = "5.0.4"
 chrono = { version = "0.4.9", features = ["serde"] }
 derive-new = "0.5.8"
@@ -103,9 +108,8 @@ image = { version = "0.22.2", default_features = false, features = ["png_codec",
 starship = { version = "0.26.4", optional = true}
 
 [features]
-default = ["textview", "sys", "ps"]
+default = ["sys", "ps"]
 raw-key = ["rawkey", "neso"]
-textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
@@ -190,11 +194,6 @@ required-features = ["tree"]
 name = "nu_plugin_binaryview"
 path = "src/plugins/binaryview.rs"
 required-features = ["binaryview"]
-
-[[bin]]
-name = "nu_plugin_textview"
-path = "src/plugins/textview.rs"
-required-features = ["textview"]
 
 [[bin]]
 name = "nu_plugin_docker"

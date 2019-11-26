@@ -1,6 +1,7 @@
-use nu::{
-    serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, UntaggedValue, Value,
+use nu::{serve_plugin, value, Plugin};
+use nu_errors::{CoerceInto, ShellError};
+use nu_protocol::{
+    CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value,
 };
 use nu_source::TaggedItem;
 
@@ -26,7 +27,7 @@ impl Average {
                     value: UntaggedValue::Primitive(Primitive::Int(j)),
                     tag,
                 }) => {
-                    self.total = Some(UntaggedValue::int(i + j).into_value(tag));
+                    self.total = Some(value::int(i + j).into_value(tag));
                     self.count += 1;
                     Ok(())
                 }
@@ -46,7 +47,7 @@ impl Average {
                     value: UntaggedValue::Primitive(Primitive::Bytes(j)),
                     tag,
                 }) => {
-                    self.total = Some(UntaggedValue::bytes(b + j).into_value(tag));
+                    self.total = Some(value::bytes(b + j).into_value(tag));
                     self.count += 1;
                     Ok(())
                 }

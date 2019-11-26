@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Primitive;
-use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_errors::ShellError;
 use nu_source::Tagged;
 
 #[derive(Deserialize)]

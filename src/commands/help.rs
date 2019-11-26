@@ -1,8 +1,12 @@
 use crate::commands::PerItemCommand;
+use crate::data::base::property_get::get_data_by_key;
 use crate::data::{command_dict, TaggedDictBuilder};
-use crate::errors::ShellError;
-use crate::parser::registry::{self, NamedType, PositionalType};
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{
+    CallInfo, NamedType, PositionalType, Primitive, ReturnSuccess, Signature, SyntaxShape,
+    UntaggedValue, Value,
+};
 use nu_source::SpannedItem;
 
 pub struct Help;
@@ -12,7 +16,7 @@ impl PerItemCommand for Help {
         "help"
     }
 
-    fn signature(&self) -> registry::Signature {
+    fn signature(&self) -> Signature {
         Signature::build("help").rest(SyntaxShape::Any, "the name of command(s) to get help on")
     }
 
@@ -45,8 +49,7 @@ impl PerItemCommand for Help {
                         short_desc.insert_untagged("name", cmd);
                         short_desc.insert_untagged(
                             "description",
-                            value
-                                .get_data_by_key("usage".spanned_unknown())
+                            get_data_by_key(&value, "usage".spanned_unknown())
                                 .unwrap()
                                 .as_string()
                                 .unwrap(),
@@ -149,7 +152,7 @@ impl PerItemCommand for Help {
                         }
 
                         help.push_back(ReturnSuccess::value(
-                            UntaggedValue::string(long_desc).into_value(tag.clone()),
+                            value::string(long_desc).into_value(tag.clone()),
                         ));
                     }
                 }
@@ -167,9 +170,7 @@ You can also learn more at https://book.nushell.sh"#;
 
                 let mut output_stream = VecDeque::new();
 
-                output_stream.push_back(ReturnSuccess::value(
-                    UntaggedValue::string(msg).into_value(tag),
-                ));
+                output_stream.push_back(ReturnSuccess::value(value::string(msg).into_value(tag)));
 
                 Ok(output_stream.to_output_stream())
             }

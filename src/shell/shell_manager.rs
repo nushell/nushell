@@ -3,7 +3,7 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::errors::ShellError;
+use nu_errors::ShellError;
 use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;

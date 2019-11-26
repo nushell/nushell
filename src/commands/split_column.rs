@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder};
-use crate::errors::ShellError;
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use log::trace;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
+use nu_errors::ShellError;
 use nu_source::Tagged;
 
 #[derive(Deserialize)]

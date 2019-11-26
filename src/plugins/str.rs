@@ -1,6 +1,8 @@
-use nu::{
-    did_you_mean, serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess,
-    ReturnValue, ShellError, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
+use nu::{did_you_mean, serve_plugin, value, Plugin, ValueExt};
+use nu_errors::ShellError;
+use nu_protocol::{
+    CallInfo, ColumnPath, Primitive, ReturnSuccess, ReturnValue, ShellTypeName, Signature,
+    SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{span_for_spanned_list, Tagged};
 
@@ -33,15 +35,15 @@ impl Str {
 
     fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
         let applied = match self.action.as_ref() {
-            Some(Action::Downcase) => UntaggedValue::string(input.to_ascii_lowercase()),
-            Some(Action::Upcase) => UntaggedValue::string(input.to_ascii_uppercase()),
+            Some(Action::Downcase) => value::string(input.to_ascii_lowercase()),
+            Some(Action::Upcase) => value::string(input.to_ascii_uppercase()),
             Some(Action::Substring(s, e)) => {
                 let end: usize = cmp::min(*e, input.len());
                 let start: usize = *s;
                 if start > input.len() - 1 {
-                    UntaggedValue::string("")
+                    value::string("")
                 } else {
-                    UntaggedValue::string(
+                    value::string(
                         &input
                             .chars()
                             .skip(start)
@@ -52,11 +54,11 @@ impl Str {
             }
             Some(Action::ToInteger) => match input.trim() {
                 other => match other.parse::<i64>() {
-                    Ok(v) => UntaggedValue::int(v),
-                    Err(_) => UntaggedValue::string(input),
+                    Ok(v) => value::int(v),
+                    Err(_) => value::string(input),
                 },
             },
-            None => UntaggedValue::string(input),
+            None => value::string(input),
         };
 
         Ok(applied)
@@ -267,9 +269,10 @@ fn main() {
 mod tests {
     use super::{Action, Str};
     use indexmap::IndexMap;
-    use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, TaggedDictBuilder,
-        UnspannedPathMember, UntaggedValue, Value,
+    use nu::{value, Plugin, TaggedDictBuilder};
+    use nu_protocol::{
+        CallInfo, EvaluatedArgs, Primitive, ReturnSuccess, UnspannedPathMember, UntaggedValue,
+        Value,
     };
     use nu_source::Tag;
     use num_bigint::BigInt;
@@ -290,7 +293,7 @@ mod tests {
         fn with_named_parameter(&mut self, name: &str, value: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                UntaggedValue::string(value).into_value(Tag::unknown()),
+                value::string(value).into_value(Tag::unknown()),
             );
             self
         }
@@ -298,7 +301,7 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                UntaggedValue::boolean(true).into_value(Tag::unknown()),
+                value::boolean(true).into_value(Tag::unknown()),
             );
             self
         }
@@ -306,7 +309,7 @@ mod tests {
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             let fields: Vec<Value> = name
                 .split(".")
-                .map(|s| UntaggedValue::string(s.to_string()).into_value(Tag::unknown()))
+                .map(|s| value::string(s.to_string()).into_value(Tag::unknown()))
                 .collect();
 
             self.positionals
@@ -324,12 +327,12 @@ mod tests {
 
     fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.insert_untagged(key.clone(), value::string(value));
         record.into_value()
     }
 
     fn unstructured_sample_record(value: &str) -> Value {
-        UntaggedValue::string(value).into_value(Tag::unknown())
+        value::string(value).into_value(Tag::unknown())
     }
 
     #[test]
@@ -416,30 +419,21 @@ mod tests {
     fn str_downcases() {
         let mut strutils = Str::new();
         strutils.for_downcase();
-        assert_eq!(
-            strutils.apply("ANDRES").unwrap(),
-            UntaggedValue::string("andres")
-        );
+        assert_eq!(strutils.apply("ANDRES").unwrap(), value::string("andres"));
     }
 
     #[test]
     fn str_upcases() {
         let mut strutils = Str::new();
         strutils.for_upcase();
-        assert_eq!(
-            strutils.apply("andres").unwrap(),
-            UntaggedValue::string("ANDRES")
-        );
+        assert_eq!(strutils.apply("andres").unwrap(), value::string("ANDRES"));
     }
 
     #[test]
     fn str_to_int() {
         let mut strutils = Str::new();
         strutils.for_to_int();
-        assert_eq!(
-            strutils.apply("9999").unwrap(),
-            UntaggedValue::int(9999 as i64)
-        );
+        assert_eq!(strutils.apply("9999").unwrap(), value::int(9999 as i64));
     }
 
     #[test]
@@ -464,7 +458,7 @@ mod tests {
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
-                UntaggedValue::string(String::from("JOTANDREHUDA")).into_untagged_value()
+                value::string(String::from("JOTANDREHUDA")).into_untagged_value()
             ),
             _ => {}
         }
@@ -512,7 +506,7 @@ mod tests {
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
-                UntaggedValue::string(String::from("jotandrehuda")).into_untagged_value()
+                value::string(String::from("jotandrehuda")).into_untagged_value()
             ),
             _ => {}
         }
@@ -560,7 +554,7 @@ mod tests {
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("Nu_birthday")).borrow(),
-                UntaggedValue::int(10).into_untagged_value()
+                value::int(10).into_untagged_value()
             ),
             _ => {}
         }

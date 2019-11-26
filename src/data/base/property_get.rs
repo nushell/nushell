@@ -1,311 +1,408 @@
-use crate::errors::ExpectedRange;
-use crate::parser::hir::path::{PathMember, UnspannedPathMember};
+use crate::data::value;
 use crate::prelude::*;
-use crate::ColumnPath;
-use crate::SpannedTypeName;
+use nu_errors::{ExpectedRange, ShellError};
+use nu_protocol::{
+    ColumnPath, PathMember, Primitive, ShellTypeName, SpannedTypeName, UnspannedPathMember,
+    UntaggedValue, Value,
+};
 use nu_source::{Spanned, SpannedItem, Tagged};
 
-impl Value {
-    pub(crate) fn get_data_by_member(&self, name: &PathMember) -> Result<Value, ShellError> {
-        match &self.value {
-            // If the value is a row, the member is a column name
-            UntaggedValue::Row(o) => match &name.unspanned {
-                // If the member is a string, get the data
-                UnspannedPathMember::String(string) => o
-                    .get_data_by_key(string[..].spanned(name.span))
-                    .ok_or_else(|| {
-                        ShellError::missing_property(
-                            "row".spanned(self.tag.span),
-                            string.spanned(name.span),
-                        )
-                    }),
+pub trait ValueExt {
+    fn into_parts(self) -> (UntaggedValue, Tag);
+    fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value>;
+    fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value>;
+    fn get_data_by_member(&self, name: &PathMember) -> Result<Value, ShellError>;
+    fn get_data_by_column_path(
+        &self,
+        path: &ColumnPath,
+        callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
+    ) -> Result<Value, ShellError>;
+    fn insert_data_at_path(&self, path: &str, new_value: Value) -> Option<Value>;
+    fn insert_data_at_member(
+        &mut self,
+        member: &PathMember,
+        new_value: Value,
+    ) -> Result<(), ShellError>;
+    fn insert_data_at_column_path(
+        &self,
+        split_path: &ColumnPath,
+        new_value: Value,
+    ) -> Result<Value, ShellError>;
+    fn replace_data_at_column_path(
+        &self,
+        split_path: &ColumnPath,
+        replaced_value: Value,
+    ) -> Option<Value>;
+    fn as_column_path(&self) -> Result<Tagged<ColumnPath>, ShellError>;
+    fn as_path_member(&self) -> Result<PathMember, ShellError>;
+    fn as_string(&self) -> Result<String, ShellError>;
+}
 
-                // If the member is a number, it's an error
-                UnspannedPathMember::Int(_) => Err(ShellError::invalid_integer_index(
-                    "row".spanned(self.tag.span),
-                    name.span,
-                )),
-            },
-
-            // If the value is a table
-            UntaggedValue::Table(l) => {
-                match &name.unspanned {
-                    // If the member is a string, map over the member
-                    UnspannedPathMember::String(string) => {
-                        let mut out = vec![];
-
-                        for item in l {
-                            match item {
-                                Value {
-                                    value: UntaggedValue::Row(o),
-                                    ..
-                                } => match o.get_data_by_key(string[..].spanned(name.span)) {
-                                    Some(v) => out.push(v),
-                                    None => {}
-                                },
-                                _ => {}
-                            }
-                        }
-
-                        if out.len() == 0 {
-                            Err(ShellError::missing_property(
-                                "table".spanned(self.tag.span),
-                                string.spanned(name.span),
-                            ))
-                        } else {
-                            Ok(UntaggedValue::Table(out)
-                                .into_value(Tag::new(self.anchor(), name.span)))
-                        }
-                    }
-                    UnspannedPathMember::Int(int) => {
-                        let index = int.to_usize().ok_or_else(|| {
-                            ShellError::range_error(
-                                ExpectedRange::Usize,
-                                &"massive integer".spanned(name.span),
-                                "indexing",
-                            )
-                        })?;
-
-                        match self.get_data_by_index(index.spanned(self.tag.span)) {
-                            Some(v) => Ok(v.clone()),
-                            None => Err(ShellError::range_error(
-                                0..(l.len()),
-                                &int.spanned(name.span),
-                                "indexing",
-                            )),
-                        }
-                    }
-                }
-            }
-            other => Err(ShellError::type_error(
-                "row or table",
-                other.type_name().spanned(self.tag.span),
-            )),
-        }
+impl ValueExt for Value {
+    fn into_parts(self) -> (UntaggedValue, Tag) {
+        (self.value, self.tag)
     }
 
-    pub fn get_data_by_column_path(
+    fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
+        get_data(self, desc)
+    }
+
+    fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value> {
+        get_data_by_key(self, name)
+    }
+
+    fn get_data_by_member(&self, name: &PathMember) -> Result<Value, ShellError> {
+        get_data_by_member(self, name)
+    }
+
+    fn get_data_by_column_path(
         &self,
         path: &ColumnPath,
         callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
     ) -> Result<Value, ShellError> {
-        let mut current = self.clone();
-
-        for p in path.iter() {
-            let value = current.get_data_by_member(p);
-
-            match value {
-                Ok(v) => current = v.clone(),
-                Err(e) => return Err(callback((&current.clone(), &p.clone(), e))),
-            }
-        }
-
-        Ok(current)
+        get_data_by_column_path(self, path, callback)
     }
 
-    pub fn insert_data_at_path(&self, path: &str, new_value: Value) -> Option<Value> {
-        let mut new_obj = self.clone();
-
-        let split_path: Vec<_> = path.split(".").collect();
-
-        if let UntaggedValue::Row(ref mut o) = new_obj.value {
-            let mut current = o;
-
-            if split_path.len() == 1 {
-                // Special case for inserting at the top level
-                current.entries.insert(
-                    path.to_string(),
-                    new_value.value.clone().into_value(&self.tag),
-                );
-                return Some(new_obj);
-            }
-
-            for idx in 0..split_path.len() {
-                match current.entries.get_mut(split_path[idx]) {
-                    Some(next) => {
-                        if idx == (split_path.len() - 2) {
-                            match &mut next.value {
-                                UntaggedValue::Row(o) => {
-                                    o.entries.insert(
-                                        split_path[idx + 1].to_string(),
-                                        new_value.value.clone().into_value(&self.tag),
-                                    );
-                                }
-                                _ => {}
-                            }
-
-                            return Some(new_obj.clone());
-                        } else {
-                            match next.value {
-                                UntaggedValue::Row(ref mut o) => {
-                                    current = o;
-                                }
-                                _ => return None,
-                            }
-                        }
-                    }
-                    _ => return None,
-                }
-            }
-        }
-
-        None
+    fn insert_data_at_path(&self, path: &str, new_value: Value) -> Option<Value> {
+        insert_data_at_path(self, path, new_value)
     }
 
-    pub fn insert_data_at_member(
+    fn insert_data_at_member(
         &mut self,
         member: &PathMember,
         new_value: Value,
     ) -> Result<(), ShellError> {
-        match &mut self.value {
-            UntaggedValue::Row(dict) => match &member.unspanned {
-                UnspannedPathMember::String(key) => Ok({
-                    dict.insert_data_at_key(key, new_value);
-                }),
-                UnspannedPathMember::Int(_) => Err(ShellError::type_error(
-                    "column name",
-                    "integer".spanned(member.span),
-                )),
-            },
-            UntaggedValue::Table(array) => match &member.unspanned {
-                UnspannedPathMember::String(_) => Err(ShellError::type_error(
-                    "list index",
-                    "string".spanned(member.span),
-                )),
-                UnspannedPathMember::Int(int) => Ok({
-                    let int = int.to_usize().ok_or_else(|| {
-                        ShellError::range_error(
-                            ExpectedRange::Usize,
-                            &"bigger number".spanned(member.span),
-                            "inserting into a list",
-                        )
-                    })?;
-
-                    insert_data_at_index(array, int.tagged(member.span), new_value.clone())?;
-                }),
-            },
-            other => match &member.unspanned {
-                UnspannedPathMember::String(_) => Err(ShellError::type_error(
-                    "row",
-                    other.type_name().spanned(self.span()),
-                )),
-                UnspannedPathMember::Int(_) => Err(ShellError::type_error(
-                    "table",
-                    other.type_name().spanned(self.span()),
-                )),
-            },
-        }
+        insert_data_at_member(self, member, new_value)
     }
 
-    pub fn insert_data_at_column_path(
+    fn insert_data_at_column_path(
         &self,
         split_path: &ColumnPath,
         new_value: Value,
     ) -> Result<Value, ShellError> {
-        let (last, front) = split_path.split_last();
-        let mut original = self.clone();
-
-        let mut current: &mut Value = &mut original;
-
-        for member in front {
-            let type_name = current.spanned_type_name();
-
-            current = current.get_mut_data_by_member(&member).ok_or_else(|| {
-                ShellError::missing_property(
-                    member.plain_string(std::usize::MAX).spanned(member.span),
-                    type_name,
-                )
-            })?
-        }
-
-        current.insert_data_at_member(&last, new_value)?;
-
-        Ok(original)
+        insert_data_at_column_path(self, split_path, new_value)
     }
 
-    pub fn replace_data_at_column_path(
+    fn replace_data_at_column_path(
         &self,
         split_path: &ColumnPath,
         replaced_value: Value,
     ) -> Option<Value> {
-        let mut new_obj: Value = self.clone();
-        let mut current = &mut new_obj;
-        let split_path = split_path.members();
+        replace_data_at_column_path(self, split_path, replaced_value)
+    }
 
-        for idx in 0..split_path.len() {
-            match current.get_mut_data_by_member(&split_path[idx]) {
-                Some(next) => {
-                    if idx == (split_path.len() - 1) {
-                        *next = replaced_value.value.into_value(&self.tag);
-                        return Some(new_obj);
+    fn as_column_path(&self) -> Result<Tagged<ColumnPath>, ShellError> {
+        as_column_path(self)
+    }
+
+    fn as_path_member(&self) -> Result<PathMember, ShellError> {
+        as_path_member(self)
+    }
+
+    fn as_string(&self) -> Result<String, ShellError> {
+        as_string(self)
+    }
+}
+
+pub(crate) fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, ShellError> {
+    match &value.value {
+        // If the value is a row, the member is a column name
+        UntaggedValue::Row(o) => match &name.unspanned {
+            // If the member is a string, get the data
+            UnspannedPathMember::String(string) => o
+                .get_data_by_key(string[..].spanned(name.span))
+                .ok_or_else(|| {
+                    ShellError::missing_property(
+                        "row".spanned(value.tag.span),
+                        string.spanned(name.span),
+                    )
+                }),
+
+            // If the member is a number, it's an error
+            UnspannedPathMember::Int(_) => Err(ShellError::invalid_integer_index(
+                "row".spanned(value.tag.span),
+                name.span,
+            )),
+        },
+
+        // If the value is a table
+        UntaggedValue::Table(l) => {
+            match &name.unspanned {
+                // If the member is a string, map over the member
+                UnspannedPathMember::String(string) => {
+                    let mut out = vec![];
+
+                    for item in l {
+                        match item {
+                            Value {
+                                value: UntaggedValue::Row(o),
+                                ..
+                            } => match o.get_data_by_key(string[..].spanned(name.span)) {
+                                Some(v) => out.push(v),
+                                None => {}
+                            },
+                            _ => {}
+                        }
+                    }
+
+                    if out.len() == 0 {
+                        Err(ShellError::missing_property(
+                            "table".spanned(value.tag.span),
+                            string.spanned(name.span),
+                        ))
                     } else {
-                        current = next;
+                        Ok(UntaggedValue::Table(out)
+                            .into_value(Tag::new(value.anchor(), name.span)))
                     }
                 }
-                None => {
-                    return None;
+                UnspannedPathMember::Int(int) => {
+                    let index = int.to_usize().ok_or_else(|| {
+                        ShellError::range_error(
+                            ExpectedRange::Usize,
+                            &"massive integer".spanned(name.span),
+                            "indexing",
+                        )
+                    })?;
+
+                    match get_data_by_index(value, index.spanned(value.tag.span)) {
+                        Some(v) => Ok(v.clone()),
+                        None => Err(ShellError::range_error(
+                            0..(l.len()),
+                            &int.spanned(name.span),
+                            "indexing",
+                        )),
+                    }
                 }
             }
         }
+        other => Err(ShellError::type_error(
+            "row or table",
+            other.type_name().spanned(value.tag.span),
+        )),
+    }
+}
 
-        None
+pub fn get_data_by_column_path(
+    value: &Value,
+    path: &ColumnPath,
+    callback: Box<dyn FnOnce((&Value, &PathMember, ShellError)) -> ShellError>,
+) -> Result<Value, ShellError> {
+    let mut current = value.clone();
+
+    for p in path.iter() {
+        let value = get_data_by_member(&current, p);
+
+        match value {
+            Ok(v) => current = v.clone(),
+            Err(e) => return Err(callback((&current.clone(), &p.clone(), e))),
+        }
     }
 
-    pub fn as_column_path(&self) -> Result<Tagged<ColumnPath>, ShellError> {
-        match &self.value {
-            UntaggedValue::Table(table) => {
-                let mut out: Vec<PathMember> = vec![];
+    Ok(current)
+}
 
-                for item in table {
-                    out.push(item.as_path_member()?);
+pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Option<Value> {
+    let mut new_obj = value.clone();
+
+    let split_path: Vec<_> = path.split(".").collect();
+
+    if let UntaggedValue::Row(ref mut o) = new_obj.value {
+        let mut current = o;
+
+        if split_path.len() == 1 {
+            // Special case for inserting at the top level
+            current.entries.insert(
+                path.to_string(),
+                new_value.value.clone().into_value(&value.tag),
+            );
+            return Some(new_obj);
+        }
+
+        for idx in 0..split_path.len() {
+            match current.entries.get_mut(split_path[idx]) {
+                Some(next) => {
+                    if idx == (split_path.len() - 2) {
+                        match &mut next.value {
+                            UntaggedValue::Row(o) => {
+                                o.entries.insert(
+                                    split_path[idx + 1].to_string(),
+                                    new_value.value.clone().into_value(&value.tag),
+                                );
+                            }
+                            _ => {}
+                        }
+
+                        return Some(new_obj.clone());
+                    } else {
+                        match next.value {
+                            UntaggedValue::Row(ref mut o) => {
+                                current = o;
+                            }
+                            _ => return None,
+                        }
+                    }
                 }
-
-                Ok(ColumnPath::new(out).tagged(&self.tag))
+                _ => return None,
             }
+        }
+    }
 
-            UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
-                Ok(path.clone().tagged(self.tag.clone()))
-            }
+    None
+}
 
-            other => Err(ShellError::type_error(
-                "column path",
-                other.type_name().spanned(self.span()),
+pub fn insert_data_at_member(
+    value: &mut Value,
+    member: &PathMember,
+    new_value: Value,
+) -> Result<(), ShellError> {
+    match &mut value.value {
+        UntaggedValue::Row(dict) => match &member.unspanned {
+            UnspannedPathMember::String(key) => Ok({
+                dict.insert_data_at_key(key, new_value);
+            }),
+            UnspannedPathMember::Int(_) => Err(ShellError::type_error(
+                "column name",
+                "integer".spanned(member.span),
             )),
+        },
+        UntaggedValue::Table(array) => match &member.unspanned {
+            UnspannedPathMember::String(_) => Err(ShellError::type_error(
+                "list index",
+                "string".spanned(member.span),
+            )),
+            UnspannedPathMember::Int(int) => Ok({
+                let int = int.to_usize().ok_or_else(|| {
+                    ShellError::range_error(
+                        ExpectedRange::Usize,
+                        &"bigger number".spanned(member.span),
+                        "inserting into a list",
+                    )
+                })?;
+
+                insert_data_at_index(array, int.tagged(member.span), new_value.clone())?;
+            }),
+        },
+        other => match &member.unspanned {
+            UnspannedPathMember::String(_) => Err(ShellError::type_error(
+                "row",
+                other.type_name().spanned(value.span()),
+            )),
+            UnspannedPathMember::Int(_) => Err(ShellError::type_error(
+                "table",
+                other.type_name().spanned(value.span()),
+            )),
+        },
+    }
+}
+
+pub fn insert_data_at_column_path(
+    value: &Value,
+    split_path: &ColumnPath,
+    new_value: Value,
+) -> Result<Value, ShellError> {
+    let (last, front) = split_path.split_last();
+    let mut original = value.clone();
+
+    let mut current: &mut Value = &mut original;
+
+    for member in front {
+        let type_name = current.spanned_type_name();
+
+        current = get_mut_data_by_member(current, &member).ok_or_else(|| {
+            ShellError::missing_property(
+                member.plain_string(std::usize::MAX).spanned(member.span),
+                type_name,
+            )
+        })?
+    }
+
+    insert_data_at_member(current, &last, new_value)?;
+
+    Ok(original)
+}
+
+pub fn replace_data_at_column_path(
+    value: &Value,
+    split_path: &ColumnPath,
+    replaced_value: Value,
+) -> Option<Value> {
+    let mut new_obj: Value = value.clone();
+    let mut current = &mut new_obj;
+    let split_path = split_path.members();
+
+    for idx in 0..split_path.len() {
+        match get_mut_data_by_member(current, &split_path[idx]) {
+            Some(next) => {
+                if idx == (split_path.len() - 1) {
+                    *next = replaced_value.value.into_value(&value.tag);
+                    return Some(new_obj);
+                } else {
+                    current = next;
+                }
+            }
+            None => {
+                return None;
+            }
         }
     }
 
-    pub fn as_path_member(&self) -> Result<PathMember, ShellError> {
-        match &self.value {
-            UntaggedValue::Primitive(primitive) => match primitive {
-                Primitive::Int(int) => Ok(PathMember::int(int.clone(), self.tag.span)),
-                Primitive::String(string) => Ok(PathMember::string(string, self.tag.span)),
-                other => Err(ShellError::type_error(
-                    "path member",
-                    other.type_name().spanned(self.span()),
-                )),
-            },
+    None
+}
+
+pub fn as_column_path(value: &Value) -> Result<Tagged<ColumnPath>, ShellError> {
+    match &value.value {
+        UntaggedValue::Table(table) => {
+            let mut out: Vec<PathMember> = vec![];
+
+            for item in table {
+                out.push(as_path_member(item)?);
+            }
+
+            Ok(ColumnPath::new(out).tagged(&value.tag))
+        }
+
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
+            Ok(path.clone().tagged(value.tag.clone()))
+        }
+
+        other => Err(ShellError::type_error(
+            "column path",
+            other.type_name().spanned(value.span()),
+        )),
+    }
+}
+
+pub fn as_path_member(value: &Value) -> Result<PathMember, ShellError> {
+    match &value.value {
+        UntaggedValue::Primitive(primitive) => match primitive {
+            Primitive::Int(int) => Ok(PathMember::int(int.clone(), value.tag.span)),
+            Primitive::String(string) => Ok(PathMember::string(string, value.tag.span)),
             other => Err(ShellError::type_error(
                 "path member",
-                other.type_name().spanned(self.span()),
+                other.type_name().spanned(value.span()),
             )),
-        }
+        },
+        other => Err(ShellError::type_error(
+            "path member",
+            other.type_name().spanned(value.span()),
+        )),
     }
+}
 
-    pub fn as_string(&self) -> Result<String, ShellError> {
-        match &self.value {
-            UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
-            UntaggedValue::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
-            UntaggedValue::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
-            UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
-            UntaggedValue::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
-            UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
-            // TODO: this should definitely be more general with better errors
-            other => Err(ShellError::labeled_error(
-                "Expected string",
-                other.type_name(),
-                &self.tag,
-            )),
-        }
+pub fn as_string(value: &Value) -> Result<String, ShellError> {
+    match &value.value {
+        UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
+        UntaggedValue::Primitive(Primitive::Boolean(x)) => Ok(format!("{}", x)),
+        UntaggedValue::Primitive(Primitive::Decimal(x)) => Ok(format!("{}", x)),
+        UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
+        UntaggedValue::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
+        UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+        // TODO: this should definitely be more general with better errors
+        other => Err(ShellError::labeled_error(
+            "Expected string",
+            other.type_name(),
+            &value.tag,
+        )),
     }
 }
 
@@ -326,88 +423,89 @@ fn insert_data_at_index(
     }
 }
 
-impl Value {
-    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
-        match &self.value {
-            UntaggedValue::Primitive(_) => MaybeOwned::Borrowed(self),
-            UntaggedValue::Row(o) => o.get_data(desc),
-            UntaggedValue::Block(_) | UntaggedValue::Table(_) | UntaggedValue::Error(_) => {
-                MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
-            }
+pub fn get_data<'value>(value: &'value Value, desc: &String) -> MaybeOwned<'value, Value> {
+    match &value.value {
+        UntaggedValue::Primitive(_) => MaybeOwned::Borrowed(value),
+        UntaggedValue::Row(o) => o.get_data(desc),
+        UntaggedValue::Block(_) | UntaggedValue::Table(_) | UntaggedValue::Error(_) => {
+            MaybeOwned::Owned(value::nothing().into_untagged_value())
         }
     }
+}
 
-    pub(crate) fn get_data_by_index(&self, idx: Spanned<usize>) -> Option<Value> {
-        match &self.value {
-            UntaggedValue::Table(value_set) => {
-                let value = value_set.get(idx.item)?;
-                Some(
-                    value
-                        .value
-                        .clone()
-                        .into_value(Tag::new(value.anchor(), idx.span)),
-                )
-            }
-            _ => None,
+pub(crate) fn get_data_by_index(value: &Value, idx: Spanned<usize>) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Table(value_set) => {
+            let value = value_set.get(idx.item)?;
+            Some(
+                value
+                    .value
+                    .clone()
+                    .into_value(Tag::new(value.anchor(), idx.span)),
+            )
         }
+        _ => None,
     }
+}
 
-    pub(crate) fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value> {
-        match &self.value {
-            UntaggedValue::Row(o) => o.get_data_by_key(name),
-            UntaggedValue::Table(l) => {
-                let mut out = vec![];
+pub(crate) fn get_data_by_key(value: &Value, name: Spanned<&str>) -> Option<Value> {
+    match &value.value {
+        UntaggedValue::Row(o) => o.get_data_by_key(name),
+        UntaggedValue::Table(l) => {
+            let mut out = vec![];
+            for item in l {
+                match item {
+                    Value {
+                        value: UntaggedValue::Row(o),
+                        ..
+                    } => match o.get_data_by_key(name) {
+                        Some(v) => out.push(v),
+                        None => out.push(value::nothing().into_untagged_value()),
+                    },
+                    _ => out.push(value::nothing().into_untagged_value()),
+                }
+            }
+
+            if out.len() > 0 {
+                Some(UntaggedValue::Table(out).into_value(name.span))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn get_mut_data_by_member<'value>(
+    value: &'value mut Value,
+    name: &PathMember,
+) -> Option<&'value mut Value> {
+    match &mut value.value {
+        UntaggedValue::Row(o) => match &name.unspanned {
+            UnspannedPathMember::String(string) => o.get_mut_data_by_key(&string),
+            UnspannedPathMember::Int(_) => None,
+        },
+        UntaggedValue::Table(l) => match &name.unspanned {
+            UnspannedPathMember::String(string) => {
                 for item in l {
                     match item {
                         Value {
                             value: UntaggedValue::Row(o),
                             ..
-                        } => match o.get_data_by_key(name) {
-                            Some(v) => out.push(v),
-                            None => out.push(UntaggedValue::nothing().into_untagged_value()),
+                        } => match o.get_mut_data_by_key(&string) {
+                            Some(v) => return Some(v),
+                            None => {}
                         },
-                        _ => out.push(UntaggedValue::nothing().into_untagged_value()),
+                        _ => {}
                     }
                 }
-
-                if out.len() > 0 {
-                    Some(UntaggedValue::Table(out).into_value(name.span))
-                } else {
-                    None
-                }
+                None
             }
-            _ => None,
-        }
-    }
-
-    pub(crate) fn get_mut_data_by_member(&mut self, name: &PathMember) -> Option<&mut Value> {
-        match &mut self.value {
-            UntaggedValue::Row(o) => match &name.unspanned {
-                UnspannedPathMember::String(string) => o.get_mut_data_by_key(&string),
-                UnspannedPathMember::Int(_) => None,
-            },
-            UntaggedValue::Table(l) => match &name.unspanned {
-                UnspannedPathMember::String(string) => {
-                    for item in l {
-                        match item {
-                            Value {
-                                value: UntaggedValue::Row(o),
-                                ..
-                            } => match o.get_mut_data_by_key(&string) {
-                                Some(v) => return Some(v),
-                                None => {}
-                            },
-                            _ => {}
-                        }
-                    }
-                    None
-                }
-                UnspannedPathMember::Int(int) => {
-                    let index = int.to_usize()?;
-                    l.get_mut(index)
-                }
-            },
-            _ => None,
-        }
+            UnspannedPathMember::Int(int) => {
+                let index = int.to_usize()?;
+                l.get_mut(index)
+            }
+        },
+        _ => None,
     }
 }

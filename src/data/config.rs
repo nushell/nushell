@@ -1,11 +1,11 @@
 use crate::commands::from_toml::convert_toml_value_to_nu_value;
 use crate::commands::to_toml::value_to_toml_value;
-use crate::data::{Dictionary, Value};
-use crate::errors::ShellError;
 use crate::prelude::*;
 use app_dirs::*;
 use indexmap::IndexMap;
 use log::trace;
+use nu_protocol::{Dictionary, ShellTypeName, UntaggedValue, Value};
+use nu_errors::ShellError;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io;

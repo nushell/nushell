@@ -50,7 +50,7 @@ fn process_docker_output(cmd_output: &str, tag: Tag) -> Result<Vec<Value>, Shell
         for (i, v) in values.iter().enumerate() {
             dict.insert(
                 header[i].to_string(),
-                UntaggedValue::string(v.trim().to_string()),
+                value::string(v.trim().to_string()),
             );
         }
 

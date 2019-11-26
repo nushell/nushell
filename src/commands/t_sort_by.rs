@@ -1,8 +1,12 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{TaggedDictBuilder, TaggedListBuilder};
-use crate::errors::ShellError;
+use crate::data::base::property_get::get_data_by_key;
+use crate::data::{value, TaggedDictBuilder, TaggedListBuilder};
 use crate::prelude::*;
 use chrono::{DateTime, NaiveDate, Utc};
+use nu_protocol::{
+    Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
+use nu_errors::ShellError;
 use nu_source::Tagged;
 
 pub struct TSortBy;
@@ -68,7 +72,7 @@ fn t_sort_by(
 
         if show_columns {
             for label in columns_sorted(column_grouped_by_name, &values[0], &name).into_iter() {
-                 yield ReturnSuccess::value(UntaggedValue::string(label.item).into_value(label.tag));
+                 yield ReturnSuccess::value(value::string(label.item).into_value(label.tag));
             }
         } else {
             match t_sort(column_grouped_by_name, None, &values[0], name) {
@@ -102,7 +106,7 @@ pub fn columns_sorted(
                         Ok(parsed) => UntaggedValue::Primitive(Primitive::Date(
                             DateTime::<Utc>::from_utc(parsed.and_hms(12, 34, 56), Utc),
                         )),
-                        Err(_) => UntaggedValue::string(k),
+                        Err(_) => value::string(k),
                     };
 
                     date.into_untagged_value()
@@ -118,7 +122,7 @@ pub fn columns_sorted(
                         value: UntaggedValue::Primitive(Primitive::Date(d)),
                         ..
                     } => format!("{}", d.format("%B %d-%Y")),
-                    _ => k.as_string().unwrap(),
+                    _ => k.as_string().unwrap().to_string(),
                 })
                 .collect();
 
@@ -168,7 +172,7 @@ pub fn t_sort(
                     let results: Vec<Vec<Value>> = split_labels
                         .iter()
                         .map(|split| {
-                            let groups = dataset.get_data_by_key(split.borrow_spanned());
+                            let groups = get_data_by_key(&dataset, split.borrow_spanned());
 
                             sorted_labels
                                 .clone()
@@ -195,10 +199,10 @@ pub fn t_sort(
 
                     return Ok(UntaggedValue::Table(outer.list).into_value(&origin_tag));
                 }
-                Some(_) => return Ok(UntaggedValue::nothing().into_value(&origin_tag)),
+                Some(_) => return Ok(value::nothing().into_value(&origin_tag)),
             }
         }
-        None => return Ok(UntaggedValue::nothing().into_value(&origin_tag)),
+        None => return Ok(value::nothing().into_value(&origin_tag)),
     }
 }
 #[cfg(test)]
@@ -206,20 +210,21 @@ mod tests {
 
     use crate::commands::group_by::group;
     use crate::commands::t_sort_by::{columns_sorted, t_sort};
-    use crate::data::base::{UntaggedValue, Value};
+    use crate::data::value;
     use indexmap::IndexMap;
+    use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
 
     fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
+        value::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
+        value::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
+        value::table(list).into_untagged_value()
     }
 
     fn nu_releases_grouped_by_date() -> Value {

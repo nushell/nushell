@@ -1,9 +1,7 @@
-use crate::data::Value;
-use crate::errors::ShellError;
-use crate::prelude::*;
-
 use crate::commands::WholeStreamCommand;
-use crate::parser::registry::Signature;
+use crate::prelude::*;
+use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_errors::ShellError;
 
 pub struct Which;
 

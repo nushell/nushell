@@ -1,0 +1,37 @@
+[package]
+name = "nu-parser"
+version = "0.1.0"
+authors = ["Yehuda Katz <wycats@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-errors = { path = "../nu-errors" }
+nu-source = { path = "../nu-source" }
+nu-protocol = { path = "../nu-protocol" }
+
+pretty_env_logger = "0.3.1"
+pretty = "0.5.2"
+termcolor = "1.0.5"
+log = "0.4.8"
+indexmap = { version = "1.3.0", features = ["serde-1"] }
+serde = { version = "1.0.102", features = ["derive"] }
+nom = "5.0.1"
+nom_locate = "1.0.0"
+nom-tracable = "0.4.1"
+num-traits = "0.2.8"
+num-bigint = { version = "0.2.3", features = ["serde"] }
+bigdecimal = { version = "0.1.0", features = ["serde"] }
+derive-new = "0.5.8"
+getset = "0.0.9"
+cfg-if = "0.1"
+itertools = "0.8.1"
+shellexpand = "1.0.0"
+ansi_term = "0.12.1"
+ptree = {version = "0.2" }
+language-reporting = "0.4.0"
+unicode-xid = "0.2.0"
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"

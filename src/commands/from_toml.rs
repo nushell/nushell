@@ -1,6 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct FromTOML;
 
@@ -30,9 +32,9 @@ pub fn convert_toml_value_to_nu_value(v: &toml::Value, tag: impl Into<Tag>) -> V
     let tag = tag.into();
 
     match v {
-        toml::Value::Boolean(b) => UntaggedValue::boolean(*b).into_value(tag),
-        toml::Value::Integer(n) => UntaggedValue::number(n).into_value(tag),
-        toml::Value::Float(n) => UntaggedValue::number(n).into_value(tag),
+        toml::Value::Boolean(b) => value::boolean(*b).into_value(tag),
+        toml::Value::Integer(n) => value::number(n).into_value(tag),
+        toml::Value::Float(n) => value::number(n).into_value(tag),
         toml::Value::String(s) => {
             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(tag)
         }

@@ -1,6 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Value;
+use crate::data::value;
 use crate::prelude::*;
+use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_errors::ShellError;
 
 pub struct ToURL;
 
@@ -41,7 +43,7 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
                     for (k,v) in row.entries {
                         match v.as_string() {
                             Ok(s) => {
-                                row_vec.push((k.clone(), s));
+                                row_vec.push((k.clone(), s.to_string()));
                             }
                             _ => {
                                 yield Err(ShellError::labeled_error_with_secondary(
@@ -57,7 +59,7 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
 
                     match serde_urlencoded::to_string(row_vec) {
                         Ok(s) => {
-                            yield ReturnSuccess::value(UntaggedValue::string(s).into_value(&tag));
+                            yield ReturnSuccess::value(value::string(s).into_value(&tag));
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(

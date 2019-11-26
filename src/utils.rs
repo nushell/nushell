@@ -1,6 +1,5 @@
-use crate::data::base::{UntaggedValue, Value};
-use crate::errors::ShellError;
-use crate::{PathMember, UnspannedPathMember};
+use nu_errors::ShellError;
+use nu_protocol::{PathMember, UnspannedPathMember, UntaggedValue, Value};
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use std::ops::Div;
 use std::path::{Component, Path, PathBuf};
@@ -161,22 +160,20 @@ impl<'a> Iterator for TaggedValueIter<'a> {
     }
 }
 
-impl Value {
-    fn is_tagged_dir(value: &Value) -> bool {
-        match &value.value {
-            UntaggedValue::Row(_) | UntaggedValue::Table(_) => true,
-            _ => false,
-        }
+fn is_value_tagged_dir(value: &Value) -> bool {
+    match &value.value {
+        UntaggedValue::Row(_) | UntaggedValue::Table(_) => true,
+        _ => false,
     }
+}
 
-    fn tagged_entries(value: &Value) -> TaggedValueIter<'_> {
-        match &value.value {
-            UntaggedValue::Row(o) => {
-                let iter = o.entries.iter();
-                TaggedValueIter::List(iter)
-            }
-            _ => TaggedValueIter::Empty,
+fn tagged_entries_for(value: &Value) -> TaggedValueIter<'_> {
+    match &value.value {
+        UntaggedValue::Row(o) => {
+            let iter = o.entries.iter();
+            TaggedValueIter::List(iter)
         }
+        _ => TaggedValueIter::Empty,
     }
 }
 
@@ -237,7 +234,7 @@ impl ValueStructure {
     }
 
     fn build(&mut self, src: &Value, lvl: usize) -> Result<(), ShellError> {
-        for entry in Value::tagged_entries(src) {
+        for entry in tagged_entries_for(src) {
             let value = entry.1;
             let path = entry.0;
 
@@ -246,7 +243,7 @@ impl ValueStructure {
                 loc: PathBuf::from(path),
             });
 
-            if Value::is_tagged_dir(value) {
+            if is_value_tagged_dir(value) {
                 self.build(value, lvl + 1)?;
             }
         }
@@ -335,8 +332,8 @@ impl FileStructure {
 #[cfg(test)]
 mod tests {
     use super::{FileStructure, Res, ValueResource, ValueStructure};
-    use crate::data::base::{UntaggedValue, Value};
-    use crate::data::TaggedDictBuilder;
+    use crate::data::{value, TaggedDictBuilder};
+    use nu_protocol::Value;
     use nu_source::Tag;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
@@ -355,7 +352,7 @@ mod tests {
 
     fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.insert_untagged(key.clone(), value::string(value));
         record.into_value()
     }
 

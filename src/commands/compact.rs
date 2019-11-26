@@ -1,9 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::UntaggedValue;
-use crate::errors::ShellError;
-use crate::parser::registry::{CommandRegistry, Signature};
+use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
+use nu_errors::ShellError;
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct Compact;

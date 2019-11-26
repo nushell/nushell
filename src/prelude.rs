@@ -68,19 +68,6 @@ macro_rules! trace_out_stream {
     }};
 }
 
-// These macros exist to differentiate between intentional writing to stdout
-// and stray printlns left by accident
-
-#[macro_export]
-macro_rules! outln {
-    ($($tokens:tt)*) => { println!($($tokens)*) }
-}
-
-#[macro_export]
-macro_rules! errln {
-    ($($tokens:tt)*) => { eprintln!($($tokens)*) }
-}
-
 #[macro_export]
 macro_rules! dict {
     ($( $key:expr => $value:expr ),*) => {
@@ -100,40 +87,34 @@ macro_rules! dict {
     }
 }
 
-pub(crate) use crate::cli::MaybeOwned;
+pub(crate) use nu_protocol::{errln, outln};
+
 pub(crate) use crate::commands::command::{
-    CallInfo, CommandAction, CommandArgs, ReturnSuccess, ReturnValue, RunnableContext,
+    CallInfoExt, CommandArgs, PerItemCommand, RawCommandArgs, RunnableContext,
 };
-pub(crate) use crate::commands::PerItemCommand;
-pub(crate) use crate::commands::RawCommandArgs;
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
-pub(crate) use crate::data::base::{UntaggedValue, Value};
+pub(crate) use crate::data::base::property_get::ValueExt;
 pub(crate) use crate::data::types::ExtractType;
-pub(crate) use crate::data::Primitive;
+pub(crate) use crate::data::value;
 pub(crate) use crate::env::host::handle_unexpected;
 pub(crate) use crate::env::Host;
-pub(crate) use crate::errors::{CoerceInto, ParseError, ShellError};
-pub(crate) use crate::parser::hir::SyntaxShape;
-pub(crate) use crate::parser::parse::parser::Number;
-pub(crate) use crate::parser::registry::Signature;
 pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
 pub(crate) use crate::stream::{InputStream, OutputStream};
-pub(crate) use crate::traits::{ShellTypeName, SpannedTypeName};
 pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{FutureExt, Stream, StreamExt};
+pub(crate) use nu_protocol::{EvaluateTrait, MaybeOwned};
 pub(crate) use nu_source::{
-    b, AnchorLocation, DebugDocBuilder, HasFallibleSpan, HasSpan, PrettyDebug,
+    b, AnchorLocation, DebugDocBuilder, HasSpan, PrettyDebug,
     PrettyDebugWithSource, Span, SpannedItem, Tag, TaggedItem, Text,
 };
 pub(crate) use num_bigint::BigInt;
-pub(crate) use num_traits::cast::{FromPrimitive, ToPrimitive};
-pub(crate) use num_traits::identities::Zero;
+pub(crate) use num_traits::cast::{ToPrimitive};
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
@@ -147,11 +128,11 @@ pub trait FromInputStream {
 
 impl<T> FromInputStream for T
 where
-    T: Stream<Item = Value> + Send + 'static,
+    T: Stream<Item = nu_protocol::Value> + Send + 'static,
 {
     fn from_input_stream(self) -> OutputStream {
         OutputStream {
-            values: self.map(ReturnSuccess::value).boxed(),
+            values: self.map(nu_protocol::ReturnSuccess::value).boxed(),
         }
     }
 }
@@ -163,7 +144,7 @@ pub trait ToInputStream {
 impl<T, U> ToInputStream for T
 where
     T: Stream<Item = U> + Send + 'static,
-    U: Into<Result<Value, ShellError>>,
+    U: Into<Result<nu_protocol::Value, nu_errors::ShellError>>,
 {
     fn to_input_stream(self) -> InputStream {
         InputStream {
@@ -179,7 +160,7 @@ pub trait ToOutputStream {
 impl<T, U> ToOutputStream for T
 where
     T: Stream<Item = U> + Send + 'static,
-    U: Into<ReturnValue>,
+    U: Into<nu_protocol::ReturnValue>,
 {
     fn to_output_stream(self) -> OutputStream {
         OutputStream {

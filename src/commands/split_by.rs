@@ -1,8 +1,10 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::UntaggedValue;
 use crate::data::TaggedDictBuilder;
-use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_protocol::{
+    ReturnSuccess, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
+};
+use nu_errors::ShellError;
 use nu_source::Tagged;
 
 pub struct SplitBy;
@@ -104,7 +106,7 @@ pub fn split(
                                                 .or_insert(indexmap::IndexMap::new());
                                             s.insert(
                                                 group_key.clone(),
-                                                UntaggedValue::table(&subset).into_value(tag),
+                                                value::table(&subset).into_value(tag),
                                             );
                                         }
                                         other => {
@@ -144,7 +146,7 @@ pub fn split(
     let mut out = TaggedDictBuilder::new(&origin_tag);
 
     for (k, v) in splits.into_iter() {
-        out.insert_untagged(k, UntaggedValue::row(v));
+        out.insert_untagged(k, value::row(v));
     }
 
     Ok(out.into_value())
@@ -154,20 +156,21 @@ mod tests {
 
     use crate::commands::group_by::group;
     use crate::commands::split_by::split;
-    use crate::data::base::{UntaggedValue, Value};
+    use crate::data::value;
     use indexmap::IndexMap;
+    use nu_protocol::Value;
     use nu_source::*;
 
     fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
+        value::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
+        value::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
+        value::table(list).into_untagged_value()
     }
 
     fn nu_releases_grouped_by_date() -> Value {
@@ -213,7 +216,7 @@ mod tests {
 
         assert_eq!(
             split(&for_key, &nu_releases_grouped_by_date(), Tag::unknown()).unwrap(),
-            UntaggedValue::row(indexmap! {
+            value::row(indexmap! {
                 "EC".into() => row(indexmap! {
                     "August 23-2019".into() => table(&vec![
                         row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")})
@@ -260,7 +263,7 @@ mod tests {
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")})
             ]),
             "Sept 24-2019".into() =>  table(&vec![
-                    row(indexmap!{"name".into() => UntaggedValue::string("JT").into_value(Tag::from(Span::new(5,10))), "date".into() => string("Sept 24-2019")})
+                    row(indexmap!{"name".into() => value::string("JT").into_value(Tag::from(Span::new(5,10))), "date".into() => string("Sept 24-2019")})
             ]),
             "October 10-2019".into() =>  table(&vec![
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")})

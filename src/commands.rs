@@ -99,7 +99,6 @@ pub(crate) use command::{
 };
 
 pub(crate) use append::Append;
-pub(crate) use classified::ClassifiedCommand;
 pub(crate) use compact::Compact;
 pub(crate) use config::Config;
 pub(crate) use count::Count;

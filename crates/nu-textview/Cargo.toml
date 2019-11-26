@@ -1,0 +1,22 @@
+[package]
+name = "nu-textview"
+version = "0.1.0"
+authors = ["Yehuda Katz <wycats@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "nu_plugin_textview"
+path = "src/main.rs"
+required-features = ["textview"]
+
+[dependencies]
+
+syntect = { version = "3.2.0" }
+ansi_term = "0.12.1"
+crossterm = { version = "0.10.2" }
+nu = { path = "../.." }
+nu-protocol = { path = "../nu-protocol" }
+nu-source = { path = "../nu-source" }
+url = "2.1.0"
