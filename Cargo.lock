@@ -1698,7 +1698,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "app_dirs 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1889,7 +1889,7 @@ version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossterm 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "nu 0.5.1",
+ "nu 0.6.0",
  "nu-protocol 0.1.0",
  "nu-source 0.1.0",
  "syntect 3.2.0 (registry+https://github.com/rust-lang/crates.io-index)",

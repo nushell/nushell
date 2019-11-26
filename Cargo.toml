@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 description = "A shell for the GitHub era"
 license = "MIT"
