@@ -3,9 +3,7 @@ use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
-use itertools::Itertools;
 use log::trace;
-use std::fmt;
 use std::io::{Error, ErrorKind};
 use subprocess::Exec;
 
@@ -46,29 +44,32 @@ impl Decoder for LinesCodec {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct Command {
+pub struct Command {
     pub(crate) name: String,
 
     pub(crate) name_tag: Tag,
-    pub(crate) args: Spanned<Vec<Tagged<String>>>,
-}
-
-impl FormatDebug for Command {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        write!(f, "{}", self.name)?;
-
-        if self.args.item.len() > 0 {
-            write!(f, " ")?;
-            write!(f, "{}", self.args.iter().map(|i| i.debug(source)).join(" "))?;
-        }
-
-        Ok(())
-    }
+    pub(crate) args: ExternalArgs,
 }
 
 impl HasSpan for Command {
     fn span(&self) -> Span {
         self.name_tag.span.until(self.args.span)
+    }
+}
+
+impl PrettyDebug for Command {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::typed(
+            "external command",
+            b::description(&self.name)
+                + b::preceded(
+                    b::space(),
+                    b::intersperse(
+                        self.args.iter().map(|a| b::primitive(format!("{}", a.arg))),
+                        b::space(),
+                    ),
+                ),
+        )
     }
 }
 
@@ -87,13 +88,13 @@ impl Command {
         stream_next: StreamNext,
     ) -> Result<ClassifiedInputStream, ShellError> {
         let stdin = input.stdin;
-        let inputs: Vec<Tagged<Value>> = input.objects.into_vec().await;
+        let inputs: Vec<Value> = input.objects.into_vec().await;
 
         trace!(target: "nu::run::external", "-> {}", self.name);
         trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
         let mut arg_string = format!("{}", self.name);
-        for arg in &self.args.item {
+        for arg in &self.args.list {
             arg_string.push_str(&arg);
         }
 
@@ -105,12 +106,12 @@ impl Command {
                 .iter()
                 .map(|i| {
                     i.as_string().map_err(|_| {
-                        let arg = self.args.iter().find(|arg| arg.item.contains("$it"));
+                        let arg = self.args.iter().find(|arg| arg.arg.contains("$it"));
                         if let Some(arg) = arg {
                             ShellError::labeled_error(
                                 "External $it needs string data",
                                 "given row instead of string data",
-                                arg.tag(),
+                                &arg.tag,
                             )
                         } else {
                             ShellError::labeled_error(
@@ -138,7 +139,7 @@ impl Command {
             process = Exec::shell(itertools::join(commands, " && "))
         } else {
             process = Exec::cmd(&self.name);
-            for arg in &self.args.item {
+            for arg in &self.args.list {
                 let arg_chars: Vec<_> = arg.chars().collect();
                 if arg_chars.len() > 1
                     && arg_chars[0] == '"'
@@ -148,7 +149,7 @@ impl Command {
                     let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                     process = process.arg(new_arg);
                 } else {
-                    process = process.arg(arg.item.clone());
+                    process = process.arg(arg.arg.clone());
                 }
             }
         }
@@ -205,10 +206,11 @@ impl Command {
                     let stdout = popen.stdout.take().unwrap();
                     let file = futures::io::AllowStdIo::new(stdout);
                     let stream = Framed::new(file, LinesCodec {});
-                    let stream =
-                        stream.map(move |line| Value::string(line.unwrap()).tagged(&name_tag));
+                    let stream = stream.map(move |line| {
+                        UntaggedValue::string(line.unwrap()).into_value(&name_tag)
+                    });
                     Ok(ClassifiedInputStream::from_input_stream(
-                        stream.boxed() as BoxStream<'static, Tagged<Value>>
+                        stream.boxed() as BoxStream<'static, Value>
                     ))
                 }
             }
@@ -219,5 +221,39 @@ impl Command {
                 name_tag,
             ));
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ExternalArg {
+    pub arg: String,
+    pub tag: Tag,
+}
+
+impl std::ops::Deref for ExternalArg {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.arg
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ExternalArgs {
+    pub list: Vec<ExternalArg>,
+    pub span: Span,
+}
+
+impl ExternalArgs {
+    pub fn iter(&self) -> impl Iterator<Item = &ExternalArg> {
+        self.list.iter()
+    }
+}
+
+impl std::ops::Deref for ExternalArgs {
+    type Target = [ExternalArg];
+
+    fn deref(&self) -> &[ExternalArg] {
+        &self.list
     }
 }

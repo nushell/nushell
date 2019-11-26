@@ -10,15 +10,16 @@ pub(crate) mod variable_path;
 
 use crate::parser::hir::syntax_shape::{
     color_delimited_square, color_fallible_syntax, color_fallible_syntax_with, expand_atom,
-    expand_delimited_square, expand_expr, expand_syntax, AtomicToken, BareShape, ColorableDotShape,
-    DotShape, ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, ExpressionContinuation,
-    ExpressionContinuationShape, FallibleColorSyntax, FlatShape, ParseError,
+    expand_delimited_square, expand_expr, expand_syntax, BareShape, ColorableDotShape, DotShape,
+    ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, ExpressionContinuation,
+    ExpressionContinuationShape, FallibleColorSyntax, FlatShape, ParseError, UnspannedAtomicToken,
 };
 use crate::parser::{
     hir,
     hir::{Expression, TokensIterator},
 };
 use crate::prelude::*;
+use nu_source::Spanned;
 use std::path::PathBuf;
 
 #[derive(Debug, Copy, Clone)]
@@ -189,8 +190,8 @@ impl ExpandExpression for AnyExpressionStartShape {
     ) -> Result<hir::Expression, ParseError> {
         let atom = expand_atom(token_nodes, "expression", context, ExpansionRule::new())?;
 
-        match atom.item {
-            AtomicToken::Size { number, unit } => {
+        match atom.unspanned {
+            UnspannedAtomicToken::Size { number, unit } => {
                 return Ok(hir::Expression::size(
                     number.to_number(context.source),
                     unit.item,
@@ -201,16 +202,20 @@ impl ExpandExpression for AnyExpressionStartShape {
                 ))
             }
 
-            AtomicToken::SquareDelimited { nodes, .. } => {
+            UnspannedAtomicToken::SquareDelimited { nodes, .. } => {
                 expand_delimited_square(&nodes, atom.span.into(), context)
             }
 
-            AtomicToken::Word { .. } | AtomicToken::Dot { .. } => {
+            UnspannedAtomicToken::Word { .. } => {
                 let end = expand_syntax(&BareTailShape, token_nodes, context)?;
                 Ok(hir::Expression::bare(atom.span.until_option(end)))
             }
 
-            other => return other.spanned(atom.span).into_hir(context, "expression"),
+            other => {
+                return other
+                    .into_atomic_token(atom.span)
+                    .into_hir(context, "expression")
+            }
         }
     }
 }
@@ -250,20 +255,20 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
             } => value,
         };
 
-        match atom.item {
-            AtomicToken::Size { number, unit } => shapes.push(
+        match &atom.unspanned {
+            UnspannedAtomicToken::Size { number, unit } => shapes.push(
                 FlatShape::Size {
-                    number: number.span.into(),
+                    number: number.span(),
                     unit: unit.span.into(),
                 }
                 .spanned(atom.span),
             ),
 
-            AtomicToken::SquareDelimited { nodes, spans } => {
-                color_delimited_square(spans, &nodes, atom.span.into(), context, shapes)
+            UnspannedAtomicToken::SquareDelimited { nodes, spans } => {
+                color_delimited_square(*spans, &nodes, atom.span.into(), context, shapes)
             }
 
-            AtomicToken::Word { .. } | AtomicToken::Dot { .. } => {
+            UnspannedAtomicToken::Word { .. } => {
                 shapes.push(FlatShape::Word.spanned(atom.span));
             }
 
@@ -312,22 +317,26 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
             } => value,
         };
 
-        match atom.item {
-            AtomicToken::Size { number, unit } => token_nodes.color_shape(
+        match atom.unspanned {
+            UnspannedAtomicToken::Size { number, unit } => token_nodes.color_shape(
                 FlatShape::Size {
-                    number: number.span.into(),
+                    number: number.span(),
                     unit: unit.span.into(),
                 }
                 .spanned(atom.span),
             ),
 
-            AtomicToken::SquareDelimited { nodes, spans } => {
-                token_nodes.child((&nodes[..]).spanned(atom.span), |tokens| {
-                    color_delimited_square(spans, tokens, atom.span.into(), context);
-                });
+            UnspannedAtomicToken::SquareDelimited { nodes, spans } => {
+                token_nodes.child(
+                    (&nodes[..]).spanned(atom.span),
+                    context.source.clone(),
+                    |tokens| {
+                        color_delimited_square(spans, tokens, atom.span.into(), context);
+                    },
+                );
             }
 
-            AtomicToken::Word { .. } | AtomicToken::Dot { .. } => {
+            UnspannedAtomicToken::Word { .. } | UnspannedAtomicToken::Dot { .. } => {
                 token_nodes.color_shape(FlatShape::Word.spanned(atom.span));
             }
 

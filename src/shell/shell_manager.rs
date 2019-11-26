@@ -8,6 +8,7 @@ use crate::prelude::*;
 use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
+use nu_source::Tagged;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

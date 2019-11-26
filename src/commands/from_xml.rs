@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::base::{Primitive, UntaggedValue, Value};
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 
 pub struct FromXML;
@@ -26,7 +27,7 @@ impl WholeStreamCommand for FromXML {
     }
 }
 
-fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) -> Tagged<Value> {
+fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     if n.is_element() {
@@ -37,11 +38,11 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             children_values.push(from_node_to_value(&c, &tag));
         }
 
-        let children_values: Vec<Tagged<Value>> = children_values
+        let children_values: Vec<Value> = children_values
             .into_iter()
             .filter(|x| match x {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(f)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(f)),
                     ..
                 } => {
                     if f.trim() == "" {
@@ -55,28 +56,25 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             .collect();
 
         let mut collected = TaggedDictBuilder::new(tag);
-        collected.insert(name.clone(), Value::Table(children_values));
+        collected.insert_untagged(name.clone(), UntaggedValue::Table(children_values));
 
-        collected.into_tagged_value()
+        collected.into_value()
     } else if n.is_comment() {
-        Value::string("<comment>").tagged(tag)
+        UntaggedValue::string("<comment>").into_value(tag)
     } else if n.is_pi() {
-        Value::string("<processing_instruction>").tagged(tag)
+        UntaggedValue::string("<processing_instruction>").into_value(tag)
     } else if n.is_text() {
-        Value::string(n.text().unwrap()).tagged(tag)
+        UntaggedValue::string(n.text().unwrap()).into_value(tag)
     } else {
-        Value::string("<unknown>").tagged(tag)
+        UntaggedValue::string("<unknown>").into_value(tag)
     }
 }
 
-fn from_document_to_value(d: &roxmltree::Document, tag: impl Into<Tag>) -> Tagged<Value> {
+fn from_document_to_value(d: &roxmltree::Document, tag: impl Into<Tag>) -> Value {
     from_node_to_value(&d.root_element(), tag)
 }
 
-pub fn from_xml_string_to_value(
-    s: String,
-    tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, roxmltree::Error> {
+pub fn from_xml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value, roxmltree::Error> {
     let parsed = roxmltree::Document::parse(&s)?;
     Ok(from_document_to_value(&parsed, tag))
 }
@@ -84,28 +82,30 @@ pub fn from_xml_string_to_value(
 fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
+    let name_span = tag.span;
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
 
         for value in values {
-            let value_tag = value.tag();
-            latest_tag = Some(value_tag.clone());
-            match value.item {
-                Value::Primitive(Primitive::String(s)) => {
+            latest_tag = Some(value.tag.clone());
+            let value_span = value.tag.span;
+
+            match value.value {
+                UntaggedValue::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
                     concat_string.push_str("\n");
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    &tag,
+                    name_span,
                     "value originates from here",
-                    &value_tag,
+                    value_span,
                 )),
 
             }
@@ -113,7 +113,7 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
         match from_xml_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::Table(list), .. } => {
+                Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }
@@ -139,23 +139,23 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 mod tests {
 
     use crate::commands::from_xml;
-    use crate::data::meta::*;
-    use crate::Value;
+    use crate::data::base::{UntaggedValue, Value};
     use indexmap::IndexMap;
+    use nu_source::*;
 
-    fn string(input: impl Into<String>) -> Tagged<Value> {
-        Value::string(input.into()).tagged_unknown()
+    fn string(input: impl Into<String>) -> Value {
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
-    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
-        Value::row(entries).tagged_unknown()
+    fn row(entries: IndexMap<String, Value>) -> Value {
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
-        Value::table(list).tagged_unknown()
+    fn table(list: &Vec<Value>) -> Value {
+        UntaggedValue::table(list).into_untagged_value()
     }
 
-    fn parse(xml: &str) -> Tagged<Value> {
+    fn parse(xml: &str) -> Value {
         from_xml::from_xml_string_to_value(xml.to_string(), Tag::unknown()).unwrap()
     }
 

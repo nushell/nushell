@@ -1,5 +1,5 @@
-use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, RawToken, TokenNode};
-use crate::{HasSpan, Span, Spanned, SpannedItem, Text};
+use crate::parser::{Delimiter, Flag, FlagKind, Operator, RawNumber, TokenNode, UnspannedToken};
+use nu_source::{HasSpan, Span, Spanned, SpannedItem, Text};
 
 #[derive(Debug, Copy, Clone)]
 pub enum FlatShape {
@@ -31,28 +31,32 @@ pub enum FlatShape {
 impl FlatShape {
     pub fn from(token: &TokenNode, source: &Text, shapes: &mut Vec<Spanned<FlatShape>>) -> () {
         match token {
-            TokenNode::Token(token) => match token.item {
-                RawToken::Number(RawNumber::Int(_)) => {
+            TokenNode::Token(token) => match token.unspanned {
+                UnspannedToken::Number(RawNumber::Int(_)) => {
                     shapes.push(FlatShape::Int.spanned(token.span))
                 }
-                RawToken::Number(RawNumber::Decimal(_)) => {
+                UnspannedToken::Number(RawNumber::Decimal(_)) => {
                     shapes.push(FlatShape::Decimal.spanned(token.span))
                 }
-                RawToken::Operator(Operator::Dot) => {
+                UnspannedToken::Operator(Operator::Dot) => {
                     shapes.push(FlatShape::Dot.spanned(token.span))
                 }
-                RawToken::Operator(_) => shapes.push(FlatShape::Operator.spanned(token.span)),
-                RawToken::String(_) => shapes.push(FlatShape::String.spanned(token.span)),
-                RawToken::Variable(v) if v.slice(source) == "it" => {
+                UnspannedToken::Operator(_) => shapes.push(FlatShape::Operator.spanned(token.span)),
+                UnspannedToken::String(_) => shapes.push(FlatShape::String.spanned(token.span)),
+                UnspannedToken::Variable(v) if v.slice(source) == "it" => {
                     shapes.push(FlatShape::ItVariable.spanned(token.span))
                 }
-                RawToken::Variable(_) => shapes.push(FlatShape::Variable.spanned(token.span)),
-                RawToken::ExternalCommand(_) => {
+                UnspannedToken::Variable(_) => shapes.push(FlatShape::Variable.spanned(token.span)),
+                UnspannedToken::ExternalCommand(_) => {
                     shapes.push(FlatShape::ExternalCommand.spanned(token.span))
                 }
-                RawToken::ExternalWord => shapes.push(FlatShape::ExternalWord.spanned(token.span)),
-                RawToken::GlobPattern => shapes.push(FlatShape::GlobPattern.spanned(token.span)),
-                RawToken::Bare => shapes.push(FlatShape::Word.spanned(token.span)),
+                UnspannedToken::ExternalWord => {
+                    shapes.push(FlatShape::ExternalWord.spanned(token.span))
+                }
+                UnspannedToken::GlobPattern => {
+                    shapes.push(FlatShape::GlobPattern.spanned(token.span))
+                }
+                UnspannedToken::Bare => shapes.push(FlatShape::Word.spanned(token.span)),
             },
             TokenNode::Call(_) => unimplemented!(),
             TokenNode::Nodes(nodes) => {
@@ -70,25 +74,19 @@ impl FlatShape {
             TokenNode::Pipeline(pipeline) => {
                 for part in &pipeline.parts {
                     if let Some(_) = part.pipe {
-                        shapes.push(FlatShape::Pipe.spanned(part.span));
+                        shapes.push(FlatShape::Pipe.spanned(part.span()));
                     }
                 }
             }
-            TokenNode::Flag(Spanned {
-                item:
-                    Flag {
-                        kind: FlagKind::Longhand,
-                        ..
-                    },
+            TokenNode::Flag(Flag {
+                kind: FlagKind::Longhand,
                 span,
+                ..
             }) => shapes.push(FlatShape::Flag.spanned(*span)),
-            TokenNode::Flag(Spanned {
-                item:
-                    Flag {
-                        kind: FlagKind::Shorthand,
-                        ..
-                    },
+            TokenNode::Flag(Flag {
+                kind: FlagKind::Shorthand,
                 span,
+                ..
             }) => shapes.push(FlatShape::ShorthandFlag.spanned(*span)),
             TokenNode::Whitespace(_) => shapes.push(FlatShape::Whitespace.spanned(token.span())),
             TokenNode::Error(v) => shapes.push(FlatShape::Error.spanned(v.span)),

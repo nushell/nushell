@@ -45,12 +45,14 @@ fn from_xlsx(
     let tag = runnable_context.name;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         for value in values {
-            let value_tag = value.tag();
-            match value.item {
-                Value::Primitive(Primitive::Binary(vb)) => {
+            let value_span = value.tag.span;
+            let value_tag = value.tag.clone();
+
+            match value.value {
+                UntaggedValue::Primitive(Primitive::Binary(vb)) => {
                     let mut buf: Cursor<Vec<u8>> = Cursor::new(vb);
                     let mut xls = Xlsx::<_>::new(buf).unwrap();
 
@@ -67,24 +69,24 @@ fn from_xlsx(
                             let mut row_output = TaggedDictBuilder::new(&tag);
                             for (i, cell) in row.iter().enumerate() {
                                 let value = match cell {
-                                    DataType::Empty => Value::nothing(),
-                                    DataType::String(s) => Value::string(s),
-                                    DataType::Float(f) => Value::decimal(*f),
-                                    DataType::Int(i) => Value::int(*i),
-                                    DataType::Bool(b) => Value::boolean(*b),
-                                    _ => Value::nothing(),
+                                    DataType::Empty => UntaggedValue::nothing(),
+                                    DataType::String(s) => UntaggedValue::string(s),
+                                    DataType::Float(f) => UntaggedValue::decimal(*f),
+                                    DataType::Int(i) => UntaggedValue::int(*i),
+                                    DataType::Bool(b) => UntaggedValue::boolean(*b),
+                                    _ => UntaggedValue::nothing(),
                                 };
 
-                                row_output.insert(&format!("Column{}", i), value);
+                                row_output.insert_untagged(&format!("Column{}", i), value);
                             }
 
-                            sheet_output.push(row_output.into_tagged_value().item);
+                            sheet_output.push_untagged(row_output.into_untagged_value());
                         }
 
-                        dict.insert(sheet_name, sheet_output.into_tagged_value().item);
+                        dict.insert_untagged(sheet_name, sheet_output.into_untagged_value());
                     }
 
-                    yield ReturnSuccess::value(dict.into_tagged_value());
+                    yield ReturnSuccess::value(dict.into_value());
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected binary data from pipeline",

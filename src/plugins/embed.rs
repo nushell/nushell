@@ -2,13 +2,14 @@
 extern crate indexmap;
 
 use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    ShellTypeName, Signature, SpannedItem, SyntaxShape, Tag, Tagged, TaggedItem, Value,
+    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
+    SpannedTypeName, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::Tag;
 
 struct Embed {
     field: Option<String>,
-    values: Vec<Tagged<Value>>,
+    values: Vec<Value>,
 }
 impl Embed {
     fn new() -> Embed {
@@ -18,7 +19,7 @@ impl Embed {
         }
     }
 
-    fn embed(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
+    fn embed(&mut self, value: Value) -> Result<(), ShellError> {
         self.values.push(value);
         Ok(())
     }
@@ -35,38 +36,33 @@ impl Plugin for Embed {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(s)),
                     ..
                 } => {
                     self.field = Some(s.clone());
                     self.values = Vec::new();
                 }
-                value => {
-                    return Err(ShellError::type_error(
-                        "string",
-                        value.type_name().spanned(value.span()),
-                    ))
-                }
+                value => return Err(ShellError::type_error("string", value.spanned_type_name())),
             }
         }
 
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         self.embed(input)?;
         Ok(vec![])
     }
 
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
-        let row = Value::row(indexmap! {
+        let row = UntaggedValue::row(indexmap! {
             match &self.field {
                 Some(key) => key.clone(),
                 None => "root".into(),
-            } => Value::table(&self.values).tagged(Tag::unknown()),
+            } => UntaggedValue::table(&self.values).into_value(Tag::unknown()),
         })
-        .tagged(Tag::unknown());
+        .into_untagged_value();
 
         Ok(vec![ReturnSuccess::value(row)])
     }

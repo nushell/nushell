@@ -1,4 +1,5 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::base::Block;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
@@ -7,7 +8,7 @@ pub struct SkipWhile;
 
 #[derive(Deserialize)]
 pub struct SkipWhileArgs {
-    condition: value::Block,
+    condition: Block,
 }
 
 impl WholeStreamCommand for SkipWhile {

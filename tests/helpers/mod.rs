@@ -6,6 +6,7 @@ pub use std::path::PathBuf;
 
 use app_dirs::{get_app_root, AppDataType};
 use getset::Getters;
+use nu_source::PrettyDebug;
 use std::io::Read;
 use tempfile::{tempdir, TempDir};
 
@@ -45,7 +46,7 @@ impl DisplayPath for &String {
 
 impl DisplayPath for nu::AbsolutePath {
     fn display_path(&self) -> String {
-        self.to_string()
+        self.display()
     }
 }
 

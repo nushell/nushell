@@ -1,6 +1,7 @@
+#[allow(unused)]
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fmt;
+
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -16,9 +17,9 @@ pub enum Operator {
     NotContains,
 }
 
-impl FormatDebug for Operator {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+impl PrettyDebug for Operator {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::operator(self.as_str())
     }
 }
 

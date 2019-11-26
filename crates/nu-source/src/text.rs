@@ -74,6 +74,12 @@ impl From<&str> for Text {
     }
 }
 
+impl From<&Text> for Text {
+    fn from(text: &Text) -> Self {
+        text.clone()
+    }
+}
+
 impl std::borrow::Borrow<str> for Text {
     fn borrow(&self) -> &str {
         &*self

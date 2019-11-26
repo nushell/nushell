@@ -5,7 +5,6 @@ use crate::parser::parse::{
     tokens::*, unit::*,
 };
 use crate::prelude::*;
-use crate::{Tag, Tagged};
 use nom;
 use nom::branch::*;
 use nom::bytes::complete::*;
@@ -21,38 +20,10 @@ use nom::*;
 use nom::{AsBytes, FindSubstring, IResult, InputLength, InputTake, Slice};
 use nom_locate::{position, LocatedSpanEx};
 use nom_tracable::{tracable_parser, HasTracableInfo, TracableInfo};
+use nu_source::{nom_input, NomSpan, Spanned};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
-
-pub type NomSpan<'a> = LocatedSpanEx<&'a str, TracableContext>;
-
-#[derive(Debug, Clone, Copy, PartialEq, new)]
-pub struct TracableContext {
-    pub(crate) info: TracableInfo,
-}
-
-impl HasTracableInfo for TracableContext {
-    fn get_tracable_info(&self) -> TracableInfo {
-        self.info
-    }
-
-    fn set_tracable_info(mut self, info: TracableInfo) -> Self {
-        TracableContext { info }
-    }
-}
-
-impl std::ops::Deref for TracableContext {
-    type Target = TracableInfo;
-
-    fn deref(&self) -> &TracableInfo {
-        &self.info
-    }
-}
-
-pub fn nom_input(s: &str) -> NomSpan<'_> {
-    LocatedSpanEx::new_extra(s, TracableContext::new(TracableInfo::new()))
-}
 
 macro_rules! operator {
     ($name:tt : $token:tt ) => {
@@ -86,11 +57,17 @@ pub enum Number {
     Decimal(BigDecimal),
 }
 
-impl std::fmt::Display for Number {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Into<Number> for &Number {
+    fn into(self) -> Number {
+        self.clone()
+    }
+}
+
+impl PrettyDebug for Number {
+    fn pretty(&self) -> DebugDocBuilder {
         match self {
-            Number::Int(int) => write!(f, "{}", int),
-            Number::Decimal(decimal) => write!(f, "{}", decimal),
+            Number::Int(int) => b::primitive(int),
+            Number::Decimal(decimal) => b::primitive(decimal),
         }
     }
 }
@@ -178,12 +155,12 @@ pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_number(number.item, number.span),
+        TokenTreeBuilder::spanned_number(number, number.span()),
     ))
 }
 
 #[tracable_parser]
-pub fn raw_number(input: NomSpan) -> IResult<NomSpan, Spanned<RawNumber>> {
+pub fn raw_number(input: NomSpan) -> IResult<NomSpan, RawNumber> {
     let anchoral = input;
     let start = input.offset;
     let (input, neg) = opt(tag("-"))(input)?;
@@ -626,13 +603,11 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     let end = input.offset;
 
     let head_span = head.span;
-    let mut all_items: Vec<Spanned<PipelineElement>> =
-        vec![PipelineElement::new(None, head).spanned(head_span)];
+    let mut all_items: Vec<PipelineElement> = vec![PipelineElement::new(None, head)];
 
     all_items.extend(items.into_iter().map(|(pipe, items)| {
         let items_span = items.span;
         PipelineElement::new(Some(Span::from(pipe)), items)
-            .spanned(Span::from(pipe).until(items_span))
     }));
 
     Ok((
@@ -1292,8 +1267,8 @@ mod tests {
         TokenNode::Delimited(spanned)
     }
 
-    fn token(token: RawToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(token.spanned(Span::new(left, right)))
+    fn token(token: UnspannedToken, left: usize, right: usize) -> TokenNode {
+        TokenNode::Token(token.into_token(Span::new(left, right)))
     }
 
     fn build<T>(block: CurriedNode<T>) -> T {

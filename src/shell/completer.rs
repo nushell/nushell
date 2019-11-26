@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::context::CommandRegistry;
+
 use derive_new::new;
 use rustyline::completion::{Completer, FilenameCompleter};
 

@@ -1,7 +1,8 @@
 use nu::{
     serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, SyntaxShape, Tagged, TaggedItem, Value,
+    Signature, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::TaggedItem;
 
 struct Skip {
     skip_amount: i64,
@@ -24,8 +25,8 @@ impl Plugin for Skip {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    Tagged {
-                        item: Value::Primitive(Primitive::Int(i)),
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Int(i)),
                         tag,
                     } => {
                         self.skip_amount = i.tagged(tag).coerce_into("converting for skip")?;
@@ -44,7 +45,7 @@ impl Plugin for Skip {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         if self.skip_amount == 0 {
             Ok(vec![ReturnSuccess::value(input)])
         } else {

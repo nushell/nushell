@@ -1,7 +1,9 @@
 use crate::commands::WholeStreamCommand;
 use crate::parser::hir::SyntaxShape;
 use crate::prelude::*;
+use nu_source::Tagged;
 use num_traits::cast::ToPrimitive;
+
 pub struct ReduceBy;
 
 #[derive(Deserialize)]
@@ -40,7 +42,7 @@ pub fn reduce_by(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         if values.is_empty() {
             yield Err(ShellError::labeled_error(
@@ -66,10 +68,10 @@ pub fn reduce_by(
     Ok(stream.to_output_stream())
 }
 
-fn sum(data: Vec<Tagged<Value>>) -> i32 {
+fn sum(data: Vec<Value>) -> i32 {
     data.into_iter().fold(0, |acc, value| match value {
-        Tagged {
-            item: Value::Primitive(Primitive::Int(n)),
+        Value {
+            value: UntaggedValue::Primitive(Primitive::Int(n)),
             ..
         } => acc + n.to_i32().unwrap(),
         _ => acc,
@@ -78,15 +80,15 @@ fn sum(data: Vec<Tagged<Value>>) -> i32 {
 
 fn formula(
     acc_begin: i32,
-    calculator: Box<dyn Fn(Vec<Tagged<Value>>) -> i32 + 'static>,
-) -> Box<dyn Fn(i32, Vec<Tagged<Value>>) -> i32 + 'static> {
+    calculator: Box<dyn Fn(Vec<Value>) -> i32 + 'static>,
+) -> Box<dyn Fn(i32, Vec<Value>) -> i32 + 'static> {
     Box::new(move |acc, datax| -> i32 {
         let result = acc * acc_begin;
         result + calculator(datax)
     })
 }
 
-fn reducer_for(command: Reduce) -> Box<dyn Fn(i32, Vec<Tagged<Value>>) -> i32 + 'static> {
+fn reducer_for(command: Reduce) -> Box<dyn Fn(i32, Vec<Value>) -> i32 + 'static> {
     match command {
         Reduce::Sum | Reduce::Default => Box::new(formula(0, Box::new(sum))),
     }
@@ -98,10 +100,10 @@ pub enum Reduce {
 }
 
 pub fn reduce(
-    values: &Tagged<Value>,
+    values: &Value,
     reducer: Option<String>,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, ShellError> {
+) -> Result<Value, ShellError> {
     let tag = tag.into();
 
     let reduce_with = match reducer {
@@ -109,9 +111,9 @@ pub fn reduce(
         Some(_) | None => reducer_for(Reduce::Default),
     };
 
-    let results: Tagged<Value> = match values {
-        Tagged {
-            item: Value::Table(datasets),
+    let results: Value = match values {
+        Value {
+            value: UntaggedValue::Table(datasets),
             ..
         } => {
             let datasets: Vec<_> = datasets
@@ -119,35 +121,35 @@ pub fn reduce(
                 .map(|subsets| {
                     let mut acc = 0;
                     match subsets {
-                        Tagged {
-                            item: Value::Table(data),
+                        Value {
+                            value: UntaggedValue::Table(data),
                             ..
                         } => {
                             let data = data
                                 .into_iter()
                                 .map(|d| {
-                                    if let Tagged {
-                                        item: Value::Table(x),
+                                    if let Value {
+                                        value: UntaggedValue::Table(x),
                                         ..
                                     } = d
                                     {
                                         acc = reduce_with(acc, x.clone());
-                                        Value::number(acc).tagged(&tag)
+                                        UntaggedValue::number(acc).into_value(&tag)
                                     } else {
-                                        Value::number(0).tagged(&tag)
+                                        UntaggedValue::number(0).into_value(&tag)
                                     }
                                 })
                                 .collect::<Vec<_>>();
-                            Value::Table(data).tagged(&tag)
+                            UntaggedValue::Table(data).into_value(&tag)
                         }
-                        _ => Value::Table(vec![]).tagged(&tag),
+                        _ => UntaggedValue::Table(vec![]).into_value(&tag),
                     }
                 })
                 .collect();
 
-            Value::Table(datasets).tagged(&tag)
+            UntaggedValue::Table(datasets).into_value(&tag)
         }
-        _ => Value::Table(vec![]).tagged(&tag),
+        _ => UntaggedValue::Table(vec![]).into_value(&tag),
     };
 
     Ok(results)
@@ -160,28 +162,28 @@ mod tests {
     use crate::commands::group_by::group;
     use crate::commands::reduce_by::{reduce, reducer_for, Reduce};
     use crate::commands::t_sort_by::t_sort;
-    use crate::data::meta::*;
     use crate::prelude::*;
     use crate::Value;
     use indexmap::IndexMap;
+    use nu_source::*;
 
-    fn int(s: impl Into<BigInt>) -> Tagged<Value> {
-        Value::int(s).tagged_unknown()
+    fn int(s: impl Into<BigInt>) -> Value {
+        UntaggedValue::int(s).into_untagged_value()
     }
 
-    fn string(input: impl Into<String>) -> Tagged<Value> {
-        Value::string(input.into()).tagged_unknown()
+    fn string(input: impl Into<String>) -> Value {
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
-    fn row(entries: IndexMap<String, Tagged<Value>>) -> Tagged<Value> {
-        Value::row(entries).tagged_unknown()
+    fn row(entries: IndexMap<String, Value>) -> Value {
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Tagged<Value>>) -> Tagged<Value> {
-        Value::table(list).tagged_unknown()
+    fn table(list: &Vec<Value>) -> Value {
+        UntaggedValue::table(list).into_untagged_value()
     }
 
-    fn nu_releases_sorted_by_date() -> Tagged<Value> {
+    fn nu_releases_sorted_by_date() -> Value {
         let key = String::from("date");
 
         t_sort(
@@ -193,16 +195,16 @@ mod tests {
         .unwrap()
     }
 
-    fn nu_releases_evaluated_by_default_one() -> Tagged<Value> {
+    fn nu_releases_evaluated_by_default_one() -> Value {
         evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap()
     }
 
-    fn nu_releases_grouped_by_date() -> Tagged<Value> {
+    fn nu_releases_grouped_by_date() -> Value {
         let key = String::from("date").tagged_unknown();
         group(&key, nu_releases_commiters(), Tag::unknown()).unwrap()
     }
 
-    fn nu_releases_commiters() -> Vec<Tagged<Value>> {
+    fn nu_releases_commiters() -> Vec<Value> {
         vec![
             row(
                 indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")},

@@ -3,6 +3,7 @@ use crate::errors::ShellError;
 use crate::parser::hir::SyntaxShape;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
+use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub struct Remove;
@@ -38,7 +39,7 @@ impl PerItemCommand for Remove {
         call_info: &CallInfo,
         _registry: &CommandRegistry,
         raw_args: &RawCommandArgs,
-        _input: Tagged<Value>,
+        _input: Value,
     ) -> Result<OutputStream, ShellError> {
         call_info.process(&raw_args.shell_manager, rm)?.run()
     }

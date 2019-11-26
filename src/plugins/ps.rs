@@ -6,9 +6,11 @@ use heim::units::{ratio, Ratio};
 use std::usize;
 
 use nu::{
-    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature, Tag, Tagged,
-    TaggedDictBuilder, Value,
+    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, ShellError, Signature,
+    TaggedDictBuilder, UntaggedValue, Value,
 };
+use nu_source::Tag;
+
 use std::time::Duration;
 
 struct Ps;
@@ -26,7 +28,7 @@ async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio)> {
     Ok((process, usage_2 - usage_1))
 }
 
-async fn ps(tag: Tag) -> Vec<Tagged<Value>> {
+async fn ps(tag: Tag) -> Vec<Value> {
     let processes = process::processes()
         .map_ok(|process| {
             // Note that there is no `.await` here,
@@ -41,15 +43,15 @@ async fn ps(tag: Tag) -> Vec<Tagged<Value>> {
     while let Some(res) = processes.next().await {
         if let Ok((process, usage)) = res {
             let mut dict = TaggedDictBuilder::new(&tag);
-            dict.insert("pid", Value::int(process.pid()));
+            dict.insert_untagged("pid", UntaggedValue::int(process.pid()));
             if let Ok(name) = process.name().await {
-                dict.insert("name", Value::string(name));
+                dict.insert_untagged("name", UntaggedValue::string(name));
             }
             if let Ok(status) = process.status().await {
-                dict.insert("status", Value::string(format!("{:?}", status)));
+                dict.insert_untagged("status", UntaggedValue::string(format!("{:?}", status)));
             }
-            dict.insert("cpu", Value::number(usage.get::<ratio::percent>()));
-            output.push(dict.into_tagged_value());
+            dict.insert_untagged("cpu", UntaggedValue::number(usage.get::<ratio::percent>()));
+            output.push(dict.into_value());
         }
     }
 
@@ -70,7 +72,7 @@ impl Plugin for Ps {
             .collect())
     }
 
-    fn filter(&mut self, _: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, _: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 }

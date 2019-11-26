@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, Value};
+use crate::data::Primitive;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
+use nu_source::Tagged;
 
 #[derive(Deserialize)]
 struct SplitRowArgs {
@@ -43,8 +44,8 @@ fn split_row(
 ) -> Result<OutputStream, ShellError> {
     let stream = input
         .values
-        .map(move |v| match v.item {
-            Value::Primitive(Primitive::String(ref s)) => {
+        .map(move |v| match v.value {
+            UntaggedValue::Primitive(Primitive::String(ref s)) => {
                 let splitter = separator.item.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
@@ -54,7 +55,7 @@ fn split_row(
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnSuccess::value(
-                        Value::Primitive(Primitive::String(s.into())).tagged(v.tag()),
+                        UntaggedValue::Primitive(Primitive::String(s.into())).into_value(&v.tag),
                     ));
                 }
                 result
@@ -64,9 +65,9 @@ fn split_row(
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    &name,
+                    name.span,
                     "value originates from here",
-                    v.tag(),
+                    v.tag.span,
                 )));
                 result
             }

@@ -6,6 +6,7 @@ use crate::commands::rm::RemoveArgs;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::stream::OutputStream;
+use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub trait Shell: std::fmt::Debug {

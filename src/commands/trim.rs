@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Value;
+
 use crate::errors::ShellError;
 use crate::prelude::*;
 
@@ -34,7 +34,7 @@ fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
         .values
         .map(move |v| {
             let string = String::extract(&v)?;
-            ReturnSuccess::value(Value::string(string.trim()).tagged(v.tag()))
+            ReturnSuccess::value(UntaggedValue::string(string.trim()).into_value(v.tag()))
         })
         .to_output_stream())
 }

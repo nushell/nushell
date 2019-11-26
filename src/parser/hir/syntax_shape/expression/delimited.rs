@@ -3,18 +3,20 @@ use crate::parser::hir::syntax_shape::{
 };
 use crate::parser::{hir, hir::TokensIterator, Delimiter, FlatShape};
 use crate::prelude::*;
+#[cfg(not(coloring_in_tokens))]
+use nu_source::Spanned;
 
 pub fn expand_delimited_square(
     children: &Vec<TokenNode>,
     span: Span,
     context: &ExpandContext,
 ) -> Result<hir::Expression, ParseError> {
-    let mut tokens = TokensIterator::new(&children, span, false);
+    let mut tokens = TokensIterator::new(&children, span, context.source.clone(), false);
 
     let list = expand_syntax(&ExpressionListShape, &mut tokens, context);
 
     Ok(hir::Expression::list(
-        list?.item,
+        list?.exprs.item,
         Tag { span, anchor: None },
     ))
 }
@@ -28,7 +30,7 @@ pub fn color_delimited_square(
     shapes: &mut Vec<Spanned<FlatShape>>,
 ) {
     shapes.push(FlatShape::OpenDelimiter(Delimiter::Square).spanned(open));
-    let mut tokens = TokensIterator::new(&children, span, false);
+    let mut tokens = TokensIterator::new(&children, span, context.source.clone(), false);
     let _list = color_syntax(&ExpressionListShape, &mut tokens, context, shapes);
     shapes.push(FlatShape::CloseDelimiter(Delimiter::Square).spanned(close));
 }

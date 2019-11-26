@@ -1,11 +1,12 @@
 use nu::{
     serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    ShellTypeName, Signature, SpannedItem, SyntaxShape, Tagged, TaggedItem, Value,
+    Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::Tagged;
 
 struct Edit {
     field: Option<Tagged<ColumnPath>>,
-    value: Option<Value>,
+    value: Option<UntaggedValue>,
 }
 impl Edit {
     fn new() -> Edit {
@@ -15,20 +16,28 @@ impl Edit {
         }
     }
 
-    fn edit(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
+    fn edit(&self, value: Value) -> Result<Value, ShellError> {
         let value_tag = value.tag();
-        match (value.item, self.value.clone()) {
-            (obj @ Value::Row(_), Some(v)) => match &self.field {
-                Some(f) => match obj.tagged(value_tag).replace_data_at_column_path(&f, v) {
-                    Some(v) => return Ok(v),
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            "edit could not find place to insert column",
-                            "column name",
-                            &f.tag,
-                        ))
-                    }
+        match (value, self.value.clone()) {
+            (
+                obj @ Value {
+                    value: UntaggedValue::Row(_),
+                    ..
                 },
+                Some(v),
+            ) => match &self.field {
+                Some(f) => {
+                    match obj.replace_data_at_column_path(&f, v.clone().into_untagged_value()) {
+                        Some(v) => return Ok(v),
+                        None => {
+                            return Err(ShellError::labeled_error(
+                                "edit could not find place to insert column",
+                                "column name",
+                                &f.tag,
+                            ))
+                        }
+                    }
+                }
                 None => Err(ShellError::untagged_runtime_error(
                     "edit needs a column when changing a value in a table",
                 )),
@@ -62,21 +71,17 @@ impl Plugin for Edit {
     fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         if let Some(args) = call_info.args.positional {
             match &args[0] {
-                table @ Tagged {
-                    item: Value::Primitive(Primitive::ColumnPath(_)),
+                table @ Value {
+                    value: UntaggedValue::Primitive(Primitive::ColumnPath(_)),
                     ..
                 } => {
                     self.field = Some(table.as_column_path()?);
                 }
-                value => {
-                    return Err(ShellError::type_error(
-                        "table",
-                        value.type_name().spanned(value.span()),
-                    ))
-                }
+                value => return Err(ShellError::type_error("table", value.spanned_type_name())),
             }
+
             match &args[1] {
-                Tagged { item: v, .. } => {
+                Value { value: v, .. } => {
                     self.value = Some(v.clone());
                 }
             }
@@ -85,7 +90,7 @@ impl Plugin for Edit {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(self.edit(input)?)])
     }
 }

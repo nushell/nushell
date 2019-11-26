@@ -5,24 +5,40 @@ use crate::parser::{
     hir::syntax_shape::{
         color_syntax, expand_atom, expand_expr, expand_syntax, AtomicToken, ColorSyntax,
         ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, MaybeSpaceShape,
+        UnspannedAtomicToken,
     },
     hir::Expression,
     TokensIterator,
 };
-use crate::{DebugFormatter, FormatDebug, Span, Spanned, SpannedItem};
-use std::fmt;
+use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebug, Span, Spanned, SpannedItem};
+
+#[derive(Debug, Clone)]
+pub struct ExternalTokensSyntax {
+    pub tokens: Spanned<Vec<Spanned<String>>>,
+}
+
+impl HasSpan for ExternalTokensSyntax {
+    fn span(&self) -> Span {
+        self.tokens.span
+    }
+}
+
+impl PrettyDebug for ExternalTokensSyntax {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::intersperse(
+            self.tokens
+                .iter()
+                .map(|token| b::primitive(format!("{:?}", token.item))),
+            b::space(),
+        )
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct ExternalTokensShape;
 
-impl FormatDebug for Spanned<Vec<Spanned<String>>> {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        FormatDebug::fmt_debug(&self.item, f, source)
-    }
-}
-
 impl ExpandSyntax for ExternalTokensShape {
-    type Output = Spanned<Vec<Spanned<String>>>;
+    type Output = ExternalTokensSyntax;
 
     fn name(&self) -> &'static str {
         "external command"
@@ -46,7 +62,9 @@ impl ExpandSyntax for ExternalTokensShape {
 
         let end = token_nodes.span_at_cursor();
 
-        Ok(out.spanned(start.until(end)))
+        Ok(ExternalTokensSyntax {
+            tokens: out.spanned(start.until(end)),
+        })
     }
 }
 
@@ -193,51 +211,46 @@ impl ExpandExpression for ExternalHeadShape {
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Result<Expression, ParseError> {
-        match expand_atom(
+        let atom = expand_atom(
             token_nodes,
             "external argument",
             context,
             ExpansionRule::new()
                 .allow_external_word()
                 .treat_size_as_word(),
-        )? {
-            atom => match &atom {
-                Spanned { item, span } => Ok(match item {
-                    AtomicToken::Eof { .. } => unreachable!("ExpansionRule doesn't allow EOF"),
-                    AtomicToken::Error { .. } => unreachable!("ExpansionRule doesn't allow Error"),
-                    AtomicToken::Size { .. } => unreachable!("ExpansionRule treats size as word"),
-                    AtomicToken::Whitespace { .. } => {
-                        unreachable!("ExpansionRule doesn't allow Whitespace")
-                    }
-                    AtomicToken::ShorthandFlag { .. }
-                    | AtomicToken::LonghandFlag { .. }
-                    | AtomicToken::SquareDelimited { .. }
-                    | AtomicToken::ParenDelimited { .. }
-                    | AtomicToken::BraceDelimited { .. }
-                    | AtomicToken::Pipeline { .. } => {
-                        return Err(ParseError::mismatch(
-                            "external command name",
-                            "pipeline".spanned(atom.span),
-                        ))
-                    }
-                    AtomicToken::ExternalCommand { command } => {
-                        Expression::external_command(*command, *span)
-                    }
-                    AtomicToken::Number { number } => {
-                        Expression::number(number.to_number(context.source()), *span)
-                    }
-                    AtomicToken::String { body } => Expression::string(*body, *span),
-                    AtomicToken::ItVariable { name } => Expression::it_variable(*name, *span),
-                    AtomicToken::Variable { name } => Expression::variable(*name, *span),
-                    AtomicToken::ExternalWord { .. }
-                    | AtomicToken::GlobPattern { .. }
-                    | AtomicToken::FilePath { .. }
-                    | AtomicToken::Word { .. }
-                    | AtomicToken::Dot { .. }
-                    | AtomicToken::Operator { .. } => Expression::external_command(*span, *span),
-                }),
-            },
-        }
+        )?;
+
+        let span = atom.span;
+
+        Ok(match &atom.unspanned {
+            UnspannedAtomicToken::Eof { .. } => unreachable!("ExpansionRule doesn't allow EOF"),
+            UnspannedAtomicToken::Error { .. } => unreachable!("ExpansionRule doesn't allow Error"),
+            UnspannedAtomicToken::Size { .. } => unreachable!("ExpansionRule treats size as word"),
+            UnspannedAtomicToken::Whitespace { .. } => {
+                unreachable!("ExpansionRule doesn't allow Whitespace")
+            }
+            UnspannedAtomicToken::ShorthandFlag { .. }
+            | UnspannedAtomicToken::SquareDelimited { .. } => {
+                return Err(ParseError::mismatch(
+                    "external command name",
+                    "pipeline".spanned(atom.span),
+                ))
+            }
+            UnspannedAtomicToken::ExternalCommand { command } => {
+                Expression::external_command(*command, span)
+            }
+            UnspannedAtomicToken::Number { number } => {
+                Expression::number(number.to_number(context.source()), span)
+            }
+            UnspannedAtomicToken::String { body } => Expression::string(*body, span),
+            UnspannedAtomicToken::ItVariable { name } => Expression::it_variable(*name, span),
+            UnspannedAtomicToken::Variable { name } => Expression::variable(*name, span),
+            UnspannedAtomicToken::ExternalWord { .. }
+            | UnspannedAtomicToken::GlobPattern { .. }
+            | UnspannedAtomicToken::Word { .. }
+            | UnspannedAtomicToken::Dot { .. }
+            | UnspannedAtomicToken::Operator { .. } => Expression::external_command(span, span),
+        })
     }
 }
 
@@ -254,51 +267,46 @@ impl ExpandExpression for ExternalContinuationShape {
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Result<Expression, ParseError> {
-        match expand_atom(
+        let atom = expand_atom(
             token_nodes,
             "external argument",
             context,
             ExpansionRule::new()
                 .allow_external_word()
                 .treat_size_as_word(),
-        )? {
-            atom => match &atom {
-                Spanned { item, span } => Ok(match item {
-                    AtomicToken::Eof { .. } => unreachable!("ExpansionRule doesn't allow EOF"),
-                    AtomicToken::Error { .. } => unreachable!("ExpansionRule doesn't allow Error"),
-                    AtomicToken::Number { number } => {
-                        Expression::number(number.to_number(context.source()), *span)
-                    }
-                    AtomicToken::Size { .. } => unreachable!("ExpansionRule treats size as word"),
-                    AtomicToken::ExternalCommand { .. } => {
-                        unreachable!("ExpansionRule doesn't allow ExternalCommand")
-                    }
-                    AtomicToken::Whitespace { .. } => {
-                        unreachable!("ExpansionRule doesn't allow Whitespace")
-                    }
-                    AtomicToken::String { body } => Expression::string(*body, *span),
-                    AtomicToken::ItVariable { name } => Expression::it_variable(*name, *span),
-                    AtomicToken::Variable { name } => Expression::variable(*name, *span),
-                    AtomicToken::ExternalWord { .. }
-                    | AtomicToken::GlobPattern { .. }
-                    | AtomicToken::FilePath { .. }
-                    | AtomicToken::Word { .. }
-                    | AtomicToken::ShorthandFlag { .. }
-                    | AtomicToken::LonghandFlag { .. }
-                    | AtomicToken::Dot { .. }
-                    | AtomicToken::Operator { .. } => Expression::bare(*span),
-                    AtomicToken::SquareDelimited { .. }
-                    | AtomicToken::ParenDelimited { .. }
-                    | AtomicToken::BraceDelimited { .. }
-                    | AtomicToken::Pipeline { .. } => {
-                        return Err(ParseError::mismatch(
-                            "external argument",
-                            "pipeline".spanned(atom.span),
-                        ))
-                    }
-                }),
-            },
-        }
+        )?;
+
+        let span = atom.span;
+
+        Ok(match &atom.unspanned {
+            UnspannedAtomicToken::Eof { .. } => unreachable!("ExpansionRule doesn't allow EOF"),
+            UnspannedAtomicToken::Error { .. } => unreachable!("ExpansionRule doesn't allow Error"),
+            UnspannedAtomicToken::Number { number } => {
+                Expression::number(number.to_number(context.source()), span)
+            }
+            UnspannedAtomicToken::Size { .. } => unreachable!("ExpansionRule treats size as word"),
+            UnspannedAtomicToken::ExternalCommand { .. } => {
+                unreachable!("ExpansionRule doesn't allow ExternalCommand")
+            }
+            UnspannedAtomicToken::Whitespace { .. } => {
+                unreachable!("ExpansionRule doesn't allow Whitespace")
+            }
+            UnspannedAtomicToken::String { body } => Expression::string(*body, span),
+            UnspannedAtomicToken::ItVariable { name } => Expression::it_variable(*name, span),
+            UnspannedAtomicToken::Variable { name } => Expression::variable(*name, span),
+            UnspannedAtomicToken::ExternalWord { .. }
+            | UnspannedAtomicToken::GlobPattern { .. }
+            | UnspannedAtomicToken::Word { .. }
+            | UnspannedAtomicToken::ShorthandFlag { .. }
+            | UnspannedAtomicToken::Dot { .. }
+            | UnspannedAtomicToken::Operator { .. } => Expression::bare(span),
+            UnspannedAtomicToken::SquareDelimited { .. } => {
+                return Err(ParseError::mismatch(
+                    "external argument",
+                    "pipeline".spanned(atom.span),
+                ))
+            }
+        })
     }
 }
 
@@ -324,8 +332,8 @@ impl ColorSyntax for ExternalExpression {
             ExpansionRule::permissive(),
         ) {
             Err(_) => unreachable!("TODO: separate infallible expand_atom"),
-            Ok(Spanned {
-                item: AtomicToken::Eof { .. },
+            Ok(AtomicToken {
+                unspanned: UnspannedAtomicToken::Eof { .. },
                 ..
             }) => return ExternalExpressionResult::Eof,
             Ok(atom) => atom,
@@ -361,8 +369,8 @@ impl ColorSyntax for ExternalExpression {
             ExpansionRule::permissive(),
         ) {
             Err(_) => unreachable!("TODO: separate infallible expand_atom"),
-            Ok(Spanned {
-                item: AtomicToken::Eof { .. },
+            Ok(AtomicToken {
+                unspanned: UnspannedAtomicToken::Eof { .. },
                 ..
             }) => return ExternalExpressionResult::Eof,
             Ok(atom) => atom,

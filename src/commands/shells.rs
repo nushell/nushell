@@ -36,14 +36,14 @@ fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
         let mut dict = TaggedDictBuilder::new(&tag);
 
         if index == (*args.shell_manager.current_shell).load(Ordering::SeqCst) {
-            dict.insert(" ", "X".to_string());
+            dict.insert_untagged(" ", "X".to_string());
         } else {
-            dict.insert(" ", " ".to_string());
+            dict.insert_untagged(" ", " ".to_string());
         }
-        dict.insert("name", shell.name());
-        dict.insert("path", shell.path());
+        dict.insert_untagged("name", shell.name());
+        dict.insert_untagged("path", shell.path());
 
-        shells_out.push_back(dict.into_tagged_value());
+        shells_out.push_back(dict.into_value());
     }
 
     Ok(shells_out.to_output_stream())

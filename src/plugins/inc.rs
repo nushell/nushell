@@ -1,8 +1,8 @@
 use nu::{
-    did_you_mean, serve_plugin, span_for_spanned_list, CallInfo, ColumnPath, Plugin, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, ShellTypeName, Signature, SpannedItem, SyntaxShape,
-    Tagged, TaggedItem, Value,
+    did_you_mean, serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::{span_for_spanned_list, HasSpan, SpannedItem, Tagged};
 
 enum Action {
     SemVerAction(SemVerAction),
@@ -30,12 +30,12 @@ impl Inc {
         }
     }
 
-    fn apply(&self, input: &str) -> Result<Value, ShellError> {
+    fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
         let applied = match &self.action {
             Some(Action::SemVerAction(act_on)) => {
                 let mut ver = match semver::Version::parse(&input) {
                     Ok(parsed_ver) => parsed_ver,
-                    Err(_) => return Ok(Value::string(input.to_string())),
+                    Err(_) => return Ok(UntaggedValue::string(input.to_string())),
                 };
 
                 match act_on {
@@ -44,11 +44,11 @@ impl Inc {
                     SemVerAction::Patch => ver.increment_patch(),
                 }
 
-                Value::string(ver.to_string())
+                UntaggedValue::string(ver.to_string())
             }
             Some(Action::Default) | None => match input.parse::<u64>() {
-                Ok(v) => Value::string(format!("{}", v + 1)),
-                Err(_) => Value::string(input),
+                Ok(v) => UntaggedValue::string(format!("{}", v + 1)),
+                Err(_) => UntaggedValue::string(input),
             },
         };
 
@@ -75,16 +75,21 @@ impl Inc {
         "Usage: inc field [--major|--minor|--patch]"
     }
 
-    fn inc(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
-        match value.item() {
-            Value::Primitive(Primitive::Int(i)) => Ok(Value::int(i + 1).tagged(value.tag())),
-            Value::Primitive(Primitive::Bytes(b)) => {
-                Ok(Value::bytes(b + 1 as u64).tagged(value.tag()))
+    fn inc(&self, value: Value) -> Result<Value, ShellError> {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Int(i)) => {
+                Ok(UntaggedValue::int(i + 1).into_value(value.tag()))
             }
-            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
-            Value::Table(values) => {
+            UntaggedValue::Primitive(Primitive::Bytes(b)) => {
+                Ok(UntaggedValue::bytes(b + 1 as u64).into_value(value.tag()))
+            }
+            UntaggedValue::Primitive(Primitive::String(ref s)) => {
+                Ok(self.apply(&s)?.into_value(value.tag()))
+            }
+            UntaggedValue::Table(values) => {
                 if values.len() == 1 {
-                    return Ok(Value::Table(vec![self.inc(values[0].clone())?]).tagged(value.tag()));
+                    return Ok(UntaggedValue::Table(vec![self.inc(values[0].clone())?])
+                        .into_value(value.tag()));
                 } else {
                     return Err(ShellError::type_error(
                         "incrementable value",
@@ -93,7 +98,7 @@ impl Inc {
                 }
             }
 
-            Value::Row(_) => match self.field {
+            UntaggedValue::Row(_) => match self.field {
                 Some(ref f) => {
                     let fields = f.clone();
 
@@ -120,9 +125,12 @@ impl Inc {
                     );
 
                     let got = replace_for?;
-                    let replacement = self.inc(got.map(|x| x.clone()))?;
+                    let replacement = self.inc(got.clone())?;
 
-                    match value.replace_data_at_column_path(&f, replacement.item.clone()) {
+                    match value.replace_data_at_column_path(
+                        &f,
+                        replacement.value.clone().into_untagged_value(),
+                    ) {
                         Some(v) => return Ok(v),
                         None => {
                             return Err(ShellError::labeled_error(
@@ -170,8 +178,8 @@ impl Plugin for Inc {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    table @ Tagged {
-                        item: Value::Primitive(Primitive::ColumnPath(_)),
+                    table @ Value {
+                        value: UntaggedValue::Primitive(Primitive::ColumnPath(_)),
                         ..
                     } => {
                         self.field = Some(table.as_column_path()?);
@@ -202,7 +210,7 @@ impl Plugin for Inc {
         }
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(self.inc(input)?)])
     }
 }
@@ -217,13 +225,14 @@ mod tests {
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, PathMember, Plugin, RawPathMember, ReturnSuccess, SpannedItem,
-        Tag, Tagged, TaggedDictBuilder, TaggedItem, Value,
+        CallInfo, EvaluatedArgs, PathMember, Plugin, ReturnSuccess, TaggedDictBuilder,
+        UnspannedPathMember, UntaggedValue, Value,
     };
+    use nu_source::{Span, Tag};
 
     struct CallStub {
-        positionals: Vec<Tagged<Value>>,
-        flags: IndexMap<String, Tagged<Value>>,
+        positionals: Vec<Value>,
+        flags: IndexMap<String, Value>,
     }
 
     impl CallStub {
@@ -237,7 +246,7 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::boolean(true).tagged(Tag::unknown()),
+                UntaggedValue::boolean(true).into_value(Tag::unknown()),
             );
             self
         }
@@ -245,11 +254,13 @@ mod tests {
         fn with_parameter(&mut self, name: &str) -> &mut Self {
             let fields: Vec<PathMember> = name
                 .split(".")
-                .map(|s| RawPathMember::String(s.to_string()).spanned_unknown())
+                .map(|s| {
+                    UnspannedPathMember::String(s.to_string()).into_path_member(Span::unknown())
+                })
                 .collect();
 
             self.positionals
-                .push(Value::column_path(fields).tagged_unknown());
+                .push(UntaggedValue::column_path(fields).into_untagged_value());
             self
         }
 
@@ -261,10 +272,10 @@ mod tests {
         }
     }
 
-    fn cargo_sample_record(with_version: &str) -> Tagged<Value> {
+    fn cargo_sample_record(with_version: &str) -> Value {
         let mut package = TaggedDictBuilder::new(Tag::unknown());
-        package.insert("version", Value::string(with_version));
-        package.into_tagged_value()
+        package.insert_untagged("version", UntaggedValue::string(with_version));
+        package.into_value()
     }
 
     #[test]
@@ -334,10 +345,10 @@ mod tests {
         assert_eq!(
             plugin
                 .field
-                .map(|f| f.iter().map(|f| f.item.clone()).collect()),
+                .map(|f| f.iter().map(|f| f.unspanned.clone()).collect()),
             Some(vec![
-                RawPathMember::String("package".to_string()),
-                RawPathMember::String("version".to_string())
+                UnspannedPathMember::String("package".to_string()),
+                UnspannedPathMember::String("version".to_string())
             ])
         );
     }
@@ -346,21 +357,21 @@ mod tests {
     fn incs_major() {
         let mut inc = Inc::new();
         inc.for_semver(SemVerAction::Major);
-        assert_eq!(inc.apply("0.1.3").unwrap(), Value::string("1.0.0"));
+        assert_eq!(inc.apply("0.1.3").unwrap(), UntaggedValue::string("1.0.0"));
     }
 
     #[test]
     fn incs_minor() {
         let mut inc = Inc::new();
         inc.for_semver(SemVerAction::Minor);
-        assert_eq!(inc.apply("0.1.3").unwrap(), Value::string("0.2.0"));
+        assert_eq!(inc.apply("0.1.3").unwrap(), UntaggedValue::string("0.2.0"));
     }
 
     #[test]
     fn incs_patch() {
         let mut inc = Inc::new();
         inc.for_semver(SemVerAction::Patch);
-        assert_eq!(inc.apply("0.1.3").unwrap(), Value::string("0.1.4"));
+        assert_eq!(inc.apply("0.1.3").unwrap(), UntaggedValue::string("0.1.4"));
     }
 
     #[test]
@@ -380,12 +391,12 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("version")).borrow(),
-                Value::string(String::from("1.0.0"))
+                UntaggedValue::string(String::from("1.0.0")).into_untagged_value()
             ),
             _ => {}
         }
@@ -408,12 +419,12 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("version")).borrow(),
-                Value::string(String::from("0.2.0"))
+                UntaggedValue::string(String::from("0.2.0")).into_untagged_value()
             ),
             _ => {}
         }
@@ -437,12 +448,12 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&field).borrow(),
-                Value::string(String::from("0.1.4"))
+                UntaggedValue::string(String::from("0.1.4")).into_untagged_value()
             ),
             _ => {}
         }

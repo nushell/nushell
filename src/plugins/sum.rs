@@ -1,27 +1,27 @@
 use nu::{
     serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    Tagged, TaggedItem, Value,
+    UntaggedValue, Value,
 };
 
 struct Sum {
-    total: Option<Tagged<Value>>,
+    total: Option<Value>,
 }
 impl Sum {
     fn new() -> Sum {
         Sum { total: None }
     }
 
-    fn sum(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
-        match value.item() {
-            Value::Primitive(Primitive::Nothing) => Ok(()),
-            Value::Primitive(Primitive::Int(i)) => {
+    fn sum(&mut self, value: Value) -> Result<(), ShellError> {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Nothing) => Ok(()),
+            UntaggedValue::Primitive(Primitive::Int(i)) => {
                 match &self.total {
-                    Some(Tagged {
-                        item: Value::Primitive(Primitive::Int(j)),
+                    Some(Value {
+                        value: UntaggedValue::Primitive(Primitive::Int(j)),
                         tag,
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Value::int(i + j).tagged(tag));
+                        self.total = Some(UntaggedValue::int(i + j).into_value(tag));
                         Ok(())
                     }
                     None => {
@@ -35,14 +35,14 @@ impl Sum {
                     )),
                 }
             }
-            Value::Primitive(Primitive::Bytes(b)) => {
+            UntaggedValue::Primitive(Primitive::Bytes(b)) => {
                 match &self.total {
-                    Some(Tagged {
-                        item: Value::Primitive(Primitive::Bytes(j)),
+                    Some(Value {
+                        value: UntaggedValue::Primitive(Primitive::Bytes(j)),
                         tag,
                     }) => {
                         //TODO: handle overflow
-                        self.total = Some(Value::bytes(b + j).tagged(tag));
+                        self.total = Some(UntaggedValue::bytes(b + j).into_value(tag));
                         Ok(())
                     }
                     None => {
@@ -76,7 +76,7 @@ impl Plugin for Sum {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         self.sum(input)?;
         Ok(vec![])
     }

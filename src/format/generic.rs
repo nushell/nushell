@@ -11,9 +11,10 @@ pub struct GenericView<'value> {
 
 impl RenderView for GenericView<'_> {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
-        match self.value {
-            Value::Primitive(p) => Ok(host.stdout(&p.format(None))),
-            Value::Table(l) => {
+        let tag = &self.value.tag;
+        match &self.value.value {
+            UntaggedValue::Primitive(p) => Ok(host.stdout(&p.format(None))),
+            UntaggedValue::Table(l) => {
                 let view = TableView::from_list(l, 0);
 
                 if let Some(view) = view {
@@ -23,20 +24,20 @@ impl RenderView for GenericView<'_> {
                 Ok(())
             }
 
-            o @ Value::Row(_) => {
-                let view = EntriesView::from_value(o);
+            o @ UntaggedValue::Row(_) => {
+                let view = EntriesView::from_value(&o.clone().into_value(tag));
                 view.render_view(host)?;
                 Ok(())
             }
 
-            b @ Value::Block(_) => {
+            b @ UntaggedValue::Block(_) => {
                 let printed = b.format_leaf().plain_string(host.width());
-                let view = EntriesView::from_value(&Value::string(printed));
+                let view = EntriesView::from_value(&UntaggedValue::string(printed).into_value(tag));
                 view.render_view(host)?;
                 Ok(())
             }
 
-            Value::Error(e) => Err(e.clone()),
+            UntaggedValue::Error(e) => Err(e.clone()),
         }
     }
 }

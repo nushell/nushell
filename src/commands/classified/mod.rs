@@ -1,6 +1,5 @@
 use crate::parser::{hir, TokenNode};
 use crate::prelude::*;
-use std::fmt;
 
 mod dynamic;
 mod external;
@@ -10,7 +9,7 @@ mod pipeline;
 #[allow(unused_imports)]
 pub(crate) use dynamic::Command as DynamicCommand;
 #[allow(unused_imports)]
-pub(crate) use external::{Command as ExternalCommand, StreamNext};
+pub(crate) use external::{Command as ExternalCommand, ExternalArg, ExternalArgs, StreamNext};
 pub(crate) use internal::Command as InternalCommand;
 pub(crate) use pipeline::Pipeline as ClassifiedPipeline;
 
@@ -22,7 +21,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: vec![Value::nothing().tagged(Tag::unknown())].into(),
+            objects: vec![UntaggedValue::nothing().into_untagged_value()].into(),
             stdin: None,
         }
     }
@@ -43,22 +42,22 @@ impl ClassifiedInputStream {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) enum ClassifiedCommand {
+pub enum ClassifiedCommand {
     #[allow(unused)]
     Expr(TokenNode),
-    Internal(InternalCommand),
     #[allow(unused)]
-    Dynamic(Spanned<hir::Call>),
+    Dynamic(hir::Call),
+    Internal(InternalCommand),
     External(ExternalCommand),
 }
 
-impl FormatDebug for ClassifiedCommand {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
+impl PrettyDebugWithSource for ClassifiedCommand {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            ClassifiedCommand::Expr(expr) => expr.fmt_debug(f, source),
-            ClassifiedCommand::Internal(internal) => internal.fmt_debug(f, source),
-            ClassifiedCommand::Dynamic(dynamic) => dynamic.fmt_debug(f, source),
-            ClassifiedCommand::External(external) => external.fmt_debug(f, source),
+            ClassifiedCommand::Expr(token) => b::typed("command", token.pretty_debug(source)),
+            ClassifiedCommand::Dynamic(call) => b::typed("command", call.pretty_debug(source)),
+            ClassifiedCommand::Internal(internal) => internal.pretty_debug(source),
+            ClassifiedCommand::External(external) => external.pretty_debug(source),
         }
     }
 }

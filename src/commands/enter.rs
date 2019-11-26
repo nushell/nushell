@@ -30,13 +30,13 @@ impl PerItemCommand for Enter {
         call_info: &CallInfo,
         registry: &registry::CommandRegistry,
         raw_args: &RawCommandArgs,
-        _input: Tagged<Value>,
+        _input: Value,
     ) -> Result<OutputStream, ShellError> {
         let registry = registry.clone();
         let raw_args = raw_args.clone();
         match call_info.args.expect_nth(0)? {
-            Tagged {
-                item: Value::Primitive(Primitive::Path(location)),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Path(location)),
                 tag,
                 ..
             } => {
@@ -51,12 +51,12 @@ impl PerItemCommand for Enter {
 
                     if registry.has(command) {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            Value::string(command).tagged(Tag::unknown()),
+                            UntaggedValue::string(command).into_value(Tag::unknown()),
                         )))]
                         .into())
                     } else {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            Value::nothing().tagged(Tag::unknown()),
+                            UntaggedValue::nothing().into_value(Tag::unknown()),
                         )))]
                         .into())
                     }
@@ -80,8 +80,8 @@ impl PerItemCommand for Enter {
                             ).await?;
 
                         match contents {
-                            Value::Primitive(Primitive::String(_)) => {
-                                let tagged_contents = contents.tagged(&contents_tag);
+                            UntaggedValue::Primitive(Primitive::String(_)) => {
+                                let tagged_contents = contents.into_value(&contents_tag);
 
                                 if let Some(extension) = file_extension {
                                     let command_name = format!("from-{}", extension);
@@ -97,6 +97,7 @@ impl PerItemCommand for Enter {
                                                     head: raw_args.call_info.args.head,
                                                     positional: None,
                                                     named: None,
+                                                    span: Span::unknown()
                                                 },
                                                 source: raw_args.call_info.source,
                                                 name_tag: raw_args.call_info.name_tag,
@@ -110,13 +111,13 @@ impl PerItemCommand for Enter {
                                             result.drain_vec().await;
                                         for res in result_vec {
                                             match res {
-                                                Ok(ReturnSuccess::Value(Tagged {
-                                                    item,
+                                                Ok(ReturnSuccess::Value(Value {
+                                                    value,
                                                     ..
                                                 })) => {
                                                     yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(
-                                                        Tagged {
-                                                            item,
+                                                        Value {
+                                                            value,
                                                             tag: contents_tag.clone(),
                                                         })));
                                                 }
@@ -131,7 +132,7 @@ impl PerItemCommand for Enter {
                                 }
                             }
                             _ => {
-                                let tagged_contents = contents.tagged(contents_tag);
+                                let tagged_contents = contents.into_value(contents_tag);
 
                                 yield Ok(ReturnSuccess::Action(CommandAction::EnterValueShell(tagged_contents)));
                             }

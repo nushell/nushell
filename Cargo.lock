@@ -1704,6 +1704,7 @@ dependencies = [
  "nom 5.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom-tracable 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "nom_locate 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nu-source 0.1.0",
  "num-bigint 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "onig_sys 69.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1744,6 +1745,20 @@ dependencies = [
  "unicode-xid 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "which 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "nu-source"
+version = "0.1.0"
+dependencies = [
+ "derive-new 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "getset 0.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "language-reporting 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom-tracable 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nom_locate 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pretty 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
+ "termcolor 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

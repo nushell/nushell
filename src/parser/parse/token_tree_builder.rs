@@ -4,8 +4,9 @@ use crate::parser::parse::flag::{Flag, FlagKind};
 use crate::parser::parse::operator::Operator;
 use crate::parser::parse::pipeline::{Pipeline, PipelineElement};
 use crate::parser::parse::token_tree::{DelimitedNode, Delimiter, TokenNode};
-use crate::parser::parse::tokens::{RawNumber, RawToken};
+use crate::parser::parse::tokens::{RawNumber, UnspannedToken};
 use crate::parser::CallNode;
+use nu_source::Spanned;
 
 pub struct TokenTreeBuilder {
     pos: usize,
@@ -46,7 +47,7 @@ impl TokenTreeBuilder {
         Box::new(move |b| {
             let start = b.pos;
 
-            let mut out: Vec<Spanned<PipelineElement>> = vec![];
+            let mut out: Vec<PipelineElement> = vec![];
 
             let mut input = input.into_iter().peekable();
             let head = input
@@ -56,20 +57,17 @@ impl TokenTreeBuilder {
             let pipe = None;
             let head = b.build_spanned(|b| head.into_iter().map(|node| node(b)).collect());
 
-            let head_span: Span = head.span;
-            out.push(PipelineElement::new(pipe, head).spanned(head_span));
+            out.push(PipelineElement::new(pipe, head));
 
             loop {
                 match input.next() {
                     None => break,
                     Some(node) => {
-                        let start = b.pos;
                         let pipe = Some(b.consume_span("|"));
                         let node =
                             b.build_spanned(|b| node.into_iter().map(|node| node(b)).collect());
-                        let end = b.pos;
 
-                        out.push(PipelineElement::new(pipe, node).spanned(Span::new(start, end)));
+                        out.push(PipelineElement::new(pipe, node));
                     }
                 }
             }
@@ -80,11 +78,8 @@ impl TokenTreeBuilder {
         })
     }
 
-    pub fn spanned_pipeline(
-        input: Vec<Spanned<PipelineElement>>,
-        span: impl Into<Span>,
-    ) -> TokenNode {
-        TokenNode::Pipeline(Pipeline::new(input).spanned(span))
+    pub fn spanned_pipeline(input: Vec<PipelineElement>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Pipeline(Pipeline::new(input, span.into()))
     }
 
     pub fn token_list(input: Vec<CurriedToken>) -> CurriedToken {
@@ -114,7 +109,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_op(input: impl Into<Operator>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::Operator(input.into()).spanned(span.into()))
+        TokenNode::Token(UnspannedToken::Operator(input.into()).into_token(span))
     }
 
     pub fn string(input: impl Into<String>) -> CurriedToken {
@@ -134,7 +129,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_string(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::String(input.into()).spanned(span.into()))
+        TokenNode::Token(UnspannedToken::String(input.into()).into_token(span))
     }
 
     pub fn bare(input: impl Into<String>) -> CurriedToken {
@@ -149,7 +144,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_bare(span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::Bare.spanned(span))
+        TokenNode::Token(UnspannedToken::Bare.into_token(span))
     }
 
     pub fn pattern(input: impl Into<String>) -> CurriedToken {
@@ -164,7 +159,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_pattern(input: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::GlobPattern.spanned(input.into()))
+        TokenNode::Token(UnspannedToken::GlobPattern.into_token(input))
     }
 
     pub fn external_word(input: impl Into<String>) -> CurriedToken {
@@ -179,7 +174,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_external_word(input: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::ExternalWord.spanned(input.into()))
+        TokenNode::Token(UnspannedToken::ExternalWord.into_token(input))
     }
 
     pub fn external_command(input: impl Into<String>) -> CurriedToken {
@@ -198,7 +193,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::ExternalCommand(inner.into()).spanned(outer.into()))
+        TokenNode::Token(UnspannedToken::ExternalCommand(inner.into()).into_token(outer))
     }
 
     pub fn int(input: impl Into<BigInt>) -> CurriedToken {
@@ -230,7 +225,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_number(input: impl Into<RawNumber>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::Number(input.into()).spanned(span.into()))
+        TokenNode::Token(UnspannedToken::Number(input.into()).into_token(span))
     }
 
     pub fn var(input: impl Into<String>) -> CurriedToken {
@@ -245,7 +240,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_var(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(RawToken::Variable(input.into()).spanned(span.into()))
+        TokenNode::Token(UnspannedToken::Variable(input.into()).into_token(span))
     }
 
     pub fn flag(input: impl Into<String>) -> CurriedToken {
@@ -260,7 +255,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_flag(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Flag(Flag::new(FlagKind::Longhand, input.into()).spanned(span.into()))
+        TokenNode::Flag(Flag::new(FlagKind::Longhand, input.into(), span.into()))
     }
 
     pub fn shorthand(input: impl Into<String>) -> CurriedToken {
@@ -275,7 +270,7 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_shorthand(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Flag(Flag::new(FlagKind::Shorthand, input.into()).spanned(span.into()))
+        TokenNode::Flag(Flag::new(FlagKind::Shorthand, input.into(), span.into()))
     }
 
     pub fn call(head: CurriedToken, input: Vec<CurriedToken>) -> CurriedCall {

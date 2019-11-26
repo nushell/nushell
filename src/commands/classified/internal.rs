@@ -2,15 +2,14 @@ use crate::parser::hir;
 use crate::prelude::*;
 use derive_new::new;
 use log::{log_enabled, trace};
-use std::fmt;
 
 use super::ClassifiedInputStream;
 
 #[derive(new, Debug, Clone, Eq, PartialEq)]
-pub(crate) struct Command {
+pub struct Command {
     pub(crate) name: String,
     pub(crate) name_tag: Tag,
-    pub(crate) args: Spanned<hir::Call>,
+    pub(crate) args: hir::Call,
 }
 
 impl HasSpan for Command {
@@ -21,9 +20,12 @@ impl HasSpan for Command {
     }
 }
 
-impl FormatDebug for Command {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        f.say("internal", self.args.debug(source))
+impl PrettyDebugWithSource for Command {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed(
+            "internal command",
+            b::description(&self.name) + b::space() + self.args.pretty_debug(source),
+        )
     }
 }
 
@@ -40,21 +42,15 @@ impl Command {
             trace!(target: "nu::run::internal", "{}", self.args.debug(&source));
         }
 
-        let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", source: source, "input" = input.objects);
+        let objects: InputStream =
+            trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
 
         let command = context.expect_command(&self.name);
 
-        let result = {
-            context.run_command(
-                command,
-                self.name_tag.clone(),
-                self.args.item,
-                &source,
-                objects,
-            )
-        };
+        let result =
+            { context.run_command(command, self.name_tag.clone(), self.args, &source, objects) };
 
-        let result = trace_out_stream!(target: "nu::trace_stream::internal", source: source, "output" = result);
+        let result = trace_out_stream!(target: "nu::trace_stream::internal", "output" = result);
         let mut result = result.values;
         let mut context = context.clone();
 
@@ -75,13 +71,13 @@ impl Command {
                         }
                         CommandAction::EnterHelpShell(value) => {
                             match value {
-                                Tagged {
-                                    item: Value::Primitive(Primitive::String(cmd)),
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::String(cmd)),
                                     tag,
                                 } => {
                                     context.shell_manager.insert_at_current(Box::new(
                                         HelpShell::for_command(
-                                            Value::string(cmd).tagged(tag),
+                                            UntaggedValue::string(cmd).into_value(tag),
                                             &context.registry(),
                                         ).unwrap(),
                                     ));
@@ -125,7 +121,7 @@ impl Command {
                     Ok(ReturnSuccess::DebugValue(v)) => {
                         yielded = true;
 
-                        let doc = v.item.pretty_doc();
+                        let doc = PrettyDebug::pretty_doc(&v);
                         let mut buffer = termcolor::Buffer::ansi();
 
                         doc.render_raw(
@@ -135,7 +131,7 @@ impl Command {
 
                         let value = String::from_utf8_lossy(buffer.as_slice());
 
-                        yield Ok(Value::string(value).tagged_unknown())
+                        yield Ok(UntaggedValue::string(value).into_untagged_value())
                     }
 
                     Err(err) => {

@@ -1,8 +1,8 @@
 use crate::data::Value;
 use crate::format::RenderView;
 use crate::prelude::*;
-use crate::traits::PrettyDebug;
 use derive_new::new;
+use nu_source::PrettyDebug;
 use textwrap::fill;
 
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
@@ -23,7 +23,7 @@ enum TableMode {
 }
 
 impl TableView {
-    fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
+    fn merge_descriptors(values: &[Value]) -> Vec<String> {
         let mut ret: Vec<String> = vec![];
         let value_column = "<value>".to_string();
         for value in values {
@@ -44,7 +44,7 @@ impl TableView {
         ret
     }
 
-    pub fn from_list(values: &[Tagged<Value>], starting_idx: usize) -> Option<TableView> {
+    pub fn from_list(values: &[Value], starting_idx: usize) -> Option<TableView> {
         if values.len() == 0 {
             return None;
         }
@@ -63,42 +63,30 @@ impl TableView {
                 .map(|d| {
                     if d == "<value>" {
                         match value {
-                            Tagged {
-                                item: Value::Row(..),
+                            Value {
+                                value: UntaggedValue::Row(..),
                                 ..
                             } => (
-                                Value::nothing()
-                                    .format_leaf()
-                                    .pretty_debug()
-                                    .plain_string(100000),
-                                Value::nothing().style_leaf(),
+                                UntaggedValue::nothing().format_leaf().plain_string(100000),
+                                UntaggedValue::nothing().style_leaf(),
                             ),
-                            _ => (
-                                value.format_leaf().pretty_debug().plain_string(100000),
-                                value.style_leaf(),
-                            ),
+                            _ => (value.format_leaf().plain_string(100000), value.style_leaf()),
                         }
                     } else {
                         match value {
-                            Tagged {
-                                item: Value::Row(..),
+                            Value {
+                                value: UntaggedValue::Row(..),
                                 ..
                             } => {
                                 let data = value.get_data(d);
                                 (
-                                    data.borrow()
-                                        .format_leaf()
-                                        .pretty_debug()
-                                        .plain_string(100000),
+                                    data.borrow().format_leaf().plain_string(100000),
                                     data.borrow().style_leaf(),
                                 )
                             }
                             _ => (
-                                Value::nothing()
-                                    .format_leaf()
-                                    .pretty_debug()
-                                    .plain_string(100000),
-                                Value::nothing().style_leaf(),
+                                UntaggedValue::nothing().format_leaf().plain_string(100000),
+                                UntaggedValue::nothing().style_leaf(),
                             ),
                         }
                     }

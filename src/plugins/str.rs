@@ -1,8 +1,9 @@
 use nu::{
-    did_you_mean, serve_plugin, span_for_spanned_list, CallInfo, ColumnPath, Plugin, Primitive,
-    ReturnSuccess, ReturnValue, ShellError, ShellTypeName, Signature, SyntaxShape, Tagged,
-    TaggedItem, Value,
+    did_you_mean, serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess,
+    ReturnValue, ShellError, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
+use nu_source::{span_for_spanned_list, Tagged};
+
 use std::cmp;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -30,17 +31,17 @@ impl Str {
         }
     }
 
-    fn apply(&self, input: &str) -> Result<Value, ShellError> {
+    fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
         let applied = match self.action.as_ref() {
-            Some(Action::Downcase) => Value::string(input.to_ascii_lowercase()),
-            Some(Action::Upcase) => Value::string(input.to_ascii_uppercase()),
+            Some(Action::Downcase) => UntaggedValue::string(input.to_ascii_lowercase()),
+            Some(Action::Upcase) => UntaggedValue::string(input.to_ascii_uppercase()),
             Some(Action::Substring(s, e)) => {
                 let end: usize = cmp::min(*e, input.len());
                 let start: usize = *s;
                 if start > input.len() - 1 {
-                    Value::string("")
+                    UntaggedValue::string("")
                 } else {
-                    Value::string(
+                    UntaggedValue::string(
                         &input
                             .chars()
                             .skip(start)
@@ -51,11 +52,11 @@ impl Str {
             }
             Some(Action::ToInteger) => match input.trim() {
                 other => match other.parse::<i64>() {
-                    Ok(v) => Value::int(v),
-                    Err(_) => Value::string(input),
+                    Ok(v) => UntaggedValue::int(v),
+                    Err(_) => UntaggedValue::string(input),
                 },
             },
-            None => Value::string(input),
+            None => UntaggedValue::string(input),
         };
 
         Ok(applied)
@@ -122,10 +123,12 @@ impl Str {
 }
 
 impl Str {
-    fn strutils(&self, value: Tagged<Value>) -> Result<Tagged<Value>, ShellError> {
-        match value.item {
-            Value::Primitive(Primitive::String(ref s)) => Ok(self.apply(&s)?.tagged(value.tag())),
-            Value::Row(_) => match self.field {
+    fn strutils(&self, value: Value) -> Result<Value, ShellError> {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::String(ref s)) => {
+                Ok(self.apply(&s)?.into_value(value.tag()))
+            }
+            UntaggedValue::Row(_) => match self.field {
                 Some(ref f) => {
                     let fields = f.clone();
 
@@ -147,9 +150,12 @@ impl Str {
                         );
 
                     let got = replace_for?;
-                    let replacement = self.strutils(got.map(|x| x.clone()))?;
+                    let replacement = self.strutils(got.clone())?;
 
-                    match value.replace_data_at_column_path(&f, replacement.item.clone()) {
+                    match value.replace_data_at_column_path(
+                        &f,
+                        replacement.value.clone().into_untagged_value(),
+                    ) {
                         Some(v) => return Ok(v),
                         None => Err(ShellError::labeled_error(
                             "str could not find field to replace",
@@ -166,7 +172,7 @@ impl Str {
             },
             _ => Err(ShellError::labeled_error(
                 "Unrecognized type in stream",
-                value.item.type_name(),
+                value.type_name(),
                 value.tag,
             )),
         }
@@ -204,8 +210,8 @@ impl Plugin for Str {
         if args.has("substring") {
             if let Some(start_end) = args.get("substring") {
                 match start_end {
-                    Tagged {
-                        item: Value::Primitive(Primitive::String(s)),
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::String(s)),
                         ..
                     } => {
                         self.for_substring(s.to_string());
@@ -228,8 +234,8 @@ impl Plugin for Str {
         }
         for param in args.positional_iter() {
             match param {
-                Tagged {
-                    item: Value::Primitive(Primitive::String(s)),
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(s)),
                     ..
                 } => self.params.as_mut().unwrap().push(String::from(s)),
                 _ => {}
@@ -248,7 +254,7 @@ impl Plugin for Str {
         }
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![ReturnSuccess::value(self.strutils(input)?)])
     }
 }
@@ -262,14 +268,15 @@ mod tests {
     use super::{Action, Str};
     use indexmap::IndexMap;
     use nu::{
-        CallInfo, EvaluatedArgs, Plugin, Primitive, RawPathMember, ReturnSuccess, Tag, Tagged,
-        TaggedDictBuilder, TaggedItem, Value,
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, TaggedDictBuilder,
+        UnspannedPathMember, UntaggedValue, Value,
     };
+    use nu_source::Tag;
     use num_bigint::BigInt;
 
     struct CallStub {
-        positionals: Vec<Tagged<Value>>,
-        flags: IndexMap<String, Tagged<Value>>,
+        positionals: Vec<Value>,
+        flags: IndexMap<String, Value>,
     }
 
     impl CallStub {
@@ -283,7 +290,7 @@ mod tests {
         fn with_named_parameter(&mut self, name: &str, value: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::string(value).tagged(Tag::unknown()),
+                UntaggedValue::string(value).into_value(Tag::unknown()),
             );
             self
         }
@@ -291,19 +298,19 @@ mod tests {
         fn with_long_flag(&mut self, name: &str) -> &mut Self {
             self.flags.insert(
                 name.to_string(),
-                Value::boolean(true).tagged(Tag::unknown()),
+                UntaggedValue::boolean(true).into_value(Tag::unknown()),
             );
             self
         }
 
         fn with_parameter(&mut self, name: &str) -> &mut Self {
-            let fields: Vec<Tagged<Value>> = name
+            let fields: Vec<Value> = name
                 .split(".")
-                .map(|s| Value::string(s.to_string()).tagged(Tag::unknown()))
+                .map(|s| UntaggedValue::string(s.to_string()).into_value(Tag::unknown()))
                 .collect();
 
             self.positionals
-                .push(Value::Table(fields).tagged(Tag::unknown()));
+                .push(UntaggedValue::Table(fields).into_value(Tag::unknown()));
             self
         }
 
@@ -315,14 +322,14 @@ mod tests {
         }
     }
 
-    fn structured_sample_record(key: &str, value: &str) -> Tagged<Value> {
+    fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert(key.clone(), Value::string(value));
-        record.into_tagged_value()
+        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.into_value()
     }
 
-    fn unstructured_sample_record(value: &str) -> Tagged<Value> {
-        Value::string(value).tagged(Tag::unknown())
+    fn unstructured_sample_record(value: &str) -> Value {
+        UntaggedValue::string(value).into_value(Tag::unknown())
     }
 
     #[test]
@@ -380,10 +387,10 @@ mod tests {
         assert_eq!(
             plugin
                 .field
-                .map(|f| f.iter().cloned().map(|f| f.item).collect()),
+                .map(|f| f.iter().cloned().map(|f| f.unspanned).collect()),
             Some(vec![
-                RawPathMember::String("package".to_string()),
-                RawPathMember::String("description".to_string())
+                UnspannedPathMember::String("package".to_string()),
+                UnspannedPathMember::String("description".to_string())
             ])
         )
     }
@@ -409,21 +416,30 @@ mod tests {
     fn str_downcases() {
         let mut strutils = Str::new();
         strutils.for_downcase();
-        assert_eq!(strutils.apply("ANDRES").unwrap(), Value::string("andres"));
+        assert_eq!(
+            strutils.apply("ANDRES").unwrap(),
+            UntaggedValue::string("andres")
+        );
     }
 
     #[test]
     fn str_upcases() {
         let mut strutils = Str::new();
         strutils.for_upcase();
-        assert_eq!(strutils.apply("andres").unwrap(), Value::string("ANDRES"));
+        assert_eq!(
+            strutils.apply("andres").unwrap(),
+            UntaggedValue::string("ANDRES")
+        );
     }
 
     #[test]
     fn str_to_int() {
         let mut strutils = Str::new();
         strutils.for_to_int();
-        assert_eq!(strutils.apply("9999").unwrap(), Value::int(9999 as i64));
+        assert_eq!(
+            strutils.apply("9999").unwrap(),
+            UntaggedValue::int(9999 as i64)
+        );
     }
 
     #[test]
@@ -443,12 +459,12 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
-                Value::string(String::from("JOTANDREHUDA"))
+                UntaggedValue::string(String::from("JOTANDREHUDA")).into_untagged_value()
             ),
             _ => {}
         }
@@ -466,8 +482,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("JOTANDREHUDA")),
             _ => {}
@@ -491,12 +507,12 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("name")).borrow(),
-                Value::string(String::from("jotandrehuda"))
+                UntaggedValue::string(String::from("jotandrehuda")).into_untagged_value()
             ),
             _ => {}
         }
@@ -514,8 +530,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("jotandrehuda")),
             _ => {}
@@ -539,12 +555,12 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Row(o),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Row(o),
                 ..
             }) => assert_eq!(
                 *o.get_data(&String::from("Nu_birthday")).borrow(),
-                Value::int(10)
+                UntaggedValue::int(10).into_untagged_value()
             ),
             _ => {}
         }
@@ -562,8 +578,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::Int(i)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::Int(i)),
                 ..
             }) => assert_eq!(*i, BigInt::from(10)),
             _ => {}
@@ -586,8 +602,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("0")),
             _ => {}
@@ -610,8 +626,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("0123456789")),
             _ => {}
@@ -634,8 +650,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("")),
             _ => {}
@@ -658,8 +674,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("01234")),
             _ => {}
@@ -682,8 +698,8 @@ mod tests {
         let output = plugin.filter(subject).unwrap();
 
         match output[0].as_ref().unwrap() {
-            ReturnSuccess::Value(Tagged {
-                item: Value::Primitive(Primitive::String(s)),
+            ReturnSuccess::Value(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }) => assert_eq!(*s, String::from("23456789")),
             _ => {}

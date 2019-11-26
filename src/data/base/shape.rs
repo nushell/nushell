@@ -1,11 +1,12 @@
 use crate::data::base::{Block, ColumnPath};
 use crate::data::dict::Dictionary;
 use crate::prelude::*;
-use crate::traits::{DebugDocBuilder as b, PrettyDebug};
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use indexmap::IndexMap;
+use nu_source::DebugDoc;
+use nu_source::{b, PrettyDebug};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -76,7 +77,7 @@ impl TypeShape {
 
         for (key, value) in dictionary.entries.iter() {
             let column = Column::String(key.clone());
-            map.insert(column, TypeShape::from_value(&value.item));
+            map.insert(column, TypeShape::from_value(value));
         }
 
         TypeShape::Row(map)
@@ -92,19 +93,19 @@ impl TypeShape {
         TypeShape::Table(vec)
     }
 
-    pub fn from_value(value: &Value) -> TypeShape {
-        match value {
-            Value::Primitive(p) => TypeShape::from_primitive(p),
-            Value::Row(row) => TypeShape::from_dictionary(row),
-            Value::Table(table) => TypeShape::from_table(table.iter().map(|i| &i.item)),
-            Value::Error(_) => TypeShape::Error,
-            Value::Block(_) => TypeShape::Block,
+    pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> TypeShape {
+        match value.into() {
+            UntaggedValue::Primitive(p) => TypeShape::from_primitive(p),
+            UntaggedValue::Row(row) => TypeShape::from_dictionary(row),
+            UntaggedValue::Table(table) => TypeShape::from_table(table.iter()),
+            UntaggedValue::Error(_) => TypeShape::Error,
+            UntaggedValue::Block(_) => TypeShape::Block,
         }
     }
 }
 
 impl PrettyDebug for TypeShape {
-    fn pretty_debug(&self) -> DebugDocBuilder {
+    fn pretty(&self) -> DebugDocBuilder {
         match self {
             TypeShape::Nothing => ty("nothing"),
             TypeShape::Int => ty("integer"),
@@ -128,7 +129,7 @@ impl PrettyDebug for TypeShape {
                         (b::key(match key {
                             Column::String(string) => string.clone(),
                             Column::Value => "<value>".to_string(),
-                        }) + b::delimit("(", ty.pretty_debug(), ")").as_kind())
+                        }) + b::delimit("(", ty.pretty(), ")").as_kind())
                         .nest()
                     }),
                     b::space(),
@@ -186,11 +187,11 @@ struct DebugEntry<'a> {
 }
 
 impl<'a> PrettyDebug for DebugEntry<'a> {
-    fn pretty_debug(&self) -> DebugDocBuilder {
+    fn pretty(&self) -> DebugDocBuilder {
         (b::key(match self.key {
             Column::String(string) => string.clone(),
             Column::Value => format!("<value>"),
-        }) + b::delimit("(", self.value.pretty_debug(), ")").as_kind())
+        }) + b::delimit("(", self.value.pretty(), ")").as_kind())
     }
 }
 
@@ -256,7 +257,7 @@ impl InlineShape {
 
         for (key, value) in dictionary.entries.iter() {
             let column = Column::String(key.clone());
-            map.insert(column, InlineShape::from_value(&value.item));
+            map.insert(column, InlineShape::from_value(value));
         }
 
         InlineShape::Row(map)
@@ -272,22 +273,23 @@ impl InlineShape {
         InlineShape::Table(vec)
     }
 
-    pub fn from_value(value: &Value) -> InlineShape {
-        match value {
-            Value::Primitive(p) => InlineShape::from_primitive(p),
-            Value::Row(row) => InlineShape::from_dictionary(row),
-            Value::Table(table) => InlineShape::from_table(table.iter().map(|i| &i.item)),
-            Value::Error(_) => InlineShape::Error,
-            Value::Block(_) => InlineShape::Block,
+    pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> InlineShape {
+        match value.into() {
+            UntaggedValue::Primitive(p) => InlineShape::from_primitive(p),
+            UntaggedValue::Row(row) => InlineShape::from_dictionary(row),
+            UntaggedValue::Table(table) => InlineShape::from_table(table.iter()),
+            UntaggedValue::Error(_) => InlineShape::Error,
+            UntaggedValue::Block(_) => InlineShape::Block,
         }
     }
 
-    // pub fn format_for_column(self, column: impl Into<Column>) -> FormatInlineShape {
-    //     FormatInlineShape {
-    //         shape: self,
-    //         column: Some(column.into()),
-    //     }
-    // }
+    #[allow(unused)]
+    pub fn format_for_column(self, column: impl Into<Column>) -> FormatInlineShape {
+        FormatInlineShape {
+            shape: self,
+            column: Some(column.into()),
+        }
+    }
 
     pub fn format(self) -> FormatInlineShape {
         FormatInlineShape {
@@ -298,7 +300,7 @@ impl InlineShape {
 }
 
 impl PrettyDebug for FormatInlineShape {
-    fn pretty_debug(&self) -> DebugDocBuilder {
+    fn pretty(&self) -> DebugDocBuilder {
         let column = &self.column;
 
         match &self.shape {
@@ -323,10 +325,9 @@ impl PrettyDebug for FormatInlineShape {
                 }
             }
             InlineShape::String(string) => b::primitive(format!("{}", string)),
-            InlineShape::ColumnPath(path) => b::intersperse(
-                path.iter().map(|member| member.pretty_debug()),
-                b::keyword("."),
-            ),
+            InlineShape::ColumnPath(path) => {
+                b::intersperse(path.iter().map(|member| member.pretty()), b::keyword("."))
+            }
             InlineShape::Pattern(pattern) => b::primitive(pattern),
             InlineShape::Boolean(boolean) => b::primitive(match (boolean, column) {
                 (true, None) => format!("Yes"),
@@ -485,15 +486,15 @@ impl Value {
 
 impl Shape {
     pub fn for_value(value: &Value) -> Shape {
-        match value {
-            Value::Primitive(p) => Shape::Primitive(p.type_name()),
-            Value::Row(row) => Shape::for_dict(row),
-            Value::Table(table) => Shape::Table {
+        match &value.value {
+            UntaggedValue::Primitive(p) => Shape::Primitive(p.type_name()),
+            UntaggedValue::Row(row) => Shape::for_dict(row),
+            UntaggedValue::Table(table) => Shape::Table {
                 from: 0,
                 to: table.len(),
             },
-            Value::Error(error) => Shape::Error(error.clone()),
-            Value::Block(block) => Shape::Block(block.clone()),
+            UntaggedValue::Error(error) => Shape::Error(error.clone()),
+            UntaggedValue::Block(block) => Shape::Block(block.clone()),
         }
     }
 
@@ -558,7 +559,7 @@ impl Shape {
             .expect("Writing into a Vec can't fail");
         let string = String::from_utf8_lossy(&out);
 
-        Value::string(string)
+        UntaggedValue::string(string).into_untagged_value()
     }
 }
 
@@ -582,13 +583,13 @@ impl Shapes {
             .or_insert_with(|| vec![row]);
     }
 
-    pub fn to_values(&self) -> Vec<Tagged<Value>> {
+    pub fn to_values(&self) -> Vec<Value> {
         if self.shapes.len() == 1 {
             let shape = self.shapes.keys().nth(0).unwrap();
 
             vec![dict! {
                 "type" => shape.to_value(),
-                "rows" => Value::string("all")
+                "rows" => UntaggedValue::string("all")
             }]
         } else {
             self.shapes
@@ -598,7 +599,7 @@ impl Shapes {
 
                     dict! {
                         "type" => shape.to_value(),
-                        "rows" => Value::string(format!("[ {} ]", rows))
+                        "rows" => UntaggedValue::string(format!("[ {} ]", rows))
                     }
                 })
                 .collect()

@@ -31,39 +31,36 @@ impl WholeStreamCommand for FromJSON {
     }
 }
 
-fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -> Tagged<Value> {
+fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     match v {
-        serde_hjson::Value::Null => Value::Primitive(Primitive::Nothing).tagged(&tag),
-        serde_hjson::Value::Bool(b) => Value::boolean(*b).tagged(&tag),
-        serde_hjson::Value::F64(n) => Value::number(n).tagged(&tag),
-        serde_hjson::Value::U64(n) => Value::number(n).tagged(&tag),
-        serde_hjson::Value::I64(n) => Value::number(n).tagged(&tag),
+        serde_hjson::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag),
+        serde_hjson::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(&tag),
+        serde_hjson::Value::F64(n) => UntaggedValue::number(n).into_value(&tag),
+        serde_hjson::Value::U64(n) => UntaggedValue::number(n).into_value(&tag),
+        serde_hjson::Value::I64(n) => UntaggedValue::number(n).into_value(&tag),
         serde_hjson::Value::String(s) => {
-            Value::Primitive(Primitive::String(String::from(s))).tagged(&tag)
+            UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(&tag)
         }
-        serde_hjson::Value::Array(a) => Value::Table(
+        serde_hjson::Value::Array(a) => UntaggedValue::Table(
             a.iter()
                 .map(|x| convert_json_value_to_nu_value(x, &tag))
                 .collect(),
         )
-        .tagged(tag),
+        .into_value(tag),
         serde_hjson::Value::Object(o) => {
             let mut collected = TaggedDictBuilder::new(&tag);
             for (k, v) in o.iter() {
-                collected.insert_tagged(k.clone(), convert_json_value_to_nu_value(v, &tag));
+                collected.insert_value(k.clone(), convert_json_value_to_nu_value(v, &tag));
             }
 
-            collected.into_tagged_value()
+            collected.into_value()
         }
     }
 }
 
-pub fn from_json_string_to_value(
-    s: String,
-    tag: impl Into<Tag>,
-) -> serde_hjson::Result<Tagged<Value>> {
+pub fn from_json_string_to_value(s: String, tag: impl Into<Tag>) -> serde_hjson::Result<Value> {
     let v: serde_hjson::Value = serde_hjson::from_str(&s)?;
     Ok(convert_json_value_to_nu_value(&v, tag))
 }
@@ -72,28 +69,29 @@ fn from_json(
     FromJSONArgs { objects }: FromJSONArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
+    let name_span = name.span;
     let name_tag = name;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
 
         for value in values {
-            let value_tag = value.tag();
-            latest_tag = Some(value_tag.clone());
-            match value.item {
-                Value::Primitive(Primitive::String(s)) => {
+            latest_tag = Some(value.tag.clone());
+            let value_span = value.tag.span;
+            match &value.value {
+                UntaggedValue::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
                     concat_string.push_str("\n");
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    &name_tag,
+                    name_span,
                     "value originates from here",
-                    &value_tag,
+                    value_span,
                 )),
 
             }
@@ -125,7 +123,7 @@ fn from_json(
             match from_json_string_to_value(concat_string, name_tag.clone()) {
                 Ok(x) =>
                     match x {
-                        Tagged { item: Value::Table(list), .. } => {
+                        Value { value: UntaggedValue::Table(list), .. } => {
                             for l in list {
                                 yield ReturnSuccess::value(l);
                             }

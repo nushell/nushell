@@ -1,11 +1,12 @@
 use nu::{
     serve_plugin, CallInfo, CoerceInto, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError,
-    Signature, Tagged, TaggedItem, Value,
+    Signature, UntaggedValue, Value,
 };
+use nu_source::TaggedItem;
 
 #[derive(Debug)]
 struct Average {
-    total: Option<Tagged<Value>>,
+    total: Option<Value>,
     count: u64,
 }
 
@@ -17,15 +18,15 @@ impl Average {
         }
     }
 
-    fn average(&mut self, value: Tagged<Value>) -> Result<(), ShellError> {
-        match value.item() {
-            Value::Primitive(Primitive::Nothing) => Ok(()),
-            Value::Primitive(Primitive::Int(i)) => match &self.total {
-                Some(Tagged {
-                    item: Value::Primitive(Primitive::Int(j)),
+    fn average(&mut self, value: Value) -> Result<(), ShellError> {
+        match &value.value {
+            UntaggedValue::Primitive(Primitive::Nothing) => Ok(()),
+            UntaggedValue::Primitive(Primitive::Int(i)) => match &self.total {
+                Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::Int(j)),
                     tag,
                 }) => {
-                    self.total = Some(Value::int(i + j).tagged(tag));
+                    self.total = Some(UntaggedValue::int(i + j).into_value(tag));
                     self.count += 1;
                     Ok(())
                 }
@@ -40,12 +41,12 @@ impl Average {
                     value.tag,
                 )),
             },
-            Value::Primitive(Primitive::Bytes(b)) => match &self.total {
-                Some(Tagged {
-                    item: Value::Primitive(Primitive::Bytes(j)),
+            UntaggedValue::Primitive(Primitive::Bytes(b)) => match &self.total {
+                Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::Bytes(j)),
                     tag,
                 }) => {
-                    self.total = Some(Value::bytes(b + j).tagged(tag));
+                    self.total = Some(UntaggedValue::bytes(b + j).into_value(tag));
                     self.count += 1;
                     Ok(())
                 }
@@ -80,7 +81,7 @@ impl Plugin for Average {
         Ok(vec![])
     }
 
-    fn filter(&mut self, input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         self.average(input)?;
         Ok(vec![])
     }
@@ -88,20 +89,20 @@ impl Plugin for Average {
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         match self.total {
             None => Ok(vec![]),
-            Some(ref inner) => match inner.item() {
-                Value::Primitive(Primitive::Int(i)) => {
+            Some(ref inner) => match &inner.value {
+                UntaggedValue::Primitive(Primitive::Int(i)) => {
                     let total: u64 = i
                         .tagged(inner.tag.clone())
                         .coerce_into("converting for average")?;
                     let avg = total as f64 / self.count as f64;
-                    let primitive_value: Value = Primitive::from(avg).into();
-                    let tagged_value = primitive_value.tagged(inner.tag.clone());
-                    Ok(vec![ReturnSuccess::value(tagged_value)])
+                    let primitive_value: UntaggedValue = Primitive::from(avg).into();
+                    let value = primitive_value.into_value(inner.tag.clone());
+                    Ok(vec![ReturnSuccess::value(value)])
                 }
-                Value::Primitive(Primitive::Bytes(bytes)) => {
+                UntaggedValue::Primitive(Primitive::Bytes(bytes)) => {
                     let avg = *bytes as f64 / self.count as f64;
-                    let primitive_value: Value = Primitive::from(avg).into();
-                    let tagged_value = primitive_value.tagged(inner.tag.clone());
+                    let primitive_value: UntaggedValue = Primitive::from(avg).into();
+                    let tagged_value = primitive_value.into_value(inner.tag.clone());
                     Ok(vec![ReturnSuccess::value(tagged_value)])
                 }
                 _ => Ok(vec![]),

@@ -1,0 +1,3 @@
+[build]
+
+#rustflags = ["--cfg", "coloring_in_tokens"]

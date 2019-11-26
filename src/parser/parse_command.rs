@@ -9,9 +9,9 @@ use crate::parser::{
     hir::{self, ExpandContext, NamedArguments},
     Flag,
 };
-use crate::traits::ToDebug;
-use crate::{Span, Spanned, SpannedItem, Text};
 use log::trace;
+use nu_source::{PrettyDebugWithSource, Text};
+use nu_source::{Span, Spanned, SpannedItem};
 
 pub fn parse_command_tail(
     config: &Signature,
@@ -389,8 +389,46 @@ impl ColorSyntax for CommandTailShape {
         token_nodes: &'b mut TokensIterator<'a>,
         context: &ExpandContext,
     ) -> Self::Info {
+        use crate::parser::hir::syntax_shape::SyntaxShape;
+
         let mut args = ColoringArgs::new(token_nodes.len());
         trace_remaining("nodes", &token_nodes, context.source());
+
+        fn insert_flag(
+            token_nodes: &mut TokensIterator,
+            syntax_type: &SyntaxShape,
+            args: &mut ColoringArgs,
+            flag: Flag,
+            pos: usize,
+            context: &ExpandContext,
+        ) {
+            let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
+                token_nodes.color_shape(flag.color());
+                token_nodes.move_to(pos);
+
+                if token_nodes.at_end() {
+                    return Ok(());
+                }
+
+                // We still want to color the flag even if the following tokens don't match, so don't
+                // propagate the error to the parent atomic block if it fails
+                let _ = token_nodes.atomic(|token_nodes| {
+                    // We can live with unmatched syntax after a mandatory flag
+                    color_syntax(&MaybeSpaceShape, token_nodes, context);
+
+                    // If the part after a mandatory flag isn't present, that's ok, but we
+                    // should roll back any whitespace we chomped
+                    color_fallible_syntax(syntax_type, token_nodes, context)?;
+
+                    Ok(())
+                });
+
+                Ok(())
+            });
+
+            args.insert(pos, shapes);
+            token_nodes.restart();
+        }
 
         for (name, kind) in &signature.named {
             trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
@@ -414,32 +452,7 @@ impl ColorSyntax for CommandTailShape {
                             // The mandatory flag didn't exist at all, so there's nothing to color
                         }
                         Ok((pos, flag)) => {
-                            let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
-                                token_nodes.color_shape(flag.color());
-                                token_nodes.move_to(pos);
-
-                                if token_nodes.at_end() {
-                                    return Ok(());
-                                }
-
-                                // We still want to color the flag even if the following tokens don't match, so don't
-                                // propagate the error to the parent atomic block if it fails
-                                let _ = token_nodes.atomic(|token_nodes| {
-                                    // We can live with unmatched syntax after a mandatory flag
-                                    color_syntax(&MaybeSpaceShape, token_nodes, context);
-
-                                    // If the part after a mandatory flag isn't present, that's ok, but we
-                                    // should roll back any whitespace we chomped
-                                    color_fallible_syntax(syntax_type, token_nodes, context)?;
-
-                                    Ok(())
-                                });
-
-                                Ok(())
-                            });
-
-                            args.insert(pos, shapes);
-                            token_nodes.restart();
+                            insert_flag(token_nodes, syntax_type, &mut args, flag, pos, context)
                         }
                     }
                 }
@@ -449,32 +462,7 @@ impl ColorSyntax for CommandTailShape {
                             // The optional flag didn't exist at all, so there's nothing to color
                         }
                         Ok(Some((pos, flag))) => {
-                            let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
-                                token_nodes.color_shape(flag.color());
-                                token_nodes.move_to(pos);
-
-                                if token_nodes.at_end() {
-                                    return Ok(());
-                                }
-
-                                // We still want to color the flag even if the following tokens don't match, so don't
-                                // propagate the error to the parent atomic block if it fails
-                                let _ = token_nodes.atomic(|token_nodes| {
-                                    // We can live with unmatched syntax after a mandatory flag
-                                    color_syntax(&MaybeSpaceShape, token_nodes, context);
-
-                                    // If the part after a mandatory flag isn't present, that's ok, but we
-                                    // should roll back any whitespace we chomped
-                                    color_fallible_syntax(syntax_type, token_nodes, context)?;
-
-                                    Ok(())
-                                });
-
-                                Ok(())
-                            });
-
-                            args.insert(pos, shapes);
-                            token_nodes.restart();
+                            insert_flag(token_nodes, syntax_type, &mut args, flag, pos, context)
                         }
 
                         Ok(None) => {
@@ -571,9 +559,7 @@ impl ColorSyntax for CommandTailShape {
 }
 
 fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Text) -> Option<Flag> {
-    tokens
-        .extract(|t| t.as_flag(name, source))
-        .map(|(_pos, flag)| flag.item)
+    tokens.extract(|t| t.as_flag(name, source)).map(|f| f.1)
 }
 
 fn extract_mandatory(
@@ -582,7 +568,7 @@ fn extract_mandatory(
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
     span: Span,
-) -> Result<(usize, Spanned<Flag>), ParseError> {
+) -> Result<(usize, Flag), ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
@@ -602,7 +588,7 @@ fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
     source: &Text,
-) -> Result<Option<(usize, Spanned<Flag>)>, ParseError> {
+) -> Result<Option<(usize, Flag)>, ParseError> {
     let flag = tokens.extract(|t| t.as_flag(name, source));
 
     match flag {
@@ -622,7 +608,7 @@ pub fn trace_remaining(desc: &'static str, tail: &hir::TokensIterator<'_>, sourc
         itertools::join(
             tail.debug_remaining()
                 .iter()
-                .map(|i| format!("%{}%", i.debug(&source))),
+                .map(|i| format!("%{}%", i.debug(source))),
             " "
         )
     );

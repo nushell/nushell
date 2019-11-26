@@ -2,6 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::parser::CommandRegistry;
 use crate::prelude::*;
+use nu_source::Tagged;
 
 #[derive(Deserialize)]
 struct NthArgs {

@@ -1,12 +1,14 @@
 use crate::prelude::*;
 
-use crate::parser::parse::parser::TracableContext;
 use ansi_term::Color;
 use derive_new::new;
 use language_reporting::{Diagnostic, Label, Severity};
+use nu_source::{Spanned, TracableContext};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::Range;
+
+// TODO: Spanned<T> -> HasSpanAndItem<T> ?
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Description {
@@ -14,17 +16,24 @@ pub enum Description {
     Synthetic(String),
 }
 
-impl<T: Into<String>> Into<Description> for Spanned<T> {
-    fn into(self) -> Description {
-        Description::Source(self.map(|s| s.into()))
+impl Description {
+    fn from_spanned(item: Spanned<impl Into<String>>) -> Description {
+        Description::Source(item.map(|s| s.into()))
+    }
+
+    fn into_label(self) -> Result<Label<Span>, String> {
+        match self {
+            Description::Source(s) => Ok(Label::new_primary(s.span).with_message(s.item)),
+            Description::Synthetic(s) => Err(s),
+        }
     }
 }
 
-impl Description {
-    fn into_label(self) -> Result<Label<Span>, String> {
+impl PrettyDebug for Description {
+    fn pretty(&self) -> DebugDocBuilder {
         match self {
-            Description::Source(s) => Ok(Label::new_primary(s.span()).with_message(s.item)),
-            Description::Synthetic(s) => Err(s),
+            Description::Source(s) => b::description(&s.item),
+            Description::Synthetic(s) => b::description(s),
         }
     }
 }
@@ -100,15 +109,162 @@ pub enum ArgumentError {
     InvalidExternalWord,
 }
 
+impl PrettyDebug for ArgumentError {
+    fn pretty(&self) -> DebugDocBuilder {
+        match self {
+            ArgumentError::MissingMandatoryFlag(flag) => {
+                b::description("missing `")
+                    + b::description(flag)
+                    + b::description("` as mandatory flag")
+            }
+            ArgumentError::MissingMandatoryPositional(pos) => {
+                b::description("missing `")
+                    + b::description(pos)
+                    + b::description("` as mandatory positional argument")
+            }
+            ArgumentError::MissingValueForName(name) => {
+                b::description("missing value for flag `")
+                    + b::description(name)
+                    + b::description("`")
+            }
+            ArgumentError::InvalidExternalWord => b::description("invalid word"),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Hash)]
 pub struct ShellError {
     error: ProximateShellError,
     cause: Option<Box<ProximateShellError>>,
 }
 
-impl FormatDebug for ShellError {
-    fn fmt_debug(&self, f: &mut DebugFormatter, source: &str) -> fmt::Result {
-        self.error.fmt_debug(f, source)
+impl PrettyDebug for ShellError {
+    fn pretty(&self) -> DebugDocBuilder {
+        match &self.error {
+            ProximateShellError::SyntaxError { problem } => {
+                b::error("Syntax Error")
+                    + b::space()
+                    + b::delimit("(", b::description(&problem.item), ")")
+            }
+            ProximateShellError::UnexpectedEof { .. } => b::error("Unexpected end"),
+            ProximateShellError::TypeError { expected, actual } => {
+                b::error("Type Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("expected:")
+                            + b::space()
+                            + b::description(expected)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("actual:")
+                            + b::space()
+                            + b::option(actual.item.as_ref().map(|actual| b::description(actual))),
+                        ")",
+                    )
+            }
+            ProximateShellError::MissingProperty { subpath, expr } => {
+                b::error("Missing Property")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("expr:")
+                            + b::space()
+                            + expr.pretty()
+                            + b::description(",")
+                            + b::space()
+                            + b::description("subpath:")
+                            + b::space()
+                            + subpath.pretty(),
+                        ")",
+                    )
+            }
+            ProximateShellError::InvalidIntegerIndex { subpath, .. } => {
+                b::error("Invalid integer index")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("subpath:") + b::space() + subpath.pretty(),
+                        ")",
+                    )
+            }
+            ProximateShellError::MissingValue { reason, .. } => {
+                b::error("Missing Value")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("reason:") + b::space() + b::description(reason),
+                        ")",
+                    )
+            }
+            ProximateShellError::ArgumentError { command, error } => {
+                b::error("Argument Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("command:")
+                            + b::space()
+                            + b::description(&command.item)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("error:")
+                            + b::space()
+                            + error.pretty(),
+                        ")",
+                    )
+            }
+            ProximateShellError::RangeError {
+                kind,
+                actual_kind,
+                operation,
+            } => {
+                b::error("Range Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("expected:")
+                            + b::space()
+                            + kind.pretty()
+                            + b::description(",")
+                            + b::space()
+                            + b::description("actual:")
+                            + b::space()
+                            + b::description(&actual_kind.item)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("operation:")
+                            + b::space()
+                            + b::description(operation),
+                        ")",
+                    )
+            }
+            ProximateShellError::Diagnostic(_) => b::error("diagnostic"),
+            ProximateShellError::CoerceError { left, right } => {
+                b::error("Coercion Error")
+                    + b::space()
+                    + b::delimit(
+                        "(",
+                        b::description("left:")
+                            + b::space()
+                            + b::description(&left.item)
+                            + b::description(",")
+                            + b::space()
+                            + b::description("right:")
+                            + b::space()
+                            + b::description(&right.item),
+                        ")",
+                    )
+            }
+            ProximateShellError::UntaggedRuntimeError { reason } => {
+                b::error("Unknown Error") + b::delimit("(", b::description(reason), ")")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ShellError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.pretty().display())
     }
 }
 
@@ -138,8 +294,8 @@ impl ShellError {
         expr: Spanned<impl Into<String>>,
     ) -> ShellError {
         ProximateShellError::MissingProperty {
-            subpath: subpath.into(),
-            expr: expr.into(),
+            subpath: Description::from_spanned(subpath),
+            expr: Description::from_spanned(expr),
         }
         .start()
     }
@@ -149,7 +305,7 @@ impl ShellError {
         integer: impl Into<Span>,
     ) -> ShellError {
         ProximateShellError::InvalidIntegerIndex {
-            subpath: subpath.into(),
+            subpath: Description::from_spanned(subpath),
             integer: integer.into(),
         }
         .start()
@@ -172,12 +328,12 @@ impl ShellError {
 
     pub(crate) fn range_error(
         expected: impl Into<ExpectedRange>,
-        actual: &Tagged<impl fmt::Debug>,
+        actual: &Spanned<impl fmt::Debug>,
         operation: impl Into<String>,
     ) -> ShellError {
         ProximateShellError::RangeError {
             kind: expected.into(),
-            actual_kind: format!("{:?}", actual.item).spanned(actual.span()),
+            actual_kind: format!("{:?}", actual.item).spanned(actual.span),
             operation: operation.into(),
         }
         .start()
@@ -197,14 +353,6 @@ impl ShellError {
         ProximateShellError::CoerceError {
             left: left.map(|l| l.into()),
             right: right.map(|r| r.into()),
-        }
-        .start()
-    }
-
-    pub(crate) fn missing_value(span: Option<Span>, reason: impl Into<String>) -> ShellError {
-        ProximateShellError::MissingValue {
-            span,
-            reason: reason.into(),
         }
         .start()
     }
@@ -404,28 +552,28 @@ impl ShellError {
     pub fn labeled_error(
         msg: impl Into<String>,
         label: impl Into<String>,
-        tag: impl Into<Tag>,
+        span: impl Into<Span>,
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::new(Severity::Error, msg.into())
-                .with_label(Label::new_primary(tag.into().span).with_message(label.into())),
+                .with_label(Label::new_primary(span.into()).with_message(label.into())),
         )
     }
 
     pub fn labeled_error_with_secondary(
         msg: impl Into<String>,
         primary_label: impl Into<String>,
-        primary_span: impl Into<Tag>,
+        primary_span: impl Into<Span>,
         secondary_label: impl Into<String>,
-        secondary_span: impl Into<Tag>,
+        secondary_span: impl Into<Span>,
     ) -> ShellError {
         ShellError::diagnostic(
             Diagnostic::new_error(msg.into())
                 .with_label(
-                    Label::new_primary(primary_span.into().span).with_message(primary_label.into()),
+                    Label::new_primary(primary_span.into()).with_message(primary_label.into()),
                 )
                 .with_label(
-                    Label::new_secondary(secondary_span.into().span)
+                    Label::new_secondary(secondary_span.into())
                         .with_message(secondary_label.into()),
                 ),
         )
@@ -475,6 +623,12 @@ impl From<Range<usize>> for ExpectedRange {
             start: range.start,
             end: range.end,
         }
+    }
+}
+
+impl PrettyDebug for ExpectedRange {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::description(self.desc())
     }
 }
 
@@ -554,30 +708,6 @@ impl ProximateShellError {
             error: self,
         }
     }
-
-    // pub(crate) fn tag(&self) -> Option<Tag> {
-    //     Some(match self {
-    //         ProximateShellError::SyntaxError { problem } => problem.tag(),
-    //         ProximateShellError::UnexpectedEof { tag, .. } => tag.clone(),
-    //         ProximateShellError::InvalidCommand { command } => command.clone(),
-    //         ProximateShellError::TypeError { actual, .. } => actual.tag.clone(),
-    //         ProximateShellError::MissingProperty { tag, .. } => tag.clone(),
-    //         ProximateShellError::MissingValue { tag, .. } => return tag.clone(),
-    //         ProximateShellError::ArgumentError { tag, .. } => tag.clone(),
-    //         ProximateShellError::RangeError { actual_kind, .. } => actual_kind.tag.clone(),
-    //         ProximateShellError::InvalidIntegerIndex { integer, .. } => integer.into(),
-    //         ProximateShellError::Diagnostic(..) => return None,
-    //         ProximateShellError::UntaggedRuntimeError { .. } => return None,
-    //         ProximateShellError::CoerceError { left, right } => left.tag.until(&right.tag),
-    //     })
-    // }
-}
-
-impl FormatDebug for ProximateShellError {
-    fn fmt_debug(&self, f: &mut DebugFormatter, _source: &str) -> fmt::Result {
-        // TODO: Custom debug for inner spans
-        write!(f, "{:?}", self)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -628,24 +758,6 @@ pub struct StringError {
     error: String,
 }
 
-impl std::fmt::Display for ShellError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &self.error {
-            ProximateShellError::MissingValue { .. } => write!(f, "MissingValue"),
-            ProximateShellError::TypeError { .. } => write!(f, "TypeError"),
-            ProximateShellError::UnexpectedEof { .. } => write!(f, "UnexpectedEof"),
-            ProximateShellError::RangeError { .. } => write!(f, "RangeError"),
-            ProximateShellError::InvalidIntegerIndex { .. } => write!(f, "InvalidIntegerIndex"),
-            ProximateShellError::SyntaxError { .. } => write!(f, "SyntaxError"),
-            ProximateShellError::MissingProperty { .. } => write!(f, "MissingProperty"),
-            ProximateShellError::ArgumentError { .. } => write!(f, "ArgumentError"),
-            ProximateShellError::Diagnostic(_) => write!(f, "<diagnostic>"),
-            ProximateShellError::CoerceError { .. } => write!(f, "CoerceError"),
-            ProximateShellError::UntaggedRuntimeError { .. } => write!(f, "UntaggedRuntimeError"),
-        }
-    }
-}
-
 impl std::error::Error for ShellError {}
 
 impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
@@ -690,18 +802,6 @@ impl std::convert::From<Box<dyn std::error::Error + Send + Sync>> for ShellError
     }
 }
 
-pub trait ShellErrorUtils<T> {
-    fn unwrap_error(self, desc: impl Into<String>) -> Result<T, ShellError>;
-}
-
-impl<T> ShellErrorUtils<Tagged<T>> for Option<Tagged<T>> {
-    fn unwrap_error(self, desc: impl Into<String>) -> Result<Tagged<T>, ShellError> {
-        match self {
-            Some(value) => Ok(value),
-            None => Err(ShellError::missing_value(None, desc.into())),
-        }
-    }
-}
 pub trait CoerceInto<U> {
     fn coerce_into(self, operation: impl Into<String>) -> Result<U, ShellError>;
 }
@@ -718,26 +818,26 @@ macro_rules! ranged_int {
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<BigInt> {
+        impl CoerceInto<$ty> for nu_source::Tagged<BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<&BigInt> {
+        impl CoerceInto<$ty> for nu_source::Tagged<&BigInt> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
@@ -763,26 +863,26 @@ macro_rules! ranged_decimal {
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<BigDecimal> {
+        impl CoerceInto<$ty> for nu_source::Tagged<BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }
             }
         }
 
-        impl CoerceInto<$ty> for Tagged<&BigDecimal> {
+        impl CoerceInto<$ty> for nu_source::Tagged<&BigDecimal> {
             fn coerce_into(self, operation: impl Into<String>) -> Result<$ty, ShellError> {
                 match self.$op() {
                     Some(v) => Ok(v),
                     None => Err(ShellError::range_error(
                         $ty::to_expected_range(),
-                        &self,
+                        &self.item.spanned(self.tag.span),
                         operation.into(),
                     )),
                 }

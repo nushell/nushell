@@ -1,5 +1,4 @@
 use crate::Signature;
-use crate::Tagged;
 use crate::{CallInfo, ReturnValue, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -11,7 +10,7 @@ pub trait Plugin {
         Ok(vec![])
     }
 
-    fn filter(&mut self, _input: Tagged<Value>) -> Result<Vec<ReturnValue>, ShellError> {
+    fn filter(&mut self, _input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 
@@ -19,7 +18,7 @@ pub trait Plugin {
         Ok(vec![])
     }
 
-    fn sink(&mut self, _call_info: CallInfo, _input: Vec<Tagged<Value>>) {}
+    fn sink(&mut self, _call_info: CallInfo, _input: Vec<Value>) {}
 
     fn quit(&mut self) {}
 }
@@ -152,15 +151,9 @@ fn send_response<T: Serialize>(result: T) {
 #[allow(non_camel_case_types)]
 pub enum NuCommand {
     config,
-    begin_filter {
-        params: CallInfo,
-    },
-    filter {
-        params: Tagged<Value>,
-    },
+    begin_filter { params: CallInfo },
+    filter { params: Value },
     end_filter,
-    sink {
-        params: (CallInfo, Vec<Tagged<Value>>),
-    },
+    sink { params: (CallInfo, Vec<Value>) },
     quit,
 }

@@ -1,5 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Dictionary, Value};
+use crate::data::Dictionary;
 use crate::errors::ShellError;
 use crate::parser::registry::Signature;
 use crate::prelude::*;
@@ -36,9 +36,9 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "version".to_string(),
-        Value::string(clap::crate_version!()).tagged(&tag),
+        UntaggedValue::string(clap::crate_version!()).into_value(&tag),
     );
 
-    let value = Value::Row(Dictionary::from(indexmap)).tagged(&tag);
+    let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
     Ok(OutputStream::one(value))
 }

@@ -1,10 +1,12 @@
 use crate::parser::hir::syntax_shape::{
     expand_atom, expand_variable, parse_single_node, AtomicToken, ExpandContext, ExpandExpression,
-    ExpansionRule, FallibleColorSyntax, FlatShape, ParseError, TestSyntax,
+    ExpansionRule, FallibleColorSyntax, FlatShape, ParseError, TestSyntax, UnspannedAtomicToken,
 };
 use crate::parser::hir::tokens_iterator::Peeked;
-use crate::parser::{hir, hir::TokensIterator, RawToken};
+use crate::parser::{hir, hir::TokensIterator, UnspannedToken};
 use crate::prelude::*;
+#[cfg(not(coloring_in_tokens))]
+use nu_source::Spanned;
 
 #[derive(Debug, Copy, Clone)]
 pub struct StringShape;
@@ -29,8 +31,8 @@ impl FallibleColorSyntax for StringShape {
         };
 
         match atom {
-            Spanned {
-                item: AtomicToken::String { .. },
+            AtomicToken {
+                unspanned: UnspannedAtomicToken::String { .. },
                 span,
             } => shapes.push((*input).spanned(span)),
             other => other.color_tokens(shapes),
@@ -63,8 +65,8 @@ impl FallibleColorSyntax for StringShape {
         };
 
         match atom {
-            Spanned {
-                item: AtomicToken::String { .. },
+            AtomicToken {
+                unspanned: UnspannedAtomicToken::String { .. },
                 span,
             } => token_nodes.color_shape((*input).spanned(span)),
             atom => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
@@ -86,16 +88,18 @@ impl ExpandExpression for StringShape {
     ) -> Result<hir::Expression, ParseError> {
         parse_single_node(token_nodes, "String", |token, token_span, err| {
             Ok(match token {
-                RawToken::GlobPattern | RawToken::Operator(..) | RawToken::ExternalWord => {
-                    return Err(err.error())
+                UnspannedToken::GlobPattern
+                | UnspannedToken::Operator(..)
+                | UnspannedToken::ExternalWord => return Err(err.error()),
+                UnspannedToken::Variable(span) => {
+                    expand_variable(span, token_span, &context.source)
                 }
-                RawToken::Variable(span) => expand_variable(span, token_span, &context.source),
-                RawToken::ExternalCommand(span) => {
+                UnspannedToken::ExternalCommand(span) => {
                     hir::Expression::external_command(span, token_span)
                 }
-                RawToken::Number(_) => hir::Expression::bare(token_span),
-                RawToken::Bare => hir::Expression::bare(token_span),
-                RawToken::String(span) => hir::Expression::string(span, token_span),
+                UnspannedToken::Number(_) => hir::Expression::bare(token_span),
+                UnspannedToken::Bare => hir::Expression::bare(token_span),
+                UnspannedToken::String(span) => hir::Expression::string(span, token_span),
             })
         })
     }

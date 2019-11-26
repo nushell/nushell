@@ -2,6 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::TaggedDictBuilder;
+use nu_source::{SpannedItem, Tagged};
 
 pub struct Pivot;
 
@@ -42,7 +43,7 @@ impl WholeStreamCommand for Pivot {
     }
 }
 
-fn merge_descriptors(values: &[Tagged<Value>]) -> Vec<String> {
+fn merge_descriptors(values: &[Value]) -> Vec<String> {
     let mut ret = vec![];
     for value in values {
         for desc in value.data_descriptors() {
@@ -110,23 +111,23 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
             let mut dict = TaggedDictBuilder::new(&context.name);
 
             if !args.ignore_titles && !args.header_row {
-                dict.insert(headers[column_num].clone(), Value::string(desc.clone()));
+                dict.insert_untagged(headers[column_num].clone(), UntaggedValue::string(desc.clone()));
                 column_num += 1
             }
 
             for i in input.clone() {
                 match i.get_data_by_key(desc[..].spanned_unknown()) {
                     Some(x) => {
-                        dict.insert_tagged(headers[column_num].clone(), x.clone());
+                        dict.insert_value(headers[column_num].clone(), x.clone());
                     }
                     _ => {
-                        dict.insert(headers[column_num].clone(), Value::nothing());
+                        dict.insert_untagged(headers[column_num].clone(), UntaggedValue::nothing());
                     }
                 }
                 column_num += 1;
             }
 
-            yield ReturnSuccess::value(dict.into_tagged_value());
+            yield ReturnSuccess::value(dict.into_value());
         }
 
 

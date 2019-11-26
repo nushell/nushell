@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 #[derive(Deserialize, Serialize)]
 struct Config {
     #[serde(flatten)]
-    extra: IndexMap<String, Tagged<Value>>,
+    extra: IndexMap<String, Value>,
 }
 
 pub const APP_INFO: AppInfo = AppInfo {
@@ -61,7 +61,7 @@ pub fn app_path(app_data_type: AppDataType, display: &str) -> Result<PathBuf, Sh
 pub fn read(
     tag: impl Into<Tag>,
     at: &Option<PathBuf>,
-) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
+) -> Result<IndexMap<String, Value>, ShellError> {
     let filename = default_path()?;
 
     let filename = match at {
@@ -94,8 +94,8 @@ pub fn read(
 
     let value = convert_toml_value_to_nu_value(&parsed, tag);
     let tag = value.tag();
-    match value.item {
-        Value::Row(Dictionary { entries }) => Ok(entries),
+    match value.value {
+        UntaggedValue::Row(Dictionary { entries }) => Ok(entries),
         other => Err(ShellError::type_error(
             "Dictionary",
             other.type_name().spanned(tag.span),
@@ -103,14 +103,11 @@ pub fn read(
     }
 }
 
-pub(crate) fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Tagged<Value>>, ShellError> {
+pub(crate) fn config(tag: impl Into<Tag>) -> Result<IndexMap<String, Value>, ShellError> {
     read(tag, &None)
 }
 
-pub fn write(
-    config: &IndexMap<String, Tagged<Value>>,
-    at: &Option<PathBuf>,
-) -> Result<(), ShellError> {
+pub fn write(config: &IndexMap<String, Value>, at: &Option<PathBuf>) -> Result<(), ShellError> {
     let filename = &mut default_path()?;
     let filename = match at {
         None => filename,
@@ -121,8 +118,9 @@ pub fn write(
         }
     };
 
-    let contents =
-        value_to_toml_value(&Value::Row(Dictionary::new(config.clone())).tagged_unknown())?;
+    let contents = value_to_toml_value(
+        &UntaggedValue::Row(Dictionary::new(config.clone())).into_untagged_value(),
+    )?;
 
     let contents = toml::to_string(&contents)?;
 

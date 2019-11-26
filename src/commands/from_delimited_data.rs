@@ -7,7 +7,7 @@ fn from_delimited_string_to_value(
     headerless: bool,
     separator: char,
     tag: impl Into<Tag>,
-) -> Result<Tagged<Value>, csv::Error> {
+) -> Result<Value, csv::Error> {
     let mut reader = ReaderBuilder::new()
         .has_headers(!headerless)
         .delimiter(separator as u8)
@@ -26,15 +26,15 @@ fn from_delimited_string_to_value(
     for row in reader.records() {
         let mut tagged_row = TaggedDictBuilder::new(&tag);
         for (value, header) in row?.iter().zip(headers.iter()) {
-            tagged_row.insert_tagged(
+            tagged_row.insert_value(
                 header,
-                Value::Primitive(Primitive::String(String::from(value))).tagged(&tag),
+                UntaggedValue::Primitive(Primitive::String(String::from(value))).into_value(&tag),
             )
         }
-        rows.push(tagged_row.into_tagged_value());
+        rows.push(tagged_row.into_value());
     }
 
-    Ok(Value::Table(rows).tagged(&tag))
+    Ok(UntaggedValue::Table(rows).into_value(&tag))
 }
 
 pub fn from_delimited_data(
@@ -46,16 +46,16 @@ pub fn from_delimited_data(
     let name_tag = name;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
 
         for value in values {
-            let value_tag = value.tag();
+            let value_tag = &value.tag;
             latest_tag = Some(value_tag.clone());
-            match value.item {
-                Value::Primitive(Primitive::String(s)) => {
+            match &value.value {
+                UntaggedValue::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
                     concat_string.push_str("\n");
                 }
@@ -72,7 +72,7 @@ pub fn from_delimited_data(
 
         match from_delimited_string_to_value(concat_string, headerless, sep, name_tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::Table(list), .. } => {
+                Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

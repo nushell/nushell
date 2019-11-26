@@ -30,22 +30,26 @@ impl WholeStreamCommand for Size {
 fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let input = args.input;
     let tag = args.call_info.name_tag;
+    let name_span = tag.span;
+
     Ok(input
         .values
-        .map(move |v| match v.item {
-            Value::Primitive(Primitive::String(ref s)) => ReturnSuccess::value(count(s, v.tag())),
+        .map(move |v| match v.value {
+            UntaggedValue::Primitive(Primitive::String(ref s)) => {
+                ReturnSuccess::value(count(s, &v.tag))
+            }
             _ => Err(ShellError::labeled_error_with_secondary(
                 "Expected a string from pipeline",
                 "requires string input",
-                &tag,
+                name_span,
                 "value originates from here",
-                v.tag(),
+                v.tag.span,
             )),
         })
         .to_output_stream())
 }
 
-fn count(contents: &str, tag: impl Into<Tag>) -> Tagged<Value> {
+fn count(contents: &str, tag: impl Into<Tag>) -> Value {
     let mut lines: i64 = 0;
     let mut words: i64 = 0;
     let mut chars: i64 = 0;
@@ -72,11 +76,11 @@ fn count(contents: &str, tag: impl Into<Tag>) -> Tagged<Value> {
 
     let mut dict = TaggedDictBuilder::new(tag);
     //TODO: add back in name when we have it in the tag
-    //dict.insert("name", Value::string(name));
-    dict.insert("lines", Value::int(lines));
-    dict.insert("words", Value::int(words));
-    dict.insert("chars", Value::int(chars));
-    dict.insert("max length", Value::int(bytes));
+    //dict.insert("name", UntaggedValue::string(name));
+    dict.insert_untagged("lines", UntaggedValue::int(lines));
+    dict.insert_untagged("words", UntaggedValue::int(words));
+    dict.insert_untagged("chars", UntaggedValue::int(chars));
+    dict.insert_untagged("max length", UntaggedValue::int(bytes));
 
-    dict.into_tagged_value()
+    dict.into_value()
 }

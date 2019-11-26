@@ -34,6 +34,8 @@ fn debug_value(
 ) -> Result<impl ToOutputStream, ShellError> {
     Ok(input
         .values
-        .map(|v| ReturnSuccess::value(Value::string(format!("{:?}", v)).tagged_unknown()))
+        .map(|v| {
+            ReturnSuccess::value(UntaggedValue::string(format!("{:?}", v)).into_untagged_value())
+        })
         .to_output_stream())
 }

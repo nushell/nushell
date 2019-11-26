@@ -50,47 +50,44 @@ impl WholeStreamCommand for FromYML {
     }
 }
 
-fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) -> Tagged<Value> {
+fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     match v {
-        serde_yaml::Value::Bool(b) => Value::boolean(*b).tagged(tag),
+        serde_yaml::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(tag),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            Value::number(n.as_i64().unwrap()).tagged(tag)
+            UntaggedValue::number(n.as_i64().unwrap()).into_value(tag)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
-            Value::Primitive(Primitive::from(n.as_f64().unwrap())).tagged(tag)
+            UntaggedValue::Primitive(Primitive::from(n.as_f64().unwrap())).into_value(tag)
         }
-        serde_yaml::Value::String(s) => Value::string(s).tagged(tag),
-        serde_yaml::Value::Sequence(a) => Value::Table(
+        serde_yaml::Value::String(s) => UntaggedValue::string(s).into_value(tag),
+        serde_yaml::Value::Sequence(a) => UntaggedValue::Table(
             a.iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, &tag))
                 .collect(),
         )
-        .tagged(tag),
+        .into_value(tag),
         serde_yaml::Value::Mapping(t) => {
             let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
                 match k {
                     serde_yaml::Value::String(k) => {
-                        collected.insert_tagged(k.clone(), convert_yaml_value_to_nu_value(v, &tag));
+                        collected.insert_value(k.clone(), convert_yaml_value_to_nu_value(v, &tag));
                     }
                     _ => unimplemented!("Unknown key type"),
                 }
             }
 
-            collected.into_tagged_value()
+            collected.into_value()
         }
-        serde_yaml::Value::Null => Value::Primitive(Primitive::Nothing).tagged(tag),
+        serde_yaml::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(tag),
         x => unimplemented!("Unsupported yaml case: {:?}", x),
     }
 }
 
-pub fn from_yaml_string_to_value(
-    s: String,
-    tag: impl Into<Tag>,
-) -> serde_yaml::Result<Tagged<Value>> {
+pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> serde_yaml::Result<Value> {
     let v: serde_yaml::Value = serde_yaml::from_str(&s)?;
     Ok(convert_yaml_value_to_nu_value(&v, tag))
 }
@@ -98,28 +95,30 @@ pub fn from_yaml_string_to_value(
 fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
+    let name_span = tag.span;
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Tagged<Value>> = input.values.collect().await;
+        let values: Vec<Value> = input.values.collect().await;
 
         let mut concat_string = String::new();
         let mut latest_tag: Option<Tag> = None;
 
         for value in values {
-            let value_tag = value.tag();
-            latest_tag = Some(value_tag.clone());
-            match value.item {
-                Value::Primitive(Primitive::String(s)) => {
+            latest_tag = Some(value.tag.clone());
+            let value_span = value.tag.span;
+
+            match &value.value {
+                UntaggedValue::Primitive(Primitive::String(s)) => {
                     concat_string.push_str(&s);
                     concat_string.push_str("\n");
                 }
                 _ => yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
-                    &tag,
+                    name_span,
                     "value originates from here",
-                    &value_tag,
+                    value_span,
                 )),
 
             }
@@ -127,7 +126,7 @@ fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 
         match from_yaml_string_to_value(concat_string, tag.clone()) {
             Ok(x) => match x {
-                Tagged { item: Value::Table(list), .. } => {
+                Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
                         yield ReturnSuccess::value(l);
                     }

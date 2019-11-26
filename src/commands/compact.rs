@@ -1,8 +1,10 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::base::UntaggedValue;
 use crate::errors::ShellError;
 use crate::parser::registry::{CommandRegistry, Signature};
 use crate::prelude::*;
 use futures::stream::StreamExt;
+use nu_source::Tagged;
 
 pub struct Compact;
 
@@ -42,8 +44,8 @@ pub fn compact(
             item.is_some()
         } else {
             match item {
-                Tagged {
-                    item: Value::Row(ref r),
+                Value {
+                    value: UntaggedValue::Row(ref r),
                     ..
                 } => columns
                     .iter()
