@@ -339,7 +339,7 @@ impl PrettyDebug for FormatInlineShape {
             }),
             InlineShape::Date(date) => b::primitive(date.humanize()),
             InlineShape::Duration(duration) => {
-                (b::kind("duration") + b::space() + b::primitive(duration)).group()
+                b::description(Primitive::Duration(*duration).format(None))
             }
             InlineShape::Path(path) => b::primitive(path.display()),
             InlineShape::Binary => b::opaque("<binary>"),
