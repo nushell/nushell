@@ -18,7 +18,7 @@ members = ["crates/nu-source"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-source = { path = "./crates/nu-source" }
+nu-source = { version = "0.1.0", path = "./crates/nu-source" }
 
 rustyline = "5.0.4"
 chrono = { version = "0.4.9", features = ["serde"] }
