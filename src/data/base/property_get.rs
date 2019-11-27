@@ -361,6 +361,10 @@ pub fn as_column_path(value: &Value) -> Result<Tagged<ColumnPath>, ShellError> {
             Ok(ColumnPath::new(out).tagged(&value.tag))
         }
 
+        UntaggedValue::Primitive(Primitive::String(s)) => {
+            Ok(ColumnPath::new(vec![PathMember::string(s, &value.tag.span)]).tagged(&value.tag))
+        }
+
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
             Ok(path.clone().tagged(value.tag.clone()))
         }
@@ -397,6 +401,10 @@ pub fn as_string(value: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
+            Ok(path.iter().map(|member| member.display()).join("."))
+        }
+
         // TODO: this should definitely be more general with better errors
         other => Err(ShellError::labeled_error(
             "Expected string",
