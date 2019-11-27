@@ -79,7 +79,7 @@ pub fn histogram(
                 let column_names_supplied: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
                 let frequency_column_name = if column_names_supplied.is_empty() {
-                    "frecuency".to_string()
+                    "frequency".to_string()
                 } else {
                     column_names_supplied[0].clone()
                 };
