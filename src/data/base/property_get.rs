@@ -263,6 +263,10 @@ impl Value {
                 Ok(ColumnPath::new(out).tagged(&self.tag))
             }
 
+            UntaggedValue::Primitive(Primitive::String(s)) => {
+                Ok(ColumnPath::new(vec![PathMember::string(s, &self.tag.span)]).tagged(&self.tag))
+            }
+
             UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
                 Ok(path.clone().tagged(self.tag.clone()))
             }
@@ -299,6 +303,9 @@ impl Value {
             UntaggedValue::Primitive(Primitive::Int(x)) => Ok(format!("{}", x)),
             UntaggedValue::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
             UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
+            UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
+                Ok(path.iter().map(|member| member.display()).join("."))
+            }
             // TODO: this should definitely be more general with better errors
             other => Err(ShellError::labeled_error(
                 "Expected string",
