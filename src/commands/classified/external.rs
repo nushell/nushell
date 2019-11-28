@@ -71,6 +71,8 @@ pub(crate) async fn run_external_command(
         arg_string.push_str(&arg);
     }
 
+    let home_dir = dirs::home_dir();
+
     trace!(target: "nu::run::external", "command = {:?}", command.name);
 
     let mut process;
@@ -102,6 +104,13 @@ pub(crate) async fn run_external_command(
                 if arg.chars().all(|c| c.is_whitespace()) {
                     None
                 } else {
+                    // Let's also replace ~ as we shell out
+                    let arg = if let Some(ref home_dir) = home_dir {
+                        arg.replace("~", home_dir.to_str().unwrap())
+                    } else {
+                        arg.replace("~", "~")
+                    };
+
                     Some(arg.replace("$it", &i))
                 }
             });
@@ -113,13 +122,20 @@ pub(crate) async fn run_external_command(
     } else {
         process = Exec::cmd(&command.name);
         for arg in command.args.iter() {
+            // Let's also replace ~ as we shell out
+            let arg = if let Some(ref home_dir) = home_dir {
+                arg.replace("~", home_dir.to_str().unwrap())
+            } else {
+                arg.replace("~", "~")
+            };
+
             let arg_chars: Vec<_> = arg.chars().collect();
             if arg_chars.len() > 1 && arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"' {
                 // quoted string
                 let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                 process = process.arg(new_arg);
             } else {
-                process = process.arg(arg.arg.clone());
+                process = process.arg(arg.clone());
             }
         }
     }
