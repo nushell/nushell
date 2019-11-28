@@ -1,12 +1,13 @@
+use crate::data::primitive::format_primitive;
 use crate::prelude::*;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use indexmap::IndexMap;
+use nu_errors::ShellError;
 use nu_protocol::{
     ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName, UntaggedValue, Value,
 };
-use nu_errors::ShellError;
 use nu_source::{b, DebugDoc, PrettyDebug};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -340,7 +341,7 @@ impl PrettyDebug for FormatInlineShape {
             }),
             InlineShape::Date(date) => b::primitive(date.humanize()),
             InlineShape::Duration(duration) => {
-                (b::kind("duration") + b::space() + b::primitive(duration)).group()
+                b::description(format_primitive(&Primitive::Duration(*duration), None))
             }
             InlineShape::Path(path) => b::primitive(path.display()),
             InlineShape::Binary => b::opaque("<binary>"),
