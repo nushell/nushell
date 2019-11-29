@@ -374,6 +374,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         let colored_prompt = {
             #[cfg(feature = "starship-prompt")]
             {
+                std::env::set_var("STARSHIP_SHELL", "");
                 starship::print::get_prompt(starship::context::Context::new_with_dir(
                     clap::ArgMatches::default(),
                     cwd,
