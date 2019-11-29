@@ -1,6 +1,6 @@
 # from-yaml
 
-Parse text as `.yaml/.yml` and create table.
+Parse text as `.yaml/.yml` and create table. Use this when nushell cannot dertermine the input file extension.
 
 Syntax: `from-yaml`
 
