@@ -3,10 +3,8 @@ use crate::data::base::property_get::get_data_by_key;
 use crate::data::{value, TaggedDictBuilder, TaggedListBuilder};
 use crate::prelude::*;
 use chrono::{DateTime, NaiveDate, Utc};
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
 use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct TSortBy;

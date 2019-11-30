@@ -1,11 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, UnspannedPathMember,
-    UntaggedValue, Value,
-};
-use nu_errors::{ShellError, CoerceInto};
-
+use nu_errors::{CoerceInto, ShellError};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
 
 pub struct ToYAML;
 

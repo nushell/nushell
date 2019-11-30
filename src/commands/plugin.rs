@@ -3,10 +3,8 @@ use crate::data::value;
 use crate::prelude::*;
 use derive_new::new;
 use log::trace;
-use nu_protocol::{
-    Primitive, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value,
-};
 use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;

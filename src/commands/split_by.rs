@@ -1,10 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
-use nu_protocol::{
-    ReturnSuccess, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value,
-};
 use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, Signature, SpannedTypeName, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct SplitBy;

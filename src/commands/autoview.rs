@@ -1,11 +1,11 @@
 use crate::commands::{RawCommandArgs, WholeStreamCommand};
 use crate::data::value;
-use nu_parser::hir::{Expression, NamedArguments};
 use crate::prelude::*;
 use futures::stream::TryStreamExt;
+use nu_errors::ShellError;
+use nu_parser::hir::{Expression, NamedArguments};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::sync::atomic::Ordering;
-use nu_errors::{ShellError};
 
 pub struct Autoview;
 

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use log::trace;
+use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{Primitive, SpannedTypeName, UntaggedValue, Value};
-use nu_errors::{ShellError, CoerceInto};
 use nu_source::Tagged;
 
 pub trait ExtractType: Sized {

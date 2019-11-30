@@ -3,8 +3,8 @@ use crate::data::base::property_get::get_data_by_key;
 use crate::data::value;
 use crate::prelude::*;
 use crate::TaggedDictBuilder;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::{SpannedItem, Tagged};
 
 pub struct Pivot;

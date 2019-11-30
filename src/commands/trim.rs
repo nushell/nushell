@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
 
 use crate::prelude::*;
-use nu_protocol::{ReturnSuccess, Signature};
 use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, Signature};
 
 pub struct Trim;
 

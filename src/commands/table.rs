@@ -2,10 +2,8 @@ use crate::commands::WholeStreamCommand;
 use crate::data::value;
 use crate::format::TableView;
 use crate::prelude::*;
-use nu_protocol::{
-    Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
-};
 use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Table;
 

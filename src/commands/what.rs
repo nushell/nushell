@@ -4,8 +4,8 @@ use crate::data::value;
 use crate::prelude::*;
 use futures::StreamExt;
 use futures_util::pin_mut;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature};
 use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, ReturnValue, Signature};
 use nu_source::PrettyDebug;
 
 pub struct What;

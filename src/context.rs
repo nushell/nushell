@@ -1,10 +1,10 @@
 use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
-use nu_parser::{hir, hir::syntax_shape::ExpandContext, hir::syntax_shape::SignatureRegistry};
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
+use nu_parser::{hir, hir::syntax_shape::ExpandContext, hir::syntax_shape::SignatureRegistry};
 use nu_protocol::{errln, Signature};
 use nu_source::{Tag, Text};
 use std::error::Error;

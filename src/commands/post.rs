@@ -3,10 +3,10 @@ use crate::data::value;
 use crate::prelude::*;
 use base64::encode;
 use mime::Mime;
+use nu_errors::ShellError;
 use nu_protocol::{
     CallInfo, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use nu_errors::ShellError;
 use nu_source::AnchorLocation;
 use std::path::PathBuf;
 use std::str::FromStr;

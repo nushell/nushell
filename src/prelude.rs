@@ -110,11 +110,11 @@ pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{FutureExt, Stream, StreamExt};
 pub(crate) use nu_protocol::{EvaluateTrait, MaybeOwned};
 pub(crate) use nu_source::{
-    b, AnchorLocation, DebugDocBuilder, HasSpan, PrettyDebug,
-    PrettyDebugWithSource, Span, SpannedItem, Tag, TaggedItem, Text,
+    b, AnchorLocation, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span,
+    SpannedItem, Tag, TaggedItem, Text,
 };
 pub(crate) use num_bigint::BigInt;
-pub(crate) use num_traits::cast::{ToPrimitive};
+pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;

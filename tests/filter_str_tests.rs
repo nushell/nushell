@@ -131,7 +131,7 @@ fn find_and_replaces() {
             cwd: dirs.test(), h::pipeline(
             r#"
                  open sample.toml
-                 | str fortune.teller.phone --find-replace [KATZ 5289]
+                 | str fortune.teller.phone --find-replace [KATZ "5289"]
                  | get fortune.teller.phone
                  | echo $it
              "#
@@ -157,7 +157,7 @@ fn find_and_replaces_without_passing_field() {
             r#"
                  open sample.toml
                  | get fortune.teller.phone
-                 | str --find-replace [KATZ 5289]
+                 | str --find-replace [KATZ "5289"]
                  | echo $it
              "#
         ));
