@@ -6,17 +6,17 @@ This command increments the value of variable by one.
 
 ```shell
 > open rustfmt.toml
----------
+━━━━━━━━━
  edition 
----------
+─────────
  2018 
----------
+━━━━━━━━━
 > open rustfmt.toml | inc edition
----------
+━━━━━━━━━
  edition 
----------
+─────────
  2019 
----------
+━━━━━━━━━
 ```
 
 ```shell
