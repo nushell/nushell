@@ -1,4 +1,5 @@
 #![recursion_limit = "1024"]
+#![feature(bind_by_move_pattern_guards)]
 
 #[cfg(test)]
 #[macro_use]
