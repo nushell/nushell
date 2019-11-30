@@ -40,4 +40,8 @@ Syntax: `config {flags}`
 
 ## Examples
 
-A more detailed description on how to use this command to configure Nu shell can be found in the configuration chapter of [Nu Book](https://book.nushell.sh/).
+```shell
+> config --set [table_mode "light"]
+```
+
+A more detailed description on how to use this command to configure Nu shell can be found in the configuration chapter of [Nu Book](https://book.nushell.sh/en/configuration).
