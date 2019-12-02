@@ -1,5 +1,4 @@
-use crate::commands::classified::external::{run_external_command, StreamNext};
-use crate::commands::classified::internal::run_internal_command;
+use crate::commands::classified::pipeline::run_pipeline;
 use crate::commands::classified::ClassifiedInputStream;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
@@ -14,7 +13,7 @@ use nu_parser::{
     expand_syntax, hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape,
     TokenNode, TokensIterator,
 };
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
@@ -582,113 +581,16 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                     })),
             }
 
-            let mut input = ClassifiedInputStream::new();
-            let mut iter = pipeline.commands.list.into_iter().peekable();
-
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
             set_env_from_config();
 
-            loop {
-                let item: Option<ClassifiedCommand> = iter.next();
-                let next: Option<&ClassifiedCommand> = iter.peek();
+            let input = ClassifiedInputStream::new();
 
-                input = match (item, next) {
-                    (None, _) => break,
-
-                    (Some(ClassifiedCommand::Dynamic(_)), _)
-                    | (_, Some(ClassifiedCommand::Dynamic(_))) => {
-                        return LineResult::Error(
-                            line.to_string(),
-                            ShellError::unimplemented("Dynamic commands"),
-                        )
-                    }
-
-                    (Some(ClassifiedCommand::Expr(_)), _) => {
-                        return LineResult::Error(
-                            line.to_string(),
-                            ShellError::unimplemented("Expression-only commands"),
-                        )
-                    }
-
-                    (_, Some(ClassifiedCommand::Expr(_))) => {
-                        return LineResult::Error(
-                            line.to_string(),
-                            ShellError::unimplemented("Expression-only commands"),
-                        )
-                    }
-
-                    (
-                        Some(ClassifiedCommand::Internal(left)),
-                        Some(ClassifiedCommand::External(_)),
-                    ) => match run_internal_command(left, ctx, input, Text::from(line)).await {
-                        Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                        Err(err) => return LineResult::Error(line.to_string(), err),
-                    },
-
-                    (Some(ClassifiedCommand::Internal(left)), Some(_)) => {
-                        match run_internal_command(left, ctx, input, Text::from(line)).await {
-                            Ok(val) => ClassifiedInputStream::from_input_stream(val),
-                            Err(err) => return LineResult::Error(line.to_string(), err),
-                        }
-                    }
-
-                    (Some(ClassifiedCommand::Internal(left)), None) => {
-                        match run_internal_command(left, ctx, input, Text::from(line)).await {
-                            Ok(val) => {
-                                use futures::stream::TryStreamExt;
-
-                                let mut output_stream: OutputStream = val.into();
-                                loop {
-                                    match output_stream.try_next().await {
-                                        Ok(Some(ReturnSuccess::Value(Value {
-                                            value: UntaggedValue::Error(e),
-                                            ..
-                                        }))) => {
-                                            return LineResult::Error(line.to_string(), e);
-                                        }
-                                        Ok(Some(_item)) => {
-                                            if ctx.ctrl_c.load(Ordering::SeqCst) {
-                                                break;
-                                            }
-                                        }
-                                        _ => {
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                return LineResult::Success(line.to_string());
-                            }
-                            Err(err) => return LineResult::Error(line.to_string(), err),
-                        }
-                    }
-
-                    (
-                        Some(ClassifiedCommand::External(left)),
-                        Some(ClassifiedCommand::External(_)),
-                    ) => match run_external_command(left, ctx, input, StreamNext::External).await {
-                        Ok(val) => val,
-                        Err(err) => return LineResult::Error(line.to_string(), err),
-                    },
-
-                    (Some(ClassifiedCommand::External(left)), Some(_)) => {
-                        match run_external_command(left, ctx, input, StreamNext::Internal).await {
-                            Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.to_string(), err),
-                        }
-                    }
-
-                    (Some(ClassifiedCommand::External(left)), None) => {
-                        match run_external_command(left, ctx, input, StreamNext::Last).await {
-                            Ok(val) => val,
-                            Err(err) => return LineResult::Error(line.to_string(), err),
-                        }
-                    }
-                };
+            match run_pipeline(pipeline, ctx, input, line).await {
+                Ok(_) => LineResult::Success(line.to_string()),
+                Err(err) => LineResult::Error(line.to_string(), err),
             }
-
-            LineResult::Success(line.to_string())
         }
         Err(ReadlineError::Interrupted) => LineResult::CtrlC,
         Err(ReadlineError::Eof) => LineResult::Break,

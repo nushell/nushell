@@ -1,5 +1,5 @@
+use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
-use nu_source::{b, PrettyDebug, DebugDocBuilder};
 
 use std::str::FromStr;
 

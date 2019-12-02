@@ -9,64 +9,41 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::Range;
 
-// TODO: Spanned<T> -> HasSpanAndItem<T> ?
-
-#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum Description {
-    Source(Spanned<String>),
-    Synthetic(String),
-}
-
-impl Description {
-    fn from_spanned(item: Spanned<impl Into<String>>) -> Description {
-        Description::Source(item.map(|s| s.into()))
-    }
-
-    fn into_label(self) -> Result<Label<Span>, String> {
-        match self {
-            Description::Source(s) => Ok(Label::new_primary(s.span).with_message(s.item)),
-            Description::Synthetic(s) => Err(s),
-        }
-    }
-}
-
-impl PrettyDebug for Description {
-    fn pretty(&self) -> DebugDocBuilder {
-        match self {
-            Description::Source(s) => b::description(&s.item),
-            Description::Synthetic(s) => b::description(s),
-        }
-    }
-}
-
+/// A structured reason for a ParseError. Note that parsing in nu is more like macro expansion in
+/// other languages, so the kinds of errors that can occur during parsing are more contextual than
+/// you might expect.
 #[derive(Debug, Clone)]
 pub enum ParseErrorReason {
-    Eof {
-        expected: &'static str,
-        span: Span,
-    },
+    /// The parser encountered an EOF rather than what it was expecting
+    Eof { expected: &'static str, span: Span },
+    /// The parser encountered something other than what it was expecting
     Mismatch {
         expected: &'static str,
         actual: Spanned<String>,
     },
+    /// The parser tried to parse an argument for a command, but it failed for
+    /// some reason
     ArgumentError {
         command: Spanned<String>,
         error: ArgumentError,
     },
 }
 
+/// A newtype for `ParseErrorReason`
 #[derive(Debug, Clone)]
 pub struct ParseError {
     reason: ParseErrorReason,
 }
 
 impl ParseError {
+    /// Construct a [ParseErrorReason::Eof](ParseErrorReason::Eof)
     pub fn unexpected_eof(expected: &'static str, span: Span) -> ParseError {
         ParseError {
             reason: ParseErrorReason::Eof { expected, span },
         }
     }
 
+    /// Construct a [ParseErrorReason::Mismatch](ParseErrorReason::Mismatch)
     pub fn mismatch(expected: &'static str, actual: Spanned<impl Into<String>>) -> ParseError {
         let Spanned { span, item } = actual;
 
@@ -78,6 +55,7 @@ impl ParseError {
         }
     }
 
+    /// Construct a [ParseErrorReason::ArgumentError](ParseErrorReason::ArgumentError)
     pub fn argument_error(command: Spanned<impl Into<String>>, kind: ArgumentError) -> ParseError {
         ParseError {
             reason: ParseErrorReason::ArgumentError {
@@ -88,6 +66,7 @@ impl ParseError {
     }
 }
 
+/// Convert a [ParseError](ParseError) into a [ShellError](ShellError)
 impl From<ParseError> for ShellError {
     fn from(error: ParseError) -> ShellError {
         match error.reason {
@@ -102,11 +81,20 @@ impl From<ParseError> for ShellError {
     }
 }
 
+/// ArgumentError describes various ways that the parser could fail because of unexpected arguments.
+/// Nu commands are like a combination of functions and macros, and these errors correspond to
+/// problems that could be identified during expansion based on the syntactic signature of a
+/// command.
 #[derive(Debug, Eq, PartialEq, Clone, Ord, Hash, PartialOrd, Serialize, Deserialize)]
 pub enum ArgumentError {
+    /// The command specified a mandatory flag, but it was missing.
     MissingMandatoryFlag(String),
+    /// The command specified a mandatory positional argument, but it was missing.
     MissingMandatoryPositional(String),
+    /// A flag was found, and it should have been followed by a value, but no value was found
     MissingValueForName(String),
+    /// A sequence of characters was found that was not syntactically valid (but would have
+    /// been valid if the command was an external command)
     InvalidExternalWord,
 }
 
@@ -133,12 +121,16 @@ impl PrettyDebug for ArgumentError {
     }
 }
 
+/// A `ShellError` is a proximate error and a possible cause, which could have its own cause,
+/// creating a cause chain.
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Serialize, Deserialize, Hash)]
 pub struct ShellError {
     error: ProximateShellError,
-    cause: Option<Box<ProximateShellError>>,
+    cause: Option<Box<ShellError>>,
 }
 
+/// `PrettyDebug` is for internal debugging. For user-facing debugging, [to_diagnostic](ShellError::to_diagnostic)
+/// is used, which prints an error, highlighting spans.
 impl PrettyDebug for ShellError {
     fn pretty(&self) -> DebugDocBuilder {
         match &self.error {
@@ -171,12 +163,12 @@ impl PrettyDebug for ShellError {
                         "(",
                         b::description("expr:")
                             + b::space()
-                            + expr.pretty()
+                            + b::description(&expr.item)
                             + b::description(",")
                             + b::space()
                             + b::description("subpath:")
                             + b::space()
-                            + subpath.pretty(),
+                            + b::description(&subpath.item),
                         ")",
                     )
             }
@@ -185,7 +177,7 @@ impl PrettyDebug for ShellError {
                     + b::space()
                     + b::delimit(
                         "(",
-                        b::description("subpath:") + b::space() + subpath.pretty(),
+                        b::description("subpath:") + b::space() + b::description(&subpath.item),
                         ")",
                     )
             }
@@ -295,8 +287,8 @@ impl ShellError {
         expr: Spanned<impl Into<String>>,
     ) -> ShellError {
         ProximateShellError::MissingProperty {
-            subpath: Description::from_spanned(subpath),
-            expr: Description::from_spanned(expr),
+            subpath: subpath.map(|s| s.into()),
+            expr: expr.map(|e| e.into()),
         }
         .start()
     }
@@ -306,7 +298,7 @@ impl ShellError {
         integer: impl Into<Span>,
     ) -> ShellError {
         ProximateShellError::InvalidIntegerIndex {
-            subpath: Description::from_spanned(subpath),
+            subpath: subpath.map(|s| s.into()),
             integer: integer.into(),
         }
         .start()
@@ -489,7 +481,7 @@ impl ShellError {
                 Label::new_primary(span).with_message(format!(
                     "Expected to convert {} to {} while {}, but it was out of range",
                     item,
-                    kind.desc(),
+                    kind.display(),
                     operation
                 )),
             ),
@@ -504,31 +496,33 @@ impl ShellError {
                 .with_label(Label::new_primary(span).with_message(item)),
 
             ProximateShellError::MissingProperty { subpath, expr, .. } => {
-                let subpath = subpath.into_label();
-                let expr = expr.into_label();
 
                 let mut diag = Diagnostic::new(Severity::Error, "Missing property");
 
-                match subpath {
-                    Ok(label) => diag = diag.with_label(label),
-                    Err(ty) => diag.message = format!("Missing property (for {})", ty),
-                }
+                if subpath.span == Span::unknown() {
+                    diag.message = format!("Missing property (for {})", subpath.item);
+                } else {
+                    let subpath = Label::new_primary(subpath.span).with_message(subpath.item);
+                    diag = diag.with_label(subpath);
 
-                if let Ok(label) = expr {
-                    diag = diag.with_label(label);
+                    if expr.span != Span::unknown() {
+                        let expr = Label::new_primary(expr.span).with_message(expr.item);
+                        diag = diag.with_label(expr)
+                    }
+
                 }
 
                 diag
             }
 
             ProximateShellError::InvalidIntegerIndex { subpath,integer } => {
-                let subpath = subpath.into_label();
-
                 let mut diag = Diagnostic::new(Severity::Error, "Invalid integer property");
 
-                match subpath {
-                    Ok(label) => diag = diag.with_label(label),
-                    Err(ty) => diag.message = format!("Invalid integer property (for {})", ty)
+                if subpath.span == Span::unknown() {
+                    diag.message = format!("Invalid integer property (for {})", subpath.item)
+                } else {
+                    let label = Label::new_primary(subpath.span).with_message(subpath.item);
+                    diag = diag.with_label(label)
                 }
 
                 diag = diag.with_label(Label::new_secondary(integer).with_message("integer"));
@@ -586,6 +580,10 @@ impl ShellError {
     }
 }
 
+/// `ExpectedRange` describes a range of values that was expected by a command. In addition
+/// to typical ranges, this enum allows an error to specify that the range of allowed values
+/// corresponds to a particular numeric type (which is a dominant use-case for the
+/// [RangeError](ProximateShellError::RangeError) error type).
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Serialize, Deserialize)]
 pub enum ExpectedRange {
     I8,
@@ -607,6 +605,7 @@ pub enum ExpectedRange {
     Range { start: usize, end: usize },
 }
 
+/// Convert a Rust range into an [ExpectedRange](ExpectedRange).
 impl From<Range<usize>> for ExpectedRange {
     fn from(range: Range<usize>) -> Self {
         ExpectedRange::Range {
@@ -618,13 +617,7 @@ impl From<Range<usize>> for ExpectedRange {
 
 impl PrettyDebug for ExpectedRange {
     fn pretty(&self) -> DebugDocBuilder {
-        b::description(self.desc())
-    }
-}
-
-impl ExpectedRange {
-    fn desc(&self) -> String {
-        match self {
+        b::description(match self {
             ExpectedRange::I8 => "an 8-bit signed integer",
             ExpectedRange::I16 => "a 16-bit signed integer",
             ExpectedRange::I32 => "a 32-bit signed integer",
@@ -641,9 +634,10 @@ impl ExpectedRange {
             ExpectedRange::Size => "a list offset",
             ExpectedRange::BigDecimal => "a decimal",
             ExpectedRange::BigInt => "an integer",
-            ExpectedRange::Range { start, end } => return format!("{} to {}", start, end),
-        }
-        .to_string()
+            ExpectedRange::Range { start, end } => {
+                return b::description(format!("{} to {}", start, end))
+            }
+        })
     }
 }
 
@@ -661,11 +655,11 @@ pub enum ProximateShellError {
         actual: Spanned<Option<String>>,
     },
     MissingProperty {
-        subpath: Description,
-        expr: Description,
+        subpath: Spanned<String>,
+        expr: Spanned<String>,
     },
     InvalidIntegerIndex {
-        subpath: Description,
+        subpath: Spanned<String>,
         integer: Span,
     },
     MissingValue {

@@ -1,5 +1,5 @@
-use nu_errors::ShellError;
 use crate::value::Value;
+use nu_errors::ShellError;
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 use serde::{Deserialize, Serialize};
 

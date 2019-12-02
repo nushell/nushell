@@ -139,6 +139,13 @@ impl Value {
         }
     }
 
+    pub fn as_forgiving_string(&self) -> Result<&str, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::String(string)) => Ok(&string[..]),
+            _ => Err(ShellError::type_error("string", self.spanned_type_name())),
+        }
+    }
+
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Path(path)) => Ok(path.clone()),

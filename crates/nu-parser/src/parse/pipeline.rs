@@ -1,7 +1,7 @@
 use crate::TokenNode;
 use derive_new::new;
 use getset::Getters;
-use nu_source::{b, DebugDocBuilder, PrettyDebugWithSource, Span, Spanned, HasSpan};
+use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span, Spanned};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Getters, new)]
 pub struct Pipeline {

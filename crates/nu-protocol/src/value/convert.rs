@@ -1,8 +1,8 @@
-use nu_errors::{CoerceInto, ShellError};
 use crate::type_name::SpannedTypeName;
 use crate::value::dict::Dictionary;
 use crate::value::primitive::Primitive;
 use crate::value::{UntaggedValue, Value};
+use nu_errors::{CoerceInto, ShellError};
 use nu_source::TaggedItem;
 
 impl std::convert::TryFrom<&Value> for i64 {
