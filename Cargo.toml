@@ -18,10 +18,10 @@ members = ["crates/nu-errors", "crates/nu-source", "crates/nu-textview", "crates
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-source = { path = "./crates/nu-source" }
-nu-protocol = { path = "./crates/nu-protocol" }
-nu-errors = { path = "./crates/nu-errors" }
-nu-parser = { path = "./crates/nu-parser" }
+nu-source = { version = "0.1.0", path = "./crates/nu-source" }
+nu-protocol = { version = "0.1.0", path = "./crates/nu-protocol" }
+nu-errors = { version = "0.1.0", path = "./crates/nu-errors" }
+nu-parser = { version = "0.1.0", path = "./crates/nu-parser" }
 
 query_interface = "0.3.5"
 typetag = "0.1.4"
