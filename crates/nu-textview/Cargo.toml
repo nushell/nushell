@@ -20,3 +20,6 @@ nu = { path = "../.." }
 nu-protocol = { path = "../nu-protocol" }
 nu-source = { path = "../nu-source" }
 url = "2.1.0"
+
+[build-dependencies]
+nu-build = { version = "0.1.0", path = "../nu-build" }

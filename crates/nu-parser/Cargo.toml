@@ -35,3 +35,6 @@ unicode-xid = "0.2.0"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
+
+[build-dependencies]
+nu-build = { version = "0.1.0", path = "../nu-build" }
