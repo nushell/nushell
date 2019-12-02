@@ -1,12 +1,14 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::base::property_get::get_data_by_column_path;
 use crate::data::base::shape::Shapes;
-use crate::data::Value;
-use crate::errors::ShellError;
 use crate::prelude::*;
 use crate::utils::did_you_mean;
-use crate::ColumnPath;
 use futures_util::pin_mut;
 use log::trace;
+use nu_errors::ShellError;
+use nu_protocol::{
+    ColumnPath, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::{span_for_spanned_list, PrettyDebug};
 
 pub struct Get;
@@ -44,7 +46,8 @@ impl WholeStreamCommand for Get {
 pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellError> {
     let fields = path.clone();
 
-    obj.get_data_by_column_path(
+    get_data_by_column_path(
+        obj,
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
             match &obj_source.value {

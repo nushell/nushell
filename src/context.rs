@@ -1,12 +1,12 @@
 use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
 use crate::env::host::Host;
-use crate::errors::ShellError;
-use crate::parser::{hir, hir::syntax_shape::ExpandContext};
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
-use nu_source::Tag;
-use nu_source::Text;
+use nu_errors::ShellError;
+use nu_parser::{hir, hir::syntax_shape::ExpandContext, hir::syntax_shape::SignatureRegistry};
+use nu_protocol::{errln, Signature};
+use nu_source::{Tag, Text};
 use std::error::Error;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -14,6 +14,17 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone)]
 pub struct CommandRegistry {
     registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
+}
+
+impl SignatureRegistry for CommandRegistry {
+    fn has(&self, name: &str) -> bool {
+        let registry = self.registry.lock().unwrap();
+        registry.contains_key(name)
+    }
+    fn get(&self, name: &str) -> Option<Signature> {
+        let registry = self.registry.lock().unwrap();
+        registry.get(name).map(|command| command.signature())
+    }
 }
 
 impl CommandRegistry {
@@ -76,7 +87,11 @@ impl Context {
         &'context self,
         source: &'context Text,
     ) -> ExpandContext<'context> {
-        ExpandContext::new(&self.registry, source, self.shell_manager.homedir())
+        ExpandContext::new(
+            Box::new(self.registry.clone()),
+            source,
+            self.shell_manager.homedir(),
+        )
     }
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {

@@ -1,6 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::value;
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct FromURL;
 
@@ -63,7 +66,7 @@ fn from_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 let mut row = TaggedDictBuilder::new(tag);
 
                 for (k,v) in result {
-                    row.insert_untagged(k, UntaggedValue::string(v));
+                    row.insert_untagged(k, value::string(v));
                 }
 
                 yield ReturnSuccess::value(row.into_value());

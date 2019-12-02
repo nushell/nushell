@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::UntaggedValue;
-use crate::data::TaggedDictBuilder;
-use crate::errors::ShellError;
+use crate::data::base::property_get::get_data_by_key;
+use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct GroupBy;
@@ -69,10 +70,10 @@ pub fn group(
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
 
-    let mut groups = indexmap::IndexMap::new();
+    let mut groups: indexmap::IndexMap<String, Vec<Value>> = indexmap::IndexMap::new();
 
     for value in values {
-        let group_key = value.get_data_by_key(column_name.borrow_spanned());
+        let group_key = get_data_by_key(&value, column_name.borrow_spanned());
 
         if group_key.is_none() {
             let possibilities = value.data_descriptors();
@@ -99,7 +100,7 @@ pub fn group(
             }
         }
 
-        let group_key = group_key.unwrap().as_string()?;
+        let group_key = group_key.unwrap().as_string()?.to_string();
         let group = groups.entry(group_key).or_insert(vec![]);
         group.push(value);
     }
@@ -107,7 +108,7 @@ pub fn group(
     let mut out = TaggedDictBuilder::new(&tag);
 
     for (k, v) in groups.iter() {
-        out.insert_untagged(k, UntaggedValue::table(v));
+        out.insert_untagged(k, value::table(v));
     }
 
     Ok(out.into_value())
@@ -116,20 +117,21 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use crate::commands::group_by::group;
-    use crate::data::base::{UntaggedValue, Value};
+    use crate::data::value;
     use indexmap::IndexMap;
+    use nu_protocol::Value;
     use nu_source::*;
 
     fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
+        value::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
+        value::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
+        value::table(list).into_untagged_value()
     }
 
     fn nu_releases_commiters() -> Vec<Value> {

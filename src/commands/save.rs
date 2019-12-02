@@ -1,7 +1,7 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
-use crate::data::Value;
-use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
 
@@ -185,7 +185,7 @@ fn save(
                             ctrl_c,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
-                                args: crate::parser::hir::Call {
+                                args: nu_parser::hir::Call {
                                     head: raw_args.call_info.args.head,
                                     positional: None,
                                     named: None,

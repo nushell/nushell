@@ -1,7 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::TaggedDictBuilder;
-use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::Signature;
 
 pub struct Tags;
 
@@ -37,16 +38,16 @@ fn tags(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
                 let anchor = v.anchor();
                 let span = v.tag.span;
                 let mut dict = TaggedDictBuilder::new(v.tag());
-                dict.insert_untagged("start", UntaggedValue::int(span.start() as i64));
-                dict.insert_untagged("end", UntaggedValue::int(span.end() as i64));
+                dict.insert_untagged("start", value::int(span.start() as i64));
+                dict.insert_untagged("end", value::int(span.end() as i64));
                 tags.insert_value("span", dict.into_value());
 
                 match anchor {
                     Some(AnchorLocation::File(source)) => {
-                        tags.insert_untagged("anchor", UntaggedValue::string(source));
+                        tags.insert_untagged("anchor", value::string(source));
                     }
                     Some(AnchorLocation::Url(source)) => {
-                        tags.insert_untagged("anchor", UntaggedValue::string(source));
+                        tags.insert_untagged("anchor", value::string(source));
                     }
                     _ => {}
                 }

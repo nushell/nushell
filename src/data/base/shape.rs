@@ -1,12 +1,14 @@
-use crate::data::base::{Block, ColumnPath};
-use crate::data::dict::Dictionary;
+use crate::data::primitive::format_primitive;
 use crate::prelude::*;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
 use derive_new::new;
 use indexmap::IndexMap;
-use nu_source::DebugDoc;
-use nu_source::{b, PrettyDebug};
+use nu_errors::ShellError;
+use nu_protocol::{
+    ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName, UntaggedValue, Value,
+};
+use nu_source::{b, DebugDoc, PrettyDebug};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -339,7 +341,7 @@ impl PrettyDebug for FormatInlineShape {
             }),
             InlineShape::Date(date) => b::primitive(date.humanize()),
             InlineShape::Duration(duration) => {
-                b::description(Primitive::Duration(*duration).format(None))
+                b::description(format_primitive(&Primitive::Duration(*duration), None))
             }
             InlineShape::Path(path) => b::primitive(path.display()),
             InlineShape::Binary => b::opaque("<binary>"),
@@ -475,13 +477,7 @@ pub enum Shape {
     Row(Vec<Column>),
     Table { from: usize, to: usize },
     Error(ShellError),
-    Block(Block),
-}
-
-impl Value {
-    pub fn shape(&self) -> Shape {
-        Shape::for_value(self)
-    }
+    Block(Evaluate),
 }
 
 impl Shape {
@@ -500,32 +496,6 @@ impl Shape {
 
     fn for_dict(dict: &Dictionary) -> Shape {
         Shape::Row(dict.keys().map(|key| Column::String(key.clone())).collect())
-    }
-
-    pub fn kind(&self) -> String {
-        match self {
-            Shape::Primitive(primitive) => primitive,
-            Shape::Row(row) => {
-                return row
-                    .iter()
-                    .map(|c| match c {
-                        Column::String(s) => s.clone(),
-                        Column::Value => format!("<value>"),
-                    })
-                    .join(", ")
-            }
-            Shape::Table { .. } => "table",
-            Shape::Error(_) => "error",
-            Shape::Block(_) => "block",
-        }
-        .to_string()
-    }
-
-    pub fn describe_str(&self) -> String {
-        let mut v = vec![];
-        self.describe(&mut v)
-            .expect("it isn't possible to fail to write into a memory buffer");
-        String::from_utf8_lossy(&v[..]).to_string()
     }
 
     pub fn describe(&self, w: &mut impl Write) -> Result<(), std::io::Error> {
@@ -559,7 +529,7 @@ impl Shape {
             .expect("Writing into a Vec can't fail");
         let string = String::from_utf8_lossy(&out);
 
-        UntaggedValue::string(string).into_untagged_value()
+        value::string(string).into_untagged_value()
     }
 }
 
@@ -589,7 +559,7 @@ impl Shapes {
 
             vec![dict! {
                 "type" => shape.to_value(),
-                "rows" => UntaggedValue::string("all")
+                "rows" => value::string("all")
             }]
         } else {
             self.shapes
@@ -599,7 +569,7 @@ impl Shapes {
 
                     dict! {
                         "type" => shape.to_value(),
-                        "rows" => UntaggedValue::string(format!("[ {} ]", rows))
+                        "rows" => value::string(format!("[ {} ]", rows))
                     }
                 })
                 .collect()

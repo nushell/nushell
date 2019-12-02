@@ -1,8 +1,12 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Dictionary, Primitive, Value};
+use crate::data::value;
 use crate::prelude::*;
-use crate::UnspannedPathMember;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
+use nu_errors::{CoerceInto, ShellError};
+use nu_protocol::{
+    Dictionary, Primitive, ReturnSuccess, Signature, SpannedTypeName, UnspannedPathMember,
+    UntaggedValue, Value,
+};
 use std::convert::TryInto;
 
 pub struct ToBSON;
@@ -190,7 +194,7 @@ fn get_binary_subtype<'a>(tagged_value: &'a Value) -> Result<BinarySubtype, Shel
         )),
         _ => Err(ShellError::type_error(
             "bson binary",
-            tagged_value.type_name().spanned(tagged_value.span()),
+            tagged_value.spanned_type_name(),
         )),
     }
 }
@@ -269,7 +273,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
                     match bson_value_to_bytes(bson_value, name_tag.clone()) {
                         Ok(x) => yield ReturnSuccess::value(
-                            UntaggedValue::binary(x).into_value(&name_tag),
+                            value::binary(x).into_value(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with BSON-compatible structure.tag() from pipeline",

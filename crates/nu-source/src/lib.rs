@@ -11,5 +11,6 @@ pub use self::meta::{
 pub use self::pretty::{
     b, DebugDoc, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, ShellAnnotation,
 };
+pub use self::term_colored::TermColored;
 pub use self::text::Text;
 pub use self::tracable::{nom_input, NomSpan, TracableContext};

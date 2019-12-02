@@ -1,9 +1,12 @@
-use crate::commands::command::CommandAction;
 use crate::commands::PerItemCommand;
 use crate::commands::UnevaluatedCallInfo;
-use crate::errors::ShellError;
-use crate::parser::registry;
+use crate::context::CommandRegistry;
+use crate::data::value;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{
+    CallInfo, CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use std::path::PathBuf;
 
 pub struct Enter;
@@ -13,7 +16,7 @@ impl PerItemCommand for Enter {
         "enter"
     }
 
-    fn signature(&self) -> registry::Signature {
+    fn signature(&self) -> Signature {
         Signature::build("enter").required(
             "location",
             SyntaxShape::Path,
@@ -28,7 +31,7 @@ impl PerItemCommand for Enter {
     fn run(
         &self,
         call_info: &CallInfo,
-        registry: &registry::CommandRegistry,
+        registry: &CommandRegistry,
         raw_args: &RawCommandArgs,
         _input: Value,
     ) -> Result<OutputStream, ShellError> {
@@ -51,12 +54,12 @@ impl PerItemCommand for Enter {
 
                     if registry.has(command) {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            UntaggedValue::string(command).into_value(Tag::unknown()),
+                            value::string(command).into_value(Tag::unknown()),
                         )))]
                         .into())
                     } else {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            UntaggedValue::nothing().into_value(Tag::unknown()),
+                            value::nothing().into_value(Tag::unknown()),
                         )))]
                         .into())
                     }
@@ -93,7 +96,7 @@ impl PerItemCommand for Enter {
                                             ctrl_c: raw_args.ctrl_c,
                                             shell_manager: raw_args.shell_manager,
                                             call_info: UnevaluatedCallInfo {
-                                                args: crate::parser::hir::Call {
+                                                args: nu_parser::hir::Call {
                                                     head: raw_args.call_info.args.head,
                                                     positional: None,
                                                     named: None,

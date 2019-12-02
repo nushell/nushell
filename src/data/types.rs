@@ -1,5 +1,7 @@
 use crate::prelude::*;
 use log::trace;
+use nu_errors::{CoerceInto, ShellError};
+use nu_protocol::{Primitive, SpannedTypeName, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub trait ExtractType: Sized {
@@ -28,10 +30,7 @@ impl ExtractType for bool {
                 value: UntaggedValue::Primitive(Primitive::Nothing),
                 ..
             } => Ok(false),
-            other => Err(ShellError::type_error(
-                "Boolean",
-                other.type_name().spanned(other.span()),
-            )),
+            other => Err(ShellError::type_error("Boolean", other.spanned_type_name())),
         }
     }
 }
@@ -45,10 +44,7 @@ impl ExtractType for std::path::PathBuf {
                 value: UntaggedValue::Primitive(Primitive::Path(p)),
                 ..
             } => Ok(p.clone()),
-            other => Err(ShellError::type_error(
-                "Path",
-                other.type_name().spanned(other.span()),
-            )),
+            other => Err(ShellError::type_error("Path", other.spanned_type_name())),
         }
     }
 }
@@ -62,10 +58,7 @@ impl ExtractType for i64 {
                 value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..
             } => Ok(int.tagged(&value.tag).coerce_into("converting to i64")?),
-            other => Err(ShellError::type_error(
-                "Integer",
-                other.type_name().spanned(other.span()),
-            )),
+            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
         }
     }
 }
@@ -79,10 +72,7 @@ impl ExtractType for u64 {
                 value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..
             } => Ok(int.tagged(&value.tag).coerce_into("converting to u64")?),
-            other => Err(ShellError::type_error(
-                "Integer",
-                other.type_name().spanned(other.span()),
-            )),
+            other => Err(ShellError::type_error("Integer", other.spanned_type_name())),
         }
     }
 }
@@ -96,10 +86,7 @@ impl ExtractType for String {
                 value: UntaggedValue::Primitive(Primitive::String(string)),
                 ..
             } => Ok(string.clone()),
-            other => Err(ShellError::type_error(
-                "String",
-                other.type_name().spanned(other.span()),
-            )),
+            other => Err(ShellError::type_error("String", other.spanned_type_name())),
         }
     }
 }

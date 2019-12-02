@@ -1,0 +1,29 @@
+[package]
+name = "nu-errors"
+version = "0.1.0"
+authors = ["Yehuda Katz <wycats@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-source = { path = "../nu-source" }
+
+ansi_term = "0.12.1"
+bigdecimal = { version = "0.1.0", features = ["serde"] }
+derive-new = "0.5.8"
+language-reporting = "0.4.0"
+num-bigint = { version = "0.2.3", features = ["serde"] }
+num-traits = "0.2.8"
+serde = { version = "1.0.102", features = ["derive"] }
+nom = "5.0.1"
+nom_locate = "1.0.0"
+
+# implement conversions
+subprocess = "0.1.18"
+serde_yaml = "0.8"
+toml = "0.5.5"
+serde_json = "1.0.41"
+
+[build-dependencies]
+nu-build = { version = "0.1.0", path = "../nu-build" }

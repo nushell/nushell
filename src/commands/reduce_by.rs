@@ -1,6 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::parser::hir::SyntaxShape;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use num_traits::cast::ToPrimitive;
 
@@ -134,9 +135,9 @@ pub fn reduce(
                                     } = d
                                     {
                                         acc = reduce_with(acc, x.clone());
-                                        UntaggedValue::number(acc).into_value(&tag)
+                                        value::number(acc).into_value(&tag)
                                     } else {
-                                        UntaggedValue::number(0).into_value(&tag)
+                                        value::number(0).into_value(&tag)
                                     }
                                 })
                                 .collect::<Vec<_>>();
@@ -163,24 +164,24 @@ mod tests {
     use crate::commands::reduce_by::{reduce, reducer_for, Reduce};
     use crate::commands::t_sort_by::t_sort;
     use crate::prelude::*;
-    use crate::Value;
     use indexmap::IndexMap;
+    use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
 
     fn int(s: impl Into<BigInt>) -> Value {
-        UntaggedValue::int(s).into_untagged_value()
+        value::int(s).into_untagged_value()
     }
 
     fn string(input: impl Into<String>) -> Value {
-        UntaggedValue::string(input.into()).into_untagged_value()
+        value::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        UntaggedValue::row(entries).into_untagged_value()
+        value::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        UntaggedValue::table(list).into_untagged_value()
+        value::table(list).into_untagged_value()
     }
 
     fn nu_releases_sorted_by_date() -> Value {

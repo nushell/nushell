@@ -1,8 +1,9 @@
-use crate::data::Value;
+use crate::data::value::{format_leaf, style_leaf};
 use crate::format::RenderView;
 use crate::prelude::*;
 use derive_new::new;
-use nu_source::PrettyDebug;
+use nu_errors::ShellError;
+use nu_protocol::{UntaggedValue, Value};
 use textwrap::fill;
 
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
@@ -67,10 +68,10 @@ impl TableView {
                                 value: UntaggedValue::Row(..),
                                 ..
                             } => (
-                                UntaggedValue::nothing().format_leaf().plain_string(100000),
-                                UntaggedValue::nothing().style_leaf(),
+                                format_leaf(&value::nothing()).plain_string(100000),
+                                style_leaf(&value::nothing()),
                             ),
-                            _ => (value.format_leaf().plain_string(100000), value.style_leaf()),
+                            _ => (format_leaf(value).plain_string(100000), style_leaf(value)),
                         }
                     } else {
                         match value {
@@ -80,13 +81,13 @@ impl TableView {
                             } => {
                                 let data = value.get_data(d);
                                 (
-                                    data.borrow().format_leaf().plain_string(100000),
-                                    data.borrow().style_leaf(),
+                                    format_leaf(data.borrow()).plain_string(100000),
+                                    style_leaf(data.borrow()),
                                 )
                             }
                             _ => (
-                                UntaggedValue::nothing().format_leaf().plain_string(100000),
-                                UntaggedValue::nothing().style_leaf(),
+                                format_leaf(&value::nothing()).plain_string(100000),
+                                style_leaf(&value::nothing()),
                             ),
                         }
                     }

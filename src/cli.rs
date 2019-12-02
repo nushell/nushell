@@ -1,27 +1,19 @@
-use crate::commands::classified::{
-    ClassifiedCommand, ClassifiedInputStream, ClassifiedPipeline, ExternalArg, ExternalArgs,
-    ExternalCommand, InternalCommand,
-};
+use crate::commands::classified::pipeline::run_pipeline;
+use crate::commands::classified::ClassifiedInputStream;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
-use crate::data::{
-    base::{UntaggedValue, Value},
-    config,
-};
-pub(crate) use crate::errors::ShellError;
+use crate::data::config;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
-use crate::parser::registry::Signature;
-use crate::parser::{
-    hir,
-    hir::syntax_shape::{expand_syntax, ExpandContext, PipelineShape},
-    hir::{expand_external_tokens::ExternalTokensShape, tokens_iterator::TokensIterator},
-    TokenNode,
-};
 use crate::prelude::*;
-use nu_source::{Spanned, Tagged};
+use nu_errors::ShellError;
+use nu_parser::{
+    expand_syntax, hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape,
+    TokenNode, TokensIterator,
+};
+use nu_protocol::{Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
@@ -31,21 +23,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-
-#[derive(Debug)]
-pub enum MaybeOwned<'a, T> {
-    Owned(T),
-    Borrowed(&'a T),
-}
-
-impl<T> MaybeOwned<'_, T> {
-    pub fn borrow(&self) -> &T {
-        match self {
-            MaybeOwned::Owned(v) => v,
-            MaybeOwned::Borrowed(v) => v,
-        }
-    }
-}
 
 fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), ShellError> {
     let mut child = std::process::Command::new(path)
@@ -571,7 +548,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
         Ok(line) => {
             let line = chomp_newline(line);
 
-            let result = match crate::parser::parse(&line) {
+            let result = match nu_parser::parse(&line) {
                 Err(err) => {
                     return LineResult::Error(line.to_string(), err);
                 }
@@ -609,7 +586,8 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             set_env_from_config();
 
             let input = ClassifiedInputStream::new();
-            match pipeline.run(ctx, input, line).await {
+
+            match run_pipeline(pipeline, ctx, input, line).await {
                 Ok(_) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
             }
@@ -647,39 +625,13 @@ fn classify_pipeline(
     result
 }
 
-// Classify this command as an external command, which doesn't give special meaning
-// to nu syntactic constructs, and passes all arguments to the external command as
-// strings.
-pub(crate) fn external_command(
-    tokens: &mut TokensIterator,
-    context: &ExpandContext,
-    name: Tagged<&str>,
-) -> Result<ClassifiedCommand, ParseError> {
-    let Spanned { item, span } = expand_syntax(&ExternalTokensShape, tokens, context)?.tokens;
-
-    Ok(ClassifiedCommand::External(ExternalCommand {
-        name: name.to_string(),
-        name_tag: name.tag(),
-        args: ExternalArgs {
-            list: item
-                .iter()
-                .map(|x| ExternalArg {
-                    tag: x.span.into(),
-                    arg: x.item.clone(),
-                })
-                .collect(),
-            span,
-        },
-    }))
-}
-
 pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
     let diag = err.to_diagnostic();
 
     let writer = host.err_termcolor();
     let mut source = source.to_string();
     source.push_str(" ");
-    let files = crate::parser::Files::new(source);
+    let files = nu_parser::Files::new(source);
     let _ = std::panic::catch_unwind(move || {
         let _ = language_reporting::emit(
             &mut writer.lock(),

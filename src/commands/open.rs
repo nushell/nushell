@@ -1,12 +1,11 @@
 use crate::commands::UnevaluatedCallInfo;
-use crate::data::Value;
-use crate::errors::ShellError;
-use crate::parser::hir::SyntaxShape;
-use crate::parser::registry::Signature;
+use crate::data::value;
 use crate::prelude::*;
-use nu_source::AnchorLocation;
-use nu_source::Span;
+use nu_errors::ShellError;
+use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::{AnchorLocation, Span};
 use std::path::{Path, PathBuf};
+
 pub struct Open;
 
 impl PerItemCommand for Open {
@@ -91,7 +90,7 @@ fn run(
                     ctrl_c: raw_args.ctrl_c,
                     shell_manager: raw_args.shell_manager,
                     call_info: UnevaluatedCallInfo {
-                        args: crate::parser::hir::Call {
+                        args: nu_parser::hir::Call {
                             head: raw_args.call_info.args.head,
                             positional: None,
                             named: None,
@@ -141,7 +140,7 @@ pub async fn fetch(
                 Ok(s) => Ok((
                     cwd.extension()
                         .map(|name| name.to_string_lossy().to_string()),
-                    UntaggedValue::string(s),
+                    value::string(s),
                     Tag {
                         span,
                         anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
@@ -159,7 +158,7 @@ pub async fn fetch(
                                     Ok(s) => Ok((
                                         cwd.extension()
                                             .map(|name| name.to_string_lossy().to_string()),
-                                        UntaggedValue::string(s),
+                                        value::string(s),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -169,7 +168,7 @@ pub async fn fetch(
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        UntaggedValue::binary(bytes),
+                                        value::binary(bytes),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -181,7 +180,7 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    UntaggedValue::binary(bytes),
+                                    value::binary(bytes),
                                     Tag {
                                         span,
                                         anchor: Some(AnchorLocation::File(
@@ -200,7 +199,7 @@ pub async fn fetch(
                                     Ok(s) => Ok((
                                         cwd.extension()
                                             .map(|name| name.to_string_lossy().to_string()),
-                                        UntaggedValue::string(s),
+                                        value::string(s),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -210,7 +209,7 @@ pub async fn fetch(
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        UntaggedValue::binary(bytes),
+                                        value::binary(bytes),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -222,7 +221,7 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    UntaggedValue::binary(bytes),
+                                    value::binary(bytes),
                                     Tag {
                                         span,
                                         anchor: Some(AnchorLocation::File(
@@ -234,7 +233,7 @@ pub async fn fetch(
                         }
                         _ => Ok((
                             None,
-                            UntaggedValue::binary(bytes),
+                            value::binary(bytes),
                             Tag {
                                 span,
                                 anchor: Some(AnchorLocation::File(

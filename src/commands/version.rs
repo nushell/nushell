@@ -1,9 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Dictionary;
-use crate::errors::ShellError;
-use crate::parser::registry::Signature;
 use crate::prelude::*;
 use indexmap::IndexMap;
+use nu_errors::ShellError;
+use nu_protocol::{Dictionary, Signature, UntaggedValue};
 
 pub struct Version;
 
@@ -36,7 +35,7 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "version".to_string(),
-        UntaggedValue::string(clap::crate_version!()).into_value(&tag),
+        value::string(clap::crate_version!()).into_value(&tag),
     );
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);

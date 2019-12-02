@@ -45,8 +45,8 @@ macro_rules! command {
                 stringify!($config_name)
             }
 
-            fn config(&self) -> $crate::parser::registry::Signature {
-                $crate::parser::registry::Signature {
+            fn config(&self) -> $nu_parser::registry::Signature {
+                $nu_parser::registry::Signature {
                     name: self.name().to_string(),
                     positional: vec![$($mandatory_positional)*],
                     rest_positional: false,
@@ -54,13 +54,13 @@ macro_rules! command {
                     is_sink: false,
 
                     named: {
-                        use $crate::parser::registry::NamedType;
+                        use $nu_parser::registry::NamedType;
 
                         #[allow(unused_mut)]
                         let mut named: indexmap::IndexMap<String, NamedType> = indexmap::IndexMap::new();
 
                         $(
-                            named.insert(stringify!($named_param).to_string(), $crate::parser::registry::NamedType::$named_kind);
+                            named.insert(stringify!($named_param).to_string(), $nu_parser::registry::NamedType::$named_kind);
                         )*
 
                         named
@@ -250,7 +250,7 @@ macro_rules! command {
             Rest { $($rest)* }
             Signature {
                 name: $config_name,
-                mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory_block(
+                mandatory_positional: vec![ $($mandatory_positional)* $nu_parser::registry::PositionalType::mandatory_block(
                     stringify!($param_name)
                 ), ],
                 optional_positional: vec![ $($optional_positional)* ],
@@ -305,7 +305,7 @@ macro_rules! command {
             Rest { $($rest)* }
             Signature {
                 name: $config_name,
-                mandatory_positional: vec![ $($mandatory_positional)* $crate::parser::registry::PositionalType::mandatory(
+                mandatory_positional: vec![ $($mandatory_positional)* $nu_parser::registry::PositionalType::mandatory(
                     stringify!($param_name), <$param_kind>::syntax_type()
                 ), ],
                 optional_positional: vec![ $($optional_positional)* ],

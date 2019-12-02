@@ -16,9 +16,9 @@ flags: false
 ```shell
 > open command_from-yaml | from-yaml
 ━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━
- title     │ type    │ flags 
+ title     │ type    │ flags
 ───────────┼─────────┼───────
- from-yaml │ command │ No 
+ from-yaml │ command │ No
 ━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━
 
 ```
