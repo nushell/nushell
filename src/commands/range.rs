@@ -1,6 +1,6 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
 use crate::context::CommandRegistry;
+use crate::errors::ShellError;
 use crate::prelude::*;
 use nu_source::Tagged;
 
@@ -40,7 +40,7 @@ impl WholeStreamCommand for Range {
 fn range(
     RangeArgs { area: rows }: RangeArgs,
     RunnableContext { input, name, .. }: RunnableContext,
-) -> Result<OutputStream, ShellError> { 
+) -> Result<OutputStream, ShellError> {
     match rows.item.find(".") {
         Some(value) => {
             let (first, last) = rows.item.split_at(value);
@@ -56,13 +56,13 @@ fn range(
                             name,
                         ));
                     }
-                },
+                }
             };
             let last = match last.trim_start_matches(".").parse::<u64>() {
                 Ok(postion) => postion,
                 Err(_) => {
                     if last == ".." {
-                        std::u64::MAX
+                        std::u64::MAX - 1
                     } else {
                         return Err(ShellError::labeled_error(
                             "no correct end of range",
@@ -70,15 +70,15 @@ fn range(
                             name,
                         ));
                     }
-                },
+                }
             };
             return Ok(OutputStream::from_input(
-                input.values.skip(first).take(last-first+1),
+                input.values.skip(first).take(last - first + 1),
             ));
-        },
+        }
         None => {
             return Err(ShellError::labeled_error(
-                "No correct formated range found",
+                "No correct formatted range found",
                 "format: <from>..<to>",
                 name,
             ));

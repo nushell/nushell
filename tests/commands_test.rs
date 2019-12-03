@@ -205,6 +205,74 @@ fn group_by_errors_if_unknown_column_name() {
 }
 
 #[test]
+fn range_selects_a_row() {
+    Playground::setup("range_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("tests.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | sort-by name
+                | range 0..0
+                | get name
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "notes.txt");
+    });
+}
+
+#[test]
+fn range_selects_some_rows() {
+    Playground::setup("range_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("notes.txt"),
+            EmptyFile("tests.txt"),
+            EmptyFile("persons.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | get name
+                | range 1..2
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    });
+}
+
+#[test]
+fn range_selects_all_rows() {
+    Playground::setup("range_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("notes.txt"),
+            EmptyFile("tests.txt"),
+            EmptyFile("persons.txt"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                ls
+                | get name
+                | range ..
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    });
+}
+
+#[test]
 fn split_by() {
     Playground::setup("split_by_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
