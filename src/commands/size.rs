@@ -2,7 +2,7 @@ use crate::commands::WholeStreamCommand;
 use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, Signature, Value};
 
 pub struct Size;
 
@@ -35,17 +35,18 @@ fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
 
     Ok(input
         .values
-        .map(move |v| match v.value {
-            UntaggedValue::Primitive(Primitive::String(ref s)) => {
-                ReturnSuccess::value(count(s, &v.tag))
+        .map(move |v| {
+            if let Ok(s) = v.as_string() {
+                ReturnSuccess::value(count(&s, &v.tag))
+            } else {
+                Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
+                    name_span,
+                    "value originates from here",
+                    v.tag.span,
+                ))
             }
-            _ => Err(ShellError::labeled_error_with_secondary(
-                "Expected a string from pipeline",
-                "requires string input",
-                name_span,
-                "value originates from here",
-                v.tag.span,
-            )),
         })
         .to_output_stream())
 }

@@ -137,6 +137,7 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?.to_string()),
         UntaggedValue::Table(_) => return Ok(String::from("[Table]")),
         UntaggedValue::Row(_) => return Ok(String::from("[Row]")),
+        UntaggedValue::Primitive(Primitive::Line(s)) => return Ok(s.to_string()),
         UntaggedValue::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
         _ => {
             return Err(ShellError::labeled_error(

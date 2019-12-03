@@ -44,8 +44,8 @@ fn split_row(
 ) -> Result<OutputStream, ShellError> {
     let stream = input
         .values
-        .map(move |v| match v.value {
-            UntaggedValue::Primitive(Primitive::String(ref s)) => {
+        .map(move |v| {
+            if let Ok(s) = v.as_string() {
                 let splitter = separator.item.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
                 let split_result: Vec<_> = s.split(&splitter).filter(|s| s.trim() != "").collect();
@@ -59,8 +59,7 @@ fn split_row(
                     ));
                 }
                 result
-            }
-            _ => {
+            } else {
                 let mut result = VecDeque::new();
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",

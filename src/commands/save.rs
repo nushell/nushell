@@ -146,7 +146,7 @@ fn save(
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(
-                                "Save requires a filepath (1)",
+                                "Save requires a filepath",
                                 "needs path",
                                 name_tag.clone(),
                             ));
@@ -154,7 +154,7 @@ fn save(
                     },
                     None => {
                         yield Err(ShellError::labeled_error(
-                            "Save requires a filepath (2)",
+                            "Save requires a filepath",
                             "needs path",
                             name_tag.clone(),
                         ));
@@ -162,7 +162,7 @@ fn save(
                 }
             } else {
                 yield Err(ShellError::labeled_error(
-                    "Save requires a filepath (3)",
+                    "Save requires a filepath",
                     "needs path",
                     name_tag.clone(),
                 ));

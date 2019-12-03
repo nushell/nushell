@@ -84,11 +84,17 @@ impl ExpandExpression for PatternShape {
         token_nodes: &mut TokensIterator<'_>,
         context: &ExpandContext,
     ) -> Result<hir::Expression, ParseError> {
-        let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::new())?;
+        let atom = expand_atom(
+            token_nodes,
+            "pattern",
+            context,
+            ExpansionRule::new().allow_external_word(),
+        )?;
 
         match atom.unspanned {
             UnspannedAtomicToken::Word { text: body }
             | UnspannedAtomicToken::String { body }
+            | UnspannedAtomicToken::ExternalWord { text: body }
             | UnspannedAtomicToken::GlobPattern { pattern: body } => {
                 let path = expand_file_path(body.slice(context.source), context);
                 return Ok(hir::Expression::pattern(path.to_string_lossy(), atom.span));
