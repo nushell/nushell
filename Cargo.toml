@@ -114,7 +114,7 @@ binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
 starship-prompt = ["starship"]
-# trace = ["nom-tracable/trace"]
+#trace = ["nu-parser/trace"]
 
 [dependencies.rusqlite]
 version = "0.20.0"

@@ -86,7 +86,7 @@ impl ColorSyntax for ExternalTokensShape {
 
             // Process an external expression. External expressions are mostly words, with a
             // few exceptions (like $variables and path expansion rules)
-            match color_syntax(&ExternalExpression, token_nodes, context, shapes).1 {
+            match color_syntax(&ExternalExpressionShape, token_nodes, context, shapes).1 {
                 ExternalExpressionResult::Eof => break,
                 ExternalExpressionResult::Processed => continue,
             }
@@ -115,7 +115,7 @@ impl ColorSyntax for ExternalTokensShape {
 
             // Process an external expression. External expressions are mostly words, with a
             // few exceptions (like $variables and path expansion rules)
-            match color_syntax(&ExternalExpression, token_nodes, context).1 {
+            match color_syntax(&ExternalExpressionShape, token_nodes, context).1 {
                 ExternalExpressionResult::Eof => break,
                 ExternalExpressionResult::Processed => continue,
             }
@@ -144,7 +144,7 @@ impl ExpandSyntax for ExternalExpressionShape {
             token_nodes,
             "external command",
             context,
-            ExpansionRule::new().allow_external_command(),
+            ExpansionRule::new().allow_external_word(),
         )?
         .span;
 
@@ -152,40 +152,6 @@ impl ExpandSyntax for ExternalExpressionShape {
 
         loop {
             let continuation = expand_expr(&ExternalContinuationShape, token_nodes, context);
-
-            if let Ok(continuation) = continuation {
-                last = continuation.span;
-            } else {
-                break;
-            }
-        }
-
-        Ok(Some(first.until(last)))
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct ExternalExpression;
-
-impl ExpandSyntax for ExternalExpression {
-    type Output = Option<Span>;
-
-    fn name(&self) -> &'static str {
-        "external expression"
-    }
-
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        expand_syntax(&MaybeSpaceShape, token_nodes, context)?;
-
-        let first = expand_syntax(&ExternalHeadShape, token_nodes, context)?.span;
-        let mut last = first;
-
-        loop {
-            let continuation = expand_syntax(&ExternalContinuationShape, token_nodes, context);
 
             if let Ok(continuation) = continuation {
                 last = continuation.span;
@@ -311,12 +277,12 @@ impl ExpandExpression for ExternalContinuationShape {
 }
 
 #[cfg(coloring_in_tokens)]
-impl ColorSyntax for ExternalExpression {
+impl ColorSyntax for ExternalExpressionShape {
     type Info = ExternalExpressionResult;
     type Input = ();
 
     fn name(&self) -> &'static str {
-        "ExternalExpression"
+        "ExternalExpressionShape"
     }
 
     fn color_syntax<'a, 'b>(
@@ -345,13 +311,13 @@ impl ColorSyntax for ExternalExpression {
 }
 
 #[must_use]
-enum ExternalExpressionResult {
+pub enum ExternalExpressionResult {
     Eof,
     Processed,
 }
 
 #[cfg(not(coloring_in_tokens))]
-impl ColorSyntax for ExternalExpression {
+impl ColorSyntax for ExternalExpressionShape {
     type Info = ExternalExpressionResult;
     type Input = ();
 
