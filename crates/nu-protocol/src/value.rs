@@ -132,9 +132,10 @@ impl Value {
         self.tag.clone()
     }
 
-    pub fn as_string(&self) -> Result<&str, ShellError> {
+    pub fn as_string(&self) -> Result<String, ShellError> {
         match &self.value {
-            UntaggedValue::Primitive(Primitive::String(string)) => Ok(&string[..]),
+            UntaggedValue::Primitive(Primitive::String(string)) => Ok(string.clone()),
+            UntaggedValue::Primitive(Primitive::Line(line)) => Ok(line.clone() + "\n"),
             _ => Err(ShellError::type_error("string", self.spanned_type_name())),
         }
     }

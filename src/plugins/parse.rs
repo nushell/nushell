@@ -129,24 +129,16 @@ impl Plugin for Parse {
 
     fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         let mut results = vec![];
-        match &input {
-            Value {
-                tag,
-                value: UntaggedValue::Primitive(Primitive::String(s)),
-            } => {
-                //self.full_input.push_str(&s);
+        if let Ok(s) = input.as_string() {
+            for cap in self.regex.captures_iter(&s) {
+                let mut dict = TaggedDictBuilder::new(input.tag());
 
-                for cap in self.regex.captures_iter(&s) {
-                    let mut dict = TaggedDictBuilder::new(tag);
-
-                    for (idx, column_name) in self.column_names.iter().enumerate() {
-                        dict.insert_untagged(column_name, value::string(&cap[idx + 1].to_string()));
-                    }
-
-                    results.push(ReturnSuccess::value(dict.into_value()));
+                for (idx, column_name) in self.column_names.iter().enumerate() {
+                    dict.insert_untagged(column_name, value::string(&cap[idx + 1].to_string()));
                 }
+
+                results.push(ReturnSuccess::value(dict.into_value()));
             }
-            _ => {}
         }
         Ok(results)
     }

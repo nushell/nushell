@@ -27,6 +27,10 @@ pub fn string(s: impl Into<String>) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::String(s.into()))
 }
 
+pub fn line(s: impl Into<String>) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Line(s.into()))
+}
+
 pub fn column_path(s: Vec<impl Into<PathMember>>) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::new(
         s.into_iter().map(|p| p.into()).collect(),

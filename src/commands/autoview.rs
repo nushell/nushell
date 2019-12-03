@@ -153,6 +153,25 @@ pub fn autoview(
                                     outln!("{}", s);
                                 }
                                 Value {
+                                    value: UntaggedValue::Primitive(Primitive::Line(ref s)),
+                                    tag: Tag { anchor, span },
+                                } if anchor.is_some() => {
+                                    if let Some(text) = text {
+                                        let mut stream = VecDeque::new();
+                                        stream.push_back(value::string(s).into_value(Tag { anchor, span }));
+                                        let result = text.run(raw.with_input(stream.into()), &context.commands);
+                                        result.collect::<Vec<_>>().await;
+                                    } else {
+                                        outln!("{}\n", s);
+                                    }
+                                }
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::Line(s)),
+                                    ..
+                                } => {
+                                    outln!("{}\n", s);
+                                }
+                                Value {
                                     value: UntaggedValue::Primitive(Primitive::Path(s)),
                                     ..
                                 } => {

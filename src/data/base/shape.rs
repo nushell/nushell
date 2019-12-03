@@ -33,6 +33,7 @@ pub enum TypeShape {
     Decimal,
     Bytesize,
     String,
+    Line,
     ColumnPath,
     Pattern,
     Boolean,
@@ -62,6 +63,7 @@ impl TypeShape {
             Primitive::Decimal(_) => TypeShape::Decimal,
             Primitive::Bytes(_) => TypeShape::Bytesize,
             Primitive::String(_) => TypeShape::String,
+            Primitive::Line(_) => TypeShape::Line,
             Primitive::ColumnPath(_) => TypeShape::ColumnPath,
             Primitive::Pattern(_) => TypeShape::Pattern,
             Primitive::Boolean(_) => TypeShape::Boolean,
@@ -114,6 +116,7 @@ impl PrettyDebug for TypeShape {
             TypeShape::Decimal => ty("decimal"),
             TypeShape::Bytesize => ty("bytesize"),
             TypeShape::String => ty("string"),
+            TypeShape::Line => ty("line"),
             TypeShape::ColumnPath => ty("column-path"),
             TypeShape::Pattern => ty("pattern"),
             TypeShape::Boolean => ty("boolean"),
@@ -208,6 +211,7 @@ pub enum InlineShape {
     Decimal(BigDecimal),
     Bytesize(u64),
     String(String),
+    Line(String),
     ColumnPath(ColumnPath),
     Pattern(String),
     Boolean(bool),
@@ -242,6 +246,7 @@ impl InlineShape {
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
             Primitive::Bytes(bytesize) => InlineShape::Bytesize(*bytesize),
             Primitive::String(string) => InlineShape::String(string.clone()),
+            Primitive::Line(string) => InlineShape::Line(string.clone()),
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
             Primitive::Pattern(pattern) => InlineShape::Pattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
@@ -327,6 +332,7 @@ impl PrettyDebug for FormatInlineShape {
                 }
             }
             InlineShape::String(string) => b::primitive(format!("{}", string)),
+            InlineShape::Line(string) => b::primitive(format!("{}", string)),
             InlineShape::ColumnPath(path) => {
                 b::intersperse(path.iter().map(|member| member.pretty()), b::keyword("."))
             }

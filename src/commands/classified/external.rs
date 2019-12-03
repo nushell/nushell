@@ -25,7 +25,7 @@ impl Encoder for LinesCodec {
 }
 
 impl Decoder for LinesCodec {
-    type Item = String;
+    type Item = nu_protocol::UntaggedValue;
     type Error = Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -33,12 +33,14 @@ impl Decoder for LinesCodec {
             Some(pos) if !src.is_empty() => {
                 let buf = src.split_to(pos + 1);
                 String::from_utf8(buf.to_vec())
+                    .map(value::line)
                     .map(Some)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }
             _ if !src.is_empty() => {
                 let drained = src.take();
                 String::from_utf8(drained.to_vec())
+                    .map(value::string)
                     .map(Some)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }
@@ -192,8 +194,7 @@ pub(crate) async fn run_external_command(
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream =
-                    stream.map(move |line| value::string(line.unwrap()).into_value(&name_tag));
+                let stream = stream.map(move |line| line.unwrap().into_value(&name_tag));
                 Ok(ClassifiedInputStream::from_input_stream(
                     stream.boxed() as BoxStream<'static, Value>
                 ))

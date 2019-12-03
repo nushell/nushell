@@ -37,6 +37,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Decimal(decimal) => format!("{}", decimal),
         Primitive::Pattern(s) => format!("{}", s),
         Primitive::String(s) => format!("{}", s),
+        Primitive::Line(s) => format!("{}", s),
         Primitive::ColumnPath(p) => {
             let mut members = p.iter();
             let mut f = String::new();

@@ -96,19 +96,17 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
             latest_tag = Some(value.tag.clone());
             let value_span = value.tag.span;
 
-            match value.value {
-                UntaggedValue::Primitive(Primitive::String(s)) => {
-                    concat_string.push_str(&s);
-                    concat_string.push_str("\n");
-                }
-                _ => yield Err(ShellError::labeled_error_with_secondary(
+            if let Ok(s) = value.as_string() {
+                concat_string.push_str(&s);
+            }
+            else {
+                yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name_span,
                     "value originates from here",
                     value_span,
-                )),
-
+                ))
             }
         }
 

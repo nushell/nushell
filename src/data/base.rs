@@ -186,6 +186,9 @@ fn coerce_compare_primitive(
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
+        (Line(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
+        (String(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
+        (Line(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
         (Date(left), Date(right)) => CompareValues::Date(left.clone(), right.clone()),
         (Date(left), Duration(right)) => CompareValues::DateDuration(left.clone(), right.clone()),
         _ => return Err((left.type_name(), right.type_name())),

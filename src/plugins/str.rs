@@ -155,6 +155,9 @@ impl Str {
             UntaggedValue::Primitive(Primitive::String(ref s)) => {
                 Ok(self.apply(&s)?.into_value(value.tag()))
             }
+            UntaggedValue::Primitive(Primitive::Line(ref s)) => {
+                Ok(self.apply(&s)?.into_value(value.tag()))
+            }
             UntaggedValue::Row(_) => match self.field {
                 Some(ref f) => {
                     let fields = f.clone();

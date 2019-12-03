@@ -57,8 +57,8 @@ fn split_column(
 
     Ok(input
         .values
-        .map(move |v| match v.value {
-            UntaggedValue::Primitive(Primitive::String(ref s)) => {
+        .map(move |v| {
+            if let Ok(s) = v.as_string() {
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
 
@@ -104,14 +104,15 @@ fn split_column(
                     }
                     ReturnSuccess::value(dict.into_value())
                 }
+            } else {
+                Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
+                    name_span,
+                    "value originates from here",
+                    v.tag.span,
+                ))
             }
-            _ => Err(ShellError::labeled_error_with_secondary(
-                "Expected a string from pipeline",
-                "requires string input",
-                name_span,
-                "value originates from here",
-                v.tag.span,
-            )),
         })
         .to_output_stream())
 }
