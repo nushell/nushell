@@ -1,7 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Dictionary, Primitive, Value};
 use crate::prelude::*;
 use hex::encode;
+use nu_errors::ShellError;
+use nu_protocol::{Dictionary, Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use rusqlite::{Connection, NO_PARAMS};
 use std::io::Read;
 
@@ -93,6 +94,7 @@ fn nu_value_to_sqlite_string(v: Value) -> String {
             Primitive::Bytes(u) => format!("{}", u),
             Primitive::Pattern(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::String(s) => format!("'{}'", s.replace("'", "''")),
+            Primitive::Line(s) => format!("'{}'", s.replace("'", "''")),
             Primitive::Boolean(true) => "1".into(),
             Primitive::Boolean(_) => "0".into(),
             Primitive::Date(d) => format!("'{}'", d),
@@ -195,7 +197,7 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
     }
     let mut out = Vec::new();
     tempfile.read_to_end(&mut out)?;
-    Ok(UntaggedValue::binary(out).into_value(tag))
+    Ok(value::binary(out).into_value(tag))
 }
 
 fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

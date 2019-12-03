@@ -1,5 +1,8 @@
+use crate::data::value;
 use crate::format::RenderView;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::Value;
 
 use derive_new::new;
 
@@ -21,7 +24,7 @@ impl EntriesView {
         for desc in descs {
             let value = value.get_data(&desc);
 
-            let formatted_value = value.borrow().format_leaf().plain_string(75);
+            let formatted_value = value::format_leaf(value.borrow()).plain_string(75);
 
             entries.push((desc.clone(), formatted_value))
         }

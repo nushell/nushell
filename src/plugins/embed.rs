@@ -1,26 +1,50 @@
 #[macro_use]
 extern crate indexmap;
 
-use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SpannedTypeName, SyntaxShape, UntaggedValue, Value,
+use nu::{serve_plugin, value, Plugin};
+use nu_errors::ShellError;
+use nu_protocol::{
+    CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, SpannedTypeName, SyntaxShape,
+    UntaggedValue, Value,
 };
 use nu_source::Tag;
 
 struct Embed {
     field: Option<String>,
+    are_all_rows: bool,
     values: Vec<Value>,
 }
 impl Embed {
     fn new() -> Embed {
         Embed {
             field: None,
+            are_all_rows: true,
             values: Vec::new(),
         }
     }
 
     fn embed(&mut self, value: Value) -> Result<(), ShellError> {
-        self.values.push(value);
+        match &value {
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                self.values.push(value);
+            }
+            _ => {
+                self.are_all_rows = false;
+
+                self.values.push(
+                    value::row(indexmap! {
+                        match &self.field {
+                            Some(key) => key.clone(),
+                            None => "Column".into()
+                        } => value
+                    })
+                    .into_value(Tag::unknown()),
+                );
+            }
+        }
         Ok(())
     }
 }
@@ -56,15 +80,23 @@ impl Plugin for Embed {
     }
 
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
-        let row = UntaggedValue::row(indexmap! {
-            match &self.field {
-                Some(key) => key.clone(),
-                None => "root".into(),
-            } => UntaggedValue::table(&self.values).into_value(Tag::unknown()),
-        })
-        .into_untagged_value();
+        if self.are_all_rows {
+            let row = value::row(indexmap! {
+                match &self.field {
+                    Some(key) => key.clone(),
+                    None => "Column".into(),
+                } => value::table(&self.values).into_value(Tag::unknown()),
+            })
+            .into_untagged_value();
 
-        Ok(vec![ReturnSuccess::value(row)])
+            Ok(vec![ReturnSuccess::value(row)])
+        } else {
+            Ok(self
+                .values
+                .iter()
+                .map(|row| ReturnSuccess::value(row.clone()))
+                .collect::<Vec<_>>())
+        }
     }
 }
 

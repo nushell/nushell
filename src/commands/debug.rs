@@ -1,5 +1,8 @@
 use crate::commands::WholeStreamCommand;
+use crate::data::value;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{ReturnSuccess, Signature};
 
 pub struct Debug;
 
@@ -34,8 +37,6 @@ fn debug_value(
 ) -> Result<impl ToOutputStream, ShellError> {
     Ok(input
         .values
-        .map(|v| {
-            ReturnSuccess::value(UntaggedValue::string(format!("{:?}", v)).into_untagged_value())
-        })
+        .map(|v| ReturnSuccess::value(value::string(format!("{:?}", v)).into_untagged_value()))
         .to_output_stream())
 }

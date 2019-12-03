@@ -1,9 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{config, Value};
-use crate::errors::ShellError;
-use crate::parser::hir::SyntaxShape;
-use crate::parser::registry::{self};
+use crate::context::CommandRegistry;
+use crate::data::config;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
@@ -55,7 +55,7 @@ impl WholeStreamCommand for Config {
     fn run(
         &self,
         args: CommandArgs,
-        registry: &registry::CommandRegistry,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, config)?.run()
     }

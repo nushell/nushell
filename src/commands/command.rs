@@ -1,14 +1,14 @@
-use crate::data::Value;
-use crate::errors::ShellError;
-use crate::evaluate::Scope;
-use crate::parser::hir;
-use crate::parser::{registry, ConfigDeserializer};
+use crate::context::CommandRegistry;
+use crate::deserializer::ConfigDeserializer;
+use crate::evaluate::evaluate_args::evaluate_args;
 use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
+use nu_errors::ShellError;
+use nu_parser::hir;
+use nu_protocol::{CallInfo, EvaluatedArgs, ReturnValue, Scope, Signature, Value};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
-use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -21,10 +21,10 @@ pub struct UnevaluatedCallInfo {
 impl UnevaluatedCallInfo {
     pub fn evaluate(
         self,
-        registry: &registry::CommandRegistry,
+        registry: &CommandRegistry,
         scope: &Scope,
     ) -> Result<CallInfo, ShellError> {
-        let args = self.args.evaluate(registry, scope, &self.source)?;
+        let args = evaluate_args(&self.args, registry, scope, &self.source)?;
 
         Ok(CallInfo {
             args,
@@ -33,14 +33,16 @@ impl UnevaluatedCallInfo {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct CallInfo {
-    pub args: registry::EvaluatedArgs,
-    pub name_tag: Tag,
+pub trait CallInfoExt {
+    fn process<'de, T: Deserialize<'de>>(
+        &self,
+        shell_manager: &ShellManager,
+        callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
+    ) -> Result<RunnablePerItemArgs<T>, ShellError>;
 }
 
-impl CallInfo {
-    pub fn process<'de, T: Deserialize<'de>>(
+impl CallInfoExt for CallInfo {
+    fn process<'de, T: Deserialize<'de>>(
         &self,
         shell_manager: &ShellManager,
         callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
@@ -87,10 +89,6 @@ impl RawCommandArgs {
             input: input.into(),
         }
     }
-
-    pub fn source(&self) -> Text {
-        self.call_info.source.clone()
-    }
 }
 
 impl std::fmt::Debug for CommandArgs {
@@ -102,7 +100,7 @@ impl std::fmt::Debug for CommandArgs {
 impl CommandArgs {
     pub fn evaluate_once(
         self,
-        registry: &registry::CommandRegistry,
+        registry: &CommandRegistry,
     ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
         let host = self.host.clone();
         let ctrl_c = self.ctrl_c.clone();
@@ -198,12 +196,6 @@ pub struct RunnablePerItemContext {
     pub name: Tag,
 }
 
-impl RunnablePerItemContext {
-    pub fn cwd(&self) -> PathBuf {
-        PathBuf::from(self.shell_manager.path())
-    }
-}
-
 pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
@@ -295,7 +287,7 @@ impl EvaluatedWholeStreamCommandArgs {
         self.args.call_info.name_tag.clone()
     }
 
-    pub fn parts(self) -> (InputStream, registry::EvaluatedArgs) {
+    pub fn parts(self) -> (InputStream, EvaluatedArgs) {
         let EvaluatedWholeStreamCommandArgs { args, input } = self;
 
         (input, args.call_info.args)
@@ -349,109 +341,16 @@ pub struct EvaluatedCommandArgs {
 }
 
 impl EvaluatedCommandArgs {
-    pub fn call_args(&self) -> &registry::EvaluatedArgs {
-        &self.call_info.args
-    }
-
     pub fn nth(&self, pos: usize) -> Option<&Value> {
         self.call_info.args.nth(pos)
-    }
-
-    pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
-        self.call_info.args.expect_nth(pos)
-    }
-
-    pub fn len(&self) -> usize {
-        self.call_info.args.len()
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
         self.call_info.args.get(name)
     }
 
-    pub fn slice_from(&self, from: usize) -> Vec<Value> {
-        let positional = &self.call_info.args.positional;
-
-        match positional {
-            None => vec![],
-            Some(list) => list[from..].to_vec(),
-        }
-    }
-
     pub fn has(&self, name: &str) -> bool {
         self.call_info.args.has(name)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CommandAction {
-    ChangePath(String),
-    Exit,
-    Error(ShellError),
-    EnterShell(String),
-    EnterValueShell(Value),
-    EnterHelpShell(Value),
-    PreviousShell,
-    NextShell,
-    LeaveShell,
-}
-
-impl PrettyDebug for CommandAction {
-    fn pretty(&self) -> DebugDocBuilder {
-        match self {
-            CommandAction::ChangePath(path) => b::typed("change path", b::description(path)),
-            CommandAction::Exit => b::description("exit"),
-            CommandAction::Error(_) => b::error("error"),
-            CommandAction::EnterShell(s) => b::typed("enter shell", b::description(s)),
-            CommandAction::EnterValueShell(v) => b::typed("enter value shell", v.pretty()),
-            CommandAction::EnterHelpShell(v) => b::typed("enter help shell", v.pretty()),
-            CommandAction::PreviousShell => b::description("previous shell"),
-            CommandAction::NextShell => b::description("next shell"),
-            CommandAction::LeaveShell => b::description("leave shell"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ReturnSuccess {
-    Value(Value),
-    DebugValue(Value),
-    Action(CommandAction),
-}
-
-impl PrettyDebug for ReturnSuccess {
-    fn pretty(&self) -> DebugDocBuilder {
-        match self {
-            ReturnSuccess::Value(value) => b::typed("value", value.pretty()),
-            ReturnSuccess::DebugValue(value) => b::typed("debug value", value.pretty()),
-            ReturnSuccess::Action(action) => b::typed("action", action.pretty()),
-        }
-    }
-}
-
-pub type ReturnValue = Result<ReturnSuccess, ShellError>;
-
-impl From<Value> for ReturnValue {
-    fn from(input: Value) -> ReturnValue {
-        Ok(ReturnSuccess::Value(input))
-    }
-}
-
-impl ReturnSuccess {
-    pub fn change_cwd(path: String) -> ReturnValue {
-        Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
-    }
-
-    pub fn value(input: impl Into<Value>) -> ReturnValue {
-        Ok(ReturnSuccess::Value(input.into()))
-    }
-
-    pub fn debug_value(input: impl Into<Value>) -> ReturnValue {
-        Ok(ReturnSuccess::DebugValue(input.into()))
-    }
-
-    pub fn action(input: CommandAction) -> ReturnValue {
-        Ok(ReturnSuccess::Action(input))
     }
 }
 
@@ -474,7 +373,7 @@ pub trait WholeStreamCommand: Send + Sync {
     fn run(
         &self,
         args: CommandArgs,
-        registry: &registry::CommandRegistry,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError>;
 
     fn is_binary(&self) -> bool {
@@ -570,7 +469,7 @@ impl Command {
         }
     }
 
-    pub fn run(&self, args: CommandArgs, registry: &registry::CommandRegistry) -> OutputStream {
+    pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
         match self {
             Command::WholeStream(command) => match command.run(args, registry) {
                 Ok(stream) => stream,
@@ -637,7 +536,7 @@ impl WholeStreamCommand for FnFilterCommand {
     fn run(
         &self,
         args: CommandArgs,
-        registry: &registry::CommandRegistry,
+        registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
         let CommandArgs {
             host,
@@ -649,7 +548,7 @@ impl WholeStreamCommand for FnFilterCommand {
 
         let host: Arc<Mutex<dyn Host>> = host.clone();
         let shell_manager = shell_manager.clone();
-        let registry: registry::CommandRegistry = registry.clone();
+        let registry: CommandRegistry = registry.clone();
         let func = self.func;
 
         let result = input.values.map(move |it| {

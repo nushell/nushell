@@ -1,6 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct FromSSV;
@@ -264,17 +266,17 @@ fn from_ssv(
         for value in values {
             let value_tag = value.tag.clone();
             latest_tag = Some(value_tag.clone());
-            match &value.value {
-                UntaggedValue::Primitive(Primitive::String(s)) => {
-                    concat_string.push_str(&s);
-                }
-                _ => yield Err(ShellError::labeled_error_with_secondary (
+            if let Ok(s) = value.as_string() {
+                concat_string.push_str(&s);
+            }
+            else {
+                yield Err(ShellError::labeled_error_with_secondary (
                     "Expected a string from pipeline",
                     "requires string input",
                     &name,
                     "value originates from here",
                     &value_tag
-                )),
+                ))
             }
         }
 

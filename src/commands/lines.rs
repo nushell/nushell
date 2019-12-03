@@ -1,8 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::Primitive;
-use crate::errors::ShellError;
 use crate::prelude::*;
 use log::trace;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue};
 
 pub struct Lines;
 
@@ -38,8 +38,8 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
 
     let stream = input
         .values
-        .map(move |v| match v.value {
-            UntaggedValue::Primitive(Primitive::String(s)) => {
+        .map(move |v| {
+            if let Ok(s) = v.as_string() {
                 let split_result: Vec<_> = s.lines().filter(|s| s.trim() != "").collect();
 
                 trace!("split result = {:?}", split_result);
@@ -47,12 +47,11 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                 let mut result = VecDeque::new();
                 for s in split_result {
                     result.push_back(ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::String(s.into())).into_untagged_value(),
+                        UntaggedValue::Primitive(Primitive::Line(s.into())).into_untagged_value(),
                     ));
                 }
                 result
-            }
-            _ => {
+            } else {
                 let mut result = VecDeque::new();
                 let value_span = v.tag.span;
 

@@ -1,7 +1,9 @@
-use crate::data::{Primitive, Value};
+use crate::data::base::property_get::get_data_by_key;
 use crate::prelude::*;
 use csv::WriterBuilder;
 use indexmap::{indexset, IndexSet};
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::Spanned;
 
 fn from_value_to_delimited_string(
@@ -55,7 +57,7 @@ fn from_value_to_delimited_string(
             for l in list {
                 let mut row = vec![];
                 for desc in &merged_descriptors {
-                    match l.get_data_by_key(desc.borrow_spanned()) {
+                    match get_data_by_key(l, desc.borrow_spanned()) {
                         Some(s) => {
                             row.push(to_string_tagged_value(&s)?);
                         }
@@ -129,12 +131,13 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
             let tmp = format!("{}", b);
             Ok(tmp)
         }
-        UntaggedValue::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
-        UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
-        UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
-        UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?.to_string()),
+        UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?.to_string()),
+        UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?.to_string()),
+        UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?.to_string()),
         UntaggedValue::Table(_) => return Ok(String::from("[Table]")),
         UntaggedValue::Row(_) => return Ok(String::from("[Row]")),
+        UntaggedValue::Primitive(Primitive::Line(s)) => return Ok(s.to_string()),
         UntaggedValue::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
         _ => {
             return Err(ShellError::labeled_error(

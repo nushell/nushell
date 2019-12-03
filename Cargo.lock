@@ -35,9 +35,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.24"
+version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b412394828b7ca486b362f300b762d8e43dafd6f0d727b63f1cd2ade207c6cef"
+checksum = "9267dff192e68f3399525901e709a48c1d3982c9c072fa32f2127a0cb0babf14"
 
 [[package]]
 name = "app_dirs"
@@ -856,6 +856,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "erased-serde"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3beee4bc16478a1b26f2e80ad819a52d24745e292f521a63c16eea5f74b7eb60"
+dependencies = [
+ "serde 1.0.103",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1076,6 +1085,17 @@ name = "getset"
 version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5bb3f5b7d8d70c9bd23cf29b2b38094661418fb0ea79f1b0cc2019a11d6f5429"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "ghost"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a36606a68532b5640dc86bb1f33c64b45c4682aad4c50f3937b317ea387f3d6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1326,9 +1346,9 @@ checksum = "023b39be39e3a2da62a94feb433e91e8bcd37676fbc8bea371daf52b7a769a3e"
 
 [[package]]
 name = "http"
-version = "0.1.20"
+version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2790658cddc82e82b08e25176c431d7015a0adeb1718498715cbd20138a0bf68"
+checksum = "d6ccf5ede3a895d8856620237b2f02972c1bbc78d2965ad7fe8838d4a0ed41f0"
 dependencies = [
  "bytes",
  "fnv",
@@ -1386,6 +1406,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cdb29978cc5797bd8dcc8e5bf7de604891df2a8dc576973d71a281e916db2ff"
 dependencies = [
  "adler32",
+]
+
+[[package]]
+name = "inventory"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4cece20baea71d9f3435e7bbe9adf4765f091c5fe404975f844006964a71299"
+dependencies = [
+ "ctor",
+ "ghost",
+ "inventory-impl",
+]
+
+[[package]]
+name = "inventory-impl"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2869bf972e998977b1cb87e60df70341d48e48dca0823f534feb91ea44adaf9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1540,9 +1582,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.65"
+version = "0.2.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a31a0627fdf1f6a39ec0dd577e101440b7db22672c0901fe00a9a6fbb5c24e8"
+checksum = "d515b1f41455adea1313a4a2ac8a8a477634fbae63cc6100e3aebb207ce61558"
 
 [[package]]
 name = "libgit2-sys"
@@ -1836,7 +1878,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
@@ -1880,6 +1922,10 @@ dependencies = [
  "nom 5.0.1",
  "nom-tracable",
  "nom_locate",
+ "nu-build",
+ "nu-errors",
+ "nu-parser",
+ "nu-protocol",
  "nu-source",
  "num-bigint",
  "num-traits 0.2.10",
@@ -1891,6 +1937,7 @@ dependencies = [
  "pretty_env_logger",
  "prettytable-rs",
  "ptree",
+ "query_interface",
  "rawkey",
  "regex",
  "roxmltree",
@@ -1917,10 +1964,103 @@ dependencies = [
  "textwrap",
  "toml 0.5.5",
  "trash",
+ "typetag",
  "umask",
  "unicode-xid",
  "url",
  "which",
+]
+
+[[package]]
+name = "nu-build"
+version = "0.1.0"
+dependencies = [
+ "lazy_static 1.4.0",
+ "serde 1.0.103",
+ "serde_json",
+ "toml 0.5.5",
+]
+
+[[package]]
+name = "nu-errors"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "bigdecimal",
+ "derive-new",
+ "language-reporting",
+ "nom 5.0.1",
+ "nom_locate",
+ "nu-build",
+ "nu-source",
+ "num-bigint",
+ "num-traits 0.2.10",
+ "serde 1.0.103",
+ "serde_json",
+ "serde_yaml",
+ "subprocess",
+ "toml 0.5.5",
+]
+
+[[package]]
+name = "nu-parser"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "bigdecimal",
+ "cfg-if",
+ "derive-new",
+ "getset",
+ "indexmap",
+ "itertools 0.8.2",
+ "language-reporting",
+ "log",
+ "nom 5.0.1",
+ "nom-tracable",
+ "nom_locate",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "num-bigint",
+ "num-traits 0.2.10",
+ "pretty",
+ "pretty_assertions",
+ "pretty_env_logger",
+ "ptree",
+ "serde 1.0.103",
+ "shellexpand",
+ "termcolor",
+ "unicode-xid",
+]
+
+[[package]]
+name = "nu-protocol"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "bigdecimal",
+ "chrono",
+ "derive-new",
+ "getset",
+ "indexmap",
+ "language-reporting",
+ "nom 5.0.1",
+ "nom-tracable",
+ "nom_locate",
+ "nu-build",
+ "nu-errors",
+ "nu-source",
+ "num-bigint",
+ "num-traits 0.2.10",
+ "query_interface",
+ "serde 1.0.103",
+ "serde_bytes",
+ "serde_json",
+ "serde_yaml",
+ "subprocess",
+ "toml 0.5.5",
+ "typetag",
 ]
 
 [[package]]
@@ -1932,9 +2072,24 @@ dependencies = [
  "language-reporting",
  "nom-tracable",
  "nom_locate",
+ "nu-build",
  "pretty",
  "serde 1.0.103",
  "termcolor",
+]
+
+[[package]]
+name = "nu-textview"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "crossterm",
+ "nu",
+ "nu-build",
+ "nu-protocol",
+ "nu-source",
+ "syntect",
+ "url",
 ]
 
 [[package]]
@@ -2297,6 +2452,12 @@ dependencies = [
  "serde_derive",
  "tint",
 ]
+
+[[package]]
+name = "query_interface"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78c0f0046284eebb86b68f93f9677d499034f88e15ca01021ceea32c4d3c3693"
 
 [[package]]
 name = "quick-error"
@@ -2942,9 +3103,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.8"
+version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "661641ea2aa15845cddeb97dad000d22070bb5c1fb456b96c1cba883ec691e92"
+checksum = "dff0acdb207ae2fe6d5976617f887eb1e35a2ba52c13c7234c790960cdad9238"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3151,6 +3312,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d2783fe2d6b8c1101136184eb41be8b1ad379e4657050b8aaff0c79ee7575f9"
 
 [[package]]
+name = "typetag"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ebb2c484029d695fb68a06d80e1536c68d491b3e0cf874c66abed255e831cfe"
+dependencies = [
+ "erased-serde",
+ "inventory",
+ "lazy_static 1.4.0",
+ "serde 1.0.103",
+ "typetag-impl",
+]
+
+[[package]]
+name = "typetag-impl"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b63fd4799e4d0ec5cf0b055ebb8e2c3a657bbf76a84f6edc77ca60780e000204"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "umask"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3251,9 +3436,9 @@ checksum = "8772a4ccbb4e89959023bc5b7cb8623a795caa7092d99f3aa9501b9484d4557d"
 
 [[package]]
 name = "vcpkg"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33dd455d0f96e90a75803cfeb7f948768c08d70a6de9a8d2362461935698bf95"
+checksum = "3fc439f2794e98976c88a2a2dafce96b930fe8010b0a256b3c2199a773933168"
 
 [[package]]
 name = "vec_map"

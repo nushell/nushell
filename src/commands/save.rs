@@ -1,7 +1,7 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
-use crate::data::Value;
-use crate::errors::ShellError;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
 
@@ -146,7 +146,7 @@ fn save(
                         }
                         _ => {
                             yield Err(ShellError::labeled_error(
-                                "Save requires a filepath (1)",
+                                "Save requires a filepath",
                                 "needs path",
                                 name_tag.clone(),
                             ));
@@ -154,7 +154,7 @@ fn save(
                     },
                     None => {
                         yield Err(ShellError::labeled_error(
-                            "Save requires a filepath (2)",
+                            "Save requires a filepath",
                             "needs path",
                             name_tag.clone(),
                         ));
@@ -162,7 +162,7 @@ fn save(
                 }
             } else {
                 yield Err(ShellError::labeled_error(
-                    "Save requires a filepath (3)",
+                    "Save requires a filepath",
                     "needs path",
                     name_tag.clone(),
                 ));
@@ -185,7 +185,7 @@ fn save(
                             ctrl_c,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
-                                args: crate::parser::hir::Call {
+                                args: nu_parser::hir::Call {
                                     head: raw_args.call_info.args.head,
                                     positional: None,
                                     named: None,

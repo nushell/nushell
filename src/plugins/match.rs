@@ -1,6 +1,7 @@
-use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, UntaggedValue, Value,
+use nu::{serve_plugin, Plugin};
+use nu_errors::ShellError;
+use nu_protocol::{
+    CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 use regex::Regex;
@@ -71,16 +72,14 @@ impl Plugin for Match {
                 tag,
             } => {
                 if let Some(val) = dict.entries.get(&self.column) {
-                    match val {
-                        Value {
-                            value: UntaggedValue::Primitive(Primitive::String(s)),
-                            ..
-                        } => {
-                            flag = self.regex.is_match(s);
-                        }
-                        Value { tag, .. } => {
-                            return Err(ShellError::labeled_error("expected string", "value", tag));
-                        }
+                    if let Ok(s) = val.as_string() {
+                        flag = self.regex.is_match(&s);
+                    } else {
+                        return Err(ShellError::labeled_error(
+                            "expected string",
+                            "value",
+                            val.tag(),
+                        ));
                     }
                 } else {
                     return Err(ShellError::labeled_error(

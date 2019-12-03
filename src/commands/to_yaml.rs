@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, Value};
 use crate::prelude::*;
-use crate::UnspannedPathMember;
+use nu_errors::{CoerceInto, ShellError};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
 
 pub struct ToYAML;
 
@@ -51,6 +51,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Nothing) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::Pattern(s)) => serde_yaml::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::String(s)) => serde_yaml::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::Line(s)) => serde_yaml::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
             let mut out = vec![];
 

@@ -1,6 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::collections::HashMap;
 
 pub struct FromINI;
@@ -77,19 +79,16 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
         for value in values {
             latest_tag = Some(value.tag.clone());
             let value_span = value.tag.span;
-            match &value.value {
-                UntaggedValue::Primitive(Primitive::String(s)) => {
-                    concat_string.push_str(&s);
-                    concat_string.push_str("\n");
-                }
-                _ => yield Err(ShellError::labeled_error_with_secondary(
+            if let Ok(s) = value.as_string() {
+                concat_string.push_str(&s);
+            } else {
+                yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     span,
                     "value originates from here",
                     value_span,
-                )),
-
+                ))
             }
         }
 

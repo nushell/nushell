@@ -1,6 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::errors::ShellError;
+use crate::data::base::property_get::get_data_by_key;
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 
 pub struct SortBy;
@@ -39,10 +41,10 @@ fn sort_by(
     Ok(OutputStream::new(async_stream! {
         let mut vec = context.input.drain_vec().await;
 
-        let calc_key = |item: &crate::data::base::Value| {
+        let calc_key = |item: &Value| {
             rest.iter()
-                .map(|f| item.get_data_by_key(f.borrow_spanned()).map(|i| i.clone()))
-                .collect::<Vec<Option<crate::data::base::Value>>>()
+                .map(|f| get_data_by_key(item, f.borrow_spanned()).map(|i| i.clone()))
+                .collect::<Vec<Option<Value>>>()
         };
         vec.sort_by_cached_key(calc_key);
 

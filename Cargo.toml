@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 description = "A shell for the GitHub era"
 license = "MIT"
@@ -13,13 +13,18 @@ documentation = "https://book.nushell.sh"
 
 [workspace]
 
-members = ["crates/nu-source"]
+members = ["crates/nu-errors", "crates/nu-source", "crates/nu-textview", "crates/nu-protocol", "crates/nu-parser", "crates/nu-build"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 nu-source = { version = "0.1.0", path = "./crates/nu-source" }
+nu-protocol = { version = "0.1.0", path = "./crates/nu-protocol" }
+nu-errors = { version = "0.1.0", path = "./crates/nu-errors" }
+nu-parser = { version = "0.1.0", path = "./crates/nu-parser" }
 
+query_interface = "0.3.5"
+typetag = "0.1.4"
 rustyline = "5.0.4"
 chrono = { version = "0.4.9", features = ["serde"] }
 derive-new = "0.5.8"
@@ -103,14 +108,13 @@ image = { version = "0.22.2", default_features = false, features = ["png_codec",
 starship = { version = "0.26.4", optional = true}
 
 [features]
-default = ["textview", "sys", "ps"]
+default = ["sys", "ps"]
 raw-key = ["rawkey", "neso"]
-textview = ["syntect", "onig_sys", "crossterm"]
 binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
 starship-prompt = ["starship"]
-# trace = ["nom-tracable/trace"]
+#trace = ["nu-parser/trace"]
 
 [dependencies.rusqlite]
 version = "0.20.0"
@@ -122,6 +126,7 @@ pretty_assertions = "0.6.1"
 [build-dependencies]
 toml = "0.5.5"
 serde = { version = "1.0.102", features = ["derive"] }
+nu-build = { version = "0.1.0", path = "./crates/nu-build" }
 
 [lib]
 name = "nu"
@@ -190,11 +195,6 @@ required-features = ["tree"]
 name = "nu_plugin_binaryview"
 path = "src/plugins/binaryview.rs"
 required-features = ["binaryview"]
-
-[[bin]]
-name = "nu_plugin_textview"
-path = "src/plugins/textview.rs"
-required-features = ["textview"]
 
 [[bin]]
 name = "nu_plugin_docker"

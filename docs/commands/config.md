@@ -6,7 +6,6 @@ Syntax: `config {flags}`
 
 ### Flags
 
-
     --load <file path shape>
       load the config from the path give
 
@@ -30,13 +29,13 @@ Syntax: `config {flags}`
 
 ### Variables
 
-| Variable        | Type           | Description  |
-| ------------- | ------------- | ----- |
-| path | table of strings | PATH to use to find binaries |
-| env | row | the environment variables to pass to external commands |
-| ctrlc_exit | boolean | whether or not to exit Nu after multiple ctrl-c presses |
-| table_mode | "light" or other | enable lightweight or normal tables |
-| edit_mode | "vi" or "emacs" | changes line editing to "vi" or "emacs" mode |
+| Variable   | Type             | Description                                             |
+| ---------- | ---------------- | ------------------------------------------------------- |
+| path       | table of strings | PATH to use to find binaries                            |
+| env        | row              | the environment variables to pass to external commands  |
+| ctrlc_exit | boolean          | whether or not to exit Nu after multiple ctrl-c presses |
+| table_mode | "light" or other | enable lightweight or normal tables                     |
+| edit_mode  | "vi" or "emacs"  | changes line editing to "vi" or "emacs" mode            |
 
 ## Examples
 

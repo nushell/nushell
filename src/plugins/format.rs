@@ -1,6 +1,7 @@
-use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    SyntaxShape, UntaggedValue, Value,
+use nu::{serve_plugin, value, Plugin};
+use nu_errors::ShellError;
+use nu_protocol::{
+    CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 use nom::{
@@ -114,7 +115,7 @@ impl Plugin for Format {
                 }
 
                 return Ok(vec![ReturnSuccess::value(
-                    UntaggedValue::string(output).into_untagged_value(),
+                    value::string(output).into_untagged_value(),
                 )]);
             }
             _ => {}

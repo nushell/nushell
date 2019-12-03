@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::{Primitive, UntaggedValue, Value};
 use crate::prelude::*;
-use crate::UnspannedPathMember;
+use nu_errors::{CoerceInto, ShellError};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UnspannedPathMember, UntaggedValue, Value};
 
 pub struct ToJSON;
 
@@ -54,6 +54,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Nothing) => serde_json::Value::Null,
         UntaggedValue::Primitive(Primitive::Pattern(s)) => serde_json::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::Line(s)) => serde_json::Value::String(s.clone()),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => serde_json::Value::Array(
             path.iter()
                 .map(|x| match &x.unspanned {

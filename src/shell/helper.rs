@@ -1,9 +1,9 @@
 use crate::context::Context;
-use crate::parser::hir::syntax_shape::{color_fallible_syntax, FlatShape, PipelineShape};
-use crate::parser::hir::TokensIterator;
-use crate::parser::parse::token_tree::TokenNode;
 use ansi_term::Color;
 use log::{log_enabled, trace};
+use nu_parser::hir::syntax_shape::color_fallible_syntax;
+use nu_parser::{FlatShape, PipelineShape, TokenNode, TokensIterator};
+use nu_protocol::outln;
 use nu_source::{nom_input, HasSpan, Spanned, Tag, Tagged, Text};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
@@ -63,7 +63,7 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let tokens = crate::parser::pipeline(nom_input(line));
+        let tokens = nu_parser::pipeline(nom_input(line));
 
         match tokens {
             Err(_) => Cow::Borrowed(line),

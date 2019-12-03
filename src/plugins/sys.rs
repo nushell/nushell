@@ -4,10 +4,9 @@ use futures::executor::block_on;
 use futures::stream::StreamExt;
 use heim::units::{frequency, information, thermodynamic_temperature, time};
 use heim::{disk, host, memory, net, sensors};
-use nu::{
-    serve_plugin, CallInfo, Plugin, Primitive, ReturnSuccess, ReturnValue, ShellError, Signature,
-    TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu::{primitive, serve_plugin, value, Plugin, TaggedDictBuilder};
+use nu_errors::ShellError;
+use nu_protocol::{CallInfo, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
 use nu_source::Tag;
 
 struct Sys;
@@ -21,26 +20,26 @@ async fn cpu(tag: Tag) -> Option<Value> {
     match futures::future::try_join(heim::cpu::logical_count(), heim::cpu::frequency()).await {
         Ok((num_cpu, cpu_speed)) => {
             let mut cpu_idx = TaggedDictBuilder::with_capacity(tag, 4);
-            cpu_idx.insert_untagged("cores", Primitive::number(num_cpu));
+            cpu_idx.insert_untagged("cores", primitive::number(num_cpu));
 
             let current_speed =
                 (cpu_speed.current().get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0)
                     .round()
                     / 100.0;
-            cpu_idx.insert_untagged("current ghz", Primitive::number(current_speed));
+            cpu_idx.insert_untagged("current ghz", primitive::number(current_speed));
 
             if let Some(min_speed) = cpu_speed.min() {
                 let min_speed =
                     (min_speed.get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round()
                         / 100.0;
-                cpu_idx.insert_untagged("min ghz", Primitive::number(min_speed));
+                cpu_idx.insert_untagged("min ghz", primitive::number(min_speed));
             }
 
             if let Some(max_speed) = cpu_speed.max() {
                 let max_speed =
                     (max_speed.get::<frequency::hertz>() as f64 / 1_000_000_000.0 * 100.0).round()
                         / 100.0;
-                cpu_idx.insert_untagged("max ghz", Primitive::number(max_speed));
+                cpu_idx.insert_untagged("max ghz", primitive::number(max_speed));
             }
 
             Some(cpu_idx.into_value())
@@ -58,22 +57,22 @@ async fn mem(tag: Tag) -> Value {
     if let Ok(memory) = memory_result {
         dict.insert_untagged(
             "total",
-            UntaggedValue::bytes(memory.total().get::<information::byte>()),
+            value::bytes(memory.total().get::<information::byte>()),
         );
         dict.insert_untagged(
             "free",
-            UntaggedValue::bytes(memory.free().get::<information::byte>()),
+            value::bytes(memory.free().get::<information::byte>()),
         );
     }
 
     if let Ok(swap) = swap_result {
         dict.insert_untagged(
             "swap total",
-            UntaggedValue::bytes(swap.total().get::<information::byte>()),
+            value::bytes(swap.total().get::<information::byte>()),
         );
         dict.insert_untagged(
             "swap free",
-            UntaggedValue::bytes(swap.free().get::<information::byte>()),
+            value::bytes(swap.free().get::<information::byte>()),
         );
     }
 
@@ -88,13 +87,10 @@ async fn host(tag: Tag) -> Value {
 
     // OS
     if let Ok(platform) = platform_result {
-        dict.insert_untagged("name", UntaggedValue::string(platform.system()));
-        dict.insert_untagged("release", UntaggedValue::string(platform.release()));
-        dict.insert_untagged("hostname", UntaggedValue::string(platform.hostname()));
-        dict.insert_untagged(
-            "arch",
-            UntaggedValue::string(platform.architecture().as_str()),
-        );
+        dict.insert_untagged("name", value::string(platform.system()));
+        dict.insert_untagged("release", value::string(platform.release()));
+        dict.insert_untagged("hostname", value::string(platform.hostname()));
+        dict.insert_untagged("arch", value::string(platform.architecture().as_str()));
     }
 
     // Uptime
@@ -107,10 +103,10 @@ async fn host(tag: Tag) -> Value {
         let minutes = (uptime - days * 60 * 60 * 24 - hours * 60 * 60) / 60;
         let seconds = uptime % 60;
 
-        uptime_dict.insert_untagged("days", UntaggedValue::int(days));
-        uptime_dict.insert_untagged("hours", UntaggedValue::int(hours));
-        uptime_dict.insert_untagged("mins", UntaggedValue::int(minutes));
-        uptime_dict.insert_untagged("secs", UntaggedValue::int(seconds));
+        uptime_dict.insert_untagged("days", value::int(days));
+        uptime_dict.insert_untagged("hours", value::int(hours));
+        uptime_dict.insert_untagged("mins", value::int(minutes));
+        uptime_dict.insert_untagged("secs", value::int(seconds));
 
         dict.insert_value("uptime", uptime_dict);
     }
@@ -121,7 +117,7 @@ async fn host(tag: Tag) -> Value {
     while let Some(user) = users.next().await {
         if let Ok(user) = user {
             user_vec.push(Value {
-                value: UntaggedValue::string(user.username()),
+                value: value::string(user.username()),
                 tag: tag.clone(),
             });
         }
@@ -140,31 +136,28 @@ async fn disks(tag: Tag) -> Option<UntaggedValue> {
             let mut dict = TaggedDictBuilder::with_capacity(&tag, 6);
             dict.insert_untagged(
                 "device",
-                UntaggedValue::string(
+                value::string(
                     part.device()
                         .unwrap_or_else(|| OsStr::new("N/A"))
                         .to_string_lossy(),
                 ),
             );
 
-            dict.insert_untagged("type", UntaggedValue::string(part.file_system().as_str()));
-            dict.insert_untagged(
-                "mount",
-                UntaggedValue::string(part.mount_point().to_string_lossy()),
-            );
+            dict.insert_untagged("type", value::string(part.file_system().as_str()));
+            dict.insert_untagged("mount", value::string(part.mount_point().to_string_lossy()));
 
             if let Ok(usage) = disk::usage(part.mount_point().to_path_buf()).await {
                 dict.insert_untagged(
                     "total",
-                    UntaggedValue::bytes(usage.total().get::<information::byte>()),
+                    value::bytes(usage.total().get::<information::byte>()),
                 );
                 dict.insert_untagged(
                     "used",
-                    UntaggedValue::bytes(usage.used().get::<information::byte>()),
+                    value::bytes(usage.used().get::<information::byte>()),
                 );
                 dict.insert_untagged(
                     "free",
-                    UntaggedValue::bytes(usage.free().get::<information::byte>()),
+                    value::bytes(usage.free().get::<information::byte>()),
                 );
             }
 
@@ -188,28 +181,24 @@ async fn battery(tag: Tag) -> Option<UntaggedValue> {
                 if let Ok(battery) = battery {
                     let mut dict = TaggedDictBuilder::new(&tag);
                     if let Some(vendor) = battery.vendor() {
-                        dict.insert_untagged("vendor", UntaggedValue::string(vendor));
+                        dict.insert_untagged("vendor", value::string(vendor));
                     }
                     if let Some(model) = battery.model() {
-                        dict.insert_untagged("model", UntaggedValue::string(model));
+                        dict.insert_untagged("model", value::string(model));
                     }
                     if let Some(cycles) = battery.cycle_count() {
-                        dict.insert_untagged("cycles", UntaggedValue::int(cycles));
+                        dict.insert_untagged("cycles", value::int(cycles));
                     }
                     if let Some(time_to_full) = battery.time_to_full() {
                         dict.insert_untagged(
                             "mins to full",
-                            UntaggedValue::number(
-                                time_to_full.get::<battery::units::time::minute>(),
-                            ),
+                            value::number(time_to_full.get::<battery::units::time::minute>()),
                         );
                     }
                     if let Some(time_to_empty) = battery.time_to_empty() {
                         dict.insert_untagged(
                             "mins to empty",
-                            UntaggedValue::number(
-                                time_to_empty.get::<battery::units::time::minute>(),
-                            ),
+                            value::number(time_to_empty.get::<battery::units::time::minute>()),
                         );
                     }
                     output.push(dict.into_value());
@@ -232,13 +221,13 @@ async fn temp(tag: Tag) -> Option<UntaggedValue> {
     while let Some(sensor) = sensors.next().await {
         if let Ok(sensor) = sensor {
             let mut dict = TaggedDictBuilder::new(&tag);
-            dict.insert_untagged("unit", UntaggedValue::string(sensor.unit()));
+            dict.insert_untagged("unit", value::string(sensor.unit()));
             if let Some(label) = sensor.label() {
-                dict.insert_untagged("label", UntaggedValue::string(label));
+                dict.insert_untagged("label", value::string(label));
             }
             dict.insert_untagged(
                 "temp",
-                UntaggedValue::number(
+                value::number(
                     sensor
                         .current()
                         .get::<thermodynamic_temperature::degree_celsius>(),
@@ -247,15 +236,13 @@ async fn temp(tag: Tag) -> Option<UntaggedValue> {
             if let Some(high) = sensor.high() {
                 dict.insert_untagged(
                     "high",
-                    UntaggedValue::number(high.get::<thermodynamic_temperature::degree_celsius>()),
+                    value::number(high.get::<thermodynamic_temperature::degree_celsius>()),
                 );
             }
             if let Some(critical) = sensor.critical() {
                 dict.insert_untagged(
                     "critical",
-                    UntaggedValue::number(
-                        critical.get::<thermodynamic_temperature::degree_celsius>(),
-                    ),
+                    value::number(critical.get::<thermodynamic_temperature::degree_celsius>()),
                 );
             }
 
@@ -276,14 +263,14 @@ async fn net(tag: Tag) -> Option<UntaggedValue> {
     while let Some(nic) = io_counters.next().await {
         if let Ok(nic) = nic {
             let mut network_idx = TaggedDictBuilder::with_capacity(&tag, 3);
-            network_idx.insert_untagged("name", UntaggedValue::string(nic.interface()));
+            network_idx.insert_untagged("name", value::string(nic.interface()));
             network_idx.insert_untagged(
                 "sent",
-                UntaggedValue::bytes(nic.bytes_sent().get::<information::byte>()),
+                value::bytes(nic.bytes_sent().get::<information::byte>()),
             );
             network_idx.insert_untagged(
                 "recv",
-                UntaggedValue::bytes(nic.bytes_recv().get::<information::byte>()),
+                value::bytes(nic.bytes_recv().get::<information::byte>()),
             );
             output.push(network_idx.into_value());
         }

@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder};
-use crate::errors::ShellError;
+use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use log::trace;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue};
 use nu_source::Tagged;
 
 #[derive(Deserialize)]
@@ -56,8 +57,8 @@ fn split_column(
 
     Ok(input
         .values
-        .map(move |v| match v.value {
-            UntaggedValue::Primitive(Primitive::String(ref s)) => {
+        .map(move |v| {
+            if let Ok(s) = v.as_string() {
                 let splitter = separator.replace("\\n", "\n");
                 trace!("splitting with {:?}", splitter);
 
@@ -103,14 +104,15 @@ fn split_column(
                     }
                     ReturnSuccess::value(dict.into_value())
                 }
+            } else {
+                Err(ShellError::labeled_error_with_secondary(
+                    "Expected a string from pipeline",
+                    "requires string input",
+                    name_span,
+                    "value originates from here",
+                    v.tag.span,
+                ))
             }
-            _ => Err(ShellError::labeled_error_with_secondary(
-                "Expected a string from pipeline",
-                "requires string input",
-                name_span,
-                "value originates from here",
-                v.tag.span,
-            )),
         })
         .to_output_stream())
 }

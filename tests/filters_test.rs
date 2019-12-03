@@ -30,6 +30,7 @@ fn converts_structured_table_to_csv_text() {
             r#"
                 open csv_text_sample.txt
                 | lines
+                | trim
                 | split-column "," a b c d origin
                 | last 1
                 | to-csv
@@ -60,6 +61,7 @@ fn converts_structured_table_to_csv_text_skipping_headers_after_conversion() {
             r#"
                 open csv_text_sample.txt
                 | lines
+                | trim
                 | split-column "," a b c d origin
                 | last 1
                 | to-csv --headerless
@@ -727,8 +729,8 @@ fn can_get_reverse_first() {
 }
 
 #[test]
-fn embed() {
-    Playground::setup("embed_test", |dirs, sandbox| {
+fn embed_rows_into_a_row() {
+    Playground::setup("embed_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
@@ -753,6 +755,36 @@ fn embed() {
         ));
 
         assert_eq!(actual, "Robalino");
+    })
+}
+
+#[test]
+fn embed_rows_into_a_table() {
+    Playground::setup("embed_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name
+                Andrés,Robalino
+                Jonathan,Turner
+                Yehuda,Katz
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), h::pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv
+                | get last_name
+                | embed caballero
+                | nth 2
+                | get caballero
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "Katz");
     })
 }
 

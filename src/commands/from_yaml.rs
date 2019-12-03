@@ -1,6 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{Primitive, TaggedDictBuilder, Value};
+use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct FromYAML;
 
@@ -54,14 +56,14 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) ->
     let tag = tag.into();
 
     match v {
-        serde_yaml::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(tag),
+        serde_yaml::Value::Bool(b) => value::boolean(*b).into_value(tag),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            UntaggedValue::number(n.as_i64().unwrap()).into_value(tag)
+            value::number(n.as_i64().unwrap()).into_value(tag)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
             UntaggedValue::Primitive(Primitive::from(n.as_f64().unwrap())).into_value(tag)
         }
-        serde_yaml::Value::String(s) => UntaggedValue::string(s).into_value(tag),
+        serde_yaml::Value::String(s) => value::string(s).into_value(tag),
         serde_yaml::Value::Sequence(a) => UntaggedValue::Table(
             a.iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, &tag))
@@ -108,19 +110,17 @@ fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             latest_tag = Some(value.tag.clone());
             let value_span = value.tag.span;
 
-            match &value.value {
-                UntaggedValue::Primitive(Primitive::String(s)) => {
-                    concat_string.push_str(&s);
-                    concat_string.push_str("\n");
-                }
-                _ => yield Err(ShellError::labeled_error_with_secondary(
+            if let Ok(s) = value.as_string() {
+                concat_string.push_str(&s);
+            }
+            else {
+                yield Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name_span,
                     "value originates from here",
                     value_span,
-                )),
-
+                ))
             }
         }
 
