@@ -1,11 +1,11 @@
 use crate::commands::PerItemCommand;
 use crate::data::base::property_get::get_data_by_key;
-use crate::data::{command_dict, TaggedDictBuilder};
+use crate::data::command_dict;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
     CallInfo, NamedType, PositionalType, Primitive, ReturnSuccess, Signature, SyntaxShape,
-    UntaggedValue, Value,
+    TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::SpannedItem;
 
@@ -152,7 +152,7 @@ impl PerItemCommand for Help {
                         }
 
                         help.push_back(ReturnSuccess::value(
-                            value::string(long_desc).into_value(tag.clone()),
+                            UntaggedValue::string(long_desc).into_value(tag.clone()),
                         ));
                     }
                 }
@@ -170,7 +170,9 @@ You can also learn more at https://book.nushell.sh"#;
 
                 let mut output_stream = VecDeque::new();
 
-                output_stream.push_back(ReturnSuccess::value(value::string(msg).into_value(tag)));
+                output_stream.push_back(ReturnSuccess::value(
+                    UntaggedValue::string(msg).into_value(tag),
+                ));
 
                 Ok(output_stream.to_output_stream())
             }

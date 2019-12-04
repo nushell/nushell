@@ -68,8 +68,8 @@ impl TableView {
                                 value: UntaggedValue::Row(..),
                                 ..
                             } => (
-                                format_leaf(&value::nothing()).plain_string(100000),
-                                style_leaf(&value::nothing()),
+                                format_leaf(&UntaggedValue::nothing()).plain_string(100000),
+                                style_leaf(&UntaggedValue::nothing()),
                             ),
                             _ => (format_leaf(value).plain_string(100000), style_leaf(value)),
                         }
@@ -86,8 +86,8 @@ impl TableView {
                                 )
                             }
                             _ => (
-                                format_leaf(&value::nothing()).plain_string(100000),
-                                style_leaf(&value::nothing()),
+                                format_leaf(&UntaggedValue::nothing()).plain_string(100000),
+                                style_leaf(&UntaggedValue::nothing()),
                             ),
                         }
                     }

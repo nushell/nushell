@@ -1,10 +1,12 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::base::property_get::get_data_by_key;
-use crate::data::{value, TaggedDictBuilder, TaggedListBuilder};
+use crate::data::TaggedListBuilder;
 use crate::prelude::*;
 use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct TSortBy;
@@ -70,7 +72,7 @@ fn t_sort_by(
 
         if show_columns {
             for label in columns_sorted(column_grouped_by_name, &values[0], &name).into_iter() {
-                 yield ReturnSuccess::value(value::string(label.item).into_value(label.tag));
+                 yield ReturnSuccess::value(UntaggedValue::string(label.item).into_value(label.tag));
             }
         } else {
             match t_sort(column_grouped_by_name, None, &values[0], name) {
@@ -104,7 +106,7 @@ pub fn columns_sorted(
                         Ok(parsed) => UntaggedValue::Primitive(Primitive::Date(
                             DateTime::<Utc>::from_utc(parsed.and_hms(12, 34, 56), Utc),
                         )),
-                        Err(_) => value::string(k),
+                        Err(_) => UntaggedValue::string(k),
                     };
 
                     date.into_untagged_value()
@@ -197,10 +199,10 @@ pub fn t_sort(
 
                     return Ok(UntaggedValue::Table(outer.list).into_value(&origin_tag));
                 }
-                Some(_) => return Ok(value::nothing().into_value(&origin_tag)),
+                Some(_) => return Ok(UntaggedValue::nothing().into_value(&origin_tag)),
             }
         }
-        None => return Ok(value::nothing().into_value(&origin_tag)),
+        None => return Ok(UntaggedValue::nothing().into_value(&origin_tag)),
     }
 }
 #[cfg(test)]
@@ -214,15 +216,15 @@ mod tests {
     use nu_source::*;
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        value::table(list).into_untagged_value()
+        UntaggedValue::table(list).into_untagged_value()
     }
 
     fn nu_releases_grouped_by_date() -> Value {

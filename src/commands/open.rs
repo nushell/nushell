@@ -1,5 +1,4 @@
 use crate::commands::UnevaluatedCallInfo;
-use crate::data::value;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -140,7 +139,7 @@ pub async fn fetch(
                 Ok(s) => Ok((
                     cwd.extension()
                         .map(|name| name.to_string_lossy().to_string()),
-                    value::string(s),
+                    UntaggedValue::string(s),
                     Tag {
                         span,
                         anchor: Some(AnchorLocation::File(cwd.to_string_lossy().to_string())),
@@ -158,7 +157,7 @@ pub async fn fetch(
                                     Ok(s) => Ok((
                                         cwd.extension()
                                             .map(|name| name.to_string_lossy().to_string()),
-                                        value::string(s),
+                                        UntaggedValue::string(s),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -168,7 +167,7 @@ pub async fn fetch(
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        value::binary(bytes),
+                                        UntaggedValue::binary(bytes),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -180,7 +179,7 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    value::binary(bytes),
+                                    UntaggedValue::binary(bytes),
                                     Tag {
                                         span,
                                         anchor: Some(AnchorLocation::File(
@@ -199,7 +198,7 @@ pub async fn fetch(
                                     Ok(s) => Ok((
                                         cwd.extension()
                                             .map(|name| name.to_string_lossy().to_string()),
-                                        value::string(s),
+                                        UntaggedValue::string(s),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -209,7 +208,7 @@ pub async fn fetch(
                                     )),
                                     Err(_) => Ok((
                                         None,
-                                        value::binary(bytes),
+                                        UntaggedValue::binary(bytes),
                                         Tag {
                                             span,
                                             anchor: Some(AnchorLocation::File(
@@ -221,7 +220,7 @@ pub async fn fetch(
                             } else {
                                 Ok((
                                     None,
-                                    value::binary(bytes),
+                                    UntaggedValue::binary(bytes),
                                     Tag {
                                         span,
                                         anchor: Some(AnchorLocation::File(
@@ -233,7 +232,7 @@ pub async fn fetch(
                         }
                         _ => Ok((
                             None,
-                            value::binary(bytes),
+                            UntaggedValue::binary(bytes),
                             Tag {
                                 span,
                                 anchor: Some(AnchorLocation::File(

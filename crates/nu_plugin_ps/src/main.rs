@@ -5,9 +5,11 @@ use heim::process::{self as process, Process, ProcessResult};
 use heim::units::{ratio, Ratio};
 use std::usize;
 
-use nu::{serve_plugin, value, Plugin, TaggedDictBuilder};
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, ReturnValue, Signature, Value};
+use nu_protocol::{
+    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, Signature, TaggedDictBuilder,
+    UntaggedValue, Value,
+};
 use nu_source::Tag;
 
 use std::time::Duration;
@@ -42,14 +44,14 @@ async fn ps(tag: Tag) -> Vec<Value> {
     while let Some(res) = processes.next().await {
         if let Ok((process, usage)) = res {
             let mut dict = TaggedDictBuilder::new(&tag);
-            dict.insert_untagged("pid", value::int(process.pid()));
+            dict.insert_untagged("pid", UntaggedValue::int(process.pid()));
             if let Ok(name) = process.name().await {
-                dict.insert_untagged("name", value::string(name));
+                dict.insert_untagged("name", UntaggedValue::string(name));
             }
             if let Ok(status) = process.status().await {
-                dict.insert_untagged("status", value::string(format!("{:?}", status)));
+                dict.insert_untagged("status", UntaggedValue::string(format!("{:?}", status)));
             }
-            dict.insert_untagged("cpu", value::number(usage.get::<ratio::percent>()));
+            dict.insert_untagged("cpu", UntaggedValue::decimal(usage.get::<ratio::percent>()));
             output.push(dict.into_value());
         }
     }

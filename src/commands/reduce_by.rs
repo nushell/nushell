@@ -135,9 +135,9 @@ pub fn reduce(
                                     } = d
                                     {
                                         acc = reduce_with(acc, x.clone());
-                                        value::number(acc).into_value(&tag)
+                                        UntaggedValue::int(acc).into_value(&tag)
                                     } else {
-                                        value::number(0).into_value(&tag)
+                                        UntaggedValue::int(0).into_value(&tag)
                                     }
                                 })
                                 .collect::<Vec<_>>();
@@ -169,19 +169,19 @@ mod tests {
     use nu_source::*;
 
     fn int(s: impl Into<BigInt>) -> Value {
-        value::int(s).into_untagged_value()
+        UntaggedValue::int(s).into_untagged_value()
     }
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        value::table(list).into_untagged_value()
+        UntaggedValue::table(list).into_untagged_value()
     }
 
     fn nu_releases_sorted_by_date() -> Value {

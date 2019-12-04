@@ -35,7 +35,7 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
     let mut indexmap = IndexMap::new();
     indexmap.insert(
         "version".to_string(),
-        value::string(clap::crate_version!()).into_value(&tag),
+        UntaggedValue::string(clap::crate_version!()).into_value(&tag),
     );
 
     let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);

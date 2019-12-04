@@ -1,10 +1,8 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value;
-use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use bson::{decode_document, spec::BinarySubtype, Bson};
 use nu_errors::{ExpectedRange, ShellError};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::SpannedItem;
 use std::str::FromStr;
 
@@ -74,8 +72,8 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
             );
             collected.into_value()
         }
-        Bson::I32(n) => value::number(n).into_value(&tag),
-        Bson::I64(n) => value::number(n).into_value(&tag),
+        Bson::I32(n) => UntaggedValue::int(*n).into_value(&tag),
+        Bson::I64(n) => UntaggedValue::int(*n).into_value(&tag),
         Bson::Decimal128(n) => {
             // TODO: this really isn't great, and we should update this to do a higher
             // fidelity translation
@@ -110,7 +108,10 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
         }
         Bson::TimeStamp(ts) => {
             let mut collected = TaggedDictBuilder::new(tag.clone());
-            collected.insert_value("$timestamp".to_string(), value::number(ts).into_value(&tag));
+            collected.insert_value(
+                "$timestamp".to_string(),
+                UntaggedValue::int(*ts).into_value(&tag),
+            );
             collected.into_value()
         }
         Bson::Binary(bst, bytes) => {
@@ -118,7 +119,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
             collected.insert_value(
                 "$binary_subtype".to_string(),
                 match bst {
-                    BinarySubtype::UserDefined(u) => value::number(u),
+                    BinarySubtype::UserDefined(u) => UntaggedValue::int(*u),
                     _ => {
                         UntaggedValue::Primitive(Primitive::String(binary_subtype_to_string(*bst)))
                     }

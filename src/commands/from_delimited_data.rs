@@ -1,8 +1,7 @@
-use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use csv::ReaderBuilder;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, TaggedDictBuilder, UntaggedValue, Value};
 
 fn from_delimited_string_to_value(
     s: String,

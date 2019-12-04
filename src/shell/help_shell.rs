@@ -3,11 +3,13 @@ use crate::commands::cp::CopyArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::data::{command_dict, TaggedDictBuilder};
+use crate::data::command_dict;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, ShellTypeName, UntaggedValue, Value};
+use nu_protocol::{
+    Primitive, ReturnSuccess, ShellTypeName, TaggedDictBuilder, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use std::ffi::OsStr;
 use std::path::PathBuf;

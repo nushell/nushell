@@ -1,5 +1,4 @@
 use crate::commands::{RawCommandArgs, WholeStreamCommand};
-use crate::data::value;
 use crate::prelude::*;
 use futures::stream::TryStreamExt;
 use nu_errors::ShellError;
@@ -139,7 +138,7 @@ pub fn autoview(
                                 } if anchor.is_some() => {
                                     if let Some(text) = text {
                                         let mut stream = VecDeque::new();
-                                        stream.push_back(value::string(s).into_value(Tag { anchor, span }));
+                                        stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
@@ -158,7 +157,7 @@ pub fn autoview(
                                 } if anchor.is_some() => {
                                     if let Some(text) = text {
                                         let mut stream = VecDeque::new();
-                                        stream.push_back(value::string(s).into_value(Tag { anchor, span }));
+                                        stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
                                         result.collect::<Vec<_>>().await;
                                     } else {
@@ -227,7 +226,7 @@ pub fn autoview(
 
         // Needed for async_stream to type check
         if false {
-            yield ReturnSuccess::value(value::nothing().into_untagged_value());
+            yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
         }
     }))
 }

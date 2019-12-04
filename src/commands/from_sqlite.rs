@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use rusqlite::{types::ValueRef, Connection, Row, NO_PARAMS};
 use std::io::Write;
 use std::path::Path;
@@ -106,14 +105,14 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone
         ValueRef::Null => {
             UntaggedValue::Primitive(Primitive::String(String::from(""))).into_value(tag)
         }
-        ValueRef::Integer(i) => value::number(i).into_value(tag),
-        ValueRef::Real(f) => value::number(f).into_value(tag),
+        ValueRef::Integer(i) => UntaggedValue::int(i).into_value(tag),
+        ValueRef::Real(f) => UntaggedValue::decimal(f).into_value(tag),
         t @ ValueRef::Text(_) => {
             // this unwrap is safe because we know the ValueRef is Text.
             UntaggedValue::Primitive(Primitive::String(t.as_str().unwrap().to_string()))
                 .into_value(tag)
         }
-        ValueRef::Blob(u) => value::binary(u.to_owned()).into_value(tag),
+        ValueRef::Blob(u) => UntaggedValue::binary(u.to_owned()).into_value(tag),
     }
 }
 

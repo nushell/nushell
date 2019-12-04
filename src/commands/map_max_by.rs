@@ -103,9 +103,9 @@ pub fn map_max(
                             }
                             _ => acc,
                         });
-                        value::number(data).into_value(&tag)
+                        UntaggedValue::int(data).into_value(&tag)
                     }
-                    _ => value::number(0).into_value(&tag),
+                    _ => UntaggedValue::int(0).into_value(&tag),
                 })
                 .collect();
 
@@ -122,9 +122,9 @@ pub fn map_max(
                 }
                 _ => max,
             });
-            value::number(datasets).into_value(&tag)
+            UntaggedValue::int(datasets).into_value(&tag)
         }
-        _ => value::number(-1).into_value(&tag),
+        _ => UntaggedValue::int(-1).into_value(&tag),
     };
 
     Ok(results)
@@ -144,15 +144,15 @@ mod tests {
     use nu_source::*;
 
     fn int(s: impl Into<BigInt>) -> Value {
-        value::int(s).into_untagged_value()
+        UntaggedValue::int(s).into_untagged_value()
     }
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn nu_releases_evaluated_by_default_one() -> Value {

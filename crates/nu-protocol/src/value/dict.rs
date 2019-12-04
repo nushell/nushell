@@ -138,3 +138,59 @@ impl Dictionary {
         self.entries.insert(name.to_string(), value);
     }
 }
+
+#[derive(Debug)]
+pub struct TaggedDictBuilder {
+    tag: Tag,
+    dict: IndexMap<String, Value>,
+}
+
+impl TaggedDictBuilder {
+    pub fn new(tag: impl Into<Tag>) -> TaggedDictBuilder {
+        TaggedDictBuilder {
+            tag: tag.into(),
+            dict: IndexMap::default(),
+        }
+    }
+
+    pub fn build(tag: impl Into<Tag>, block: impl FnOnce(&mut TaggedDictBuilder)) -> Value {
+        let mut builder = TaggedDictBuilder::new(tag);
+        block(&mut builder);
+        builder.into_value()
+    }
+
+    pub fn with_capacity(tag: impl Into<Tag>, n: usize) -> TaggedDictBuilder {
+        TaggedDictBuilder {
+            tag: tag.into(),
+            dict: IndexMap::with_capacity(n),
+        }
+    }
+
+    pub fn insert_untagged(&mut self, key: impl Into<String>, value: impl Into<UntaggedValue>) {
+        self.dict
+            .insert(key.into(), value.into().into_value(&self.tag));
+    }
+
+    pub fn insert_value(&mut self, key: impl Into<String>, value: impl Into<Value>) {
+        self.dict.insert(key.into(), value.into());
+    }
+
+    pub fn into_value(self) -> Value {
+        let tag = self.tag.clone();
+        self.into_untagged_value().into_value(tag)
+    }
+
+    pub fn into_untagged_value(self) -> UntaggedValue {
+        UntaggedValue::Row(Dictionary { entries: self.dict })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.dict.is_empty()
+    }
+}
+
+impl From<TaggedDictBuilder> for Value {
+    fn from(input: TaggedDictBuilder) -> Value {
+        input.into_value()
+    }
+}

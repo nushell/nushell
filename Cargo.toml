@@ -18,6 +18,8 @@ members = [
     "crates/nu-source",
     "crates/nu_plugin_textview",
     "crates/nu_plugin_binaryview",
+    "crates/nu_plugin_ps",
+    "crates/nu_plugin_sys",
     "crates/nu-protocol",
     "crates/nu-parser",
     "crates/nu-build"
@@ -32,6 +34,8 @@ nu-errors = { version = "0.1.0", path = "./crates/nu-errors" }
 nu-parser = { version = "0.1.0", path = "./crates/nu-parser" }
 nu_plugin_textview = {version = "0.1.0", path = "./crates/nu_plugin_textview", optional=true}
 nu_plugin_binaryview = {version = "0.1.0", path = "./crates/nu_plugin_binaryview", optional=true}
+nu_plugin_ps = {version = "0.1.0", path = "./crates/nu_plugin_ps", optional=true}
+nu_plugin_sys = {version = "0.1.0", path = "./crates/nu_plugin_sys", optional=true}
 
 query_interface = "0.3.5"
 typetag = "0.1.4"
@@ -87,7 +91,6 @@ semver = "0.9.0"
 which = "3.1"
 textwrap = {version = "0.11.0", features = ["term_size"]}
 shellexpand = "1.0.0"
-futures-timer = "2.0.0"
 pin-utils = "0.1.0-alpha.4"
 num-bigint = { version = "0.2.3", features = ["serde"] }
 bigdecimal = { version = "0.1.0", features = ["serde"] }
@@ -106,21 +109,17 @@ termcolor = "1.0.5"
 console = "0.9.1"
 
 crossterm = { version = "0.10.2", optional = true }
-syntect = {version = "3.2.0", optional = true }
-onig_sys = {version = "=69.1.0", optional = true }
-heim = {version = "0.0.8", optional = true }
-battery = {version = "0.7.4", optional = true }
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 starship = { version = "0.26.4", optional = true}
 
 [features]
 default = ["sys", "ps"]
-sys = ["heim", "battery"]
-ps = ["heim"]
+sys = ["nu_plugin_ps"]
 starship-prompt = ["starship"]
 textview = ["nu_plugin_textview"]
 binaryview = ["nu_plugin_binaryview"]
+ps = ["nu_plugin_ps"]
 #trace = ["nu-parser/trace"]
 
 [dependencies.rusqlite]
@@ -182,16 +181,6 @@ path = "src/plugins/skip.rs"
 [[bin]]
 name = "nu_plugin_match"
 path = "src/plugins/match.rs"
-
-[[bin]]
-name = "nu_plugin_sys"
-path = "src/plugins/sys.rs"
-required-features = ["sys"]
-
-[[bin]]
-name = "nu_plugin_ps"
-path = "src/plugins/ps.rs"
-required-features = ["ps"]
 
 [[bin]]
 name = "nu_plugin_tree"

@@ -1,8 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 
 pub struct FromSSV;

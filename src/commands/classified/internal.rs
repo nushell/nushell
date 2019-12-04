@@ -60,7 +60,7 @@ pub(crate) async fn run_internal_command(
                             } => {
                                 context.shell_manager.insert_at_current(Box::new(
                                     HelpShell::for_command(
-                                        value::string(cmd).into_value(tag),
+                                        UntaggedValue::string(cmd).into_value(tag),
                                         &context.registry(),
                                     ).unwrap(),
                                 ));
@@ -114,7 +114,7 @@ pub(crate) async fn run_internal_command(
 
                     let value = String::from_utf8_lossy(buffer.as_slice());
 
-                    yield Ok(value::string(value).into_untagged_value())
+                    yield Ok(UntaggedValue::string(value).into_untagged_value())
                 }
 
                 Err(err) => {

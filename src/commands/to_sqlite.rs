@@ -197,7 +197,7 @@ fn sqlite_input_stream_to_bytes(values: Vec<Value>) -> Result<Value, std::io::Er
     }
     let mut out = Vec::new();
     tempfile.read_to_end(&mut out)?;
-    Ok(value::binary(out).into_value(tag))
+    Ok(UntaggedValue::binary(out).into_value(tag))
 }
 
 fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

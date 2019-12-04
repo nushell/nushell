@@ -332,8 +332,7 @@ impl FileStructure {
 #[cfg(test)]
 mod tests {
     use super::{FileStructure, Res, ValueResource, ValueStructure};
-    use crate::data::{value, TaggedDictBuilder};
-    use nu_protocol::Value;
+    use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
     use nu_source::Tag;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
@@ -352,7 +351,7 @@ mod tests {
 
     fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert_untagged(key.clone(), value::string(value));
+        record.insert_untagged(key.clone(), UntaggedValue::string(value));
         record.into_value()
     }
 

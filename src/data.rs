@@ -8,5 +8,5 @@ pub(crate) mod types;
 pub mod value;
 
 pub(crate) use command::command_dict;
-pub(crate) use dict::{TaggedDictBuilder, TaggedListBuilder};
+pub(crate) use dict::TaggedListBuilder;
 pub(crate) use files::dir_entry_dict;

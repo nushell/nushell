@@ -5,10 +5,11 @@ use crate::commands::reduce_by::reduce;
 use crate::commands::t_sort_by::columns_sorted;
 use crate::commands::t_sort_by::t_sort;
 use crate::commands::WholeStreamCommand;
-use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
+};
 use nu_source::Tagged;
 use num_traits::cast::ToPrimitive;
 
@@ -91,11 +92,11 @@ pub fn histogram(
 
                         let mut fact = TaggedDictBuilder::new(&name);
                         let value: Tagged<String> = group_labels.get(idx).unwrap().clone();
-                        fact.insert_value(&column, value::string(value.item).into_value(value.tag));
+                        fact.insert_value(&column, UntaggedValue::string(value.item).into_value(value.tag));
 
                         if let Value { value: UntaggedValue::Primitive(Primitive::Int(ref num)), .. } = percentage.clone() {
                             let string = std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>();
-                            fact.insert_untagged(&frequency_column_name, value::string(string));
+                            fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
                         }
 
                         idx = idx + 1;
@@ -146,9 +147,9 @@ fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value,
 
                                             let n = { n.to_i32().unwrap() * 100 / max };
 
-                                            value::number(n).into_value(&tag)
+                                            UntaggedValue::int(n).into_value(&tag)
                                         }
-                                        _ => value::number(0).into_value(&tag),
+                                        _ => UntaggedValue::int(0).into_value(&tag),
                                     })
                                     .collect::<Vec<_>>();
                         UntaggedValue::Table(data).into_value(&tag)

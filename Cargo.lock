@@ -1884,7 +1884,6 @@ dependencies = [
  "app_dirs",
  "async-stream",
  "base64 0.11.0",
- "battery",
  "bigdecimal",
  "bson",
  "byte-unit",
@@ -1903,13 +1902,11 @@ dependencies = [
  "dirs 2.0.2",
  "dunce",
  "futures-preview",
- "futures-timer",
  "futures-util",
  "futures_codec",
  "getset",
  "git2",
  "glob",
- "heim",
  "hex 0.4.0",
  "indexmap",
  "itertools 0.8.2",
@@ -1926,10 +1923,11 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu_plugin_binaryview",
+ "nu_plugin_ps",
+ "nu_plugin_sys",
  "nu_plugin_textview",
  "num-bigint",
  "num-traits 0.2.10",
- "onig_sys",
  "pin-utils",
  "pretty",
  "pretty-hex",
@@ -1956,7 +1954,6 @@ dependencies = [
  "sublime_fuzzy",
  "subprocess",
  "surf",
- "syntect",
  "tempfile",
  "term",
  "termcolor",
@@ -2091,8 +2088,35 @@ dependencies = [
  "nu-source",
  "pretty-hex",
  "rawkey",
- "syntect",
- "url",
+]
+
+[[package]]
+name = "nu_plugin_ps"
+version = "0.1.0"
+dependencies = [
+ "futures-preview",
+ "futures-timer",
+ "heim",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "pin-utils",
+]
+
+[[package]]
+name = "nu_plugin_sys"
+version = "0.1.0"
+dependencies = [
+ "battery",
+ "futures-preview",
+ "futures-timer",
+ "heim",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "pin-utils",
 ]
 
 [[package]]

@@ -1,5 +1,4 @@
 use crate::commands::UnevaluatedCallInfo;
-use crate::data::value;
 use crate::prelude::*;
 use base64::encode;
 use mime::Mime;
@@ -320,7 +319,7 @@ pub async fn post(
                     match (content_type.type_(), content_type.subtype()) {
                         (mime::APPLICATION, mime::XML) => Ok((
                             Some("xml".to_string()),
-                            value::string(r.body_string().await.map_err(|_| {
+                            UntaggedValue::string(r.body_string().await.map_err(|_| {
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
@@ -334,7 +333,7 @@ pub async fn post(
                         )),
                         (mime::APPLICATION, mime::JSON) => Ok((
                             Some("json".to_string()),
-                            value::string(r.body_string().await.map_err(|_| {
+                            UntaggedValue::string(r.body_string().await.map_err(|_| {
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
@@ -356,7 +355,7 @@ pub async fn post(
                             })?;
                             Ok((
                                 None,
-                                value::binary(buf),
+                                UntaggedValue::binary(buf),
                                 Tag {
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
                                     span: tag.span,
@@ -373,7 +372,7 @@ pub async fn post(
                             })?;
                             Ok((
                                 Some(image_ty.to_string()),
-                                value::binary(buf),
+                                UntaggedValue::binary(buf),
                                 Tag {
                                     anchor: Some(AnchorLocation::Url(location.to_string())),
                                     span: tag.span,
@@ -382,7 +381,7 @@ pub async fn post(
                         }
                         (mime::TEXT, mime::HTML) => Ok((
                             Some("html".to_string()),
-                            value::string(r.body_string().await.map_err(|_| {
+                            UntaggedValue::string(r.body_string().await.map_err(|_| {
                                 ShellError::labeled_error(
                                     "Could not load text from remote url",
                                     "could not load",
@@ -408,7 +407,7 @@ pub async fn post(
 
                             Ok((
                                 path_extension,
-                                value::string(r.body_string().await.map_err(|_| {
+                                UntaggedValue::string(r.body_string().await.map_err(|_| {
                                     ShellError::labeled_error(
                                         "Could not load text from remote url",
                                         "could not load",
@@ -423,7 +422,7 @@ pub async fn post(
                         }
                         (ty, sub_ty) => Ok((
                             None,
-                            value::string(format!(
+                            UntaggedValue::string(format!(
                                 "Not yet supported MIME type: {} {}",
                                 ty, sub_ty
                             )),
@@ -436,7 +435,7 @@ pub async fn post(
                 }
                 None => Ok((
                     None,
-                    value::string(format!("No content type found")),
+                    UntaggedValue::string(format!("No content type found")),
                     Tag {
                         anchor: Some(AnchorLocation::Url(location.to_string())),
                         span: tag.span,

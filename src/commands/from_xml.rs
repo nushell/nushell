@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct FromXML;
 
@@ -61,13 +60,13 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
 
         collected.into_value()
     } else if n.is_comment() {
-        value::string("<comment>").into_value(tag)
+        UntaggedValue::string("<comment>").into_value(tag)
     } else if n.is_pi() {
-        value::string("<processing_instruction>").into_value(tag)
+        UntaggedValue::string("<processing_instruction>").into_value(tag)
     } else if n.is_text() {
-        value::string(n.text().unwrap()).into_value(tag)
+        UntaggedValue::string(n.text().unwrap()).into_value(tag)
     } else {
-        value::string("<unknown>").into_value(tag)
+        UntaggedValue::string("<unknown>").into_value(tag)
     }
 }
 
@@ -138,21 +137,20 @@ fn from_xml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 mod tests {
 
     use crate::commands::from_xml;
-    use crate::data::value;
     use indexmap::IndexMap;
-    use nu_protocol::Value;
+    use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        value::table(list).into_untagged_value()
+        UntaggedValue::table(list).into_untagged_value()
     }
 
     fn parse(xml: &str) -> Value {

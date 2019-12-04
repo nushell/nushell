@@ -68,25 +68,6 @@ macro_rules! trace_out_stream {
     }};
 }
 
-#[macro_export]
-macro_rules! dict {
-    ($( $key:expr => $value:expr ),*) => {
-        $crate::data::dict::TaggedDictBuilder::build(Tag::unknown(), |d| {
-            $(
-                d.insert_untagged($key, $value);
-            )*
-        })
-    };
-
-    ([tag] => $tag:expr, $( $key:expr => $value:expr ),*) => {
-        $crate::data::dict::TaggedDictBuilder::build($tag, |d| {
-            $(
-                d.insert_untagged($key, $value);
-            )*
-        })
-    }
-}
-
 pub(crate) use nu_protocol::{errln, outln};
 
 pub(crate) use crate::commands::command::{

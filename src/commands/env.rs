@@ -1,9 +1,8 @@
 use crate::cli::History;
-use crate::data::{config, value};
+use crate::data::config;
 use crate::prelude::*;
-use crate::TaggedDictBuilder;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Signature, UntaggedValue, Value};
+use nu_protocol::{Dictionary, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 use crate::commands::WholeStreamCommand;
 use indexmap::IndexMap;
@@ -36,24 +35,39 @@ pub fn get_environment(tag: Tag) -> Result<Value, Box<dyn std::error::Error>> {
     let mut indexmap = IndexMap::new();
 
     let path = std::env::current_dir()?;
-    indexmap.insert("cwd".to_string(), value::path(path).into_value(&tag));
+    indexmap.insert(
+        "cwd".to_string(),
+        UntaggedValue::path(path).into_value(&tag),
+    );
 
     if let Some(home) = dirs::home_dir() {
-        indexmap.insert("home".to_string(), value::path(home).into_value(&tag));
+        indexmap.insert(
+            "home".to_string(),
+            UntaggedValue::path(home).into_value(&tag),
+        );
     }
 
     let config = config::default_path()?;
-    indexmap.insert("config".to_string(), value::path(config).into_value(&tag));
+    indexmap.insert(
+        "config".to_string(),
+        UntaggedValue::path(config).into_value(&tag),
+    );
 
     let history = History::path();
-    indexmap.insert("history".to_string(), value::path(history).into_value(&tag));
+    indexmap.insert(
+        "history".to_string(),
+        UntaggedValue::path(history).into_value(&tag),
+    );
 
     let temp = std::env::temp_dir();
-    indexmap.insert("temp".to_string(), value::path(temp).into_value(&tag));
+    indexmap.insert(
+        "temp".to_string(),
+        UntaggedValue::path(temp).into_value(&tag),
+    );
 
     let mut dict = TaggedDictBuilder::new(&tag);
     for v in std::env::vars() {
-        dict.insert_untagged(v.0, value::string(v.1));
+        dict.insert_untagged(v.0, UntaggedValue::string(v.1));
     }
     if !dict.is_empty() {
         indexmap.insert("vars".to_string(), dict.into_value());

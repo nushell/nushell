@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value;
 use crate::prelude::*;
 use bson::{encode_document, oid::ObjectId, spec::BinarySubtype, Bson, Document};
 use nu_errors::{CoerceInto, ShellError};
@@ -274,7 +273,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
 
                     match bson_value_to_bytes(bson_value, name_tag.clone()) {
                         Ok(x) => yield ReturnSuccess::value(
-                            value::binary(x).into_value(&name_tag),
+                            UntaggedValue::binary(x).into_value(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
                             "Expected a table with BSON-compatible structure.tag() from pipeline",

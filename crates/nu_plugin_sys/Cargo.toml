@@ -1,5 +1,5 @@
 [package]
-name = "nu_plugin_binaryview"
+name = "nu_plugin_sys"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
@@ -7,15 +7,14 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ansi_term = "0.12.1"
-crossterm = { version = "0.10.2" }
 nu-protocol = { path = "../nu-protocol" }
 nu-source = { path = "../nu-source" }
 nu-errors = { path = "../nu-errors" }
-pretty-hex = "0.1.1"
-image = { version = "0.22.2", default_features = false, features = ["png_codec", "jpeg"] }
-rawkey = "0.1.2"
-neso = "0.5.0"
+futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
+heim = "0.0.8"
+futures-timer = "2.0.0"
+pin-utils = "0.1.0-alpha.4"
+battery = "0.7.4"
 
 [build-dependencies]
 nu-build = { version = "0.1.0", path = "../nu-build" }
