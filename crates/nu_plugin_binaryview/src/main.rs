@@ -1,7 +1,8 @@
 use crossterm::{cursor, terminal, Attribute, RawScreen};
-use nu::{serve_plugin, Plugin};
 use nu_errors::ShellError;
-use nu_protocol::{outln, CallInfo, Primitive, Signature, UntaggedValue, Value};
+use nu_protocol::{
+    outln, serve_plugin, CallInfo, Plugin, Primitive, Signature, UntaggedValue, Value,
+};
 use nu_source::AnchorLocation;
 use pretty_hex::*;
 
@@ -41,16 +42,8 @@ fn view_binary(
     if b.len() > 3 {
         match (b[0], b[1], b[2]) {
             (0x4e, 0x45, 0x53) => {
-                #[cfg(feature = "rawkey")]
-                {
-                    view_contents_interactive(b, source, lores_mode)?;
-                    return Ok(());
-                }
-                #[cfg(not(feature = "rawkey"))]
-                {
-                    outln!("Interactive binary viewing currently requires the 'rawkey' feature");
-                    return Ok(());
-                }
+                view_contents_interactive(b, source, lores_mode)?;
+                return Ok(());
             }
             _ => {}
         }
@@ -338,7 +331,6 @@ pub fn view_contents(
     Ok(())
 }
 
-#[cfg(feature = "rawkey")]
 pub fn view_contents_interactive(
     buffer: &[u8],
     source: Option<&AnchorLocation>,

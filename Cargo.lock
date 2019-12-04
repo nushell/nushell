@@ -1911,14 +1911,12 @@ dependencies = [
  "glob",
  "heim",
  "hex 0.4.0",
- "image",
  "indexmap",
  "itertools 0.8.2",
  "language-reporting",
  "log",
  "mime",
  "natural",
- "neso",
  "nom 5.0.1",
  "nom-tracable",
  "nom_locate",
@@ -1927,6 +1925,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-source",
+ "nu_plugin_binaryview",
  "nu_plugin_textview",
  "num-bigint",
  "num-traits 0.2.10",
@@ -1939,7 +1938,6 @@ dependencies = [
  "prettytable-rs",
  "ptree",
  "query_interface",
- "rawkey",
  "regex",
  "roxmltree",
  "rusqlite",
@@ -2077,6 +2075,24 @@ dependencies = [
  "pretty",
  "serde 1.0.103",
  "termcolor",
+]
+
+[[package]]
+name = "nu_plugin_binaryview"
+version = "0.1.0"
+dependencies = [
+ "ansi_term 0.12.1",
+ "crossterm",
+ "image",
+ "neso",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "pretty-hex",
+ "rawkey",
+ "syntect",
+ "url",
 ]
 
 [[package]]
