@@ -1,10 +1,19 @@
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
-use nu_protocol::{CallInfo, ColumnPath, Evaluate, Primitive, ShellTypeName, UntaggedValue, Value};
-use nu_source::{HasSpan, SpannedItem, Tagged, TaggedItem};
+use nu_protocol::{
+    CallInfo, ColumnPath, Evaluate, Primitive, RangeInclusion, ShellTypeName, UntaggedValue, Value,
+};
+use nu_source::{HasSpan, Spanned, SpannedItem, Tagged, TaggedItem};
 use nu_value_ext::ValueExt;
 use serde::de;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+#[derive(Copy, Clone, Deserialize, Serialize)]
+pub struct NumericRange {
+    pub from: (Spanned<u64>, RangeInclusion),
+    pub to: (Spanned<u64>, RangeInclusion),
+}
 
 #[derive(Debug)]
 pub struct DeserializerItem<'de> {
@@ -406,6 +415,25 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 value: UntaggedValue::Primitive(Primitive::String(string)),
                 ..
             } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Range(range)),
+                ..
+            } => {
+                let (left, left_inclusion) = range.from;
+                let (right, right_inclusion) = range.to;
+                let left_span = left.span;
+                let right_span = right.span;
+
+                let left = left.as_u64(left_span)?;
+                let right = right.as_u64(right_span)?;
+
+                let numeric_range = NumericRange {
+                    from: (left.spanned(left_span), left_inclusion),
+                    to: (right.spanned(right_span), right_inclusion),
+                };
+
+                visit::<Tagged<NumericRange>, _>(numeric_range.tagged(tag), name, fields, visitor)
+            }
 
             other => Err(ShellError::type_error(
                 name,

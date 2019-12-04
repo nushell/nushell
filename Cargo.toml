@@ -14,6 +14,7 @@ documentation = "https://book.nushell.sh"
 [workspace]
 
 members = [
+    "crates/nu-macros",
     "crates/nu-errors",
     "crates/nu-source",
     "crates/nu_plugin_average",
@@ -54,6 +55,8 @@ nu_plugin_sum = {version = "0.1.0", path = "./crates/nu_plugin_sum", optional=tr
 nu_plugin_sys = {version = "0.1.0", path = "./crates/nu_plugin_sys", optional=true}
 nu_plugin_textview = {version = "0.1.0", path = "./crates/nu_plugin_textview", optional=true}
 nu_plugin_tree = {version = "0.1.0", path = "./crates/nu_plugin_tree", optional=true}
+nu-macros = { version = "0.1.0", path = "./crates/nu-macros" }
+
 
 query_interface = "0.3.5"
 typetag = "0.1.4"
@@ -133,19 +136,21 @@ semver = {version = "0.9.0", optional = true}
 
 [features]
 default = ["sys", "ps", "textview", "inc", "str"]
+user-visible = ["sys", "ps", "starship-prompt", "textview", "binaryview", "match", "tree", "average", "sum"]
+
 sys = ["heim", "battery"]
 ps = ["heim", "futures-timer"]
 textview = ["crossterm", "syntect", "onig_sys", "url"]
-inc = ["semver"]
 str = []
 
+inc = ["semver"]
 starship-prompt = ["starship"]
 binaryview = ["nu_plugin_binaryview"]
 match = ["nu_plugin_match"]
 tree = ["nu_plugin_tree"]
 average = ["nu_plugin_average"]
 sum = ["nu_plugin_sum"]
-#trace = ["nu-parser/trace"]
+trace = ["nu-parser/trace"]
 
 [dependencies.rusqlite]
 version = "0.20.0"

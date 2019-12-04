@@ -8,6 +8,7 @@ use crate::TokenNode;
 #[allow(unused)]
 use getset::{Getters, MutGetters};
 use nu_errors::{ParseError, ShellError};
+use nu_protocol::SpannedTypeName;
 use nu_source::{HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Text};
 
 cfg_if::cfg_if! {
@@ -149,7 +150,7 @@ impl<'content, 'me> PeekedNode<'content, 'me> {
 pub fn peek_error(node: &Option<&TokenNode>, eof_span: Span, expected: &'static str) -> ParseError {
     match node {
         None => ParseError::unexpected_eof(expected, eof_span),
-        Some(node) => ParseError::mismatch(expected, node.type_name().spanned(node.span())),
+        Some(node) => ParseError::mismatch(expected, node.spanned_type_name()),
     }
 }
 
@@ -498,10 +499,10 @@ impl<'content> TokensIterator<'content> {
 
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
     /// that you'll succeed.
-    pub fn atomic_parse<'me, T>(
+    pub fn atomic_parse<'me, T, E>(
         &'me mut self,
-        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ParseError>,
-    ) -> Result<T, ParseError> {
+        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, E>,
+    ) -> Result<T, E> {
         let state = &mut self.state;
 
         let index = state.index;

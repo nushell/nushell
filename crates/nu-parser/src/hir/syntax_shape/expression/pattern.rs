@@ -2,8 +2,9 @@ use crate::hir::syntax_shape::{
     expand_atom, expand_bare, expression::expand_file_path, ExpandContext, ExpandExpression,
     ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, UnspannedAtomicToken,
 };
+use crate::parse::operator::EvaluationOperator;
 use crate::parse::tokens::{Token, UnspannedToken};
-use crate::{hir, hir::TokensIterator, Operator, TokenNode};
+use crate::{hir, hir::TokensIterator, TokenNode};
 use nu_errors::{ParseError, ShellError};
 #[cfg(coloring_in_tokens)]
 use nu_protocol::ShellTypeName;
@@ -26,6 +27,8 @@ impl FallibleColorSyntax for PatternShape {
         context: &ExpandContext,
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
+        use nu_protocol::SpannedTypeName;
+
         token_nodes.atomic(|token_nodes| {
             let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
 
@@ -125,7 +128,7 @@ impl ExpandSyntax for BarePatternShape {
                 ..
             })
             | TokenNode::Token(Token {
-                unspanned: UnspannedToken::Operator(Operator::Dot),
+                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::Dot),
                 ..
             })
             | TokenNode::Token(Token {

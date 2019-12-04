@@ -1,4 +1,5 @@
 pub(crate) mod call_node;
+pub(crate) mod comment;
 pub(crate) mod files;
 pub(crate) mod flag;
 pub(crate) mod operator;

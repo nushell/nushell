@@ -390,6 +390,7 @@ impl FallibleColorSyntax for ShorthandHeadShape {
     ) -> Result<(), ShellError> {
         use crate::parse::token_tree::TokenNode;
         use crate::parse::tokens::{Token, UnspannedToken};
+        use nu_protocol::SpannedTypeName;
         use nu_source::SpannedItem;
 
         // A shorthand path must not be at EOF

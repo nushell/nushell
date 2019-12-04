@@ -46,3 +46,7 @@ Unify dictionary building, probably around a macro
 sys plugin in own crate
 
 textview in own crate
+
+Combine atomic and atomic_parse in parser
+
+at_end_possible_ws needs to be comment and separator sensitive

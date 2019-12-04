@@ -815,6 +815,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "enumflags2"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33121c8782ba948ba332dab29311b026a8716dc65a1599e5b88f392d38496af8"
+dependencies = [
+ "enumflags2_derive",
+]
+
+[[package]]
+name = "enumflags2_derive"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecf634c5213044b8d54a46dd282cf5dd1f86bb5cb53e92c409cb4680a7fb9894"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1896,6 +1916,7 @@ dependencies = [
  "nom_locate",
  "nu-build",
  "nu-errors",
+ "nu-macros",
  "nu-parser",
  "nu-protocol",
  "nu-source",
@@ -1984,6 +2005,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-macros"
+version = "0.1.0"
+dependencies = [
+ "nu-protocol",
+]
+
+[[package]]
 name = "nu-parser"
 version = "0.1.0"
 dependencies = [
@@ -1991,6 +2019,7 @@ dependencies = [
  "bigdecimal",
  "cfg-if",
  "derive-new",
+ "enumflags2",
  "getset",
  "indexmap",
  "itertools 0.8.2",

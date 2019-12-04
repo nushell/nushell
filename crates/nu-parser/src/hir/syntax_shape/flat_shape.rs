@@ -1,5 +1,5 @@
 use crate::parse::flag::{Flag, FlagKind};
-use crate::parse::operator::Operator;
+use crate::parse::operator::EvaluationOperator;
 use crate::parse::token_tree::{Delimiter, TokenNode};
 use crate::parse::tokens::{RawNumber, UnspannedToken};
 use nu_source::{HasSpan, Span, Spanned, SpannedItem, Text};
@@ -10,8 +10,9 @@ pub enum FlatShape {
     CloseDelimiter(Delimiter),
     ItVariable,
     Variable,
-    Operator,
+    CompareOperator,
     Dot,
+    DotDot,
     InternalCommand,
     ExternalCommand,
     ExternalWord,
@@ -27,7 +28,9 @@ pub enum FlatShape {
     Int,
     Decimal,
     Whitespace,
+    Separator,
     Error,
+    Comment,
     Size { number: Span, unit: Span },
 }
 
@@ -41,10 +44,15 @@ impl FlatShape {
                 UnspannedToken::Number(RawNumber::Decimal(_)) => {
                     shapes.push(FlatShape::Decimal.spanned(token.span))
                 }
-                UnspannedToken::Operator(Operator::Dot) => {
+                UnspannedToken::EvaluationOperator(EvaluationOperator::Dot) => {
                     shapes.push(FlatShape::Dot.spanned(token.span))
                 }
-                UnspannedToken::Operator(_) => shapes.push(FlatShape::Operator.spanned(token.span)),
+                UnspannedToken::EvaluationOperator(EvaluationOperator::DotDot) => {
+                    shapes.push(FlatShape::DotDot.spanned(token.span))
+                }
+                UnspannedToken::CompareOperator(_) => {
+                    shapes.push(FlatShape::CompareOperator.spanned(token.span))
+                }
                 UnspannedToken::String(_) => shapes.push(FlatShape::String.spanned(token.span)),
                 UnspannedToken::Variable(v) if v.slice(source) == "it" => {
                     shapes.push(FlatShape::ItVariable.spanned(token.span))
@@ -92,6 +100,8 @@ impl FlatShape {
                 ..
             }) => shapes.push(FlatShape::ShorthandFlag.spanned(*span)),
             TokenNode::Whitespace(_) => shapes.push(FlatShape::Whitespace.spanned(token.span())),
+            TokenNode::Separator(_) => shapes.push(FlatShape::Separator.spanned(token.span())),
+            TokenNode::Comment(_) => shapes.push(FlatShape::Comment.spanned(token.span())),
             TokenNode::Error(v) => shapes.push(FlatShape::Error.spanned(v.span)),
         }
     }

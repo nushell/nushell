@@ -4,11 +4,13 @@ pub(crate) mod expand_external_tokens;
 pub(crate) mod external_command;
 pub(crate) mod named;
 pub(crate) mod path;
+pub(crate) mod range;
+pub(crate) mod signature;
 pub mod syntax_shape;
 pub(crate) mod tokens_iterator;
 
 use crate::hir::syntax_shape::Member;
-use crate::parse::operator::Operator;
+use crate::parse::operator::CompareOperator;
 use crate::parse::parser::Number;
 use crate::parse::unit::Unit;
 use derive_new::new;
@@ -24,11 +26,39 @@ use crate::parse::tokens::RawNumber;
 
 pub(crate) use self::binary::Binary;
 pub(crate) use self::path::Path;
+pub(crate) use self::range::Range;
 pub(crate) use self::syntax_shape::ExpandContext;
 pub(crate) use self::tokens_iterator::TokensIterator;
 
 pub use self::external_command::ExternalCommand;
 pub use self::named::{NamedArguments, NamedValue};
+
+#[derive(Debug, Clone)]
+pub struct Signature {
+    unspanned: nu_protocol::Signature,
+    span: Span,
+}
+
+impl Signature {
+    pub fn new(unspanned: nu_protocol::Signature, span: impl Into<Span>) -> Signature {
+        Signature {
+            unspanned,
+            span: span.into(),
+        }
+    }
+}
+
+impl HasSpan for Signature {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl PrettyDebugWithSource for Signature {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        self.unspanned.pretty_debug(source)
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Getters, Serialize, Deserialize, new)]
 pub struct Call {
@@ -68,6 +98,7 @@ pub enum RawExpression {
     Synthetic(Synthetic),
     Variable(Variable),
     Binary(Box<Binary>),
+    Range(Box<Range>),
     Block(Vec<Expression>),
     List(Vec<Expression>),
     Path(Box<Path>),
@@ -90,6 +121,7 @@ impl ShellTypeName for RawExpression {
             RawExpression::Variable(..) => "variable",
             RawExpression::List(..) => "list",
             RawExpression::Binary(..) => "binary",
+            RawExpression::Range(..) => "range",
             RawExpression::Block(..) => "block",
             RawExpression::Path(..) => "variable path",
             RawExpression::Boolean(..) => "boolean",
@@ -159,6 +191,7 @@ impl PrettyDebugWithSource for Expression {
             },
             RawExpression::Variable(_) => b::keyword(self.span.slice(source)),
             RawExpression::Binary(binary) => binary.pretty_debug(source),
+            RawExpression::Range(range) => range.pretty_debug(source),
             RawExpression::Block(_) => b::opaque("block"),
             RawExpression::List(list) => b::delimit(
                 "[",
@@ -245,13 +278,19 @@ impl Expression {
 
     pub fn infix(
         left: Expression,
-        op: Spanned<impl Into<Operator>>,
+        op: Spanned<impl Into<CompareOperator>>,
         right: Expression,
     ) -> Expression {
         let new_span = left.span.until(right.span);
 
         RawExpression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
             .into_expr(new_span)
+    }
+
+    pub fn range(left: Expression, op: Span, right: Expression) -> Expression {
+        let new_span = left.span.until(right.span);
+
+        RawExpression::Range(Box::new(Range::new(left, op, right))).into_expr(new_span)
     }
 
     pub fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {

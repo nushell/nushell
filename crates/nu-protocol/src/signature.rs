@@ -1,4 +1,5 @@
 use crate::syntax_shape::SyntaxShape;
+use crate::type_shape::Type;
 use indexmap::IndexMap;
 use nu_source::{b, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource};
 use serde::{Deserialize, Serialize};
@@ -76,6 +77,8 @@ pub struct Signature {
     pub positional: Vec<(PositionalType, Description)>,
     pub rest_positional: Option<(SyntaxShape, Description)>,
     pub named: IndexMap<String, (NamedType, Description)>,
+    pub yields: Option<Type>,
+    pub input: Option<Type>,
     pub is_filter: bool,
 }
 
@@ -98,14 +101,16 @@ impl PrettyDebugWithSource for Signature {
 }
 
 impl Signature {
-    pub fn new(name: String) -> Signature {
+    pub fn new(name: impl Into<String>) -> Signature {
         Signature {
-            name,
+            name: name.into(),
             usage: String::new(),
             positional: vec![],
             rest_positional: None,
             named: IndexMap::new(),
             is_filter: false,
+            yields: None,
+            input: None,
         }
     }
 
@@ -184,6 +189,16 @@ impl Signature {
 
     pub fn rest(mut self, ty: SyntaxShape, desc: impl Into<String>) -> Signature {
         self.rest_positional = Some((ty, desc.into()));
+        self
+    }
+
+    pub fn yields(mut self, ty: Type) -> Signature {
+        self.yields = Some(ty);
+        self
+    }
+
+    pub fn input(mut self, ty: Type) -> Signature {
+        self.input = Some(ty);
         self
     }
 }

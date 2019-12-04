@@ -1,4 +1,4 @@
-use crate::parse::{call_node::*, flag::*, operator::*, pipeline::*, tokens::*};
+use crate::parse::{call_node::*, comment::*, flag::*, operator::*, pipeline::*, tokens::*};
 use derive_new::new;
 use getset::Getters;
 use nu_errors::{ParseError, ShellError};
@@ -18,7 +18,9 @@ pub enum TokenNode {
     Delimited(Spanned<DelimitedNode>),
     Pipeline(Pipeline),
     Flag(Flag),
+    Comment(Comment),
     Whitespace(Span),
+    Separator(Span),
 
     Error(Spanned<ShellError>),
 }
@@ -39,14 +41,32 @@ impl PrettyDebugWithSource for TokenNode {
                 "whitespace",
                 b::description(format!("{:?}", space.slice(source))),
             ),
+            TokenNode::Separator(span) => b::typed(
+                "separator",
+                b::description(format!("{:?}", span.slice(source))),
+            ),
+            TokenNode::Comment(comment) => {
+                b::typed("comment", b::description(comment.text.slice(source)))
+            }
             TokenNode::Error(_) => b::error("error"),
         }
     }
 }
 
-impl HasSpan for TokenNode {
-    fn span(&self) -> Span {
-        self.get_span()
+impl ShellTypeName for TokenNode {
+    fn type_name(&self) -> &'static str {
+        match self {
+            TokenNode::Token(t) => t.type_name(),
+            TokenNode::Nodes(_) => "nodes",
+            TokenNode::Call(_) => "command",
+            TokenNode::Delimited(d) => d.type_name(),
+            TokenNode::Pipeline(_) => "pipeline",
+            TokenNode::Flag(_) => "flag",
+            TokenNode::Whitespace(_) => "whitespace",
+            TokenNode::Separator(_) => "separator",
+            TokenNode::Comment(_) => "comment",
+            TokenNode::Error(_) => "error",
+        }
     }
 }
 
@@ -107,12 +127,12 @@ impl fmt::Debug for DebugTokenNode<'_> {
 
 impl From<&TokenNode> for Span {
     fn from(token: &TokenNode) -> Span {
-        token.get_span()
+        token.span()
     }
 }
 
-impl TokenNode {
-    pub fn get_span(&self) -> Span {
+impl HasSpan for TokenNode {
+    fn span(&self) -> Span {
         match self {
             TokenNode::Token(t) => t.span,
             TokenNode::Nodes(t) => t.span,
@@ -121,27 +141,14 @@ impl TokenNode {
             TokenNode::Pipeline(s) => s.span,
             TokenNode::Flag(s) => s.span,
             TokenNode::Whitespace(s) => *s,
+            TokenNode::Separator(s) => *s,
+            TokenNode::Comment(c) => c.span(),
             TokenNode::Error(s) => s.span,
         }
     }
+}
 
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            TokenNode::Token(t) => t.type_name(),
-            TokenNode::Nodes(_) => "nodes",
-            TokenNode::Call(_) => "command",
-            TokenNode::Delimited(d) => d.type_name(),
-            TokenNode::Pipeline(_) => "pipeline",
-            TokenNode::Flag(_) => "flag",
-            TokenNode::Whitespace(_) => "whitespace",
-            TokenNode::Error(_) => "error",
-        }
-    }
-
-    pub fn spanned_type_name(&self) -> Spanned<&'static str> {
-        self.type_name().spanned(self.span())
-    }
-
+impl TokenNode {
     pub fn tagged_type_name(&self) -> Tagged<&'static str> {
         self.type_name().tagged(self.span())
     }
@@ -244,7 +251,7 @@ impl TokenNode {
     pub fn is_dot(&self) -> bool {
         match self {
             TokenNode::Token(Token {
-                unspanned: UnspannedToken::Operator(Operator::Dot),
+                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::Dot),
                 ..
             }) => true,
             _ => false,
@@ -421,7 +428,7 @@ impl TokenNode {
     pub fn expect_dot(&self) -> Span {
         match self {
             TokenNode::Token(Token {
-                unspanned: UnspannedToken::Operator(Operator::Dot),
+                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::Dot),
                 span,
             }) => *span,
             other => panic!("Expected dot, found {:?}", other),

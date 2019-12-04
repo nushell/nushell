@@ -16,6 +16,9 @@ use std::ops::Range;
 pub enum ParseErrorReason {
     /// The parser encountered an EOF rather than what it was expecting
     Eof { expected: &'static str, span: Span },
+    /// The parser expected to see the end of a token stream (possibly the token
+    /// stream from inside a delimited token node), but found something else.
+    ExtraTokens { actual: Spanned<String> },
     /// The parser encountered something other than what it was expecting
     Mismatch {
         expected: &'static str,
@@ -40,6 +43,17 @@ impl ParseError {
     pub fn unexpected_eof(expected: &'static str, span: Span) -> ParseError {
         ParseError {
             reason: ParseErrorReason::Eof { expected, span },
+        }
+    }
+
+    /// Construct a [ParseErrorReason::ExtraTokens](ParseErrorReason::ExtraTokens)
+    pub fn extra_tokens(actual: Spanned<impl Into<String>>) -> ParseError {
+        let Spanned { span, item } = actual;
+
+        ParseError {
+            reason: ParseErrorReason::ExtraTokens {
+                actual: item.into().spanned(span),
+            },
         }
     }
 
@@ -71,6 +85,9 @@ impl From<ParseError> for ShellError {
     fn from(error: ParseError) -> ShellError {
         match error.reason {
             ParseErrorReason::Eof { expected, span } => ShellError::unexpected_eof(expected, span),
+            ParseErrorReason::ExtraTokens { actual } => {
+                ShellError::type_error("nothing", actual.clone())
+            }
             ParseErrorReason::Mismatch { actual, expected } => {
                 ShellError::type_error(expected, actual.clone())
             }

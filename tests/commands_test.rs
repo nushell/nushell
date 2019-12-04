@@ -249,30 +249,6 @@ fn range_selects_some_rows() {
 }
 
 #[test]
-fn range_selects_all_rows() {
-    Playground::setup("range_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![
-            EmptyFile("notes.txt"),
-            EmptyFile("tests.txt"),
-            EmptyFile("persons.txt"),
-        ]);
-
-        let actual = nu!(
-            cwd: dirs.test(), h::pipeline(
-            r#"
-                ls
-                | get name
-                | range ..
-                | count
-                | echo $it
-            "#
-        ));
-
-        assert_eq!(actual, "3");
-    });
-}
-
-#[test]
 fn split_by() {
     Playground::setup("split_by_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(

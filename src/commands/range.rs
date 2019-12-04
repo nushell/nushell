@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
+use crate::deserializer::NumericRange;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Signature, SyntaxShape};
@@ -7,7 +8,7 @@ use nu_source::Tagged;
 
 #[derive(Deserialize)]
 struct RangeArgs {
-    area: Tagged<String>,
+    area: Tagged<NumericRange>,
 }
 
 pub struct Range;
@@ -20,7 +21,7 @@ impl WholeStreamCommand for Range {
     fn signature(&self) -> Signature {
         Signature::build("range").required(
             "rows ",
-            SyntaxShape::Any,
+            SyntaxShape::Range,
             "range of rows to return: Eg) 4..7 (=> from 4 to 7)",
         )
     }
@@ -39,48 +40,14 @@ impl WholeStreamCommand for Range {
 }
 
 fn range(
-    RangeArgs { area: rows }: RangeArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    RangeArgs { area }: RangeArgs,
+    RunnableContext { input, name: _, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    match rows.item.find('.') {
-        Some(value) => {
-            let (first, last) = rows.item.split_at(value);
-            let first = match first.parse::<u64>() {
-                Ok(postion) => postion,
-                Err(_) => {
-                    if first == "" {
-                        0
-                    } else {
-                        return Err(ShellError::labeled_error(
-                            "no correct start of range",
-                            "'from' needs to be an Integer or empty",
-                            name,
-                        ));
-                    }
-                }
-            };
-            let last = match last.trim_start_matches('.').parse::<u64>() {
-                Ok(postion) => postion,
-                Err(_) => {
-                    if last == ".." {
-                        std::u64::MAX - 1
-                    } else {
-                        return Err(ShellError::labeled_error(
-                            "no correct end of range",
-                            "'to' needs to be an Integer or empty",
-                            name,
-                        ));
-                    }
-                }
-            };
-            Ok(OutputStream::from_input(
-                input.values.skip(first).take(last - first + 1),
-            ))
-        }
-        None => Err(ShellError::labeled_error(
-            "No correct formatted range found",
-            "format: <from>..<to>",
-            name,
-        )),
-    }
+    let range = area.item;
+    let (from, _) = range.from;
+    let (to, _) = range.to;
+
+    return Ok(OutputStream::from_input(
+        input.values.skip(*from).take(*to - *from + 1),
+    ));
 }

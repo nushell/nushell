@@ -4,6 +4,7 @@ mod debug;
 pub mod dict;
 pub mod evaluate;
 pub mod primitive;
+pub mod range;
 mod serde_bigdecimal;
 mod serde_bigint;
 
@@ -11,11 +12,12 @@ use crate::type_name::{ShellTypeName, SpannedTypeName};
 use crate::value::dict::Dictionary;
 use crate::value::evaluate::Evaluate;
 use crate::value::primitive::Primitive;
+use crate::value::range::{Range, RangeInclusion};
 use crate::{ColumnPath, PathMember};
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_source::{AnchorLocation, HasSpan, Span, Tag};
+use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -156,6 +158,13 @@ impl UntaggedValue {
         UntaggedValue::Primitive(Primitive::Binary(binary))
     }
 
+    pub fn range(
+        left: (Spanned<Primitive>, RangeInclusion),
+        right: (Spanned<Primitive>, RangeInclusion),
+    ) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Range(Box::new(Range::new(left, right))))
+    }
+
     pub fn boolean(s: impl Into<bool>) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Boolean(s.into()))
     }
@@ -222,6 +231,23 @@ impl Value {
                 Ok(PathBuf::from(&path_str).clone())
             }
             _ => Err(ShellError::type_error("Path", self.spanned_type_name())),
+        }
+    }
+
+    pub fn as_primitive(&self) -> Result<Primitive, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => Ok(primitive.clone()),
+            _ => Err(ShellError::type_error(
+                "Primitive",
+                self.spanned_type_name(),
+            )),
+        }
+    }
+
+    pub fn as_u64(&self) -> Result<u64, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.as_u64(self.tag.span),
+            _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
         }
     }
 }

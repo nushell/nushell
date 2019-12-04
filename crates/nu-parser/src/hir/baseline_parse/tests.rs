@@ -23,7 +23,7 @@ fn test_parse_string() {
 fn test_parse_path() {
     parse_tokens(
         VariablePathShape,
-        vec![b::var("it"), b::op("."), b::bare("cpu")],
+        vec![b::var("it"), b::dot(), b::bare("cpu")],
         |tokens| {
             let (outer_var, inner_var) = tokens[0].expect_var();
             let bare = tokens[2].expect_bare();
@@ -39,9 +39,9 @@ fn test_parse_path() {
         VariablePathShape,
         vec![
             b::var("cpu"),
-            b::op("."),
+            b::dot(),
             b::bare("amount"),
-            b::op("."),
+            b::dot(),
             b::string("max ghz"),
         ],
         |tokens| {
@@ -145,7 +145,7 @@ fn parse_tokens<T: Eq + HasSpan + Clone + Debug + 'static>(
         let expr = match expr {
             Ok(expr) => expr,
             Err(err) => {
-                print_err(err.into(), context.source().clone());
+                print_err(err.into(), &context.source().clone());
                 panic!("Parse failed");
             }
         };
@@ -165,12 +165,10 @@ pub fn print_err(err: ShellError, source: &Text) {
     let mut source = source.to_string();
     source.push_str(" ");
     let files = Files::new(source);
-    let _ = std::panic::catch_unwind(move || {
-        let _ = language_reporting::emit(
-            &mut writer.lock(),
-            &files,
-            &diag,
-            &language_reporting::DefaultConfig,
-        );
-    });
+    let _ = language_reporting::emit(
+        &mut writer.lock(),
+        &files,
+        &diag,
+        &language_reporting::DefaultConfig,
+    );
 }
