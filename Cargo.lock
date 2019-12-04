@@ -2079,13 +2079,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu-textview"
+name = "nu_plugin_textview"
 version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm",
  "nu",
  "nu-build",
+ "nu-errors",
  "nu-protocol",
  "nu-source",
  "syntect",

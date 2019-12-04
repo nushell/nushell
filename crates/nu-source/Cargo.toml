@@ -1,7 +1,7 @@
 [package]
 name = "nu-source"
 version = "0.1.0"
-authors = ["Yehuda Katz <wycats@gmail.com>"]
+authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "A source string characterizer for Nushell"
 license = "MIT"

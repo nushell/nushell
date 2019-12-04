@@ -13,7 +13,7 @@ documentation = "https://book.nushell.sh"
 
 [workspace]
 
-members = ["crates/nu-errors", "crates/nu-source", "crates/nu-textview", "crates/nu-protocol", "crates/nu-parser", "crates/nu-build"]
+members = ["crates/nu-errors", "crates/nu-source", "crates/nu_plugin_textview", "crates/nu-protocol", "crates/nu-parser", "crates/nu-build"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
