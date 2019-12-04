@@ -309,6 +309,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(What),
             whole_stream_command(Which),
             whole_stream_command(Debug),
+            whole_stream_command(Range),
         ]);
 
         cfg_if::cfg_if! {
