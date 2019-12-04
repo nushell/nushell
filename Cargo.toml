@@ -13,7 +13,7 @@ documentation = "https://book.nushell.sh"
 
 [workspace]
 
-members = ["crates/nu-errors", "crates/nu-source", "crates/nu-textview", "crates/nu-protocol", "crates/nu-parser", "crates/nu-build"]
+members = ["crates/nu-errors", "crates/nu-source", "crates/nu_plugin_textview", "crates/nu-protocol", "crates/nu-parser", "crates/nu-build"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,6 +22,7 @@ nu-source = { version = "0.1.0", path = "./crates/nu-source" }
 nu-protocol = { version = "0.1.0", path = "./crates/nu-protocol" }
 nu-errors = { version = "0.1.0", path = "./crates/nu-errors" }
 nu-parser = { version = "0.1.0", path = "./crates/nu-parser" }
+nu_plugin_textview = {version = "0.1.0", path = "./crates/nu_plugin_textview", optional=true}
 
 query_interface = "0.3.5"
 typetag = "0.1.4"
@@ -114,6 +115,7 @@ binaryview = ["image", "crossterm"]
 sys = ["heim", "battery"]
 ps = ["heim"]
 starship-prompt = ["starship"]
+textview = ["nu_plugin_textview"]
 #trace = ["nu-parser/trace"]
 
 [dependencies.rusqlite]
