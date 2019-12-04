@@ -10,7 +10,6 @@ edition = "2018"
 syntect = { version = "3.2.0" }
 ansi_term = "0.12.1"
 crossterm = { version = "0.10.2" }
-nu = { path = "../.." }
 nu-protocol = { path = "../nu-protocol" }
 nu-source = { path = "../nu-source" }
 nu-errors = { path = "../nu-errors" }
