@@ -60,8 +60,8 @@ pub(crate) mod post;
 pub(crate) mod prepend;
 pub(crate) mod prev;
 pub(crate) mod pwd;
-#[allow(unused)]
 pub(crate) mod range;
+#[allow(unused)]
 pub(crate) mod reduce_by;
 pub(crate) mod reject;
 pub(crate) mod reverse;
@@ -150,8 +150,8 @@ pub(crate) use post::Post;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::PWD;
-#[allow(unused)]
 pub(crate) use range::Range;
+#[allow(unused)]
 pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;
 pub(crate) use reverse::Reverse;
