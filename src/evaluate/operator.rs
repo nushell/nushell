@@ -19,7 +19,9 @@ pub fn apply_operator(
         }
         Operator::Dot => Ok(UntaggedValue::boolean(false)),
         Operator::Contains => contains(left, right).map(UntaggedValue::boolean),
-        Operator::NotContains => contains(left, right).map(Not::not).map(UntaggedValue::boolean),
+        Operator::NotContains => contains(left, right)
+            .map(Not::not)
+            .map(UntaggedValue::boolean),
     }
 }
 
