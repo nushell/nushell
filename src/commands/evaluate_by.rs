@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -73,7 +72,7 @@ pub fn evaluate_by(
 fn fetch(key: Option<String>) -> Box<dyn Fn(Value, Tag) -> Option<Value> + 'static> {
     Box::new(move |value: Value, tag| match &key {
         Some(key_given) => value.get_data_by_key(key_given[..].spanned(tag.span)),
-        None => Some(value::int(1).into_value(tag)),
+        None => Some(UntaggedValue::int(1).into_value(tag)),
     })
 }
 
@@ -145,19 +144,19 @@ mod tests {
     use nu_source::TaggedItem;
 
     fn int(s: impl Into<BigInt>) -> Value {
-        value::int(s).into_untagged_value()
+        UntaggedValue::int(s).into_untagged_value()
     }
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        value::table(list).into_untagged_value()
+        UntaggedValue::table(list).into_untagged_value()
     }
 
     fn nu_releases_sorted_by_date() -> Value {
@@ -225,7 +224,7 @@ mod tests {
 
         assert_eq!(
             evaluator(subject, Tag::unknown()),
-            Some(value::int(1).into_untagged_value())
+            Some(UntaggedValue::int(1).into_untagged_value())
         );
     }
 

@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, Value};
+use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct Size;
 
@@ -79,10 +78,10 @@ fn count(contents: &str, tag: impl Into<Tag>) -> Value {
     let mut dict = TaggedDictBuilder::new(tag);
     //TODO: add back in name when we have it in the tag
     //dict.insert("name", value::string(name));
-    dict.insert_untagged("lines", value::int(lines));
-    dict.insert_untagged("words", value::int(words));
-    dict.insert_untagged("chars", value::int(chars));
-    dict.insert_untagged("max length", value::int(bytes));
+    dict.insert_untagged("lines", UntaggedValue::int(lines));
+    dict.insert_untagged("words", UntaggedValue::int(words));
+    dict.insert_untagged("chars", UntaggedValue::int(chars));
+    dict.insert_untagged("max length", UntaggedValue::int(bytes));
 
     dict.into_value()
 }

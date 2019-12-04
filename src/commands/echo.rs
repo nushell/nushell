@@ -1,4 +1,3 @@
-use crate::data::value;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
@@ -41,7 +40,7 @@ fn run(
             match i.as_string() {
                 Ok(s) => {
                     output.push(Ok(ReturnSuccess::Value(
-                        value::string(s).into_value(i.tag.clone()),
+                        UntaggedValue::string(s).into_value(i.tag.clone()),
                     )));
                 }
                 _ => match i {

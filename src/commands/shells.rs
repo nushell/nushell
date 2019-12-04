@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::TaggedDictBuilder;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::Signature;
+use nu_protocol::{Signature, TaggedDictBuilder};
 use std::sync::atomic::Ordering;
 
 pub struct Shells;

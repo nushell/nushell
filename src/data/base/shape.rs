@@ -6,7 +6,8 @@ use derive_new::new;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName, UntaggedValue, Value,
+    ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName, TaggedDictBuilder, UntaggedValue,
+    Value,
 };
 use nu_source::{b, DebugDoc, PrettyDebug};
 use std::collections::BTreeMap;
@@ -535,7 +536,7 @@ impl Shape {
             .expect("Writing into a Vec can't fail");
         let string = String::from_utf8_lossy(&out);
 
-        value::string(string).into_untagged_value()
+        UntaggedValue::string(string).into_untagged_value()
     }
 }
 
@@ -563,20 +564,22 @@ impl Shapes {
         if self.shapes.len() == 1 {
             let shape = self.shapes.keys().nth(0).unwrap();
 
-            vec![dict! {
-                "type" => shape.to_value(),
-                "rows" => value::string("all")
-            }]
+            let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
+            tagged_dict.insert_untagged("type", shape.to_value());
+            tagged_dict.insert_untagged("rows", UntaggedValue::string("all"));
+            vec![tagged_dict.into_value()]
         } else {
             self.shapes
                 .iter()
                 .map(|(shape, rows)| {
                     let rows = rows.iter().map(|i| i.to_string()).join(", ");
 
-                    dict! {
-                        "type" => shape.to_value(),
-                        "rows" => value::string(format!("[ {} ]", rows))
-                    }
+                    let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
+                    tagged_dict.insert_untagged("type", shape.to_value());
+                    tagged_dict
+                        .insert_untagged("rows", UntaggedValue::string(format!("[ {} ]", rows)));
+
+                    tagged_dict.into_value()
                 })
                 .collect()
         }

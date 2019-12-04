@@ -1,7 +1,6 @@
 use crate::commands::PerItemCommand;
 use crate::commands::UnevaluatedCallInfo;
 use crate::context::CommandRegistry;
-use crate::data::value;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -54,12 +53,12 @@ impl PerItemCommand for Enter {
 
                     if registry.has(command) {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            value::string(command).into_value(Tag::unknown()),
+                            UntaggedValue::string(command).into_value(Tag::unknown()),
                         )))]
                         .into())
                     } else {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            value::nothing().into_value(Tag::unknown()),
+                            UntaggedValue::nothing().into_value(Tag::unknown()),
                         )))]
                         .into())
                     }

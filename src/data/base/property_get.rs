@@ -1,4 +1,3 @@
-use crate::data::value;
 use crate::prelude::*;
 use nu_errors::{ExpectedRange, ShellError};
 use nu_protocol::{
@@ -436,7 +435,7 @@ pub fn get_data<'value>(value: &'value Value, desc: &String) -> MaybeOwned<'valu
         UntaggedValue::Primitive(_) => MaybeOwned::Borrowed(value),
         UntaggedValue::Row(o) => o.get_data(desc),
         UntaggedValue::Block(_) | UntaggedValue::Table(_) | UntaggedValue::Error(_) => {
-            MaybeOwned::Owned(value::nothing().into_untagged_value())
+            MaybeOwned::Owned(UntaggedValue::nothing().into_untagged_value())
         }
     }
 }
@@ -468,9 +467,9 @@ pub(crate) fn get_data_by_key(value: &Value, name: Spanned<&str>) -> Option<Valu
                         ..
                     } => match o.get_data_by_key(name) {
                         Some(v) => out.push(v),
-                        None => out.push(value::nothing().into_untagged_value()),
+                        None => out.push(UntaggedValue::nothing().into_untagged_value()),
                     },
-                    _ => out.push(value::nothing().into_untagged_value()),
+                    _ => out.push(UntaggedValue::nothing().into_untagged_value()),
                 }
             }
 

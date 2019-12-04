@@ -11,10 +11,15 @@ use crate::type_name::{ShellTypeName, SpannedTypeName};
 use crate::value::dict::Dictionary;
 use crate::value::evaluate::Evaluate;
 use crate::value::primitive::Primitive;
+use crate::{ColumnPath, PathMember};
+use bigdecimal::BigDecimal;
+use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Tag};
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
 pub enum UntaggedValue {
@@ -102,6 +107,69 @@ impl UntaggedValue {
             UntaggedValue::Primitive(Primitive::String(string)) => &string[..],
             _ => panic!("expect_string assumes that the value must be a string"),
         }
+    }
+
+    #[allow(unused)]
+    pub fn row(entries: IndexMap<String, Value>) -> UntaggedValue {
+        UntaggedValue::Row(entries.into())
+    }
+
+    pub fn table(list: &Vec<Value>) -> UntaggedValue {
+        UntaggedValue::Table(list.to_vec())
+    }
+
+    pub fn string(s: impl Into<String>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::String(s.into()))
+    }
+
+    pub fn line(s: impl Into<String>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Line(s.into()))
+    }
+
+    pub fn column_path(s: Vec<impl Into<PathMember>>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::new(
+            s.into_iter().map(|p| p.into()).collect(),
+        )))
+    }
+
+    pub fn int(i: impl Into<BigInt>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Int(i.into()))
+    }
+
+    pub fn pattern(s: impl Into<String>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::String(s.into()))
+    }
+
+    pub fn path(s: impl Into<PathBuf>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Path(s.into()))
+    }
+
+    pub fn bytes(s: impl Into<u64>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Bytes(s.into()))
+    }
+
+    pub fn decimal(s: impl Into<BigDecimal>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Decimal(s.into()))
+    }
+
+    pub fn binary(binary: Vec<u8>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Binary(binary))
+    }
+
+    pub fn boolean(s: impl Into<bool>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Boolean(s.into()))
+    }
+
+    pub fn duration(secs: u64) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Duration(secs))
+    }
+
+    pub fn system_date(s: SystemTime) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Date(s.into()))
+    }
+
+    pub fn nothing() -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Nothing)
     }
 }
 

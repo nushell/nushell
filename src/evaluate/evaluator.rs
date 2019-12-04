@@ -1,14 +1,13 @@
 use crate::context::CommandRegistry;
 use crate::data::base::Block;
-use crate::data::value;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
-use crate::TaggedDictBuilder;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_parser::hir::{self, Expression, RawExpression};
 use nu_protocol::{
-    ColumnPath, Evaluate, Primitive, Scope, UnspannedPathMember, UntaggedValue, Value,
+    ColumnPath, Evaluate, Primitive, Scope, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
+    Value,
 };
 use nu_source::Text;
 
@@ -28,9 +27,9 @@ pub(crate) fn evaluate_baseline_expr(
             "Invalid external word".spanned(tag.span),
             ArgumentError::InvalidExternalWord,
         )),
-        RawExpression::FilePath(path) => Ok(value::path(path.clone()).into_value(tag)),
+        RawExpression::FilePath(path) => Ok(UntaggedValue::path(path.clone()).into_value(tag)),
         RawExpression::Synthetic(hir::Synthetic::String(s)) => {
-            Ok(value::string(s).into_untagged_value())
+            Ok(UntaggedValue::string(s).into_untagged_value())
         }
         RawExpression::Variable(var) => evaluate_reference(var, scope, source, tag),
         RawExpression::Command(_) => evaluate_command(tag, scope, source),
@@ -118,11 +117,22 @@ fn evaluate_literal(literal: &hir::Literal, source: &Text) -> Value {
             UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::new(members)))
                 .into_value(&literal.span)
         }
-        hir::RawLiteral::Number(int) => value::number(int.clone()).into_value(literal.span),
+        hir::RawLiteral::Number(int) => match int {
+            nu_parser::Number::Int(i) => UntaggedValue::int(i.clone()).into_value(literal.span),
+            nu_parser::Number::Decimal(d) => {
+                UntaggedValue::decimal(d.clone()).into_value(literal.span)
+            }
+        },
         hir::RawLiteral::Size(int, unit) => unit.compute(&int).into_value(literal.span),
-        hir::RawLiteral::String(tag) => value::string(tag.slice(source)).into_value(literal.span),
-        hir::RawLiteral::GlobPattern(pattern) => value::pattern(pattern).into_value(literal.span),
-        hir::RawLiteral::Bare => value::string(literal.span.slice(source)).into_value(literal.span),
+        hir::RawLiteral::String(tag) => {
+            UntaggedValue::string(tag.slice(source)).into_value(literal.span)
+        }
+        hir::RawLiteral::GlobPattern(pattern) => {
+            UntaggedValue::pattern(pattern).into_value(literal.span)
+        }
+        hir::RawLiteral::Bare => {
+            UntaggedValue::string(literal.span.slice(source)).into_value(literal.span)
+        }
     }
 }
 
@@ -140,32 +150,32 @@ fn evaluate_reference(
                 let mut dict = TaggedDictBuilder::new(&tag);
                 for v in std::env::vars() {
                     if v.0 != "PATH" && v.0 != "Path" {
-                        dict.insert_untagged(v.0, value::string(v.1));
+                        dict.insert_untagged(v.0, UntaggedValue::string(v.1));
                     }
                 }
                 Ok(dict.into_value())
             }
             x if x == "nu:config" => {
                 let config = crate::data::config::read(tag.clone(), &None)?;
-                Ok(value::row(config).into_value(tag))
+                Ok(UntaggedValue::row(config).into_value(tag))
             }
             x if x == "nu:path" => {
                 let mut table = vec![];
                 match std::env::var_os("PATH") {
                     Some(paths) => {
                         for path in std::env::split_paths(&paths) {
-                            table.push(value::path(path).into_value(&tag));
+                            table.push(UntaggedValue::path(path).into_value(&tag));
                         }
                     }
                     _ => {}
                 }
-                Ok(value::table(&table).into_value(tag))
+                Ok(UntaggedValue::table(&table).into_value(tag))
             }
             x => Ok(scope
                 .vars
                 .get(x)
                 .map(|v| v.clone())
-                .unwrap_or_else(|| value::nothing().into_value(tag))),
+                .unwrap_or_else(|| UntaggedValue::nothing().into_value(tag))),
         },
     }
 }

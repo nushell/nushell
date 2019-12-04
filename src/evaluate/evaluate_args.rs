@@ -1,11 +1,10 @@
 // TODO: Temporary redirect
 use crate::context::CommandRegistry;
-use crate::data::value;
 use crate::evaluate::evaluate_baseline_expr;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::hir;
-use nu_protocol::{EvaluatedArgs, Scope, Value};
+use nu_protocol::{EvaluatedArgs, Scope, UntaggedValue, Value};
 use nu_source::Text;
 
 pub(crate) fn evaluate_args(
@@ -35,7 +34,7 @@ pub(crate) fn evaluate_args(
             for (name, value) in n.named.iter() {
                 match value {
                     hir::NamedValue::PresentSwitch(tag) => {
-                        results.insert(name.clone(), value::boolean(true).into_value(tag));
+                        results.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
                     }
                     hir::NamedValue::Value(expr) => {
                         results.insert(

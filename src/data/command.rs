@@ -1,7 +1,7 @@
 use crate::commands::command::Command;
-use crate::data::{TaggedDictBuilder, TaggedListBuilder};
+use crate::data::TaggedListBuilder;
 use crate::prelude::*;
-use nu_protocol::{NamedType, PositionalType, Signature, Value};
+use nu_protocol::{NamedType, PositionalType, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use std::ops::Deref;
 
 pub(crate) fn command_dict(command: Arc<Command>, tag: impl Into<Tag>) -> Value {
@@ -9,18 +9,18 @@ pub(crate) fn command_dict(command: Arc<Command>, tag: impl Into<Tag>) -> Value 
 
     let mut cmd_dict = TaggedDictBuilder::new(&tag);
 
-    cmd_dict.insert_untagged("name", value::string(command.name()));
+    cmd_dict.insert_untagged("name", UntaggedValue::string(command.name()));
 
     cmd_dict.insert_untagged(
         "type",
-        value::string(match command.deref() {
+        UntaggedValue::string(match command.deref() {
             Command::WholeStream(_) => "Command",
             Command::PerItem(_) => "Filter",
         }),
     );
 
     cmd_dict.insert_value("signature", signature_dict(command.signature(), tag));
-    cmd_dict.insert_untagged("usage", value::string(command.usage()));
+    cmd_dict.insert_untagged("usage", UntaggedValue::string(command.usage()));
 
     cmd_dict.into_value()
 }
@@ -30,11 +30,11 @@ fn for_spec(name: &str, ty: &str, required: bool, tag: impl Into<Tag>) -> Value 
 
     let mut spec = TaggedDictBuilder::new(tag);
 
-    spec.insert_untagged("name", value::string(name));
-    spec.insert_untagged("type", value::string(ty));
+    spec.insert_untagged("name", UntaggedValue::string(name));
+    spec.insert_untagged("type", UntaggedValue::string(ty));
     spec.insert_untagged(
         "required",
-        value::string(if required { "yes" } else { "no" }),
+        UntaggedValue::string(if required { "yes" } else { "no" }),
     );
 
     spec.into_value()

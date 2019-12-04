@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate indexmap;
 
-use nu::{serve_plugin, value, Plugin};
+use nu::{serve_plugin, Plugin};
 use nu_errors::ShellError;
 use nu_protocol::{
     CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, SpannedTypeName, SyntaxShape,
@@ -35,7 +35,7 @@ impl Embed {
                 self.are_all_rows = false;
 
                 self.values.push(
-                    value::row(indexmap! {
+                    UntaggedValue::row(indexmap! {
                         match &self.field {
                             Some(key) => key.clone(),
                             None => "Column".into()
@@ -81,11 +81,11 @@ impl Plugin for Embed {
 
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         if self.are_all_rows {
-            let row = value::row(indexmap! {
+            let row = UntaggedValue::row(indexmap! {
                 match &self.field {
                     Some(key) => key.clone(),
                     None => "Column".into(),
-                } => value::table(&self.values).into_value(Tag::unknown()),
+                } => UntaggedValue::table(&self.values).into_value(Tag::unknown()),
             })
             .into_untagged_value();
 

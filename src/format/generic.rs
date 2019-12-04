@@ -35,7 +35,7 @@ impl RenderView for GenericView<'_> {
 
             b @ UntaggedValue::Block(_) => {
                 let printed = format_leaf(b).plain_string(host.width());
-                let view = EntriesView::from_value(&value::string(printed).into_value(tag));
+                let view = EntriesView::from_value(&UntaggedValue::string(printed).into_value(tag));
                 view.render_view(host)?;
                 Ok(())
             }

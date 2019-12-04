@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 
 pub struct FromJSON;
 
@@ -38,10 +37,10 @@ fn convert_json_value_to_nu_value(v: &serde_hjson::Value, tag: impl Into<Tag>) -
 
     match v {
         serde_hjson::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(&tag),
-        serde_hjson::Value::Bool(b) => value::boolean(*b).into_value(&tag),
-        serde_hjson::Value::F64(n) => value::number(n).into_value(&tag),
-        serde_hjson::Value::U64(n) => value::number(n).into_value(&tag),
-        serde_hjson::Value::I64(n) => value::number(n).into_value(&tag),
+        serde_hjson::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(&tag),
+        serde_hjson::Value::F64(n) => UntaggedValue::decimal(*n).into_value(&tag),
+        serde_hjson::Value::U64(n) => UntaggedValue::int(*n).into_value(&tag),
+        serde_hjson::Value::I64(n) => UntaggedValue::int(*n).into_value(&tag),
         serde_hjson::Value::String(s) => {
             UntaggedValue::Primitive(Primitive::String(String::from(s))).into_value(&tag)
         }

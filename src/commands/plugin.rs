@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::value;
 use crate::prelude::*;
 use derive_new::new;
 use log::trace;
@@ -316,7 +315,7 @@ pub fn sink_plugin(
 
         // Needed for async_stream to type check
         if false {
-            yield ReturnSuccess::value(value::nothing().into_untagged_value());
+            yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
         }
     };
     Ok(OutputStream::new(stream))

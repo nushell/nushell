@@ -1,9 +1,8 @@
 use crate::cli::History as HistoryFile;
 use crate::commands::PerItemCommand;
-use crate::data::value;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, Value};
+use nu_protocol::{CallInfo, ReturnSuccess, Signature, UntaggedValue, Value};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -38,7 +37,7 @@ impl PerItemCommand for History {
                 let reader = BufReader::new(file);
                 for line in reader.lines() {
                     if let Ok(line) = line {
-                        yield ReturnSuccess::value(value::string(line).into_value(tag.clone()));
+                        yield ReturnSuccess::value(UntaggedValue::string(line).into_value(tag.clone()));
                     }
                 }
             } else {

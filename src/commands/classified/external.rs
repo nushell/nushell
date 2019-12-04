@@ -5,7 +5,7 @@ use futures_codec::{Decoder, Encoder, Framed};
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::ExternalCommand;
-use nu_protocol::Value;
+use nu_protocol::{UntaggedValue, Value};
 use std::io::{Error, ErrorKind};
 use subprocess::Exec;
 
@@ -33,14 +33,14 @@ impl Decoder for LinesCodec {
             Some(pos) if !src.is_empty() => {
                 let buf = src.split_to(pos + 1);
                 String::from_utf8(buf.to_vec())
-                    .map(value::line)
+                    .map(UntaggedValue::line)
                     .map(Some)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }
             _ if !src.is_empty() => {
                 let drained = src.take();
                 String::from_utf8(drained.to_vec())
-                    .map(value::string)
+                    .map(UntaggedValue::string)
                     .map(Some)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))
             }

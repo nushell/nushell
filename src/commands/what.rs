@@ -1,11 +1,10 @@
 use crate::commands::WholeStreamCommand;
 
-use crate::data::value;
 use crate::prelude::*;
 use futures::StreamExt;
 use futures_util::pin_mut;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, ReturnValue, Signature};
+use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue};
 use nu_source::PrettyDebug;
 
 pub struct What;
@@ -45,7 +44,7 @@ pub fn what(
 
         while let Some(row) = values.next().await {
             let name = value::format_leaf(&row).plain_string(100000);
-            yield ReturnSuccess::value(value::string(name).into_value(Tag::unknown_anchor(row.tag.span)));
+            yield ReturnSuccess::value(UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)));
         }
     };
 

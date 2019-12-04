@@ -3,7 +3,6 @@ pub(crate) mod shape;
 
 use crate::context::CommandRegistry;
 use crate::data::base::property_get::ValueExt;
-use crate::data::{value, TaggedDictBuilder};
 use crate::evaluate::evaluate_baseline_expr;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -12,7 +11,8 @@ use log::trace;
 use nu_errors::ShellError;
 use nu_parser::{hir, Operator};
 use nu_protocol::{
-    Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName, UntaggedValue, Value,
+    Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName, TaggedDictBuilder,
+    UntaggedValue, Value,
 };
 use nu_source::{Tag, Text};
 use num_bigint::BigInt;
@@ -41,7 +41,7 @@ interfaces!(Block: dyn ObjectHash);
 impl EvaluateTrait for Block {
     fn invoke(&self, scope: &Scope) -> Result<Value, ShellError> {
         if self.expressions.len() == 0 {
-            return Ok(value::nothing().into_value(&self.tag));
+            return Ok(UntaggedValue::nothing().into_value(&self.tag));
         }
 
         let mut last = None;
@@ -99,7 +99,7 @@ pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>)
 
     for field in fields {
         match descs.iter().find(|d| *d == field) {
-            None => out.insert_untagged(field, value::nothing()),
+            None => out.insert_untagged(field, UntaggedValue::nothing()),
             Some(desc) => out.insert_value(desc.clone(), obj.get_data(desc).borrow().clone()),
         }
     }
@@ -196,28 +196,27 @@ fn coerce_compare_primitive(
 }
 #[cfg(test)]
 mod tests {
-    use super::value;
     use crate::data::base::property_get::{as_column_path, ValueExt};
     use indexmap::IndexMap;
     use nu_errors::ShellError;
-    use nu_protocol::{ColumnPath as ColumnPathValue, PathMember, Value};
+    use nu_protocol::{ColumnPath as ColumnPathValue, PathMember, UntaggedValue, Value};
     use nu_source::*;
     use num_bigint::BigInt;
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn int(input: impl Into<BigInt>) -> Value {
-        value::int(input.into()).into_untagged_value()
+        UntaggedValue::int(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        value::table(list).into_untagged_value()
+        UntaggedValue::table(list).into_untagged_value()
     }
 
     fn error_callback(
@@ -232,7 +231,7 @@ mod tests {
 
     #[test]
     fn gets_matching_field_from_a_row() {
-        let row = value::row(indexmap! {
+        let row = UntaggedValue::row(indexmap! {
             "amigos".into() => table(&vec![string("andres"),string("jonathan"),string("yehuda")])
         })
         .into_untagged_value();
@@ -253,7 +252,7 @@ mod tests {
 
         let (version, tag) = string("0.4.0").into_parts();
 
-        let value = value::row(indexmap! {
+        let value = UntaggedValue::row(indexmap! {
             "package".into() =>
                 row(indexmap! {
                     "name".into()    =>     string("nu"),
@@ -276,7 +275,7 @@ mod tests {
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
-        let value = value::row(indexmap! {
+        let value = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
@@ -310,7 +309,7 @@ mod tests {
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
-        let value = value::row(indexmap! {
+        let value = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
@@ -327,7 +326,7 @@ mod tests {
                 .into_value(tag)
                 .get_data_by_column_path(&field_path, Box::new(error_callback("package.authors.0")))
                 .unwrap(),
-            value::row(indexmap! {
+            UntaggedValue::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })
         );
@@ -339,7 +338,7 @@ mod tests {
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
-        let value = value::row(indexmap! {
+        let value = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
@@ -359,7 +358,7 @@ mod tests {
                     Box::new(error_callback("package.authors.\"0\""))
                 )
                 .unwrap(),
-            value::row(indexmap! {
+            UntaggedValue::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })
         );
@@ -369,7 +368,7 @@ mod tests {
     fn replaces_matching_field_from_a_row() {
         let field_path = column_path(&vec![string("amigos")]);
 
-        let sample = value::row(indexmap! {
+        let sample = UntaggedValue::row(indexmap! {
             "amigos".into() => table(&vec![
                 string("andres"),
                 string("jonathan"),
@@ -395,7 +394,7 @@ mod tests {
             string("los.3.caballeros"),
         ]);
 
-        let sample = value::row(indexmap! {
+        let sample = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "authors".into() => row(indexmap! {
                     "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
@@ -415,7 +414,7 @@ mod tests {
 
         assert_eq!(
             actual,
-            value::row(indexmap! {
+            UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "authors".into() => row(indexmap! {
                     "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
@@ -432,7 +431,7 @@ mod tests {
             string("nu.version.arepa"),
         ]);
 
-        let sample = value::row(indexmap! {
+        let sample = UntaggedValue::row(indexmap! {
             "shell_policy".into() => row(indexmap! {
                 "releases".into() => table(&vec![
                     row(indexmap! {
@@ -467,7 +466,7 @@ mod tests {
 
         assert_eq!(
             actual,
-            value::row(indexmap! {
+            UntaggedValue::row(indexmap! {
                 "shell_policy".into() => row(indexmap! {
                     "releases".into() => table(&vec![
                         row(indexmap! {

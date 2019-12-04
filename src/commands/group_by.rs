@@ -1,9 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::base::property_get::get_data_by_key;
-use crate::data::{value, TaggedDictBuilder};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
 
 pub struct GroupBy;
@@ -108,7 +107,7 @@ pub fn group(
     let mut out = TaggedDictBuilder::new(&tag);
 
     for (k, v) in groups.iter() {
-        out.insert_untagged(k, value::table(v));
+        out.insert_untagged(k, UntaggedValue::table(v));
     }
 
     Ok(out.into_value())
@@ -117,21 +116,20 @@ pub fn group(
 #[cfg(test)]
 mod tests {
     use crate::commands::group_by::group;
-    use crate::data::value;
     use indexmap::IndexMap;
-    use nu_protocol::Value;
+    use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
 
     fn string(input: impl Into<String>) -> Value {
-        value::string(input.into()).into_untagged_value()
+        UntaggedValue::string(input.into()).into_untagged_value()
     }
 
     fn row(entries: IndexMap<String, Value>) -> Value {
-        value::row(entries).into_untagged_value()
+        UntaggedValue::row(entries).into_untagged_value()
     }
 
     fn table(list: &Vec<Value>) -> Value {
-        value::table(list).into_untagged_value()
+        UntaggedValue::table(list).into_untagged_value()
     }
 
     fn nu_releases_commiters() -> Vec<Value> {

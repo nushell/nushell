@@ -1,4 +1,4 @@
-use nu::{serve_plugin, value, Plugin, TaggedDictBuilder};
+use nu::{serve_plugin, Plugin, TaggedDictBuilder};
 use nu_errors::ShellError;
 use nu_protocol::{
     CallInfo, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
@@ -134,7 +134,10 @@ impl Plugin for Parse {
                 let mut dict = TaggedDictBuilder::new(input.tag());
 
                 for (idx, column_name) in self.column_names.iter().enumerate() {
-                    dict.insert_untagged(column_name, value::string(&cap[idx + 1].to_string()));
+                    dict.insert_untagged(
+                        column_name,
+                        UntaggedValue::string(&cap[idx + 1].to_string()),
+                    );
                 }
 
                 results.push(ReturnSuccess::value(dict.into_value()));

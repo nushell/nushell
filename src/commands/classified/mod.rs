@@ -1,5 +1,5 @@
-use crate::data::value;
 use crate::prelude::*;
+use nu_protocol::UntaggedValue;
 
 mod dynamic;
 pub(crate) mod external;
@@ -17,7 +17,7 @@ pub(crate) struct ClassifiedInputStream {
 impl ClassifiedInputStream {
     pub(crate) fn new() -> ClassifiedInputStream {
         ClassifiedInputStream {
-            objects: vec![value::nothing().into_value(Tag::unknown())].into(),
+            objects: vec![UntaggedValue::nothing().into_value(Tag::unknown())].into(),
             stdin: None,
         }
     }

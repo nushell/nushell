@@ -1,5 +1,4 @@
 use crate::data::base::property_get::ValueExt;
-use crate::data::value;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{CallInfo, ColumnPath, Evaluate, Primitive, ShellTypeName, UntaggedValue, Value};
@@ -56,7 +55,7 @@ impl<'de> ConfigDeserializer<'de> {
 
         self.stack.push(DeserializerItem {
             key_struct_field: Some((name.to_string(), name)),
-            val: value.unwrap_or_else(|| value::nothing().into_value(&self.call.name_tag)),
+            val: value.unwrap_or_else(|| UntaggedValue::nothing().into_value(&self.call.name_tag)),
         });
 
         Ok(())

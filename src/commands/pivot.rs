@@ -1,10 +1,8 @@
 use crate::commands::WholeStreamCommand;
 use crate::data::base::property_get::get_data_by_key;
-use crate::data::value;
 use crate::prelude::*;
-use crate::TaggedDictBuilder;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tagged};
 
 pub struct Pivot;
@@ -114,7 +112,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
             let mut dict = TaggedDictBuilder::new(&context.name);
 
             if !args.ignore_titles && !args.header_row {
-                dict.insert_untagged(headers[column_num].clone(), value::string(desc.clone()));
+                dict.insert_untagged(headers[column_num].clone(), UntaggedValue::string(desc.clone()));
                 column_num += 1
             }
 
@@ -124,7 +122,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
                         dict.insert_value(headers[column_num].clone(), x.clone());
                     }
                     _ => {
-                        dict.insert_untagged(headers[column_num].clone(), value::nothing());
+                        dict.insert_untagged(headers[column_num].clone(), UntaggedValue::nothing());
                     }
                 }
                 column_num += 1;
