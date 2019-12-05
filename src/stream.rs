@@ -1,11 +1,15 @@
 use crate::prelude::*;
-use nu_protocol::{ReturnSuccess, ReturnValue, Value};
+use nu_protocol::{ReturnSuccess, ReturnValue, UntaggedValue, Value};
 
 pub struct InputStream {
     pub(crate) values: BoxStream<'static, Value>,
 }
 
 impl InputStream {
+    pub fn empty() -> InputStream {
+        vec![UntaggedValue::nothing().into_value(Tag::unknown())].into()
+    }
+
     pub fn into_vec(self) -> impl Future<Output = Vec<Value>> {
         self.values.collect()
     }

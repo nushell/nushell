@@ -1,5 +1,4 @@
 use crate::commands::classified::pipeline::run_pipeline;
-use crate::commands::classified::ClassifiedInputStream;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
@@ -607,8 +606,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 return LineResult::Error(line.to_string(), err);
             }
 
-            let input = ClassifiedInputStream::new();
-
+            let input = InputStream::empty();
             match run_pipeline(pipeline, ctx, input, line).await {
                 Ok(_) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
