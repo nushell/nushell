@@ -22,7 +22,7 @@ pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<
         })
         .collect();
 
-    if possible_matches.len() > 0 {
+    if !possible_matches.is_empty() {
         possible_matches.sort();
         Some(possible_matches)
     } else {
@@ -96,7 +96,7 @@ impl Div<&str> for &AbsolutePath {
     type Output = AbsolutePath;
 
     fn div(self, rhs: &str) -> Self::Output {
-        let parts = rhs.split("/");
+        let parts = rhs.split('/');
         let mut result = self.inner.clone();
 
         for part in parts {
@@ -133,7 +133,7 @@ impl<T: AsRef<str>> Div<T> for &RelativePath {
     type Output = RelativePath;
 
     fn div(self, rhs: T) -> Self::Output {
-        let parts = rhs.as_ref().split("/");
+        let parts = rhs.as_ref().split('/');
         let mut result = self.inner.clone();
 
         for part in parts {
@@ -276,7 +276,7 @@ impl FileStructure {
     }
 
     pub fn contains_files(&self) -> bool {
-        self.resources.len() > 0
+        !self.resources.is_empty()
     }
 
     pub fn paths_applying_with<F>(

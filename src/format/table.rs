@@ -30,7 +30,7 @@ impl TableView {
         for value in values {
             let descs = value.data_descriptors();
 
-            if descs.len() == 0 {
+            if descs.is_empty() {
                 if !ret.contains(&value_column) {
                     ret.push("<value>".to_string());
                 }
@@ -46,13 +46,13 @@ impl TableView {
     }
 
     pub fn from_list(values: &[Value], starting_idx: usize) -> Option<TableView> {
-        if values.len() == 0 {
+        if values.is_empty() {
             return None;
         }
 
         let mut headers = TableView::merge_descriptors(values);
 
-        if headers.len() == 0 {
+        if headers.is_empty() {
             headers.push("<value>".to_string());
         }
 
@@ -68,10 +68,10 @@ impl TableView {
                                 value: UntaggedValue::Row(..),
                                 ..
                             } => (
-                                format_leaf(&UntaggedValue::nothing()).plain_string(100000),
+                                format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
                                 style_leaf(&UntaggedValue::nothing()),
                             ),
-                            _ => (format_leaf(value).plain_string(100000), style_leaf(value)),
+                            _ => (format_leaf(value).plain_string(100_000), style_leaf(value)),
                         }
                     } else {
                         match value {
@@ -81,12 +81,12 @@ impl TableView {
                             } => {
                                 let data = value.get_data(d);
                                 (
-                                    format_leaf(data.borrow()).plain_string(100000),
+                                    format_leaf(data.borrow()).plain_string(100_000),
                                     style_leaf(data.borrow()),
                                 )
                             }
                             _ => (
-                                format_leaf(&UntaggedValue::nothing()).plain_string(100000),
+                                format_leaf(&UntaggedValue::nothing()).plain_string(100_000),
                                 style_leaf(&UntaggedValue::nothing()),
                             ),
                         }
@@ -96,7 +96,7 @@ impl TableView {
 
             if values.len() > 1 {
                 // Indices are black, bold, right-aligned:
-                row.insert(0, (format!("{}", (starting_idx + idx).to_string()), "Fdbr"));
+                row.insert(0, ((starting_idx + idx).to_string(), "Fdbr"));
             }
 
             entries.push(row);
@@ -105,22 +105,21 @@ impl TableView {
         let mut max_per_column = vec![];
 
         if values.len() > 1 {
-            headers.insert(0, format!("#"));
+            headers.insert(0, "#".to_owned());
         }
 
-        for head in 0..headers.len() {
+        for i in 0..headers.len() {
             let mut current_col_max = 0;
-            for row in 0..values.len() {
-                let value_length = entries[row][head].0.chars().count();
+            let iter = entries.iter().take(values.len());
+
+            for entry in iter {
+                let value_length = entry[i].0.chars().count();
                 if value_length > current_col_max {
                     current_col_max = value_length;
                 }
             }
 
-            max_per_column.push(std::cmp::max(
-                current_col_max,
-                headers[head].chars().count(),
-            ));
+            max_per_column.push(std::cmp::max(current_col_max, headers[i].chars().count()));
         }
 
         // Different platforms want different amounts of buffer, not sure why
@@ -132,13 +131,14 @@ impl TableView {
         // If we have too many columns, truncate the table
         if max_num_of_columns < headers.len() {
             headers.truncate(max_num_of_columns);
-            for row in 0..entries.len() {
-                entries[row].truncate(max_num_of_columns);
+
+            for entry in &mut entries {
+                entry.truncate(max_num_of_columns);
             }
 
-            headers.push("...".to_string());
-            for row in 0..entries.len() {
-                entries[row].push(("...".to_string(), "c")); // ellipsis is centred
+            headers.push("...".to_owned());
+            for entry in &mut entries {
+                entry.push(("...".to_owned(), "c")); // ellipsis is centred
             }
         }
 
@@ -149,22 +149,23 @@ impl TableView {
         let mut num_overages = 0;
         let mut underage_sum = 0;
         let mut overage_separator_sum = 0;
-        for idx in 0..headers.len() {
-            if max_per_column[idx] > max_naive_column_width {
+        let iter = max_per_column.iter().enumerate().take(headers.len());
+        for (i, &column_max) in iter {
+            if column_max > max_naive_column_width {
                 num_overages += 1;
-                if idx != (headers.len() - 1) {
+                if i != (headers.len() - 1) {
                     overage_separator_sum += 3;
                 }
-                if idx == 0 {
+                if i == 0 {
                     overage_separator_sum += 1;
                 }
             } else {
-                underage_sum += max_per_column[idx];
+                underage_sum += column_max;
                 // if column isn't last, add 3 for its separator
-                if idx != (headers.len() - 1) {
+                if i != (headers.len() - 1) {
                     underage_sum += 3;
                 }
-                if idx == 0 {
+                if i == 0 {
                     underage_sum += 1;
                 }
             }
@@ -180,24 +181,25 @@ impl TableView {
         // This width isn't quite right, as we're rounding off some of our space
         num_overages = 0;
         overage_separator_sum = 0;
-        for idx in 0..headers.len() {
-            if max_per_column[idx] > max_naive_column_width {
-                if max_per_column[idx] <= max_column_width {
-                    underage_sum += max_per_column[idx];
+        let iter = max_per_column.iter().enumerate().take(headers.len());
+        for (i, &column_max) in iter {
+            if column_max > max_naive_column_width {
+                if column_max <= max_column_width {
+                    underage_sum += column_max;
                     // if column isn't last, add 3 for its separator
-                    if idx != (headers.len() - 1) {
+                    if i != (headers.len() - 1) {
                         underage_sum += 3;
                     }
-                    if idx == 0 {
+                    if i == 0 {
                         underage_sum += 1;
                     }
                 } else {
                     // Column is still too large, so let's count it
                     num_overages += 1;
-                    if idx != (headers.len() - 1) {
+                    if i != (headers.len() - 1) {
                         overage_separator_sum += 3;
                     }
-                    if idx == 0 {
+                    if i == 0 {
                         overage_separator_sum += 1;
                     }
                 }
@@ -214,8 +216,9 @@ impl TableView {
         for head in 0..headers.len() {
             if max_per_column[head] > max_naive_column_width {
                 headers[head] = fill(&headers[head], max_column_width);
-                for row in 0..entries.len() {
-                    entries[row][head].0 = fill(&entries[row][head].0, max_column_width);
+
+                for entry in &mut entries {
+                    entry[head].0 = fill(&entry[head].0, max_column_width);
                 }
             }
         }
@@ -226,7 +229,7 @@ impl TableView {
 
 impl RenderView for TableView {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
-        if self.entries.len() == 0 {
+        if self.entries.is_empty() {
             return Ok(());
         }
 

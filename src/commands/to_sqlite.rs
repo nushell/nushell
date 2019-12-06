@@ -70,7 +70,7 @@ fn comma_concat(acc: String, current: String) -> String {
     }
 }
 
-fn get_columns(rows: &Vec<Value>) -> Result<String, std::io::Error> {
+fn get_columns(rows: &[Value]) -> Result<String, std::io::Error> {
     match &rows[0].value {
         UntaggedValue::Row(d) => Ok(d
             .entries

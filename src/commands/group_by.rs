@@ -84,7 +84,7 @@ pub fn group(
 
             possible_matches.sort();
 
-            if possible_matches.len() > 0 {
+            if !possible_matches.is_empty() {
                 return Err(ShellError::labeled_error(
                     "Unknown column",
                     format!("did you mean '{}'?", possible_matches[0].1),

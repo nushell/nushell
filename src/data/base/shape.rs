@@ -196,7 +196,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
     fn pretty(&self) -> DebugDocBuilder {
         (b::key(match self.key {
             Column::String(string) => string.clone(),
-            Column::Value => format!("<value>"),
+            Column::Value => "<value>".to_owned(),
         }) + b::delimit("(", self.value.pretty(), ")").as_kind())
     }
 }
@@ -251,7 +251,7 @@ impl InlineShape {
             Primitive::ColumnPath(path) => InlineShape::ColumnPath(path.clone()),
             Primitive::Pattern(pattern) => InlineShape::Pattern(pattern.clone()),
             Primitive::Boolean(boolean) => InlineShape::Boolean(*boolean),
-            Primitive::Date(date) => InlineShape::Date(date.clone()),
+            Primitive::Date(date) => InlineShape::Date(*date),
             Primitive::Duration(duration) => InlineShape::Duration(*duration),
             Primitive::Path(path) => InlineShape::Path(path.clone()),
             Primitive::Binary(_) => InlineShape::Binary,
@@ -329,23 +329,26 @@ impl PrettyDebug for FormatInlineShape {
                         (b::primitive(format!("{}", byte.get_value())) + b::space() + b::kind("B"))
                             .group()
                     }
-                    _ => b::primitive(format!("{}", byte.format(1))),
+                    _ => b::primitive(byte.format(1).to_string()),
                 }
             }
-            InlineShape::String(string) => b::primitive(format!("{}", string)),
-            InlineShape::Line(string) => b::primitive(format!("{}", string)),
+            InlineShape::String(string) => b::primitive(string),
+            InlineShape::Line(string) => b::primitive(string),
             InlineShape::ColumnPath(path) => {
                 b::intersperse(path.iter().map(|member| member.pretty()), b::keyword("."))
             }
             InlineShape::Pattern(pattern) => b::primitive(pattern),
-            InlineShape::Boolean(boolean) => b::primitive(match (boolean, column) {
-                (true, None) => format!("Yes"),
-                (false, None) => format!("No"),
-                (true, Some(Column::String(s))) if !s.is_empty() => format!("{}", s),
-                (false, Some(Column::String(s))) if !s.is_empty() => format!(""),
-                (true, Some(_)) => format!("Yes"),
-                (false, Some(_)) => format!("No"),
-            }),
+            InlineShape::Boolean(boolean) => b::primitive(
+                match (boolean, column) {
+                    (true, None) => "Yes",
+                    (false, None) => "No",
+                    (true, Some(Column::String(s))) if !s.is_empty() => s,
+                    (false, Some(Column::String(s))) if !s.is_empty() => "",
+                    (true, Some(_)) => "Yes",
+                    (false, Some(_)) => "No",
+                }
+                .to_owned(),
+            ),
             InlineShape::Date(date) => b::primitive(date.humanize()),
             InlineShape::Duration(duration) => {
                 b::description(format_primitive(&Primitive::Duration(*duration), None))
@@ -443,12 +446,12 @@ where
             None => {
                 self.values.insert(key, {
                     let mut group = G::new();
-                    group.merge(value.into());
+                    group.merge(value);
                     group
                 });
             }
             Some(group) => {
-                group.merge(value.into());
+                group.merge(value);
             }
         }
     }
@@ -514,7 +517,7 @@ impl Shape {
                 d.iter()
                     .map(|c| match c {
                         Column::String(s) => s.clone(),
-                        Column::Value => format!("<value>"),
+                        Column::Value => "<value>".to_owned(),
                     })
                     .join(", ")
             ),

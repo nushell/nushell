@@ -90,13 +90,13 @@ impl Inc {
             }
             UntaggedValue::Table(values) => {
                 if values.len() == 1 {
-                    return Ok(UntaggedValue::Table(vec![self.inc(values[0].clone())?])
-                        .into_value(value.tag()));
+                    Ok(UntaggedValue::Table(vec![self.inc(values[0].clone())?])
+                        .into_value(value.tag()))
                 } else {
-                    return Err(ShellError::type_error(
+                    Err(ShellError::type_error(
                         "incrementable value",
                         value.type_name().spanned(value.span()),
-                    ));
+                    ))
                 }
             }
 
@@ -108,20 +108,16 @@ impl Inc {
                         &f,
                         Box::new(move |(obj_source, column_path_tried, _)| {
                             match did_you_mean(&obj_source, &column_path_tried) {
-                                Some(suggestions) => {
-                                    return ShellError::labeled_error(
-                                        "Unknown column",
-                                        format!("did you mean '{}'?", suggestions[0].1),
-                                        span_for_spanned_list(fields.iter().map(|p| p.span)),
-                                    )
-                                }
-                                None => {
-                                    return ShellError::labeled_error(
-                                        "Unknown column",
-                                        "row does not contain this column",
-                                        span_for_spanned_list(fields.iter().map(|p| p.span)),
-                                    )
-                                }
+                                Some(suggestions) => ShellError::labeled_error(
+                                    "Unknown column",
+                                    format!("did you mean '{}'?", suggestions[0].1),
+                                    span_for_spanned_list(fields.iter().map(|p| p.span)),
+                                ),
+                                None => ShellError::labeled_error(
+                                    "Unknown column",
+                                    "row does not contain this column",
+                                    span_for_spanned_list(fields.iter().map(|p| p.span)),
+                                ),
                             }
                         }),
                     );
@@ -133,14 +129,12 @@ impl Inc {
                         &f,
                         replacement.value.clone().into_untagged_value(),
                     ) {
-                        Some(v) => return Ok(v),
-                        None => {
-                            return Err(ShellError::labeled_error(
-                                "inc could not find field to replace",
-                                "column name",
-                                value.tag(),
-                            ))
-                        }
+                        Some(v) => Ok(v),
+                        None => Err(ShellError::labeled_error(
+                            "inc could not find field to replace",
+                            "column name",
+                            value.tag(),
+                        )),
                     }
                 }
                 None => Err(ShellError::untagged_runtime_error(
@@ -201,13 +195,11 @@ impl Plugin for Inc {
         }
 
         match &self.error {
-            Some(reason) => {
-                return Err(ShellError::untagged_runtime_error(format!(
-                    "{}: {}",
-                    reason,
-                    Inc::usage()
-                )))
-            }
+            Some(reason) => Err(ShellError::untagged_runtime_error(format!(
+                "{}: {}",
+                reason,
+                Inc::usage()
+            ))),
             None => Ok(vec![]),
         }
     }

@@ -29,15 +29,15 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
 
             match byte.get_unit() {
                 byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
-                _ => format!("{}", byte.format(1)),
+                _ => byte.format(1).to_string(),
             }
         }
         Primitive::Duration(sec) => format_duration(*sec),
-        Primitive::Int(i) => format!("{}", i),
-        Primitive::Decimal(decimal) => format!("{}", decimal),
-        Primitive::Pattern(s) => format!("{}", s),
-        Primitive::String(s) => format!("{}", s),
-        Primitive::Line(s) => format!("{}", s),
+        Primitive::Int(i) => i.to_string(),
+        Primitive::Decimal(decimal) => decimal.to_string(),
+        Primitive::Pattern(s) => s.to_string(),
+        Primitive::String(s) => s.to_owned(),
+        Primitive::Line(s) => s.to_owned(),
         Primitive::ColumnPath(p) => {
             let mut members = p.iter();
             let mut f = String::new();
@@ -57,15 +57,16 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
             f
         }
         Primitive::Boolean(b) => match (b, field_name) {
-            (true, None) => format!("Yes"),
-            (false, None) => format!("No"),
-            (true, Some(s)) if !s.is_empty() => format!("{}", s),
-            (false, Some(s)) if !s.is_empty() => format!(""),
-            (true, Some(_)) => format!("Yes"),
-            (false, Some(_)) => format!("No"),
-        },
-        Primitive::Binary(_) => format!("<binary>"),
-        Primitive::Date(d) => format!("{}", d.humanize()),
+            (true, None) => "Yes",
+            (false, None) => "No",
+            (true, Some(s)) if !s.is_empty() => s,
+            (false, Some(s)) if !s.is_empty() => "",
+            (true, Some(_)) => "Yes",
+            (false, Some(_)) => "No",
+        }
+        .to_owned(),
+        Primitive::Binary(_) => "<binary>".to_owned(),
+        Primitive::Date(d) => d.humanize().to_string(),
     }
 }
 
@@ -83,7 +84,7 @@ fn format_duration(sec: u64) -> String {
     let (days, hours) = (hours / 24, hours % 24);
 
     match (days, hours, minutes, seconds) {
-        (0, 0, 0, 1) => format!("1 sec"),
+        (0, 0, 0, 1) => "1 sec".to_owned(),
         (0, 0, 0, s) => format!("{} secs", s),
         (0, 0, m, s) => format!("{}:{:02}", m, s),
         (0, h, m, s) => format!("{}:{:02}:{:02}", h, m, s),

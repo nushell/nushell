@@ -29,7 +29,7 @@ fn from_value_to_delimited_string(
             wtr.write_record(fields).expect("can not write.");
             wtr.write_record(values).expect("can not write.");
 
-            return Ok(String::from_utf8(wtr.into_inner().map_err(|_| {
+            let v = String::from_utf8(wtr.into_inner().map_err(|_| {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
@@ -42,7 +42,8 @@ fn from_value_to_delimited_string(
                     "original value",
                     &tagged_value.tag,
                 )
-            })?);
+            })?;
+            Ok(v)
         }
         UntaggedValue::Table(list) => {
             let mut wtr = WriterBuilder::new()
@@ -68,8 +69,7 @@ fn from_value_to_delimited_string(
                 }
                 wtr.write_record(&row).expect("can not write");
             }
-
-            return Ok(String::from_utf8(wtr.into_inner().map_err(|_| {
+            let v = String::from_utf8(wtr.into_inner().map_err(|_| {
                 ShellError::labeled_error(
                     "Could not convert record",
                     "original value",
@@ -82,9 +82,10 @@ fn from_value_to_delimited_string(
                     "original value",
                     &tagged_value.tag,
                 )
-            })?);
+            })?;
+            Ok(v)
         }
-        _ => return to_string_tagged_value(tagged_value),
+        _ => to_string_tagged_value(tagged_value),
     }
 }
 
@@ -98,7 +99,7 @@ pub fn clone_tagged_value(v: &Value) -> Value {
             UntaggedValue::Primitive(Primitive::Nothing)
         }
         UntaggedValue::Primitive(Primitive::Boolean(b)) => {
-            UntaggedValue::Primitive(Primitive::Boolean(b.clone()))
+            UntaggedValue::Primitive(Primitive::Boolean(*b))
         }
         UntaggedValue::Primitive(Primitive::Decimal(f)) => {
             UntaggedValue::Primitive(Primitive::Decimal(f.clone()))
@@ -110,10 +111,10 @@ pub fn clone_tagged_value(v: &Value) -> Value {
             UntaggedValue::Primitive(Primitive::Path(x.clone()))
         }
         UntaggedValue::Primitive(Primitive::Bytes(b)) => {
-            UntaggedValue::Primitive(Primitive::Bytes(b.clone()))
+            UntaggedValue::Primitive(Primitive::Bytes(*b))
         }
         UntaggedValue::Primitive(Primitive::Date(d)) => {
-            UntaggedValue::Primitive(Primitive::Date(d.clone()))
+            UntaggedValue::Primitive(Primitive::Date(*d))
         }
         UntaggedValue::Row(o) => UntaggedValue::Row(o.clone()),
         UntaggedValue::Table(l) => UntaggedValue::Table(l.clone()),
@@ -135,17 +136,15 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?.to_string()),
         UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?.to_string()),
         UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?.to_string()),
-        UntaggedValue::Table(_) => return Ok(String::from("[Table]")),
-        UntaggedValue::Row(_) => return Ok(String::from("[Row]")),
-        UntaggedValue::Primitive(Primitive::Line(s)) => return Ok(s.to_string()),
-        UntaggedValue::Primitive(Primitive::String(s)) => return Ok(s.to_string()),
-        _ => {
-            return Err(ShellError::labeled_error(
-                "Unexpected value",
-                "",
-                v.tag.clone(),
-            ))
-        }
+        UntaggedValue::Table(_) => Ok(String::from("[Table]")),
+        UntaggedValue::Row(_) => Ok(String::from("[Row]")),
+        UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.to_string()),
+        UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.to_string()),
+        _ => Err(ShellError::labeled_error(
+            "Unexpected value",
+            "",
+            v.tag.clone(),
+        )),
     }
 }
 

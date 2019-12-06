@@ -38,7 +38,7 @@ fn reject(
     RejectArgs { rest: fields }: RejectArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    if fields.len() == 0 {
+    if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Reject requires fields",
             "needs parameter",

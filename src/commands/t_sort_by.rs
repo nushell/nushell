@@ -128,7 +128,7 @@ pub fn columns_sorted(
 
             keys.into_iter().map(|k| k.tagged(&origin_tag)).collect()
         }
-        _ => vec![format!("default").tagged(&origin_tag)],
+        _ => vec!["default".to_owned().tagged(&origin_tag)],
     }
 }
 
@@ -197,12 +197,12 @@ pub fn t_sort(
                         outer.push_value(UntaggedValue::Table(i).into_value(&origin_tag));
                     }
 
-                    return Ok(UntaggedValue::Table(outer.list).into_value(&origin_tag));
+                    Ok(UntaggedValue::Table(outer.list).into_value(&origin_tag))
                 }
-                Some(_) => return Ok(UntaggedValue::nothing().into_value(&origin_tag)),
+                Some(_) => Ok(UntaggedValue::nothing().into_value(&origin_tag)),
             }
         }
-        None => return Ok(UntaggedValue::nothing().into_value(&origin_tag)),
+        None => Ok(UntaggedValue::nothing().into_value(&origin_tag)),
     }
 }
 #[cfg(test)]

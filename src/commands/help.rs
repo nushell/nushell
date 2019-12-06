@@ -82,16 +82,16 @@ impl PerItemCommand for Help {
                         }
 
                         if signature.rest_positional.is_some() {
-                            one_liner.push_str(&format!(" ...args",));
+                            one_liner.push_str(" ...args");
                         }
 
-                        if signature.named.len() > 0 {
+                        if !signature.named.is_empty() {
                             one_liner.push_str("{flags} ");
                         }
 
                         long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
 
-                        if signature.positional.len() > 0 || signature.rest_positional.is_some() {
+                        if !signature.positional.is_empty() || signature.rest_positional.is_some() {
                             long_desc.push_str("\nparameters:\n");
                             for positional in signature.positional {
                                 match positional.0 {
@@ -117,7 +117,7 @@ impl PerItemCommand for Help {
                                 ));
                             }
                         }
-                        if signature.named.len() > 0 {
+                        if !signature.named.is_empty() {
                             long_desc.push_str("\nflags:\n");
                             for (flag, ty) in signature.named {
                                 match ty.0 {
@@ -125,7 +125,7 @@ impl PerItemCommand for Help {
                                         long_desc.push_str(&format!(
                                             "  --{}{} {}\n",
                                             flag,
-                                            if ty.1.len() > 0 { ":" } else { "" },
+                                            if !ty.1.is_empty() { ":" } else { "" },
                                             ty.1
                                         ));
                                     }
@@ -134,7 +134,7 @@ impl PerItemCommand for Help {
                                             "  --{} <{}> (required parameter){} {}\n",
                                             flag,
                                             m.display(),
-                                            if ty.1.len() > 0 { ":" } else { "" },
+                                            if !ty.1.is_empty() { ":" } else { "" },
                                             ty.1
                                         ));
                                     }
@@ -143,7 +143,7 @@ impl PerItemCommand for Help {
                                             "  --{} <{}>{} {}\n",
                                             flag,
                                             o.display(),
-                                            if ty.1.len() > 0 { ":" } else { "" },
+                                            if !ty.1.is_empty() { ":" } else { "" },
                                             ty.1
                                         ));
                                     }

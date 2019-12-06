@@ -129,7 +129,7 @@ pub async fn fetch(
     location: &str,
     span: Span,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
-    if let Err(_) = url::Url::parse(location) {
+    if url::Url::parse(location).is_err() {
         return Err(ShellError::labeled_error(
             "Incomplete or incorrect url",
             "expected a full url",
@@ -275,19 +275,17 @@ pub async fn fetch(
             }
             None => Ok((
                 None,
-                UntaggedValue::string(format!("No content type found")),
+                UntaggedValue::string("No content type found".to_owned()),
                 Tag {
                     span,
                     anchor: Some(AnchorLocation::Url(location.to_string())),
                 },
             )),
         },
-        Err(_) => {
-            return Err(ShellError::labeled_error(
-                "URL could not be opened",
-                "url not found",
-                span,
-            ));
-        }
+        Err(_) => Err(ShellError::labeled_error(
+            "URL could not be opened",
+            "url not found",
+            span,
+        )),
     }
 }

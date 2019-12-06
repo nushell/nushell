@@ -22,7 +22,7 @@ pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
 }
 
 pub fn compare_values(
-    operator: &Operator,
+    operator: Operator,
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {

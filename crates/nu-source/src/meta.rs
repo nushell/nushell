@@ -38,7 +38,7 @@ impl Spanned<String> {
     pub fn items<'a, U>(
         items: impl Iterator<Item = &'a Spanned<String>>,
     ) -> impl Iterator<Item = &'a str> {
-        items.into_iter().map(|item| &item.item[..])
+        items.map(|item| &item.item[..])
     }
 }
 
@@ -156,7 +156,7 @@ impl<T> Tagged<T> {
 
         Tagged {
             item: self.item,
-            tag: tag,
+            tag,
         }
     }
 

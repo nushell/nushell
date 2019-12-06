@@ -43,11 +43,11 @@ impl<'de> ConfigDeserializer<'de> {
             Some(UntaggedValue::Table(positional).into_untagged_value()) // TODO: correct tag
         } else {
             if self.call.args.has(name) {
-                self.call.args.get(name).map(|x| x.clone())
+                self.call.args.get(name).cloned()
             } else {
                 let position = self.position;
                 self.position += 1;
-                self.call.args.nth(position).map(|x| x.clone())
+                self.call.args.nth(position).cloned()
             }
         };
 
@@ -316,7 +316,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             let json_cursor = std::io::Cursor::new(json.into_bytes());
             let mut json_de = serde_json::Deserializer::from_reader(json_cursor);
             let r = json_de.deserialize_struct(name, fields, visitor)?;
-            return Ok(r);
+            Ok(r)
         }
 
         trace!(
@@ -409,12 +409,10 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
                 ..
             } => visit::<Tagged<String>, _>(string.tagged(tag), name, fields, visitor),
 
-            other => {
-                return Err(ShellError::type_error(
-                    name,
-                    other.type_name().spanned(other.span()),
-                ))
-            }
+            other => Err(ShellError::type_error(
+                name,
+                other.type_name().spanned(other.span()),
+            )),
         }
     }
     fn deserialize_enum<V>(
@@ -471,7 +469,7 @@ impl<'a, 'de: 'a, I: Iterator<Item = Value>> de::SeqAccess<'de> for SeqDeseriali
     }
 
     fn size_hint(&self) -> Option<usize> {
-        return self.vals.size_hint().1;
+        self.vals.size_hint().1
     }
 }
 
@@ -493,7 +491,7 @@ impl<'a, 'de: 'a> de::SeqAccess<'de> for StructDeserializer<'a, 'de> {
     where
         T: de::DeserializeSeed<'de>,
     {
-        if self.fields.len() == 0 {
+        if self.fields.is_empty() {
             return Ok(None);
         }
 
@@ -505,7 +503,7 @@ impl<'a, 'de: 'a> de::SeqAccess<'de> for StructDeserializer<'a, 'de> {
     }
 
     fn size_hint(&self) -> Option<usize> {
-        return Some(self.fields.len());
+        Some(self.fields.len())
     }
 }
 

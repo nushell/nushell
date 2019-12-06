@@ -94,7 +94,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
     })
 }
 
-fn json_list(input: &Vec<Value>) -> Result<Vec<serde_json::Value>, ShellError> {
+fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {

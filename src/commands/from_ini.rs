@@ -31,7 +31,7 @@ impl WholeStreamCommand for FromINI {
 fn convert_ini_second_to_nu_value(v: &HashMap<String, String>, tag: impl Into<Tag>) -> Value {
     let mut second = TaggedDictBuilder::new(tag);
 
-    for (key, value) in v.into_iter() {
+    for (key, value) in v.iter() {
         second.insert_untagged(key.clone(), Primitive::String(value.clone()));
     }
 

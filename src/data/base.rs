@@ -40,7 +40,7 @@ interfaces!(Block: dyn ObjectHash);
 #[typetag::serde]
 impl EvaluateTrait for Block {
     fn invoke(&self, scope: &Scope) -> Result<Value, ShellError> {
-        if self.expressions.len() == 0 {
+        if self.expressions.is_empty() {
             return Ok(UntaggedValue::nothing().into_value(&self.tag));
         }
 
@@ -189,8 +189,8 @@ fn coerce_compare_primitive(
         (Line(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         (String(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
         (Line(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
-        (Date(left), Date(right)) => CompareValues::Date(left.clone(), right.clone()),
-        (Date(left), Duration(right)) => CompareValues::DateDuration(left.clone(), right.clone()),
+        (Date(left), Date(right)) => CompareValues::Date(*left, *right),
+        (Date(left), Duration(right)) => CompareValues::DateDuration(*left, *right),
         _ => return Err((left.type_name(), right.type_name())),
     })
 }

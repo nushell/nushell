@@ -118,7 +118,7 @@ pub fn reduce(
             ..
         } => {
             let datasets: Vec<_> = datasets
-                .into_iter()
+                .iter()
                 .map(|subsets| {
                     let mut acc = 0;
                     match subsets {
@@ -127,7 +127,7 @@ pub fn reduce(
                             ..
                         } => {
                             let data = data
-                                .into_iter()
+                                .iter()
                                 .map(|d| {
                                     if let Value {
                                         value: UntaggedValue::Table(x),

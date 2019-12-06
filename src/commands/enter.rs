@@ -47,7 +47,7 @@ impl PerItemCommand for Enter {
                 let tag_clone = tag.clone();
 
                 if location.starts_with("help") {
-                    let spec = location_string.split(":").collect::<Vec<&str>>();
+                    let spec = location_string.split(':').collect::<Vec<&str>>();
 
                     let (_, command) = (spec[0], spec[1]);
 
