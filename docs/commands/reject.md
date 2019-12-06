@@ -1,6 +1,6 @@
 # reject
 
-This column removes or rejects the columns passed to it.
+This command removes or rejects the columns passed to it.
 
 ## Examples 
 
