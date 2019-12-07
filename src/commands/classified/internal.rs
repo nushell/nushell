@@ -89,6 +89,8 @@ pub(crate) async fn run_internal_command(
                                     _ => {}
                                 }
                             }
+                        } else {
+                            yield Ok(tagged_contents)
                         }
                     }
                     CommandAction::EnterHelpShell(value) => {

@@ -133,36 +133,6 @@ async fn post_helper(
     headers: &[HeaderKind],
     row: Value,
 ) -> ReturnValue {
-    /*
-    let path = match call_info.args.nth(0).ok_or_else(|| {
-        ShellError::labeled_error(
-            "No file or directory specified",
-            "for command",
-            &call_info.name_tag,
-        )
-    })? {
-        file => file,
-    };
-    let path_tag = path.tag.clone();
-    let body = match call_info.args.nth(1).ok_or_else(|| {
-        ShellError::labeled_error("No body specified", "for command", &call_info.name_tag)
-    })? {
-        file => file.clone(),
-    };
-    let path_str = path.as_string()?.to_string();
-
-    let has_raw = call_info.args.has("raw");
-    let user = call_info
-        .args
-        .get("user")
-        .map(|x| x.as_string().unwrap().to_string());
-    let password = call_info
-        .args
-        .get("password")
-        .map(|x| x.as_string().unwrap().to_string());
-
-    let headers = get_headers(&call_info)?;
-    */
     let path_tag = path.tag.clone();
     let path_str = path.as_string()?.to_string();
 
