@@ -153,7 +153,7 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
     entries
 }
 
-fn max_per_column(headers: &Vec<String>, entries: &Entries, values_len: usize) -> Vec<usize> {
+fn max_per_column(headers: &[String], entries: &Entries, values_len: usize) -> Vec<usize> {
     let mut max_per_column = vec![];
 
     for i in 0..headers.len() {
@@ -181,13 +181,13 @@ fn maybe_truncate_columns(headers: &mut Vec<String>, entries: &mut Entries, term
     if max_num_of_columns < headers.len() {
         headers.truncate(max_num_of_columns);
 
-        for entry in &mut entries.into_iter() {
+        for entry in entries.iter_mut() {
             entry.truncate(max_num_of_columns);
         }
 
         headers.push("...".to_owned());
 
-        for entry in &mut entries.into_iter() {
+        for entry in entries.iter_mut() {
             entry.push(("...".to_owned(), "c")); // ellipsis is centred
         }
     }
@@ -304,24 +304,17 @@ fn wrap_cells(
     max_naive_column_width: usize,
     max_column_width: usize,
 ) -> TableView {
-    {
-        let entries = &mut entries;
+    for head in 0..headers.len() {
+        if max_per_column[head] > max_naive_column_width {
+            headers[head] = fill(&headers[head], max_column_width);
 
-        for head in 0..headers.len() {
-            if max_per_column[head] > max_naive_column_width {
-                headers[head] = fill(&headers[head], max_column_width);
-
-                for entry in &mut entries.into_iter() {
-                    entry[head].0 = fill(&entry[head].0, max_column_width);
-                }
+            for entry in entries.iter_mut() {
+                entry[head].0 = fill(&entry[head].0, max_column_width);
             }
         }
     }
 
-    TableView {
-        headers: headers,
-        entries: entries,
-    }
+    TableView { headers, entries }
 }
 
 impl RenderView for TableView {

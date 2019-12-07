@@ -48,11 +48,8 @@ fn column_names(commands: &[ParseCommand]) -> Vec<String> {
     let mut output = vec![];
 
     for command in commands {
-        match command {
-            ParseCommand::Column(c) => {
-                output.push(c.clone());
-            }
-            _ => {}
+        if let ParseCommand::Column(c) = command {
+            output.push(c.clone());
         }
     }
 

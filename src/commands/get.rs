@@ -50,45 +50,43 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
         obj,
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
-            match &obj_source.value {
-                UntaggedValue::Table(rows) => {
-                    let total = rows.len();
-                    let end_tag = match fields
-                        .members()
-                        .iter()
-                        .nth_back(if fields.members().len() > 2 { 1 } else { 0 })
-                    {
-                        Some(last_field) => last_field.span,
-                        None => column_path_tried.span,
-                    };
+            if let UntaggedValue::Table(rows) = &obj_source.value {
+                let total = rows.len();
+                let end_tag = match fields
+                    .members()
+                    .iter()
+                    .nth_back(if fields.members().len() > 2 { 1 } else { 0 })
+                {
+                    Some(last_field) => last_field.span,
+                    None => column_path_tried.span,
+                };
 
-                    return ShellError::labeled_error_with_secondary(
-                        "Row not found",
-                        format!(
-                            "There isn't a row indexed at {}",
-                            column_path_tried.display()
-                        ),
-                        column_path_tried.span,
-                        if total == 1 {
-                            "The table only has 1 row".to_owned()
-                        } else {
-                            format!("The table only has {} rows (0 to {})", total, total - 1)
-                        },
-                        end_tag,
-                    );
-                }
-                _ => {}
+                let primary_label = format!(
+                    "There isn't a row indexed at {}",
+                    column_path_tried.display()
+                );
+
+                let secondary_label = if total == 1 {
+                    "The table only has 1 row".to_owned()
+                } else {
+                    format!("The table only has {} rows (0 to {})", total, total - 1)
+                };
+
+                return ShellError::labeled_error_with_secondary(
+                    "Row not found",
+                    primary_label,
+                    column_path_tried.span,
+                    secondary_label,
+                    end_tag,
+                );
             }
 
-            match did_you_mean(&obj_source, column_path_tried) {
-                Some(suggestions) => {
-                    return ShellError::labeled_error(
-                        "Unknown column",
-                        format!("did you mean '{}'?", suggestions[0].1),
-                        span_for_spanned_list(fields.members().iter().map(|p| p.span)),
-                    )
-                }
-                None => {}
+            if let Some(suggestions) = did_you_mean(&obj_source, column_path_tried) {
+                return ShellError::labeled_error(
+                    "Unknown column",
+                    format!("did you mean '{}'?", suggestions[0].1),
+                    span_for_spanned_list(fields.members().iter().map(|p| p.span)),
+                );
             }
 
             error

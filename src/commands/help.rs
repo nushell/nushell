@@ -57,104 +57,100 @@ impl PerItemCommand for Help {
 
                         help.push_back(ReturnSuccess::value(short_desc.into_value()));
                     }
-                } else {
-                    if let Some(command) = registry.get_command(document) {
-                        let mut long_desc = String::new();
+                } else if let Some(command) = registry.get_command(document) {
+                    let mut long_desc = String::new();
 
-                        long_desc.push_str(&command.usage());
-                        long_desc.push_str("\n");
+                    long_desc.push_str(&command.usage());
+                    long_desc.push_str("\n");
 
-                        let signature = command.signature();
+                    let signature = command.signature();
 
-                        let mut one_liner = String::new();
-                        one_liner.push_str(&signature.name);
-                        one_liner.push_str(" ");
+                    let mut one_liner = String::new();
+                    one_liner.push_str(&signature.name);
+                    one_liner.push_str(" ");
 
-                        for positional in &signature.positional {
-                            match &positional.0 {
+                    for positional in &signature.positional {
+                        match &positional.0 {
+                            PositionalType::Mandatory(name, _m) => {
+                                one_liner.push_str(&format!("<{}> ", name));
+                            }
+                            PositionalType::Optional(name, _o) => {
+                                one_liner.push_str(&format!("({}) ", name));
+                            }
+                        }
+                    }
+
+                    if signature.rest_positional.is_some() {
+                        one_liner.push_str(" ...args");
+                    }
+
+                    if !signature.named.is_empty() {
+                        one_liner.push_str("{flags} ");
+                    }
+
+                    long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
+
+                    if !signature.positional.is_empty() || signature.rest_positional.is_some() {
+                        long_desc.push_str("\nparameters:\n");
+                        for positional in signature.positional {
+                            match positional.0 {
                                 PositionalType::Mandatory(name, _m) => {
-                                    one_liner.push_str(&format!("<{}> ", name));
+                                    long_desc.push_str(&format!("  <{}> {}\n", name, positional.1));
                                 }
                                 PositionalType::Optional(name, _o) => {
-                                    one_liner.push_str(&format!("({}) ", name));
+                                    long_desc.push_str(&format!("  ({}) {}\n", name, positional.1));
                                 }
                             }
                         }
-
                         if signature.rest_positional.is_some() {
-                            one_liner.push_str(" ...args");
+                            long_desc.push_str(&format!(
+                                "  ...args{} {}\n",
+                                if signature.rest_positional.is_some() {
+                                    ":"
+                                } else {
+                                    ""
+                                },
+                                signature.rest_positional.unwrap().1
+                            ));
                         }
-
-                        if !signature.named.is_empty() {
-                            one_liner.push_str("{flags} ");
-                        }
-
-                        long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
-
-                        if !signature.positional.is_empty() || signature.rest_positional.is_some() {
-                            long_desc.push_str("\nparameters:\n");
-                            for positional in signature.positional {
-                                match positional.0 {
-                                    PositionalType::Mandatory(name, _m) => {
-                                        long_desc
-                                            .push_str(&format!("  <{}> {}\n", name, positional.1));
-                                    }
-                                    PositionalType::Optional(name, _o) => {
-                                        long_desc
-                                            .push_str(&format!("  ({}) {}\n", name, positional.1));
-                                    }
-                                }
-                            }
-                            if signature.rest_positional.is_some() {
-                                long_desc.push_str(&format!(
-                                    "  ...args{} {}\n",
-                                    if signature.rest_positional.is_some() {
-                                        ":"
-                                    } else {
-                                        ""
-                                    },
-                                    signature.rest_positional.unwrap().1
-                                ));
-                            }
-                        }
-                        if !signature.named.is_empty() {
-                            long_desc.push_str("\nflags:\n");
-                            for (flag, ty) in signature.named {
-                                match ty.0 {
-                                    NamedType::Switch => {
-                                        long_desc.push_str(&format!(
-                                            "  --{}{} {}\n",
-                                            flag,
-                                            if !ty.1.is_empty() { ":" } else { "" },
-                                            ty.1
-                                        ));
-                                    }
-                                    NamedType::Mandatory(m) => {
-                                        long_desc.push_str(&format!(
-                                            "  --{} <{}> (required parameter){} {}\n",
-                                            flag,
-                                            m.display(),
-                                            if !ty.1.is_empty() { ":" } else { "" },
-                                            ty.1
-                                        ));
-                                    }
-                                    NamedType::Optional(o) => {
-                                        long_desc.push_str(&format!(
-                                            "  --{} <{}>{} {}\n",
-                                            flag,
-                                            o.display(),
-                                            if !ty.1.is_empty() { ":" } else { "" },
-                                            ty.1
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-
-                        help.push_back(ReturnSuccess::value(
-                            UntaggedValue::string(long_desc).into_value(tag.clone()),
-                        ));
                     }
+                    if !signature.named.is_empty() {
+                        long_desc.push_str("\nflags:\n");
+                        for (flag, ty) in signature.named {
+                            match ty.0 {
+                                NamedType::Switch => {
+                                    long_desc.push_str(&format!(
+                                        "  --{}{} {}\n",
+                                        flag,
+                                        if !ty.1.is_empty() { ":" } else { "" },
+                                        ty.1
+                                    ));
+                                }
+                                NamedType::Mandatory(m) => {
+                                    long_desc.push_str(&format!(
+                                        "  --{} <{}> (required parameter){} {}\n",
+                                        flag,
+                                        m.display(),
+                                        if !ty.1.is_empty() { ":" } else { "" },
+                                        ty.1
+                                    ));
+                                }
+                                NamedType::Optional(o) => {
+                                    long_desc.push_str(&format!(
+                                        "  --{} <{}>{} {}\n",
+                                        flag,
+                                        o.display(),
+                                        if !ty.1.is_empty() { ":" } else { "" },
+                                        ty.1
+                                    ));
+                                }
+                            }
+                        }
+                    }
+
+                    help.push_back(ReturnSuccess::value(
+                        UntaggedValue::string(long_desc).into_value(tag.clone()),
+                    ));
                 }
 
                 Ok(help.to_output_stream())

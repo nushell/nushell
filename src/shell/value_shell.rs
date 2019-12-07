@@ -43,12 +43,12 @@ impl ValueShell {
         for p in full_path.iter() {
             match p {
                 x if x == sep => {}
-                step => match viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown()) {
-                    Some(v) => {
+                step => {
+                    let value = viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown());
+                    if let Some(v) = value {
                         viewed = v.clone();
                     }
-                    _ => {}
-                },
+                }
             }
         }
         match viewed {
@@ -96,9 +96,8 @@ impl Shell for ValueShell {
         let mut full_path = PathBuf::from(self.path());
         let name_tag = context.name.clone();
 
-        match &target {
-            Some(value) => full_path.push(value.as_ref()),
-            _ => {}
+        if let Some(value) = &target {
+            full_path.push(value.as_ref());
         }
 
         let mut value_system = ValueStructure::new();

@@ -79,12 +79,12 @@ impl HelpShell {
         for p in full_path.iter() {
             match p {
                 x if x == sep => {}
-                step => match viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown()) {
-                    Some(v) => {
+                step => {
+                    let value = viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown());
+                    if let Some(v) = value {
                         viewed = v.clone();
                     }
-                    _ => {}
-                },
+                }
             }
         }
         match viewed {

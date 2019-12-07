@@ -135,7 +135,7 @@ impl PrettyDebug for TypeShape {
                         (b::key(match key {
                             Column::String(string) => string.clone(),
                             Column::Value => "<value>".to_string(),
-                        }) + b::delimit("(", ty.pretty(), ")").as_kind())
+                        }) + b::delimit("(", ty.pretty(), ")").into_kind())
                         .nest()
                     }),
                     b::space(),
@@ -197,7 +197,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
         (b::key(match self.key {
             Column::String(string) => string.clone(),
             Column::Value => "<value>".to_owned(),
-        }) + b::delimit("(", self.value.pretty(), ")").as_kind())
+        }) + b::delimit("(", self.value.pretty(), ")").into_kind())
     }
 }
 
