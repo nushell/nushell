@@ -12,15 +12,67 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use surf::mime;
 
+#[derive(Clone)]
 pub enum HeaderKind {
     ContentType(String),
     ContentLength(String),
 }
 
-struct Post;
+struct Post {
+    path: Option<Value>,
+    has_raw: bool,
+    body: Option<Value>,
+    user: Option<String>,
+    password: Option<String>,
+    headers: Vec<HeaderKind>,
+}
+
 impl Post {
     fn new() -> Post {
-        Post
+        Post {
+            path: None,
+            has_raw: false,
+            body: None,
+            user: None,
+            password: None,
+            headers: vec![],
+        }
+    }
+
+    fn setup(&mut self, call_info: CallInfo) -> ReturnValue {
+        self.path = Some(
+            match call_info.args.nth(0).ok_or_else(|| {
+                ShellError::labeled_error(
+                    "No file or directory specified",
+                    "for command",
+                    &call_info.name_tag,
+                )
+            })? {
+                file => file.clone(),
+            },
+        );
+
+        self.has_raw = call_info.args.has("raw");
+
+        self.body = match call_info.args.nth(1).ok_or_else(|| {
+            ShellError::labeled_error("No body specified", "for command", &call_info.name_tag)
+        })? {
+            file => Some(file.clone()),
+        };
+
+        self.user = call_info
+            .args
+            .get("user")
+            .map(|x| x.as_string().unwrap().to_string());
+
+        self.password = call_info
+            .args
+            .get("password")
+            .map(|x| x.as_string().unwrap().to_string());
+
+        self.headers = get_headers(&call_info)?;
+
+        ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value())
     }
 }
 
@@ -50,12 +102,21 @@ impl Plugin for Post {
             .filter())
     }
 
-    fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(vec![block_on(post_helper(callinfo))])
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        self.setup(call_info)?;
+        Ok(vec![])
     }
 
-    fn filter(&mut self, _: Value) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(vec![])
+    fn filter(&mut self, row: Value) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![block_on(post_helper(
+            &self.path.clone().unwrap(),
+            self.has_raw,
+            &self.body.clone().unwrap(),
+            self.user.clone(),
+            self.password.clone(),
+            &self.headers.clone(),
+            row,
+        ))])
     }
 }
 
@@ -63,7 +124,16 @@ fn main() {
     serve_plugin(&mut Post::new());
 }
 
-async fn post_helper(call_info: CallInfo) -> ReturnValue {
+async fn post_helper(
+    path: &Value,
+    has_raw: bool,
+    body: &Value,
+    user: Option<String>,
+    password: Option<String>,
+    headers: &[HeaderKind],
+    row: Value,
+) -> ReturnValue {
+    /*
     let path = match call_info.args.nth(0).ok_or_else(|| {
         ShellError::labeled_error(
             "No file or directory specified",
@@ -80,6 +150,7 @@ async fn post_helper(call_info: CallInfo) -> ReturnValue {
         file => file.clone(),
     };
     let path_str = path.as_string()?.to_string();
+
     let has_raw = call_info.args.has("raw");
     let user = call_info
         .args
@@ -91,6 +162,28 @@ async fn post_helper(call_info: CallInfo) -> ReturnValue {
         .map(|x| x.as_string().unwrap().to_string());
 
     let headers = get_headers(&call_info)?;
+    */
+    let path_tag = path.tag.clone();
+    let path_str = path.as_string()?.to_string();
+
+    //FIXME: this is a workaround because plugins don't yet support per-item iteration
+    let path_str = if path_str == "$it" {
+        let path_buf = row.as_path()?;
+        path_buf.display().to_string()
+    } else {
+        path_str
+    };
+
+    //FIXME: this is a workaround because plugins don't yet support per-item iteration
+    let body = if let Ok(x) = body.as_string() {
+        if x == "$it" {
+            &row
+        } else {
+            body
+        }
+    } else {
+        body
+    };
 
     let (file_extension, contents, contents_tag) =
         post(&path_str, &body, user, password, &headers, path_tag.clone())

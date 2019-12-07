@@ -56,7 +56,8 @@ impl Plugin for Fetch {
     }
 
     fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
-        Ok(vec![self.setup(callinfo)])
+        self.setup(callinfo)?;
+        Ok(vec![])
     }
 
     fn filter(&mut self, value: Value) -> Result<Vec<ReturnValue>, ShellError> {
@@ -72,9 +73,18 @@ fn main() {
     serve_plugin(&mut Fetch::new());
 }
 
-async fn fetch_helper(path: &Value, has_raw: bool, _row: Value) -> ReturnValue {
+async fn fetch_helper(path: &Value, has_raw: bool, row: Value) -> ReturnValue {
     let path_buf = path.as_path()?;
     let path_str = path_buf.display().to_string();
+
+    //FIXME: this is a workaround because plugins don't yet support per-item iteration
+    let path_str = if path_str == "$it" {
+        let path_buf = row.as_path()?;
+        path_buf.display().to_string()
+    } else {
+        path_str
+    };
+
     let path_span = path.tag.span;
 
     let result = fetch(&path_str, path_span).await;
