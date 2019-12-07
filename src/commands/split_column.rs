@@ -74,7 +74,7 @@ fn split_column(
                 let positional: Vec<_> = rest.iter().map(|f| f.item.clone()).collect();
 
                 // If they didn't provide column names, make up our own
-                if positional.len() == 0 {
+                if positional.is_empty() {
                     let mut gen_columns = vec![];
                     for i in 0..split_result.len() {
                         gen_columns.push(format!("Column{}", i + 1));
@@ -85,15 +85,6 @@ fn split_column(
                         dict.insert_untagged(v.clone(), Primitive::String(k.into()));
                     }
 
-                    ReturnSuccess::value(dict.into_value())
-                } else if split_result.len() == positional.len() {
-                    let mut dict = TaggedDictBuilder::new(&v.tag);
-                    for (&k, v) in split_result.iter().zip(positional.iter()) {
-                        dict.insert_untagged(
-                            v,
-                            UntaggedValue::Primitive(Primitive::String(k.into())),
-                        );
-                    }
                     ReturnSuccess::value(dict.into_value())
                 } else {
                     let mut dict = TaggedDictBuilder::new(&v.tag);

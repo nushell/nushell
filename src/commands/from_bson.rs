@@ -30,7 +30,7 @@ impl WholeStreamCommand for FromBSON {
     }
 }
 
-fn bson_array(input: &Vec<Bson>, tag: Tag) -> Result<Vec<Value>, ShellError> {
+fn bson_array(input: &[Bson], tag: Tag) -> Result<Vec<Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
@@ -81,7 +81,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
                 ShellError::range_error(
                     ExpectedRange::BigDecimal,
                     &n.spanned(span),
-                    format!("converting BSON Decimal128 to BigDecimal"),
+                    "converting BSON Decimal128 to BigDecimal".to_owned(),
                 )
             })?;
             UntaggedValue::Primitive(Primitive::Decimal(decimal)).into_value(&tag)

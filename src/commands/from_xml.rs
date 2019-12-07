@@ -45,11 +45,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
                     value: UntaggedValue::Primitive(Primitive::String(f)),
                     ..
                 } => {
-                    if f.trim() == "" {
-                        false
-                    } else {
-                        true
-                    }
+                    !f.trim().is_empty() // non-whitespace characters?
                 }
                 _ => true,
             })

@@ -82,7 +82,7 @@ pub fn value_to_toml_value(v: &Value) -> Result<toml::Value, ShellError> {
     })
 }
 
-fn collect_values(input: &Vec<Value>) -> Result<Vec<toml::Value>, ShellError> {
+fn collect_values(input: &[Value]) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {

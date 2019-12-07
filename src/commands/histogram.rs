@@ -88,7 +88,7 @@ pub fn histogram(
                 let column = (*column_name).clone();
 
                 if let Value { value: UntaggedValue::Table(start), .. } = datasets.get(0).unwrap() {
-                    for percentage in start.into_iter() {
+                    for percentage in start.iter() {
 
                         let mut fact = TaggedDictBuilder::new(&name);
                         let value: Tagged<String> = group_labels.get(idx).unwrap().clone();
@@ -99,7 +99,7 @@ pub fn histogram(
                             fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
                         }
 
-                        idx = idx + 1;
+                        idx += 1;
 
                         yield ReturnSuccess::value(fact.into_value());
                     }
@@ -121,14 +121,14 @@ fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value,
             ..
         } => {
             let datasets: Vec<_> = datasets
-                .into_iter()
+                .iter()
                 .map(|subsets| match subsets {
                     Value {
                         value: UntaggedValue::Table(data),
                         ..
                     } => {
                         let data =
-                                data.into_iter()
+                                data.iter()
                                     .map(|d| match d {
                                         Value {
                                             value: UntaggedValue::Primitive(Primitive::Int(n)),

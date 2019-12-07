@@ -16,7 +16,10 @@ impl RenderView for GenericView<'_> {
     fn render_view(&self, host: &mut dyn Host) -> Result<(), ShellError> {
         let tag = &self.value.tag;
         match &self.value.value {
-            UntaggedValue::Primitive(p) => Ok(host.stdout(&format_primitive(p, None))),
+            UntaggedValue::Primitive(p) => {
+                host.stdout(&format_primitive(p, None));
+                Ok(())
+            }
             UntaggedValue::Table(l) => {
                 let view = TableView::from_list(l, 0);
 

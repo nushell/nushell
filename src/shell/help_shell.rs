@@ -108,13 +108,11 @@ impl HelpShell {
 impl Shell for HelpShell {
     fn name(&self) -> String {
         let anchor_name = self.value.anchor_name();
-        format!(
-            "{}",
-            match anchor_name {
-                Some(x) => format!("{{{}}}", x),
-                None => format!("<{}>", self.value.type_name()),
-            }
-        )
+
+        match anchor_name {
+            Some(x) => format!("{{{}}}", x),
+            None => format!("<{}>", self.value.type_name()),
+        }
     }
 
     fn homedir(&self) -> Option<PathBuf> {
@@ -140,10 +138,7 @@ impl Shell for HelpShell {
         _context: &RunnableContext,
         _full: bool,
     ) -> Result<OutputStream, ShellError> {
-        Ok(self
-            .commands()
-            .map(|x| ReturnSuccess::value(x))
-            .to_output_stream())
+        Ok(self.commands().map(ReturnSuccess::value).to_output_stream())
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {

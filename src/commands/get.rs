@@ -70,7 +70,7 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
                         ),
                         column_path_tried.span,
                         if total == 1 {
-                            format!("The table only has 1 row")
+                            "The table only has 1 row".to_owned()
                         } else {
                             format!("The table only has {} rows (0 to {})", total, total - 1)
                         },
@@ -91,7 +91,7 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
                 None => {}
             }
 
-            return error;
+            error
         }),
     )
 }
@@ -100,7 +100,7 @@ pub fn get(
     GetArgs { rest: mut fields }: GetArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    if fields.len() == 0 {
+    if fields.is_empty() {
         let stream = async_stream! {
             let values = input.values;
             pin_mut!(values);

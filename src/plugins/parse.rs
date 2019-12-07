@@ -22,7 +22,7 @@ fn parse(input: &str) -> IResult<&str, Vec<ParseCommand>> {
     let mut loop_input = input;
     loop {
         let (input, before) = take_while(|c| c != '{')(loop_input)?;
-        if before.len() > 0 {
+        if !before.is_empty() {
             output.push(ParseCommand::Text(before.to_string()));
         }
         if input != "" {
@@ -73,7 +73,7 @@ fn build_regex(commands: &[ParseCommand]) -> String {
         }
     }
 
-    return output;
+    output
 }
 struct Parse {
     regex: Regex,

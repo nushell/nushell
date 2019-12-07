@@ -226,10 +226,10 @@ fn save(
     Ok(OutputStream::new(stream))
 }
 
-fn string_from(input: &Vec<Value>) -> String {
+fn string_from(input: &[Value]) -> String {
     let mut save_data = String::new();
 
-    if input.len() > 0 {
+    if !input.is_empty() {
         let mut first = true;
         for i in input.iter() {
             if !first {

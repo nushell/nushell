@@ -39,7 +39,7 @@ fn pick(
     PickArgs { rest: fields }: PickArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    if fields.len() == 0 {
+    if fields.is_empty() {
         return Err(ShellError::labeled_error(
             "Pick requires columns to pick",
             "needs parameter",

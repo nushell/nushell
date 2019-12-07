@@ -45,7 +45,7 @@ impl CommandRegistry {
     pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         let registry = self.registry.lock().unwrap();
 
-        registry.get(name).map(|c| c.clone())
+        registry.get(name).cloned()
     }
 
     pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
@@ -175,7 +175,7 @@ impl Context {
         self.registry.expect_command(name)
     }
 
-    pub(crate) fn run_command<'a>(
+    pub(crate) fn run_command(
         &mut self,
         command: Arc<Command>,
         name_tag: Tag,

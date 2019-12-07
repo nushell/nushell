@@ -68,7 +68,7 @@ pub(crate) async fn run_external_command(
     trace!(target: "nu::run::external", "-> {}", command.name);
     trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
-    let mut arg_string = format!("{}", command.name);
+    let mut arg_string = command.name.to_owned();
     for arg in command.args.iter() {
         arg_string.push_str(&arg);
     }
@@ -170,11 +170,11 @@ pub(crate) async fn run_external_command(
     if let Ok(mut popen) = popen {
         match stream_next {
             StreamNext::Last => {
-                let _ = popen.detach();
+                popen.detach();
                 loop {
                     match popen.poll() {
                         None => {
-                            let _ = std::thread::sleep(std::time::Duration::new(0, 100000000));
+                            std::thread::sleep(std::time::Duration::new(0, 100_000_000));
                         }
                         _ => {
                             let _ = popen.terminate();
@@ -185,12 +185,12 @@ pub(crate) async fn run_external_command(
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
-                let _ = popen.detach();
+                popen.detach();
                 let stdout = popen.stdout.take().unwrap();
                 Ok(ClassifiedInputStream::from_stdout(stdout))
             }
             StreamNext::Internal => {
-                let _ = popen.detach();
+                popen.detach();
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
@@ -201,10 +201,10 @@ pub(crate) async fn run_external_command(
             }
         }
     } else {
-        return Err(ShellError::labeled_error(
+        Err(ShellError::labeled_error(
             "Command not found",
             "command not found",
             name_tag,
-        ));
+        ))
     }
 }

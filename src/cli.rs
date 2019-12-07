@@ -38,7 +38,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
     let request = JsonRpc::new("config", Vec::<Value>::new());
     let request_raw = serde_json::to_string(&request)?;
-    stdin.write(format!("{}\n", request_raw).as_bytes())?;
+    stdin.write_all(format!("{}\n", request_raw).as_bytes())?;
     let path = dunce::canonicalize(path)?;
 
     let mut input = String::new();
@@ -58,7 +58,7 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         let name = params.name.clone();
                         let fname = fname.to_string();
 
-                        if let Some(_) = context.get_command(&name) {
+                        if context.get_command(&name).is_some() {
                             trace!("plugin {:?} already loaded.", &name);
                         } else {
                             if params.is_filter {
@@ -222,7 +222,7 @@ impl History {
                 p.push(FNAME);
                 p
             })
-            .unwrap_or(PathBuf::from(FNAME))
+            .unwrap_or_else(|_| PathBuf::from(FNAME))
     }
 }
 
@@ -609,8 +609,8 @@ fn classify_pipeline(
     context: &Context,
     source: &Text,
 ) -> Result<ClassifiedPipeline, ShellError> {
-    let mut pipeline_list = vec![pipeline.clone()];
-    let mut iterator = TokensIterator::all(&mut pipeline_list, source.clone(), pipeline.span());
+    let pipeline_list = vec![pipeline.clone()];
+    let mut iterator = TokensIterator::all(&pipeline_list, source.clone(), pipeline.span());
 
     let result = expand_syntax(
         &PipelineShape,

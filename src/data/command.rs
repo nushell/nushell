@@ -53,7 +53,7 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
         sig.push_value(for_spec(arg.0.name(), "argument", is_required, &tag));
     }
 
-    if let Some(_) = signature.rest_positional {
+    if signature.rest_positional.is_some() {
         let is_required = false;
         sig.push_value(for_spec("rest", "argument", is_required, &tag));
     }

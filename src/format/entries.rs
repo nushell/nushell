@@ -35,7 +35,7 @@ impl EntriesView {
 
 impl RenderView for EntriesView {
     fn render_view(&self, _host: &mut dyn Host) -> Result<(), ShellError> {
-        if self.entries.len() == 0 {
+        if self.entries.is_empty() {
             return Ok(());
         }
 

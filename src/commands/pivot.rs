@@ -92,7 +92,7 @@ pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, 
                 }
             }
         } else {
-            for i in 0..input.len()+1 {
+            for i in 0..=input.len() {
                 if let Some(name) = args.rest.get(i) {
                     headers.push(name.to_string())
                 } else {

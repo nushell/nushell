@@ -4,11 +4,11 @@ use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 pub fn apply_operator(
-    op: &Operator,
+    op: Operator,
     left: &Value,
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
-    match *op {
+    match op {
         Operator::Equal
         | Operator::NotEqual
         | Operator::LessThan

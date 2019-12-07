@@ -104,7 +104,7 @@ impl Shell for FilesystemShell {
 
         //If it's not a glob, try to display the contents of the entry if it's a directory
         let lossy_path = full_path.to_string_lossy();
-        if !lossy_path.contains("*") && !lossy_path.contains("?") {
+        if !lossy_path.contains('*') && !lossy_path.contains('?') {
             let entry = Path::new(&full_path);
             if entry.is_dir() {
                 let entries = std::fs::read_dir(&entry);
@@ -344,7 +344,7 @@ impl Shell for FilesystemShell {
                                 new_dst.push(fragment);
                             }
 
-                            Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
+                            Ok((PathBuf::from(&source_file), new_dst))
                         };
 
                         let sources = sources.paths_applying_with(strategy)?;
@@ -418,7 +418,7 @@ impl Shell for FilesystemShell {
                                 new_dst.push(fragment);
                             }
 
-                            Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
+                            Ok((PathBuf::from(&source_file), new_dst))
                         };
 
                         let sources = sources.paths_applying_with(strategy)?;
@@ -530,7 +530,7 @@ impl Shell for FilesystemShell {
     ) -> Result<OutputStream, ShellError> {
         let full_path = PathBuf::from(path);
 
-        if directories.len() == 0 {
+        if directories.is_empty() {
             return Err(ShellError::labeled_error(
                 "mkdir requires directory paths",
                 "needs parameter",
@@ -861,13 +861,11 @@ impl Shell for FilesystemShell {
             }
         } else {
             if destination.exists() {
-                if !sources.iter().all(|x| {
-                    if let Ok(entry) = x.as_ref() {
-                        entry.is_file()
-                    } else {
-                        false
-                    }
-                }) {
+                let is_file = |x: &Result<PathBuf, _>| {
+                    x.as_ref().map(|entry| entry.is_file()).unwrap_or_default()
+                };
+
+                if !sources.iter().all(is_file) {
                     return Err(ShellError::labeled_error(
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",

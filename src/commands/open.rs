@@ -44,7 +44,7 @@ fn run(
 ) -> Result<OutputStream, ShellError> {
     let shell_manager = &raw_args.shell_manager;
     let cwd = PathBuf::from(shell_manager.path());
-    let full_path = PathBuf::from(cwd);
+    let full_path = cwd;
 
     let path = call_info.args.nth(0).ok_or_else(|| {
         ShellError::labeled_error(
@@ -243,20 +243,18 @@ pub async fn fetch(
                     }
                 }
             },
-            Err(_) => {
-                return Err(ShellError::labeled_error(
-                    "File could not be opened",
-                    "file not found",
-                    span,
-                ));
-            }
+            Err(_) => Err(ShellError::labeled_error(
+                "File could not be opened",
+                "file not found",
+                span,
+            )),
         }
     } else {
-        return Err(ShellError::labeled_error(
+        Err(ShellError::labeled_error(
             "File could not be opened",
             "file not found",
             span,
-        ));
+        ))
     }
 }
 

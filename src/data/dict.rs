@@ -16,7 +16,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
 }
 
 pub trait DictionaryExt {
-    fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value>;
+    fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value>;
 
     fn keys(&self) -> indexmap::map::Keys<String, Value>;
     fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value>;
@@ -25,7 +25,7 @@ pub trait DictionaryExt {
 }
 
 impl DictionaryExt for Dictionary {
-    fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
+    fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(
