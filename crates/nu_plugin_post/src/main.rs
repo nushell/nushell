@@ -1,12 +1,13 @@
-use crate::commands::UnevaluatedCallInfo;
-use crate::prelude::*;
 use base64::encode;
+use futures::executor::block_on;
 use mime::Mime;
-use nu_errors::ShellError;
+use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    CallInfo, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    serve_plugin, CallInfo, CommandAction, Plugin, Primitive, ReturnSuccess, ReturnValue,
+    Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
 };
-use nu_source::AnchorLocation;
+use nu_source::{AnchorLocation, Tag, TaggedItem};
+use num_traits::cast::ToPrimitive;
 use std::path::PathBuf;
 use std::str::FromStr;
 use surf::mime;
@@ -16,15 +17,17 @@ pub enum HeaderKind {
     ContentLength(String),
 }
 
-pub struct Post;
-
-impl PerItemCommand for Post {
-    fn name(&self) -> &str {
-        "post"
+struct Post;
+impl Post {
+    fn new() -> Post {
+        Post
     }
+}
 
-    fn signature(&self) -> Signature {
-        Signature::build(self.name())
+impl Plugin for Post {
+    fn config(&mut self) -> Result<Signature, ShellError> {
+        Ok(Signature::build("post")
+            .desc("Post content to a url and retrieve data as a table if possible.")
             .required("path", SyntaxShape::Any, "the URL to post to")
             .required("body", SyntaxShape::Any, "the contents of the post body")
             .named("user", SyntaxShape::Any, "the username when authenticating")
@@ -44,43 +47,38 @@ impl PerItemCommand for Post {
                 "the length of the content being posted",
             )
             .switch("raw", "return values as a string instead of a table")
+            .filter())
     }
 
-    fn usage(&self) -> &str {
-        "Post content to a url and retrieve data as a table if possible."
+    fn begin_filter(&mut self, callinfo: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![block_on(post_helper(callinfo))])
     }
 
-    fn run(
-        &self,
-        call_info: &CallInfo,
-        registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        _input: Value,
-    ) -> Result<OutputStream, ShellError> {
-        run(call_info, registry, raw_args)
+    fn filter(&mut self, _: Value) -> Result<Vec<ReturnValue>, ShellError> {
+        Ok(vec![])
     }
 }
 
-fn run(
-    call_info: &CallInfo,
-    registry: &CommandRegistry,
-    raw_args: &RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
-    let name_tag = call_info.name_tag.clone();
-    let call_info = call_info.clone();
-    let path =
-        match call_info.args.nth(0).ok_or_else(|| {
-            ShellError::labeled_error("No url specified", "for command", &name_tag)
-        })? {
-            file => file.clone(),
-        };
+fn main() {
+    serve_plugin(&mut Post::new());
+}
+
+async fn post_helper(call_info: CallInfo) -> ReturnValue {
+    let path = match call_info.args.nth(0).ok_or_else(|| {
+        ShellError::labeled_error(
+            "No file or directory specified",
+            "for command",
+            &call_info.name_tag,
+        )
+    })? {
+        file => file,
+    };
     let path_tag = path.tag.clone();
-    let body =
-        match call_info.args.nth(1).ok_or_else(|| {
-            ShellError::labeled_error("No body specified", "for command", &name_tag)
-        })? {
-            file => file.clone(),
-        };
+    let body = match call_info.args.nth(1).ok_or_else(|| {
+        ShellError::labeled_error("No body specified", "for command", &call_info.name_tag)
+    })? {
+        file => file.clone(),
+    };
     let path_str = path.as_string()?.to_string();
     let has_raw = call_info.args.has("raw");
     let user = call_info
@@ -91,122 +89,32 @@ fn run(
         .args
         .get("password")
         .map(|x| x.as_string().unwrap().to_string());
-    let registry = registry.clone();
-    let raw_args = raw_args.clone();
 
     let headers = get_headers(&call_info)?;
 
-    let stream = async_stream! {
-        let (file_extension, contents, contents_tag) =
-            post(&path_str, &body, user, password, &headers, path_tag.clone(), &registry, &raw_args).await.unwrap();
+    let (file_extension, contents, contents_tag) =
+        post(&path_str, &body, user, password, &headers, path_tag.clone())
+            .await
+            .unwrap();
 
-        let file_extension = if has_raw {
-            None
-        } else {
-            // If the extension could not be determined via mimetype, try to use the path
-            // extension. Some file types do not declare their mimetypes (such as bson files).
-            file_extension.or(path_str.split('.').last().map(String::from))
-        };
-
-        let tagged_contents = contents.into_value(&contents_tag);
-
-        if let Some(extension) = file_extension {
-            let command_name = format!("from-{}", extension);
-            if let Some(converter) = registry.get_command(&command_name) {
-                let new_args = RawCommandArgs {
-                    host: raw_args.host,
-                    ctrl_c: raw_args.ctrl_c,
-                    shell_manager: raw_args.shell_manager,
-                    call_info: UnevaluatedCallInfo {
-                        args: nu_parser::hir::Call {
-                            head: raw_args.call_info.args.head,
-                            positional: None,
-                            named: None,
-                            span: Span::unknown()
-                        },
-                        source: raw_args.call_info.source,
-                        name_tag: raw_args.call_info.name_tag,
-                    }
-                };
-                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
-                let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
-                for res in result_vec {
-                    match res {
-                        Ok(ReturnSuccess::Value(Value { value: UntaggedValue::Table(list), ..})) => {
-                            for l in list {
-                                yield Ok(ReturnSuccess::Value(l));
-                            }
-                        }
-                        Ok(ReturnSuccess::Value(Value { value, .. })) => {
-                            yield Ok(ReturnSuccess::Value(Value { value, tag: contents_tag.clone() }));
-                        }
-                        x => yield x,
-                    }
-                }
-            } else {
-                yield ReturnSuccess::value(tagged_contents);
-            }
-        } else {
-            yield ReturnSuccess::value(tagged_contents);
-        }
+    let file_extension = if has_raw {
+        None
+    } else {
+        // If the extension could not be determined via mimetype, try to use the path
+        // extension. Some file types do not declare their mimetypes (such as bson files).
+        file_extension.or(path_str.split('.').last().map(String::from))
     };
 
-    Ok(stream.to_output_stream())
-}
+    let tagged_contents = contents.into_value(&contents_tag);
 
-fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
-    let mut headers = vec![];
-
-    match extract_header_value(&call_info, "content-type") {
-        Ok(h) => match h {
-            Some(ct) => headers.push(HeaderKind::ContentType(ct)),
-            None => {}
-        },
-        Err(e) => {
-            return Err(e);
-        }
-    };
-
-    match extract_header_value(&call_info, "content-length") {
-        Ok(h) => match h {
-            Some(cl) => headers.push(HeaderKind::ContentLength(cl)),
-            None => {}
-        },
-        Err(e) => {
-            return Err(e);
-        }
-    };
-
-    Ok(headers)
-}
-
-fn extract_header_value(call_info: &CallInfo, key: &str) -> Result<Option<String>, ShellError> {
-    if call_info.args.has(key) {
-        let tagged = call_info.args.get(key);
-        let val = match tagged {
-            Some(Value {
-                value: UntaggedValue::Primitive(Primitive::String(s)),
-                ..
-            }) => s.clone(),
-            Some(Value { tag, .. }) => {
-                return Err(ShellError::labeled_error(
-                    format!("{} not in expected format.  Expected string.", key),
-                    "post error",
-                    tag,
-                ));
-            }
-            _ => {
-                return Err(ShellError::labeled_error(
-                    format!("{} not in expected format.  Expected string.", key),
-                    "post error",
-                    Tag::unknown(),
-                ));
-            }
-        };
-        return Ok(Some(val));
+    if let Some(extension) = file_extension {
+        return Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
+            tagged_contents,
+            extension,
+        )));
+    } else {
+        return ReturnSuccess::value(tagged_contents);
     }
-
-    Ok(None)
 }
 
 pub async fn post(
@@ -216,11 +124,7 @@ pub async fn post(
     password: Option<String>,
     headers: &Vec<HeaderKind>,
     tag: Tag,
-    registry: &CommandRegistry,
-    raw_args: &RawCommandArgs,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
-    let registry = registry.clone();
-    let raw_args = raw_args.clone();
     if location.starts_with("http:") || location.starts_with("https:") {
         let login = match (user, password) {
             (Some(user), Some(password)) => Some(encode(&format!("{}:{}", user, password))),
@@ -256,59 +160,31 @@ pub async fn post(
                 s.await
             }
             Value { value, tag } => {
-                if let Some(converter) = registry.get_command("to-json") {
-                    let new_args = RawCommandArgs {
-                        host: raw_args.host,
-                        ctrl_c: raw_args.ctrl_c,
-                        shell_manager: raw_args.shell_manager,
-                        call_info: UnevaluatedCallInfo {
-                            args: nu_parser::hir::Call {
-                                head: raw_args.call_info.args.head,
-                                positional: None,
-                                named: None,
-                                span: Span::unknown(),
-                            },
-                            source: raw_args.call_info.source,
-                            name_tag: raw_args.call_info.name_tag,
-                        },
-                    };
-                    let mut result = converter.run(
-                        new_args.with_input(vec![value.clone().into_value(tag.clone())]),
-                        &registry,
-                    );
-                    let result_vec: Vec<Result<ReturnSuccess, ShellError>> =
-                        result.drain_vec().await;
-                    let mut result_string = String::new();
-                    for res in result_vec {
-                        match res {
-                            Ok(ReturnSuccess::Value(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s)),
-                                ..
-                            })) => {
-                                result_string.push_str(&s);
+                match value_to_json_value(&value.clone().into_untagged_value()) {
+                    Ok(json_value) => match serde_json::to_string(&json_value) {
+                        Ok(result_string) => {
+                            let mut s = surf::post(location).body_string(result_string);
+
+                            if let Some(login) = login {
+                                s = s.set_header("Authorization", format!("Basic {}", login));
                             }
-                            _ => {
-                                return Err(ShellError::labeled_error(
-                                    "Save could not successfully save",
-                                    "unexpected data during save",
-                                    tag,
-                                ));
-                            }
+                            s.await
                         }
+                        _ => {
+                            return Err(ShellError::labeled_error(
+                                "Could not automatically convert table",
+                                "needs manual conversion",
+                                tag,
+                            ));
+                        }
+                    },
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Could not automatically convert table",
+                            "needs manual conversion",
+                            tag,
+                        ));
                     }
-
-                    let mut s = surf::post(location).body_string(result_string);
-
-                    if let Some(login) = login {
-                        s = s.set_header("Authorization", format!("Basic {}", login));
-                    }
-                    s.await
-                } else {
-                    return Err(ShellError::labeled_error(
-                        "Could not automatically convert table",
-                        "needs manual conversion",
-                        tag,
-                    ));
                 }
             }
         };
@@ -457,4 +333,138 @@ pub async fn post(
             tag,
         ))
     }
+}
+
+// FIXME FIXME FIXME
+// Ultimately, we don't want to duplicate to-json here, but we need to because there isn't an easy way to call into it, yet
+pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
+    Ok(match &v.value {
+        UntaggedValue::Primitive(Primitive::Boolean(b)) => serde_json::Value::Bool(*b),
+        UntaggedValue::Primitive(Primitive::Bytes(b)) => serde_json::Value::Number(
+            serde_json::Number::from(b.to_u64().expect("What about really big numbers")),
+        ),
+        UntaggedValue::Primitive(Primitive::Duration(secs)) => {
+            serde_json::Value::Number(serde_json::Number::from(*secs))
+        }
+        UntaggedValue::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
+        UntaggedValue::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
+        UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,
+        UntaggedValue::Primitive(Primitive::Decimal(f)) => serde_json::Value::Number(
+            serde_json::Number::from_f64(
+                f.to_f64().expect("TODO: What about really big decimals?"),
+            )
+            .unwrap(),
+        ),
+        UntaggedValue::Primitive(Primitive::Int(i)) => {
+            serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
+                i.tagged(&v.tag),
+                "converting to JSON number",
+            )?))
+        }
+        UntaggedValue::Primitive(Primitive::Nothing) => serde_json::Value::Null,
+        UntaggedValue::Primitive(Primitive::Pattern(s)) => serde_json::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::String(s)) => serde_json::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::Line(s)) => serde_json::Value::String(s.clone()),
+        UntaggedValue::Primitive(Primitive::ColumnPath(path)) => serde_json::Value::Array(
+            path.iter()
+                .map(|x| match &x.unspanned {
+                    UnspannedPathMember::String(string) => {
+                        Ok(serde_json::Value::String(string.clone()))
+                    }
+                    UnspannedPathMember::Int(int) => Ok(serde_json::Value::Number(
+                        serde_json::Number::from(CoerceInto::<i64>::coerce_into(
+                            int.tagged(&v.tag),
+                            "converting to JSON number",
+                        )?),
+                    )),
+                })
+                .collect::<Result<Vec<serde_json::Value>, ShellError>>()?,
+        ),
+        UntaggedValue::Primitive(Primitive::Path(s)) => {
+            serde_json::Value::String(s.display().to_string())
+        }
+
+        UntaggedValue::Table(l) => serde_json::Value::Array(json_list(l)?),
+        UntaggedValue::Error(e) => return Err(e.clone()),
+        UntaggedValue::Block(_) => serde_json::Value::Null,
+        UntaggedValue::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
+            b.iter()
+                .map(|x| {
+                    serde_json::Value::Number(serde_json::Number::from_f64(*x as f64).unwrap())
+                })
+                .collect(),
+        ),
+        UntaggedValue::Row(o) => {
+            let mut m = serde_json::Map::new();
+            for (k, v) in o.entries.iter() {
+                m.insert(k.clone(), value_to_json_value(v)?);
+            }
+            serde_json::Value::Object(m)
+        }
+    })
+}
+
+fn json_list(input: &Vec<Value>) -> Result<Vec<serde_json::Value>, ShellError> {
+    let mut out = vec![];
+
+    for value in input {
+        out.push(value_to_json_value(value)?);
+    }
+
+    Ok(out)
+}
+
+fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
+    let mut headers = vec![];
+
+    match extract_header_value(&call_info, "content-type") {
+        Ok(h) => match h {
+            Some(ct) => headers.push(HeaderKind::ContentType(ct)),
+            None => {}
+        },
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    match extract_header_value(&call_info, "content-length") {
+        Ok(h) => match h {
+            Some(cl) => headers.push(HeaderKind::ContentLength(cl)),
+            None => {}
+        },
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    Ok(headers)
+}
+
+fn extract_header_value(call_info: &CallInfo, key: &str) -> Result<Option<String>, ShellError> {
+    if call_info.args.has(key) {
+        let tagged = call_info.args.get(key);
+        let val = match tagged {
+            Some(Value {
+                value: UntaggedValue::Primitive(Primitive::String(s)),
+                ..
+            }) => s.clone(),
+            Some(Value { tag, .. }) => {
+                return Err(ShellError::labeled_error(
+                    format!("{} not in expected format.  Expected string.", key),
+                    "post error",
+                    tag,
+                ));
+            }
+            _ => {
+                return Err(ShellError::labeled_error(
+                    format!("{} not in expected format.  Expected string.", key),
+                    "post error",
+                    Tag::unknown(),
+                ));
+            }
+        };
+        return Ok(Some(val));
+    }
+
+    Ok(None)
 }

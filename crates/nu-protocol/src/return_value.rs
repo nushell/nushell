@@ -9,6 +9,7 @@ pub enum CommandAction {
     Exit,
     Error(ShellError),
     EnterShell(String),
+    AutoConvert(Value, String),
     EnterValueShell(Value),
     EnterHelpShell(Value),
     PreviousShell,
@@ -22,6 +23,9 @@ impl PrettyDebug for CommandAction {
             CommandAction::ChangePath(path) => b::typed("change path", b::description(path)),
             CommandAction::Exit => b::description("exit"),
             CommandAction::Error(_) => b::error("error"),
+            CommandAction::AutoConvert(_, extension) => {
+                b::typed("auto convert", b::description(extension))
+            }
             CommandAction::EnterShell(s) => b::typed("enter shell", b::description(s)),
             CommandAction::EnterValueShell(v) => b::typed("enter value shell", v.pretty()),
             CommandAction::EnterHelpShell(v) => b::typed("enter help shell", v.pretty()),

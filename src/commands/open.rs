@@ -1,7 +1,8 @@
-use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    CallInfo, CommandAction, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
 use nu_source::{AnchorLocation, Span};
 use std::path::{Path, PathBuf};
 
@@ -29,19 +30,15 @@ impl PerItemCommand for Open {
     fn run(
         &self,
         call_info: &CallInfo,
-        registry: &CommandRegistry,
+        _registry: &CommandRegistry,
         raw_args: &RawCommandArgs,
         _input: Value,
     ) -> Result<OutputStream, ShellError> {
-        run(call_info, registry, raw_args)
+        run(call_info, raw_args)
     }
 }
 
-fn run(
-    call_info: &CallInfo,
-    registry: &CommandRegistry,
-    raw_args: &RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
+fn run(call_info: &CallInfo, raw_args: &RawCommandArgs) -> Result<OutputStream, ShellError> {
     let shell_manager = &raw_args.shell_manager;
     let cwd = PathBuf::from(shell_manager.path());
     let full_path = PathBuf::from(cwd);
@@ -58,8 +55,6 @@ fn run(
     let path_str = path_buf.display().to_string();
     let path_span = path.tag.span;
     let has_raw = call_info.args.has("raw");
-    let registry = registry.clone();
-    let raw_args = raw_args.clone();
 
     let stream = async_stream! {
 
@@ -82,41 +77,7 @@ fn run(
         let tagged_contents = contents.into_value(&contents_tag);
 
         if let Some(extension) = file_extension {
-            let command_name = format!("from-{}", extension);
-            if let Some(converter) = registry.get_command(&command_name) {
-                let new_args = RawCommandArgs {
-                    host: raw_args.host,
-                    ctrl_c: raw_args.ctrl_c,
-                    shell_manager: raw_args.shell_manager,
-                    call_info: UnevaluatedCallInfo {
-                        args: nu_parser::hir::Call {
-                            head: raw_args.call_info.args.head,
-                            positional: None,
-                            named: None,
-                            span: Span::unknown()
-                        },
-                        source: raw_args.call_info.source,
-                        name_tag: raw_args.call_info.name_tag,
-                    }
-                };
-                let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &registry);
-                let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
-                for res in result_vec {
-                    match res {
-                        Ok(ReturnSuccess::Value(Value { value: UntaggedValue::Table(list), ..})) => {
-                            for l in list {
-                                yield Ok(ReturnSuccess::Value(l));
-                            }
-                        }
-                        Ok(ReturnSuccess::Value(Value { value, .. })) => {
-                            yield Ok(ReturnSuccess::Value(Value { value, tag: contents_tag.clone() }));
-                        }
-                        x => yield x,
-                    }
-                }
-            } else {
-                yield ReturnSuccess::value(tagged_contents);
-            }
+            yield Ok(ReturnSuccess::Action(CommandAction::AutoConvert(tagged_contents, extension)))
         } else {
             yield ReturnSuccess::value(tagged_contents);
         }
