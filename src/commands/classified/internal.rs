@@ -1,3 +1,4 @@
+use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
@@ -27,7 +28,7 @@ pub(crate) async fn run_internal_command(
         context.run_command(
             internal_command,
             command.name_tag.clone(),
-            command.args,
+            command.args.clone(),
             &source,
             objects,
         )
@@ -51,6 +52,46 @@ pub(crate) async fn run_internal_command(
                     CommandAction::Error(err) => {
                         context.error(err);
                         break;
+                    }
+                    CommandAction::AutoConvert(tagged_contents, extension) => {
+                        let contents_tag = tagged_contents.tag.clone();
+                        let command_name = format!("from-{}", extension);
+                        let command = command.clone();
+                        if let Some(converter) = context.registry.get_command(&command_name) {
+                            let new_args = RawCommandArgs {
+                                host: context.host.clone(),
+                                ctrl_c: context.ctrl_c.clone(),
+                                shell_manager: context.shell_manager.clone(),
+                                call_info: UnevaluatedCallInfo {
+                                    args: nu_parser::hir::Call {
+                                        head: command.args.head,
+                                        positional: None,
+                                        named: None,
+                                        span: Span::unknown()
+                                    },
+                                    source: source.clone(),
+                                    name_tag: command.name_tag,
+                                }
+                            };
+                            let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry);
+                            let result_vec: Vec<Result<ReturnSuccess, ShellError>> = result.drain_vec().await;
+                            for res in result_vec {
+                                match res {
+                                    Ok(ReturnSuccess::Value(Value { value: UntaggedValue::Table(list), ..})) => {
+                                        for l in list {
+                                            yield Ok(l);
+                                        }
+                                    }
+                                    Ok(ReturnSuccess::Value(Value { value, .. })) => {
+                                        yield Ok(value.into_value(contents_tag.clone()));
+                                    }
+                                    Err(e) => yield Err(e),
+                                    _ => {}
+                                }
+                            }
+                        } else {
+                            yield Ok(tagged_contents)
+                        }
                     }
                     CommandAction::EnterHelpShell(value) => {
                         match value {

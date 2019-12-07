@@ -117,6 +117,26 @@ impl CommandArgs {
         ))
     }
 
+    pub fn evaluate_once_with_scope(
+        self,
+        registry: &CommandRegistry,
+        scope: &Scope,
+    ) -> Result<EvaluatedWholeStreamCommandArgs, ShellError> {
+        let host = self.host.clone();
+        let ctrl_c = self.ctrl_c.clone();
+        let shell_manager = self.shell_manager.clone();
+        let input = self.input;
+        let call_info = self.call_info.evaluate(registry, scope)?;
+
+        Ok(EvaluatedWholeStreamCommandArgs::new(
+            host,
+            ctrl_c,
+            shell_manager,
+            call_info,
+            input,
+        ))
+    }
+
     pub fn source(&self) -> Text {
         self.call_info.source.clone()
     }

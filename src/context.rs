@@ -71,8 +71,8 @@ impl CommandRegistry {
 
 #[derive(Clone)]
 pub struct Context {
-    registry: CommandRegistry,
-    host: Arc<Mutex<Box<dyn Host>>>,
+    pub registry: CommandRegistry,
+    pub host: Arc<Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,

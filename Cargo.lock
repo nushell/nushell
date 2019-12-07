@@ -1923,6 +1923,8 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "nu_plugin_binaryview",
+ "nu_plugin_fetch",
+ "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_sys",
  "nu_plugin_textview",
@@ -1953,7 +1955,6 @@ dependencies = [
  "strip-ansi-escapes",
  "sublime_fuzzy",
  "subprocess",
- "surf",
  "tempfile",
  "term",
  "termcolor",
@@ -1963,7 +1964,6 @@ dependencies = [
  "typetag",
  "umask",
  "unicode-xid",
- "url",
  "which",
 ]
 
@@ -2088,6 +2088,35 @@ dependencies = [
  "nu-source",
  "pretty-hex",
  "rawkey",
+]
+
+[[package]]
+name = "nu_plugin_fetch"
+version = "0.1.0"
+dependencies = [
+ "futures-preview",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "surf",
+ "url",
+]
+
+[[package]]
+name = "nu_plugin_post"
+version = "0.1.0"
+dependencies = [
+ "base64 0.11.0",
+ "futures-preview",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "num-traits 0.2.10",
+ "serde_json",
+ "surf",
+ "url",
 ]
 
 [[package]]
