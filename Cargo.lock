@@ -351,18 +351,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clicolors-control"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90082ee5dcdd64dc4e9e0d37fbf3ee325419e39c0092191e0393df65518f741e"
-dependencies = [
- "atty",
- "lazy_static 1.4.0",
- "libc",
- "winapi 0.3.8",
-]
-
-[[package]]
 name = "clipboard"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -416,22 +404,6 @@ dependencies = [
  "serde_json",
  "toml 0.4.10",
  "yaml-rust",
-]
-
-[[package]]
-name = "console"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5d540c2d34ac9dd0deb5f3b5f54c36c79efa78f6b3ad19106a554d07a7b5d9f"
-dependencies = [
- "clicolors-control",
- "encode_unicode",
- "lazy_static 1.4.0",
- "libc",
- "regex",
- "termios",
- "unicode-width",
- "winapi 0.3.8",
 ]
 
 [[package]]
@@ -1894,8 +1866,6 @@ dependencies = [
  "chrono-humanize",
  "clap",
  "clipboard",
- "console",
- "crossterm",
  "csv",
  "ctrlc",
  "derive-new",
@@ -1912,7 +1882,6 @@ dependencies = [
  "itertools 0.8.2",
  "language-reporting",
  "log",
- "mime",
  "natural",
  "nom 5.0.1",
  "nom-tracable",
@@ -1931,7 +1900,6 @@ dependencies = [
  "num-bigint",
  "num-traits 0.2.10",
  "pin-utils",
- "pretty",
  "pretty-hex",
  "pretty_assertions",
  "pretty_env_logger",
@@ -1953,7 +1921,6 @@ dependencies = [
  "shellexpand",
  "starship",
  "strip-ansi-escapes",
- "sublime_fuzzy",
  "subprocess",
  "tempfile",
  "term",
@@ -3133,12 +3100,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
-name = "sublime_fuzzy"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdac3d983d073c19487ba1f5e16eda43e9c6e50aa895d87110d0febe389b66b9"
-
-[[package]]
 name = "subprocess"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3272,15 +3233,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d6098003bde162e4277c70665bd87c326f5a0c3f3fbfb285787fa482d54e6e"
 dependencies = [
  "wincolor",
-]
-
-[[package]]
-name = "termios"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b620c5ea021d75a735c943269bb07d30c9b77d6ac6b236bc8b5c496ef05625"
-dependencies = [
- "libc",
 ]
 
 [[package]]
