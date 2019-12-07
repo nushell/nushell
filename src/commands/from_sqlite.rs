@@ -97,7 +97,7 @@ fn convert_sqlite_row_to_nu_value(
             convert_sqlite_value_to_nu_value(row.get_raw(i), tag.clone()),
         );
     }
-    return Ok(collected.into_value());
+    Ok(collected.into_value())
 }
 
 fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone) -> Value {

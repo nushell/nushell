@@ -42,7 +42,7 @@ fn range(
     RangeArgs { area: rows }: RangeArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    match rows.item.find(".") {
+    match rows.item.find('.') {
         Some(value) => {
             let (first, last) = rows.item.split_at(value);
             let first = match first.parse::<u64>() {
@@ -59,7 +59,7 @@ fn range(
                     }
                 }
             };
-            let last = match last.trim_start_matches(".").parse::<u64>() {
+            let last = match last.trim_start_matches('.').parse::<u64>() {
                 Ok(postion) => postion,
                 Err(_) => {
                     if last == ".." {
@@ -73,16 +73,14 @@ fn range(
                     }
                 }
             };
-            return Ok(OutputStream::from_input(
+            Ok(OutputStream::from_input(
                 input.values.skip(first).take(last - first + 1),
-            ));
+            ))
         }
-        None => {
-            return Err(ShellError::labeled_error(
-                "No correct formatted range found",
-                "format: <from>..<to>",
-                name,
-            ));
-        }
+        None => Err(ShellError::labeled_error(
+            "No correct formatted range found",
+            "format: <from>..<to>",
+            name,
+        )),
     }
 }

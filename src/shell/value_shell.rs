@@ -76,13 +76,11 @@ impl ValueShell {
 impl Shell for ValueShell {
     fn name(&self) -> String {
         let anchor_name = self.value.anchor_name();
-        format!(
-            "{}",
-            match anchor_name {
-                Some(x) => format!("{{{}}}", x),
-                None => format!("<{}>", self.value.type_name()),
-            }
-        )
+
+        match anchor_name {
+            Some(x) => format!("{{{}}}", x),
+            None => format!("<{}>", self.value.type_name()),
+        }
     }
 
     fn homedir(&self) -> Option<PathBuf> {
@@ -124,7 +122,7 @@ impl Shell for ValueShell {
 
         Ok(self
             .members_under(full_path.as_path())
-            .map(|x| ReturnSuccess::value(x))
+            .map(ReturnSuccess::value)
             .to_output_stream())
     }
 

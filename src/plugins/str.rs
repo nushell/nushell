@@ -126,7 +126,7 @@ impl Str {
             _ => v[0].trim().parse().unwrap(),
         };
         let end: usize = match v[1] {
-            "" => usize::max_value().clone(),
+            "" => usize::max_value(),
             _ => v[1].trim().parse().unwrap(),
         };
         if start > end {
@@ -169,14 +169,12 @@ impl Str {
                             &f,
                             Box::new(move |(obj_source, column_path_tried, error)| {
                                 match did_you_mean(&obj_source, &column_path_tried) {
-                                    Some(suggestions) => {
-                                        return ShellError::labeled_error(
-                                            "Unknown column",
-                                            format!("did you mean '{}'?", suggestions[0].1),
-                                            span_for_spanned_list(fields.iter().map(|p| p.span)),
-                                        )
-                                    }
-                                    None => return error,
+                                    Some(suggestions) => ShellError::labeled_error(
+                                        "Unknown column",
+                                        format!("did you mean '{}'?", suggestions[0].1),
+                                        span_for_spanned_list(fields.iter().map(|p| p.span)),
+                                    ),
+                                    None => error,
                                 }
                             }),
                         );
@@ -188,7 +186,7 @@ impl Str {
                         &f,
                         replacement.value.clone().into_untagged_value(),
                     ) {
-                        Some(v) => return Ok(v),
+                        Some(v) => Ok(v),
                         None => Err(ShellError::labeled_error(
                             "str could not find field to replace",
                             "column name",
@@ -293,13 +291,11 @@ impl Plugin for Str {
         }
 
         match &self.error {
-            Some(reason) => {
-                return Err(ShellError::untagged_runtime_error(format!(
-                    "{}: {}",
-                    reason,
-                    Str::usage()
-                )))
-            }
+            Some(reason) => Err(ShellError::untagged_runtime_error(format!(
+                "{}: {}",
+                reason,
+                Str::usage()
+            ))),
             None => Ok(vec![]),
         }
     }

@@ -21,7 +21,7 @@ fn format(input: &str) -> IResult<&str, Vec<FormatCommand>> {
     let mut loop_input = input;
     loop {
         let (input, before) = take_while(|c| c != '{')(loop_input)?;
-        if before.len() > 0 {
+        if !before.is_empty() {
             output.push(FormatCommand::Text(before.to_string()));
         }
         if input != "" {

@@ -40,7 +40,7 @@ pub(crate) fn evaluate_baseline_expr(
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
-            match apply_operator(binary.op(), &left, &right) {
+            match apply_operator(**binary.op(), &left, &right) {
                 Ok(result) => Ok(result.into_value(tag)),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(binary.left().span),
@@ -83,7 +83,7 @@ pub(crate) fn evaluate_baseline_expr(
 
                             possible_matches.sort();
 
-                            if possible_matches.len() > 0 {
+                            if !possible_matches.is_empty() {
                                 return Err(ShellError::labeled_error(
                                     "Unknown column",
                                     format!("did you mean '{}'?", possible_matches[0].1),
@@ -174,7 +174,7 @@ fn evaluate_reference(
             x => Ok(scope
                 .vars
                 .get(x)
-                .map(|v| v.clone())
+                .cloned()
                 .unwrap_or_else(|| UntaggedValue::nothing().into_value(tag))),
         },
     }

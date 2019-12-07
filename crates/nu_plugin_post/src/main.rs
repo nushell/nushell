@@ -122,7 +122,7 @@ pub async fn post(
     body: &Value,
     user: Option<String>,
     password: Option<String>,
-    headers: &Vec<HeaderKind>,
+    headers: &[HeaderKind],
     tag: Tag,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
     if location.starts_with("http:") || location.starts_with("https:") {
@@ -311,20 +311,18 @@ pub async fn post(
                 }
                 None => Ok((
                     None,
-                    UntaggedValue::string(format!("No content type found")),
+                    UntaggedValue::string("No content type found".to_owned()),
                     Tag {
                         anchor: Some(AnchorLocation::Url(location.to_string())),
                         span: tag.span,
                     },
                 )),
             },
-            Err(_) => {
-                return Err(ShellError::labeled_error(
-                    "URL could not be opened",
-                    "url not found",
-                    tag,
-                ));
-            }
+            Err(_) => Err(ShellError::labeled_error(
+                "URL could not be opened",
+                "url not found",
+                tag,
+            )),
         }
     } else {
         Err(ShellError::labeled_error(

@@ -316,7 +316,7 @@ impl DebugDocBuilder {
             result = result + item;
         }
 
-        result.into()
+        result
     }
 
     fn styled(string: impl std::fmt::Display, style: ShellStyle) -> DebugDocBuilder {

@@ -84,13 +84,13 @@ pub fn map_max(
             ..
         } => {
             let datasets: Vec<_> = datasets
-                .into_iter()
+                .iter()
                 .map(|subsets| match subsets {
                     Value {
                         value: UntaggedValue::Table(data),
                         ..
                     } => {
-                        let data = data.into_iter().fold(0, |acc, value| match value {
+                        let data = data.iter().fold(0, |acc, value| match value {
                             Value {
                                 value: UntaggedValue::Primitive(Primitive::Int(n)),
                                 ..

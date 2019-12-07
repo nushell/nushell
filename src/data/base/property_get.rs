@@ -144,7 +144,7 @@ pub(crate) fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Val
                         }
                     }
 
-                    if out.len() == 0 {
+                    if out.is_empty() {
                         Err(ShellError::missing_property(
                             "table".spanned(value.tag.span),
                             string.spanned(name.span),
@@ -203,7 +203,7 @@ pub fn get_data_by_column_path(
 pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Option<Value> {
     let mut new_obj = value.clone();
 
-    let split_path: Vec<_> = path.split(".").collect();
+    let split_path: Vec<_> = path.split('.').collect();
 
     if let UntaggedValue::Row(ref mut o) = new_obj.value {
         let mut current = o;
@@ -256,9 +256,10 @@ pub fn insert_data_at_member(
 ) -> Result<(), ShellError> {
     match &mut value.value {
         UntaggedValue::Row(dict) => match &member.unspanned {
-            UnspannedPathMember::String(key) => Ok({
+            UnspannedPathMember::String(key) => {
                 dict.insert_data_at_key(key, new_value);
-            }),
+                Ok(())
+            }
             UnspannedPathMember::Int(_) => Err(ShellError::type_error(
                 "column name",
                 "integer".spanned(member.span),
@@ -269,7 +270,7 @@ pub fn insert_data_at_member(
                 "list index",
                 "string".spanned(member.span),
             )),
-            UnspannedPathMember::Int(int) => Ok({
+            UnspannedPathMember::Int(int) => {
                 let int = int.to_usize().ok_or_else(|| {
                     ShellError::range_error(
                         ExpectedRange::Usize,
@@ -279,7 +280,8 @@ pub fn insert_data_at_member(
                 })?;
 
                 insert_data_at_index(array, int.tagged(member.span), new_value.clone())?;
-            }),
+                Ok(())
+            }
         },
         other => match &member.unspanned {
             UnspannedPathMember::String(_) => Err(ShellError::type_error(
@@ -473,7 +475,7 @@ pub(crate) fn get_data_by_key(value: &Value, name: Spanned<&str>) -> Option<Valu
                 }
             }
 
-            if out.len() > 0 {
+            if !out.is_empty() {
                 Some(UntaggedValue::Table(out).into_value(name.span))
             } else {
                 None

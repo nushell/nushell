@@ -28,11 +28,11 @@ impl NuCompleter {
                 completion.replacement = completion.replacement.replace("\\(", "(");
             }
 
-            if completion.replacement.contains(" ") || completion.replacement.contains("(") {
-                if !completion.replacement.starts_with("\"") {
+            if completion.replacement.contains(' ') || completion.replacement.contains('(') {
+                if !completion.replacement.starts_with('\"') {
                     completion.replacement = format!("\"{}", completion.replacement);
                 }
-                if !completion.replacement.ends_with("\"") {
+                if !completion.replacement.ends_with('\"') {
                     completion.replacement = format!("{}\"", completion.replacement);
                 }
             }

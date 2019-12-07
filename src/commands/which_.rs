@@ -38,7 +38,7 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let tag = args.call_info.name_tag.clone();
 
     if let Some(v) = &args.call_info.args.positional {
-        if v.len() > 0 {
+        if !v.is_empty() {
             match &v[0] {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),

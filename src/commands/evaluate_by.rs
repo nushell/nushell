@@ -94,7 +94,7 @@ pub fn evaluate(
             ..
         } => {
             let datasets: Vec<_> = datasets
-                .into_iter()
+                .iter()
                 .map(|subsets| match subsets {
                     Value {
                         value: UntaggedValue::Table(subsets),

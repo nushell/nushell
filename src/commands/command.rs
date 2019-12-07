@@ -566,7 +566,7 @@ impl WholeStreamCommand for FnFilterCommand {
             );
 
             match func(args) {
-                Err(err) => return OutputStream::from(vec![Err(err)]).values,
+                Err(err) => OutputStream::from(vec![Err(err)]).values,
                 Ok(stream) => stream.values,
             }
         });

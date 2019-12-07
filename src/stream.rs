@@ -142,7 +142,7 @@ impl From<VecDeque<Value>> for OutputStream {
         OutputStream {
             values: input
                 .into_iter()
-                .map(|i| ReturnSuccess::value(i))
+                .map(ReturnSuccess::value)
                 .collect::<VecDeque<ReturnValue>>()
                 .boxed(),
         }
