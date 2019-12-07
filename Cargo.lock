@@ -1895,6 +1895,7 @@ dependencies = [
  "nu_plugin_fetch",
  "nu_plugin_post",
  "nu_plugin_ps",
+ "nu_plugin_str",
  "nu_plugin_sys",
  "nu_plugin_textview",
  "num-bigint",
@@ -2098,6 +2099,17 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "pin-utils",
+]
+
+[[package]]
+name = "nu_plugin_str"
+version = "0.1.0"
+dependencies = [
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "regex",
 ]
 
 [[package]]

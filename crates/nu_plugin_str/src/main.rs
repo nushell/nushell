@@ -1,8 +1,8 @@
-use nu::{did_you_mean, serve_plugin, Plugin, ValueExt};
+use nu::{did_you_mean, ValueExt};
 use nu_errors::ShellError;
 use nu_protocol::{
-    CallInfo, ColumnPath, Primitive, ReturnSuccess, ReturnValue, ShellTypeName, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess, ReturnValue,
+    ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{span_for_spanned_list, Tagged};
 
