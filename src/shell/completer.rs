@@ -32,7 +32,7 @@ impl NuCompleter {
         // See if we're a flag
         let mut completions = vec![];
 
-        if pos > 0 && line_chars[pos - 1] == '-' {
+        if pos > 0 && line_chars[replace_pos] == '-' {
             let mut line_copy = line.to_string();
             let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
             line_copy.replace_range(replace_pos..pos, &replace_string);
