@@ -32,7 +32,7 @@ impl NuCompleter {
         let mut completions;
 
         // See if we're a flag
-        if pos > 0 && line_chars[replace_pos] == '-' {
+        if pos > 0 && replace_pos < line_chars.len() && line_chars[replace_pos] == '-' {
             completions = self.get_matching_arguments(&line_chars, line, replace_pos, pos);
         } else {
             completions = self.file_completer.complete(line, pos, context)?.1;
