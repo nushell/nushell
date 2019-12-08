@@ -52,8 +52,7 @@ pub fn build() -> Result<(), Box<dyn std::error::Error>> {
 
     if all_on && !flags.is_empty() {
         println!(
-            "cargo:warning={}",
-            "Both NUSHELL_ENABLE_ALL_FLAGS and NUSHELL_ENABLE_FLAGS were set. You don't need both."
+            "cargo:warning=Both NUSHELL_ENABLE_ALL_FLAGS and NUSHELL_ENABLE_FLAGS were set. You don't need both."
         );
     }
 

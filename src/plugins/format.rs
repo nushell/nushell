@@ -87,38 +87,36 @@ impl Plugin for Format {
     }
 
     fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
-        match &input {
-            Value {
-                value: UntaggedValue::Row(dict),
-                ..
-            } => {
-                let mut output = String::new();
+        if let Value {
+            value: UntaggedValue::Row(dict),
+            ..
+        } = &input
+        {
+            let mut output = String::new();
 
-                for command in &self.commands {
-                    match command {
-                        FormatCommand::Text(s) => {
-                            output.push_str(s);
-                        }
-                        FormatCommand::Column(c) => {
-                            match dict.entries.get(c) {
-                                Some(c) => match c.as_string() {
-                                    Ok(v) => output.push_str(&v),
-                                    _ => return Ok(vec![]),
-                                },
-                                None => {
-                                    // This row doesn't match, so don't emit anything
-                                    return Ok(vec![]);
-                                }
+            for command in &self.commands {
+                match command {
+                    FormatCommand::Text(s) => {
+                        output.push_str(s);
+                    }
+                    FormatCommand::Column(c) => {
+                        match dict.entries.get(c) {
+                            Some(c) => match c.as_string() {
+                                Ok(v) => output.push_str(&v),
+                                _ => return Ok(vec![]),
+                            },
+                            None => {
+                                // This row doesn't match, so don't emit anything
+                                return Ok(vec![]);
                             }
                         }
                     }
                 }
-
-                return Ok(vec![ReturnSuccess::value(
-                    UntaggedValue::string(output).into_untagged_value(),
-                )]);
             }
-            _ => {}
+
+            return Ok(vec![ReturnSuccess::value(
+                UntaggedValue::string(output).into_untagged_value(),
+            )]);
         }
         Ok(vec![])
     }

@@ -60,16 +60,14 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 
                         if context.get_command(&name).is_some() {
                             trace!("plugin {:?} already loaded.", &name);
+                        } else if params.is_filter {
+                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
+                                name, fname, params,
+                            ))]);
                         } else {
-                            if params.is_filter {
-                                context.add_commands(vec![whole_stream_command(
-                                    PluginCommand::new(name, fname, params),
-                                )]);
-                            } else {
-                                context.add_commands(vec![whole_stream_command(PluginSink::new(
-                                    name, fname, params,
-                                ))]);
-                            };
+                            context.add_commands(vec![whole_stream_command(PluginSink::new(
+                                name, fname, params,
+                            ))]);
                         }
                         Ok(())
                     }
@@ -482,21 +480,16 @@ fn set_env_from_config() {
 
         let value = config.get("env");
 
-        match value {
-            Some(Value {
-                value: UntaggedValue::Row(r),
-                ..
-            }) => {
-                for (k, v) in &r.entries {
-                    match v.as_string() {
-                        Ok(value_string) => {
-                            std::env::set_var(k, value_string);
-                        }
-                        _ => {}
-                    }
+        if let Some(Value {
+            value: UntaggedValue::Row(r),
+            ..
+        }) = value
+        {
+            for (k, v) in &r.entries {
+                if let Ok(value_string) = v.as_string() {
+                    std::env::set_var(k, value_string);
                 }
             }
-            _ => {}
         }
     }
 
@@ -504,33 +497,25 @@ fn set_env_from_config() {
         // Override the path with what they give us from config
         let value = config.get("path");
 
-        match value {
-            Some(value) => match value {
-                Value {
-                    value: UntaggedValue::Table(table),
-                    ..
-                } => {
-                    let mut paths = vec![];
-                    for val in table {
-                        let path_str = val.as_string();
-                        match path_str {
-                            Err(_) => {}
-                            Ok(path_str) => {
-                                paths.push(PathBuf::from(path_str));
-                            }
-                        }
-                    }
-                    let path_os_string = std::env::join_paths(&paths);
-                    match path_os_string {
-                        Ok(path_os_string) => {
-                            std::env::set_var("PATH", path_os_string);
-                        }
-                        Err(_) => {}
-                    }
+        if let Some(Value {
+            value: UntaggedValue::Table(table),
+            ..
+        }) = value
+        {
+            let mut paths = vec![];
+
+            for val in table {
+                let path_str = val.as_string();
+
+                if let Ok(path_str) = path_str {
+                    paths.push(PathBuf::from(path_str));
                 }
-                _ => {}
-            },
-            None => {}
+            }
+
+            let path_os_string = std::env::join_paths(&paths);
+            if let Ok(path_os_string) = path_os_string {
+                std::env::set_var("PATH", path_os_string);
+            }
         }
     }
 }

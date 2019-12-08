@@ -11,7 +11,7 @@ struct DebugEntry<'a> {
 
 impl<'a> PrettyDebug for DebugEntry<'a> {
     fn pretty(&self) -> DebugDocBuilder {
-        (b::key(self.key.to_string()) + b::equals() + self.value.pretty().as_value()).group()
+        (b::key(self.key.to_string()) + b::equals() + self.value.pretty().into_value()).group()
     }
 }
 

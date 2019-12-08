@@ -20,12 +20,12 @@ impl PrettyDebug for PositionalType {
     fn pretty(&self) -> DebugDocBuilder {
         match self {
             PositionalType::Mandatory(string, shape) => {
-                b::description(string) + b::delimit("(", shape.pretty(), ")").as_kind().group()
+                b::description(string) + b::delimit("(", shape.pretty(), ")").into_kind().group()
             }
             PositionalType::Optional(string, shape) => {
                 b::description(string)
                     + b::operator("?")
-                    + b::delimit("(", shape.pretty(), ")").as_kind().group()
+                    + b::delimit("(", shape.pretty(), ")").into_kind().group()
             }
         }
     }

@@ -132,15 +132,14 @@ pub(crate) fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Val
                     let mut out = vec![];
 
                     for item in l {
-                        match item {
-                            Value {
-                                value: UntaggedValue::Row(o),
-                                ..
-                            } => match o.get_data_by_key(string[..].spanned(name.span)) {
-                                Some(v) => out.push(v),
-                                None => {}
-                            },
-                            _ => {}
+                        if let Value {
+                            value: UntaggedValue::Row(o),
+                            ..
+                        } = item
+                        {
+                            if let Some(v) = o.get_data_by_key(string[..].spanned(name.span)) {
+                                out.push(v)
+                            }
                         }
                     }
 
@@ -221,16 +220,12 @@ pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Optio
             match current.entries.get_mut(split_path[idx]) {
                 Some(next) => {
                     if idx == (split_path.len() - 2) {
-                        match &mut next.value {
-                            UntaggedValue::Row(o) => {
-                                o.entries.insert(
-                                    split_path[idx + 1].to_string(),
-                                    new_value.value.clone().into_value(&value.tag),
-                                );
-                            }
-                            _ => {}
+                        if let UntaggedValue::Row(o) = &mut next.value {
+                            o.entries.insert(
+                                split_path[idx + 1].to_string(),
+                                new_value.value.clone().into_value(&value.tag),
+                            );
                         }
-
                         return Some(new_obj.clone());
                     } else {
                         match next.value {
@@ -497,15 +492,14 @@ pub(crate) fn get_mut_data_by_member<'value>(
         UntaggedValue::Table(l) => match &name.unspanned {
             UnspannedPathMember::String(string) => {
                 for item in l {
-                    match item {
-                        Value {
-                            value: UntaggedValue::Row(o),
-                            ..
-                        } => match o.get_mut_data_by_key(&string) {
-                            Some(v) => return Some(v),
-                            None => {}
-                        },
-                        _ => {}
+                    if let Value {
+                        value: UntaggedValue::Row(o),
+                        ..
+                    } = item
+                    {
+                        if let Some(v) = o.get_mut_data_by_key(&string) {
+                            return Some(v);
+                        }
                     }
                 }
                 None

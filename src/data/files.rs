@@ -47,19 +47,16 @@ pub(crate) fn dir_entry_dict(
 
     dict.insert_untagged("size", UntaggedValue::bytes(metadata.len() as u64));
 
-    match metadata.created() {
-        Ok(c) => dict.insert_untagged("created", UntaggedValue::system_date(c)),
-        Err(_) => {}
+    if let Ok(c) = metadata.created() {
+        dict.insert_untagged("created", UntaggedValue::system_date(c));
     }
 
-    match metadata.accessed() {
-        Ok(a) => dict.insert_untagged("accessed", UntaggedValue::system_date(a)),
-        Err(_) => {}
+    if let Ok(a) = metadata.accessed() {
+        dict.insert_untagged("accessed", UntaggedValue::system_date(a));
     }
 
-    match metadata.modified() {
-        Ok(m) => dict.insert_untagged("modified", UntaggedValue::system_date(m)),
-        Err(_) => {}
+    if let Ok(m) = metadata.modified() {
+        dict.insert_untagged("modified", UntaggedValue::system_date(m));
     }
 
     Ok(dict.into_value())

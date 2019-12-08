@@ -135,7 +135,7 @@ impl DebugDocBuilder {
         DebugDocBuilder::styled(string, ShellStyle::Value)
     }
 
-    pub fn as_value(self) -> DebugDocBuilder {
+    pub fn into_value(self) -> DebugDocBuilder {
         self.inner
             .annotate(ShellAnnotation::style(ShellStyle::Value))
             .into()
@@ -149,7 +149,7 @@ impl DebugDocBuilder {
         DebugDocBuilder::styled(string, ShellStyle::Kind)
     }
 
-    pub fn as_kind(self) -> DebugDocBuilder {
+    pub fn into_kind(self) -> DebugDocBuilder {
         self.inner
             .annotate(ShellAnnotation::style(ShellStyle::Kind))
             .into()

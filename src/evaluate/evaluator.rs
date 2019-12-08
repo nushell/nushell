@@ -161,13 +161,11 @@ fn evaluate_reference(
             }
             x if x == "nu:path" => {
                 let mut table = vec![];
-                match std::env::var_os("PATH") {
-                    Some(paths) => {
-                        for path in std::env::split_paths(&paths) {
-                            table.push(UntaggedValue::path(path).into_value(&tag));
-                        }
+                let path = std::env::var_os("PATH");
+                if let Some(paths) = path {
+                    for path in std::env::split_paths(&paths) {
+                        table.push(UntaggedValue::path(path).into_value(&tag));
                     }
-                    _ => {}
                 }
                 Ok(UntaggedValue::table(&table).into_value(tag))
             }

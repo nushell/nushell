@@ -171,7 +171,7 @@ fn parse_separated_columns<'a>(
         let headers = headers_raw
             .split(&separator)
             .map(str::trim)
-            .map(|s| s.to_owned())
+            .map(str::to_owned)
             .filter(|s| !s.is_empty())
             .collect();
         collect(headers, lines, separator)

@@ -41,14 +41,12 @@ impl<'de> ConfigDeserializer<'de> {
             let positional = self.call.args.slice_from(self.position);
             self.position += positional.len();
             Some(UntaggedValue::Table(positional).into_untagged_value()) // TODO: correct tag
+        } else if self.call.args.has(name) {
+            self.call.args.get(name).cloned()
         } else {
-            if self.call.args.has(name) {
-                self.call.args.get(name).cloned()
-            } else {
-                let position = self.position;
-                self.position += 1;
-                self.call.args.nth(position).cloned()
-            }
+            let position = self.position;
+            self.position += 1;
+            self.call.args.nth(position).cloned()
         };
 
         trace!("pushing {:?}", value);

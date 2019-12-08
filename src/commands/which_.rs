@@ -43,14 +43,13 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
-                } => match which::which(&s) {
-                    Ok(ok) => {
+                } => {
+                    if let Ok(ok) = which::which(&s) {
                         which_out.push_back(
                             UntaggedValue::Primitive(Primitive::Path(ok)).into_value(tag.clone()),
                         );
                     }
-                    _ => {}
-                },
+                }
                 Value { tag, .. } => {
                     return Err(ShellError::labeled_error(
                         "Expected a filename to find",
