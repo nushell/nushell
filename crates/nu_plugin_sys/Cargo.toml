@@ -10,11 +10,11 @@ edition = "2018"
 nu-protocol = { path = "../nu-protocol" }
 nu-source = { path = "../nu-source" }
 nu-errors = { path = "../nu-errors" }
-futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
-heim = "0.0.8"
-futures-timer = "2.0.0"
+futures = { version = "0.3.0", features = ["compat", "io-compat"] }
+heim = "0.0.9"
+futures-timer = "2.0.2"
 pin-utils = "0.1.0-alpha.4"
-battery = "0.7.4"
+battery = "0.7.5"
 
 [build-dependencies]
 nu-build = { version = "0.1.0", path = "../nu-build" }
