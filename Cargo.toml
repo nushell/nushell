@@ -128,7 +128,7 @@ pretty_assertions = "0.6.1"
 
 [build-dependencies]
 toml = "0.5.5"
-serde = { version = "1.0.102", features = ["derive"] }
+serde = { version = "1.0.103", features = ["derive"] }
 nu-build = { version = "0.1.0", path = "./crates/nu-build" }
 
 [lib]

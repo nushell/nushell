@@ -32,7 +32,9 @@ impl Plugin for TextView {
     }
 
     fn sink(&mut self, _call_info: CallInfo, input: Vec<Value>) {
-        view_text_value(&input[0]);
+        if !input.is_empty() {
+            view_text_value(&input[0]);
+        }
     }
 }
 
