@@ -10,7 +10,7 @@ license = "MIT"
 
 [dependencies]
 
-serde = { version = "1.0.102", features = ["derive"] }
+serde = { version = "1.0.103", features = ["derive"] }
 derive-new = "0.5.8"
 getset = "0.0.9"
 nom_locate = "1.0.0"

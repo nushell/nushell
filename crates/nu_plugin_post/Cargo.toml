@@ -13,9 +13,9 @@ nu-errors = { path = "../nu-errors" }
 futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
 surf = "1.0.3"
 url = "2.1.0"
-serde_json = "1.0.41"
+serde_json = "1.0.44"
 base64 = "0.11"
-num-traits = "0.2.8"
+num-traits = "0.2.10"
 
 [build-dependencies]
 nu-build = { version = "0.1.0", path = "../nu-build" }
