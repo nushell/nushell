@@ -587,7 +587,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
     }
 }
 
-fn classify_pipeline(
+pub fn classify_pipeline(
     pipeline: &TokenNode,
     context: &Context,
     source: &Text,

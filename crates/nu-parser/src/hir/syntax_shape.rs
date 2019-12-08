@@ -182,10 +182,10 @@ pub trait SignatureRegistry {
 #[derive(Getters, new)]
 pub struct ExpandContext<'context> {
     #[get = "pub(crate)"]
-    registry: Box<dyn SignatureRegistry>,
+    pub registry: Box<dyn SignatureRegistry>,
     #[get = "pub(crate)"]
-    source: &'context Text,
-    homedir: Option<PathBuf>,
+    pub source: &'context Text,
+    pub homedir: Option<PathBuf>,
 }
 
 impl<'context> ExpandContext<'context> {
