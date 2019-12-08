@@ -6,7 +6,9 @@ pub mod parse_command;
 pub use crate::commands::classified::{ClassifiedCommand, ClassifiedPipeline, InternalCommand};
 pub use crate::commands::ExternalCommand;
 pub use crate::hir::syntax_shape::flat_shape::FlatShape;
-pub use crate::hir::syntax_shape::{expand_syntax, ExpandSyntax, PipelineShape, SignatureRegistry};
+pub use crate::hir::syntax_shape::{
+    expand_syntax, ExpandContext, ExpandSyntax, PipelineShape, SignatureRegistry,
+};
 pub use crate::hir::tokens_iterator::TokensIterator;
 pub use crate::parse::files::Files;
 pub use crate::parse::flag::Flag;
