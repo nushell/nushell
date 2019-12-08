@@ -21,6 +21,7 @@ impl NuCompleter {
         let commands: Vec<String> = self.commands.names();
 
         let line_chars: Vec<_> = line[..pos].chars().collect();
+
         let mut replace_pos = line_chars.len();
         while replace_pos > 0 {
             if line_chars[replace_pos - 1] == ' ' {
@@ -29,9 +30,11 @@ impl NuCompleter {
             replace_pos -= 1;
         }
 
-        // See if we're a flag
+        let substring = line_chars[replace_pos..pos].iter().collect::<String>();
+
         let mut completions = vec![];
 
+        // See if we're a flag
         if pos > 0 && line_chars[replace_pos] == '-' {
             let mut line_copy = line.to_string();
             let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
@@ -66,10 +69,14 @@ impl NuCompleter {
                                     {
                                         if let Some(named) = args.named {
                                             for (name, _) in named.iter() {
-                                                completions.push(rustyline::completion::Pair {
-                                                    display: format!("--{}", name),
-                                                    replacement: format!("--{}", name),
-                                                });
+                                                let full_flag = format!("--{}", name);
+
+                                                if full_flag.starts_with(&substring) {
+                                                    completions.push(rustyline::completion::Pair {
+                                                        display: full_flag.clone(),
+                                                        replacement: full_flag,
+                                                    });
+                                                }
                                             }
                                         }
                                     }
