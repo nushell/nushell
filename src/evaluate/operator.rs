@@ -29,13 +29,23 @@ fn contains(
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
-    if let (
-        UntaggedValue::Primitive(Primitive::String(l)),
-        UntaggedValue::Primitive(Primitive::String(r)),
-    ) = (left, right)
-    {
-        Ok(l.contains(r))
-    } else {
-        Err((left.type_name(), right.type_name()))
+    match (left, right) {
+        (
+            UntaggedValue::Primitive(Primitive::String(l)),
+            UntaggedValue::Primitive(Primitive::String(r)),
+        ) => Ok(l.contains(r)),
+        (
+            UntaggedValue::Primitive(Primitive::Line(l)),
+            UntaggedValue::Primitive(Primitive::String(r)),
+        ) => Ok(l.contains(r)),
+        (
+            UntaggedValue::Primitive(Primitive::String(l)),
+            UntaggedValue::Primitive(Primitive::Line(r)),
+        ) => Ok(l.contains(r)),
+        (
+            UntaggedValue::Primitive(Primitive::Line(l)),
+            UntaggedValue::Primitive(Primitive::Line(r)),
+        ) => Ok(l.contains(r)),
+        _ => Err((left.type_name(), right.type_name())),
     }
 }
