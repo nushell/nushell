@@ -286,6 +286,8 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             per_item_command(Echo),
             per_item_command(Edit),
             per_item_command(Insert),
+            per_item_command(Format),
+            per_item_command(Parse),
             whole_stream_command(Config),
             whole_stream_command(Compact),
             whole_stream_command(Default),
