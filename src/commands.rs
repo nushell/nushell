@@ -93,6 +93,7 @@ pub(crate) mod version;
 pub(crate) mod what;
 pub(crate) mod where_;
 pub(crate) mod which_;
+pub(crate) mod wrap;
 
 pub(crate) use autoview::Autoview;
 pub(crate) use cd::CD;
@@ -186,3 +187,4 @@ pub(crate) use version::Version;
 pub(crate) use what::What;
 pub(crate) use where_::Where;
 pub(crate) use which_::Which;
+pub(crate) use wrap::Wrap;

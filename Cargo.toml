@@ -148,10 +148,6 @@ name = "nu_plugin_average"
 path = "src/plugins/average.rs"
 
 [[bin]]
-name = "nu_plugin_embed"
-path = "src/plugins/embed.rs"
-
-[[bin]]
 name = "nu_plugin_str"
 path = "src/plugins/str.rs"
 
@@ -167,11 +163,6 @@ path = "src/plugins/match.rs"
 name = "nu_plugin_tree"
 path = "src/plugins/tree.rs"
 required-features = ["tree"]
-
-[[bin]]
-name = "nu_plugin_docker"
-path = "src/plugins/docker.rs"
-required-features = ["docker"]
 
 [[bin]]
 name = "nu"
