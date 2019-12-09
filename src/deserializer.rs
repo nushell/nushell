@@ -1,8 +1,8 @@
-use crate::data::base::property_get::ValueExt;
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{CallInfo, ColumnPath, Evaluate, Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::{HasSpan, SpannedItem, Tagged, TaggedItem};
+use nu_value_ext::ValueExt;
 use serde::de;
 use std::path::PathBuf;
 

@@ -1,8 +1,6 @@
-pub(crate) mod property_get;
 pub(crate) mod shape;
 
 use crate::context::CommandRegistry;
-use crate::data::base::property_get::ValueExt;
 use crate::evaluate::evaluate_baseline_expr;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -15,6 +13,7 @@ use nu_protocol::{
     UntaggedValue, Value,
 };
 use nu_source::{Tag, Text};
+use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use query_interface::{interfaces, vtable_for, ObjectHash};
@@ -196,11 +195,11 @@ fn coerce_compare_primitive(
 }
 #[cfg(test)]
 mod tests {
-    use crate::data::base::property_get::{as_column_path, ValueExt};
     use indexmap::IndexMap;
     use nu_errors::ShellError;
     use nu_protocol::{ColumnPath as ColumnPathValue, PathMember, UntaggedValue, Value};
     use nu_source::*;
+    use nu_value_ext::{as_column_path, ValueExt};
     use num_bigint::BigInt;
 
     fn string(input: impl Into<String>) -> Value {

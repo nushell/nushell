@@ -104,7 +104,7 @@ impl ValueExt for Value {
     }
 }
 
-pub(crate) fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, ShellError> {
+pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, ShellError> {
     match &value.value {
         // If the value is a row, the member is a column name
         UntaggedValue::Row(o) => match &name.unspanned {
@@ -453,7 +453,7 @@ pub(crate) fn get_data_by_index(value: &Value, idx: Spanned<usize>) -> Option<Va
     }
 }
 
-pub(crate) fn get_data_by_key(value: &Value, name: Spanned<&str>) -> Option<Value> {
+pub fn get_data_by_key(value: &Value, name: Spanned<&str>) -> Option<Value> {
     match &value.value {
         UntaggedValue::Row(o) => o.get_data_by_key(name),
         UntaggedValue::Table(l) => {

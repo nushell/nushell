@@ -75,7 +75,6 @@ pub(crate) use crate::commands::command::{
 };
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
-pub(crate) use crate::data::base::property_get::ValueExt;
 pub(crate) use crate::data::types::ExtractType;
 pub(crate) use crate::data::value;
 pub(crate) use crate::env::host::handle_unexpected;
@@ -94,6 +93,7 @@ pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span,
     SpannedItem, Tag, TaggedItem, Text,
 };
+pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;

@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::property_get::get_data_by_column_path;
 use crate::data::base::shape::Shapes;
 use crate::prelude::*;
 use futures_util::pin_mut;
@@ -10,6 +9,7 @@ use nu_protocol::{
     Value,
 };
 use nu_source::{span_for_spanned_list, PrettyDebug};
+use nu_value_ext::get_data_by_column_path;
 
 pub struct Get;
 
