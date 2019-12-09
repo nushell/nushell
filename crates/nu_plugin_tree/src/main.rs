@@ -1,5 +1,8 @@
 use derive_new::new;
-use nu::{serve_plugin, CallInfo, Plugin, ShellError, Signature, Tagged, Value};
+use nu_errors::ShellError;
+use nu_protocol::{
+    format_primitive, serve_plugin, CallInfo, Plugin, Signature, UntaggedValue, Value,
+};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
 use ptree::print_config::PrintConfig;
@@ -12,10 +15,10 @@ pub struct TreeView {
 }
 
 impl TreeView {
-    fn from_value_helper(value: &Value, mut builder: &mut TreeBuilder) {
+    fn from_value_helper(value: &UntaggedValue, mut builder: &mut TreeBuilder) {
         match value {
             UntaggedValue::Primitive(p) => {
-                let _ = builder.add_empty_child(p.format(None));
+                let _ = builder.add_empty_child(format_primitive(p, None));
             }
             UntaggedValue::Row(o) => {
                 for (k, v) in o.entries.iter() {
@@ -29,8 +32,7 @@ impl TreeView {
                     Self::from_value_helper(elem, builder);
                 }
             }
-            UntaggedValue::Block(_) => {}
-            UntaggedValue::Binary(_) => {}
+            _ => {}
         }
     }
 
@@ -41,9 +43,12 @@ impl TreeView {
         let mut builder = &mut tree;
 
         for desc in descs {
-            let value = value.get_data(&desc);
+            let value = match &value.value {
+                UntaggedValue::Row(d) => d.get_data(&desc).borrow().clone(),
+                _ => value.clone(),
+            };
             builder = builder.begin_child(desc.clone());
-            Self::from_value_helper(value.borrow(), &mut builder);
+            Self::from_value_helper(&value, &mut builder);
             builder = builder.end_child();
             //entries.push((desc.name.clone(), value.borrow().copy()))
         }

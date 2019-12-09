@@ -1,4 +1,3 @@
-use crate::data::primitive::format_primitive;
 use crate::prelude::*;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
@@ -6,8 +5,8 @@ use derive_new::new;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName, TaggedDictBuilder, UntaggedValue,
-    Value,
+    format_primitive, ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName,
+    TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::{b, DebugDoc, PrettyDebug};
 use std::collections::BTreeMap;

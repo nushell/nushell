@@ -1974,12 +1974,19 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-source",
+ "nu-value-ext",
+ "nu_plugin_average",
  "nu_plugin_binaryview",
  "nu_plugin_fetch",
+ "nu_plugin_inc",
+ "nu_plugin_match",
  "nu_plugin_post",
  "nu_plugin_ps",
+ "nu_plugin_str",
+ "nu_plugin_sum",
  "nu_plugin_sys",
  "nu_plugin_textview",
+ "nu_plugin_tree",
  "num-bigint",
  "num-traits 0.2.10",
  "pin-utils",
@@ -2086,11 +2093,14 @@ version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
+ "byte-unit",
  "chrono",
+ "chrono-humanize",
  "derive-new",
  "getset",
  "indexmap",
  "language-reporting",
+ "natural",
  "nom 5.0.1",
  "nom-tracable",
  "nom_locate",
@@ -2125,6 +2135,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-value-ext"
+version = "0.1.0"
+dependencies = [
+ "itertools 0.8.2",
+ "nu-build",
+ "nu-errors",
+ "nu-parser",
+ "nu-protocol",
+ "nu-source",
+ "num-traits 0.2.10",
+]
+
+[[package]]
+name = "nu_plugin_average"
+version = "0.1.0"
+dependencies = [
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+]
+
+[[package]]
 name = "nu_plugin_binaryview"
 version = "0.1.0"
 dependencies = [
@@ -2151,6 +2184,31 @@ dependencies = [
  "nu-source",
  "surf",
  "url",
+]
+
+[[package]]
+name = "nu_plugin_inc"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "semver",
+]
+
+[[package]]
+name = "nu_plugin_match"
+version = "0.1.0"
+dependencies = [
+ "futures-preview",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "regex",
 ]
 
 [[package]]
@@ -2184,6 +2242,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu_plugin_str"
+version = "0.1.0"
+dependencies = [
+ "futures-preview",
+ "indexmap",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "num-bigint",
+ "regex",
+]
+
+[[package]]
+name = "nu_plugin_sum"
+version = "0.1.0"
+dependencies = [
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+]
+
+[[package]]
 name = "nu_plugin_sys"
 version = "0.1.0"
 dependencies = [
@@ -2210,6 +2293,18 @@ dependencies = [
  "nu-source",
  "syntect",
  "url",
+]
+
+[[package]]
+name = "nu_plugin_tree"
+version = "0.1.0"
+dependencies = [
+ "derive-new",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "ptree",
 ]
 
 [[package]]

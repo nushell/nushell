@@ -2,12 +2,12 @@ use crate::commands::WholeStreamCommand;
 use crate::data::base::property_get::get_data_by_column_path;
 use crate::data::base::shape::Shapes;
 use crate::prelude::*;
-use crate::utils::did_you_mean;
 use futures_util::pin_mut;
 use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{
-    ColumnPath, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
+    did_you_mean, ColumnPath, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue,
+    Value,
 };
 use nu_source::{span_for_spanned_list, PrettyDebug};
 
