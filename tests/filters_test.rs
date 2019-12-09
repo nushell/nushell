@@ -729,7 +729,7 @@ fn can_get_reverse_first() {
 }
 
 #[test]
-fn embed_rows_into_a_row() {
+fn wrap_rows_into_a_row() {
     Playground::setup("embed_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -746,7 +746,7 @@ fn embed_rows_into_a_row() {
             r#"
                 open los_tres_caballeros.txt
                 | from-csv
-                | embed caballeros
+                | wrap caballeros
                 | get caballeros
                 | nth 0
                 | get last_name
@@ -759,7 +759,7 @@ fn embed_rows_into_a_row() {
 }
 
 #[test]
-fn embed_rows_into_a_table() {
+fn wrap_rows_into_a_table() {
     Playground::setup("embed_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -777,7 +777,7 @@ fn embed_rows_into_a_table() {
                 open los_tres_caballeros.txt
                 | from-csv
                 | get last_name
-                | embed caballero
+                | wrap caballero
                 | nth 2
                 | get caballero
                 | echo $it
