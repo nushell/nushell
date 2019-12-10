@@ -17,16 +17,13 @@ members = [
     "crates/nu-errors",
     "crates/nu-source",
     "crates/nu_plugin_average",
-    "crates/nu_plugin_textview",
     "crates/nu_plugin_binaryview",
     "crates/nu_plugin_fetch",
     "crates/nu_plugin_inc",
     "crates/nu_plugin_match",
-    "crates/nu_plugin_post",    
-    "crates/nu_plugin_ps",
+    "crates/nu_plugin_post",
     "crates/nu_plugin_str",
     "crates/nu_plugin_sum",
-    "crates/nu_plugin_sys",
     "crates/nu_plugin_tree",
     "crates/nu-protocol",
     "crates/nu-parser",
@@ -43,16 +40,13 @@ nu-errors = { version = "0.1.0", path = "./crates/nu-errors" }
 nu-parser = { version = "0.1.0", path = "./crates/nu-parser" }
 nu-value-ext = { version = "0.1.0", path = "./crates/nu-value-ext" }
 nu_plugin_average = {version = "0.1.0", path = "./crates/nu_plugin_average", optional=true}
-nu_plugin_textview = {version = "0.1.0", path = "./crates/nu_plugin_textview", optional=true}
 nu_plugin_binaryview = {version = "0.1.0", path = "./crates/nu_plugin_binaryview", optional=true}
 nu_plugin_fetch = {version = "0.1.0", path = "./crates/nu_plugin_fetch", optional=true}
 nu_plugin_inc = {version = "0.1.0", path = "./crates/nu_plugin_inc", optional=true}
 nu_plugin_match = {version = "0.1.0", path = "./crates/nu_plugin_match", optional=true}
 nu_plugin_post = {version = "0.1.0", path = "./crates/nu_plugin_post", optional=true}
-nu_plugin_ps = {version = "0.1.0", path = "./crates/nu_plugin_ps", optional=true}
 nu_plugin_str = {version = "0.1.0", path = "./crates/nu_plugin_str", optional=true}
 nu_plugin_sum = {version = "0.1.0", path = "./crates/nu_plugin_sum", optional=true}
-nu_plugin_sys = {version = "0.1.0", path = "./crates/nu_plugin_sys", optional=true}
 nu_plugin_tree = {version = "0.1.0", path = "./crates/nu_plugin_tree", optional=true}
 
 query_interface = "0.3.5"
@@ -123,14 +117,22 @@ natural = "0.3.0"
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 starship = { version = "0.28", optional = true}
+heim = {version = "0.0.8", optional = true}
+battery = {version = "0.7.5", optional = true}
+syntect = {version = "3.2.0", optional = true }
+onig_sys = {version = "=69.1.0", optional = true }
+crossterm = {version = "0.10.2", optional = true}
+futures-timer = {version = "1.0.2", optional = true}
+url = {version = "2.1.0", optional = true}
 
 [features]
-default = ["sys", "ps", "match", "inc", "average", "str", "sum"]
-sys = ["nu_plugin_ps"]
+default = ["sys", "ps", "textview", "match", "inc", "average", "str", "sum"]
+sys = ["heim", "battery"]
+ps = ["heim"]
+textview = ["crossterm", "syntect", "onig_sys"]
+
 starship-prompt = ["starship"]
-textview = ["nu_plugin_textview"]
 binaryview = ["nu_plugin_binaryview"]
-ps = ["nu_plugin_ps"]
 match = ["nu_plugin_match"]
 tree = ["nu_plugin_tree"]
 inc = ["nu_plugin_inc"]
@@ -155,6 +157,23 @@ nu-build = { version = "0.1.0", path = "./crates/nu-build" }
 name = "nu"
 path = "src/lib.rs"
 
+# Core plugins that ship with `cargo install nu` by default
+[[bin]]
+name = "nu_plugin_textview"
+path = "src/core_plugins/textview.rs"
+required-features = ["textview"]
+
+[[bin]]
+name = "nu_plugin_ps"
+path = "src/core_plugins/ps.rs"
+required-features = ["ps"]
+
+[[bin]]
+name = "nu_plugin_sys"
+path = "src/core_plugins/sys.rs"
+required-features = ["sys"]
+
+# Main nu binary
 [[bin]]
 name = "nu"
 path = "src/main.rs"
