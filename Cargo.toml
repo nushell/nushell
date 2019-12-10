@@ -125,7 +125,7 @@ semver = {version = "0.9.0", optional = true}
 default = ["sys", "ps", "textview", "match", "inc", "average", "str", "sum"]
 sys = ["heim", "battery"]
 ps = ["heim"]
-textview = ["crossterm", "syntect", "onig_sys"]
+textview = ["crossterm", "syntect", "onig_sys", "url"]
 inc = ["semver"]
 str = []
 
