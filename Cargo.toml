@@ -19,9 +19,14 @@ members = [
     "crates/nu_plugin_average",
     "crates/nu_plugin_binaryview",
     "crates/nu_plugin_fetch",
+    "crates/nu_plugin_inc",
     "crates/nu_plugin_match",
     "crates/nu_plugin_post",
+    "crates/nu_plugin_ps",
+    "crates/nu_plugin_str",
     "crates/nu_plugin_sum",
+    "crates/nu_plugin_sys",
+    "crates/nu_plugin_textview",
     "crates/nu_plugin_tree",
     "crates/nu-protocol",
     "crates/nu-parser",
@@ -40,9 +45,14 @@ nu-value-ext = { version = "0.1.0", path = "./crates/nu-value-ext" }
 nu_plugin_average = {version = "0.1.0", path = "./crates/nu_plugin_average", optional=true}
 nu_plugin_binaryview = {version = "0.1.0", path = "./crates/nu_plugin_binaryview", optional=true}
 nu_plugin_fetch = {version = "0.1.0", path = "./crates/nu_plugin_fetch", optional=true}
+nu_plugin_inc = {version = "0.1.0", path = "./crates/nu_plugin_inc", optional=true}
 nu_plugin_match = {version = "0.1.0", path = "./crates/nu_plugin_match", optional=true}
 nu_plugin_post = {version = "0.1.0", path = "./crates/nu_plugin_post", optional=true}
+nu_plugin_ps = {version = "0.1.0", path = "./crates/nu_plugin_ps", optional=true}
+nu_plugin_str = {version = "0.1.0", path = "./crates/nu_plugin_str", optional=true}
 nu_plugin_sum = {version = "0.1.0", path = "./crates/nu_plugin_sum", optional=true}
+nu_plugin_sys = {version = "0.1.0", path = "./crates/nu_plugin_sys", optional=true}
+nu_plugin_textview = {version = "0.1.0", path = "./crates/nu_plugin_textview", optional=true}
 nu_plugin_tree = {version = "0.1.0", path = "./crates/nu_plugin_tree", optional=true}
 
 query_interface = "0.3.5"
@@ -122,9 +132,9 @@ url = {version = "2.1.0", optional = true}
 semver = {version = "0.9.0", optional = true}
 
 [features]
-default = ["sys", "ps", "textview", "match", "inc", "average", "str", "sum"]
+default = ["sys", "ps", "textview", "inc", "str"]
 sys = ["heim", "battery"]
-ps = ["heim"]
+ps = ["heim", "futures-timer"]
 textview = ["crossterm", "syntect", "onig_sys", "url"]
 inc = ["semver"]
 str = []
@@ -154,29 +164,31 @@ name = "nu"
 path = "src/lib.rs"
 
 # Core plugins that ship with `cargo install nu` by default
+# Currently, Cargo limits us to installing only one binary
+# unless we use [[bin]], so we use this as a workaround
 [[bin]]
-name = "nu_plugin_textview"
-path = "src/core_plugins/textview.rs"
+name = "nu_plugin_core_textview"
+path = "crates/nu_plugin_textview/src/main.rs"
 required-features = ["textview"]
 
 [[bin]]
-name = "nu_plugin_inc"
-path = "src/core_plugins/inc.rs"
+name = "nu_plugin_core_inc"
+path = "crates/nu_plugin_inc/src/main.rs"
 required-features = ["inc"]
 
 [[bin]]
-name = "nu_plugin_ps"
-path = "src/core_plugins/ps.rs"
+name = "nu_plugin_core_ps"
+path = "crates/nu_plugin_ps/src/main.rs"
 required-features = ["ps"]
 
 [[bin]]
-name = "nu_plugin_str"
-path = "src/core_plugins/str.rs"
+name = "nu_plugin_core_str"
+path = "crates/nu_plugin_str/src/main.rs"
 required-features = ["str"]
 
 [[bin]]
-name = "nu_plugin_sys"
-path = "src/core_plugins/sys.rs"
+name = "nu_plugin_core_sys"
+path = "crates/nu_plugin_sys/src/main.rs"
 required-features = ["sys"]
 
 # Main nu binary

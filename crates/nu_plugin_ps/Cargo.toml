@@ -1,0 +1,20 @@
+[package]
+name = "nu_plugin_ps"
+version = "0.1.0"
+authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol" }
+nu-source = { path = "../nu-source" }
+nu-errors = { path = "../nu-errors" }
+
+futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
+heim = "0.0.8"
+futures-timer = "1.0.3"
+pin-utils = "0.1.0-alpha.4"
+
+[build-dependencies]
+nu-build = { version = "0.1.0", path = "../nu-build" }
