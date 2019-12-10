@@ -16,14 +16,16 @@ documentation = "https://book.nushell.sh"
 members = [
     "crates/nu-errors",
     "crates/nu-source",
-    "crates/nu_plugin_textview",
+    "crates/nu_plugin_average",
     "crates/nu_plugin_binaryview",
     "crates/nu_plugin_fetch",
-    "crates/nu_plugin_post",    
-    "crates/nu_plugin_ps",
-    "crates/nu_plugin_sys",
+    "crates/nu_plugin_match",
+    "crates/nu_plugin_post",
+    "crates/nu_plugin_sum",
+    "crates/nu_plugin_tree",
     "crates/nu-protocol",
     "crates/nu-parser",
+    "crates/nu-value-ext",
     "crates/nu-build"
 ]
 
@@ -34,12 +36,14 @@ nu-source = { version = "0.1.0", path = "./crates/nu-source" }
 nu-protocol = { version = "0.1.0", path = "./crates/nu-protocol" }
 nu-errors = { version = "0.1.0", path = "./crates/nu-errors" }
 nu-parser = { version = "0.1.0", path = "./crates/nu-parser" }
-nu_plugin_textview = {version = "0.1.0", path = "./crates/nu_plugin_textview", optional=true}
+nu-value-ext = { version = "0.1.0", path = "./crates/nu-value-ext" }
+nu_plugin_average = {version = "0.1.0", path = "./crates/nu_plugin_average", optional=true}
 nu_plugin_binaryview = {version = "0.1.0", path = "./crates/nu_plugin_binaryview", optional=true}
 nu_plugin_fetch = {version = "0.1.0", path = "./crates/nu_plugin_fetch", optional=true}
+nu_plugin_match = {version = "0.1.0", path = "./crates/nu_plugin_match", optional=true}
 nu_plugin_post = {version = "0.1.0", path = "./crates/nu_plugin_post", optional=true}
-nu_plugin_ps = {version = "0.1.0", path = "./crates/nu_plugin_ps", optional=true}
-nu_plugin_sys = {version = "0.1.0", path = "./crates/nu_plugin_sys", optional=true}
+nu_plugin_sum = {version = "0.1.0", path = "./crates/nu_plugin_sum", optional=true}
+nu_plugin_tree = {version = "0.1.0", path = "./crates/nu_plugin_tree", optional=true}
 
 query_interface = "0.3.5"
 typetag = "0.1.4"
@@ -88,14 +92,12 @@ subprocess = "0.1.18"
 pretty-hex = "0.1.1"
 hex = "0.4"
 tempfile = "3.1.0"
-semver = "0.9.0"
 which = "3.1"
 textwrap = {version = "0.11.0", features = ["term_size"]}
 shellexpand = "1.0.0"
 pin-utils = "0.1.0-alpha.4"
 num-bigint = { version = "0.2.3", features = ["serde"] }
 bigdecimal = { version = "0.1.0", features = ["serde"] }
-natural = "0.3.0"
 serde_urlencoded = "0.6.1"
 trash = "1.0.0"
 regex = "1"
@@ -105,18 +107,34 @@ calamine = "0.16"
 umask = "0.1"
 futures-util = "0.3.1"
 termcolor = "1.0.5"
+natural = "0.3.0"
 
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 starship = { version = "0.28", optional = true}
+heim = {version = "0.0.8", optional = true}
+battery = {version = "0.7.5", optional = true}
+syntect = {version = "3.2.0", optional = true }
+onig_sys = {version = "=69.1.0", optional = true }
+crossterm = {version = "0.10.2", optional = true}
+futures-timer = {version = "1.0.2", optional = true}
+url = {version = "2.1.0", optional = true}
+semver = {version = "0.9.0", optional = true}
 
 [features]
-default = ["sys", "ps"]
-sys = ["nu_plugin_ps"]
+default = ["sys", "ps", "textview", "match", "inc", "average", "str", "sum"]
+sys = ["heim", "battery"]
+ps = ["heim"]
+textview = ["crossterm", "syntect", "onig_sys", "url"]
+inc = ["semver"]
+str = []
+
 starship-prompt = ["starship"]
-textview = ["nu_plugin_textview"]
 binaryview = ["nu_plugin_binaryview"]
-ps = ["nu_plugin_ps"]
+match = ["nu_plugin_match"]
+tree = ["nu_plugin_tree"]
+average = ["nu_plugin_average"]
+sum = ["nu_plugin_sum"]
 #trace = ["nu-parser/trace"]
 
 [dependencies.rusqlite]
@@ -135,35 +153,33 @@ nu-build = { version = "0.1.0", path = "./crates/nu-build" }
 name = "nu"
 path = "src/lib.rs"
 
+# Core plugins that ship with `cargo install nu` by default
+[[bin]]
+name = "nu_plugin_textview"
+path = "src/core_plugins/textview.rs"
+required-features = ["textview"]
+
 [[bin]]
 name = "nu_plugin_inc"
-path = "src/plugins/inc.rs"
+path = "src/core_plugins/inc.rs"
+required-features = ["inc"]
 
 [[bin]]
-name = "nu_plugin_sum"
-path = "src/plugins/sum.rs"
-
-[[bin]]
-name = "nu_plugin_average"
-path = "src/plugins/average.rs"
+name = "nu_plugin_ps"
+path = "src/core_plugins/ps.rs"
+required-features = ["ps"]
 
 [[bin]]
 name = "nu_plugin_str"
-path = "src/plugins/str.rs"
+path = "src/core_plugins/str.rs"
+required-features = ["str"]
 
 [[bin]]
-name = "nu_plugin_skip"
-path = "src/plugins/skip.rs"
+name = "nu_plugin_sys"
+path = "src/core_plugins/sys.rs"
+required-features = ["sys"]
 
-[[bin]]
-name = "nu_plugin_match"
-path = "src/plugins/match.rs"
-
-[[bin]]
-name = "nu_plugin_tree"
-path = "src/plugins/tree.rs"
-required-features = ["tree"]
-
+# Main nu binary
 [[bin]]
 name = "nu"
 path = "src/main.rs"

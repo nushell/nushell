@@ -1,5 +1,4 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::property_get::get_data_by_key;
 use crate::data::TaggedListBuilder;
 use crate::prelude::*;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -8,6 +7,7 @@ use nu_protocol::{
     Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
+use nu_value_ext::get_data_by_key;
 
 pub struct TSortBy;
 

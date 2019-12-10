@@ -1,22 +1,15 @@
 [package]
-name = "nu-source"
+name = "nu_plugin_average"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
-description = "A source string characterizer for Nushell"
-license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0.103", features = ["derive"] }
-derive-new = "0.5.8"
-getset = "0.0.9"
-nom_locate = "1.0.0"
-nom-tracable = "0.4.1"
-language-reporting = "0.4.0"
-termcolor = "1.0.5"
-pretty = "0.5.2"
+nu-protocol = { path = "../nu-protocol" }
+nu-source = { path = "../nu-source" }
+nu-errors = { path = "../nu-errors" }
 
 [build-dependencies]
 nu-build = { version = "0.1.0", path = "../nu-build" }

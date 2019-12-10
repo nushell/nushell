@@ -3,6 +3,7 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_value_ext::ValueExt;
 
 pub struct Insert;
 

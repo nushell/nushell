@@ -1,5 +1,4 @@
 use crate::commands::PerItemCommand;
-use crate::data::base::property_get::get_data_by_key;
 use crate::data::command_dict;
 use crate::prelude::*;
 use nu_errors::ShellError;
@@ -8,6 +7,7 @@ use nu_protocol::{
     TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::SpannedItem;
+use nu_value_ext::get_data_by_key;
 
 pub struct Help;
 

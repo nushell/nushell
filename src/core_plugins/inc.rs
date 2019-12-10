@@ -1,10 +1,10 @@
-use nu::{did_you_mean, serve_plugin, Plugin, ValueExt};
 use nu_errors::ShellError;
 use nu_protocol::{
-    CallInfo, ColumnPath, Primitive, ReturnSuccess, ReturnValue, ShellTypeName, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    did_you_mean, serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess,
+    ReturnValue, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{span_for_spanned_list, HasSpan, SpannedItem, Tagged};
+use nu_value_ext::ValueExt;
 
 enum Action {
     SemVerAction(SemVerAction),
@@ -218,11 +218,11 @@ mod tests {
 
     use super::{Inc, SemVerAction};
     use indexmap::IndexMap;
-    use nu::{Plugin, TaggedDictBuilder};
     use nu_protocol::{
         CallInfo, EvaluatedArgs, PathMember, ReturnSuccess, UnspannedPathMember, UntaggedValue,
         Value,
     };
+    use nu_protocol::{Plugin, TaggedDictBuilder};
     use nu_source::{Span, Tag};
 
     struct CallStub {

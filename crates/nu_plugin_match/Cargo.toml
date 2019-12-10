@@ -1,5 +1,5 @@
 [package]
-name = "nu_plugin_textview"
+name = "nu_plugin_match"
 version = "0.1.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
@@ -7,13 +7,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syntect = { version = "3.2.0" }
-ansi_term = "0.12.1"
-crossterm = { version = "0.10.2" }
 nu-protocol = { path = "../nu-protocol" }
 nu-source = { path = "../nu-source" }
 nu-errors = { path = "../nu-errors" }
-url = "2.1.0"
+futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
+regex = "1"
 
 [build-dependencies]
 nu-build = { version = "0.1.0", path = "../nu-build" }

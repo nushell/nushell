@@ -1,9 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::property_get::get_data_by_key;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tagged;
+use nu_value_ext::get_data_by_key;
 
 pub struct GroupBy;
 

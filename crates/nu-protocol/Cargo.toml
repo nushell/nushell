@@ -26,6 +26,9 @@ nom_locate = "1.0.0"
 nom-tracable = "0.4.1"
 typetag = "0.1.4"
 query_interface = "0.3.5"
+byte-unit = "3.0.3"
+chrono-humanize = "0.0.11"
+natural = "0.3.0"
 
 # implement conversions
 subprocess = "0.1.18"

@@ -1,10 +1,10 @@
-use nu::{did_you_mean, serve_plugin, Plugin, ValueExt};
 use nu_errors::ShellError;
 use nu_protocol::{
-    CallInfo, ColumnPath, Primitive, ReturnSuccess, ReturnValue, ShellTypeName, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    did_you_mean, serve_plugin, CallInfo, ColumnPath, Plugin, Primitive, ReturnSuccess,
+    ReturnValue, ShellTypeName, Signature, SyntaxShape, UntaggedValue, Value,
 };
 use nu_source::{span_for_spanned_list, Tagged};
+use nu_value_ext::ValueExt;
 
 use regex::Regex;
 use std::cmp;
@@ -313,9 +313,12 @@ fn main() {
 mod tests {
     use super::{Action, ReplaceAction, Str};
     use indexmap::IndexMap;
-    use nu::{Plugin, TaggedDictBuilder, ValueExt};
-    use nu_protocol::{CallInfo, EvaluatedArgs, Primitive, ReturnSuccess, UntaggedValue, Value};
+    use nu_protocol::{
+        CallInfo, EvaluatedArgs, Plugin, Primitive, ReturnSuccess, TaggedDictBuilder,
+        UntaggedValue, Value,
+    };
     use nu_source::Tag;
+    use nu_value_ext::ValueExt;
     use num_bigint::BigInt;
 
     fn string(input: impl Into<String>) -> Value {
