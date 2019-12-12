@@ -7,8 +7,9 @@ use crate::commands::external_command;
 use crate::hir;
 use crate::hir::expand_external_tokens::ExternalTokensShape;
 use crate::hir::syntax_shape::block::AnyBlockShape;
+use crate::hir::syntax_shape::expression::range::RangeShape;
 use crate::hir::tokens_iterator::{Peeked, TokensIterator};
-use crate::parse::operator::Operator;
+use crate::parse::operator::EvaluationOperator;
 use crate::parse::token_tree::TokenNode;
 use crate::parse::tokens::{Token, UnspannedToken};
 use crate::parse_command::{parse_command_tail, CommandTailShape};
@@ -74,6 +75,7 @@ impl FallibleColorSyntax for SyntaxShape {
                 context,
                 shapes,
             ),
+            SyntaxShape::Range => color_fallible_syntax(&RangeShape, token_nodes, context, shapes),
             SyntaxShape::Member => {
                 color_fallible_syntax(&MemberShape, token_nodes, context, shapes)
             }
@@ -114,6 +116,7 @@ impl FallibleColorSyntax for SyntaxShape {
         match self {
             SyntaxShape::Any => color_fallible_syntax(&AnyExpressionShape, token_nodes, context),
             SyntaxShape::Int => color_fallible_syntax(&IntShape, token_nodes, context),
+            SyntaxShape::Range => color_fallible_syntax(&RangeShape, token_nodes, context),
             SyntaxShape::String => {
                 color_fallible_syntax_with(&StringShape, &FlatShape::String, token_nodes, context)
             }
@@ -134,6 +137,7 @@ impl ExpandExpression for SyntaxShape {
         match self {
             SyntaxShape::Any => "shape[any]",
             SyntaxShape::Int => "shape[integer]",
+            SyntaxShape::Range => "shape[range]",
             SyntaxShape::String => "shape[string]",
             SyntaxShape::Member => "shape[column name]",
             SyntaxShape::ColumnPath => "shape[column path]",
@@ -152,6 +156,7 @@ impl ExpandExpression for SyntaxShape {
         match self {
             SyntaxShape::Any => expand_expr(&AnyExpressionShape, token_nodes, context),
             SyntaxShape::Int => expand_expr(&IntShape, token_nodes, context),
+            SyntaxShape::Range => expand_expr(&RangeShape, token_nodes, context),
             SyntaxShape::String => expand_expr(&StringShape, token_nodes, context),
             SyntaxShape::Member => {
                 let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
@@ -183,7 +188,6 @@ pub trait SignatureRegistry {
 pub struct ExpandContext<'context> {
     #[get = "pub(crate)"]
     pub registry: Box<dyn SignatureRegistry>,
-    #[get = "pub(crate)"]
     pub source: &'context Text,
     pub homedir: Option<PathBuf>,
 }
@@ -191,6 +195,10 @@ pub struct ExpandContext<'context> {
 impl<'context> ExpandContext<'context> {
     pub(crate) fn homedir(&self) -> Option<&Path> {
         self.homedir.as_ref().map(|h| h.as_path())
+    }
+
+    pub(crate) fn source(&self) -> &'context Text {
+        self.source
     }
 }
 
@@ -568,7 +576,7 @@ impl ExpandSyntax for BarePathShape {
                 ..
             })
             | TokenNode::Token(Token {
-                unspanned: UnspannedToken::Operator(Operator::Dot),
+                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::Dot),
                 ..
             }) => true,
 
@@ -604,7 +612,10 @@ impl FallibleColorSyntax for BareShape {
                 }
 
                 // otherwise, fail
-                other => Err(ParseError::mismatch("word", other.spanned_type_name())),
+                other => Err(ParseError::mismatch(
+                    "word",
+                    other.type_name().spanned(other.span()),
+                )),
             })
             .map_err(|err| err.into())
     }
@@ -1600,7 +1611,7 @@ impl FallibleColorSyntax for SpaceShape {
 
             other => Err(ShellError::type_error(
                 "whitespace",
-                other.spanned_type_name(),
+                other.type_name().spanned(other.span()),
             )),
         }
     }

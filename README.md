@@ -55,7 +55,7 @@ cargo install nu
 You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://book.nushell.sh/en/installation#dependencies) for your platform):
 
 ```
-cargo install nu --all-features
+cargo install nu --features=user-visible
 ```
 
 ## Docker

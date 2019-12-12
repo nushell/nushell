@@ -28,6 +28,7 @@ impl PrettyType for Primitive {
         match self {
             Primitive::Nothing => ty("nothing"),
             Primitive::Int(_) => ty("integer"),
+            Primitive::Range(_) => ty("range"),
             Primitive::Decimal(_) => ty("decimal"),
             Primitive::Bytes(_) => ty("bytesize"),
             Primitive::String(_) => ty("string"),
@@ -51,6 +52,21 @@ impl PrettyDebug for Primitive {
             Primitive::Nothing => b::primitive("nothing"),
             Primitive::Int(int) => prim(format_args!("{}", int)),
             Primitive::Decimal(decimal) => prim(format_args!("{}", decimal)),
+            Primitive::Range(range) => {
+                let (left, left_inclusion) = &range.from;
+                let (right, right_inclusion) = &range.to;
+
+                b::typed(
+                    "range",
+                    (left_inclusion.debug_left_bracket()
+                        + left.pretty()
+                        + b::operator(",")
+                        + b::space()
+                        + right.pretty()
+                        + right_inclusion.debug_right_bracket())
+                    .group(),
+                )
+            }
             Primitive::Bytes(bytes) => primitive_doc(bytes, "bytesize"),
             Primitive::String(string) => prim(string),
             Primitive::Line(string) => prim(string),

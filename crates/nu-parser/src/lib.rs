@@ -12,9 +12,9 @@ pub use crate::hir::syntax_shape::{
 pub use crate::hir::tokens_iterator::TokensIterator;
 pub use crate::parse::files::Files;
 pub use crate::parse::flag::Flag;
-pub use crate::parse::operator::Operator;
-pub use crate::parse::parser::pipeline;
+pub use crate::parse::operator::{CompareOperator, EvaluationOperator};
 pub use crate::parse::parser::Number;
+pub use crate::parse::parser::{module, pipeline};
 pub use crate::parse::token_tree::{Delimiter, TokenNode};
 pub use crate::parse::token_tree_builder::TokenTreeBuilder;
 
@@ -25,6 +25,15 @@ pub fn parse(input: &str) -> Result<TokenNode, ShellError> {
     let _ = pretty_env_logger::try_init();
 
     match pipeline(nom_input(input)) {
+        Ok((_rest, val)) => Ok(val),
+        Err(err) => Err(ShellError::parse_error(err)),
+    }
+}
+
+pub fn parse_script(input: &str) -> Result<TokenNode, ShellError> {
+    let _ = pretty_env_logger::try_init();
+
+    match module(nom_input(input)) {
         Ok((_rest, val)) => Ok(val),
         Err(err) => Err(ShellError::parse_error(err)),
     }

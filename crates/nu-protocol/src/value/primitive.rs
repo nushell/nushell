@@ -1,12 +1,14 @@
 use crate::type_name::ShellTypeName;
 use crate::value::column_path::ColumnPath;
+use crate::value::range::Range;
 use crate::value::{serde_bigdecimal, serde_bigint};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
-use nu_source::PrettyDebug;
+use nu_errors::{ExpectedRange, ShellError};
+use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
-use num_traits::cast::FromPrimitive;
+use num_traits::cast::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -25,6 +27,7 @@ pub enum Primitive {
     Boolean(bool),
     Date(DateTime<Utc>),
     Duration(u64), // Duration in seconds
+    Range(Box<Range>),
     Path(PathBuf),
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
@@ -32,6 +35,25 @@ pub enum Primitive {
     // Stream markers (used as bookend markers rather than actual values)
     BeginningOfStream,
     EndOfStream,
+}
+
+impl Primitive {
+    pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
+        match self {
+            Primitive::Int(int) => match int.to_u64() {
+                None => Err(ShellError::range_error(
+                    ExpectedRange::U64,
+                    &format!("{}", int).spanned(span),
+                    "converting an integer into a 64-bit integer",
+                )),
+                Some(num) => Ok(num),
+            },
+            other => Err(ShellError::type_error(
+                "integer",
+                other.type_name().spanned(span),
+            )),
+        }
+    }
 }
 
 impl From<BigDecimal> for Primitive {
@@ -51,6 +73,7 @@ impl ShellTypeName for Primitive {
         match self {
             Primitive::Nothing => "nothing",
             Primitive::Int(_) => "integer",
+            Primitive::Range(_) => "range",
             Primitive::Decimal(_) => "decimal",
             Primitive::Bytes(_) => "bytes",
             Primitive::String(_) => "string",
@@ -91,6 +114,11 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Duration(sec) => format_duration(*sec),
         Primitive::Int(i) => i.to_string(),
         Primitive::Decimal(decimal) => decimal.to_string(),
+        Primitive::Range(range) => format!(
+            "{}..{}",
+            format_primitive(&range.from.0.item, None),
+            format_primitive(&range.to.0.item, None)
+        ),
         Primitive::Pattern(s) => s.to_string(),
         Primitive::String(s) => s.to_owned(),
         Primitive::Line(s) => s.to_owned(),
@@ -125,7 +153,8 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         Primitive::Date(d) => d.humanize().to_string(),
     }
 }
-fn format_duration(sec: u64) -> String {
+
+pub fn format_duration(sec: u64) -> String {
     let (minutes, seconds) = (sec / 60, sec % 60);
     let (hours, minutes) = (minutes / 60, minutes % 60);
     let (days, hours) = (hours / 24, hours % 24);

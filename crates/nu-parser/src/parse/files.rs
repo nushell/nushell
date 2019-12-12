@@ -34,13 +34,15 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn location(&self, _file: Self::FileId, byte_index: usize) -> Option<Location> {
+        trace!("finding location for {}", byte_index);
+
         let source = &self.snippet;
         let mut seen_lines = 0;
         let mut seen_bytes = 0;
 
         for (pos, slice) in source.match_indices('\n') {
             trace!(
-                "SEARCH={} SEEN={} POS={} SLICE={:?} LEN={} ALL={:?}",
+                "searching byte_index={} seen_bytes={} pos={} slice={:?} slice.len={} source={:?}",
                 byte_index,
                 seen_bytes,
                 pos,
@@ -50,9 +52,19 @@ impl language_reporting::ReportingFiles for Files {
             );
 
             if pos >= byte_index {
+                trace!(
+                    "returning {}:{} seen_lines={} byte_index={} pos={} seen_bytes={}",
+                    seen_lines,
+                    byte_index,
+                    pos,
+                    seen_lines,
+                    byte_index,
+                    seen_bytes
+                );
+
                 return Some(language_reporting::Location::new(
                     seen_lines,
-                    byte_index - seen_bytes,
+                    byte_index - pos,
                 ));
             } else {
                 seen_lines += 1;
@@ -61,30 +73,70 @@ impl language_reporting::ReportingFiles for Files {
         }
 
         if seen_lines == 0 {
-            Some(language_reporting::Location::new(0, byte_index))
+            trace!("seen_lines=0 end={}", source.len() - 1);
+
+            // if we got here, there were no newlines in the source
+            Some(language_reporting::Location::new(0, source.len() - 1))
         } else {
-            panic!("byte index {} wasn't valid", byte_index);
+            trace!(
+                "last line seen_lines={} end={}",
+                seen_lines,
+                source.len() - 1 - byte_index
+            );
+
+            // if we got here and we didn't return, it should mean that we're talking about
+            // the last line
+            Some(language_reporting::Location::new(
+                seen_lines,
+                source.len() - 1 - byte_index,
+            ))
         }
     }
 
     fn line_span(&self, _file: Self::FileId, lineno: usize) -> Option<Self::Span> {
+        trace!("finding line_span for {}", lineno);
+
         let source = &self.snippet;
         let mut seen_lines = 0;
         let mut seen_bytes = 0;
 
         for (pos, _) in source.match_indices('\n') {
+            trace!(
+                "lineno={} seen_lines={} seen_bytes={} pos={}",
+                lineno,
+                seen_lines,
+                seen_bytes,
+                pos
+            );
+
             if seen_lines == lineno {
-                return Some(Span::new(seen_bytes, pos + 1));
+                trace!("returning start={} end={}", seen_bytes, pos);
+                // If the number of seen lines is the lineno, seen_bytes is the start of the
+                // line and pos is the end of the line
+                return Some(Span::new(seen_bytes, pos));
             } else {
+                // If it's not, increment seen_lines, and move seen_bytes to the beginning of
+                // the next line
                 seen_lines += 1;
                 seen_bytes = pos + 1;
             }
         }
 
         if seen_lines == 0 {
+            trace!("returning start={} end={}", 0, self.snippet.len() - 1);
+
+            // if we got here, there were no newlines in the source
             Some(Span::new(0, self.snippet.len() - 1))
         } else {
-            None
+            trace!(
+                "returning start={} end={}",
+                seen_bytes,
+                self.snippet.len() - 1
+            );
+
+            // if we got here and we didn't return, it should mean that we're talking about
+            // the last line
+            Some(Span::new(seen_bytes, self.snippet.len() - 1))
         }
     }
 

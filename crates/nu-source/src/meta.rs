@@ -220,10 +220,7 @@ impl<T>
             nom_locate::LocatedSpanEx<T, u64>,
         ),
     ) -> Span {
-        Span {
-            start: input.0.offset,
-            end: input.1.offset,
-        }
+        Span::new(input.0.offset, input.1.offset)
     }
 }
 
@@ -235,10 +232,7 @@ impl From<(usize, usize)> for Span {
 
 impl From<&std::ops::Range<usize>> for Span {
     fn from(input: &std::ops::Range<usize>) -> Span {
-        Span {
-            start: input.start,
-            end: input.end,
-        }
+        Span::new(input.start, input.end)
     }
 }
 
@@ -321,10 +315,7 @@ impl Tag {
     pub fn for_char(pos: usize, anchor: AnchorLocation) -> Tag {
         Tag {
             anchor: Some(anchor),
-            span: Span {
-                start: pos,
-                end: pos + 1,
-            },
+            span: Span::new(pos, pos + 1),
         }
     }
 
@@ -528,11 +519,19 @@ impl Span {
 
 impl language_reporting::ReportingSpan for Span {
     fn with_start(&self, start: usize) -> Self {
-        Span::new(start, self.end)
+        if self.end < start {
+            Span::new(start, start)
+        } else {
+            Span::new(start, self.end)
+        }
     }
 
     fn with_end(&self, end: usize) -> Self {
-        Span::new(self.start, end)
+        if end < self.start {
+            Span::new(end, end)
+        } else {
+            Span::new(self.start, end)
+        }
     }
 
     fn start(&self) -> usize {

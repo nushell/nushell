@@ -32,6 +32,7 @@ ansi_term = "0.12.1"
 ptree = {version = "0.2" }
 language-reporting = "0.4.0"
 unicode-xid = "0.2.0"
+enumflags2 = "0.6.2"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
@@ -40,4 +41,4 @@ pretty_assertions = "0.6.1"
 nu-build = { version = "0.1.0", path = "../nu-build" }
 
 [features]
-#trace = ["nom-tracable/trace"]
+trace = ["nom-tracable/trace"]

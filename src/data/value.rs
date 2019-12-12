@@ -1,10 +1,10 @@
 use crate::data::base::coerce_compare;
-use crate::data::base::shape::{Column, InlineShape, TypeShape};
+use crate::data::base::shape::{Column, InlineShape};
 use crate::data::primitive::style_primitive;
 use chrono::DateTime;
 use nu_errors::ShellError;
-use nu_parser::Operator;
-use nu_protocol::{Primitive, UntaggedValue};
+use nu_parser::CompareOperator;
+use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
 
 pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
@@ -22,7 +22,7 @@ pub fn date_from_str(s: Tagged<&str>) -> Result<UntaggedValue, ShellError> {
 }
 
 pub fn compare_values(
-    operator: Operator,
+    operator: &CompareOperator,
     left: &UntaggedValue,
     right: &UntaggedValue,
 ) -> Result<bool, (&'static str, &'static str)> {
@@ -34,16 +34,15 @@ pub fn compare_values(
             use std::cmp::Ordering;
 
             let result = match (operator, ordering) {
-                (Operator::Equal, Ordering::Equal) => true,
-                (Operator::NotEqual, Ordering::Less) | (Operator::NotEqual, Ordering::Greater) => {
-                    true
-                }
-                (Operator::LessThan, Ordering::Less) => true,
-                (Operator::GreaterThan, Ordering::Greater) => true,
-                (Operator::GreaterThanOrEqual, Ordering::Greater)
-                | (Operator::GreaterThanOrEqual, Ordering::Equal) => true,
-                (Operator::LessThanOrEqual, Ordering::Less)
-                | (Operator::LessThanOrEqual, Ordering::Equal) => true,
+                (CompareOperator::Equal, Ordering::Equal) => true,
+                (CompareOperator::NotEqual, Ordering::Less)
+                | (CompareOperator::NotEqual, Ordering::Greater) => true,
+                (CompareOperator::LessThan, Ordering::Less) => true,
+                (CompareOperator::GreaterThan, Ordering::Greater) => true,
+                (CompareOperator::GreaterThanOrEqual, Ordering::Greater)
+                | (CompareOperator::GreaterThanOrEqual, Ordering::Equal) => true,
+                (CompareOperator::LessThanOrEqual, Ordering::Less)
+                | (CompareOperator::LessThanOrEqual, Ordering::Equal) => true,
                 _ => false,
             };
 
@@ -53,7 +52,7 @@ pub fn compare_values(
 }
 
 pub fn format_type<'a>(value: impl Into<&'a UntaggedValue>, width: usize) -> String {
-    TypeShape::from_value(value.into()).colored_string(width)
+    Type::from_value(value.into()).colored_string(width)
 }
 
 pub fn format_leaf<'a>(value: impl Into<&'a UntaggedValue>) -> DebugDocBuilder {

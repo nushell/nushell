@@ -1,5 +1,5 @@
 use crate::parse::parser::Number;
-use crate::Operator;
+use crate::{CompareOperator, EvaluationOperator};
 use bigdecimal::BigDecimal;
 use nu_protocol::ShellTypeName;
 use nu_source::{
@@ -13,7 +13,8 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum UnspannedToken {
     Number(RawNumber),
-    Operator(Operator),
+    CompareOperator(CompareOperator),
+    EvaluationOperator(EvaluationOperator),
     String(Span),
     Variable(Span),
     ExternalCommand(Span),
@@ -35,7 +36,9 @@ impl ShellTypeName for UnspannedToken {
     fn type_name(&self) -> &'static str {
         match self {
             UnspannedToken::Number(_) => "number",
-            UnspannedToken::Operator(..) => "operator",
+            UnspannedToken::CompareOperator(..) => "comparison operator",
+            UnspannedToken::EvaluationOperator(EvaluationOperator::Dot) => "dot",
+            UnspannedToken::EvaluationOperator(EvaluationOperator::DotDot) => "dotdot",
             UnspannedToken::String(_) => "string",
             UnspannedToken::Variable(_) => "variable",
             UnspannedToken::ExternalCommand(_) => "syntax error",
@@ -111,7 +114,8 @@ impl PrettyDebugWithSource for Token {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self.unspanned {
             UnspannedToken::Number(number) => number.pretty_debug(source),
-            UnspannedToken::Operator(operator) => operator.pretty(),
+            UnspannedToken::CompareOperator(operator) => operator.pretty(),
+            UnspannedToken::EvaluationOperator(operator) => operator.pretty(),
             UnspannedToken::String(_) => b::primitive(self.span.slice(source)),
             UnspannedToken::Variable(_) => b::var(self.span.slice(source)),
             UnspannedToken::ExternalCommand(_) => b::primitive(self.span.slice(source)),
@@ -155,9 +159,9 @@ impl Token {
         }
     }
 
-    pub fn extract_operator(&self) -> Option<Spanned<Operator>> {
+    pub fn extract_operator(&self) -> Option<Spanned<CompareOperator>> {
         match self.unspanned {
-            UnspannedToken::Operator(operator) => Some(operator.spanned(self.span)),
+            UnspannedToken::CompareOperator(operator) => Some(operator.spanned(self.span)),
             _ => None,
         }
     }

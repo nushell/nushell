@@ -130,8 +130,8 @@ fn filesystem_not_a_directory() {
             "cd ferris_did_it.txt"
         );
 
-        assert!(actual.contains("ferris_did_it.txt"));
-        assert!(actual.contains("is not a directory"));
+        assert!(actual.contains("ferris_did_it.txt"), "actual={:?}", actual);
+        assert!(actual.contains("is not a directory"), "actual={:?}", actual);
     })
 }
 
@@ -142,8 +142,16 @@ fn filesystem_directory_not_found() {
         "cd dir_that_does_not_exist"
     );
 
-    assert!(actual.contains("dir_that_does_not_exist"));
-    assert!(actual.contains("directory not found"));
+    assert!(
+        actual.contains("dir_that_does_not_exist"),
+        "actual={:?}",
+        actual
+    );
+    assert!(
+        actual.contains("directory not found"),
+        "actual={:?}",
+        actual
+    );
 }
 
 #[test]

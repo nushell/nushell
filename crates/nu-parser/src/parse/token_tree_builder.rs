@@ -1,6 +1,7 @@
 use crate::parse::call_node::CallNode;
+use crate::parse::comment::Comment;
 use crate::parse::flag::{Flag, FlagKind};
-use crate::parse::operator::Operator;
+use crate::parse::operator::{CompareOperator, EvaluationOperator};
 use crate::parse::pipeline::{Pipeline, PipelineElement};
 use crate::parse::token_tree::{DelimitedNode, Delimiter, TokenNode};
 use crate::parse::tokens::{RawNumber, UnspannedToken};
@@ -96,7 +97,7 @@ impl TokenTreeBuilder {
         TokenNode::Nodes(input.spanned(span.into()))
     }
 
-    pub fn op(input: impl Into<Operator>) -> CurriedToken {
+    pub fn op(input: impl Into<CompareOperator>) -> CurriedToken {
         let input = input.into();
 
         Box::new(move |b| {
@@ -104,12 +105,39 @@ impl TokenTreeBuilder {
 
             b.pos = end;
 
-            TokenTreeBuilder::spanned_op(input, Span::new(start, end))
+            TokenTreeBuilder::spanned_cmp_op(input, Span::new(start, end))
         })
     }
 
-    pub fn spanned_op(input: impl Into<Operator>, span: impl Into<Span>) -> TokenNode {
-        TokenNode::Token(UnspannedToken::Operator(input.into()).into_token(span))
+    pub fn spanned_cmp_op(input: impl Into<CompareOperator>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Token(UnspannedToken::CompareOperator(input.into()).into_token(span))
+    }
+
+    pub fn dot() -> CurriedToken {
+        Box::new(move |b| {
+            let (start, end) = b.consume(".");
+
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_eval_op(".", Span::new(start, end))
+        })
+    }
+
+    pub fn dotdot() -> CurriedToken {
+        Box::new(move |b| {
+            let (start, end) = b.consume("..");
+
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_eval_op("..", Span::new(start, end))
+        })
+    }
+
+    pub fn spanned_eval_op(
+        input: impl Into<EvaluationOperator>,
+        span: impl Into<Span>,
+    ) -> TokenNode {
+        TokenNode::Token(UnspannedToken::EvaluationOperator(input.into()).into_token(span))
     }
 
     pub fn string(input: impl Into<String>) -> CurriedToken {
@@ -396,6 +424,36 @@ impl TokenTreeBuilder {
 
     pub fn spanned_ws(span: impl Into<Span>) -> TokenNode {
         TokenNode::Whitespace(span.into())
+    }
+
+    pub fn sep(input: impl Into<String>) -> CurriedToken {
+        let input = input.into();
+
+        Box::new(move |b| {
+            let (start, end) = b.consume(&input);
+            TokenTreeBuilder::spanned_sep(Span::new(start, end))
+        })
+    }
+
+    pub fn spanned_sep(span: impl Into<Span>) -> TokenNode {
+        TokenNode::Separator(span.into())
+    }
+
+    pub fn comment(input: impl Into<String>) -> CurriedToken {
+        let input = input.into();
+
+        Box::new(move |b| {
+            let outer_start = b.pos;
+            b.consume("#");
+            let (start, end) = b.consume(&input);
+            let outer_end = b.pos;
+
+            TokenTreeBuilder::spanned_comment((start, end), (outer_start, outer_end))
+        })
+    }
+
+    pub fn spanned_comment(input: impl Into<Span>, span: impl Into<Span>) -> TokenNode {
+        TokenNode::Comment(Comment::line(input, span))
     }
 
     fn consume(&mut self, input: &str) -> (usize, usize) {

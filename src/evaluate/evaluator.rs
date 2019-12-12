@@ -6,8 +6,8 @@ use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_parser::hir::{self, Expression, RawExpression};
 use nu_protocol::{
-    ColumnPath, Evaluate, Primitive, Scope, TaggedDictBuilder, UnspannedPathMember, UntaggedValue,
-    Value,
+    ColumnPath, Evaluate, Primitive, RangeInclusion, Scope, TaggedDictBuilder, UnspannedPathMember,
+    UntaggedValue, Value,
 };
 use nu_source::Text;
 
@@ -40,13 +40,33 @@ pub(crate) fn evaluate_baseline_expr(
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
-            match apply_operator(**binary.op(), &left, &right) {
+            match apply_operator(&**binary.op(), &left, &right) {
                 Ok(result) => Ok(result.into_value(tag)),
                 Err((left_type, right_type)) => Err(ShellError::coerce_error(
                     left_type.spanned(binary.left().span),
                     right_type.spanned(binary.right().span),
                 )),
             }
+        }
+        RawExpression::Range(range) => {
+            let left = range.left();
+            let right = range.right();
+
+            let left = evaluate_baseline_expr(left, registry, scope, source)?;
+            let right = evaluate_baseline_expr(right, registry, scope, source)?;
+            let left_span = left.tag.span;
+            let right_span = right.tag.span;
+
+            let left = (
+                left.as_primitive()?.spanned(left_span),
+                RangeInclusion::Inclusive,
+            );
+            let right = (
+                right.as_primitive()?.spanned(right_span),
+                RangeInclusion::Exclusive,
+            );
+
+            Ok(UntaggedValue::range(left, right).into_value(tag))
         }
         RawExpression::List(list) => {
             let mut exprs = vec![];

@@ -10,6 +10,7 @@ use crate::{
     TokensIterator,
 };
 use nu_errors::ParseError;
+use nu_protocol::SpannedTypeName;
 use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebug, Span, Spanned, SpannedItem};
 
 #[derive(Debug, Clone)]
@@ -195,11 +196,18 @@ impl ExpandExpression for ExternalHeadShape {
             UnspannedAtomicToken::Whitespace { .. } => {
                 unreachable!("ExpansionRule doesn't allow Whitespace")
             }
+            UnspannedAtomicToken::Separator { .. } => {
+                unreachable!("ExpansionRule doesn't allow Separator")
+            }
+            UnspannedAtomicToken::Comment { .. } => {
+                unreachable!("ExpansionRule doesn't allow Comment")
+            }
             UnspannedAtomicToken::ShorthandFlag { .. }
-            | UnspannedAtomicToken::SquareDelimited { .. } => {
+            | UnspannedAtomicToken::SquareDelimited { .. }
+            | UnspannedAtomicToken::RoundDelimited { .. } => {
                 return Err(ParseError::mismatch(
                     "external command name",
-                    "pipeline".spanned(atom.span),
+                    atom.spanned_type_name(),
                 ))
             }
             UnspannedAtomicToken::ExternalCommand { command } => {
@@ -215,7 +223,10 @@ impl ExpandExpression for ExternalHeadShape {
             | UnspannedAtomicToken::GlobPattern { .. }
             | UnspannedAtomicToken::Word { .. }
             | UnspannedAtomicToken::Dot { .. }
-            | UnspannedAtomicToken::Operator { .. } => Expression::external_command(span, span),
+            | UnspannedAtomicToken::DotDot { .. }
+            | UnspannedAtomicToken::CompareOperator { .. } => {
+                Expression::external_command(span, span)
+            }
         })
     }
 }
@@ -257,6 +268,12 @@ impl ExpandExpression for ExternalContinuationShape {
             UnspannedAtomicToken::Whitespace { .. } => {
                 unreachable!("ExpansionRule doesn't allow Whitespace")
             }
+            UnspannedAtomicToken::Separator { .. } => {
+                unreachable!("ExpansionRule doesn't allow Separator")
+            }
+            UnspannedAtomicToken::Comment { .. } => {
+                unreachable!("ExpansionRule doesn't allow Comment")
+            }
             UnspannedAtomicToken::String { body } => Expression::string(*body, span),
             UnspannedAtomicToken::ItVariable { name } => Expression::it_variable(*name, span),
             UnspannedAtomicToken::Variable { name } => Expression::variable(*name, span),
@@ -265,11 +282,13 @@ impl ExpandExpression for ExternalContinuationShape {
             | UnspannedAtomicToken::Word { .. }
             | UnspannedAtomicToken::ShorthandFlag { .. }
             | UnspannedAtomicToken::Dot { .. }
-            | UnspannedAtomicToken::Operator { .. } => Expression::bare(span),
-            UnspannedAtomicToken::SquareDelimited { .. } => {
+            | UnspannedAtomicToken::DotDot { .. }
+            | UnspannedAtomicToken::CompareOperator { .. } => Expression::bare(span),
+            UnspannedAtomicToken::SquareDelimited { .. }
+            | UnspannedAtomicToken::RoundDelimited { .. } => {
                 return Err(ParseError::mismatch(
                     "external argument",
-                    "pipeline".spanned(atom.span),
+                    atom.spanned_type_name(),
                 ))
             }
         })

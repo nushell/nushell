@@ -1,207 +1,24 @@
 use crate::prelude::*;
 use chrono::{DateTime, Utc};
 use chrono_humanize::Humanize;
-use derive_new::new;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
+use nu_protocol::RangeInclusion;
 use nu_protocol::{
     format_primitive, ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName,
     TaggedDictBuilder, UntaggedValue, Value,
 };
-use nu_source::{b, DebugDoc, PrettyDebug};
+use nu_source::{b, PrettyDebug};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::Write;
 use std::path::PathBuf;
 
-/**
-  This file describes the structural types of the nushell system.
-
-  Its primary purpose today is to identify "equivalent" values for the purpose
-  of merging rows into a single table or identify rows in a table that have the
-  same shape for reflection.
-
-  It also serves as the primary vehicle for pretty-printing.
-*/
-
-#[allow(unused)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum TypeShape {
-    Nothing,
-    Int,
-    Decimal,
-    Bytesize,
-    String,
-    Line,
-    ColumnPath,
-    Pattern,
-    Boolean,
-    Date,
-    Duration,
-    Path,
-    Binary,
-
-    Row(BTreeMap<Column, TypeShape>),
-    Table(Vec<TypeShape>),
-
-    // TODO: Block arguments
-    Block,
-    // TODO: Error type
-    Error,
-
-    // Stream markers (used as bookend markers rather than actual values)
-    BeginningOfStream,
-    EndOfStream,
-}
-
-impl TypeShape {
-    pub fn from_primitive(primitive: &Primitive) -> TypeShape {
-        match primitive {
-            Primitive::Nothing => TypeShape::Nothing,
-            Primitive::Int(_) => TypeShape::Int,
-            Primitive::Decimal(_) => TypeShape::Decimal,
-            Primitive::Bytes(_) => TypeShape::Bytesize,
-            Primitive::String(_) => TypeShape::String,
-            Primitive::Line(_) => TypeShape::Line,
-            Primitive::ColumnPath(_) => TypeShape::ColumnPath,
-            Primitive::Pattern(_) => TypeShape::Pattern,
-            Primitive::Boolean(_) => TypeShape::Boolean,
-            Primitive::Date(_) => TypeShape::Date,
-            Primitive::Duration(_) => TypeShape::Duration,
-            Primitive::Path(_) => TypeShape::Path,
-            Primitive::Binary(_) => TypeShape::Binary,
-            Primitive::BeginningOfStream => TypeShape::BeginningOfStream,
-            Primitive::EndOfStream => TypeShape::EndOfStream,
-        }
-    }
-
-    pub fn from_dictionary(dictionary: &Dictionary) -> TypeShape {
-        let mut map = BTreeMap::new();
-
-        for (key, value) in dictionary.entries.iter() {
-            let column = Column::String(key.clone());
-            map.insert(column, TypeShape::from_value(value));
-        }
-
-        TypeShape::Row(map)
-    }
-
-    pub fn from_table<'a>(table: impl IntoIterator<Item = &'a Value>) -> TypeShape {
-        let mut vec = vec![];
-
-        for item in table.into_iter() {
-            vec.push(TypeShape::from_value(item))
-        }
-
-        TypeShape::Table(vec)
-    }
-
-    pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> TypeShape {
-        match value.into() {
-            UntaggedValue::Primitive(p) => TypeShape::from_primitive(p),
-            UntaggedValue::Row(row) => TypeShape::from_dictionary(row),
-            UntaggedValue::Table(table) => TypeShape::from_table(table.iter()),
-            UntaggedValue::Error(_) => TypeShape::Error,
-            UntaggedValue::Block(_) => TypeShape::Block,
-        }
-    }
-}
-
-impl PrettyDebug for TypeShape {
-    fn pretty(&self) -> DebugDocBuilder {
-        match self {
-            TypeShape::Nothing => ty("nothing"),
-            TypeShape::Int => ty("integer"),
-            TypeShape::Decimal => ty("decimal"),
-            TypeShape::Bytesize => ty("bytesize"),
-            TypeShape::String => ty("string"),
-            TypeShape::Line => ty("line"),
-            TypeShape::ColumnPath => ty("column-path"),
-            TypeShape::Pattern => ty("pattern"),
-            TypeShape::Boolean => ty("boolean"),
-            TypeShape::Date => ty("date"),
-            TypeShape::Duration => ty("duration"),
-            TypeShape::Path => ty("path"),
-            TypeShape::Binary => ty("binary"),
-            TypeShape::Error => b::error("error"),
-            TypeShape::BeginningOfStream => b::keyword("beginning-of-stream"),
-            TypeShape::EndOfStream => b::keyword("end-of-stream"),
-            TypeShape::Row(row) => (b::kind("row")
-                + b::space()
-                + b::intersperse(
-                    row.iter().map(|(key, ty)| {
-                        (b::key(match key {
-                            Column::String(string) => string.clone(),
-                            Column::Value => "<value>".to_string(),
-                        }) + b::delimit("(", ty.pretty(), ")").into_kind())
-                        .nest()
-                    }),
-                    b::space(),
-                )
-                .nest())
-            .nest(),
-
-            TypeShape::Table(table) => {
-                let mut group: Group<DebugDoc, Vec<(usize, usize)>> = Group::new();
-
-                for (i, item) in table.iter().enumerate() {
-                    group.add(item.to_doc(), i);
-                }
-
-                (b::kind("table") + b::space() + b::keyword("of")).group()
-                    + b::space()
-                    + (if group.len() == 1 {
-                        let (doc, _) = group.into_iter().nth(0).unwrap();
-                        DebugDocBuilder::from_doc(doc)
-                    } else {
-                        b::intersperse(
-                            group.into_iter().map(|(doc, rows)| {
-                                (b::intersperse(
-                                    rows.iter().map(|(from, to)| {
-                                        if from == to {
-                                            b::description(from)
-                                        } else {
-                                            (b::description(from)
-                                                + b::space()
-                                                + b::keyword("to")
-                                                + b::space()
-                                                + b::description(to))
-                                            .group()
-                                        }
-                                    }),
-                                    b::description(", "),
-                                ) + b::description(":")
-                                    + b::space()
-                                    + DebugDocBuilder::from_doc(doc))
-                                .nest()
-                            }),
-                            b::space(),
-                        )
-                    })
-            }
-            TypeShape::Block => ty("block"),
-        }
-    }
-}
-
-#[derive(Debug, new)]
-struct DebugEntry<'a> {
-    key: &'a Column,
-    value: &'a TypeShape,
-}
-
-impl<'a> PrettyDebug for DebugEntry<'a> {
-    fn pretty(&self) -> DebugDocBuilder {
-        (b::key(match self.key {
-            Column::String(string) => string.clone(),
-            Column::Value => "<value>".to_owned(),
-        }) + b::delimit("(", self.value.pretty(), ")").into_kind())
-    }
-}
-
-fn ty(name: impl std::fmt::Display) -> DebugDocBuilder {
-    b::kind(format!("{}", name))
+pub struct InlineRange {
+    from: (InlineShape, RangeInclusion),
+    to: (InlineShape, RangeInclusion),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -209,6 +26,7 @@ pub enum InlineShape {
     Nothing,
     Int(BigInt),
     Decimal(BigDecimal),
+    Range(Box<InlineRange>),
     Bytesize(u64),
     String(String),
     Line(String),
@@ -243,6 +61,15 @@ impl InlineShape {
         match primitive {
             Primitive::Nothing => InlineShape::Nothing,
             Primitive::Int(int) => InlineShape::Int(int.clone()),
+            Primitive::Range(range) => {
+                let (left, left_inclusion) = &range.from;
+                let (right, right_inclusion) = &range.to;
+
+                InlineShape::Range(Box::new(InlineRange {
+                    from: (InlineShape::from_primitive(left), *left_inclusion),
+                    to: (InlineShape::from_primitive(right), *right_inclusion),
+                }))
+            }
             Primitive::Decimal(decimal) => InlineShape::Decimal(decimal.clone()),
             Primitive::Bytes(bytesize) => InlineShape::Bytesize(*bytesize),
             Primitive::String(string) => InlineShape::String(string.clone()),
@@ -314,6 +141,17 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::Nothing => b::blank(),
             InlineShape::Int(int) => b::primitive(format!("{}", int)),
             InlineShape::Decimal(decimal) => b::primitive(format!("{}", decimal)),
+            InlineShape::Range(range) => {
+                let (left, left_inclusion) = &range.from;
+                let (right, right_inclusion) = &range.to;
+
+                let op = match (left_inclusion, right_inclusion) {
+                    (RangeInclusion::Inclusive, RangeInclusion::Exclusive) => "..",
+                    _ => unimplemented!("No syntax for ranges that aren't inclusive on the left and exclusive on the right")
+                };
+
+                left.clone().format().pretty() + b::operator(op) + right.clone().format().pretty()
+            }
             InlineShape::Bytesize(bytesize) => {
                 let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
 
@@ -407,51 +245,6 @@ impl GroupedValue for Vec<(usize, usize)> {
             }
 
             _ => self.push((new_value, new_value)),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Group<K: Debug + Eq + Hash, V: GroupedValue> {
-    values: indexmap::IndexMap<K, V>,
-}
-
-impl<K, G> Group<K, G>
-where
-    K: Debug + Eq + Hash,
-    G: GroupedValue,
-{
-    pub fn new() -> Group<K, G> {
-        Group {
-            values: indexmap::IndexMap::default(),
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    pub fn into_iter(self) -> impl Iterator<Item = (K, G)> {
-        self.values.into_iter()
-    }
-
-    pub fn add(&mut self, key: impl Into<K>, value: impl Into<G::Item>) {
-        let key = key.into();
-        let value = value.into();
-
-        let group = self.values.get_mut(&key);
-
-        match group {
-            None => {
-                self.values.insert(key, {
-                    let mut group = G::new();
-                    group.merge(value);
-                    group
-                });
-            }
-            Some(group) => {
-                group.merge(value);
-            }
         }
     }
 }

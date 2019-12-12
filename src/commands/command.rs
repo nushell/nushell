@@ -378,14 +378,7 @@ pub trait WholeStreamCommand: Send + Sync {
     fn name(&self) -> &str;
 
     fn signature(&self) -> Signature {
-        Signature {
-            name: self.name().to_string(),
-            usage: self.usage().to_string(),
-            positional: vec![],
-            rest_positional: None,
-            named: indexmap::IndexMap::new(),
-            is_filter: true,
-        }
+        Signature::new(self.name()).desc(self.usage()).filter()
     }
 
     fn usage(&self) -> &str;
@@ -405,14 +398,7 @@ pub trait PerItemCommand: Send + Sync {
     fn name(&self) -> &str;
 
     fn signature(&self) -> Signature {
-        Signature {
-            name: self.name().to_string(),
-            usage: self.usage().to_string(),
-            positional: vec![],
-            rest_positional: None,
-            named: indexmap::IndexMap::new(),
-            is_filter: true,
-        }
+        Signature::new(self.name()).desc(self.usage()).filter()
     }
 
     fn usage(&self) -> &str;

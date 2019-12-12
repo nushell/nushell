@@ -1,25 +1,24 @@
 use crate::data::value;
-use nu_parser::Operator;
+use nu_parser::CompareOperator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 pub fn apply_operator(
-    op: Operator,
+    op: &CompareOperator,
     left: &Value,
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
-    match op {
-        Operator::Equal
-        | Operator::NotEqual
-        | Operator::LessThan
-        | Operator::GreaterThan
-        | Operator::LessThanOrEqual
-        | Operator::GreaterThanOrEqual => {
+    match *op {
+        CompareOperator::Equal
+        | CompareOperator::NotEqual
+        | CompareOperator::LessThan
+        | CompareOperator::GreaterThan
+        | CompareOperator::LessThanOrEqual
+        | CompareOperator::GreaterThanOrEqual => {
             value::compare_values(op, left, right).map(UntaggedValue::boolean)
         }
-        Operator::Dot => Ok(UntaggedValue::boolean(false)),
-        Operator::Contains => contains(left, right).map(UntaggedValue::boolean),
-        Operator::NotContains => contains(left, right)
+        CompareOperator::Contains => contains(left, right).map(UntaggedValue::boolean),
+        CompareOperator::NotContains => contains(left, right)
             .map(Not::not)
             .map(UntaggedValue::boolean),
     }

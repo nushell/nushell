@@ -91,7 +91,8 @@ impl ExpandExpression for StringShape {
         parse_single_node(token_nodes, "String", |token, token_span, err| {
             Ok(match token {
                 UnspannedToken::GlobPattern
-                | UnspannedToken::Operator(..)
+                | UnspannedToken::CompareOperator(..)
+                | UnspannedToken::EvaluationOperator(..)
                 | UnspannedToken::ExternalWord => return Err(err.error()),
                 UnspannedToken::Variable(span) => {
                     expand_variable(span, token_span, &context.source)

@@ -5,7 +5,7 @@ use crate::hir::syntax_shape::{
     StringShape, TestSyntax, UnspannedAtomicToken, WhitespaceShape,
 };
 use crate::parse::tokens::{RawNumber, UnspannedToken};
-use crate::{hir, hir::Expression, hir::TokensIterator, Operator};
+use crate::{hir, hir::Expression, hir::TokensIterator, CompareOperator, EvaluationOperator};
 use nu_errors::ShellError;
 use nu_protocol::{PathMember, ShellTypeName};
 use nu_source::{
@@ -271,7 +271,7 @@ impl ExpandSyntax for PathTailShape {
 #[derive(Debug, Clone)]
 pub enum ExpressionContinuation {
     DotSuffix(Span, PathMember),
-    InfixSuffix(Spanned<Operator>, Expression),
+    InfixSuffix(Spanned<CompareOperator>, Expression),
 }
 
 impl PrettyDebugWithSource for ExpressionContinuation {
@@ -484,6 +484,8 @@ impl FallibleColorSyntax for VariableShape {
         context: &ExpandContext,
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
+        use nu_protocol::SpannedTypeName;
+
         let atom = expand_atom(
             token_nodes,
             "variable",
@@ -1032,6 +1034,8 @@ impl FallibleColorSyntax for ColorableDotShape {
         _context: &ExpandContext,
         shapes: &mut Vec<Spanned<FlatShape>>,
     ) -> Result<(), ShellError> {
+        use nu_protocol::SpannedTypeName;
+
         let peeked = token_nodes.peek_any().not_eof("dot")?;
 
         match peeked.node {
@@ -1104,7 +1108,7 @@ impl ExpandSyntax for DotShape {
     ) -> Result<Self::Output, ParseError> {
         parse_single_node(token_nodes, "dot", |token, token_span, _| {
             Ok(match token {
-                UnspannedToken::Operator(Operator::Dot) => token_span,
+                UnspannedToken::EvaluationOperator(EvaluationOperator::Dot) => token_span,
                 _ => {
                     return Err(ParseError::mismatch(
                         "dot",
@@ -1143,9 +1147,9 @@ impl FallibleColorSyntax for InfixShape {
             "infix operator",
             |token, token_span, err| {
                 match token {
-                    // If it's an operator (and not `.`), it's a match
-                    UnspannedToken::Operator(operator) if operator != Operator::Dot => {
-                        shapes.push(FlatShape::Operator.spanned(token_span));
+                    // If it's a comparison operator, it's a match
+                    UnspannedToken::CompareOperator(_operator) => {
+                        shapes.push(FlatShape::CompareOperator.spanned(token_span));
                         Ok(())
                     }
 
@@ -1191,9 +1195,7 @@ impl FallibleColorSyntax for InfixShape {
             |token, token_span, _| {
                 match token {
                     // If it's an operator (and not `.`), it's a match
-                    UnspannedToken::Operator(operator) if operator != Operator::Dot => {
-                        Ok(token_span)
-                    }
+                    UnspannedToken::CompareOperator(_operator) => Ok(token_span),
 
                     // Otherwise, it's not a match
                     _ => Err(ParseError::mismatch(
@@ -1206,7 +1208,7 @@ impl FallibleColorSyntax for InfixShape {
 
         checkpoint
             .iterator
-            .color_shape(FlatShape::Operator.spanned(operator_span));
+            .color_shape(FlatShape::CompareOperator.spanned(operator_span));
 
         // An infix operator must be followed by whitespace. If no whitespace was found, fail
         color_fallible_syntax(&WhitespaceShape, checkpoint.iterator, context)?;
@@ -1266,7 +1268,7 @@ impl ExpandSyntax for InfixShape {
 
 #[derive(Debug, Clone)]
 pub struct InfixInnerSyntax {
-    pub operator: Spanned<Operator>,
+    pub operator: Spanned<CompareOperator>,
 }
 
 impl HasSpan for InfixInnerSyntax {
@@ -1298,12 +1300,10 @@ impl ExpandSyntax for InfixInnerShape {
     ) -> Result<Self::Output, ParseError> {
         parse_single_node(token_nodes, "infix operator", |token, token_span, err| {
             Ok(match token {
-                // If it's an operator (and not `.`), it's a match
-                UnspannedToken::Operator(operator) if operator != Operator::Dot => {
-                    InfixInnerSyntax {
-                        operator: operator.spanned(token_span),
-                    }
-                }
+                // If it's a comparison operator, it's a match
+                UnspannedToken::CompareOperator(operator) => InfixInnerSyntax {
+                    operator: operator.spanned(token_span),
+                },
 
                 // Otherwise, it's not a match
                 _ => return Err(err.error()),

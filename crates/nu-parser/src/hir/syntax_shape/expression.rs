@@ -4,6 +4,7 @@ pub(crate) mod file_path;
 pub(crate) mod list;
 pub(crate) mod number;
 pub(crate) mod pattern;
+pub(crate) mod range;
 pub(crate) mod string;
 pub(crate) mod unit;
 pub(crate) mod variable_path;
