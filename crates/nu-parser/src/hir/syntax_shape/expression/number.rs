@@ -52,37 +52,6 @@ impl ExpandExpression for NumberShape {
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for NumberShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        let atom = token_nodes.spanned(|token_nodes| {
-            expand_atom(token_nodes, "number", context, ExpansionRule::permissive())
-        });
-
-        let atom = match atom {
-            Spanned { item: Err(_), span } => {
-                shapes.push(FlatShape::Error.spanned(span));
-                return Ok(());
-            }
-            Spanned { item: Ok(atom), .. } => atom,
-        };
-
-        atom.color_tokens(shapes);
-
-        Ok(())
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for NumberShape {
     type Info = ();
     type Input = ();
@@ -152,37 +121,6 @@ impl ExpandExpression for IntShape {
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for IntShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        let atom = token_nodes.spanned(|token_nodes| {
-            expand_atom(token_nodes, "integer", context, ExpansionRule::permissive())
-        });
-
-        let atom = match atom {
-            Spanned { item: Err(_), span } => {
-                shapes.push(FlatShape::Error.spanned(span));
-                return Ok(());
-            }
-            Spanned { item: Ok(atom), .. } => atom,
-        };
-
-        atom.color_tokens(shapes);
-
-        Ok(())
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for IntShape {
     type Info = ();
     type Input = ();

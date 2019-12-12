@@ -1,7 +1,7 @@
 image:
   file: .gitpod.Dockerfile
 tasks:
-  - init: cargo install nu --features=user-visible
+  - init: cargo install nu --features=stable
     command: nu
 github:
   prebuilds:

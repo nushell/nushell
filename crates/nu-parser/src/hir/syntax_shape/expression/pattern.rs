@@ -6,45 +6,13 @@ use crate::parse::operator::EvaluationOperator;
 use crate::parse::tokens::{Token, UnspannedToken};
 use crate::{hir, hir::TokensIterator, TokenNode};
 use nu_errors::{ParseError, ShellError};
-#[cfg(coloring_in_tokens)]
+
 use nu_protocol::ShellTypeName;
-#[cfg(not(coloring_in_tokens))]
-use nu_source::Spanned;
 use nu_source::{Span, SpannedItem};
 
 #[derive(Debug, Copy, Clone)]
 pub struct PatternShape;
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for PatternShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        use nu_protocol::SpannedTypeName;
-
-        token_nodes.atomic(|token_nodes| {
-            let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
-
-            match &atom.unspanned {
-                UnspannedAtomicToken::GlobPattern { .. } | UnspannedAtomicToken::Word { .. } => {
-                    shapes.push(FlatShape::GlobPattern.spanned(atom.span));
-                    Ok(())
-                }
-
-                _ => Err(ShellError::type_error("pattern", atom.spanned_type_name())),
-            }
-        })
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for PatternShape {
     type Info = ();
     type Input = ();

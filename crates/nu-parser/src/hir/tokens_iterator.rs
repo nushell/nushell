@@ -1,7 +1,7 @@
 pub(crate) mod debug;
 
 use self::debug::{ColorTracer, ExpandTracer};
-#[cfg(coloring_in_tokens)]
+
 use crate::hir::syntax_shape::FlatShape;
 use crate::hir::Expression;
 use crate::TokenNode;
@@ -11,28 +11,15 @@ use nu_errors::{ParseError, ShellError};
 use nu_protocol::SpannedTypeName;
 use nu_source::{HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Text};
 
-cfg_if::cfg_if! {
-    if #[cfg(coloring_in_tokens)] {
-        #[derive(Getters, Debug)]
-        pub struct TokensIteratorState<'content> {
-            tokens: &'content [TokenNode],
-            span: Span,
-            skip_ws: bool,
-            index: usize,
-            seen: indexmap::IndexSet<usize>,
-            #[get = "pub"]
-            shapes: Vec<Spanned<FlatShape>>,
-        }
-    } else {
-        #[derive(Getters, Debug)]
-        pub struct TokensIteratorState<'content> {
-            tokens: &'content [TokenNode],
-            span: Span,
-            skip_ws: bool,
-            index: usize,
-            seen: indexmap::IndexSet<usize>,
-        }
-    }
+#[derive(Getters, Debug)]
+pub struct TokensIteratorState<'content> {
+    tokens: &'content [TokenNode],
+    span: Span,
+    skip_ws: bool,
+    index: usize,
+    seen: indexmap::IndexSet<usize>,
+    #[get = "pub"]
+    shapes: Vec<Spanned<FlatShape>>,
 }
 
 #[derive(Getters, MutGetters, Debug)]
@@ -53,7 +40,7 @@ pub struct Checkpoint<'content, 'me> {
     pub(crate) iterator: &'me mut TokensIterator<'content>,
     index: usize,
     seen: indexmap::IndexSet<usize>,
-    #[cfg(coloring_in_tokens)]
+
     shape_start: usize,
     committed: bool,
 }
@@ -71,7 +58,7 @@ impl<'content, 'me> std::ops::Drop for Checkpoint<'content, 'me> {
 
             state.index = self.index;
             state.seen = self.seen.clone();
-            #[cfg(coloring_in_tokens)]
+
             state.shapes.truncate(self.shape_start);
         }
     }
@@ -161,34 +148,17 @@ impl<'content> TokensIterator<'content> {
         source: Text,
         skip_ws: bool,
     ) -> TokensIterator<'content> {
-        cfg_if::cfg_if! {
-            if #[cfg(coloring_in_tokens)] {
-                TokensIterator {
-                    state: TokensIteratorState {
-                        tokens: items,
-                        span,
-                        skip_ws,
-                        index: 0,
-                        seen: indexmap::IndexSet::new(),
-                        shapes: vec![],
-                    },
-                    color_tracer: ColorTracer::new(source.clone()),
-                    expand_tracer: ExpandTracer::new(source.clone()),
-                }
-            } else {
-                TokensIterator {
-                    state: TokensIteratorState {
-                        tokens: items,
-                        span,
-                        skip_ws,
-                        index: 0,
-                        seen: indexmap::IndexSet::new(),
-                    },
-                    color_tracer: ColorTracer::new(source.clone()),
-                    expand_tracer: ExpandTracer::new(source.clone()),
-                }
-            }
-
+        TokensIterator {
+            state: TokensIteratorState {
+                tokens: items,
+                span,
+                skip_ws,
+                index: 0,
+                seen: indexmap::IndexSet::new(),
+                shapes: vec![],
+            },
+            color_tracer: ColorTracer::new(source.clone()),
+            expand_tracer: ExpandTracer::new(source.clone()),
         }
     }
 
@@ -217,13 +187,11 @@ impl<'content> TokensIterator<'content> {
         result.spanned(start.until(end))
     }
 
-    #[cfg(coloring_in_tokens)]
     pub fn color_shape(&mut self, shape: Spanned<FlatShape>) {
         self.with_color_tracer(|_, tracer| tracer.add_shape(shape));
         self.state.shapes.push(shape);
     }
 
-    #[cfg(coloring_in_tokens)]
     pub fn mutate_shapes(&mut self, block: impl FnOnce(&mut Vec<Spanned<FlatShape>>)) {
         let new_shapes: Vec<Spanned<FlatShape>> = {
             let shapes = &mut self.state.shapes;
@@ -239,13 +207,11 @@ impl<'content> TokensIterator<'content> {
         });
     }
 
-    #[cfg(coloring_in_tokens)]
     pub fn silently_mutate_shapes(&mut self, block: impl FnOnce(&mut Vec<Spanned<FlatShape>>)) {
         let shapes = &mut self.state.shapes;
         block(shapes);
     }
 
-    #[cfg(coloring_in_tokens)]
     pub fn sort_shapes(&mut self) {
         // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
         // this solution.
@@ -255,7 +221,6 @@ impl<'content> TokensIterator<'content> {
             .sort_by(|a, b| a.span.start().cmp(&b.span.start()));
     }
 
-    #[cfg(coloring_in_tokens)]
     pub fn child<'me, T>(
         &'me mut self,
         tokens: Spanned<&'me [TokenNode]>,
@@ -271,57 +236,6 @@ impl<'content> TokensIterator<'content> {
         let mut expand_tracer = ExpandTracer::new(source.clone());
         std::mem::swap(&mut expand_tracer, &mut self.expand_tracer);
 
-        cfg_if::cfg_if! {
-            if #[cfg(coloring_in_tokens)] {
-                let mut iterator = TokensIterator {
-                    state: TokensIteratorState {
-                        tokens: tokens.item,
-                        span: tokens.span,
-                        skip_ws: false,
-                        index: 0,
-                        seen: indexmap::IndexSet::new(),
-                        shapes,
-                    },
-                    color_tracer,
-                    expand_tracer,
-                };
-            } else {
-                let mut iterator = TokensIterator {
-                    state: TokensIteratorState {
-                        tokens: tokens.item,
-                        span: tokens.span,
-                        skip_ws: false,
-                        index: 0,
-                        seen: indexmap::IndexSet::new(),
-                    },
-                    color_tracer,
-                    expand_tracer,
-                };
-            }
-        }
-
-        let result = block(&mut iterator);
-
-        std::mem::swap(&mut iterator.state.shapes, &mut self.state.shapes);
-        std::mem::swap(&mut iterator.color_tracer, &mut self.color_tracer);
-        std::mem::swap(&mut iterator.expand_tracer, &mut self.expand_tracer);
-
-        result
-    }
-
-    #[cfg(not(coloring_in_tokens))]
-    pub fn child<'me, T>(
-        &'me mut self,
-        tokens: Spanned<&'me [TokenNode]>,
-        source: Text,
-        block: impl FnOnce(&mut TokensIterator<'me>) -> T,
-    ) -> T {
-        let mut color_tracer = ColorTracer::new(source.clone());
-        std::mem::swap(&mut color_tracer, &mut self.color_tracer);
-
-        let mut expand_tracer = ExpandTracer::new(source.clone());
-        std::mem::swap(&mut expand_tracer, &mut self.expand_tracer);
-
         let mut iterator = TokensIterator {
             state: TokensIteratorState {
                 tokens: tokens.item,
@@ -329,6 +243,7 @@ impl<'content> TokensIterator<'content> {
                 skip_ws: false,
                 index: 0,
                 seen: indexmap::IndexSet::new(),
+                shapes,
             },
             color_tracer,
             expand_tracer,
@@ -336,6 +251,7 @@ impl<'content> TokensIterator<'content> {
 
         let result = block(&mut iterator);
 
+        std::mem::swap(&mut iterator.state.shapes, &mut self.state.shapes);
         std::mem::swap(&mut iterator.color_tracer, &mut self.color_tracer);
         std::mem::swap(&mut iterator.expand_tracer, &mut self.expand_tracer);
 
@@ -362,7 +278,6 @@ impl<'content> TokensIterator<'content> {
         block(state, tracer)
     }
 
-    #[cfg(coloring_in_tokens)]
     pub fn color_frame<T>(
         &mut self,
         desc: &'static str,
@@ -455,7 +370,7 @@ impl<'content> TokensIterator<'content> {
         let state = &mut self.state;
 
         let index = state.index;
-        #[cfg(coloring_in_tokens)]
+
         let shape_start = state.shapes.len();
         let seen = state.seen.clone();
 
@@ -464,7 +379,7 @@ impl<'content> TokensIterator<'content> {
             index,
             seen,
             committed: false,
-            #[cfg(coloring_in_tokens)]
+
             shape_start,
         }
     }
@@ -478,7 +393,7 @@ impl<'content> TokensIterator<'content> {
         let state = &mut self.state;
 
         let index = state.index;
-        #[cfg(coloring_in_tokens)]
+
         let shape_start = state.shapes.len();
         let seen = state.seen.clone();
 
@@ -487,7 +402,7 @@ impl<'content> TokensIterator<'content> {
             index,
             seen,
             committed: false,
-            #[cfg(coloring_in_tokens)]
+
             shape_start,
         };
 
@@ -506,7 +421,7 @@ impl<'content> TokensIterator<'content> {
         let state = &mut self.state;
 
         let index = state.index;
-        #[cfg(coloring_in_tokens)]
+
         let shape_start = state.shapes.len();
         let seen = state.seen.clone();
 
@@ -515,7 +430,7 @@ impl<'content> TokensIterator<'content> {
             index,
             seen,
             committed: false,
-            #[cfg(coloring_in_tokens)]
+
             shape_start,
         };
 
@@ -525,7 +440,6 @@ impl<'content> TokensIterator<'content> {
         return Ok(value);
     }
 
-    #[cfg(coloring_in_tokens)]
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
     /// that you'll succeed.
     pub fn atomic_returning_shapes<'me, T>(
@@ -641,7 +555,7 @@ impl<'content> TokensIterator<'content> {
     //             index: state.index,
     //             seen: state.seen.clone(),
     //             skip_ws: state.skip_ws,
-    //             #[cfg(coloring_in_tokens)]
+    //
     //             shapes: state.shapes.clone(),
     //         },
     //         color_tracer: self.color_tracer.clone(),

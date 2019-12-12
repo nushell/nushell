@@ -41,4 +41,5 @@ pretty_assertions = "0.6.1"
 nu-build = { version = "0.1.0", path = "../nu-build" }
 
 [features]
+stable = []
 trace = ["nom-tracable/trace"]
