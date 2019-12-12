@@ -1,5 +1,3 @@
-#[cfg(not(coloring_in_tokens))]
-use crate::hir::syntax_shape::FlatShape;
 use crate::{
     hir::syntax_shape::{
         color_syntax, expand_atom, expand_expr, expand_syntax, AtomicToken, ColorSyntax,
@@ -69,33 +67,6 @@ impl ExpandSyntax for ExternalTokensShape {
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-impl ColorSyntax for ExternalTokensShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Self::Info {
-        loop {
-            // Allow a space
-            color_syntax(&MaybeSpaceShape, token_nodes, context, shapes);
-
-            // Process an external expression. External expressions are mostly words, with a
-            // few exceptions (like $variables and path expansion rules)
-            match color_syntax(&ExternalExpressionShape, token_nodes, context, shapes).1 {
-                ExternalExpressionResult::Eof => break,
-                ExternalExpressionResult::Processed => continue,
-            }
-        }
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl ColorSyntax for ExternalTokensShape {
     type Info = ();
     type Input = ();
@@ -295,7 +266,6 @@ impl ExpandExpression for ExternalContinuationShape {
     }
 }
 
-#[cfg(coloring_in_tokens)]
 impl ColorSyntax for ExternalExpressionShape {
     type Info = ExternalExpressionResult;
     type Input = ();
@@ -333,35 +303,4 @@ impl ColorSyntax for ExternalExpressionShape {
 pub enum ExternalExpressionResult {
     Eof,
     Processed,
-}
-
-#[cfg(not(coloring_in_tokens))]
-impl ColorSyntax for ExternalExpressionShape {
-    type Info = ExternalExpressionResult;
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> ExternalExpressionResult {
-        let atom = match expand_atom(
-            token_nodes,
-            "external word",
-            context,
-            ExpansionRule::permissive(),
-        ) {
-            Err(_) => unreachable!("TODO: separate infallible expand_atom"),
-            Ok(AtomicToken {
-                unspanned: UnspannedAtomicToken::Eof { .. },
-                ..
-            }) => return ExternalExpressionResult::Eof,
-            Ok(atom) => atom,
-        };
-
-        atom.color_tokens(shapes);
-        return ExternalExpressionResult::Processed;
-    }
 }

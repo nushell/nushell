@@ -80,20 +80,6 @@ impl Highlighter for Helper {
                 let text = Text::from(line);
                 let expand_context = self.context.expand_context(&text);
 
-                #[cfg(not(coloring_in_tokens))]
-                let shapes = {
-                    let mut shapes = vec![];
-                    color_fallible_syntax(
-                        &PipelineShape,
-                        &mut tokens,
-                        &expand_context,
-                        &mut shapes,
-                    )
-                    .unwrap();
-                    shapes
-                };
-
-                #[cfg(coloring_in_tokens)]
                 let shapes = {
                     // We just constructed a token list that only contains a pipeline, so it can't fail
                     color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context).unwrap();

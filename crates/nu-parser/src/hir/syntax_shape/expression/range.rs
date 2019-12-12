@@ -46,7 +46,6 @@ impl ExpandExpression for RangeShape {
     }
 }
 
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for RangeShape {
     type Info = ();
     type Input = ();
@@ -71,32 +70,9 @@ impl FallibleColorSyntax for RangeShape {
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for RangeShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<nu_source::Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        token_nodes.atomic_parse(|token_nodes| {
-            color_fallible_syntax(&AnyExpressionShape, token_nodes, context, shapes)?;
-            color_fallible_syntax(&DotDotShape, token_nodes, context, shapes)?;
-            color_fallible_syntax(&AnyExpressionShape, token_nodes, context, shapes)
-        })?;
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, Copy, Clone)]
 struct DotDotShape;
 
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for DotDotShape {
     type Info = ();
     type Input = ();
@@ -119,33 +95,6 @@ impl FallibleColorSyntax for DotDotShape {
             }) => {
                 peeked.commit();
                 token_nodes.color_shape(FlatShape::DotDot.spanned(span));
-                Ok(())
-            }
-            token => Err(ShellError::type_error("..", token.spanned_type_name())),
-        }
-    }
-}
-
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for DotDotShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &Self::Input,
-        token_nodes: &'b mut TokensIterator<'a>,
-        _context: &ExpandContext,
-        shapes: &mut Vec<nu_source::Spanned<FlatShape>>,
-    ) -> Result<Self::Info, ShellError> {
-        let peeked = token_nodes.peek_any().not_eof("..")?;
-        match &peeked.node {
-            TokenNode::Token(Token {
-                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::DotDot),
-                span,
-            }) => {
-                peeked.commit();
-                shapes.push(FlatShape::DotDot.spanned(span));
                 Ok(())
             }
             token => Err(ShellError::type_error("..", token.spanned_type_name())),

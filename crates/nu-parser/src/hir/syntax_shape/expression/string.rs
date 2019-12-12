@@ -6,45 +6,11 @@ use crate::hir::tokens_iterator::Peeked;
 use crate::parse::tokens::UnspannedToken;
 use crate::{hir, hir::TokensIterator};
 use nu_errors::{ParseError, ShellError};
-#[cfg(not(coloring_in_tokens))]
-use nu_source::Spanned;
 use nu_source::SpannedItem;
 
 #[derive(Debug, Copy, Clone)]
 pub struct StringShape;
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for StringShape {
-    type Info = ();
-    type Input = FlatShape;
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        input: &FlatShape,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        let atom = expand_atom(token_nodes, "string", context, ExpansionRule::permissive());
-
-        let atom = match atom {
-            Err(_) => return Ok(()),
-            Ok(atom) => atom,
-        };
-
-        match atom {
-            AtomicToken {
-                unspanned: UnspannedAtomicToken::String { .. },
-                span,
-            } => shapes.push((*input).spanned(span)),
-            other => other.color_tokens(shapes),
-        }
-
-        Ok(())
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for StringShape {
     type Info = ();
     type Input = FlatShape;

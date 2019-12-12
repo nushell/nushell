@@ -43,34 +43,6 @@ impl ExpandExpression for AnyExpressionShape {
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for AnyExpressionShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        // Look for an expression at the cursor
-        color_fallible_syntax(&AnyExpressionStartShape, token_nodes, context, shapes)?;
-
-        match continue_coloring_expression(token_nodes, context, shapes) {
-            Err(_) => {
-                // it's fine for there to be no continuation
-            }
-
-            Ok(()) => {}
-        }
-
-        Ok(())
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for AnyExpressionShape {
     type Info = ();
     type Input = ();
@@ -128,32 +100,6 @@ pub(crate) fn continue_expression(
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-pub(crate) fn continue_coloring_expression(
-    token_nodes: &mut TokensIterator<'_>,
-    context: &ExpandContext,
-    shapes: &mut Vec<Spanned<FlatShape>>,
-) -> Result<(), ShellError> {
-    // if there's not even one expression continuation, fail
-    color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context, shapes)?;
-
-    loop {
-        // Check to see whether there's any continuation after the head expression
-        let result =
-            color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context, shapes);
-
-        match result {
-            Err(_) => {
-                // We already saw one continuation, so just return
-                return Ok(());
-            }
-
-            Ok(_) => {}
-        }
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 pub(crate) fn continue_coloring_expression(
     token_nodes: &mut TokensIterator<'_>,
     context: &ExpandContext,
@@ -221,66 +167,6 @@ impl ExpandExpression for AnyExpressionStartShape {
     }
 }
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for AnyExpressionStartShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        let atom = token_nodes.spanned(|token_nodes| {
-            expand_atom(
-                token_nodes,
-                "expression",
-                context,
-                ExpansionRule::permissive(),
-            )
-        });
-
-        let atom = match atom {
-            Spanned {
-                item: Err(_err),
-                span,
-            } => {
-                shapes.push(FlatShape::Error.spanned(span));
-                return Ok(());
-            }
-
-            Spanned {
-                item: Ok(value), ..
-            } => value,
-        };
-
-        match &atom.unspanned {
-            UnspannedAtomicToken::Size { number, unit } => shapes.push(
-                FlatShape::Size {
-                    number: number.span(),
-                    unit: unit.span.into(),
-                }
-                .spanned(atom.span),
-            ),
-
-            UnspannedAtomicToken::SquareDelimited { nodes, spans } => {
-                color_delimited_square(*spans, &nodes, atom.span.into(), context, shapes)
-            }
-
-            UnspannedAtomicToken::Word { .. } => {
-                shapes.push(FlatShape::Word.spanned(atom.span));
-            }
-
-            _ => atom.color_tokens(shapes),
-        }
-
-        Ok(())
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for AnyExpressionStartShape {
     type Info = ();
     type Input = ();
@@ -351,64 +237,6 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
 #[derive(Debug, Copy, Clone)]
 pub struct BareTailShape;
 
-#[cfg(not(coloring_in_tokens))]
-impl FallibleColorSyntax for BareTailShape {
-    type Info = ();
-    type Input = ();
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-        shapes: &mut Vec<Spanned<FlatShape>>,
-    ) -> Result<(), ShellError> {
-        let len = shapes.len();
-
-        loop {
-            let word = color_fallible_syntax_with(
-                &BareShape,
-                &FlatShape::Word,
-                token_nodes,
-                context,
-                shapes,
-            );
-
-            match word {
-                // if a word was found, continue
-                Ok(_) => continue,
-                // if a word wasn't found, try to find a dot
-                Err(_) => {}
-            }
-
-            // try to find a dot
-            let dot = color_fallible_syntax_with(
-                &ColorableDotShape,
-                &FlatShape::Word,
-                token_nodes,
-                context,
-                shapes,
-            );
-
-            match dot {
-                // if a dot was found, try to find another word
-                Ok(_) => continue,
-                // otherwise, we're done
-                Err(_) => break,
-            }
-        }
-
-        if shapes.len() > len {
-            Ok(())
-        } else {
-            Err(ShellError::syntax_error(
-                "No tokens matched BareTailShape".spanned_unknown(),
-            ))
-        }
-    }
-}
-
-#[cfg(coloring_in_tokens)]
 impl FallibleColorSyntax for BareTailShape {
     type Info = ();
     type Input = ();
