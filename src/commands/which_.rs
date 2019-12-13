@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use indexmap::map::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
 
@@ -11,10 +12,9 @@ impl WholeStreamCommand for Which {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("which").required(
-            "name",
+        Signature::build("which").rest(
             SyntaxShape::Any,
-            "the name of the command to find the path to",
+            "the names of the commands to find the path to",
         )
     }
 
@@ -33,29 +33,21 @@ impl WholeStreamCommand for Which {
 
 pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-
-    let mut which_out = VecDeque::new();
     let tag = args.call_info.name_tag.clone();
 
-    if let Some(v) = &args.call_info.args.positional {
-        if !v.is_empty() {
-            match &v[0] {
+    let mut rows: VecDeque<Value> = VecDeque::new();
+
+    if let Some(ref positional) = &args.call_info.args.positional {
+        for i in positional {
+            match i {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
                     if registry.has(s) {
-                        which_out.push_back(
-                            UntaggedValue::Primitive(Primitive::String(format!(
-                                "{}: nushell built-in command",
-                                s
-                            )))
-                            .into_value(tag.clone()),
-                        )
+                        rows.push_back(entry_builtin(s, tag.clone()));
                     } else if let Ok(ok) = which::which(&s) {
-                        which_out.push_back(
-                            UntaggedValue::Primitive(Primitive::Path(ok)).into_value(tag.clone()),
-                        );
+                        rows.push_back(entry_path(s, ok, tag.clone()))
                     }
                 }
                 Value { tag, .. } => {
@@ -66,12 +58,6 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     ));
                 }
             }
-        } else {
-            return Err(ShellError::labeled_error(
-                "Expected a binary to find",
-                "needs application name",
-                tag,
-            ));
         }
     } else {
         return Err(ShellError::labeled_error(
@@ -81,5 +67,34 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
         ));
     }
 
-    Ok(which_out.to_output_stream())
+    Ok(rows.to_output_stream())
+}
+
+/// Shortcuts for creating an entry to the output table
+fn entry(arg: impl Into<String>, path: Value, tag: Tag) -> Value {
+    let mut map = IndexMap::new();
+    map.insert(
+        "arg".to_string(),
+        UntaggedValue::Primitive(Primitive::String(arg.into())).into_value(tag.clone()),
+    );
+    map.insert("path".to_string(), path);
+
+    UntaggedValue::row(map).into_value(tag.clone())
+}
+
+fn entry_builtin(arg: impl Into<String>, tag: Tag) -> Value {
+    entry(
+        arg,
+        UntaggedValue::Primitive(Primitive::String("nushell built-in command".to_string()))
+            .into_value(tag.clone()),
+        tag,
+    )
+}
+
+fn entry_path(arg: impl Into<String>, path: std::path::PathBuf, tag: Tag) -> Value {
+    entry(
+        arg,
+        UntaggedValue::Primitive(Primitive::Path(path)).into_value(tag.clone()),
+        tag,
+    )
 }
