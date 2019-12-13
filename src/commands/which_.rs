@@ -35,37 +35,40 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
     let tag = args.call_info.name_tag.clone();
 
-    let mut rows: VecDeque<Value> = VecDeque::new();
-
-    if let Some(ref positional) = &args.call_info.args.positional {
-        for i in positional {
-            match i {
+    let rows = if let Some(ref positional) = args.call_info.args.positional {
+        positional
+            .iter()
+            .map(|i| match i {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
                     if registry.has(s) {
-                        rows.push_back(entry_builtin(s, tag.clone()));
+                        Ok(entry_builtin(s, tag.clone()))
                     } else if let Ok(ok) = which::which(&s) {
-                        rows.push_back(entry_path(s, ok, tag.clone()))
+                        Ok(entry_path(s, ok, tag.clone()))
+                    } else {
+                        Err(ShellError::labeled_error(
+                            "Binary not found for argument, and argument is not a builtin",
+                            "not found",
+                            tag,
+                        ))
                     }
                 }
-                Value { tag, .. } => {
-                    return Err(ShellError::labeled_error(
-                        "Expected a filename to find",
-                        "needs a filename",
-                        tag,
-                    ));
-                }
-            }
-        }
+                Value { tag, .. } => Err(ShellError::labeled_error(
+                    "Expected a filename to find",
+                    "needs a filename",
+                    tag,
+                )),
+            })
+            .collect::<Result<VecDeque<_>, _>>()
     } else {
-        return Err(ShellError::labeled_error(
+        Err(ShellError::labeled_error(
             "Expected a binary to find",
             "needs application name",
             tag,
-        ));
-    }
+        ))
+    }?;
 
     Ok(rows.to_output_stream())
 }
