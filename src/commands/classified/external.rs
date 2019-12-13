@@ -7,6 +7,7 @@ use nu_errors::ShellError;
 use nu_parser::ExternalCommand;
 use nu_protocol::{UntaggedValue, Value};
 use std::io::{Error, ErrorKind};
+use std::ops::Deref;
 use subprocess::Exec;
 
 use super::ClassifiedInputStream;
@@ -107,11 +108,7 @@ pub(crate) async fn run_external_command(
                     None
                 } else {
                     // Let's also replace ~ as we shell out
-                    let arg = if let Some(ref home_dir) = home_dir {
-                        arg.replace("~", home_dir.to_str().unwrap())
-                    } else {
-                        arg.replace("~", "~")
-                    };
+                    let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
 
                     Some(arg.replace("$it", &i))
                 }
@@ -125,11 +122,7 @@ pub(crate) async fn run_external_command(
         process = Exec::cmd(&command.name);
         for arg in command.args.iter() {
             // Let's also replace ~ as we shell out
-            let arg = if let Some(ref home_dir) = home_dir {
-                arg.replace("~", home_dir.to_str().unwrap())
-            } else {
-                arg.replace("~", "~")
-            };
+            let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
 
             let arg_chars: Vec<_> = arg.chars().collect();
             if arg_chars.len() > 1 && arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"' {
@@ -137,7 +130,7 @@ pub(crate) async fn run_external_command(
                 let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                 process = process.arg(new_arg);
             } else {
-                process = process.arg(arg.clone());
+                process = process.arg(arg.as_ref());
             }
         }
     }
