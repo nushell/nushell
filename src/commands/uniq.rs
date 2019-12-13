@@ -38,26 +38,24 @@ impl WholeStreamCommand for Uniq {
 
 fn uniq(
     UniqArgs { rest: fields }: UniqArgs,
-    RunnableContext { input, .. }: RunnableContext,
+    mut context: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
+    use std::collections::HashSet;
 
-    let fields: Vec<_> = fields.iter().map(|field| field.item.clone()).collect();
-    let values: Vec<Value> = input.values.drain_vec().await;
+    Ok(OutputStream::new(async_stream! {
+        let mut uniq_values = HashSet::new();
 
+        let fields: Vec<_> = fields.iter().map(|field| field.item.clone()).collect();
+        let vec = context.input.drain_vec().await;
 
-    let objects = input
-        .values
-        .map(move |value| {
-            // dbg!(&value);
-            select_fields(&value, &fields, value.tag.clone())
-        });
+        for item in vec {
+            uniq_values.insert(item);
+        }
 
-    /*
-        for each row,
-            check every column against every other row and column
-            break out as soon as they are not equal
-    */
+        for item in uniq_values {
+            yield item.into();
+        }
 
-    Ok(objects.to_output_stream())
+    }))
 }
 
