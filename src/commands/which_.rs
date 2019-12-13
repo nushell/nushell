@@ -44,7 +44,15 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     value: UntaggedValue::Primitive(Primitive::String(s)),
                     tag,
                 } => {
-                    if let Ok(ok) = which::which(&s) {
+                    if registry.has(s) {
+                        which_out.push_back(
+                            UntaggedValue::Primitive(Primitive::String(format!(
+                                "{}: nushell built-in command",
+                                s
+                            )))
+                            .into_value(tag.clone()),
+                        )
+                    } else if let Ok(ok) = which::which(&s) {
                         which_out.push_back(
                             UntaggedValue::Primitive(Primitive::Path(ok)).into_value(tag.clone()),
                         );
