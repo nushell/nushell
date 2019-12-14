@@ -1,81 +1,96 @@
 use crate::hir::syntax_shape::{
-    color_fallible_syntax, color_syntax, expand_expr, flat_shape::FlatShape, spaced,
-    BackoffColoringMode, ColorSyntax, MaybeSpaceShape,
+    BackoffColoringMode, ExpandSyntax, MaybeSpaceShape, MaybeWhitespaceEof,
 };
+use crate::hir::SpannedExpression;
 use crate::TokensIterator;
 use crate::{
-    hir::{self, ExpandContext, NamedArguments},
+    hir::{self, NamedArguments},
     Flag,
 };
 use log::trace;
-use nu_source::{PrettyDebugWithSource, Span, Spanned, SpannedItem, Text};
-
 use nu_errors::{ArgumentError, ParseError};
-use nu_protocol::{NamedType, PositionalType, Signature};
+use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
+use nu_source::{HasFallibleSpan, HasSpan, PrettyDebugWithSource, Span, Spanned, SpannedItem};
 
 pub fn parse_command_tail(
     config: &Signature,
-    context: &ExpandContext,
     tail: &mut TokensIterator,
     command_span: Span,
-) -> Result<Option<(Option<Vec<hir::Expression>>, Option<NamedArguments>)>, ParseError> {
+) -> Result<Option<(Option<Vec<hir::SpannedExpression>>, Option<NamedArguments>)>, ParseError> {
     let mut named = NamedArguments::new();
-    trace_remaining("nodes", &tail, context.source());
+    let mut found_error: Option<ParseError> = None;
+    let mut rest_signature = config.clone();
+
+    trace!(target: "nu::parse::trace_remaining", "");
+
+    trace_remaining("nodes", &tail);
 
     for (name, kind) in &config.named {
-        trace!(target: "nu::parse", "looking for {} : {:?}", name, kind);
+        trace!(target: "nu::parse::trace_remaining", "looking for {} : {:?}", name, kind);
+
+        tail.move_to(0);
 
         match &kind.0 {
             NamedType::Switch => {
-                let flag = extract_switch(name, tail, context.source());
+                let switch = extract_switch(name, tail);
 
-                named.insert_switch(name, flag);
+                match switch {
+                    None => named.insert_switch(name, None),
+                    Some((_, flag)) => {
+                        named.insert_switch(name, Some(*flag));
+                        rest_signature.remove_named(name);
+                        tail.color_shape(flag.color(flag.span));
+                    }
+                }
             }
             NamedType::Mandatory(syntax_type) => {
-                match extract_mandatory(config, name, tail, context.source(), command_span) {
-                    Err(err) => return Err(err), // produce a correct diagnostic
+                match extract_mandatory(config, name, tail, command_span) {
+                    Err(err) => {
+                        // remember this error, but continue coloring
+                        found_error = Some(err);
+                    }
                     Ok((pos, flag)) => {
-                        tail.move_to(pos);
+                        let result = expand_flag(tail, *syntax_type, flag, pos);
 
-                        if tail.at_end() {
-                            return Err(ParseError::argument_error(
-                                config.name.clone().spanned(flag.span),
-                                ArgumentError::MissingValueForName(name.to_string()),
-                            ));
+                        match result {
+                            Ok(expr) => {
+                                named.insert_mandatory(name, expr);
+                                rest_signature.remove_named(name);
+                            }
+                            Err(_) => {
+                                found_error = Some(ParseError::argument_error(
+                                    config.name.clone().spanned(flag.span),
+                                    ArgumentError::MissingValueForName(name.to_string()),
+                                ))
+                            }
                         }
-
-                        let expr = expand_expr(&spaced(*syntax_type), tail, context)?;
-
-                        tail.restart();
-                        named.insert_mandatory(name, expr);
                     }
                 }
             }
             NamedType::Optional(syntax_type) => {
-                match extract_optional(name, tail, context.source()) {
-                    Err(err) => return Err(err), // produce a correct diagnostic
+                match extract_optional(name, tail) {
+                    Err(err) => {
+                        // remember this error, but continue coloring
+                        found_error = Some(err);
+                    }
                     Ok(Some((pos, flag))) => {
-                        tail.move_to(pos);
+                        let result = expand_flag(tail, *syntax_type, flag, pos);
 
-                        if tail.at_end() {
-                            return Err(ParseError::argument_error(
-                                config.name.clone().spanned(flag.span),
-                                ArgumentError::MissingValueForName(name.to_string()),
-                            ));
+                        match result {
+                            Ok(expr) => {
+                                named.insert_optional(name, Some(expr));
+                                rest_signature.remove_named(name);
+                            }
+                            Err(_) => {
+                                found_error = Some(ParseError::argument_error(
+                                    config.name.clone().spanned(flag.span),
+                                    ArgumentError::MissingValueForName(name.to_string()),
+                                ))
+                            }
                         }
-
-                        let expr = expand_expr(&spaced(*syntax_type), tail, context);
-
-                        match expr {
-                            Err(_) => named.insert_optional(name, None),
-                            Ok(expr) => named.insert_optional(name, Some(expr)),
-                        }
-
-                        tail.restart();
                     }
 
                     Ok(None) => {
-                        tail.restart();
                         named.insert_optional(name, None);
                     }
                 }
@@ -83,56 +98,87 @@ pub fn parse_command_tail(
         };
     }
 
-    trace_remaining("after named", &tail, context.source());
+    trace_remaining("after named", &tail);
 
     let mut positional = vec![];
 
     for arg in &config.positional {
-        trace!(target: "nu::parse", "Processing positional {:?}", arg);
+        trace!(target: "nu::parse::trace_remaining", "Processing positional {:?}", arg);
 
-        match &arg.0 {
-            PositionalType::Mandatory(..) => {
-                if tail.at_end_possible_ws() {
-                    return Err(ParseError::argument_error(
-                        config.name.clone().spanned(command_span),
-                        ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
-                    ));
-                }
-            }
+        tail.move_to(0);
 
-            PositionalType::Optional(..) => {
-                if tail.at_end_possible_ws() {
+        let result = expand_spaced_expr(arg.0.syntax_type(), tail);
+
+        match result {
+            Err(_) => match &arg.0 {
+                PositionalType::Mandatory(..) => {
+                    if let None = found_error {
+                        found_error = Some(ParseError::argument_error(
+                            config.name.clone().spanned(command_span),
+                            ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
+                        ));
+                    }
+
                     break;
                 }
+
+                PositionalType::Optional(..) => match tail.expand_syntax(MaybeWhitespaceEof) {
+                    Ok(_) => break,
+                    Err(_) => {}
+                },
+            },
+            Ok(result) => {
+                rest_signature.shift_positional();
+                positional.push(result);
             }
         }
-
-        let result = expand_expr(&spaced(arg.0.syntax_type()), tail, context)?;
-
-        positional.push(result);
     }
 
-    trace_remaining("after positional", &tail, context.source());
+    trace_remaining("after positional", &tail);
 
     if let Some((syntax_type, _)) = config.rest_positional {
         let mut out = vec![];
 
         loop {
-            if tail.at_end_possible_ws() {
+            if found_error.is_some() {
                 break;
             }
 
-            let next = expand_expr(&spaced(syntax_type), tail, context)?;
+            tail.move_to(0);
 
-            out.push(next);
+            trace_remaining("start rest", &tail);
+            eat_any_whitespace(tail);
+            trace_remaining("after whitespace", &tail);
+
+            if tail.at_end() {
+                break;
+            }
+
+            match tail.expand_syntax(syntax_type) {
+                Err(err) => found_error = Some(err),
+                Ok(next) => out.push(next),
+            };
         }
 
         positional.extend(out);
     }
 
-    trace_remaining("after rest", &tail, context.source());
+    eat_any_whitespace(tail);
 
-    trace!(target: "nu::parse", "Constructed positional={:?} named={:?}", positional, named);
+    // Consume any remaining tokens with backoff coloring mode
+    tail.expand_infallible(BackoffColoringMode::new(rest_signature.allowed()));
+
+    // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
+    // this solution.
+    tail.sort_shapes();
+
+    if let Some(err) = found_error {
+        return Err(err);
+    }
+
+    trace_remaining("after rest", &tail);
+
+    trace!(target: "nu::parse::trace_remaining", "Constructed positional={:?} named={:?}", positional, named);
 
     let positional = if positional.len() == 0 {
         None
@@ -148,236 +194,72 @@ pub fn parse_command_tail(
         Some(named)
     };
 
-    trace!(target: "nu::parse", "Normalized positional={:?} named={:?}", positional, named);
+    trace!(target: "nu::parse::trace_remaining", "Normalized positional={:?} named={:?}", positional, named);
 
     Ok(Some((positional, named)))
 }
 
-#[derive(Debug)]
-struct ColoringArgs {
-    vec: Vec<Option<Vec<Spanned<FlatShape>>>>,
-}
-
-impl ColoringArgs {
-    fn new(len: usize) -> ColoringArgs {
-        let vec = vec![None; len];
-        ColoringArgs { vec }
-    }
-
-    fn insert(&mut self, pos: usize, shapes: Vec<Spanned<FlatShape>>) {
-        self.vec[pos] = Some(shapes);
-    }
-
-    fn spread_shapes(self, shapes: &mut Vec<Spanned<FlatShape>>) {
-        for item in self.vec {
-            match item {
-                None => {}
-                Some(vec) => {
-                    shapes.extend(vec);
-                }
-            }
+fn eat_any_whitespace(tail: &mut TokensIterator) {
+    loop {
+        match tail.expand_infallible(MaybeSpaceShape) {
+            None => break,
+            Some(_) => continue,
         }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct CommandTailShape;
+fn expand_flag(
+    token_nodes: &mut TokensIterator,
+    syntax_type: SyntaxShape,
+    flag: Spanned<Flag>,
+    pos: usize,
+) -> Result<SpannedExpression, ()> {
+    token_nodes.color_shape(flag.color(flag.span));
 
-impl ColorSyntax for CommandTailShape {
-    type Info = ();
-    type Input = Signature;
+    let result = token_nodes.atomic_parse(|token_nodes| {
+        token_nodes.move_to(pos);
 
-    fn name(&self) -> &'static str {
-        "CommandTailShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        signature: &Signature,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Self::Info {
-        use nu_protocol::SyntaxShape;
-
-        let mut args = ColoringArgs::new(token_nodes.len());
-        trace_remaining("nodes", &token_nodes, context.source());
-
-        fn insert_flag(
-            token_nodes: &mut TokensIterator,
-            syntax_type: &SyntaxShape,
-            args: &mut ColoringArgs,
-            flag: Flag,
-            pos: usize,
-            context: &ExpandContext,
-        ) {
-            let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
-                token_nodes.color_shape(flag.color());
-                token_nodes.move_to(pos);
-
-                if token_nodes.at_end() {
-                    return Ok(());
-                }
-
-                // We still want to color the flag even if the following tokens don't match, so don't
-                // propagate the error to the parent atomic block if it fails
-                let _ = token_nodes.atomic(|token_nodes| {
-                    // We can live with unmatched syntax after a mandatory flag
-                    color_syntax(&MaybeSpaceShape, token_nodes, context);
-
-                    // If the part after a mandatory flag isn't present, that's ok, but we
-                    // should roll back any whitespace we chomped
-                    color_fallible_syntax(syntax_type, token_nodes, context)?;
-
-                    Ok(())
-                });
-
-                Ok(())
-            });
-
-            args.insert(pos, shapes);
-            token_nodes.restart();
+        if token_nodes.at_end() {
+            return Err(ParseError::unexpected_eof("flag", Span::unknown()));
         }
 
-        for (name, kind) in &signature.named {
-            trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
+        let expr = expand_spaced_expr(syntax_type, token_nodes)?;
 
-            match &kind.0 {
-                NamedType::Switch => {
-                    match token_nodes.extract(|t| t.as_flag(name, context.source())) {
-                        Some((pos, flag)) => args.insert(pos, vec![flag.color()]),
-                        None => {}
-                    }
-                }
-                NamedType::Mandatory(syntax_type) => {
-                    match extract_mandatory(
-                        signature,
-                        name,
-                        token_nodes,
-                        context.source(),
-                        Span::unknown(),
-                    ) {
-                        Err(_) => {
-                            // The mandatory flag didn't exist at all, so there's nothing to color
-                        }
-                        Ok((pos, flag)) => {
-                            insert_flag(token_nodes, syntax_type, &mut args, flag, pos, context)
-                        }
-                    }
-                }
-                NamedType::Optional(syntax_type) => {
-                    match extract_optional(name, token_nodes, context.source()) {
-                        Err(_) => {
-                            // The optional flag didn't exist at all, so there's nothing to color
-                        }
-                        Ok(Some((pos, flag))) => {
-                            insert_flag(token_nodes, syntax_type, &mut args, flag, pos, context)
-                        }
+        Ok(expr)
+    });
 
-                        Ok(None) => {
-                            token_nodes.restart();
-                        }
-                    }
-                }
-            };
-        }
-
-        trace_remaining("after named", &token_nodes, context.source());
-
-        for arg in &signature.positional {
-            trace!("Processing positional {:?}", arg);
-
-            match &arg.0 {
-                PositionalType::Mandatory(..) => {
-                    if token_nodes.at_end() {
-                        break;
-                    }
-                }
-
-                PositionalType::Optional(..) => {
-                    if token_nodes.at_end() {
-                        break;
-                    }
-                }
-            }
-
-            let pos = token_nodes.pos(false);
-
-            match pos {
-                None => break,
-                Some(pos) => {
-                    // We can live with an unmatched positional argument. Hopefully it will be
-                    // matched by a future token
-                    let (_, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
-                        color_syntax(&MaybeSpaceShape, token_nodes, context);
-
-                        // If no match, we should roll back any whitespace we chomped
-                        color_fallible_syntax(&arg.0.syntax_type(), token_nodes, context)?;
-
-                        Ok(())
-                    });
-
-                    args.insert(pos, shapes);
-                }
-            }
-        }
-
-        trace_remaining("after positional", &token_nodes, context.source());
-
-        if let Some((syntax_type, _)) = signature.rest_positional {
-            loop {
-                if token_nodes.at_end_possible_ws() {
-                    break;
-                }
-
-                let pos = token_nodes.pos(false);
-
-                match pos {
-                    None => break,
-                    Some(pos) => {
-                        // If any arguments don't match, we'll fall back to backoff coloring mode
-                        let (result, shapes) = token_nodes.atomic_returning_shapes(|token_nodes| {
-                            color_syntax(&MaybeSpaceShape, token_nodes, context);
-
-                            // If no match, we should roll back any whitespace we chomped
-                            color_fallible_syntax(&syntax_type, token_nodes, context)?;
-
-                            Ok(())
-                        });
-
-                        args.insert(pos, shapes);
-
-                        match result {
-                            Err(_) => break,
-                            Ok(_) => continue,
-                        }
-                    }
-                }
-            }
-        }
-
-        token_nodes.silently_mutate_shapes(|shapes| args.spread_shapes(shapes));
-
-        // Consume any remaining tokens with backoff coloring mode
-        color_syntax(&BackoffColoringMode, token_nodes, context);
-
-        // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
-        // this solution.
-        token_nodes.sort_shapes()
-    }
+    let expr = result.map_err(|_| ())?;
+    Ok(expr)
 }
 
-fn extract_switch(name: &str, tokens: &mut hir::TokensIterator<'_>, source: &Text) -> Option<Flag> {
-    tokens.extract(|t| t.as_flag(name, source)).map(|f| f.1)
+fn expand_spaced_expr<
+    T: HasFallibleSpan + PrettyDebugWithSource + Clone + std::fmt::Debug + 'static,
+>(
+    syntax: impl ExpandSyntax<Output = Result<T, ParseError>>,
+    token_nodes: &mut TokensIterator,
+) -> Result<T, ParseError> {
+    token_nodes.atomic_parse(|token_nodes| {
+        token_nodes.expand_infallible(MaybeSpaceShape);
+        token_nodes.expand_syntax(syntax)
+    })
+}
+
+fn extract_switch(
+    name: &str,
+    tokens: &mut hir::TokensIterator<'_>,
+) -> Option<(usize, Spanned<Flag>)> {
+    let source = tokens.source();
+    tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())))
 }
 
 fn extract_mandatory(
     config: &Signature,
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
-    source: &Text,
     span: Span,
-) -> Result<(usize, Flag), ParseError> {
-    let flag = tokens.extract(|t| t.as_flag(name, source));
+) -> Result<(usize, Spanned<Flag>), ParseError> {
+    let source = tokens.source();
+    let flag = tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())));
 
     match flag {
         None => Err(ParseError::argument_error(
@@ -395,9 +277,9 @@ fn extract_mandatory(
 fn extract_optional(
     name: &str,
     tokens: &mut hir::TokensIterator<'_>,
-    source: &Text,
-) -> Result<Option<(usize, Flag)>, ParseError> {
-    let flag = tokens.extract(|t| t.as_flag(name, source));
+) -> Result<Option<(usize, Spanned<Flag>)>, ParseError> {
+    let source = tokens.source();
+    let flag = tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())));
 
     match flag {
         None => Ok(None),
@@ -408,15 +290,24 @@ fn extract_optional(
     }
 }
 
-pub fn trace_remaining(desc: &'static str, tail: &hir::TokensIterator<'_>, source: &Text) {
+pub fn trace_remaining(desc: &'static str, tail: &hir::TokensIterator<'_>) {
+    let offset = tail.clone().span_at_cursor();
+    let source = tail.source();
+
     trace!(
-        target: "nu::parse",
-        "{} = {:?}",
+        target: "nu::parse::trace_remaining",
+        "{} = {}",
         desc,
         itertools::join(
             tail.debug_remaining()
                 .iter()
-                .map(|i| format!("%{}%", i.debug(source))),
+                .map(|val| {
+                    if val.span().start() == offset.start() {
+                        format!("<|> %{}%", val.debug(&source))
+                    } else {
+                        format!("%{}%", val.debug(&source))
+                    }
+                }),
             " "
         )
     );

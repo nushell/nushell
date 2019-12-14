@@ -6,6 +6,7 @@ use crate::commands::rm::RemoveArgs;
 use crate::prelude::*;
 use crate::stream::OutputStream;
 use nu_errors::ShellError;
+use nu_parser::ExpandContext;
 use nu_source::Tagged;
 use std::path::PathBuf;
 
@@ -35,5 +36,11 @@ pub trait Shell: std::fmt::Debug {
         ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError>;
 
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String>;
+    fn hint(
+        &self,
+        _line: &str,
+        _pos: usize,
+        _ctx: &rustyline::Context<'_>,
+        _context: ExpandContext,
+    ) -> Option<String>;
 }

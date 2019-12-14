@@ -1,13 +1,13 @@
-use crate::TokenNode;
+use crate::parse::token_tree::SpannedToken;
 use getset::Getters;
 use nu_source::{b, DebugDocBuilder, PrettyDebugWithSource};
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters)]
 pub struct CallNode {
     #[get = "pub(crate)"]
-    head: Box<TokenNode>,
+    head: Box<SpannedToken>,
     #[get = "pub(crate)"]
-    children: Option<Vec<TokenNode>>,
+    children: Option<Vec<SpannedToken>>,
 }
 
 impl PrettyDebugWithSource for CallNode {
@@ -29,7 +29,7 @@ impl PrettyDebugWithSource for CallNode {
 }
 
 impl CallNode {
-    pub fn new(head: Box<TokenNode>, children: Vec<TokenNode>) -> CallNode {
+    pub fn new(head: Box<SpannedToken>, children: Vec<SpannedToken>) -> CallNode {
         if children.len() == 0 {
             CallNode {
                 head,

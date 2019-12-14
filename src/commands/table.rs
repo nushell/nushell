@@ -48,7 +48,7 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
 
         let input: Vec<Value> = args.input.into_vec().await;
         if input.len() > 0 {
-            let mut host = host.lock().unwrap();
+            let mut host = host.lock();
             let view = TableView::from_list(&input, start_number);
 
             if let Some(view) = view {

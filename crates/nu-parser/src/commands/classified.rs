@@ -4,18 +4,20 @@ pub mod internal;
 use crate::commands::classified::external::ExternalCommand;
 use crate::commands::classified::internal::InternalCommand;
 use crate::hir;
-use crate::parse::token_tree::TokenNode;
+use crate::parse::token_tree::SpannedToken;
 use derive_new::new;
+use nu_errors::ParseError;
 use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ClassifiedCommand {
     #[allow(unused)]
-    Expr(TokenNode),
+    Expr(SpannedToken),
     #[allow(unused)]
     Dynamic(hir::Call),
     Internal(InternalCommand),
     External(ExternalCommand),
+    Error(ParseError),
 }
 
 impl PrettyDebugWithSource for ClassifiedCommand {
@@ -23,6 +25,7 @@ impl PrettyDebugWithSource for ClassifiedCommand {
         match self {
             ClassifiedCommand::Expr(token) => b::typed("command", token.pretty_debug(source)),
             ClassifiedCommand::Dynamic(call) => b::typed("command", call.pretty_debug(source)),
+            ClassifiedCommand::Error(_) => b::error("no command"),
             ClassifiedCommand::Internal(internal) => internal.pretty_debug(source),
             ClassifiedCommand::External(external) => external.pretty_debug(source),
         }
@@ -35,6 +38,7 @@ impl HasSpan for ClassifiedCommand {
             ClassifiedCommand::Expr(node) => node.span(),
             ClassifiedCommand::Internal(command) => command.span(),
             ClassifiedCommand::Dynamic(call) => call.span,
+            ClassifiedCommand::Error(_) => Span::unknown(),
             ClassifiedCommand::External(command) => command.span(),
         }
     }
@@ -62,6 +66,9 @@ impl std::ops::Deref for Commands {
 #[derive(Debug, Clone)]
 pub struct ClassifiedPipeline {
     pub commands: Commands,
+    // this is not a Result to make it crystal clear that these shapes
+    // aren't intended to be used directly with `?`
+    pub failed: Option<nu_errors::ParseError>,
 }
 
 impl ClassifiedPipeline {
@@ -71,6 +78,7 @@ impl ClassifiedPipeline {
                 list,
                 span: span.into(),
             },
+            failed: None,
         }
     }
 }

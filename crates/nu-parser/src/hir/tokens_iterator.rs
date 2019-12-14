@@ -1,38 +1,34 @@
 pub(crate) mod debug;
+pub(crate) mod into_shapes;
+pub(crate) mod pattern;
+pub(crate) mod state;
 
-use self::debug::{ColorTracer, ExpandTracer};
+use self::debug::ExpandTracer;
+use self::into_shapes::IntoShapes;
+use self::state::{Peeked, TokensIteratorState};
 
-use crate::hir::syntax_shape::FlatShape;
-use crate::hir::Expression;
-use crate::TokenNode;
-#[allow(unused)]
+use crate::hir::syntax_shape::flat_shape::{FlatShape, ShapeResult};
+use crate::hir::syntax_shape::{ExpandContext, ExpandSyntax, ExpressionListShape};
+use crate::hir::SpannedExpression;
+use crate::parse::token_tree::{BlockType, DelimitedNode, SpannedToken, SquareType, TokenType};
+
 use getset::{Getters, MutGetters};
-use nu_errors::{ParseError, ShellError};
+use nu_errors::ParseError;
 use nu_protocol::SpannedTypeName;
-use nu_source::{HasFallibleSpan, HasSpan, Span, Spanned, SpannedItem, Tag, Text};
+use nu_source::{
+    HasFallibleSpan, HasSpan, IntoSpanned, PrettyDebugWithSource, Span, Spanned, SpannedItem, Text,
+};
+use std::borrow::Borrow;
+use std::sync::Arc;
 
-#[derive(Getters, Debug)]
-pub struct TokensIteratorState<'content> {
-    tokens: &'content [TokenNode],
-    span: Span,
-    skip_ws: bool,
-    index: usize,
-    seen: indexmap::IndexSet<usize>,
-    #[get = "pub"]
-    shapes: Vec<Spanned<FlatShape>>,
-}
-
-#[derive(Getters, MutGetters, Debug)]
+#[derive(Getters, MutGetters, Clone, Debug)]
 pub struct TokensIterator<'content> {
     #[get = "pub"]
     #[get_mut = "pub"]
     state: TokensIteratorState<'content>,
     #[get = "pub"]
     #[get_mut = "pub"]
-    color_tracer: ColorTracer,
-    #[get = "pub"]
-    #[get_mut = "pub"]
-    expand_tracer: ExpandTracer,
+    expand_tracer: ExpandTracer<SpannedExpression>,
 }
 
 #[derive(Debug)]
@@ -64,213 +60,232 @@ impl<'content, 'me> std::ops::Drop for Checkpoint<'content, 'me> {
     }
 }
 
-#[derive(Debug)]
-pub struct Peeked<'content, 'me> {
-    pub(crate) node: Option<&'content TokenNode>,
-    iterator: &'me mut TokensIterator<'content>,
-    from: usize,
-    to: usize,
-}
-
-impl<'content, 'me> Peeked<'content, 'me> {
-    pub fn commit(&mut self) -> Option<&'content TokenNode> {
-        let Peeked {
-            node,
-            iterator,
-            from,
-            to,
-        } = self;
-
-        let node = (*node)?;
-        iterator.commit(*from, *to);
-        Some(node)
-    }
-
-    pub fn not_eof(self, expected: &'static str) -> Result<PeekedNode<'content, 'me>, ParseError> {
-        match self.node {
-            None => Err(ParseError::unexpected_eof(
-                expected,
-                self.iterator.eof_span(),
-            )),
-            Some(node) => Ok(PeekedNode {
-                node,
-                iterator: self.iterator,
-                from: self.from,
-                to: self.to,
-            }),
-        }
-    }
-
-    pub fn type_error(&self, expected: &'static str) -> ParseError {
-        peek_error(&self.node, self.iterator.eof_span(), expected)
-    }
-}
-
-#[derive(Debug)]
-pub struct PeekedNode<'content, 'me> {
-    pub(crate) node: &'content TokenNode,
-    iterator: &'me mut TokensIterator<'content>,
-    from: usize,
-    to: usize,
-}
-
-impl<'content, 'me> PeekedNode<'content, 'me> {
-    pub fn commit(self) -> &'content TokenNode {
-        let PeekedNode {
-            node,
-            iterator,
-            from,
-            to,
-        } = self;
-
-        iterator.commit(from, to);
-        node
-    }
-
-    pub fn rollback(self) {}
-
-    pub fn type_error(&self, expected: &'static str) -> ParseError {
-        peek_error(&Some(self.node), self.iterator.eof_span(), expected)
-    }
-}
-
-pub fn peek_error(node: &Option<&TokenNode>, eof_span: Span, expected: &'static str) -> ParseError {
-    match node {
-        None => ParseError::unexpected_eof(expected, eof_span),
-        Some(node) => ParseError::mismatch(expected, node.spanned_type_name()),
-    }
-}
-
+// For parse_command
 impl<'content> TokensIterator<'content> {
-    pub fn new(
-        items: &'content [TokenNode],
-        span: Span,
-        source: Text,
-        skip_ws: bool,
-    ) -> TokensIterator<'content> {
-        TokensIterator {
-            state: TokensIteratorState {
-                tokens: items,
-                span,
-                skip_ws,
-                index: 0,
-                seen: indexmap::IndexSet::new(),
-                shapes: vec![],
-            },
-            color_tracer: ColorTracer::new(source.clone()),
-            expand_tracer: ExpandTracer::new(source.clone()),
-        }
-    }
-
-    pub fn all(
-        tokens: &'content [TokenNode],
-        source: Text,
-        span: Span,
-    ) -> TokensIterator<'content> {
-        TokensIterator::new(tokens, span, source, false)
-    }
-
-    pub fn len(&self) -> usize {
-        self.state.tokens.len()
-    }
-
-    pub fn spanned<T>(
-        &mut self,
-        block: impl FnOnce(&mut TokensIterator<'content>) -> T,
-    ) -> Spanned<T> {
-        let start = self.span_at_cursor();
-
-        let result = block(self);
-
-        let end = self.span_at_cursor();
-
-        result.spanned(start.until(end))
-    }
-
-    pub fn color_shape(&mut self, shape: Spanned<FlatShape>) {
-        self.with_color_tracer(|_, tracer| tracer.add_shape(shape));
-        self.state.shapes.push(shape);
-    }
-
-    pub fn mutate_shapes(&mut self, block: impl FnOnce(&mut Vec<Spanned<FlatShape>>)) {
-        let new_shapes: Vec<Spanned<FlatShape>> = {
-            let shapes = &mut self.state.shapes;
-            let len = shapes.len();
-            block(shapes);
-            (len..(shapes.len())).map(|i| shapes[i]).collect()
-        };
-
-        self.with_color_tracer(|_, tracer| {
-            for shape in new_shapes {
-                tracer.add_shape(shape)
-            }
-        });
-    }
-
-    pub fn silently_mutate_shapes(&mut self, block: impl FnOnce(&mut Vec<Spanned<FlatShape>>)) {
-        let shapes = &mut self.state.shapes;
-        block(shapes);
-    }
-
     pub fn sort_shapes(&mut self) {
         // This is pretty dubious, but it works. We should look into a better algorithm that doesn't end up requiring
         // this solution.
 
         self.state
             .shapes
-            .sort_by(|a, b| a.span.start().cmp(&b.span.start()));
+            .sort_by(|a, b| a.span().start().cmp(&b.span().start()));
+    }
+
+    /// Run a block of code, retrieving the shapes that were created during the block. This is
+    /// used by `parse_command` to associate shapes with a particular flag.
+    pub fn shapes_for<'me, T>(
+        &'me mut self,
+        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ParseError>,
+    ) -> (Result<T, ParseError>, Vec<ShapeResult>) {
+        let index = self.state.index;
+        let mut shapes = vec![];
+        let mut errors = self.state.errors.clone();
+
+        let seen = self.state.seen.clone();
+        std::mem::swap(&mut self.state.shapes, &mut shapes);
+        std::mem::swap(&mut self.state.errors, &mut errors);
+
+        let checkpoint = Checkpoint {
+            iterator: self,
+            index,
+            seen,
+            committed: false,
+            shape_start: 0,
+        };
+
+        let value = block(checkpoint.iterator);
+
+        let value = match value {
+            Err(err) => {
+                drop(checkpoint);
+                std::mem::swap(&mut self.state.shapes, &mut shapes);
+                std::mem::swap(&mut self.state.errors, &mut errors);
+                return (Err(err), vec![]);
+            }
+
+            Ok(value) => value,
+        };
+
+        checkpoint.commit();
+        std::mem::swap(&mut self.state.shapes, &mut shapes);
+
+        return (Ok(value), shapes);
+    }
+
+    pub fn extract<T>(&mut self, f: impl Fn(&SpannedToken) -> Option<T>) -> Option<(usize, T)> {
+        let state = &mut self.state;
+
+        for (i, item) in state.tokens.iter().enumerate() {
+            if state.seen.contains(&i) {
+                continue;
+            }
+
+            match f(item) {
+                None => {
+                    continue;
+                }
+                Some(value) => {
+                    state.seen.insert(i);
+                    return Some((i, value));
+                }
+            }
+        }
+
+        self.move_to(0);
+
+        None
+    }
+
+    pub fn remove(&mut self, position: usize) {
+        self.state.seen.insert(position);
+    }
+}
+
+// Delimited
+impl<'content> TokensIterator<'content> {
+    pub fn block(&mut self) -> Result<Spanned<Vec<SpannedExpression>>, ParseError> {
+        self.expand_token_with_token_nodes(BlockType, |node, token_nodes| {
+            token_nodes.delimited(node)
+        })
+    }
+
+    pub fn square(&mut self) -> Result<Spanned<Vec<SpannedExpression>>, ParseError> {
+        self.expand_token_with_token_nodes(SquareType, |node, token_nodes| {
+            token_nodes.delimited(node)
+        })
+    }
+
+    fn delimited(
+        &mut self,
+        DelimitedNode {
+            delimiter,
+            spans,
+            children,
+        }: DelimitedNode,
+    ) -> Result<(Vec<ShapeResult>, Spanned<Vec<SpannedExpression>>), ParseError> {
+        let span = spans.0.until(spans.1);
+        let (child_shapes, expr) = self.child(children[..].spanned(span), |token_nodes| {
+            token_nodes.expand_infallible(ExpressionListShape).exprs
+        });
+
+        let mut shapes = vec![ShapeResult::Success(
+            FlatShape::OpenDelimiter(delimiter).spanned(spans.0),
+        )];
+        shapes.extend(child_shapes);
+        shapes.push(ShapeResult::Success(
+            FlatShape::CloseDelimiter(delimiter).spanned(spans.1),
+        ));
+
+        Ok((shapes, expr))
+    }
+}
+
+impl<'content> TokensIterator<'content> {
+    pub fn new(
+        items: &'content [SpannedToken],
+        context: ExpandContext<'content>,
+        span: Span,
+    ) -> TokensIterator<'content> {
+        let source = context.source();
+
+        TokensIterator {
+            state: TokensIteratorState {
+                tokens: items,
+                span,
+                index: 0,
+                seen: indexmap::IndexSet::new(),
+                shapes: vec![],
+                errors: indexmap::IndexMap::new(),
+                context: Arc::new(context),
+            },
+            expand_tracer: ExpandTracer::new("Expand Trace", source.clone()),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.state.tokens.len()
+    }
+
+    pub fn source(&self) -> Text {
+        self.state.context.source().clone()
+    }
+
+    pub fn context(&self) -> &ExpandContext {
+        &self.state.context
+    }
+
+    pub fn color_result(&mut self, shape: ShapeResult) {
+        match shape {
+            ShapeResult::Success(shape) => self.color_shape(shape),
+            ShapeResult::Fallback { shape, allowed } => self.color_err(shape, allowed),
+        }
+    }
+
+    pub fn color_shape(&mut self, shape: Spanned<FlatShape>) {
+        self.with_tracer(|_, tracer| tracer.add_shape(shape.into_trace_shape(shape.span)));
+        self.state.shapes.push(ShapeResult::Success(shape));
+    }
+
+    pub fn color_err(&mut self, shape: Spanned<FlatShape>, valid_shapes: Vec<String>) {
+        self.with_tracer(|_, tracer| tracer.add_err_shape(shape.into_trace_shape(shape.span)));
+        self.state.errors.insert(shape.span, valid_shapes.clone());
+        self.state.shapes.push(ShapeResult::Fallback {
+            shape,
+            allowed: valid_shapes,
+        });
+    }
+
+    pub fn color_shapes(&mut self, shapes: Vec<Spanned<FlatShape>>) {
+        self.with_tracer(|_, tracer| {
+            for shape in &shapes {
+                tracer.add_shape(shape.into_trace_shape(shape.span))
+            }
+        });
+
+        for shape in &shapes {
+            self.state.shapes.push(ShapeResult::Success(shape.clone()));
+        }
     }
 
     pub fn child<'me, T>(
         &'me mut self,
-        tokens: Spanned<&'me [TokenNode]>,
-        source: Text,
+        tokens: Spanned<&'me [SpannedToken]>,
         block: impl FnOnce(&mut TokensIterator<'me>) -> T,
-    ) -> T {
+    ) -> (Vec<ShapeResult>, T) {
         let mut shapes = vec![];
         std::mem::swap(&mut shapes, &mut self.state.shapes);
 
-        let mut color_tracer = ColorTracer::new(source.clone());
-        std::mem::swap(&mut color_tracer, &mut self.color_tracer);
+        let mut errors = self.state.errors.clone();
+        std::mem::swap(&mut errors, &mut self.state.errors);
 
-        let mut expand_tracer = ExpandTracer::new(source.clone());
+        let mut expand_tracer = ExpandTracer::new("Expand Trace", self.source());
         std::mem::swap(&mut expand_tracer, &mut self.expand_tracer);
 
         let mut iterator = TokensIterator {
             state: TokensIteratorState {
                 tokens: tokens.item,
                 span: tokens.span,
-                skip_ws: false,
                 index: 0,
                 seen: indexmap::IndexSet::new(),
                 shapes,
+                errors,
+                context: self.state.context.clone(),
             },
-            color_tracer,
             expand_tracer,
         };
 
         let result = block(&mut iterator);
 
         std::mem::swap(&mut iterator.state.shapes, &mut self.state.shapes);
-        std::mem::swap(&mut iterator.color_tracer, &mut self.color_tracer);
+        std::mem::swap(&mut iterator.state.errors, &mut self.state.errors);
         std::mem::swap(&mut iterator.expand_tracer, &mut self.expand_tracer);
 
-        result
+        (iterator.state.shapes, result)
     }
 
-    pub fn with_color_tracer(
+    fn with_tracer(
         &mut self,
-        block: impl FnOnce(&mut TokensIteratorState, &mut ColorTracer),
-    ) {
-        let state = &mut self.state;
-        let color_tracer = &mut self.color_tracer;
-
-        block(state, color_tracer)
-    }
-
-    pub fn with_expand_tracer(
-        &mut self,
-        block: impl FnOnce(&mut TokensIteratorState, &mut ExpandTracer),
+        block: impl FnOnce(&mut TokensIteratorState, &mut ExpandTracer<SpannedExpression>),
     ) {
         let state = &mut self.state;
         let tracer = &mut self.expand_tracer;
@@ -278,142 +293,10 @@ impl<'content> TokensIterator<'content> {
         block(state, tracer)
     }
 
-    pub fn color_frame<T>(
-        &mut self,
-        desc: &'static str,
-        block: impl FnOnce(&mut TokensIterator) -> T,
-    ) -> T {
-        self.with_color_tracer(|_, tracer| tracer.start(desc));
-
-        let result = block(self);
-
-        self.with_color_tracer(|_, tracer| {
-            tracer.success();
-        });
-
-        result
+    pub fn finish_tracer(&mut self) {
+        self.with_tracer(|_, tracer| tracer.finish())
     }
 
-    pub fn expand_frame<T>(
-        &mut self,
-        desc: &'static str,
-        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ParseError>,
-    ) -> Result<T, ParseError>
-    where
-        T: std::fmt::Debug + Clone + HasFallibleSpan + 'static,
-    {
-        self.with_expand_tracer(|_, tracer| tracer.start(desc));
-
-        let result = block(self);
-
-        self.with_expand_tracer(|_, tracer| match &result {
-            Ok(result) => {
-                tracer.add_result(result.clone());
-                tracer.success();
-            }
-
-            Err(err) => tracer.failed(err),
-        });
-
-        result
-    }
-
-    pub fn expand_expr_frame(
-        &mut self,
-        desc: &'static str,
-        block: impl FnOnce(&mut TokensIterator) -> Result<Expression, ParseError>,
-    ) -> Result<Expression, ParseError> {
-        self.with_expand_tracer(|_, tracer| tracer.start(desc));
-
-        let result = block(self);
-
-        self.with_expand_tracer(|_, tracer| match &result {
-            Ok(expr) => {
-                tracer.add_expr(expr.clone());
-                tracer.success()
-            }
-
-            Err(err) => tracer.failed(err),
-        });
-
-        result
-    }
-
-    pub fn color_fallible_frame<T>(
-        &mut self,
-        desc: &'static str,
-        block: impl FnOnce(&mut TokensIterator) -> Result<T, ShellError>,
-    ) -> Result<T, ShellError> {
-        self.with_color_tracer(|_, tracer| tracer.start(desc));
-
-        if self.at_end() {
-            self.with_color_tracer(|_, tracer| tracer.eof_frame());
-            return Err(ShellError::unexpected_eof("coloring", Tag::unknown()));
-        }
-
-        let result = block(self);
-
-        self.with_color_tracer(|_, tracer| match &result {
-            Ok(_) => {
-                tracer.success();
-            }
-
-            Err(err) => tracer.failed(err),
-        });
-
-        result
-    }
-
-    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
-    /// that you'll succeed.
-    pub fn checkpoint<'me>(&'me mut self) -> Checkpoint<'content, 'me> {
-        let state = &mut self.state;
-
-        let index = state.index;
-
-        let shape_start = state.shapes.len();
-        let seen = state.seen.clone();
-
-        Checkpoint {
-            iterator: self,
-            index,
-            seen,
-            committed: false,
-
-            shape_start,
-        }
-    }
-
-    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
-    /// that you'll succeed.
-    pub fn atomic<'me, T>(
-        &'me mut self,
-        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
-    ) -> Result<T, ShellError> {
-        let state = &mut self.state;
-
-        let index = state.index;
-
-        let shape_start = state.shapes.len();
-        let seen = state.seen.clone();
-
-        let checkpoint = Checkpoint {
-            iterator: self,
-            index,
-            seen,
-            committed: false,
-
-            shape_start,
-        };
-
-        let value = block(checkpoint.iterator)?;
-
-        checkpoint.commit();
-        return Ok(value);
-    }
-
-    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
-    /// that you'll succeed.
     pub fn atomic_parse<'me, T, E>(
         &'me mut self,
         block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, E>,
@@ -440,58 +323,12 @@ impl<'content> TokensIterator<'content> {
         return Ok(value);
     }
 
-    /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
-    /// that you'll succeed.
-    pub fn atomic_returning_shapes<'me, T>(
-        &'me mut self,
-        block: impl FnOnce(&mut TokensIterator<'content>) -> Result<T, ShellError>,
-    ) -> (Result<T, ShellError>, Vec<Spanned<FlatShape>>) {
-        let index = self.state.index;
-        let mut shapes = vec![];
-
-        let seen = self.state.seen.clone();
-        std::mem::swap(&mut self.state.shapes, &mut shapes);
-
-        let checkpoint = Checkpoint {
-            iterator: self,
-            index,
-            seen,
-            committed: false,
-            shape_start: 0,
-        };
-
-        let value = block(checkpoint.iterator);
-
-        let value = match value {
-            Err(err) => {
-                drop(checkpoint);
-                std::mem::swap(&mut self.state.shapes, &mut shapes);
-                return (Err(err), vec![]);
-            }
-
-            Ok(value) => value,
-        };
-
-        checkpoint.commit();
-        std::mem::swap(&mut self.state.shapes, &mut shapes);
-        return (Ok(value), shapes);
-    }
-
     fn eof_span(&self) -> Span {
         Span::new(self.state.span.end(), self.state.span.end())
     }
 
-    pub fn typed_span_at_cursor(&mut self) -> Spanned<&'static str> {
-        let next = self.peek_any();
-
-        match next.node {
-            None => "end".spanned(self.eof_span()),
-            Some(node) => node.spanned_type_name(),
-        }
-    }
-
     pub fn span_at_cursor(&mut self) -> Span {
-        let next = self.peek_any();
+        let next = self.peek();
 
         match next.node {
             None => self.eof_span(),
@@ -499,99 +336,121 @@ impl<'content> TokensIterator<'content> {
         }
     }
 
-    pub fn remove(&mut self, position: usize) {
-        self.state.seen.insert(position);
-    }
-
     pub fn at_end(&self) -> bool {
-        peek(self, self.state.skip_ws).is_none()
-    }
-
-    pub fn at_end_possible_ws(&self) -> bool {
-        peek(self, true).is_none()
-    }
-
-    pub fn advance(&mut self) {
-        self.state.seen.insert(self.state.index);
-        self.state.index += 1;
-    }
-
-    pub fn extract<T>(&mut self, f: impl Fn(&TokenNode) -> Option<T>) -> Option<(usize, T)> {
-        let state = &mut self.state;
-
-        for (i, item) in state.tokens.iter().enumerate() {
-            if state.seen.contains(&i) {
-                continue;
-            }
-
-            match f(item) {
-                None => {
-                    continue;
-                }
-                Some(value) => {
-                    state.seen.insert(i);
-                    return Some((i, value));
-                }
-            }
-        }
-
-        None
+        next_index(&self.state).is_none()
     }
 
     pub fn move_to(&mut self, pos: usize) {
         self.state.index = pos;
     }
 
-    pub fn restart(&mut self) {
-        self.state.index = 0;
-    }
+    /// Peek the next token in the token stream and return a `Peeked`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let peeked = token_nodes.peek().not_eof();
+    /// let node = peeked.node;
+    /// match node.unspanned() {
+    ///     Token::Whitespace => {
+    ///         let node = peeked.commit();
+    ///         return Ok(node.span)
+    ///     }
+    ///     other => return Err(ParseError::mismatch("whitespace", node.spanned_type_name()))
+    /// }
+    /// ```
+    pub fn peek<'me>(&'me mut self) -> Peeked<'content, 'me> {
+        let state = self.state();
+        let len = state.tokens.len();
+        let from = state.index;
 
-    // pub fn clone(&self) -> TokensIterator<'content> {
-    //     let state = &self.state;
-    //     TokensIterator {
-    //         state: TokensIteratorState {
-    //             tokens: state.tokens,
-    //             span: state.span,
-    //             index: state.index,
-    //             seen: state.seen.clone(),
-    //             skip_ws: state.skip_ws,
-    //
-    //             shapes: state.shapes.clone(),
-    //         },
-    //         color_tracer: self.color_tracer.clone(),
-    //         expand_tracer: self.expand_tracer.clone(),
-    //     }
-    // }
+        let index = next_index(state);
 
-    // Peek the next token, not including whitespace
-    pub fn peek_non_ws<'me>(&'me mut self) -> Peeked<'content, 'me> {
-        start_next(self, true)
-    }
+        let (node, to) = match index {
+            None => (None, len),
 
-    // Peek the next token, including whitespace
-    pub fn peek_any<'me>(&'me mut self) -> Peeked<'content, 'me> {
-        start_next(self, false)
-    }
+            Some(to) => (Some(&state.tokens[to]), to + 1),
+        };
 
-    // Peek the next token, including whitespace, but not EOF
-    pub fn peek_any_token<'me, T>(
-        &'me mut self,
-        expected: &'static str,
-        block: impl FnOnce(&'content TokenNode) -> Result<T, ParseError>,
-    ) -> Result<T, ParseError> {
-        let peeked = start_next(self, false);
-        let peeked = peeked.not_eof(expected);
-
-        match peeked {
-            Err(err) => return Err(err),
-            Ok(peeked) => match block(peeked.node) {
-                Err(err) => return Err(err),
-                Ok(val) => {
-                    peeked.commit();
-                    return Ok(val);
-                }
-            },
+        Peeked {
+            node,
+            iterator: self,
+            from,
+            to,
         }
+    }
+
+    /// Produce an error corresponding to the next token.
+    ///
+    /// If the next token is EOF, produce an `UnexpectedEof`. Otherwise, produce a `Mismatch`.
+    pub fn err_next_token(&mut self, expected: &'static str) -> ParseError {
+        match next_index(&self.state) {
+            None => ParseError::unexpected_eof(expected, self.eof_span()),
+            Some(index) => {
+                ParseError::mismatch(expected, self.state.tokens[index].spanned_type_name())
+            }
+        }
+    }
+
+    fn expand_token_with_token_nodes<
+        'me,
+        T: 'me,
+        U: IntoSpanned<Output = V>,
+        V: HasFallibleSpan,
+        F: IntoShapes,
+    >(
+        &'me mut self,
+        expected: impl TokenType<Output = T>,
+        block: impl FnOnce(T, &mut Self) -> Result<(F, U), ParseError>,
+    ) -> Result<V, ParseError> {
+        let desc = expected.desc();
+
+        let peeked = self.peek().not_eof(desc.borrow())?;
+
+        let (shapes, val) = {
+            let node = peeked.node;
+            let type_name = node.spanned_type_name();
+
+            let func = Box::new(|| Err(ParseError::mismatch(desc.clone().into_owned(), type_name)));
+
+            match expected.extract_token_value(node, &func) {
+                Err(err) => return Err(err),
+                Ok(value) => match block(value, peeked.iterator) {
+                    Err(err) => return Err(err),
+                    Ok((shape, val)) => {
+                        let span = peeked.node.span();
+                        peeked.commit();
+                        (shape.into_shapes(span), val.into_spanned(span))
+                    }
+                },
+            }
+        };
+
+        for shape in &shapes {
+            self.color_result(shape.clone());
+        }
+
+        Ok(val)
+    }
+
+    /// Expand and color a single token. Takes an `impl TokenType` and produces
+    /// (() | FlatShape | Vec<Spanned<FlatShape>>, Output) (or an error).
+    ///
+    /// If a single FlatShape is produced, it is annotated with the span of the
+    /// original token. Otherwise, each FlatShape in the list must already be
+    /// annotated.
+    pub fn expand_token<'me, T, U, V, F>(
+        &'me mut self,
+        expected: impl TokenType<Output = T>,
+        block: impl FnOnce(T) -> Result<(F, U), ParseError>,
+    ) -> Result<V, ParseError>
+    where
+        T: 'me,
+        U: IntoSpanned<Output = V>,
+        V: HasFallibleSpan,
+        F: IntoShapes,
+    {
+        self.expand_token_with_token_nodes(expected, |value, _| block(value))
     }
 
     fn commit(&mut self, from: usize, to: usize) {
@@ -602,33 +461,103 @@ impl<'content> TokensIterator<'content> {
         self.state.index = to;
     }
 
-    pub fn pos(&self, skip_ws: bool) -> Option<usize> {
-        peek_pos(self, skip_ws)
+    pub fn debug_remaining(&self) -> Vec<SpannedToken> {
+        let mut tokens: TokensIterator = self.clone();
+        tokens.move_to(0);
+        tokens.cloned().collect()
     }
 
-    pub fn debug_remaining(&self) -> Vec<TokenNode> {
-        // TODO: TODO: TODO: Clean up
-        vec![]
-        // let mut tokens = self.clone();
-        // tokens.restart();
-        // tokens.cloned().collect()
+    /// Expand an `ExpandSyntax` whose output is a `Result`, producing either the shape's output
+    /// or a `ParseError`. If the token stream is at EOF, this method produces a ParseError
+    /// (`UnexpectedEof`).
+    ///
+    /// You must use `expand_syntax` if the `Output` of the `ExpandSyntax` is a `Result`, but
+    /// it's difficult to model this in the Rust type system.
+    pub fn expand_syntax<U>(
+        &mut self,
+        shape: impl ExpandSyntax<Output = Result<U, ParseError>>,
+    ) -> Result<U, ParseError>
+    where
+        U: std::fmt::Debug + HasFallibleSpan + PrettyDebugWithSource + Clone + 'static,
+    {
+        if self.at_end() {
+            self.with_tracer(|_, tracer| tracer.start(shape.name(), None));
+            self.with_tracer(|_, tracer| tracer.eof_frame());
+            return Err(ParseError::unexpected_eof("coloring", Span::unknown()));
+        }
+
+        let (result, added_shapes) = self.expand(shape);
+
+        match &result {
+            Ok(val) => self.finish_expand(val, added_shapes),
+            Err(err) => self.with_tracer(|_, tracer| tracer.failed(err)),
+        }
+
+        result
+    }
+
+    /// Expand an `impl ExpandSyntax` and produce its Output. Use `expand_infallible` if the
+    /// `ExpandSyntax` cannot produce a `Result`. You must also use `ExpandSyntax` if EOF
+    /// is an error.
+    ///
+    /// The purpose of `expand_infallible` is to clearly mark the infallible path through
+    /// and entire list of tokens that produces a fully colored version of the source.
+    ///
+    /// If the `ExpandSyntax` can poroduce a `Result`, make sure to use `expand_syntax`,
+    /// which will correctly show the error in the trace.
+    pub fn expand_infallible<U>(&mut self, shape: impl ExpandSyntax<Output = U>) -> U
+    where
+        U: std::fmt::Debug + PrettyDebugWithSource + HasFallibleSpan + Clone + 'static,
+    {
+        let (result, added_shapes) = self.expand(shape);
+
+        self.finish_expand(&result, added_shapes);
+
+        result
+    }
+
+    fn finish_expand<V>(&mut self, val: &V, added_shapes: usize)
+    where
+        V: PrettyDebugWithSource + HasFallibleSpan + Clone,
+    {
+        self.with_tracer(|_, tracer| {
+            if val.maybe_span().is_some() || added_shapes > 0 {
+                tracer.add_result(val.clone());
+            }
+
+            tracer.success();
+        })
+    }
+
+    fn expand<U>(&mut self, shape: impl ExpandSyntax<Output = U>) -> (U, usize)
+    where
+        U: std::fmt::Debug + Clone + 'static,
+    {
+        let desc = shape.name();
+        self.with_tracer(|state, tracer| {
+            tracer.start(
+                desc,
+                next_index(state).map(|index| state.tokens[index].clone()),
+            )
+        });
+
+        let start_shapes = self.state.shapes.len();
+        let result = shape.expand(self);
+        let added_shapes = self.state.shapes.len() - start_shapes;
+
+        (result, added_shapes)
     }
 }
 
 impl<'content> Iterator for TokensIterator<'content> {
-    type Item = &'content TokenNode;
+    type Item = &'content SpannedToken;
 
     fn next(&mut self) -> Option<Self::Item> {
-        next(self, self.state.skip_ws)
+        next(self)
     }
 }
 
-fn peek<'content, 'me>(
-    iterator: &'me TokensIterator<'content>,
-    skip_ws: bool,
-) -> Option<&'me TokenNode> {
-    let state = iterator.state();
-
+fn next_index(state: &TokensIteratorState) -> Option<usize> {
     let mut to = state.index;
 
     loop {
@@ -645,130 +574,25 @@ fn peek<'content, 'me>(
             return None;
         }
 
-        let node = &state.tokens[to];
-
-        match node {
-            TokenNode::Whitespace(_) if skip_ws => {
-                to += 1;
-            }
-            _ => {
-                return Some(node);
-            }
-        }
-    }
-}
-
-fn peek_pos<'content, 'me>(
-    iterator: &'me TokensIterator<'content>,
-    skip_ws: bool,
-) -> Option<usize> {
-    let state = iterator.state();
-
-    let mut to = state.index;
-
-    loop {
-        if to >= state.tokens.len() {
-            return None;
-        }
-
-        if state.seen.contains(&to) {
-            to += 1;
-            continue;
-        }
-
-        if to >= state.tokens.len() {
-            return None;
-        }
-
-        let node = &state.tokens[to];
-
-        match node {
-            TokenNode::Whitespace(_) if skip_ws => {
-                to += 1;
-            }
-            _ => return Some(to),
-        }
-    }
-}
-
-fn start_next<'content, 'me>(
-    iterator: &'me mut TokensIterator<'content>,
-    skip_ws: bool,
-) -> Peeked<'content, 'me> {
-    let state = iterator.state();
-
-    let from = state.index;
-    let mut to = state.index;
-
-    loop {
-        if to >= state.tokens.len() {
-            return Peeked {
-                node: None,
-                iterator,
-                from,
-                to,
-            };
-        }
-
-        if state.seen.contains(&to) {
-            to += 1;
-            continue;
-        }
-
-        if to >= state.tokens.len() {
-            return Peeked {
-                node: None,
-                iterator,
-                from,
-                to,
-            };
-        }
-
-        let node = &state.tokens[to];
-
-        match node {
-            TokenNode::Whitespace(_) if skip_ws => {
-                to += 1;
-            }
-            _ => {
-                to += 1;
-                return Peeked {
-                    node: Some(node),
-                    iterator,
-                    from,
-                    to,
-                };
-            }
-        }
+        return Some(to);
     }
 }
 
 fn next<'me, 'content>(
     iterator: &'me mut TokensIterator<'content>,
-    skip_ws: bool,
-) -> Option<&'content TokenNode> {
-    loop {
-        if iterator.state().index >= iterator.state().tokens.len() {
-            return None;
+) -> Option<&'content SpannedToken> {
+    let next = next_index(&iterator.state);
+    let len = iterator.len();
+
+    match next {
+        None => {
+            iterator.move_to(len);
+            None
         }
 
-        if iterator.state().seen.contains(&iterator.state().index) {
-            iterator.advance();
-            continue;
-        }
-
-        if iterator.state().index >= iterator.state().tokens.len() {
-            return None;
-        }
-
-        match &iterator.state().tokens[iterator.state().index] {
-            TokenNode::Whitespace(_) if skip_ws => {
-                iterator.advance();
-            }
-            other => {
-                iterator.advance();
-                return Some(other);
-            }
+        Some(index) => {
+            iterator.move_to(index + 1);
+            Some(&iterator.state.tokens[index])
         }
     }
 }

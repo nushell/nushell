@@ -1,88 +1,66 @@
-use crate::hir::syntax_shape::expression::atom::{
-    expand_atom, ExpansionRule, UnspannedAtomicToken,
-};
 use crate::hir::syntax_shape::{
-    expression::expand_file_path, ExpandContext, ExpandExpression, FallibleColorSyntax, FlatShape,
+    expression::expand_file_path, BarePathShape, DecimalShape, ExpandContext, ExpandSyntax,
+    FlatShape, IntShape, StringShape, VariablePathShape,
 };
-use crate::{hir, hir::TokensIterator};
-use nu_errors::{ParseError, ShellError};
-use nu_source::SpannedItem;
+use crate::hir::{Expression, SpannedExpression, TokensIterator};
+use crate::parse::token_tree::ExternalWordType;
+use nu_errors::ParseError;
+use nu_source::{HasSpan, Span};
 
 #[derive(Debug, Copy, Clone)]
 pub struct FilePathShape;
 
-impl FallibleColorSyntax for FilePathShape {
-    type Info = ();
-    type Input = ();
+impl ExpandSyntax for FilePathShape {
+    type Output = Result<SpannedExpression, ParseError>;
 
-    fn name(&self) -> &'static str {
-        "FilePathShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let atom = expand_atom(
-            token_nodes,
-            "file path",
-            context,
-            ExpansionRule::permissive(),
-        );
-
-        let atom = match atom {
-            Err(_) => return Ok(()),
-            Ok(atom) => atom,
-        };
-
-        match atom.unspanned {
-            UnspannedAtomicToken::Word { .. }
-            | UnspannedAtomicToken::String { .. }
-            | UnspannedAtomicToken::Number { .. }
-            | UnspannedAtomicToken::Size { .. } => {
-                token_nodes.color_shape(FlatShape::Path.spanned(atom.span));
-            }
-
-            _ => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
-        }
-
-        Ok(())
-    }
-}
-
-impl ExpandExpression for FilePathShape {
     fn name(&self) -> &'static str {
         "file path"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
-        let atom = expand_atom(
-            token_nodes,
-            "file path",
-            context,
-            ExpansionRule::new().allow_external_word(),
-        )?;
+    ) -> Result<SpannedExpression, ParseError> {
+        token_nodes
+            .expand_syntax(VariablePathShape)
+            .or_else(|_| {
+                token_nodes
+                    .expand_syntax(BarePathShape)
+                    .or_else(|_| token_nodes.expand_syntax(ExternalWordShape))
+                    .map(|span| file_path(span, token_nodes.context()).into_expr(span))
+            })
+            .or_else(|_| {
+                token_nodes.expand_syntax(StringShape).map(|syntax| {
+                    file_path(syntax.inner, token_nodes.context()).into_expr(syntax.span)
+                })
+            })
+            .or_else(|_| {
+                token_nodes
+                    .expand_syntax(IntShape)
+                    .or_else(|_| token_nodes.expand_syntax(DecimalShape))
+                    .map(|number| {
+                        file_path(number.span(), token_nodes.context()).into_expr(number.span())
+                    })
+            })
+            .map_err(|_| token_nodes.err_next_token("file path"))
+    }
+}
 
-        match atom.unspanned {
-            UnspannedAtomicToken::Word { text: body }
-            | UnspannedAtomicToken::ExternalWord { text: body }
-            | UnspannedAtomicToken::String { body } => {
-                let path = expand_file_path(body.slice(context.source), context);
-                return Ok(hir::Expression::file_path(path, atom.span));
-            }
+fn file_path(text: Span, context: &ExpandContext) -> Expression {
+    Expression::FilePath(expand_file_path(text.slice(context.source), context))
+}
 
-            UnspannedAtomicToken::Number { .. } | UnspannedAtomicToken::Size { .. } => {
-                let path = atom.span.slice(context.source);
-                return Ok(hir::Expression::file_path(path, atom.span));
-            }
+#[derive(Debug, Copy, Clone)]
+pub struct ExternalWordShape;
 
-            _ => return atom.into_hir(context, "file path"),
-        }
+impl ExpandSyntax for ExternalWordShape {
+    type Output = Result<Span, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "external word"
+    }
+
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        token_nodes.expand_token(ExternalWordType, |span| Ok((FlatShape::ExternalWord, span)))
     }
 }

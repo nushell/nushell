@@ -4,11 +4,11 @@ use crate::Span;
 
 #[test]
 fn supplies_tokens() {
-    let tokens = b::token_list(vec![b::var("it"), b::op("."), b::bare("cpu")]);
+    let tokens = b::token_list(vec![b::it_var(), b::op("."), b::bare("cpu")]);
     let (tokens, _) = b::build(tokens);
 
     let tokens = tokens.expect_list();
-    let mut iterator = TokensIterator::all(tokens, Span::unknown());
+    let mut iterator = TokensIterator::new(tokens, Span::unknown());
 
     iterator.next().unwrap().expect_var();
     iterator.next().unwrap().expect_dot();

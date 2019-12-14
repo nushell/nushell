@@ -1,12 +1,10 @@
 use crate::hir::syntax_shape::{
-    color_fallible_syntax, color_fallible_syntax_with, expand_atom, expand_expr, expand_syntax,
-    parse_single_node, AnyExpressionShape, BareShape, ExpandContext, ExpandExpression,
-    ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, ParseError, Peeked, SkipSyntax,
-    StringShape, TestSyntax, UnspannedAtomicToken, WhitespaceShape,
+    AnyExpressionShape, BareShape, ExpandSyntax, FlatShape, IntShape, ParseError, StringShape,
+    WhitespaceShape,
 };
-use crate::parse::tokens::{RawNumber, UnspannedToken};
-use crate::{hir, hir::Expression, hir::TokensIterator, CompareOperator, EvaluationOperator};
-use nu_errors::ShellError;
+use crate::hir::{Expression, SpannedExpression, TokensIterator};
+use crate::parse::token_tree::{CompareOperatorType, DotDotType, DotType, ItVarType, VarType};
+use crate::{hir, CompareOperator};
 use nu_protocol::{PathMember, ShellTypeName};
 use nu_source::{
     b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span, Spanned, SpannedItem,
@@ -19,122 +17,47 @@ use std::str::FromStr;
 #[derive(Debug, Copy, Clone)]
 pub struct VariablePathShape;
 
-impl ExpandExpression for VariablePathShape {
+impl ExpandSyntax for VariablePathShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
     fn name(&self) -> &'static str {
         "variable path"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
+    ) -> Result<SpannedExpression, ParseError> {
         // 1. let the head be the first token, expecting a variable
         // 2. let the tail be an empty list of members
         // 2. while the next token (excluding ws) is a dot:
         //   1. consume the dot
         //   2. consume the next token as a member and push it onto tail
 
-        let head = expand_expr(&VariableShape, token_nodes, context)?;
+        let head = token_nodes.expand_syntax(VariableShape)?;
         let start = head.span;
         let mut end = start;
         let mut tail: Vec<PathMember> = vec![];
 
         loop {
-            match DotShape.skip(token_nodes, context) {
+            match token_nodes.expand_syntax(DotShape) {
                 Err(_) => break,
                 Ok(_) => {}
             }
 
-            let member = expand_syntax(&MemberShape, token_nodes, context)?;
-            let member = member.to_path_member(context.source);
+            let member = token_nodes.expand_syntax(MemberShape)?;
+            let member = member.to_path_member(&token_nodes.source());
 
             end = member.span;
             tail.push(member);
         }
 
-        Ok(hir::Expression::path(head, tail, start.until(end)))
-    }
-}
-
-impl FallibleColorSyntax for VariablePathShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "VariablePathShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        token_nodes.atomic(|token_nodes| {
-            // If the head of the token stream is not a variable, fail
-            color_fallible_syntax(&VariableShape, token_nodes, context)?;
-
-            loop {
-                // look for a dot at the head of a stream
-                let dot = color_fallible_syntax_with(
-                    &ColorableDotShape,
-                    &FlatShape::Dot,
-                    token_nodes,
-                    context,
-                );
-
-                // if there's no dot, we're done
-                match dot {
-                    Err(_) => break,
-                    Ok(_) => {}
-                }
-
-                // otherwise, look for a member, and if you don't find one, fail
-                color_fallible_syntax(&MemberShape, token_nodes, context)?;
-            }
-
-            Ok(())
-        })
+        Ok(Expression::path(head, tail).into_expr(start.until(end)))
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct PathTailShape;
-
-/// The failure mode of `PathTailShape` is a dot followed by a non-member
-impl FallibleColorSyntax for PathTailShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "PathTailShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        token_nodes.atomic(|token_nodes| loop {
-            let result = color_fallible_syntax_with(
-                &ColorableDotShape,
-                &FlatShape::Dot,
-                token_nodes,
-                context,
-            );
-
-            match result {
-                Err(_) => return Ok(()),
-                Ok(_) => {}
-            }
-
-            // If we've seen a dot but not a member, fail
-            color_fallible_syntax(&MemberShape, token_nodes, context)?;
-        })
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct PathTailSyntax {
@@ -155,37 +78,33 @@ impl PrettyDebug for PathTailSyntax {
 }
 
 impl ExpandSyntax for PathTailShape {
-    type Output = PathTailSyntax;
+    type Output = Result<PathTailSyntax, ParseError>;
 
     fn name(&self) -> &'static str {
         "path continuation"
     }
 
-    fn expand_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
+    ) -> Result<PathTailSyntax, ParseError> {
         let mut end: Option<Span> = None;
         let mut tail: Vec<PathMember> = vec![];
 
         loop {
-            match DotShape.skip(token_nodes, context) {
+            match token_nodes.expand_syntax(DotShape) {
                 Err(_) => break,
                 Ok(_) => {}
             }
 
-            let member = expand_syntax(&MemberShape, token_nodes, context)?;
-            let member = member.to_path_member(context.source);
+            let member = token_nodes.expand_syntax(MemberShape)?;
+            let member = member.to_path_member(&token_nodes.source());
             end = Some(member.span);
             tail.push(member);
         }
 
         match end {
-            None => Err(ParseError::mismatch(
-                "path tail",
-                token_nodes.typed_span_at_cursor(),
-            )),
+            None => Err(token_nodes.err_next_token("path continuation")),
 
             Some(end) => Ok(PathTailSyntax { tail, span: end }),
         }
@@ -193,30 +112,60 @@ impl ExpandSyntax for PathTailShape {
 }
 
 #[derive(Debug, Clone)]
-pub enum ExpressionContinuation {
-    DotSuffix(Span, PathMember),
-    InfixSuffix(Spanned<CompareOperator>, Expression),
+pub struct ContinuationSyntax {
+    kind: ContinuationSyntaxKind,
+    span: Span,
 }
 
-impl PrettyDebugWithSource for ExpressionContinuation {
-    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        match self {
-            ExpressionContinuation::DotSuffix(_, suffix) => {
-                b::operator(".") + suffix.pretty_debug(source)
+impl ContinuationSyntax {
+    pub fn append_to(self, expr: SpannedExpression) -> SpannedExpression {
+        match self.kind {
+            ContinuationSyntaxKind::Infix(op, right) => {
+                let span = expr.span.until(right.span);
+                Expression::infix(expr, op, right).into_expr(span)
             }
-            ExpressionContinuation::InfixSuffix(op, expr) => {
-                op.pretty_debug(source) + b::space() + expr.pretty_debug(source)
+            ContinuationSyntaxKind::Dot(_, member) => {
+                let span = expr.span.until(member.span);
+                Expression::dot_member(expr, member).into_expr(span)
+            }
+            ContinuationSyntaxKind::DotDot(_, right) => {
+                let span = expr.span.until(right.span);
+                Expression::range(expr, span, right).into_expr(span)
             }
         }
     }
 }
 
-impl HasSpan for ExpressionContinuation {
+impl HasSpan for ContinuationSyntax {
     fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl PrettyDebugWithSource for ContinuationSyntax {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        b::typed("continuation", self.kind.pretty_debug(source))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ContinuationSyntaxKind {
+    Infix(Spanned<CompareOperator>, SpannedExpression),
+    Dot(Span, PathMember),
+    DotDot(Span, SpannedExpression),
+}
+
+impl PrettyDebugWithSource for ContinuationSyntaxKind {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            ExpressionContinuation::DotSuffix(dot, column) => dot.until(column.span),
-            ExpressionContinuation::InfixSuffix(operator, expression) => {
-                operator.span.until(expression.span)
+            ContinuationSyntaxKind::Infix(op, expr) => {
+                b::operator(op.span.slice(source)) + expr.pretty_debug(source)
+            }
+            ContinuationSyntaxKind::Dot(span, member) => {
+                b::operator(span.slice(source)) + member.pretty_debug(source)
+            }
+            ContinuationSyntaxKind::DotDot(span, expr) => {
+                b::operator(span.slice(source)) + expr.pretty_debug(source)
             }
         }
     }
@@ -227,89 +176,63 @@ impl HasSpan for ExpressionContinuation {
 pub struct ExpressionContinuationShape;
 
 impl ExpandSyntax for ExpressionContinuationShape {
-    type Output = ExpressionContinuation;
+    type Output = Result<ContinuationSyntax, ParseError>;
 
     fn name(&self) -> &'static str {
         "expression continuation"
     }
 
-    fn expand_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<ExpressionContinuation, ParseError> {
-        // Try to expand a `.`
-        let dot = expand_syntax(&DotShape, token_nodes, context);
+    ) -> Result<ContinuationSyntax, ParseError> {
+        token_nodes.atomic_parse(|token_nodes| {
+            // Try to expand a `.`
+            let dot = token_nodes.expand_syntax(DotShape);
 
-        match dot {
-            // If a `.` was matched, it's a `Path`, and we expect a `Member` next
-            Ok(dot) => {
-                let syntax = expand_syntax(&MemberShape, token_nodes, context)?;
-                let member = syntax.to_path_member(context.source);
+            match dot {
+                // If a `.` was matched, it's a `Path`, and we expect a `Member` next
+                Ok(dot) => {
+                    let syntax = token_nodes.expand_syntax(MemberShape)?;
+                    let member = syntax.to_path_member(&token_nodes.source());
+                    let member_span = member.span;
 
-                Ok(ExpressionContinuation::DotSuffix(dot, member))
+                    return Ok(ContinuationSyntax {
+                        kind: ContinuationSyntaxKind::Dot(dot, member),
+                        span: dot.until(member_span),
+                    });
+                }
+
+                Err(_) => {}
+            }
+
+            // Try to expand a `..`
+            let dot = token_nodes.expand_syntax(DotDotShape);
+
+            match dot {
+                // If a `..` was matched, it's a `Range`, and we expect an `Expression` next
+                Ok(dotdot) => {
+                    let expr = token_nodes.expand_syntax(AnyExpressionShape)?;
+                    let expr_span = expr.span;
+
+                    return Ok(ContinuationSyntax {
+                        kind: ContinuationSyntaxKind::DotDot(dotdot, expr),
+                        span: dotdot.until(expr_span),
+                    });
+                }
+
+                Err(_) => {}
             }
 
             // Otherwise, we expect an infix operator and an expression next
-            Err(_) => {
-                let (_, op, _) = expand_syntax(&InfixShape, token_nodes, context)?.infix.item;
-                let next = expand_expr(&AnyExpressionShape, token_nodes, context)?;
+            let (_, op, _) = token_nodes.expand_syntax(InfixShape)?.infix.item;
+            let next = token_nodes.expand_syntax(AnyExpressionShape)?;
+            let next_span = next.span;
 
-                Ok(ExpressionContinuation::InfixSuffix(op.operator, next))
-            }
-        }
-    }
-}
-
-pub enum ContinuationInfo {
-    Dot,
-    Infix,
-}
-
-impl FallibleColorSyntax for ExpressionContinuationShape {
-    type Info = ContinuationInfo;
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "ExpressionContinuationShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<ContinuationInfo, ShellError> {
-        token_nodes.atomic(|token_nodes| {
-            // Try to expand a `.`
-            let dot = color_fallible_syntax_with(
-                &ColorableDotShape,
-                &FlatShape::Dot,
-                token_nodes,
-                context,
-            );
-
-            match dot {
-                Ok(_) => {
-                    // we found a dot, so let's keep looking for a member; if no member was found, fail
-                    color_fallible_syntax(&MemberShape, token_nodes, context)?;
-
-                    Ok(ContinuationInfo::Dot)
-                }
-                Err(_) => {
-                    let result = token_nodes.atomic(|token_nodes| {
-                        // we didn't find a dot, so let's see if we're looking at an infix. If not found, fail
-                        color_fallible_syntax(&InfixShape, token_nodes, context)?;
-
-                        // now that we've seen an infix shape, look for any expression. If not found, fail
-                        color_fallible_syntax(&AnyExpressionShape, token_nodes, context)?;
-
-                        Ok(ContinuationInfo::Infix)
-                    })?;
-
-                    Ok(result)
-                }
-            }
+            return Ok(ContinuationSyntax {
+                kind: ContinuationSyntaxKind::Infix(op.operator, next),
+                span: op.operator.span.until(next_span),
+            });
         })
     }
 }
@@ -317,68 +240,32 @@ impl FallibleColorSyntax for ExpressionContinuationShape {
 #[derive(Debug, Copy, Clone)]
 pub struct VariableShape;
 
-impl ExpandExpression for VariableShape {
+impl ExpandSyntax for VariableShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
     fn name(&self) -> &'static str {
         "variable"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
-        parse_single_node(token_nodes, "variable", |token, token_tag, err| {
-            Ok(match token {
-                UnspannedToken::Variable(tag) => {
-                    if tag.slice(context.source) == "it" {
-                        hir::Expression::it_variable(tag, token_tag)
-                    } else {
-                        hir::Expression::variable(tag, token_tag)
-                    }
-                }
-                _ => return Err(err.error()),
+    ) -> Result<SpannedExpression, ParseError> {
+        token_nodes
+            .expand_token(ItVarType, |(inner, outer)| {
+                Ok((
+                    FlatShape::ItVariable,
+                    Expression::it_variable(inner).into_expr(outer),
+                ))
             })
-        })
-    }
-}
-
-impl FallibleColorSyntax for VariableShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "VariableShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let atom = expand_atom(
-            token_nodes,
-            "variable",
-            context,
-            ExpansionRule::permissive(),
-        );
-
-        let atom = match atom {
-            Err(err) => return Err(err.into()),
-            Ok(atom) => atom,
-        };
-
-        match &atom.unspanned {
-            UnspannedAtomicToken::Variable { .. } => {
-                token_nodes.color_shape(FlatShape::Variable.spanned(atom.span));
-                Ok(())
-            }
-            UnspannedAtomicToken::ItVariable { .. } => {
-                token_nodes.color_shape(FlatShape::ItVariable.spanned(atom.span));
-                Ok(())
-            }
-            _ => Err(ParseError::mismatch("variable", atom.type_name().spanned(atom.span)).into()),
-        }
+            .or_else(|_| {
+                token_nodes.expand_token(VarType, |(inner, outer)| {
+                    Ok((
+                        FlatShape::Variable,
+                        Expression::variable(inner).into_expr(outer),
+                    ))
+                })
+            })
     }
 }
 
@@ -400,6 +287,10 @@ impl ShellTypeName for Member {
 }
 
 impl Member {
+    pub fn int(span: Span, source: &Text) -> Member {
+        Member::Int(BigInt::from_str(span.slice(source)).unwrap(), span)
+    }
+
     pub fn to_path_member(&self, source: &Text) -> PathMember {
         match self {
             Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
@@ -430,11 +321,11 @@ impl HasSpan for Member {
 }
 
 impl Member {
-    pub fn to_expr(&self) -> hir::Expression {
+    pub fn to_expr(&self) -> hir::SpannedExpression {
         match self {
-            Member::String(outer, inner) => hir::Expression::string(*inner, *outer),
-            Member::Int(number, span) => hir::Expression::number(number.clone(), *span),
-            Member::Bare(span) => hir::Expression::string(*span, *span),
+            Member::String(outer, inner) => Expression::string(*inner).into_expr(outer),
+            Member::Int(number, span) => Expression::number(number.clone()).into_expr(span),
+            Member::Bare(span) => Expression::string(*span).into_expr(span),
         }
     }
 
@@ -491,9 +382,9 @@ impl ColumnPathState {
         }
     }
 
-    pub fn into_path(self, next: Peeked) -> Result<Tagged<Vec<Member>>, ParseError> {
+    pub fn into_path(self, err: ParseError) -> Result<Tagged<Vec<Member>>, ParseError> {
         match self {
-            ColumnPathState::Initial => Err(next.type_error("column path")),
+            ColumnPathState::Initial => Err(err),
             ColumnPathState::LeadingDot(dot) => {
                 Err(ParseError::mismatch("column", "dot".spanned(dot)))
             }
@@ -506,86 +397,44 @@ impl ColumnPathState {
     }
 }
 
-pub fn expand_column_path<'a, 'b>(
-    token_nodes: &'b mut TokensIterator<'a>,
-    context: &ExpandContext,
-) -> Result<ColumnPathSyntax, ParseError> {
-    let mut state = ColumnPathState::Initial;
-
-    loop {
-        let member = expand_syntax(&MemberShape, token_nodes, context);
-
-        match member {
-            Err(_) => break,
-            Ok(member) => state = state.member(member),
-        }
-
-        let dot = expand_syntax(&DotShape, token_nodes, context);
-
-        match dot {
-            Err(_) => break,
-            Ok(dot) => state = state.dot(dot),
-        }
-    }
-
-    let path = state.into_path(token_nodes.peek_non_ws())?;
-
-    Ok(ColumnPathSyntax {
-        path: path.item,
-        tag: path.tag,
-    })
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct ColumnPathShape;
 
-impl FallibleColorSyntax for ColumnPathShape {
-    type Info = ();
-    type Input = ();
+impl ExpandSyntax for ColumnPathShape {
+    type Output = Result<ColumnPathSyntax, ParseError>;
 
     fn name(&self) -> &'static str {
-        "ColumnPathShape"
+        "column path"
     }
 
-    fn color_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
-        _input: &(),
         token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        // If there's not even one member shape, fail
-        color_fallible_syntax(&MemberShape, token_nodes, context)?;
+    ) -> Result<ColumnPathSyntax, ParseError> {
+        let mut state = ColumnPathState::Initial;
 
         loop {
-            let checkpoint = token_nodes.checkpoint();
+            let member = token_nodes.expand_syntax(MemberShape);
 
-            match color_fallible_syntax_with(
-                &ColorableDotShape,
-                &FlatShape::Dot,
-                checkpoint.iterator,
-                context,
-            ) {
-                Err(_) => {
-                    // we already saw at least one member shape, so return successfully
-                    return Ok(());
-                }
+            match member {
+                Err(_) => break,
+                Ok(member) => state = state.member(member),
+            }
 
-                Ok(_) => {
-                    match color_fallible_syntax(&MemberShape, checkpoint.iterator, context) {
-                        Err(_) => {
-                            // we saw a dot but not a member (but we saw at least one member),
-                            // so don't commit the dot but return successfully
-                            return Ok(());
-                        }
+            let dot = token_nodes.expand_syntax(DotShape);
 
-                        Ok(_) => {
-                            // we saw a dot and a member, so commit it and continue on
-                            checkpoint.commit();
-                        }
-                    }
-                }
+            match dot {
+                Err(_) => break,
+                Ok(dot) => state = state.dot(dot),
             }
         }
+
+        let path = state.into_path(token_nodes.err_next_token("column path"))?;
+
+        Ok(ColumnPathSyntax {
+            path: path.item,
+            tag: path.tag,
+        })
     }
 }
 
@@ -613,123 +462,25 @@ impl PrettyDebugWithSource for ColumnPathSyntax {
     }
 }
 
-impl ExpandSyntax for ColumnPathShape {
-    type Output = ColumnPathSyntax;
-
-    fn name(&self) -> &'static str {
-        "column path"
-    }
-
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        expand_column_path(token_nodes, context)
-    }
-}
-
 #[derive(Debug, Copy, Clone)]
 pub struct MemberShape;
 
-impl FallibleColorSyntax for MemberShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "MemberShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let bare =
-            color_fallible_syntax_with(&BareShape, &FlatShape::BareMember, token_nodes, context);
-
-        match bare {
-            Ok(_) => return Ok(()),
-            Err(_) => {
-                // If we don't have a bare word, we'll look for a string
-            }
-        }
-
-        // Look for a string token. If we don't find one, fail
-        color_fallible_syntax_with(&StringShape, &FlatShape::StringMember, token_nodes, context)
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct IntMemberShape;
-
-impl ExpandSyntax for IntMemberShape {
-    type Output = Member;
-
-    fn name(&self) -> &'static str {
-        "integer member"
-    }
-
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        token_nodes.atomic_parse(|token_nodes| {
-            let next = expand_atom(
-                token_nodes,
-                "integer member",
-                context,
-                ExpansionRule::new().separate_members(),
-            )?;
-
-            match next.unspanned {
-                UnspannedAtomicToken::Number {
-                    number: RawNumber::Int(int),
-                } => Ok(Member::Int(
-                    BigInt::from_str(int.slice(context.source)).unwrap(),
-                    int,
-                )),
-
-                UnspannedAtomicToken::Word { text } => {
-                    let int = BigInt::from_str(text.slice(context.source));
-
-                    match int {
-                        Ok(int) => return Ok(Member::Int(int, text)),
-                        Err(_) => Err(ParseError::mismatch("integer member", "word".spanned(text))),
-                    }
-                }
-
-                other => Err(ParseError::mismatch(
-                    "integer member",
-                    other.type_name().spanned(next.span),
-                )),
-            }
-        })
-    }
-}
-
 impl ExpandSyntax for MemberShape {
-    type Output = Member;
+    type Output = Result<Member, ParseError>;
 
     fn name(&self) -> &'static str {
         "column"
     }
 
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<Member, ParseError> {
-        if let Ok(int) = expand_syntax(&IntMemberShape, token_nodes, context) {
+    fn expand<'a, 'b>(&self, token_nodes: &mut TokensIterator<'_>) -> Result<Member, ParseError> {
+        if let Ok(int) = token_nodes.expand_syntax(IntMemberShape) {
             return Ok(int);
         }
 
-        let bare = BareShape.test(token_nodes, context);
-        if let Some(peeked) = bare {
-            let node = peeked.not_eof("column")?.commit();
-            return Ok(Member::Bare(node.span()));
+        let bare = token_nodes.expand_syntax(BareShape);
+
+        if let Ok(bare) = bare {
+            return Ok(Member::Bare(bare.span()));
         }
 
         /* KATZ */
@@ -742,16 +493,34 @@ impl ExpandSyntax for MemberShape {
             return Ok(Member::Number(n, span))
         }*/
 
-        let string = StringShape.test(token_nodes, context);
+        let string = token_nodes.expand_syntax(StringShape);
 
-        if let Some(peeked) = string {
-            let node = peeked.not_eof("column")?.commit();
-            let (outer, inner) = node.as_string().unwrap();
-
-            return Ok(Member::String(outer, inner));
+        if let Ok(syntax) = string {
+            return Ok(Member::String(syntax.span, syntax.inner));
         }
 
-        Err(token_nodes.peek_any().type_error("column"))
+        Err(token_nodes.peek().type_error("column"))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct IntMemberShape;
+
+impl ExpandSyntax for IntMemberShape {
+    type Output = Result<Member, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "integer member"
+    }
+
+    fn expand<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+    ) -> Result<Member, ParseError> {
+        token_nodes
+            .expand_syntax(IntShape)
+            .map(|int| Member::int(int.span(), &token_nodes.source()))
+            .or_else(|_| Err(token_nodes.err_next_token("integer member")))
     }
 }
 
@@ -761,126 +530,35 @@ pub struct DotShape;
 #[derive(Debug, Copy, Clone)]
 pub struct ColorableDotShape;
 
-impl FallibleColorSyntax for ColorableDotShape {
-    type Info = ();
-    type Input = FlatShape;
-
-    fn name(&self) -> &'static str {
-        "ColorableDotShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        input: &FlatShape,
-        token_nodes: &'b mut TokensIterator<'a>,
-        _context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let peeked = token_nodes.peek_any().not_eof("dot")?;
-
-        match peeked.node {
-            node if node.is_dot() => {
-                peeked.commit();
-                token_nodes.color_shape((*input).spanned(node.span()));
-                Ok(())
-            }
-
-            other => Err(ShellError::type_error(
-                "dot",
-                other.type_name().spanned(other.span()),
-            )),
-        }
-    }
-}
-
-impl SkipSyntax for DotShape {
-    fn skip<'a, 'b>(
-        &self,
-        token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        expand_syntax(self, token_nodes, context)?;
-
-        Ok(())
-    }
-}
-
 impl ExpandSyntax for DotShape {
-    type Output = Span;
+    type Output = Result<Span, ParseError>;
 
     fn name(&self) -> &'static str {
         "dot"
     }
 
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        _context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        parse_single_node(token_nodes, "dot", |token, token_span, _| {
-            Ok(match token {
-                UnspannedToken::EvaluationOperator(EvaluationOperator::Dot) => token_span,
-                _ => {
-                    return Err(ParseError::mismatch(
-                        "dot",
-                        token.type_name().spanned(token_span),
-                    ))
-                }
-            })
-        })
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        token_nodes.expand_token(DotType, |token| Ok((FlatShape::Dot, token.span())))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct DotDotShape;
+
+impl ExpandSyntax for DotDotShape {
+    type Output = Result<Span, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "dotdot"
+    }
+
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        token_nodes.expand_token(DotDotType, |token| Ok((FlatShape::DotDot, token.span())))
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct InfixShape;
-
-impl FallibleColorSyntax for InfixShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "InfixShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let checkpoint = token_nodes.checkpoint();
-
-        // An infix operator must be prefixed by whitespace. If no whitespace was found, fail
-        color_fallible_syntax(&WhitespaceShape, checkpoint.iterator, context)?;
-
-        // Parse the next TokenNode after the whitespace
-        let operator_span = parse_single_node(
-            checkpoint.iterator,
-            "infix operator",
-            |token, token_span, _| {
-                match token {
-                    // If it's an operator (and not `.`), it's a match
-                    UnspannedToken::CompareOperator(_operator) => Ok(token_span),
-
-                    // Otherwise, it's not a match
-                    _ => Err(ParseError::mismatch(
-                        "infix operator",
-                        token.type_name().spanned(token_span),
-                    )),
-                }
-            },
-        )?;
-
-        checkpoint
-            .iterator
-            .color_shape(FlatShape::CompareOperator.spanned(operator_span));
-
-        // An infix operator must be followed by whitespace. If no whitespace was found, fail
-        color_fallible_syntax(&WhitespaceShape, checkpoint.iterator, context)?;
-
-        checkpoint.commit();
-        Ok(())
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct InfixSyntax {
@@ -900,32 +578,29 @@ impl PrettyDebugWithSource for InfixSyntax {
 }
 
 impl ExpandSyntax for InfixShape {
-    type Output = InfixSyntax;
+    type Output = Result<InfixSyntax, ParseError>;
 
     fn name(&self) -> &'static str {
         "infix operator"
     }
 
-    fn expand_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        let mut checkpoint = token_nodes.checkpoint();
+    ) -> Result<InfixSyntax, ParseError> {
+        token_nodes.atomic_parse(|token_nodes| {
+            // An infix operator must be prefixed by whitespace
+            let start = token_nodes.expand_syntax(WhitespaceShape)?;
 
-        // An infix operator must be prefixed by whitespace
-        let start = expand_syntax(&WhitespaceShape, checkpoint.iterator, context)?;
+            // Parse the next TokenNode after the whitespace
+            let operator = token_nodes.expand_syntax(InfixInnerShape)?;
 
-        // Parse the next TokenNode after the whitespace
-        let operator = expand_syntax(&InfixInnerShape, &mut checkpoint.iterator, context)?;
+            // An infix operator must be followed by whitespace
+            let end = token_nodes.expand_syntax(WhitespaceShape)?;
 
-        // An infix operator must be followed by whitespace
-        let end = expand_syntax(&WhitespaceShape, checkpoint.iterator, context)?;
-
-        checkpoint.commit();
-
-        Ok(InfixSyntax {
-            infix: (start, operator, end).spanned(start.until(end)),
+            Ok(InfixSyntax {
+                infix: (start, operator, end).spanned(start.until(end)),
+            })
         })
     }
 }
@@ -951,27 +626,23 @@ impl PrettyDebug for InfixInnerSyntax {
 pub struct InfixInnerShape;
 
 impl ExpandSyntax for InfixInnerShape {
-    type Output = InfixInnerSyntax;
+    type Output = Result<InfixInnerSyntax, ParseError>;
 
     fn name(&self) -> &'static str {
         "infix inner"
     }
 
-    fn expand_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
-        _context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        parse_single_node(token_nodes, "infix operator", |token, token_span, err| {
-            Ok(match token {
-                // If it's a comparison operator, it's a match
-                UnspannedToken::CompareOperator(operator) => InfixInnerSyntax {
-                    operator: operator.spanned(token_span),
+    ) -> Result<InfixInnerSyntax, ParseError> {
+        token_nodes.expand_token(CompareOperatorType, |(span, operator)| {
+            Ok((
+                FlatShape::CompareOperator,
+                InfixInnerSyntax {
+                    operator: operator.spanned(span),
                 },
-
-                // Otherwise, it's not a match
-                _ => return Err(err.error()),
-            })
+            ))
         })
     }
 }

@@ -1,6 +1,7 @@
 use ansi_term::Color;
 use bigdecimal::BigDecimal;
 use derive_new::new;
+use getset::Getters;
 use language_reporting::{Diagnostic, Label, Severity};
 use nu_source::{b, DebugDocBuilder, PrettyDebug, Span, Spanned, SpannedItem, TracableContext};
 use num_bigint::BigInt;
@@ -12,16 +13,16 @@ use std::ops::Range;
 /// A structured reason for a ParseError. Note that parsing in nu is more like macro expansion in
 /// other languages, so the kinds of errors that can occur during parsing are more contextual than
 /// you might expect.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ParseErrorReason {
     /// The parser encountered an EOF rather than what it was expecting
-    Eof { expected: &'static str, span: Span },
+    Eof { expected: String, span: Span },
     /// The parser expected to see the end of a token stream (possibly the token
     /// stream from inside a delimited token node), but found something else.
     ExtraTokens { actual: Spanned<String> },
     /// The parser encountered something other than what it was expecting
     Mismatch {
-        expected: &'static str,
+        expected: String,
         actual: Spanned<String>,
     },
     /// The parser tried to parse an argument for a command, but it failed for
@@ -33,16 +34,20 @@ pub enum ParseErrorReason {
 }
 
 /// A newtype for `ParseErrorReason`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Getters)]
 pub struct ParseError {
+    #[get = "pub"]
     reason: ParseErrorReason,
 }
 
 impl ParseError {
     /// Construct a [ParseErrorReason::Eof](ParseErrorReason::Eof)
-    pub fn unexpected_eof(expected: &'static str, span: Span) -> ParseError {
+    pub fn unexpected_eof(expected: impl Into<String>, span: Span) -> ParseError {
         ParseError {
-            reason: ParseErrorReason::Eof { expected, span },
+            reason: ParseErrorReason::Eof {
+                expected: expected.into(),
+                span,
+            },
         }
     }
 
@@ -58,12 +63,12 @@ impl ParseError {
     }
 
     /// Construct a [ParseErrorReason::Mismatch](ParseErrorReason::Mismatch)
-    pub fn mismatch(expected: &'static str, actual: Spanned<impl Into<String>>) -> ParseError {
+    pub fn mismatch(expected: impl Into<String>, actual: Spanned<impl Into<String>>) -> ParseError {
         let Spanned { span, item } = actual;
 
         ParseError {
             reason: ParseErrorReason::Mismatch {
-                expected,
+                expected: expected.into(),
                 actual: item.into().spanned(span),
             },
         }

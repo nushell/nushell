@@ -1,23 +1,32 @@
-use crate::TokenNode;
+use crate::{SpannedToken, Token};
 use derive_new::new;
 use getset::Getters;
-use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span, Spanned};
+use nu_source::{
+    b, DebugDocBuilder, HasSpan, IntoSpanned, PrettyDebugWithSource, Span, Spanned, SpannedItem,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Getters, new)]
 pub struct Pipeline {
     #[get = "pub"]
     pub(crate) parts: Vec<PipelineElement>,
-    pub(crate) span: Span,
+}
+
+impl IntoSpanned for Pipeline {
+    type Output = Spanned<Pipeline>;
+
+    fn into_spanned(self, span: impl Into<Span>) -> Self::Output {
+        self.spanned(span.into())
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Getters, new)]
 pub struct Tokens {
-    pub(crate) tokens: Vec<TokenNode>,
+    pub(crate) tokens: Vec<SpannedToken>,
     pub(crate) span: Span,
 }
 
 impl Tokens {
-    pub fn iter(&self) -> impl Iterator<Item = &TokenNode> {
+    pub fn iter(&self) -> impl Iterator<Item = &SpannedToken> {
         self.tokens.iter()
     }
 }
@@ -38,7 +47,7 @@ impl HasSpan for PipelineElement {
 }
 
 impl PipelineElement {
-    pub fn new(pipe: Option<Span>, tokens: Spanned<Vec<TokenNode>>) -> PipelineElement {
+    pub fn new(pipe: Option<Span>, tokens: Spanned<Vec<SpannedToken>>) -> PipelineElement {
         PipelineElement {
             pipe,
             tokens: Tokens {
@@ -48,7 +57,7 @@ impl PipelineElement {
         }
     }
 
-    pub fn tokens(&self) -> &[TokenNode] {
+    pub fn tokens(&self) -> &[SpannedToken] {
         &self.tokens.tokens
     }
 }
@@ -65,9 +74,9 @@ impl PrettyDebugWithSource for Pipeline {
 impl PrettyDebugWithSource for PipelineElement {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::intersperse(
-            self.tokens.iter().map(|token| match token {
-                TokenNode::Whitespace(_) => b::blank(),
-                token => token.pretty_debug(source),
+            self.tokens.iter().map(|token| match token.unspanned() {
+                Token::Whitespace => b::blank(),
+                _ => token.pretty_debug(source),
             }),
             b::space(),
         )

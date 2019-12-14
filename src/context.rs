@@ -5,25 +5,29 @@ use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::{hir, hir::syntax_shape::ExpandContext, hir::syntax_shape::SignatureRegistry};
-use nu_protocol::{errln, Signature};
+use nu_protocol::Signature;
 use nu_source::{Tag, Text};
+use parking_lot::Mutex;
 use std::error::Error;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CommandRegistry {
     registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
 }
 
 impl SignatureRegistry for CommandRegistry {
     fn has(&self, name: &str) -> bool {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock();
         registry.contains_key(name)
     }
     fn get(&self, name: &str) -> Option<Signature> {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock();
         registry.get(name).map(|command| command.signature())
+    }
+    fn clone_box(&self) -> Box<dyn SignatureRegistry> {
+        Box::new(self.clone())
     }
 }
 
@@ -43,7 +47,7 @@ impl CommandRegistry {
     }
 
     pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock();
 
         registry.get(name).cloned()
     }
@@ -53,18 +57,18 @@ impl CommandRegistry {
     }
 
     pub(crate) fn has(&self, name: &str) -> bool {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock();
 
         registry.contains_key(name)
     }
 
     pub(crate) fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
-        let mut registry = self.registry.lock().unwrap();
+        let mut registry = self.registry.lock();
         registry.insert(name.into(), command);
     }
 
     pub(crate) fn names(&self) -> Vec<String> {
-        let registry = self.registry.lock().unwrap();
+        let registry = self.registry.lock();
         registry.keys().cloned().collect()
     }
 }
@@ -111,52 +115,34 @@ impl Context {
 
     pub(crate) fn maybe_print_errors(&mut self, source: Text) -> bool {
         let errors = self.current_errors.clone();
-        let errors = errors.lock();
+        let mut errors = errors.lock();
 
         let host = self.host.clone();
         let host = host.lock();
 
         let result: bool;
 
-        match (errors, host) {
-            (Err(err), _) => {
-                errln!(
-                    "Unexpected error attempting to acquire the lock of the current errors: {:?}",
-                    err
-                );
-                result = false;
-            }
-            (_, Err(err)) => {
-                errln!(
-                    "Unexpected error attempting to acquire the lock of the current errors: {:?}",
-                    err
-                );
-                result = false;
-            }
-            (Ok(mut errors), Ok(host)) => {
-                if errors.len() > 0 {
-                    let error = errors[0].clone();
-                    *errors = vec![];
+        if errors.len() > 0 {
+            let error = errors[0].clone();
+            *errors = vec![];
 
-                    crate::cli::print_err(error, &*host, &source);
-                    result = true;
-                } else {
-                    result = false;
-                }
-            }
-        };
+            crate::cli::print_err(error, &*host, &source);
+            result = true;
+        } else {
+            result = false;
+        }
 
         result
     }
 
     pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
-        let mut host = self.host.lock().unwrap();
+        let mut host = self.host.lock();
 
         block(&mut *host)
     }
 
     pub(crate) fn with_errors<T>(&mut self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
-        let mut errors = self.current_errors.lock().unwrap();
+        let mut errors = self.current_errors.lock();
 
         block(&mut *errors)
     }

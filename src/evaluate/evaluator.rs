@@ -4,7 +4,7 @@ use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
-use nu_parser::hir::{self, Expression, RawExpression};
+use nu_parser::hir::{self, Expression, SpannedExpression};
 use nu_protocol::{
     ColumnPath, Evaluate, Primitive, RangeInclusion, Scope, TaggedDictBuilder, UnspannedPathMember,
     UntaggedValue, Value,
@@ -12,7 +12,7 @@ use nu_protocol::{
 use nu_source::Text;
 
 pub(crate) fn evaluate_baseline_expr(
-    expr: &Expression,
+    expr: &SpannedExpression,
     registry: &CommandRegistry,
     scope: &Scope,
     source: &Text,
@@ -22,19 +22,19 @@ pub(crate) fn evaluate_baseline_expr(
         anchor: None,
     };
     match &expr.expr {
-        RawExpression::Literal(literal) => Ok(evaluate_literal(literal, source)),
-        RawExpression::ExternalWord => Err(ShellError::argument_error(
+        Expression::Literal(literal) => Ok(evaluate_literal(literal, expr.span, source)),
+        Expression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word".spanned(tag.span),
             ArgumentError::InvalidExternalWord,
         )),
-        RawExpression::FilePath(path) => Ok(UntaggedValue::path(path.clone()).into_value(tag)),
-        RawExpression::Synthetic(hir::Synthetic::String(s)) => {
+        Expression::FilePath(path) => Ok(UntaggedValue::path(path.clone()).into_value(tag)),
+        Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        RawExpression::Variable(var) => evaluate_reference(var, scope, source, tag),
-        RawExpression::Command(_) => evaluate_command(tag, scope, source),
-        RawExpression::ExternalCommand(external) => evaluate_external(external, scope, source),
-        RawExpression::Binary(binary) => {
+        Expression::Variable(var) => evaluate_reference(var, scope, source, tag),
+        Expression::Command(_) => evaluate_command(tag, scope, source),
+        Expression::ExternalCommand(external) => evaluate_external(external, scope, source),
+        Expression::Binary(binary) => {
             let left = evaluate_baseline_expr(binary.left(), registry, scope, source)?;
             let right = evaluate_baseline_expr(binary.right(), registry, scope, source)?;
 
@@ -48,7 +48,7 @@ pub(crate) fn evaluate_baseline_expr(
                 )),
             }
         }
-        RawExpression::Range(range) => {
+        Expression::Range(range) => {
             let left = range.left();
             let right = range.right();
 
@@ -68,7 +68,7 @@ pub(crate) fn evaluate_baseline_expr(
 
             Ok(UntaggedValue::range(left, right).into_value(tag))
         }
-        RawExpression::List(list) => {
+        Expression::List(list) => {
             let mut exprs = vec![];
 
             for expr in list {
@@ -78,13 +78,13 @@ pub(crate) fn evaluate_baseline_expr(
 
             Ok(UntaggedValue::Table(exprs).into_value(tag))
         }
-        RawExpression::Block(block) => Ok(UntaggedValue::Block(Evaluate::new(Block::new(
+        Expression::Block(block) => Ok(UntaggedValue::Block(Evaluate::new(Block::new(
             block.clone(),
             source.clone(),
             tag.clone(),
         )))
         .into_value(&tag)),
-        RawExpression::Path(path) => {
+        Expression::Path(path) => {
             let value = evaluate_baseline_expr(path.head(), registry, scope, source)?;
             let mut item = value;
 
@@ -122,37 +122,29 @@ pub(crate) fn evaluate_baseline_expr(
 
             Ok(item.value.clone().into_value(tag))
         }
-        RawExpression::Boolean(_boolean) => unimplemented!(),
+        Expression::Boolean(_boolean) => unimplemented!(),
     }
 }
 
-fn evaluate_literal(literal: &hir::Literal, source: &Text) -> Value {
-    match &literal.literal {
-        hir::RawLiteral::ColumnPath(path) => {
+fn evaluate_literal(literal: &hir::Literal, span: Span, source: &Text) -> Value {
+    match &literal {
+        hir::Literal::ColumnPath(path) => {
             let members = path
                 .iter()
                 .map(|member| member.to_path_member(source))
                 .collect();
 
             UntaggedValue::Primitive(Primitive::ColumnPath(ColumnPath::new(members)))
-                .into_value(&literal.span)
+                .into_value(span)
         }
-        hir::RawLiteral::Number(int) => match int {
-            nu_parser::Number::Int(i) => UntaggedValue::int(i.clone()).into_value(literal.span),
-            nu_parser::Number::Decimal(d) => {
-                UntaggedValue::decimal(d.clone()).into_value(literal.span)
-            }
+        hir::Literal::Number(int) => match int {
+            nu_parser::Number::Int(i) => UntaggedValue::int(i.clone()).into_value(span),
+            nu_parser::Number::Decimal(d) => UntaggedValue::decimal(d.clone()).into_value(span),
         },
-        hir::RawLiteral::Size(int, unit) => unit.compute(&int).into_value(literal.span),
-        hir::RawLiteral::String(tag) => {
-            UntaggedValue::string(tag.slice(source)).into_value(literal.span)
-        }
-        hir::RawLiteral::GlobPattern(pattern) => {
-            UntaggedValue::pattern(pattern).into_value(literal.span)
-        }
-        hir::RawLiteral::Bare => {
-            UntaggedValue::string(literal.span.slice(source)).into_value(literal.span)
-        }
+        hir::Literal::Size(int, unit) => unit.compute(&int).into_value(span),
+        hir::Literal::String(tag) => UntaggedValue::string(tag.slice(source)).into_value(span),
+        hir::Literal::GlobPattern(pattern) => UntaggedValue::pattern(pattern).into_value(span),
+        hir::Literal::Bare => UntaggedValue::string(span.slice(source)).into_value(span),
     }
 }
 

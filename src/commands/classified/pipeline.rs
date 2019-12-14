@@ -30,6 +30,9 @@ pub(crate) async fn run_pipeline(
                 return Err(ShellError::unimplemented("Expression-only commands"))
             }
 
+            (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
+            (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
+
             (Some(ClassifiedCommand::Internal(left)), _) => {
                 let stream = run_internal_command(left, ctx, input, Text::from(line)).await?;
                 ClassifiedInputStream::from_input_stream(stream)

@@ -82,6 +82,35 @@ pub struct Signature {
     pub is_filter: bool,
 }
 
+impl Signature {
+    pub fn shift_positional(&mut self) {
+        self.positional = Vec::from(&self.positional[1..]);
+    }
+
+    pub fn remove_named(&mut self, name: &str) {
+        self.named.remove(name);
+    }
+
+    pub fn allowed(&self) -> Vec<String> {
+        let mut allowed = indexmap::IndexSet::new();
+
+        for (name, _) in &self.named {
+            allowed.insert(format!("--{}", name));
+        }
+
+        for (ty, _) in &self.positional {
+            let shape = ty.syntax_type();
+            allowed.insert(format!("{}", shape.display()));
+        }
+
+        if let Some((shape, _)) = &self.rest_positional {
+            allowed.insert(format!("{}", shape.display()));
+        }
+
+        allowed.into_iter().collect()
+    }
+}
+
 impl PrettyDebugWithSource for Signature {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::typed(

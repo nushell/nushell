@@ -9,9 +9,10 @@ use crate::data::config;
 use crate::git::current_branch;
 use crate::prelude::*;
 use nu_errors::ShellError;
+use nu_parser::hir::Expression;
 use nu_parser::{
-    expand_syntax, hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape,
-    TokenNode, TokensIterator,
+    hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape, SpannedToken,
+    TokensIterator,
 };
 use nu_protocol::{Signature, UntaggedValue, Value};
 
@@ -561,26 +562,33 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = match classify_pipeline(&result, ctx, &Text::from(line)) {
-                Ok(pipeline) => pipeline,
-                Err(err) => return LineResult::Error(line.to_string(), err),
+            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line));
+
+            if let Some(failure) = pipeline.failed {
+                return LineResult::Error(line.to_string(), failure.into());
+            }
+
+            let should_push = match pipeline.commands.list.last() {
+                Some(ClassifiedCommand::External(_)) => false,
+                _ => true,
             };
 
-            match pipeline.commands.list.last() {
-                Some(ClassifiedCommand::External(_)) => {}
-                _ => pipeline
+            if should_push {
+                pipeline
                     .commands
                     .list
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         name: "autoview".to_string(),
                         name_tag: Tag::unknown(),
                         args: hir::Call::new(
-                            Box::new(hir::Expression::synthetic_string("autoview")),
+                            Box::new(
+                                Expression::synthetic_string("autoview").into_expr(Span::unknown()),
+                            ),
                             None,
                             None,
                             Span::unknown(),
                         ),
-                    })),
+                    }));
             }
 
             // Check the config to see if we need to update the path
@@ -604,19 +612,15 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 }
 
 pub fn classify_pipeline(
-    pipeline: &TokenNode,
+    pipeline: &SpannedToken,
     context: &Context,
     source: &Text,
-) -> Result<ClassifiedPipeline, ShellError> {
+) -> ClassifiedPipeline {
     let pipeline_list = vec![pipeline.clone()];
-    let mut iterator = TokensIterator::all(&pipeline_list, source.clone(), pipeline.span());
+    let expand_context = context.expand_context(source);
+    let mut iterator = TokensIterator::new(&pipeline_list, expand_context, pipeline.span());
 
-    let result = expand_syntax(
-        &PipelineShape,
-        &mut iterator,
-        &context.expand_context(source),
-    )
-    .map_err(|err| err.into());
+    let result = iterator.expand_infallible(PipelineShape);
 
     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
         outln!("");

@@ -29,7 +29,7 @@ pub struct Operation {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Serialize, Deserialize, new)]
 pub struct Block {
-    pub(crate) expressions: Vec<hir::Expression>,
+    pub(crate) expressions: Vec<hir::SpannedExpression>,
     pub(crate) source: Text,
     pub(crate) tag: Tag,
 }

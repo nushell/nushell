@@ -1,4 +1,3 @@
-pub(crate) mod atom;
 pub(crate) mod delimited;
 pub(crate) mod file_path;
 pub(crate) mod list;
@@ -10,319 +9,64 @@ pub(crate) mod unit;
 pub(crate) mod variable_path;
 
 use crate::hir::syntax_shape::{
-    color_delimited_square, color_fallible_syntax, color_fallible_syntax_with, expand_atom,
-    expand_delimited_square, expand_expr, expand_syntax, BareShape, ColorableDotShape, DotShape,
-    ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, ExpressionContinuation,
-    ExpressionContinuationShape, FallibleColorSyntax, FlatShape, UnspannedAtomicToken,
+    BareExpressionShape, DelimitedSquareShape, ExpandContext, ExpandSyntax,
+    ExpressionContinuationShape, NumberExpressionShape, PatternExpressionShape,
+    StringExpressionShape, UnitExpressionShape, VariableShape,
 };
-use crate::{
-    hir,
-    hir::{Expression, TokensIterator},
-};
-use nu_errors::{ParseError, ShellError};
-use nu_source::{HasSpan, Span, Spanned, SpannedItem, Tag};
+use crate::hir::{SpannedExpression, TokensIterator};
+use nu_errors::ParseError;
 use std::path::PathBuf;
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyExpressionShape;
 
-impl ExpandExpression for AnyExpressionShape {
+impl ExpandSyntax for AnyExpressionShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
     fn name(&self) -> &'static str {
         "any expression"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
-        // Look for an expression at the cursor
-        let head = expand_expr(&AnyExpressionStartShape, token_nodes, context)?;
+    ) -> Result<SpannedExpression, ParseError> {
+        token_nodes.atomic_parse(|token_nodes| {
+            // Look for an atomic expression at the cursor
+            let mut current = token_nodes.expand_syntax(AnyExpressionStartShape)?;
 
-        Ok(continue_expression(head, token_nodes, context))
-    }
-}
-
-impl FallibleColorSyntax for AnyExpressionShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "AnyExpressionShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        // Look for an expression at the cursor
-        color_fallible_syntax(&AnyExpressionStartShape, token_nodes, context)?;
-
-        match continue_coloring_expression(token_nodes, context) {
-            Err(_) => {
-                // it's fine for there to be no continuation
-            }
-
-            Ok(()) => {}
-        }
-
-        Ok(())
-    }
-}
-
-pub(crate) fn continue_expression(
-    mut head: hir::Expression,
-    token_nodes: &mut TokensIterator<'_>,
-    context: &ExpandContext,
-) -> hir::Expression {
-    loop {
-        // Check to see whether there's any continuation after the head expression
-        let continuation = expand_syntax(&ExpressionContinuationShape, token_nodes, context);
-
-        match continuation {
-            // If there's no continuation, return the head
-            Err(_) => return head,
-            // Otherwise, form a new expression by combining the head with the continuation
-            Ok(continuation) => match continuation {
-                // If the continuation is a `.member`, form a path with the new member
-                ExpressionContinuation::DotSuffix(_dot, member) => {
-                    head = Expression::dot_member(head, member);
+            loop {
+                match token_nodes.expand_syntax(ExpressionContinuationShape) {
+                    Err(_) => return Ok(current),
+                    Ok(continuation) => current = continuation.append_to(current),
                 }
-
-                // Otherwise, if the continuation is an infix suffix, form an infix expression
-                ExpressionContinuation::InfixSuffix(op, expr) => {
-                    head = Expression::infix(head, op, expr);
-                }
-            },
-        }
-    }
-}
-
-pub(crate) fn continue_coloring_expression(
-    token_nodes: &mut TokensIterator<'_>,
-    context: &ExpandContext,
-) -> Result<(), ShellError> {
-    // if there's not even one expression continuation, fail
-    color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context)?;
-
-    loop {
-        // Check to see whether there's any continuation after the head expression
-        let result = color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context);
-
-        match result {
-            Err(_) => {
-                // We already saw one continuation, so just return
-                return Ok(());
             }
-
-            Ok(_) => {}
-        }
+        })
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct AnyExpressionStartShape;
 
-impl ExpandExpression for AnyExpressionStartShape {
+impl ExpandSyntax for AnyExpressionStartShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
     fn name(&self) -> &'static str {
         "any expression start"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
-        let atom = expand_atom(token_nodes, "expression", context, ExpansionRule::new())?;
-
-        match atom.unspanned {
-            UnspannedAtomicToken::Size { number, unit } => {
-                return Ok(hir::Expression::size(
-                    number.to_number(context.source),
-                    unit.item,
-                    Tag {
-                        span: atom.span,
-                        anchor: None,
-                    },
-                ))
-            }
-
-            UnspannedAtomicToken::SquareDelimited { nodes, .. } => {
-                expand_delimited_square(&nodes, atom.span.into(), context)
-            }
-
-            UnspannedAtomicToken::Word { .. } => {
-                let end = expand_syntax(&BareTailShape, token_nodes, context)?;
-                Ok(hir::Expression::bare(atom.span.until_option(end)))
-            }
-
-            other => {
-                return other
-                    .into_atomic_token(atom.span)
-                    .into_hir(context, "expression")
-            }
-        }
-    }
-}
-
-impl FallibleColorSyntax for AnyExpressionStartShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "AnyExpressionStartShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let atom = token_nodes.spanned(|token_nodes| {
-            expand_atom(
-                token_nodes,
-                "expression",
-                context,
-                ExpansionRule::permissive(),
-            )
-        });
-
-        let atom = match atom {
-            Spanned {
-                item: Err(_err),
-                span,
-            } => {
-                token_nodes.color_shape(FlatShape::Error.spanned(span));
-                return Ok(());
-            }
-
-            Spanned {
-                item: Ok(value), ..
-            } => value,
-        };
-
-        match atom.unspanned {
-            UnspannedAtomicToken::Size { number, unit } => token_nodes.color_shape(
-                FlatShape::Size {
-                    number: number.span(),
-                    unit: unit.span.into(),
-                }
-                .spanned(atom.span),
-            ),
-
-            UnspannedAtomicToken::SquareDelimited { nodes, spans } => {
-                token_nodes.child(
-                    (&nodes[..]).spanned(atom.span),
-                    context.source.clone(),
-                    |tokens| {
-                        color_delimited_square(spans, tokens, atom.span.into(), context);
-                    },
-                );
-            }
-
-            UnspannedAtomicToken::Word { .. } | UnspannedAtomicToken::Dot { .. } => {
-                token_nodes.color_shape(FlatShape::Word.spanned(atom.span));
-            }
-
-            _ => token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes)),
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct BareTailShape;
-
-impl FallibleColorSyntax for BareTailShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "BareTailShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        let len = token_nodes.state().shapes().len();
-
-        loop {
-            let word =
-                color_fallible_syntax_with(&BareShape, &FlatShape::Word, token_nodes, context);
-
-            match word {
-                // if a word was found, continue
-                Ok(_) => continue,
-                // if a word wasn't found, try to find a dot
-                Err(_) => {}
-            }
-
-            // try to find a dot
-            let dot = color_fallible_syntax_with(
-                &ColorableDotShape,
-                &FlatShape::Word,
-                token_nodes,
-                context,
-            );
-
-            match dot {
-                // if a dot was found, try to find another word
-                Ok(_) => continue,
-                // otherwise, we're done
-                Err(_) => break,
-            }
-        }
-
-        if token_nodes.state().shapes().len() > len {
-            Ok(())
-        } else {
-            Err(ShellError::syntax_error(
-                "No tokens matched BareTailShape".spanned_unknown(),
-            ))
-        }
-    }
-}
-
-impl ExpandSyntax for BareTailShape {
-    fn name(&self) -> &'static str {
-        "word continuation"
-    }
-
-    type Output = Option<Span>;
-
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Option<Span>, ParseError> {
-        let mut end: Option<Span> = None;
-
-        loop {
-            match expand_syntax(&BareShape, token_nodes, context) {
-                Ok(bare) => {
-                    end = Some(bare.span);
-                    continue;
-                }
-
-                Err(_) => match expand_syntax(&DotShape, token_nodes, context) {
-                    Ok(dot) => {
-                        end = Some(dot);
-                        continue;
-                    }
-
-                    Err(_) => break,
-                },
-            }
-        }
-
-        Ok(end)
+    ) -> Result<SpannedExpression, ParseError> {
+        token_nodes
+            .expand_syntax(VariableShape)
+            .or_else(|_| token_nodes.expand_syntax(UnitExpressionShape))
+            .or_else(|_| token_nodes.expand_syntax(BareExpressionShape))
+            .or_else(|_| token_nodes.expand_syntax(PatternExpressionShape))
+            .or_else(|_| token_nodes.expand_syntax(NumberExpressionShape))
+            .or_else(|_| token_nodes.expand_syntax(StringExpressionShape))
+            .or_else(|_| token_nodes.expand_syntax(DelimitedSquareShape))
     }
 }
 

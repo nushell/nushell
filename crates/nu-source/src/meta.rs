@@ -471,6 +471,10 @@ impl Span {
         }
     }
 
+    pub fn contains(&self, pos: usize) -> bool {
+        self.start <= pos && self.end >= pos
+    }
+
     pub fn until(&self, other: impl Into<Span>) -> Span {
         let other = other.into();
 
@@ -543,26 +547,63 @@ impl language_reporting::ReportingSpan for Span {
     }
 }
 
-pub trait HasSpan: PrettyDebugWithSource {
-    fn span(&self) -> Span;
+pub trait IntoSpanned {
+    type Output: HasFallibleSpan;
+
+    fn into_spanned(self, span: impl Into<Span>) -> Self::Output;
 }
 
-pub trait HasFallibleSpan: PrettyDebugWithSource {
-    fn maybe_span(&self) -> Option<Span>;
-}
-
-impl<T: HasSpan> HasFallibleSpan for T {
-    fn maybe_span(&self) -> Option<Span> {
-        Some(HasSpan::span(self))
+impl<T: HasFallibleSpan> IntoSpanned for T {
+    type Output = T;
+    fn into_spanned(self, _span: impl Into<Span>) -> Self::Output {
+        self
     }
 }
 
-impl<T> HasSpan for Spanned<T>
+pub trait HasSpan {
+    fn span(&self) -> Span;
+}
+
+impl<T, E> HasSpan for Result<T, E>
 where
-    Spanned<T>: PrettyDebugWithSource,
+    T: HasSpan,
 {
     fn span(&self) -> Span {
+        match self {
+            Result::Ok(val) => val.span(),
+            Result::Err(_) => Span::unknown(),
+        }
+    }
+}
+
+impl<T> HasSpan for Spanned<T> {
+    fn span(&self) -> Span {
         self.span
+    }
+}
+
+pub trait HasFallibleSpan {
+    fn maybe_span(&self) -> Option<Span>;
+}
+
+impl HasFallibleSpan for bool {
+    fn maybe_span(&self) -> Option<Span> {
+        None
+    }
+}
+
+impl HasFallibleSpan for () {
+    fn maybe_span(&self) -> Option<Span> {
+        None
+    }
+}
+
+impl<T> HasFallibleSpan for T
+where
+    T: HasSpan,
+{
+    fn maybe_span(&self) -> Option<Span> {
+        Some(HasSpan::span(self))
     }
 }
 
@@ -584,8 +625,8 @@ impl HasFallibleSpan for Option<Span> {
 impl PrettyDebugWithSource for Span {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::typed(
-            "spanned",
-            b::keyword("for") + b::space() + b::description(format!("{:?}", source)),
+            "span",
+            b::keyword("for") + b::space() + b::description(format!("{:?}", self.slice(source))),
         )
     }
 }
@@ -603,15 +644,12 @@ where
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
             None => b::description("nothing"),
-            Some(v) => v.pretty_debug(source),
+            Some(v) => v.pretty_debug(v.span.slice(source)),
         }
     }
 }
 
-impl<T> HasFallibleSpan for Option<Spanned<T>>
-where
-    Spanned<T>: PrettyDebugWithSource,
-{
+impl<T> HasFallibleSpan for Option<Spanned<T>> {
     fn maybe_span(&self) -> Option<Span> {
         match self {
             None => None,
@@ -632,10 +670,7 @@ where
     }
 }
 
-impl<T> HasFallibleSpan for Option<Tagged<T>>
-where
-    Tagged<T>: PrettyDebugWithSource,
-{
+impl<T> HasFallibleSpan for Option<Tagged<T>> {
     fn maybe_span(&self) -> Option<Span> {
         match self {
             None => None,
@@ -644,10 +679,7 @@ where
     }
 }
 
-impl<T> HasSpan for Tagged<T>
-where
-    Tagged<T>: PrettyDebugWithSource,
-{
+impl<T> HasSpan for Tagged<T> {
     fn span(&self) -> Span {
         self.tag.span
     }

@@ -1,55 +1,24 @@
-use crate::hir::syntax_shape::{
-    color_syntax, expand_syntax, ColorSyntax, ExpandContext, ExpressionListShape, TokenNode,
-};
-use crate::{hir, hir::TokensIterator, Delimiter, FlatShape};
+use crate::hir::syntax_shape::ExpandSyntax;
+use crate::hir::SpannedExpression;
+use crate::{hir, hir::TokensIterator};
 use nu_errors::ParseError;
-use nu_source::{Span, SpannedItem, Tag};
-
-pub fn expand_delimited_square(
-    children: &Vec<TokenNode>,
-    span: Span,
-    context: &ExpandContext,
-) -> Result<hir::Expression, ParseError> {
-    let mut tokens = TokensIterator::new(&children, span, context.source.clone(), false);
-
-    let list = expand_syntax(&ExpressionListShape, &mut tokens, context);
-
-    Ok(hir::Expression::list(
-        list?.exprs.item,
-        Tag { span, anchor: None },
-    ))
-}
-
-pub fn color_delimited_square(
-    (open, close): (Span, Span),
-    token_nodes: &mut TokensIterator,
-    _span: Span,
-    context: &ExpandContext,
-) {
-    token_nodes.color_shape(FlatShape::OpenDelimiter(Delimiter::Square).spanned(open));
-    let _list = color_syntax(&ExpressionListShape, token_nodes, context);
-    token_nodes.color_shape(FlatShape::CloseDelimiter(Delimiter::Square).spanned(close));
-}
 
 #[derive(Debug, Copy, Clone)]
-pub struct DelimitedShape;
+pub struct DelimitedSquareShape;
 
-impl ColorSyntax for DelimitedShape {
-    type Info = ();
-    type Input = (Delimiter, Span, Span);
+impl ExpandSyntax for DelimitedSquareShape {
+    type Output = Result<SpannedExpression, ParseError>;
 
     fn name(&self) -> &'static str {
-        "DelimitedShape"
+        "delimited square"
     }
 
-    fn color_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
-        (delimiter, open, close): &(Delimiter, Span, Span),
         token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Self::Info {
-        token_nodes.color_shape(FlatShape::OpenDelimiter(*delimiter).spanned(*open));
-        color_syntax(&ExpressionListShape, token_nodes, context);
-        token_nodes.color_shape(FlatShape::CloseDelimiter(*delimiter).spanned(*close));
+    ) -> Result<SpannedExpression, ParseError> {
+        let exprs = token_nodes.square()?;
+
+        Ok(hir::Expression::list(exprs.item).into_expr(exprs.span))
     }
 }

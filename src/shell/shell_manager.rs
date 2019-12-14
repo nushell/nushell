@@ -8,11 +8,13 @@ use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
 use nu_errors::ShellError;
+use nu_parser::ExpandContext;
 use nu_source::Tagged;
+use parking_lot::Mutex;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct ShellManager {
@@ -31,9 +33,9 @@ impl ShellManager {
     }
 
     pub fn insert_at_current(&mut self, shell: Box<dyn Shell + Send>) {
-        self.shells.lock().unwrap().push(shell);
+        self.shells.lock().push(shell);
         self.current_shell
-            .store(self.shells.lock().unwrap().len() - 1, Ordering::SeqCst);
+            .store(self.shells.lock().len() - 1, Ordering::SeqCst);
         self.set_path(self.path());
     }
 
@@ -43,7 +45,7 @@ impl ShellManager {
 
     pub fn remove_at_current(&mut self) {
         {
-            let mut shells = self.shells.lock().unwrap();
+            let mut shells = self.shells.lock();
             if shells.len() > 0 {
                 if self.current_shell() == shells.len() - 1 {
                     shells.pop();
@@ -62,21 +64,21 @@ impl ShellManager {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.shells.lock().unwrap().is_empty()
+        self.shells.lock().is_empty()
     }
 
     pub fn path(&self) -> String {
-        self.shells.lock().unwrap()[self.current_shell()].path()
+        self.shells.lock()[self.current_shell()].path()
     }
 
     pub fn pwd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
         env[self.current_shell()].pwd(args)
     }
 
     pub fn set_path(&mut self, path: String) {
-        self.shells.lock().unwrap()[self.current_shell()].set_path(path)
+        self.shells.lock()[self.current_shell()].set_path(path)
     }
 
     pub fn complete(
@@ -85,16 +87,22 @@ impl ShellManager {
         pos: usize,
         ctx: &rustyline::Context<'_>,
     ) -> Result<(usize, Vec<rustyline::completion::Pair>), rustyline::error::ReadlineError> {
-        self.shells.lock().unwrap()[self.current_shell()].complete(line, pos, ctx)
+        self.shells.lock()[self.current_shell()].complete(line, pos, ctx)
     }
 
-    pub fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.shells.lock().unwrap()[self.current_shell()].hint(line, pos, ctx)
+    pub fn hint(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+        context: ExpandContext,
+    ) -> Option<String> {
+        self.shells.lock()[self.current_shell()].hint(line, pos, ctx, context)
     }
 
     pub fn next(&mut self) {
         {
-            let shell_len = self.shells.lock().unwrap().len();
+            let shell_len = self.shells.lock().len();
             if self.current_shell() == (shell_len - 1) {
                 self.current_shell.store(0, Ordering::SeqCst);
             } else {
@@ -107,7 +115,7 @@ impl ShellManager {
 
     pub fn prev(&mut self) {
         {
-            let shell_len = self.shells.lock().unwrap().len();
+            let shell_len = self.shells.lock().len();
             if self.current_shell() == 0 {
                 self.current_shell.store(shell_len - 1, Ordering::SeqCst);
             } else {
@@ -119,7 +127,7 @@ impl ShellManager {
     }
 
     pub fn homedir(&self) -> Option<PathBuf> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
         env[self.current_shell()].homedir()
     }
@@ -130,13 +138,13 @@ impl ShellManager {
         context: &RunnableContext,
         full: bool,
     ) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
         env[self.current_shell()].ls(path, context, full)
     }
 
     pub fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock().unwrap();
+        let env = self.shells.lock();
 
         env[self.current_shell()].cd(args)
     }
@@ -148,17 +156,8 @@ impl ShellManager {
     ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        match env {
-            Ok(x) => {
-                let path = x[self.current_shell()].path();
-                x[self.current_shell()].cp(args, context.name.clone(), &path)
-            }
-            Err(e) => Err(ShellError::labeled_error(
-                format!("Internal error: could not lock {}", e),
-                "Internal error: could not lock",
-                &context.name,
-            )),
-        }
+        let path = env[self.current_shell()].path();
+        env[self.current_shell()].cp(args, context.name.clone(), &path)
     }
 
     pub fn rm(
@@ -168,17 +167,8 @@ impl ShellManager {
     ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        match env {
-            Ok(x) => {
-                let path = x[self.current_shell()].path();
-                x[self.current_shell()].rm(args, context.name.clone(), &path)
-            }
-            Err(e) => Err(ShellError::labeled_error(
-                format!("Internal error: could not lock {}", e),
-                "Internal error: could not lock",
-                &context.name,
-            )),
-        }
+        let path = env[self.current_shell()].path();
+        env[self.current_shell()].rm(args, context.name.clone(), &path)
     }
 
     pub fn mkdir(
@@ -188,17 +178,8 @@ impl ShellManager {
     ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        match env {
-            Ok(x) => {
-                let path = x[self.current_shell()].path();
-                x[self.current_shell()].mkdir(args, context.name.clone(), &path)
-            }
-            Err(e) => Err(ShellError::labeled_error(
-                format!("Internal error: could not lock {}", e),
-                "Internal error: could not lock",
-                &context.name,
-            )),
-        }
+        let path = env[self.current_shell()].path();
+        env[self.current_shell()].mkdir(args, context.name.clone(), &path)
     }
 
     pub fn mv(
@@ -208,16 +189,7 @@ impl ShellManager {
     ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        match env {
-            Ok(x) => {
-                let path = x[self.current_shell()].path();
-                x[self.current_shell()].mv(args, context.name.clone(), &path)
-            }
-            Err(e) => Err(ShellError::labeled_error(
-                format!("Internal error: could not lock {}", e),
-                "Internal error: could not lock",
-                &context.name,
-            )),
-        }
+        let path = env[self.current_shell()].path();
+        env[self.current_shell()].mv(args, context.name.clone(), &path)
     }
 }

@@ -75,12 +75,26 @@ mod pipeline {
             );
         }
 
+        #[cfg(not(windows))]
         #[test]
         fn does_not_expand_when_passed_as_argument_and_does_not_start_with_tilde_to_an_external() {
             let actual = nu!(
                 cwd: std::path::PathBuf::from("."),
                 r#"
                     sh -c "echo 1~1"
+                "#
+            );
+
+            assert_eq!(actual, "1~1");
+        }
+
+        #[cfg(windows)]
+        #[test]
+        fn does_not_expand_when_passed_as_argument_and_does_not_start_with_tilde_to_an_external() {
+            let actual = nu!(
+                cwd: std::path::PathBuf::from("."),
+                r#"
+                    cmd /c "echo 1~1"
                 "#
             );
 

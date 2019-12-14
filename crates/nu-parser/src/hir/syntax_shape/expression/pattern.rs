@@ -1,77 +1,67 @@
 use crate::hir::syntax_shape::{
-    expand_atom, expand_bare, expression::expand_file_path, ExpandContext, ExpandExpression,
-    ExpandSyntax, ExpansionRule, FallibleColorSyntax, FlatShape, UnspannedAtomicToken,
+    expand_bare, expression::expand_file_path, BarePathShape, ExpandContext, ExpandSyntax,
+    ExternalWordShape, StringShape,
 };
+use crate::hir::{Expression, SpannedExpression};
 use crate::parse::operator::EvaluationOperator;
-use crate::parse::tokens::{Token, UnspannedToken};
-use crate::{hir, hir::TokensIterator, TokenNode};
-use nu_errors::{ParseError, ShellError};
-
-use nu_protocol::ShellTypeName;
-use nu_source::{Span, SpannedItem};
+use crate::{hir, hir::TokensIterator, Token};
+use nu_errors::ParseError;
+use nu_source::Span;
 
 #[derive(Debug, Copy, Clone)]
 pub struct PatternShape;
 
-impl FallibleColorSyntax for PatternShape {
-    type Info = ();
-    type Input = ();
+impl ExpandSyntax for PatternShape {
+    type Output = Result<SpannedExpression, ParseError>;
 
-    fn name(&self) -> &'static str {
-        "PatternShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        token_nodes.atomic(|token_nodes| {
-            let atom = expand_atom(token_nodes, "pattern", context, ExpansionRule::permissive())?;
-
-            match &atom.unspanned {
-                UnspannedAtomicToken::GlobPattern { .. } | UnspannedAtomicToken::Word { .. } => {
-                    token_nodes.color_shape(FlatShape::GlobPattern.spanned(atom.span));
-                    Ok(())
-                }
-
-                other => Err(ShellError::type_error(
-                    "pattern",
-                    other.type_name().spanned(atom.span),
-                )),
-            }
-        })
-    }
-}
-
-impl ExpandExpression for PatternShape {
     fn name(&self) -> &'static str {
         "glob pattern"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &mut TokensIterator<'_>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
-        let atom = expand_atom(
-            token_nodes,
-            "pattern",
-            context,
-            ExpansionRule::new().allow_external_word(),
-        )?;
+    ) -> Result<hir::SpannedExpression, ParseError> {
+        let (inner, outer) = token_nodes
+            .expand_syntax(BarePatternShape)
+            .or_else(|_| token_nodes.expand_syntax(BarePathShape))
+            .or_else(|_| token_nodes.expand_syntax(ExternalWordShape))
+            .map(|span| (span, span))
+            .or_else(|_| {
+                token_nodes
+                    .expand_syntax(StringShape)
+                    .map(|syntax| (syntax.inner, syntax.span))
+            })
+            .map_err(|_| token_nodes.err_next_token("glob pattern"))?;
 
-        match atom.unspanned {
-            UnspannedAtomicToken::Word { text: body }
-            | UnspannedAtomicToken::String { body }
-            | UnspannedAtomicToken::ExternalWord { text: body }
-            | UnspannedAtomicToken::GlobPattern { pattern: body } => {
-                let path = expand_file_path(body.slice(context.source), context);
-                return Ok(hir::Expression::pattern(path.to_string_lossy(), atom.span));
-            }
-            _ => return atom.into_hir(context, "pattern"),
-        }
+        Ok(file_pattern(inner, outer, token_nodes.context()))
+
+    }
+}
+
+fn file_pattern(body: Span, outer: Span, context: &ExpandContext) -> SpannedExpression {
+    let path = expand_file_path(body.slice(context.source), context);
+    Expression::pattern(path.to_string_lossy()).into_expr(outer)
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct PatternExpressionShape;
+
+impl ExpandSyntax for PatternExpressionShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "pattern"
+    }
+
+    fn expand<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+    ) -> Result<SpannedExpression, ParseError> {
+        token_nodes.expand_syntax(BarePatternShape).map(|span| {
+            let path = expand_file_path(span.slice(&token_nodes.source()), token_nodes.context());
+            Expression::pattern(path.to_string_lossy()).into_expr(span)
+        })
     }
 }
 
@@ -79,30 +69,17 @@ impl ExpandExpression for PatternShape {
 pub struct BarePatternShape;
 
 impl ExpandSyntax for BarePatternShape {
-    type Output = Span;
+    type Output = Result<Span, ParseError>;
 
     fn name(&self) -> &'static str {
         "bare pattern"
     }
 
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Span, ParseError> {
-        expand_bare(token_nodes, context, |token| match token {
-            TokenNode::Token(Token {
-                unspanned: UnspannedToken::Bare,
-                ..
-            })
-            | TokenNode::Token(Token {
-                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::Dot),
-                ..
-            })
-            | TokenNode::Token(Token {
-                unspanned: UnspannedToken::GlobPattern,
-                ..
-            }) => true,
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        expand_bare(token_nodes, |token| match token.unspanned() {
+            Token::Bare
+            | Token::EvaluationOperator(EvaluationOperator::Dot)
+            | Token::GlobPattern => true,
 
             _ => false,
         })

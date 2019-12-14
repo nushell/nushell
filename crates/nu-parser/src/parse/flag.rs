@@ -15,7 +15,6 @@ pub enum FlagKind {
 pub struct Flag {
     pub(crate) kind: FlagKind,
     pub(crate) name: Span,
-    pub(crate) span: Span,
 }
 
 impl PrettyDebugWithSource for Flag {
@@ -30,10 +29,10 @@ impl PrettyDebugWithSource for Flag {
 }
 
 impl Flag {
-    pub fn color(&self) -> Spanned<FlatShape> {
+    pub fn color(&self, span: impl Into<Span>) -> Spanned<FlatShape> {
         match self.kind {
-            FlagKind::Longhand => FlatShape::Flag.spanned(self.span),
-            FlagKind::Shorthand => FlatShape::ShorthandFlag.spanned(self.span),
+            FlagKind::Longhand => FlatShape::Flag.spanned(span.into()),
+            FlagKind::Shorthand => FlatShape::ShorthandFlag.spanned(span.into()),
         }
     }
 }

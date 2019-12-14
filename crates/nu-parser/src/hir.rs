@@ -17,17 +17,17 @@ use derive_new::new;
 use getset::Getters;
 use nu_protocol::{PathMember, ShellTypeName};
 use nu_source::{
-    b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span, Spanned, SpannedItem,
+    b, DebugDocBuilder, HasSpan, IntoSpanned, PrettyDebug, PrettyDebugRefineKind,
+    PrettyDebugWithSource, Span, Spanned,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::parse::tokens::RawNumber;
+use crate::parse::number::RawNumber;
 
 pub(crate) use self::binary::Binary;
 pub(crate) use self::path::Path;
 pub(crate) use self::range::Range;
-pub(crate) use self::syntax_shape::ExpandContext;
 pub(crate) use self::tokens_iterator::TokensIterator;
 
 pub use self::external_command::ExternalCommand;
@@ -63,44 +63,63 @@ impl PrettyDebugWithSource for Signature {
 #[derive(Debug, Clone, Eq, PartialEq, Getters, Serialize, Deserialize, new)]
 pub struct Call {
     #[get = "pub(crate)"]
-    pub head: Box<Expression>,
+    pub head: Box<SpannedExpression>,
     #[get = "pub(crate)"]
-    pub positional: Option<Vec<Expression>>,
+    pub positional: Option<Vec<SpannedExpression>>,
     #[get = "pub(crate)"]
     pub named: Option<NamedArguments>,
     pub span: Span,
 }
 
 impl PrettyDebugWithSource for Call {
+    fn refined_pretty_debug(&self, refine: PrettyDebugRefineKind, source: &str) -> DebugDocBuilder {
+        match refine {
+            PrettyDebugRefineKind::ContextFree => self.pretty_debug(source),
+            PrettyDebugRefineKind::WithContext => {
+                self.head
+                    .refined_pretty_debug(PrettyDebugRefineKind::WithContext, source)
+                    + b::preceded_option(
+                        Some(b::space()),
+                        self.positional.as_ref().map(|pos| {
+                            b::intersperse(
+                                pos.iter().map(|expr| {
+                                    expr.refined_pretty_debug(
+                                        PrettyDebugRefineKind::WithContext,
+                                        source,
+                                    )
+                                }),
+                                b::space(),
+                            )
+                        }),
+                    )
+                    + b::preceded_option(
+                        Some(b::space()),
+                        self.named.as_ref().map(|named| {
+                            named.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source)
+                        }),
+                    )
+            }
+        }
+    }
+
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::delimit(
-            "(",
-            self.head.pretty_debug(source)
-                + b::preceded_option(
-                    Some(b::space()),
-                    self.positional.as_ref().map(|pos| {
-                        b::intersperse(pos.iter().map(|expr| expr.pretty_debug(source)), b::space())
-                    }),
-                )
-                + b::preceded_option(
-                    Some(b::space()),
-                    self.named.as_ref().map(|named| named.pretty_debug(source)),
-                ),
-            ")",
+        b::typed(
+            "call",
+            self.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source),
         )
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum RawExpression {
+pub enum Expression {
     Literal(Literal),
     ExternalWord,
     Synthetic(Synthetic),
     Variable(Variable),
     Binary(Box<Binary>),
     Range(Box<Range>),
-    Block(Vec<Expression>),
-    List(Vec<Expression>),
+    Block(Vec<SpannedExpression>),
+    List(Vec<SpannedExpression>),
     Path(Box<Path>),
 
     FilePath(PathBuf),
@@ -110,22 +129,22 @@ pub enum RawExpression {
     Boolean(bool),
 }
 
-impl ShellTypeName for RawExpression {
+impl ShellTypeName for Expression {
     fn type_name(&self) -> &'static str {
         match self {
-            RawExpression::Literal(literal) => literal.type_name(),
-            RawExpression::Synthetic(synthetic) => synthetic.type_name(),
-            RawExpression::Command(..) => "command",
-            RawExpression::ExternalWord => "external word",
-            RawExpression::FilePath(..) => "file path",
-            RawExpression::Variable(..) => "variable",
-            RawExpression::List(..) => "list",
-            RawExpression::Binary(..) => "binary",
-            RawExpression::Range(..) => "range",
-            RawExpression::Block(..) => "block",
-            RawExpression::Path(..) => "variable path",
-            RawExpression::Boolean(..) => "boolean",
-            RawExpression::ExternalCommand(..) => "external",
+            Expression::Literal(literal) => literal.type_name(),
+            Expression::Synthetic(synthetic) => synthetic.type_name(),
+            Expression::Command(..) => "command",
+            Expression::ExternalWord => "external word",
+            Expression::FilePath(..) => "file path",
+            Expression::Variable(..) => "variable",
+            Expression::List(..) => "list",
+            Expression::Binary(..) => "binary",
+            Expression::Range(..) => "range",
+            Expression::Block(..) => "block",
+            Expression::Path(..) => "variable path",
+            Expression::Boolean(..) => "boolean",
+            Expression::ExternalCommand(..) => "external",
         }
     }
 }
@@ -143,16 +162,24 @@ impl ShellTypeName for Synthetic {
     }
 }
 
-impl RawExpression {
-    pub fn into_expr(self, span: impl Into<Span>) -> Expression {
-        Expression {
+impl IntoSpanned for Expression {
+    type Output = SpannedExpression;
+
+    fn into_spanned(self, span: impl Into<Span>) -> Self::Output {
+        SpannedExpression {
             expr: self,
             span: span.into(),
         }
     }
+}
 
-    pub fn into_unspanned_expr(self) -> Expression {
-        Expression {
+impl Expression {
+    pub fn into_expr(self, span: impl Into<Span>) -> SpannedExpression {
+        self.into_spanned(span)
+    }
+
+    pub fn into_unspanned_expr(self) -> SpannedExpression {
+        SpannedExpression {
             expr: self,
             span: Span::unknown(),
         }
@@ -160,40 +187,93 @@ impl RawExpression {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct Expression {
-    pub expr: RawExpression,
+pub struct SpannedExpression {
+    pub expr: Expression,
     pub span: Span,
 }
 
-impl std::ops::Deref for Expression {
-    type Target = RawExpression;
+impl std::ops::Deref for SpannedExpression {
+    type Target = Expression;
 
-    fn deref(&self) -> &RawExpression {
+    fn deref(&self) -> &Expression {
         &self.expr
     }
 }
 
-impl HasSpan for Expression {
+impl HasSpan for SpannedExpression {
     fn span(&self) -> Span {
         self.span
     }
 }
 
-impl PrettyDebugWithSource for Expression {
+impl ShellTypeName for SpannedExpression {
+    fn type_name(&self) -> &'static str {
+        self.expr.type_name()
+    }
+}
+
+impl PrettyDebugWithSource for SpannedExpression {
+    fn refined_pretty_debug(&self, refine: PrettyDebugRefineKind, source: &str) -> DebugDocBuilder {
+        match refine {
+            PrettyDebugRefineKind::ContextFree => self.refined_pretty_debug(refine, source),
+            PrettyDebugRefineKind::WithContext => match &self.expr {
+                Expression::Literal(literal) => literal
+                    .clone()
+                    .into_spanned(self.span)
+                    .refined_pretty_debug(refine, source),
+                Expression::ExternalWord => {
+                    b::delimit("e\"", b::primitive(self.span.slice(source)), "\"").group()
+                }
+                Expression::Synthetic(s) => match s {
+                    Synthetic::String(_) => {
+                        b::delimit("s\"", b::primitive(self.span.slice(source)), "\"").group()
+                    }
+                },
+                Expression::Variable(Variable::Other(_)) => b::keyword(self.span.slice(source)),
+                Expression::Variable(Variable::It(_)) => b::keyword("$it"),
+                Expression::Binary(binary) => binary.pretty_debug(source),
+                Expression::Range(range) => range.pretty_debug(source),
+                Expression::Block(_) => b::opaque("block"),
+                Expression::List(list) => b::delimit(
+                    "[",
+                    b::intersperse(
+                        list.iter()
+                            .map(|item| item.refined_pretty_debug(refine, source)),
+                        b::space(),
+                    ),
+                    "]",
+                ),
+                Expression::Path(path) => path.pretty_debug(source),
+                Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
+                Expression::ExternalCommand(external) => {
+                    b::keyword("^") + b::keyword(external.name.slice(source))
+                }
+                Expression::Command(command) => b::keyword(command.slice(source)),
+                Expression::Boolean(boolean) => match boolean {
+                    true => b::primitive("$yes"),
+                    false => b::primitive("$no"),
+                },
+            },
+        }
+    }
+
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match &self.expr {
-            RawExpression::Literal(literal) => literal.spanned(self.span).pretty_debug(source),
-            RawExpression::ExternalWord => {
+            Expression::Literal(literal) => {
+                literal.clone().into_spanned(self.span).pretty_debug(source)
+            }
+            Expression::ExternalWord => {
                 b::typed("external word", b::primitive(self.span.slice(source)))
             }
-            RawExpression::Synthetic(s) => match s {
+            Expression::Synthetic(s) => match s {
                 Synthetic::String(s) => b::typed("synthetic", b::primitive(format!("{:?}", s))),
             },
-            RawExpression::Variable(_) => b::keyword(self.span.slice(source)),
-            RawExpression::Binary(binary) => binary.pretty_debug(source),
-            RawExpression::Range(range) => range.pretty_debug(source),
-            RawExpression::Block(_) => b::opaque("block"),
-            RawExpression::List(list) => b::delimit(
+            Expression::Variable(Variable::Other(_)) => b::keyword(self.span.slice(source)),
+            Expression::Variable(Variable::It(_)) => b::keyword("$it"),
+            Expression::Binary(binary) => binary.pretty_debug(source),
+            Expression::Range(range) => range.pretty_debug(source),
+            Expression::Block(_) => b::opaque("block"),
+            Expression::List(list) => b::delimit(
                 "[",
                 b::intersperse(
                     list.iter().map(|item| item.pretty_debug(source)),
@@ -201,16 +281,16 @@ impl PrettyDebugWithSource for Expression {
                 ),
                 "]",
             ),
-            RawExpression::Path(path) => path.pretty_debug(source),
-            RawExpression::FilePath(path) => b::typed("path", b::primitive(path.display())),
-            RawExpression::ExternalCommand(external) => b::typed(
-                "external command",
-                b::primitive(external.name.slice(source)),
+            Expression::Path(path) => path.pretty_debug(source),
+            Expression::FilePath(path) => b::typed("path", b::primitive(path.display())),
+            Expression::ExternalCommand(external) => b::typed(
+                "command",
+                b::keyword("^") + b::primitive(external.name.slice(source)),
             ),
-            RawExpression::Command(command) => {
+            Expression::Command(command) => {
                 b::typed("command", b::primitive(command.slice(source)))
             }
-            RawExpression::Boolean(boolean) => match boolean {
+            Expression::Boolean(boolean) => match boolean {
                 true => b::primitive("$yes"),
                 false => b::primitive("$no"),
             },
@@ -218,118 +298,201 @@ impl PrettyDebugWithSource for Expression {
     }
 }
 
+impl SpannedExpression {
+    // pub fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
+    //     let span = span.into();
+
+    //     RawExpression::Literal(RawLiteral::Number(i.into()).into_literal(span)).into_expr(span)
+    // }
+
+    // pub fn size(i: impl Into<Number>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
+    //     let span = span.into();
+
+    //     RawExpression::Literal(RawLiteral::Size(i.into(), unit.into()).into_literal(span))
+    //         .into_expr(span)
+    // }
+
+    // pub fn synthetic_string(s: impl Into<String>) -> Expression {
+    //     RawExpression::Synthetic(Synthetic::String(s.into())).into_unspanned_expr()
+    // }
+
+    // pub fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    //     let outer = outer.into();
+
+    //     RawExpression::Literal(RawLiteral::String(inner.into()).into_literal(outer))
+    //         .into_expr(outer)
+    // }
+
+    // pub fn column_path(members: Vec<Member>, span: impl Into<Span>) -> Expression {
+    //     let span = span.into();
+
+    //     RawExpression::Literal(RawLiteral::ColumnPath(members).into_literal(span)).into_expr(span)
+    // }
+
+    // pub fn path(
+    //     head: Expression,
+    //     tail: Vec<impl Into<PathMember>>,
+    //     span: impl Into<Span>,
+    // ) -> Expression {
+    //     let tail = tail.into_iter().map(|t| t.into()).collect();
+    //     RawExpression::Path(Box::new(Path::new(head, tail))).into_expr(span.into())
+    // }
+
+    // pub fn dot_member(head: Expression, next: impl Into<PathMember>) -> Expression {
+    //     let Expression { expr: item, span } = head;
+    //     let next = next.into();
+
+    //     let new_span = head.span.until(next.span);
+
+    //     match item {
+    //         RawExpression::Path(path) => {
+    //             let (head, mut tail) = path.parts();
+
+    //             tail.push(next);
+    //             Expression::path(head, tail, new_span)
+    //         }
+
+    //         other => Expression::path(other.into_expr(span), vec![next], new_span),
+    //     }
+    // }
+
+    // pub fn infix(
+    //     left: Expression,
+    //     op: Spanned<impl Into<CompareOperator>>,
+    //     right: Expression,
+    // ) -> Expression {
+    //     let new_span = left.span.until(right.span);
+
+    //     RawExpression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
+    //         .into_expr(new_span)
+    // }
+
+    // pub fn range(left: Expression, op: Span, right: Expression) -> Expression {
+    //     let new_span = left.span.until(right.span);
+
+    //     RawExpression::Range(Box::new(Range::new(left, op, right))).into_expr(new_span)
+    // }
+
+    // pub fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
+    //     RawExpression::FilePath(path.into()).into_expr(outer)
+    // }
+
+    // pub fn list(list: Vec<Expression>, span: impl Into<Span>) -> Expression {
+    //     RawExpression::List(list).into_expr(span)
+    // }
+
+    // pub fn bare(span: impl Into<Span>) -> Expression {
+    //     let span = span.into();
+
+    //     RawExpression::Literal(RawLiteral::Bare.into_literal(span)).into_expr(span)
+    // }
+
+    // pub fn pattern(inner: impl Into<String>, outer: impl Into<Span>) -> Expression {
+    //     let outer = outer.into();
+
+    //     RawExpression::Literal(RawLiteral::GlobPattern(inner.into()).into_literal(outer))
+    //         .into_expr(outer)
+    // }
+
+    // pub fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    //     RawExpression::Variable(Variable::Other(inner.into())).into_expr(outer)
+    // }
+
+    // pub fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    //     RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).into_expr(outer)
+    // }
+
+    // pub fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
+    //     RawExpression::Variable(Variable::It(inner.into())).into_expr(outer)
+    // }
+}
+
 impl Expression {
-    pub fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
-        let span = span.into();
-
-        RawExpression::Literal(RawLiteral::Number(i.into()).into_literal(span)).into_expr(span)
+    pub fn number(i: impl Into<Number>) -> Expression {
+        Expression::Literal(Literal::Number(i.into()))
     }
 
-    pub fn size(i: impl Into<Number>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
-        let span = span.into();
-
-        RawExpression::Literal(RawLiteral::Size(i.into(), unit.into()).into_literal(span))
-            .into_expr(span)
+    pub fn size(i: impl Into<Number>, unit: impl Into<Unit>) -> Expression {
+        Expression::Literal(Literal::Size(i.into(), unit.into()))
     }
 
-    pub fn synthetic_string(s: impl Into<String>) -> Expression {
-        RawExpression::Synthetic(Synthetic::String(s.into())).into_unspanned_expr()
+    pub fn string(inner: impl Into<Span>) -> Expression {
+        Expression::Literal(Literal::String(inner.into()))
     }
 
-    pub fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        let outer = outer.into();
-
-        RawExpression::Literal(RawLiteral::String(inner.into()).into_literal(outer))
-            .into_expr(outer)
+    pub fn synthetic_string(string: impl Into<String>) -> Expression {
+        Expression::Synthetic(Synthetic::String(string.into()))
     }
 
-    pub fn column_path(members: Vec<Member>, span: impl Into<Span>) -> Expression {
-        let span = span.into();
-
-        RawExpression::Literal(RawLiteral::ColumnPath(members).into_literal(span)).into_expr(span)
+    pub fn column_path(members: Vec<Member>) -> Expression {
+        Expression::Literal(Literal::ColumnPath(members))
     }
 
-    pub fn path(
-        head: Expression,
-        tail: Vec<impl Into<PathMember>>,
-        span: impl Into<Span>,
-    ) -> Expression {
+    pub fn path(head: SpannedExpression, tail: Vec<impl Into<PathMember>>) -> Expression {
         let tail = tail.into_iter().map(|t| t.into()).collect();
-        RawExpression::Path(Box::new(Path::new(head, tail))).into_expr(span.into())
+        Expression::Path(Box::new(Path::new(head, tail)))
     }
 
-    pub fn dot_member(head: Expression, next: impl Into<PathMember>) -> Expression {
-        let Expression { expr: item, span } = head;
+    pub fn dot_member(head: SpannedExpression, next: impl Into<PathMember>) -> Expression {
+        let SpannedExpression { expr: item, span } = head;
         let next = next.into();
 
-        let new_span = head.span.until(next.span);
-
         match item {
-            RawExpression::Path(path) => {
+            Expression::Path(path) => {
                 let (head, mut tail) = path.parts();
 
                 tail.push(next);
-                Expression::path(head, tail, new_span)
+                Expression::path(head, tail)
             }
 
-            other => Expression::path(other.into_expr(span), vec![next], new_span),
+            other => Expression::path(other.into_expr(span), vec![next]),
         }
     }
 
     pub fn infix(
-        left: Expression,
+        left: SpannedExpression,
         op: Spanned<impl Into<CompareOperator>>,
-        right: Expression,
+        right: SpannedExpression,
     ) -> Expression {
-        let new_span = left.span.until(right.span);
-
-        RawExpression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
-            .into_expr(new_span)
+        Expression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
     }
 
-    pub fn range(left: Expression, op: Span, right: Expression) -> Expression {
-        let new_span = left.span.until(right.span);
-
-        RawExpression::Range(Box::new(Range::new(left, op, right))).into_expr(new_span)
+    pub fn range(left: SpannedExpression, op: Span, right: SpannedExpression) -> Expression {
+        Expression::Range(Box::new(Range::new(left, op, right)))
     }
 
-    pub fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
-        RawExpression::FilePath(path.into()).into_expr(outer)
+    pub fn file_path(path: impl Into<PathBuf>) -> Expression {
+        Expression::FilePath(path.into())
     }
 
-    pub fn list(list: Vec<Expression>, span: impl Into<Span>) -> Expression {
-        RawExpression::List(list).into_expr(span)
+    pub fn list(list: Vec<SpannedExpression>) -> Expression {
+        Expression::List(list)
     }
 
-    pub fn bare(span: impl Into<Span>) -> Expression {
-        let span = span.into();
-
-        RawExpression::Literal(RawLiteral::Bare.into_literal(span)).into_expr(span)
+    pub fn bare() -> Expression {
+        Expression::Literal(Literal::Bare)
     }
 
-    pub fn pattern(inner: impl Into<String>, outer: impl Into<Span>) -> Expression {
-        let outer = outer.into();
-
-        RawExpression::Literal(RawLiteral::GlobPattern(inner.into()).into_literal(outer))
-            .into_expr(outer)
+    pub fn pattern(inner: impl Into<String>) -> Expression {
+        Expression::Literal(Literal::GlobPattern(inner.into()))
     }
 
-    pub fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::Variable(Variable::Other(inner.into())).into_expr(outer)
+    pub fn variable(inner: impl Into<Span>) -> Expression {
+        Expression::Variable(Variable::Other(inner.into()))
     }
 
-    pub fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).into_expr(outer)
+    pub fn external_command(inner: impl Into<Span>) -> Expression {
+        Expression::ExternalCommand(ExternalCommand::new(inner.into()))
     }
 
-    pub fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-        RawExpression::Variable(Variable::It(inner.into())).into_expr(outer)
+    pub fn it_variable(inner: impl Into<Span>) -> Expression {
+        Expression::Variable(Variable::It(inner.into()))
     }
 }
 
-impl From<Spanned<Path>> for Expression {
-    fn from(path: Spanned<Path>) -> Expression {
-        RawExpression::Path(Box::new(path.item)).into_expr(path.span)
+impl From<Spanned<Path>> for SpannedExpression {
+    fn from(path: Spanned<Path>) -> SpannedExpression {
+        Expression::Path(Box::new(path.item)).into_expr(path.span)
     }
 }
 
@@ -339,7 +502,7 @@ impl From<Spanned<Path>> for Expression {
 /// 2. Can be evaluated without additional context
 /// 3. Evaluation cannot produce an error
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum RawLiteral {
+pub enum Literal {
     Number(Number),
     Size(Number, Unit),
     String(Span),
@@ -348,9 +511,9 @@ pub enum RawLiteral {
     Bare,
 }
 
-impl RawLiteral {
-    pub fn into_literal(self, span: impl Into<Span>) -> Literal {
-        Literal {
+impl Literal {
+    pub fn into_spanned(self, span: impl Into<Span>) -> SpannedLiteral {
+        SpannedLiteral {
             literal: self,
             span: span.into(),
         }
@@ -358,36 +521,57 @@ impl RawLiteral {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub struct Literal {
-    pub literal: RawLiteral,
+pub struct SpannedLiteral {
+    pub literal: Literal,
     pub span: Span,
 }
 
 impl ShellTypeName for Literal {
     fn type_name(&self) -> &'static str {
-        match &self.literal {
-            RawLiteral::Number(..) => "number",
-            RawLiteral::Size(..) => "size",
-            RawLiteral::String(..) => "string",
-            RawLiteral::ColumnPath(..) => "column path",
-            RawLiteral::Bare => "string",
-            RawLiteral::GlobPattern(_) => "pattern",
+        match &self {
+            Literal::Number(..) => "number",
+            Literal::Size(..) => "size",
+            Literal::String(..) => "string",
+            Literal::ColumnPath(..) => "column path",
+            Literal::Bare => "string",
+            Literal::GlobPattern(_) => "pattern",
         }
     }
 }
 
-impl PrettyDebugWithSource for Literal {
+impl PrettyDebugWithSource for SpannedLiteral {
+    fn refined_pretty_debug(&self, refine: PrettyDebugRefineKind, source: &str) -> DebugDocBuilder {
+        match refine {
+            PrettyDebugRefineKind::ContextFree => self.pretty_debug(source),
+            PrettyDebugRefineKind::WithContext => match &self.literal {
+                Literal::Number(number) => number.pretty(),
+                Literal::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
+                Literal::String(string) => b::primitive(format!("{:?}", string.slice(source))),
+                Literal::GlobPattern(pattern) => b::primitive(pattern),
+                Literal::ColumnPath(path) => {
+                    b::intersperse_with_source(path.iter(), b::space(), source)
+                }
+                Literal::Bare => b::delimit("b\"", b::primitive(self.span.slice(source)), "\""),
+            },
+        }
+    }
+
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match &self.literal {
-            RawLiteral::Number(number) => number.pretty(),
-            RawLiteral::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
-            RawLiteral::String(string) => b::primitive(format!("{:?}", string.slice(source))),
-            RawLiteral::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
-            RawLiteral::ColumnPath(path) => b::typed(
+            Literal::Number(number) => number.pretty(),
+            Literal::Size(number, unit) => {
+                b::typed("size", (number.pretty() + unit.pretty()).group())
+            }
+            Literal::String(string) => b::typed(
+                "string",
+                b::primitive(format!("{:?}", string.slice(source))),
+            ),
+            Literal::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
+            Literal::ColumnPath(path) => b::typed(
                 "column path",
                 b::intersperse_with_source(path.iter(), b::space(), source),
             ),
-            RawLiteral::Bare => b::primitive(self.span.slice(source)),
+            Literal::Bare => b::typed("bare", b::primitive(self.span.slice(source))),
         }
     }
 }

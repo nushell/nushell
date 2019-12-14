@@ -1,4 +1,4 @@
-use crate::hir::Expression;
+use crate::hir::SpannedExpression;
 use derive_new::new;
 use getset::{Getters, MutGetters};
 use nu_protocol::PathMember;
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[get = "pub"]
 pub struct Path {
-    head: Expression,
+    head: SpannedExpression,
     #[get_mut = "pub(crate)"]
     tail: Vec<PathMember>,
 }
@@ -35,7 +35,7 @@ impl PrettyDebugWithSource for Path {
 }
 
 impl Path {
-    pub(crate) fn parts(self) -> (Expression, Vec<PathMember>) {
+    pub(crate) fn parts(self) -> (SpannedExpression, Vec<PathMember>) {
         (self.head, self.tail)
     }
 }

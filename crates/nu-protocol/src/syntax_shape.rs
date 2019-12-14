@@ -18,16 +18,16 @@ pub enum SyntaxShape {
 impl PrettyDebug for SyntaxShape {
     fn pretty(&self) -> DebugDocBuilder {
         b::kind(match self {
-            SyntaxShape::Any => "any shape",
-            SyntaxShape::String => "string shape",
-            SyntaxShape::Member => "member shape",
-            SyntaxShape::ColumnPath => "column path shape",
-            SyntaxShape::Number => "number shape",
-            SyntaxShape::Range => "range shape",
-            SyntaxShape::Int => "integer shape",
-            SyntaxShape::Path => "file path shape",
-            SyntaxShape::Pattern => "pattern shape",
-            SyntaxShape::Block => "block shape",
+            SyntaxShape::Any => "any",
+            SyntaxShape::String => "string",
+            SyntaxShape::Member => "member",
+            SyntaxShape::ColumnPath => "column path",
+            SyntaxShape::Number => "number",
+            SyntaxShape::Range => "range",
+            SyntaxShape::Int => "integer",
+            SyntaxShape::Path => "file path",
+            SyntaxShape::Pattern => "pattern",
+            SyntaxShape::Block => "block",
         })
     }
 }

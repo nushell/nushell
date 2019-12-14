@@ -100,13 +100,7 @@ pub fn autoview(
                                     let first = &input[0];
 
                                     let mut host = context.host.clone();
-                                    let mut host = match host.lock() {
-                                        Err(err) => {
-                                            errln!("Unexpected error acquiring host lock: {:?}", err);
-                                            return;
-                                        }
-                                        Ok(val) => val
-                                    };
+                                    let host = host.lock();
 
                                     crate::cli::print_err(first.value.expect_error(), &*host, &context.source);
                                     return;
@@ -114,12 +108,11 @@ pub fn autoview(
 
                                 let mut command_args = raw.with_input(input);
                                 let mut named_args = NamedArguments::new();
-                                named_args.insert_optional("start_number", Some(Expression::number(current_idx, Tag::unknown())));
+                                named_args.insert_optional("start_number", Some(Expression::number(current_idx).into_expr(Span::unknown())));
                                 command_args.call_info.args.named = Some(named_args);
 
                                 let result = table.run(command_args, &context.commands);
                                 result.collect::<Vec<_>>().await;
-
 
                                 if finished {
                                     break;

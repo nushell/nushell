@@ -7,6 +7,7 @@ use crate::data::command_dict;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use nu_errors::ShellError;
+use nu_parser::ExpandContext;
 use nu_protocol::{
     Primitive, ReturnSuccess, ShellTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
@@ -240,7 +241,13 @@ impl Shell for HelpShell {
         Ok((replace_pos, completions))
     }
 
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String> {
+    fn hint(
+        &self,
+        _line: &str,
+        _pos: usize,
+        _ctx: &rustyline::Context<'_>,
+        _context: ExpandContext,
+    ) -> Option<String> {
         None
     }
 }

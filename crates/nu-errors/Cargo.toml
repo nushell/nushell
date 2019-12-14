@@ -20,6 +20,7 @@ num-traits = "0.2.10"
 serde = { version = "1.0.103", features = ["derive"] }
 nom = "5.0.1"
 nom_locate = "1.0.0"
+getset = "0.0.9"
 
 # implement conversions
 subprocess = "0.1.18"

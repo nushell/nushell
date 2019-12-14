@@ -1,8 +1,8 @@
-use crate::hir::Expression;
+use crate::hir::SpannedExpression;
 use crate::Flag;
 use indexmap::IndexMap;
 use log::trace;
-use nu_source::{b, DebugDocBuilder, PrettyDebugWithSource, Tag};
+use nu_source::{b, DebugDocBuilder, PrettyDebugRefineKind, PrettyDebugWithSource, Tag};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -10,7 +10,7 @@ pub enum NamedValue {
     AbsentSwitch,
     PresentSwitch(Tag),
     AbsentValue,
-    Value(Expression),
+    Value(SpannedExpression),
 }
 
 impl PrettyDebugWithSource for NamedValue {
@@ -20,6 +20,18 @@ impl PrettyDebugWithSource for NamedValue {
             NamedValue::PresentSwitch(_) => b::typed("switch", b::description("present")),
             NamedValue::AbsentValue => b::description("absent"),
             NamedValue::Value(value) => value.pretty_debug(source),
+        }
+    }
+
+    fn refined_pretty_debug(&self, refine: PrettyDebugRefineKind, source: &str) -> DebugDocBuilder {
+        match refine {
+            PrettyDebugRefineKind::ContextFree => self.pretty_debug(source),
+            PrettyDebugRefineKind::WithContext => match self {
+                NamedValue::AbsentSwitch => b::value("absent"),
+                NamedValue::PresentSwitch(_) => b::value("present"),
+                NamedValue::AbsentValue => b::value("absent"),
+                NamedValue::Value(value) => value.refined_pretty_debug(refine, source),
+            },
         }
     }
 }
@@ -58,28 +70,37 @@ impl NamedArguments {
         };
     }
 
-    pub fn insert_optional(&mut self, name: impl Into<String>, expr: Option<Expression>) {
+    pub fn insert_optional(&mut self, name: impl Into<String>, expr: Option<SpannedExpression>) {
         match expr {
             None => self.named.insert(name.into(), NamedValue::AbsentValue),
             Some(expr) => self.named.insert(name.into(), NamedValue::Value(expr)),
         };
     }
 
-    pub fn insert_mandatory(&mut self, name: impl Into<String>, expr: Expression) {
+    pub fn insert_mandatory(&mut self, name: impl Into<String>, expr: SpannedExpression) {
         self.named.insert(name.into(), NamedValue::Value(expr));
     }
 }
 
 impl PrettyDebugWithSource for NamedArguments {
+    fn refined_pretty_debug(&self, refine: PrettyDebugRefineKind, source: &str) -> DebugDocBuilder {
+        match refine {
+            PrettyDebugRefineKind::ContextFree => self.pretty_debug(source),
+            PrettyDebugRefineKind::WithContext => b::intersperse(
+                self.named.iter().map(|(key, value)| {
+                    b::key(key)
+                        + b::equals()
+                        + value.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source)
+                }),
+                b::space(),
+            ),
+        }
+    }
+
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::delimit(
             "(",
-            b::intersperse(
-                self.named
-                    .iter()
-                    .map(|(key, value)| b::key(key) + b::equals() + value.pretty_debug(source)),
-                b::space(),
-            ),
+            self.refined_pretty_debug(PrettyDebugRefineKind::WithContext, source),
             ")",
         )
     }

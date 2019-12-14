@@ -1,7 +1,7 @@
-use crate::hir::syntax_shape::FlatShape;
+use crate::hir::syntax_shape::flat_shape::{FlatShape, ShapeResult};
 use ansi_term::Color;
 use log::trace;
-use nu_errors::ShellError;
+use nu_errors::{ParseError, ShellError};
 use nu_source::{Spanned, Text};
 use ptree::*;
 use std::borrow::Cow;
@@ -10,14 +10,24 @@ use std::io;
 #[derive(Debug, Clone)]
 pub enum FrameChild {
     #[allow(unused)]
-    Shape(Spanned<FlatShape>),
+    Shape(ShapeResult),
     Frame(ColorFrame),
 }
 
 impl FrameChild {
     fn colored_leaf_description(&self, text: &Text, f: &mut impl io::Write) -> io::Result<()> {
         match self {
-            FrameChild::Shape(shape) => write!(
+            FrameChild::Shape(ShapeResult::Success(shape)) => write!(
+                f,
+                "{} {:?}",
+                Color::White
+                    .bold()
+                    .on(Color::Green)
+                    .paint(format!("{:?}", shape.item)),
+                shape.span.slice(text)
+            ),
+
+            FrameChild::Shape(ShapeResult::Fallback { shape, .. }) => write!(
                 f,
                 "{} {:?}",
                 Color::White
@@ -43,7 +53,7 @@ impl FrameChild {
 pub struct ColorFrame {
     description: &'static str,
     children: Vec<FrameChild>,
-    error: Option<ShellError>,
+    error: Option<ParseError>,
 }
 
 impl ColorFrame {
@@ -98,8 +108,7 @@ impl ColorFrame {
             .collect()
     }
 
-    #[allow(unused)]
-    fn add_shape(&mut self, shape: Spanned<FlatShape>) {
+    fn add_shape(&mut self, shape: ShapeResult) {
         self.children.push(FrameChild::Shape(shape))
     }
 
@@ -107,11 +116,11 @@ impl ColorFrame {
         self.any_child_shape(|_| true)
     }
 
-    fn any_child_shape(&self, predicate: impl Fn(Spanned<FlatShape>) -> bool) -> bool {
+    fn any_child_shape(&self, predicate: impl Fn(&ShapeResult) -> bool) -> bool {
         for item in &self.children {
             match item {
                 FrameChild::Shape(shape) => {
-                    if predicate(*shape) {
+                    if predicate(shape) {
                         return true;
                     }
                 }
@@ -180,14 +189,24 @@ impl ColorFrame {
 
 #[derive(Debug, Clone)]
 pub enum TreeChild {
-    Shape(Spanned<FlatShape>, Text),
+    Shape(ShapeResult, Text),
     Frame(ColorFrame, Text),
 }
 
 impl TreeChild {
     fn colored_leaf_description(&self, f: &mut impl io::Write) -> io::Result<()> {
         match self {
-            TreeChild::Shape(shape, text) => write!(
+            TreeChild::Shape(ShapeResult::Success(shape), text) => write!(
+                f,
+                "{} {:?}",
+                Color::White
+                    .bold()
+                    .on(Color::Green)
+                    .paint(format!("{:?}", shape.item)),
+                shape.span.slice(text)
+            ),
+
+            TreeChild::Shape(ShapeResult::Fallback { shape, .. }, text) => write!(
                 f,
                 "{} {:?}",
                 Color::White
@@ -298,8 +317,7 @@ impl ColorTracer {
         }
     }
 
-    #[allow(unused)]
-    pub fn add_shape(&mut self, shape: Spanned<FlatShape>) {
+    pub fn add_shape(&mut self, shape: ShapeResult) {
         self.current_frame().add_shape(shape);
     }
 
@@ -310,7 +328,7 @@ impl ColorTracer {
             .push(FrameChild::Frame(current));
     }
 
-    pub fn failed(&mut self, error: &ShellError) {
+    pub fn failed(&mut self, error: &ParseError) {
         let mut current = self.pop_frame();
         current.error = Some(error.clone());
         self.current_frame()

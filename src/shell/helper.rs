@@ -1,10 +1,9 @@
 use crate::context::Context;
-use ansi_term::Color;
-use log::{log_enabled, trace};
-use nu_parser::hir::syntax_shape::color_fallible_syntax;
-use nu_parser::{FlatShape, PipelineShape, TokenNode, TokensIterator};
-use nu_protocol::outln;
-use nu_source::{nom_input, HasSpan, Spanned, Tag, Tagged, Text};
+use ansi_term::{Color, Style};
+use log::log_enabled;
+use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
+use nu_protocol::{errln, outln};
+use nu_source::{nom_input, HasSpan, Tag, Tagged, Text};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -39,7 +38,10 @@ impl Completer for Helper {
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.context.shell_manager.hint(line, pos, ctx)
+        let text = Text::from(line);
+        self.context
+            .shell_manager
+            .hint(line, pos, ctx, self.context.expand_context(&text))
     }
 }
 
@@ -74,25 +76,31 @@ impl Highlighter for Helper {
                     Ok(v) => v,
                 };
 
-                let tokens = vec![TokenNode::Pipeline(pipeline.clone())];
-                let mut tokens = TokensIterator::all(&tokens[..], Text::from(line), v.span());
-
                 let text = Text::from(line);
                 let expand_context = self.context.expand_context(&text);
 
+                let tokens = vec![Token::Pipeline(pipeline.clone()).into_spanned(v.span())];
+                let mut tokens = TokensIterator::new(&tokens[..], expand_context, v.span());
+
                 let shapes = {
                     // We just constructed a token list that only contains a pipeline, so it can't fail
-                    color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context).unwrap();
-                    tokens.with_color_tracer(|_, tracer| tracer.finish());
+                    let result = tokens.expand_infallible(PipelineShape);
+
+                    if let Some(failure) = result.failed {
+                        errln!(
+                            "BUG: PipelineShape didn't find a pipeline :: {:#?}",
+                            failure
+                        );
+                    }
+
+                    tokens.finish_tracer();
 
                     tokens.state().shapes()
                 };
 
-                trace!(target: "nu::color_syntax", "{:#?}", tokens.color_tracer());
-
-                if log_enabled!(target: "nu::color_syntax", log::Level::Debug) {
+                if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
                     outln!("");
-                    ptree::print_tree(&tokens.color_tracer().clone().print(Text::from(line)))
+                    ptree::print_tree(&tokens.expand_tracer().clone().print(Text::from(line)))
                         .unwrap();
                     outln!("");
                 }
@@ -124,44 +132,45 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
     })
 }
 
-fn paint_flat_shape(flat_shape: &Spanned<FlatShape>, line: &str) -> String {
-    let style = match &flat_shape.item {
-        FlatShape::OpenDelimiter(_) => Color::White.normal(),
-        FlatShape::CloseDelimiter(_) => Color::White.normal(),
-        FlatShape::ItVariable => Color::Purple.bold(),
-        FlatShape::Variable => Color::Purple.normal(),
-        FlatShape::CompareOperator => Color::Yellow.normal(),
-        FlatShape::DotDot => Color::Yellow.bold(),
-        FlatShape::Dot => Color::White.normal(),
-        FlatShape::InternalCommand => Color::Cyan.bold(),
-        FlatShape::ExternalCommand => Color::Cyan.normal(),
-        FlatShape::ExternalWord => Color::Black.bold(),
-        FlatShape::BareMember => Color::Yellow.bold(),
-        FlatShape::StringMember => Color::Yellow.bold(),
-        FlatShape::String => Color::Green.normal(),
-        FlatShape::Path => Color::Cyan.normal(),
-        FlatShape::GlobPattern => Color::Cyan.bold(),
-        FlatShape::Word => Color::Green.normal(),
-        FlatShape::Pipe => Color::Purple.bold(),
-        FlatShape::Flag => Color::Black.bold(),
-        FlatShape::ShorthandFlag => Color::Black.bold(),
-        FlatShape::Int => Color::Purple.bold(),
-        FlatShape::Decimal => Color::Purple.bold(),
-        FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-        FlatShape::Comment => Color::Black.bold(),
-        FlatShape::Error => Color::Red.bold(),
-        FlatShape::Size { number, unit } => {
-            let number = number.slice(line);
-            let unit = unit.slice(line);
-            return format!(
-                "{}{}",
-                Color::Purple.bold().paint(number),
-                Color::Cyan.bold().paint(unit)
-            );
-        }
+fn paint_flat_shape(flat_shape: &ShapeResult, line: &str) -> String {
+    let style = match &flat_shape {
+        ShapeResult::Success(shape) => match shape.item {
+            FlatShape::OpenDelimiter(_) | FlatShape::CloseDelimiter(_) => Color::White.normal(),
+            FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
+            FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
+            FlatShape::Type => Color::Black.bold(),
+            FlatShape::CompareOperator => Color::Yellow.normal(),
+            FlatShape::DotDot => Color::Yellow.bold(),
+            FlatShape::Dot => Color::White.normal(),
+            FlatShape::InternalCommand => Color::Cyan.bold(),
+            FlatShape::ExternalCommand => Color::Cyan.normal(),
+            FlatShape::ExternalWord => Color::Black.bold(),
+            FlatShape::BareMember | FlatShape::StringMember => Color::Yellow.bold(),
+            FlatShape::String => Color::Green.normal(),
+            FlatShape::Path => Color::Cyan.normal(),
+            FlatShape::GlobPattern => Color::Purple.normal(),
+            FlatShape::Word => Color::Green.normal(),
+            FlatShape::Pipe => Color::Purple.bold(),
+            FlatShape::Flag => Color::Black.bold(),
+            FlatShape::ShorthandFlag => Color::Black.bold(),
+            FlatShape::Int => Color::Purple.bold(),
+            FlatShape::Decimal => Color::Purple.bold(),
+            FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
+            FlatShape::Comment => Color::Black.bold(),
+            FlatShape::Size { number, unit } => {
+                let number = number.slice(line);
+                let unit = unit.slice(line);
+                return format!(
+                    "{}{}",
+                    Color::Purple.bold().paint(number),
+                    Color::Cyan.bold().paint(unit)
+                );
+            }
+        },
+        ShapeResult::Fallback { .. } => Style::new().fg(Color::White).on(Color::Red),
     };
 
-    let body = flat_shape.span.slice(line);
+    let body = flat_shape.span().slice(line);
     style.paint(body).to_string()
 }
 

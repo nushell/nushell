@@ -1,8 +1,8 @@
 #![allow(unused)]
 
 use crate::parse::{
-    call_node::*, flag::*, operator::*, pipeline::*, token_tree::*, token_tree_builder::*,
-    tokens::*, unit::*,
+    call_node::*, flag::*, number::*, operator::*, pipeline::*, token_tree::*,
+    token_tree_builder::*, unit::*,
 };
 use nom;
 use nom::branch::*;
@@ -36,7 +36,7 @@ use std::str::FromStr;
 macro_rules! cmp_operator {
     ($name:tt : $token:tt ) => {
         #[tracable_parser]
-        pub fn $name(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+        pub fn $name(input: NomSpan) -> IResult<NomSpan, $crate::parse::token_tree::SpannedToken> {
             let start = input.offset;
             let (input, tag) = tag($token)(input)?;
             let end = input.offset;
@@ -52,7 +52,7 @@ macro_rules! cmp_operator {
 macro_rules! eval_operator {
     ($name:tt : $token:tt ) => {
         #[tracable_parser]
-        pub fn $name(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+        pub fn $name(input: NomSpan) -> IResult<NomSpan, $crate::parse::token_tree::SpannedToken> {
             let start = input.offset;
             let (input, tag) = tag($token)(input)?;
             let end = input.offset;
@@ -201,7 +201,7 @@ impl Into<Number> for BigInt {
 }
 
 #[tracable_parser]
-pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn number(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, number) = raw_number(input)?;
 
     Ok((
@@ -211,11 +211,23 @@ pub fn number(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
+pub fn int_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+    let start = input.offset;
+    let (input, head) = digit1(input)?;
+
+    Ok((
+        input,
+        Token::Number(RawNumber::int((start, input.offset))).into_spanned((start, input.offset)),
+    ))
+}
+
+#[tracable_parser]
 pub fn raw_number(input: NomSpan) -> IResult<NomSpan, RawNumber> {
     let anchoral = input;
     let start = input.offset;
     let (input, neg) = opt(tag("-"))(input)?;
     let (input, head) = digit1(input)?;
+    let after_int_head = input;
 
     match input.fragment.chars().next() {
         None => return Ok((input, RawNumber::int(Span::new(start, input.offset)))),
@@ -251,7 +263,17 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, RawNumber> {
         Err(_) => return Ok((input, RawNumber::int(Span::new(start, input.offset)))),
     };
 
-    let (input, tail) = digit1(input)?;
+    let tail_digits_result: IResult<NomSpan, _> = digit1(input);
+
+    let (input, tail) = match tail_digits_result {
+        Ok((input, tail)) => (input, tail),
+        Err(_) => {
+            return Ok((
+                after_int_head,
+                RawNumber::int((start, after_int_head.offset)),
+            ))
+        }
+    };
 
     let end = input.offset;
 
@@ -268,14 +290,14 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, RawNumber> {
 }
 
 #[tracable_parser]
-pub fn operator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn operator(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, operator) = alt((gte, lte, neq, gt, lt, eq, cont, ncont))(input)?;
 
     Ok((input, operator))
 }
 
 #[tracable_parser]
-pub fn dq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('"')(input)?;
     let start1 = input.offset;
@@ -290,7 +312,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn sq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn sq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('\'')(input)?;
     let start1 = input.offset;
@@ -306,12 +328,12 @@ pub fn sq_string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn string(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     alt((sq_string, dq_string))(input)
 }
 
 #[tracable_parser]
-pub fn external(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn external(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = tag("^")(input)?;
     let (input, bare) = take_while(is_file_char)(input)?;
@@ -366,7 +388,7 @@ pub fn matches(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpan, N
 }
 
 #[tracable_parser]
-pub fn pattern(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn pattern(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     word(
         start_pattern,
         matches(is_glob_char),
@@ -380,7 +402,7 @@ pub fn start_pattern(input: NomSpan) -> IResult<NomSpan, NomSpan> {
 }
 
 #[tracable_parser]
-pub fn filename(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn filename(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start_pos = input.offset;
 
     let (mut input, mut saw_special) = match start_file_char(input) {
@@ -492,7 +514,7 @@ pub fn start_filename(input: NomSpan) -> IResult<NomSpan, NomSpan> {
 }
 
 #[tracable_parser]
-pub fn member(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     word(
         matches(is_start_member_char),
         matches(is_member_char),
@@ -506,7 +528,7 @@ pub fn ident(input: NomSpan) -> IResult<NomSpan, Tag> {
 }
 
 #[tracable_parser]
-pub fn external_word(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn external_word(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = take_while1(is_external_word_char)(input)?;
     let end = input.offset;
@@ -514,22 +536,48 @@ pub fn external_word(input: NomSpan) -> IResult<NomSpan, TokenNode> {
     Ok((input, TokenTreeBuilder::spanned_external_word((start, end))))
 }
 
+enum OneOf<T, U> {
+    First(T),
+    Second(U),
+}
+
+trait SubParser<'a, T>: Sized + Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, T> {}
+
+impl<'a, T, U> SubParser<'a, U> for T where T: Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, U> {}
+
+fn one_of<'a, T, U>(
+    first: impl SubParser<'a, T>,
+    second: impl SubParser<'a, U>,
+) -> impl SubParser<'a, OneOf<T, U>> {
+    move |input: NomSpan<'a>| -> IResult<NomSpan, OneOf<T, U>> {
+        let first_result = first(input);
+
+        match first_result {
+            Ok((input, val)) => Ok((input, OneOf::First(val))),
+            Err(_) => {
+                let (input, val) = second(input)?;
+                Ok((input, OneOf::Second(val)))
+            }
+        }
+    }
+}
+
 #[tracable_parser]
-pub fn var(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn var(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = tag("$")(input)?;
-    let (input, bare) = ident(input)?;
+    let (input, name) = one_of(tag("it"), ident)(input)?;
     let end = input.offset;
 
-    Ok((
-        input,
-        TokenTreeBuilder::spanned_var(bare, Span::new(start, end)),
-    ))
+    match name {
+        OneOf::First(it) => Ok((input, TokenTreeBuilder::spanned_it_var(it, (start, end)))),
+        OneOf::Second(name) => Ok((input, TokenTreeBuilder::spanned_var(name, (start, end)))),
+    }
 }
 
 fn tight<'a>(
-    parser: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, Vec<TokenNode>>,
-) -> impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, Vec<TokenNode>> {
+    parser: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, Vec<SpannedToken>>,
+) -> impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, Vec<SpannedToken>> {
     move |input: NomSpan| {
         let mut result = vec![];
         let (input, head) = parser(input)?;
@@ -557,7 +605,7 @@ fn tight<'a>(
 }
 
 #[tracable_parser]
-pub fn flag(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn flag(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = tag("--")(input)?;
     let (input, bare) = filename(input)?;
@@ -570,7 +618,7 @@ pub fn flag(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn shorthand(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn shorthand(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = tag("-")(input)?;
     let (input, bare) = filename(input)?;
@@ -583,14 +631,14 @@ pub fn shorthand(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn leaf(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn leaf(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, node) = alt((number, string, operator, flag, shorthand, var, external))(input)?;
 
     Ok((input, node))
 }
 
 #[tracable_parser]
-pub fn token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNode>>> {
+pub fn token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<SpannedToken>>> {
     let start = input.offset;
     let mut node_list = vec![];
 
@@ -655,7 +703,7 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNode>>> {
 }
 
 #[tracable_parser]
-pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNode>>> {
+pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<SpannedToken>>> {
     let start = input.offset;
     let (input, pre_ws) = opt(any_space)(input)?;
     let (input, items) = token_list(input)?;
@@ -672,10 +720,10 @@ pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNo
 }
 
 fn make_token_list(
-    first: Vec<TokenNode>,
-    list: Vec<(Vec<TokenNode>, Vec<TokenNode>)>,
-    sp_right: Option<TokenNode>,
-) -> Vec<TokenNode> {
+    first: Vec<SpannedToken>,
+    list: Vec<(Vec<SpannedToken>, Vec<SpannedToken>)>,
+    sp_right: Option<SpannedToken>,
+) -> Vec<SpannedToken> {
     let mut nodes = vec![];
 
     nodes.extend(first);
@@ -693,7 +741,7 @@ fn make_token_list(
 }
 
 #[tracable_parser]
-pub fn separator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn separator(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let left = input.offset;
     let (input, ws1) = alt((tag(";"), tag("\n")))(input)?;
     let right = input.offset;
@@ -702,7 +750,7 @@ pub fn separator(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn whitespace(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let left = input.offset;
     let (input, ws1) = space1(input)?;
     let right = input.offset;
@@ -711,7 +759,7 @@ pub fn whitespace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn any_space(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+pub fn any_space(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     let left = input.offset;
     let (input, tokens) = many1(alt((whitespace, separator, comment)))(input)?;
     let right = input.offset;
@@ -720,7 +768,7 @@ pub fn any_space(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
 }
 
 #[tracable_parser]
-pub fn comment(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn comment(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let left = input.offset;
     let (input, start) = tag("#")(input)?;
     let (input, rest) = not_line_ending(input)?;
@@ -737,7 +785,7 @@ pub fn comment(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 pub fn delimited(
     input: NomSpan,
     delimiter: Delimiter,
-) -> IResult<NomSpan, (Span, Span, Spanned<Vec<TokenNode>>)> {
+) -> IResult<NomSpan, (Span, Span, Spanned<Vec<SpannedToken>>)> {
     let left = input.offset;
     let (input, open_span) = tag(delimiter.open())(input)?;
     let (input, inner_items) = opt(spaced_token_list)(input)?;
@@ -761,7 +809,7 @@ pub fn delimited(
 }
 
 #[tracable_parser]
-pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, (left, right, tokens)) = delimited(input, Delimiter::Paren)?;
 
     Ok((
@@ -771,7 +819,7 @@ pub fn delimited_paren(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, (left, right, tokens)) = delimited(input, Delimiter::Square)?;
 
     Ok((
@@ -781,7 +829,7 @@ pub fn delimited_square(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, (left, right, tokens)) = delimited(input, Delimiter::Brace)?;
 
     Ok((
@@ -803,7 +851,7 @@ pub fn raw_call(input: NomSpan) -> IResult<NomSpan, Spanned<CallNode>> {
 }
 
 #[tracable_parser]
-pub fn range_continuation(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+pub fn range_continuation(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     let original = input;
 
     let mut result = vec![];
@@ -817,7 +865,7 @@ pub fn range_continuation(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
 }
 
 #[tracable_parser]
-pub fn dot_member(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+pub fn dot_member(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     let (input, dot_result) = dot(input)?;
     let (input, member_result) = any_member(input)?;
 
@@ -825,12 +873,12 @@ pub fn dot_member(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
 }
 
 #[tracable_parser]
-pub fn any_member(input: NomSpan) -> IResult<NomSpan, TokenNode> {
-    alt((number, string, member))(input)
+pub fn any_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+    alt((int_member, string, member))(input)
 }
 
 #[tracable_parser]
-pub fn tight_node(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+pub fn tight_node(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     alt((
         tight(to_list(leaf)),
         tight(to_list(filename)),
@@ -844,8 +892,8 @@ pub fn tight_node(input: NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
 }
 
 fn to_list(
-    parser: impl Fn(NomSpan) -> IResult<NomSpan, TokenNode>,
-) -> impl Fn(NomSpan) -> IResult<NomSpan, Vec<TokenNode>> {
+    parser: impl Fn(NomSpan) -> IResult<NomSpan, SpannedToken>,
+) -> impl Fn(NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     move |input| {
         let (input, next) = parser(input)?;
 
@@ -854,17 +902,18 @@ fn to_list(
 }
 
 #[tracable_parser]
-pub fn nodes(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn nodes(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, tokens) = token_list(input)?;
+    let span = tokens.span;
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_token_list(tokens.item, tokens.span),
+        TokenTreeBuilder::spanned_pipeline(vec![PipelineElement::new(None, tokens)], span),
     ))
 }
 
 #[tracable_parser]
-pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn pipeline(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, head) = spaced_token_list(input)?;
     let (input, items) = many0(tuple((tag("|"), spaced_token_list)))(input)?;
@@ -893,7 +942,7 @@ pub fn pipeline(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 #[tracable_parser]
-pub fn module(input: NomSpan) -> IResult<NomSpan, TokenNode> {
+pub fn module(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, tokens) = spaced_token_list(input)?;
 
     if input.input_len() != 0 {
@@ -1233,7 +1282,7 @@ mod tests {
     fn test_variable() {
         equal_tokens! {
             <nodes>
-            "$it" -> b::token_list(vec![b::var("it")])
+            "$it" -> b::token_list(vec![b::it_var()])
         }
 
         equal_tokens! {
@@ -1324,12 +1373,22 @@ mod tests {
 
         equal_tokens! {
             <nodes>
-            "$it.print" -> b::token_list(vec![b::var("it"), b::dot(), b::bare("print")])
+            "$it.print" -> b::token_list(vec![b::it_var(), b::dot(), b::bare("print")])
         }
 
         equal_tokens! {
             <nodes>
-            "$it.0" -> b::token_list(vec![b::var("it"), b::dot(), b::int(0)])
+            "1.b" -> b::token_list(vec![b::int(1), b::dot(), b::bare("b")])
+        }
+
+        equal_tokens! {
+            <nodes>
+            "$it.0" -> b::token_list(vec![b::it_var(), b::dot(), b::int(0)])
+        }
+
+        equal_tokens! {
+            <nodes>
+            "fortune_tellers.2.name" -> b::token_list(vec![b::bare("fortune_tellers"), b::dot(), b::int(2), b::dot(), b::bare("name")])
         }
 
         equal_tokens! {
@@ -1356,7 +1415,7 @@ mod tests {
                 vec![
                     b::parens(vec![
                         b::sp(),
-                        b::var("it"),
+                        b::it_var(),
                         b::dot(),
                         b::bare("is"),
                         b::dot(),
@@ -1377,7 +1436,7 @@ mod tests {
             <nodes>
             r#"$it."are PAS".0"# -> b::token_list(
                 vec![
-                    b::var("it"),
+                    b::it_var(),
                     b::dot(),
                     b::string("are PAS"),
                     b::dot(),
@@ -1406,7 +1465,7 @@ mod tests {
 
         equal_tokens! {
             <nodes>
-            "echo $it" -> b::token_list(vec![b::bare("echo"), b::sp(), b::var("it")])
+            "echo $it" -> b::token_list(vec![b::bare("echo"), b::sp(), b::it_var()])
         }
 
         equal_tokens! {
@@ -1580,7 +1639,7 @@ mod tests {
     //                     b::bare("where"),
     //                     vec![
     //                         b::sp(),
-    //                         b::var("it"),
+    //                         b::it_var(),
     //                         b::sp(),
     //                         b::op("!="),
     //                         b::sp(),
@@ -1603,7 +1662,7 @@ mod tests {
     //                     vec![
     //                         b::sp(),
     //                         b::braced(vec![
-    //                             b::path(b::var("it"), vec![b::member("size")]),
+    //                             b::path(b::it_var(), vec![b::member("size")]),
     //                             b::sp(),
     //                             b::op(">"),
     //                             b::sp(),
@@ -1618,10 +1677,13 @@ mod tests {
     // }
 
     fn apply(
-        f: impl Fn(NomSpan) -> Result<(NomSpan, TokenNode), nom::Err<(NomSpan, nom::error::ErrorKind)>>,
+        f: impl Fn(
+            NomSpan,
+        )
+            -> Result<(NomSpan, SpannedToken), nom::Err<(NomSpan, nom::error::ErrorKind)>>,
         desc: &str,
         string: &str,
-    ) -> TokenNode {
+    ) -> SpannedToken {
         let result = f(nom_input(string));
 
         match result {
@@ -1642,20 +1704,15 @@ mod tests {
 
     fn delimited(
         delimiter: Spanned<Delimiter>,
-        children: Vec<TokenNode>,
+        children: Vec<SpannedToken>,
         left: usize,
         right: usize,
-    ) -> TokenNode {
+    ) -> SpannedToken {
         let start = Span::for_char(left);
         let end = Span::for_char(right);
 
         let node = DelimitedNode::new(delimiter.item, (start, end), children);
-        let spanned = node.spanned(Span::new(left, right));
-        TokenNode::Delimited(spanned)
-    }
-
-    fn token(token: UnspannedToken, left: usize, right: usize) -> TokenNode {
-        TokenNode::Token(token.into_token(Span::new(left, right)))
+        Token::Delimited(node).into_spanned((left, right))
     }
 
     fn build<T>(block: CurriedNode<T>) -> T {
@@ -1663,7 +1720,7 @@ mod tests {
         block(&mut builder)
     }
 
-    fn build_token(block: CurriedToken) -> TokenNode {
+    fn build_token(block: CurriedToken) -> SpannedToken {
         TokenTreeBuilder::build(block).0
     }
 }
