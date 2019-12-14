@@ -1,7 +1,8 @@
 use std::ffi::OsStr;
 
 use futures::executor::block_on;
-use futures::stream::StreamExt;
+//use futures::stream::StreamExt;
+use futures_util::StreamExt;
 use heim::units::{frequency, information, thermodynamic_temperature, time};
 use heim::{disk, host, memory, net, sensors};
 use nu_errors::ShellError;

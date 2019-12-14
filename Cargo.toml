@@ -125,7 +125,7 @@ natural = "0.3.0"
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 starship = { version = "0.28", optional = true}
-heim = {version = "0.0.8", optional = true}
+heim = {version = "0.0.9", optional = true}
 battery = {version = "0.7.5", optional = true}
 syntect = {version = "3.2.0", optional = true }
 onig_sys = {version = "=69.1.0", optional = true }

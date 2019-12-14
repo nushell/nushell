@@ -1,6 +1,7 @@
 use futures::executor::block_on;
-use futures::stream::{StreamExt, TryStreamExt};
+//use futures::stream::TryStreamExt;
 
+use futures_util::{StreamExt, TryStreamExt};
 use heim::process::{self as process, Process, ProcessResult};
 use heim::units::{ratio, Ratio};
 use std::usize;
