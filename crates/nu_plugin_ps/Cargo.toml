@@ -12,9 +12,10 @@ nu-source = { path = "../nu-source" }
 nu-errors = { path = "../nu-errors" }
 
 futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
-heim = "0.0.8"
+heim = "0.0.9"
 futures-timer = "1.0.3"
 pin-utils = "0.1.0-alpha.4"
+futures-util = "0.3.1"
 
 [build-dependencies]
 nu-build = { version = "0.1.0", path = "../nu-build" }
