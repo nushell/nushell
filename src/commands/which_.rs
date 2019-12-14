@@ -74,13 +74,17 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
 }
 
 /// Shortcuts for creating an entry to the output table
-fn entry(arg: impl Into<String>, path: Value, tag: Tag) -> Value {
+fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value {
     let mut map = IndexMap::new();
     map.insert(
         "arg".to_string(),
         UntaggedValue::Primitive(Primitive::String(arg.into())).into_value(tag.clone()),
     );
     map.insert("path".to_string(), path);
+    map.insert(
+        "builtin".to_string(),
+        UntaggedValue::Primitive(Primitive::Boolean(builtin)).into_value(tag.clone()),
+    );
 
     UntaggedValue::row(map).into_value(tag.clone())
 }
@@ -90,6 +94,7 @@ fn entry_builtin(arg: impl Into<String>, tag: Tag) -> Value {
         arg,
         UntaggedValue::Primitive(Primitive::String("nushell built-in command".to_string()))
             .into_value(tag.clone()),
+        true,
         tag,
     )
 }
@@ -98,6 +103,7 @@ fn entry_path(arg: impl Into<String>, path: std::path::PathBuf, tag: Tag) -> Val
     entry(
         arg,
         UntaggedValue::Primitive(Primitive::Path(path)).into_value(tag.clone()),
+        false,
         tag,
     )
 }
