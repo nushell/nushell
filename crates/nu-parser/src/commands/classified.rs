@@ -1,8 +1,12 @@
-use crate::commands::ExternalCommand;
+pub mod external;
+pub mod internal;
+
+use crate::commands::classified::external::ExternalCommand;
+use crate::commands::classified::internal::InternalCommand;
 use crate::hir;
 use crate::parse::token_tree::TokenNode;
 use derive_new::new;
-use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span, Tag};
+use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ClassifiedCommand {
@@ -33,30 +37,6 @@ impl HasSpan for ClassifiedCommand {
             ClassifiedCommand::Dynamic(call) => call.span,
             ClassifiedCommand::External(command) => command.span(),
         }
-    }
-}
-
-#[derive(new, Debug, Clone, Eq, PartialEq)]
-pub struct InternalCommand {
-    pub name: String,
-    pub name_tag: Tag,
-    pub args: hir::Call,
-}
-
-impl PrettyDebugWithSource for InternalCommand {
-    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-        b::typed(
-            "internal command",
-            b::description(&self.name) + b::space() + self.args.pretty_debug(source),
-        )
-    }
-}
-
-impl HasSpan for InternalCommand {
-    fn span(&self) -> Span {
-        let start = self.name_tag.span;
-
-        start.until(self.args.span)
     }
 }
 

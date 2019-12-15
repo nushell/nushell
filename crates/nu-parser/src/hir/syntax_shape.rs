@@ -2,7 +2,8 @@ mod block;
 mod expression;
 pub mod flat_shape;
 
-use crate::commands::classified::{ClassifiedCommand, ClassifiedPipeline, InternalCommand};
+use crate::commands::classified::internal::InternalCommand;
+use crate::commands::classified::{ClassifiedCommand, ClassifiedPipeline};
 use crate::commands::external_command;
 use crate::hir;
 use crate::hir::expand_external_tokens::ExternalTokensShape;

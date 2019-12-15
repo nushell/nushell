@@ -1,4 +1,4 @@
-use crate::commands::classified::{ClassifiedCommand, InternalCommand};
+use crate::commands::classified::{internal::InternalCommand, ClassifiedCommand};
 use crate::hir::TokensIterator;
 use crate::hir::{self, named::NamedValue, syntax_shape::*, NamedArguments};
 use crate::parse::files::Files;
