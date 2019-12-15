@@ -18,9 +18,9 @@ Nu comes with a set of built-in commands (listed below). If a command is unknown
 
 # Learning more
 
-There are a few good resources to learn about Nu. There is a [book](https://book.nushell.sh) about Nu that is currently in progress. The book focuses on using Nu and its core concepts.
+There are a few good resources to learn about Nu. There is a [book](https://www.nushell.sh/book/) about Nu that is currently in progress. The book focuses on using Nu and its core concepts.
 
-If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://github.com/nushell/contributor-book/tree/master/en) to help you get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://www.nushell.sh/contributor-book/) to help you get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
 We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come and chat with us.
 
@@ -32,7 +32,7 @@ Try it in Gitpod.
 
 ## Local
 
-Up-to-date installation instructions can be found in the [installation chapter of the book](https://book.nushell.sh/en/installation).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
+Up-to-date installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/en/installation.html).  **Windows users**: please note that Nu works on Windows 10 and does not currently have Windows 7/8.1 support.
 
 To build Nu, you will need to use the **latest stable (1.39 or later)** version of the compiler.
 
@@ -52,7 +52,7 @@ To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs
 cargo install nu
 ```
 
-You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://book.nushell.sh/en/installation#dependencies) for your platform):
+You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform):
 
 ```
 cargo install nu --features=stable
