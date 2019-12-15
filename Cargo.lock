@@ -2000,6 +2000,7 @@ dependencies = [
  "tempfile",
  "term",
  "termcolor",
+ "test-support",
  "textwrap",
  "toml 0.5.5",
  "trash",
@@ -3406,6 +3407,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d6098003bde162e4277c70665bd87c326f5a0c3f3fbfb285787fa482d54e6e"
 dependencies = [
  "wincolor",
+]
+
+[[package]]
+name = "test-support"
+version = "0.1.0"
+dependencies = [
+ "app_dirs",
+ "dunce",
+ "getset",
+ "glob",
+ "tempfile",
 ]
 
 [[package]]

@@ -1,0 +1,98 @@
+use test_support::fs::Stub::FileWithContentToBeTrimmed;
+use test_support::playground::Playground;
+use test_support::{nu, pipeline};
+
+#[test]
+fn from_ssv_text_to_table() {
+    Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv
+                | nth 0
+                | get IP
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "172.30.78.158");
+    })
+}
+
+#[test]
+fn from_ssv_text_to_table_with_separator_specified() {
+    Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                NAME              LABELS                                    SELECTOR                  IP              PORT(S)
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --minimum-spaces 3
+                | nth 0
+                | get IP
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "172.30.78.158");
+    })
+}
+
+#[test]
+fn from_ssv_text_treating_first_line_as_data_with_flag() {
+    Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "oc_get_svc.txt",
+            r#"
+                docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
+                kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
+                kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
+            "#,
+        )]);
+
+        let aligned_columns = nu!(
+        cwd: dirs.test(), pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless --aligned-columns
+                | first
+                | get Column1
+                | echo $it
+            "#
+        ));
+
+        let separator_based = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open oc_get_svc.txt
+                | from-ssv --headerless
+                | first
+                | get Column1
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(aligned_columns, separator_based);
+        assert_eq!(separator_based, "docker-registry");
+    })
+}
