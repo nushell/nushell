@@ -3,8 +3,9 @@ pub mod hir;
 pub mod parse;
 pub mod parse_command;
 
-pub use crate::commands::classified::{ClassifiedCommand, ClassifiedPipeline, InternalCommand};
-pub use crate::commands::ExternalCommand;
+pub use crate::commands::classified::{
+    external::ExternalCommand, internal::InternalCommand, ClassifiedCommand, ClassifiedPipeline,
+};
 pub use crate::hir::syntax_shape::flat_shape::FlatShape;
 pub use crate::hir::syntax_shape::{
     expand_syntax, ExpandContext, ExpandSyntax, PipelineShape, SignatureRegistry,
