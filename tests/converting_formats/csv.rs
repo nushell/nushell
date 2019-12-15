@@ -1,0 +1,184 @@
+use test_support::fs::Stub::FileWithContentToBeTrimmed;
+use test_support::playground::Playground;
+use test_support::{nu, pipeline};
+
+#[test]
+fn table_to_csv_text_and_from_csv_text_back_into_table() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "open caco3_plastics.csv | to-csv | from-csv | first 1 | get origin | echo $it"
+    );
+
+    assert_eq!(actual, "SPAIN");
+}
+
+#[test]
+fn table_to_csv_text() {
+    Playground::setup("filter_to_csv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "csv_text_sample.txt",
+            r#"
+                importer,shipper,tariff_item,name,origin
+                Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+                Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open csv_text_sample.txt
+                | lines
+                | trim
+                | split-column "," a b c d origin
+                | last 1
+                | to-csv
+                | lines
+                | nth 1
+                | echo $it
+            "#
+        ));
+
+        assert!(actual.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+    })
+}
+
+#[test]
+fn table_to_csv_text_skipping_headers_after_conversion() {
+    Playground::setup("filter_to_csv_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "csv_text_sample.txt",
+            r#"
+                importer,shipper,tariff_item,name,origin
+                Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
+                Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open csv_text_sample.txt
+                | lines
+                | trim
+                | split-column "," a b c d origin
+                | last 1
+                | to-csv --headerless
+                | echo $it
+            "#
+        ));
+
+        assert!(actual.contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"));
+    })
+}
+
+#[test]
+fn from_csv_text_to_table() {
+    Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name,last_name,rusty_luck
+                Andrés,Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv
+                | get rusty_luck
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn from_csv_text_with_separator_to_table() {
+    Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name;last_name;rusty_luck
+                Andrés;Robalino;1
+                Jonathan;Turner;1
+                Yehuda;Katz;1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv --separator ';'
+                | get rusty_luck
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn from_csv_text_with_tab_separator_to_table() {
+    Playground::setup("filter_from_csv_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.txt",
+            r#"
+                first_name	last_name	rusty_luck
+                Andrés	Robalino	1
+                Jonathan	Turner	1
+                Yehuda	Katz	1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.txt
+                | from-csv --separator '\t'
+                | get rusty_luck
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}
+
+#[test]
+fn from_csv_text_skipping_headers_to_table() {
+    Playground::setup("filter_from_csv_test_4", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_amigos.txt",
+            r#"
+                Andrés,Robalino,1
+                Jonathan,Turner,1
+                Yehuda,Katz,1
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_amigos.txt
+                | from-csv --headerless
+                | get Column3
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "3");
+    })
+}

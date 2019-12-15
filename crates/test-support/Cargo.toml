@@ -1,0 +1,16 @@
+[package]
+name = "test-support"
+version = "0.1.0"
+authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+edition = "2018"
+description = "A source string characterizer for Nushell"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+app_dirs = "1.2.1"
+dunce = "1.0.0"
+getset = "0.0.9"
+glob = "0.3.0"
+tempfile = "3.1.0"
