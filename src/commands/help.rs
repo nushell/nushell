@@ -162,7 +162,7 @@ Here are some tips to help you get started.
   * help commands - list all available commands
   * help <command name> - display help about a particular command
 
-You can also learn more at https://book.nushell.sh"#;
+You can also learn more at https://www.nushell.sh/book/"#;
 
                 let mut output_stream = VecDeque::new();
 
