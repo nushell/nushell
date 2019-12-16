@@ -31,6 +31,45 @@ impl WholeStreamCommand for Which {
     }
 }
 
+/// Shortcuts for creating an entry to the output table
+fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value {
+    let mut map = IndexMap::new();
+    map.insert(
+        "arg".to_string(),
+        UntaggedValue::Primitive(Primitive::String(arg.into())).into_value(tag.clone()),
+    );
+    map.insert("path".to_string(), path);
+    map.insert(
+        "builtin".to_string(),
+        UntaggedValue::Primitive(Primitive::Boolean(builtin)).into_value(tag.clone()),
+    );
+
+    UntaggedValue::row(map).into_value(tag.clone())
+}
+
+macro_rules! entry_builtin {
+    ($arg:expr, $tag:expr) => {
+        entry(
+            $arg,
+            UntaggedValue::Primitive(Primitive::String("nushell built-in command".to_string()))
+                .into_value($tag.clone()),
+            true,
+            $tag,
+        )
+    };
+}
+
+macro_rules! entry_path {
+    ($arg:expr, $path:expr, $tag:expr) => {
+        entry(
+            $arg,
+            UntaggedValue::Primitive(Primitive::Path($path)).into_value($tag.clone()),
+            false,
+            $tag,
+        )
+    };
+}
+
 pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.call_info.name_tag.clone();
@@ -44,9 +83,9 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
                     tag,
                 } => {
                     if registry.has(s) {
-                        Ok(entry_builtin(s, tag.clone()))
+                        Ok(entry_builtin!(s, tag.clone()))
                     } else if let Ok(ok) = which::which(&s) {
-                        Ok(entry_path(s, ok, tag.clone()))
+                        Ok(entry_path!(s, ok, tag.clone()))
                     } else {
                         Err(ShellError::labeled_error(
                             "Binary not found for argument, and argument is not a builtin",
@@ -71,39 +110,4 @@ pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     }?;
 
     Ok(rows.to_output_stream())
-}
-
-/// Shortcuts for creating an entry to the output table
-fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value {
-    let mut map = IndexMap::new();
-    map.insert(
-        "arg".to_string(),
-        UntaggedValue::Primitive(Primitive::String(arg.into())).into_value(tag.clone()),
-    );
-    map.insert("path".to_string(), path);
-    map.insert(
-        "builtin".to_string(),
-        UntaggedValue::Primitive(Primitive::Boolean(builtin)).into_value(tag.clone()),
-    );
-
-    UntaggedValue::row(map).into_value(tag.clone())
-}
-
-fn entry_builtin(arg: impl Into<String>, tag: Tag) -> Value {
-    entry(
-        arg,
-        UntaggedValue::Primitive(Primitive::String("nushell built-in command".to_string()))
-            .into_value(tag.clone()),
-        true,
-        tag,
-    )
-}
-
-fn entry_path(arg: impl Into<String>, path: std::path::PathBuf, tag: Tag) -> Value {
-    entry(
-        arg,
-        UntaggedValue::Primitive(Primitive::Path(path)).into_value(tag.clone()),
-        false,
-        tag,
-    )
 }
