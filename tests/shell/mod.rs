@@ -1,32 +1,90 @@
 mod pipeline {
-    use test_support::fs::Stub::FileWithContent;
+    use test_support::fs::Stub::EmptyFile;
     use test_support::playground::Playground;
-    use test_support::{nu_combined, pipeline};
+    use test_support::{nu, pipeline};
 
     #[test]
-    fn it_arg_works_with_many_inputs_to_external_command() {
-        Playground::setup("it_arg_works_with_many_inputs", |dirs, sandbox| {
+    fn can_process_row_as_it_argument_to_an_external_command_given_the_it_data_is_a_string() {
+        Playground::setup("it_argument_test_1", |dirs, sandbox| {
             sandbox.with_files(vec![
-                FileWithContent("file1", "text"),
-                FileWithContent("file2", " and more text"),
+                EmptyFile("jonathan_likes_cake.txt"),
+                EmptyFile("andres_likes_arepas.txt"),
             ]);
 
-            let (stdout, stderr) = nu_combined!(
+            let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    echo hello world
-                    | split-row " "
+                    ls
+                    | sort-by name
+                    | get name
                     | ^echo $it
                 "#
             ));
 
             #[cfg(windows)]
-            assert_eq!("hello world", stdout);
+            assert_eq!(actual, "andres_likes_arepas.txt jonathan_likes_cake.txt");
 
             #[cfg(not(windows))]
-            assert_eq!("helloworld", stdout);
-
-            assert!(!stderr.contains("No such file or directory"));
+            assert_eq!(actual, "andres_likes_arepas.txtjonathan_likes_cake.txt");
         })
+    }
+
+    #[test]
+    fn can_process_row_as_it_argument_to_an_external_command_given_the_it_data_is_one_string_line()
+    {
+        Playground::setup("it_argument_test_2", |dirs, sandbox| {
+            sandbox.with_files(vec![
+                EmptyFile("jonathan_likes_cake.txt"),
+                EmptyFile("andres_likes_arepas.txt"),
+            ]);
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    ls
+                    | sort-by name
+                    | get name
+                    | lines
+                    | ^echo $it
+                "#
+            ));
+
+            #[cfg(windows)]
+            assert_eq!(actual, "andres_likes_arepas.txt jonathan_likes_cake.txt");
+
+            #[cfg(not(windows))]
+            assert_eq!(actual, "andres_likes_arepas.txtjonathan_likes_cake.txt");
+        })
+    }
+
+    mod expands_tilde {
+        use super::nu;
+
+        #[test]
+        fn as_home_directory_when_passed_as_argument_and_begins_with_tilde_to_an_external() {
+            let actual = nu!(
+                cwd: std::path::PathBuf::from("."),
+                r#"
+                    sh -c "echo ~"
+                "#
+            );
+
+            assert!(
+                !actual.contains("~"),
+                format!("'{}' should not contain ~", actual)
+            );
+        }
+
+        #[test]
+        fn does_not_expand_when_passed_as_argument_and_does_not_start_with_tilde_to_an_external() {
+            let actual = nu!(
+                cwd: std::path::PathBuf::from("."),
+                r#"
+                    sh -c "echo 1~1"
+                "#
+            );
+
+            assert_eq!(actual, "1~1");
+        }
     }
 }

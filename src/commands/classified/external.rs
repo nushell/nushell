@@ -5,7 +5,7 @@ use futures_codec::{Decoder, Encoder, Framed};
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::ExternalCommand;
-use nu_protocol::{UntaggedValue, Value};
+use nu_protocol::{Primitive, UntaggedValue, Value};
 use std::io::{Error, ErrorKind};
 use std::ops::Deref;
 use subprocess::Exec;
@@ -82,23 +82,32 @@ pub(crate) async fn run_external_command(
     if arg_string.contains("$it") {
         let input_strings = inputs
             .iter()
-            .map(|i| {
-                i.as_string().map(|s| s.to_string()).map_err(|_| {
+            .map(|i| match i {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::String(s)),
+                    ..
+                }
+                | Value {
+                    value: UntaggedValue::Primitive(Primitive::Line(s)),
+                    ..
+                } => Ok(s.clone()),
+                _ => {
                     let arg = command.args.iter().find(|arg| arg.contains("$it"));
+
                     if let Some(arg) = arg {
-                        ShellError::labeled_error(
+                        Err(ShellError::labeled_error(
                             "External $it needs string data",
                             "given row instead of string data",
                             &arg.tag,
-                        )
+                        ))
                     } else {
-                        ShellError::labeled_error(
+                        Err(ShellError::labeled_error(
                             "$it needs string data",
                             "given something else",
                             command.name_tag.clone(),
-                        )
+                        ))
                     }
-                })
+                }
             })
             .collect::<Result<Vec<String>, ShellError>>()?;
 
