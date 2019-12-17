@@ -254,14 +254,12 @@ fn view_text_value(value: &Value) {
                 match extension {
                     Some(extension) => {
                         // Load these once at the start of your program
-                        let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
-                            "../../../assets/syntaxes.bin"
-                        ));
+                        let ps: SyntaxSet =
+                            syntect::dumps::from_binary(include_bytes!("assets/syntaxes.bin"));
 
                         if let Some(syntax) = ps.find_syntax_by_extension(&extension) {
-                            let ts: ThemeSet = syntect::dumps::from_binary(include_bytes!(
-                                "../../../assets/themes.bin"
-                            ));
+                            let ts: ThemeSet =
+                                syntect::dumps::from_binary(include_bytes!("assets/themes.bin"));
                             let mut h = HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
 
                             let mut v = vec![];
