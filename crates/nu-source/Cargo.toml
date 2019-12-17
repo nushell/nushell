@@ -19,4 +19,4 @@ termcolor = "1.0.5"
 pretty = "0.5.2"
 
 [build-dependencies]
-nu-build = { version = "0.1.0", path = "../nu-build" }
+nu-build = { version = "0.7.0", path = "../nu-build" }

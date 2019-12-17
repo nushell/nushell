@@ -7,9 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-errors = { path = "../nu-errors" }
-nu-source = { path = "../nu-source" }
-nu-protocol = { path = "../nu-protocol" }
+nu-errors = { path = "../nu-errors", version = "0.7.0" }
+nu-source = { path = "../nu-source", version = "0.7.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.7.0" }
 
 pretty_env_logger = "0.3.1"
 pretty = "0.5.2"
@@ -38,7 +38,7 @@ enumflags2 = "0.6.2"
 pretty_assertions = "0.6.1"
 
 [build-dependencies]
-nu-build = { version = "0.1.0", path = "../nu-build" }
+nu-build = { version = "0.7.0", path = "../nu-build" }
 
 [features]
 stable = []
