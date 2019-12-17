@@ -14,3 +14,6 @@ dunce = "1.0.0"
 getset = "0.0.9"
 glob = "0.3.0"
 tempfile = "3.1.0"
+
+[build-dependencies]
+nu-build = { version = "0.7.0", path = "../nu-build" }

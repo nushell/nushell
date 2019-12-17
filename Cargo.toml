@@ -32,6 +32,7 @@ members = [
     "crates/nu-protocol",
     "crates/nu-parser",
     "crates/nu-value-ext",
+    "crates/nu-test-support",
     "crates/nu-build"
 ]
 
@@ -43,18 +44,19 @@ nu-protocol = { version = "0.7.0", path = "./crates/nu-protocol" }
 nu-errors = { version = "0.7.0", path = "./crates/nu-errors" }
 nu-parser = { version = "0.7.0", path = "./crates/nu-parser" }
 nu-value-ext = { version = "0.7.0", path = "./crates/nu-value-ext" }
-nu_plugin_average = {version = "0.7.0", path = "./crates/nu_plugin_average", optional=true}
-nu_plugin_binaryview = {version = "0.7.0", path = "./crates/nu_plugin_binaryview", optional=true}
-nu_plugin_fetch = {version = "0.7.0", path = "./crates/nu_plugin_fetch", optional=true}
-nu_plugin_inc = {version = "0.7.0", path = "./crates/nu_plugin_inc", optional=true}
-nu_plugin_match = {version = "0.7.0", path = "./crates/nu_plugin_match", optional=true}
-nu_plugin_post = {version = "0.7.0", path = "./crates/nu_plugin_post", optional=true}
-nu_plugin_ps = {version = "0.7.0", path = "./crates/nu_plugin_ps", optional=true}
-nu_plugin_str = {version = "0.7.0", path = "./crates/nu_plugin_str", optional=true}
-nu_plugin_sum = {version = "0.7.0", path = "./crates/nu_plugin_sum", optional=true}
-nu_plugin_sys = {version = "0.7.0", path = "./crates/nu_plugin_sys", optional=true}
-nu_plugin_textview = {version = "0.7.0", path = "./crates/nu_plugin_textview", optional=true}
-nu_plugin_tree = {version = "0.7.0", path = "./crates/nu_plugin_tree", optional=true}
+nu-test-support = { version = "0.7.0", path = "./crates/nu-test-support" }
+nu_plugin_average = { version = "0.7.0", path = "./crates/nu_plugin_average", optional=true }
+nu_plugin_binaryview = { version = "0.7.0", path = "./crates/nu_plugin_binaryview", optional=true }
+nu_plugin_fetch = { version = "0.7.0", path = "./crates/nu_plugin_fetch", optional=true }
+nu_plugin_inc = { version = "0.7.0", path = "./crates/nu_plugin_inc", optional=true }
+nu_plugin_match = { version = "0.7.0", path = "./crates/nu_plugin_match", optional=true }
+nu_plugin_post = { version = "0.7.0", path = "./crates/nu_plugin_post", optional=true }
+nu_plugin_ps = { version = "0.7.0", path = "./crates/nu_plugin_ps", optional=true }
+nu_plugin_str = { version = "0.7.0", path = "./crates/nu_plugin_str", optional=true }
+nu_plugin_sum = { version = "0.7.0", path = "./crates/nu_plugin_sum", optional=true }
+nu_plugin_sys = { version = "0.7.0", path = "./crates/nu_plugin_sys", optional=true }
+nu_plugin_textview = { version = "0.7.0", path = "./crates/nu_plugin_textview", optional=true }
+nu_plugin_tree = { version = "0.7.0", path = "./crates/nu_plugin_tree", optional=true }
 nu-macros = { version = "0.7.0", path = "./crates/nu-macros" }
 
 
