@@ -1,4 +1,4 @@
-use test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn from_excel_file_to_table() {

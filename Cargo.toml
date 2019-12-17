@@ -158,7 +158,7 @@ features = ["bundled", "blob"]
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
-test-support = { version = "0.7.0", path = "./crates/test-support" }
+nu-test-support = { version = "0.7.0", path = "./crates/nu-test-support" }
 
 [build-dependencies]
 toml = "0.5.5"

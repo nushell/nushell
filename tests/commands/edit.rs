@@ -1,4 +1,4 @@
-use test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn creates_a_new_table_with_the_new_row_given() {

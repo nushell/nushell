@@ -1,7 +1,7 @@
+use nu_test_support::fs::{Stub::EmptyFile, Stub::FileWithContent};
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, nu_error};
 use std::path::PathBuf;
-use test_support::fs::{Stub::EmptyFile, Stub::FileWithContent};
-use test_support::playground::Playground;
-use test_support::{nu, nu_error};
 
 #[test]
 fn filesystem_change_from_current_directory_using_relative_path() {

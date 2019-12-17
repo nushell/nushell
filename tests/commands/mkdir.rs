@@ -1,7 +1,7 @@
+use nu_test_support::fs::files_exist_at;
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use std::path::Path;
-use test_support::fs::files_exist_at;
-use test_support::nu;
-use test_support::playground::Playground;
 
 #[test]
 fn creates_directory() {

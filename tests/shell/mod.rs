@@ -1,7 +1,7 @@
 mod pipeline {
-    use test_support::fs::Stub::EmptyFile;
-    use test_support::playground::Playground;
-    use test_support::{nu, pipeline};
+    use nu_test_support::fs::Stub::EmptyFile;
+    use nu_test_support::playground::Playground;
+    use nu_test_support::{nu, pipeline};
 
     #[test]
     fn can_process_row_as_it_argument_to_an_external_command_given_the_it_data_is_a_string() {

@@ -1,4 +1,4 @@
-use test_support::nu;
+use nu_test_support::nu;
 
 #[test]
 fn can_get_reverse_first() {

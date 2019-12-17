@@ -1,4 +1,4 @@
-use test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn creates_the_resulting_string_from_the_given_fields() {

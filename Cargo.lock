@@ -1957,6 +1957,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-source",
+ "nu-test-support",
  "nu-value-ext",
  "nu_plugin_average",
  "nu_plugin_binaryview",
@@ -2000,7 +2001,6 @@ dependencies = [
  "tempfile",
  "term",
  "termcolor",
- "test-support",
  "textwrap",
  "toml 0.5.5",
  "trash",
@@ -2127,6 +2127,17 @@ dependencies = [
  "pretty",
  "serde 1.0.103",
  "termcolor",
+]
+
+[[package]]
+name = "nu-test-support"
+version = "0.7.0"
+dependencies = [
+ "app_dirs",
+ "dunce",
+ "getset",
+ "glob",
+ "tempfile",
 ]
 
 [[package]]
@@ -3407,17 +3418,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d6098003bde162e4277c70665bd87c326f5a0c3f3fbfb285787fa482d54e6e"
 dependencies = [
  "wincolor",
-]
-
-[[package]]
-name = "test-support"
-version = "0.7.0"
-dependencies = [
- "app_dirs",
- "dunce",
- "getset",
- "glob",
- "tempfile",
 ]
 
 [[package]]

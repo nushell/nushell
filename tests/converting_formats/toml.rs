@@ -1,4 +1,4 @@
-use test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn table_to_toml_text_and_from_toml_text_back_into_table() {

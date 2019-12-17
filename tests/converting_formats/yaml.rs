@@ -1,4 +1,4 @@
-use test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn table_to_yaml_text_and_from_yaml_text_back_into_table() {
