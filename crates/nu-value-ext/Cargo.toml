@@ -1,6 +1,6 @@
 [package]
 name = "nu-value-ext"
-version = "0.1.0"
+version = "0.7.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "A source string characterizer for Nushell"
@@ -9,13 +9,13 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-source = { path = "../nu-source" }
-nu-errors = { path = "../nu-errors" }
-nu-parser = { path = "../nu-parser" }
-nu-protocol = { path = "../nu-protocol" }
+nu-source = { path = "../nu-source", version = "0.7.0" }
+nu-errors = { path = "../nu-errors", version = "0.7.0" }
+nu-parser = { path = "../nu-parser", version = "0.7.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.7.0" }
 
 num-traits = "0.2.10"
 itertools = "0.8.2"
 
 [build-dependencies]
-nu-build = { version = "0.1.0", path = "../nu-build" }
+nu-build = { version = "0.7.0", path = "../nu-build" }
