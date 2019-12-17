@@ -1,6 +1,6 @@
-use test_support::fs::{file_contents, Stub::FileWithContent};
-use test_support::nu;
-use test_support::playground::Playground;
+use nu_test_support::fs::{file_contents, Stub::FileWithContent};
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn figures_out_intelligently_where_to_write_out_with_metadata() {

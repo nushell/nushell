@@ -1,7 +1,7 @@
+use nu_test_support::fs::{files_exist_at, AbsoluteFile, Stub::EmptyFile};
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, nu_error};
 use std::path::Path;
-use test_support::fs::{files_exist_at, AbsoluteFile, Stub::EmptyFile};
-use test_support::playground::Playground;
-use test_support::{nu, nu_error};
 
 #[test]
 fn copies_a_file() {

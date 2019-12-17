@@ -1,6 +1,6 @@
-use test_support::fs::Stub::EmptyFile;
-use test_support::playground::Playground;
-use test_support::{nu, pipeline};
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn gets_the_last_row() {

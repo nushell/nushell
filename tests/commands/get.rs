@@ -1,6 +1,6 @@
-use test_support::fs::Stub::FileWithContent;
-use test_support::playground::Playground;
-use test_support::{nu, nu_error, pipeline};
+use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, nu_error, pipeline};
 
 #[test]
 fn fetches_a_row() {

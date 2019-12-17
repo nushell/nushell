@@ -1,6 +1,6 @@
-use test_support::fs::Stub::FileWithContentToBeTrimmed;
-use test_support::playground::Playground;
-use test_support::{nu, pipeline};
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn from_ssv_text_to_table() {

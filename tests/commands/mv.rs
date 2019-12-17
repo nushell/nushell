@@ -1,6 +1,6 @@
-use test_support::fs::{files_exist_at, Stub::EmptyFile};
-use test_support::nu;
-use test_support::playground::Playground;
+use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn moves_a_file() {
