@@ -5,6 +5,8 @@ authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner
 edition = "2018"
 description = "A source string characterizer for Nushell"
 license = "MIT"
+description = "Extension traits for values in Nushell"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
