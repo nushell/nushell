@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_inc"
-version = "0.1.0"
+version = "0.7.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 
