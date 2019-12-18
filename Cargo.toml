@@ -11,29 +11,29 @@ repository = "https://github.com/nushell/nushell"
 homepage = "https://www.nushell.sh"
 documentation = "https://www.nushell.sh/book/"
 
-# [workspace]
-# 
-# members = [
-#     "crates/nu-macros",
-#     "crates/nu-errors",
-#     "crates/nu-source",
-#     "crates/nu_plugin_average",
-#     "crates/nu_plugin_binaryview",
-#     "crates/nu_plugin_fetch",
-#     "crates/nu_plugin_inc",
-#     "crates/nu_plugin_match",
-#     "crates/nu_plugin_post",
-#     "crates/nu_plugin_ps",
-#     "crates/nu_plugin_str",
-#     "crates/nu_plugin_sum",
-#     "crates/nu_plugin_sys",
-#     "crates/nu_plugin_textview",
-#     "crates/nu_plugin_tree",
-#     "crates/nu-protocol",
-#     "crates/nu-parser",
-#     "crates/nu-value-ext",
-#     "crates/nu-build"
-# ]
+[workspace]
+
+members = [
+    "crates/nu-macros",
+    "crates/nu-errors",
+    "crates/nu-source",
+    "crates/nu_plugin_average",
+    "crates/nu_plugin_binaryview",
+    "crates/nu_plugin_fetch",
+    "crates/nu_plugin_inc",
+    "crates/nu_plugin_match",
+    "crates/nu_plugin_post",
+    "crates/nu_plugin_ps",
+    "crates/nu_plugin_str",
+    "crates/nu_plugin_sum",
+    "crates/nu_plugin_sys",
+    "crates/nu_plugin_textview",
+    "crates/nu_plugin_tree",
+    "crates/nu-protocol",
+    "crates/nu-parser",
+    "crates/nu-value-ext",
+    "crates/nu-build"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
