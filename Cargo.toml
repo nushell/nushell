@@ -11,29 +11,29 @@ repository = "https://github.com/nushell/nushell"
 homepage = "https://www.nushell.sh"
 documentation = "https://www.nushell.sh/book/"
 
-[workspace]
-
-members = [
-    "crates/nu-macros",
-    "crates/nu-errors",
-    "crates/nu-source",
-    "crates/nu_plugin_average",
-    "crates/nu_plugin_binaryview",
-    "crates/nu_plugin_fetch",
-    "crates/nu_plugin_inc",
-    "crates/nu_plugin_match",
-    "crates/nu_plugin_post",
-    "crates/nu_plugin_ps",
-    "crates/nu_plugin_str",
-    "crates/nu_plugin_sum",
-    "crates/nu_plugin_sys",
-    "crates/nu_plugin_textview",
-    "crates/nu_plugin_tree",
-    "crates/nu-protocol",
-    "crates/nu-parser",
-    "crates/nu-value-ext",
-    "crates/nu-build"
-]
+# [workspace]
+# 
+# members = [
+#     "crates/nu-macros",
+#     "crates/nu-errors",
+#     "crates/nu-source",
+#     "crates/nu_plugin_average",
+#     "crates/nu_plugin_binaryview",
+#     "crates/nu_plugin_fetch",
+#     "crates/nu_plugin_inc",
+#     "crates/nu_plugin_match",
+#     "crates/nu_plugin_post",
+#     "crates/nu_plugin_ps",
+#     "crates/nu_plugin_str",
+#     "crates/nu_plugin_sum",
+#     "crates/nu_plugin_sys",
+#     "crates/nu_plugin_textview",
+#     "crates/nu_plugin_tree",
+#     "crates/nu-protocol",
+#     "crates/nu-parser",
+#     "crates/nu-value-ext",
+#     "crates/nu-build"
+# ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -174,27 +174,27 @@ path = "src/lib.rs"
 # unless we use [[bin]], so we use this as a workaround
 [[bin]]
 name = "nu_plugin_core_textview"
-path = "crates/nu_plugin_textview/src/main.rs"
+path = "src/plugins/nu_plugin_core_textview.rs"
 required-features = ["textview"]
 
 [[bin]]
 name = "nu_plugin_core_inc"
-path = "crates/nu_plugin_inc/src/main.rs"
+path = "src/plugins/nu_plugin_core_inc.rs"
 required-features = ["inc"]
 
 [[bin]]
 name = "nu_plugin_core_ps"
-path = "crates/nu_plugin_ps/src/main.rs"
+path = "src/plugins/nu_plugin_core_ps.rs"
 required-features = ["ps"]
 
 [[bin]]
 name = "nu_plugin_core_str"
-path = "crates/nu_plugin_str/src/main.rs"
+path = "src/plugins/nu_plugin_core_str.rs"
 required-features = ["str"]
 
 [[bin]]
 name = "nu_plugin_core_sys"
-path = "crates/nu_plugin_sys/src/main.rs"
+path = "src/plugins/nu_plugin_core_sys.rs"
 required-features = ["sys"]
 
 # Main nu binary
