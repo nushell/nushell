@@ -2073,7 +2073,6 @@ dependencies = [
  "num-bigint",
  "num-traits 0.2.10",
  "pretty",
- "pretty_assertions",
  "pretty_env_logger",
  "ptree",
  "serde 1.0.103",
