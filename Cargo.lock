@@ -2973,8 +2973,7 @@ dependencies = [
 [[package]]
 name = "rustyline"
 version = "5.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ae156e2a68be20a3ae95574089b65c188d86291cd5421cc647222b8d1864ffb"
+source = "git+https://github.com/kkawakam/rustyline.git#55dcab54fbab0ba0610799291276785e5b31199c"
 dependencies = [
  "cfg-if",
  "dirs 2.0.2",
