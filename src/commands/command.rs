@@ -505,10 +505,13 @@ impl Command {
                 let call_info = raw_args
                     .clone()
                     .call_info
-                    .evaluate(&registry, &Scope::it_value(x.clone()))
-                    .unwrap();
-                match command.run(&call_info, &registry, &raw_args, x) {
-                    Ok(o) => o,
+                    .evaluate(&registry, &Scope::it_value(x.clone()));
+
+                match call_info {
+                    Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
+                        Ok(o) => o,
+                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
+                    },
                     Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
                 }
             })

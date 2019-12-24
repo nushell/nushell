@@ -166,20 +166,20 @@ fn evaluate_reference(
     match name {
         hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
         hir::Variable::Other(inner) => match inner.slice(source) {
-            x if x == "nu:env" => {
+            x if x == "nu" => {
+                let mut nu_dict = TaggedDictBuilder::new(&tag);
+
                 let mut dict = TaggedDictBuilder::new(&tag);
                 for v in std::env::vars() {
                     if v.0 != "PATH" && v.0 != "Path" {
                         dict.insert_untagged(v.0, UntaggedValue::string(v.1));
                     }
                 }
-                Ok(dict.into_value())
-            }
-            x if x == "nu:config" => {
-                let config = crate::data::config::read(tag.clone(), &None)?;
-                Ok(UntaggedValue::row(config).into_value(tag))
-            }
-            x if x == "nu:path" => {
+                nu_dict.insert_value("env", dict.into_value());
+
+                let config = crate::data::config::read(&tag, &None)?;
+                nu_dict.insert_value("config", UntaggedValue::row(config).into_value(&tag));
+
                 let mut table = vec![];
                 let path = std::env::var_os("PATH");
                 if let Some(paths) = path {
@@ -187,7 +187,9 @@ fn evaluate_reference(
                         table.push(UntaggedValue::path(path).into_value(&tag));
                     }
                 }
-                Ok(UntaggedValue::table(&table).into_value(tag))
+                nu_dict.insert_value("path", UntaggedValue::table(&table).into_value(&tag));
+
+                Ok(nu_dict.into_value())
             }
             x => Ok(scope
                 .vars

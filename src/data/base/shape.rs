@@ -140,7 +140,9 @@ impl PrettyDebug for FormatInlineShape {
         match &self.shape {
             InlineShape::Nothing => b::blank(),
             InlineShape::Int(int) => b::primitive(format!("{}", int)),
-            InlineShape::Decimal(decimal) => b::primitive(format!("{}", decimal)),
+            InlineShape::Decimal(decimal) => {
+                b::description(format_primitive(&Primitive::Decimal(decimal.clone()), None))
+            }
             InlineShape::Range(range) => {
                 let (left, left_inclusion) = &range.from;
                 let (right, right_inclusion) = &range.to;
