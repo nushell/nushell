@@ -170,29 +170,17 @@ pub(crate) async fn run_external_command(
 
     let name_tag = command.name_tag.clone();
     if let Ok(mut popen) = popen {
+        popen.detach();
         match stream_next {
             StreamNext::Last => {
-                popen.detach();
-                loop {
-                    match popen.poll() {
-                        None => {
-                            std::thread::sleep(std::time::Duration::new(0, 100_000_000));
-                        }
-                        _ => {
-                            let _ = popen.terminate();
-                            break;
-                        }
-                    }
-                }
+                let _ = popen.wait();
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
-                popen.detach();
                 let stdout = popen.stdout.take().unwrap();
                 Ok(ClassifiedInputStream::from_stdout(stdout))
             }
             StreamNext::Internal => {
-                popen.detach();
                 let stdout = popen.stdout.take().unwrap();
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});

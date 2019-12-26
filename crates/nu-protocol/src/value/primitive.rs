@@ -113,7 +113,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         }
         Primitive::Duration(sec) => format_duration(*sec),
         Primitive::Int(i) => i.to_string(),
-        Primitive::Decimal(decimal) => decimal.to_string(),
+        Primitive::Decimal(decimal) => format!("{:.4}", decimal),
         Primitive::Range(range) => format!(
             "{}..{}",
             format_primitive(&range.from.0.item, None),
