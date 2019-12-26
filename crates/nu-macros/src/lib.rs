@@ -17,9 +17,9 @@ macro_rules! signature {
 #[macro_export]
 macro_rules! positional {
     ($ident:tt, $name:tt (optional $shape:tt) - $desc:tt) => {
-        let $ident = $ident.required(stringify!($name), SyntaxShape::$shape, $desc);
+        let $ident = $ident.optional(stringify!($name), SyntaxShape::$shape, $desc);
     };
     ($ident:tt, $name:tt ($shape:tt)- $desc:tt) => {
-        let $ident = $ident.optional(stringify!($name), SyntaxShape::$shape, $desc);
+        let $ident = $ident.required(stringify!($name), SyntaxShape::$shape, $desc);
     };
 }
