@@ -35,7 +35,6 @@ impl ExpandSyntax for PatternShape {
             .map_err(|_| token_nodes.err_next_token("glob pattern"))?;
 
         Ok(file_pattern(inner, outer, token_nodes.context()))
-
     }
 }
 
