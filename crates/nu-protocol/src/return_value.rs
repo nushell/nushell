@@ -62,6 +62,14 @@ impl Into<ReturnValue> for Value {
 }
 
 impl ReturnSuccess {
+    pub fn raw_value(&self) -> Option<Value> {
+        match self {
+            ReturnSuccess::Value(raw) => Some(raw.clone()),
+            ReturnSuccess::DebugValue(raw) => Some(raw.clone()),
+            ReturnSuccess::Action(_) => None,
+        }
+    }
+
     pub fn change_cwd(path: String) -> ReturnValue {
         Ok(ReturnSuccess::Action(CommandAction::ChangePath(path)))
     }

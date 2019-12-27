@@ -7,9 +7,9 @@ use heim::units::{information, ratio, Ratio};
 use std::usize;
 
 use nu_errors::ShellError;
+use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{
-    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, Signature, TaggedDictBuilder,
-    UntaggedValue, Value,
+    CallInfo, ReturnSuccess, ReturnValue, Signature, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tag;
 

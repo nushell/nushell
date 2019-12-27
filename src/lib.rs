@@ -31,4 +31,5 @@ pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 
 // TODO: Temporary redirect
-pub use nu_protocol::{did_you_mean, serve_plugin, Plugin, TaggedDictBuilder};
+pub use nu_protocol::{did_you_mean, TaggedDictBuilder};
+//pub use nu_plugin::{serve_plugin, Plugin};

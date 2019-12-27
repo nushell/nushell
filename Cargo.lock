@@ -1955,6 +1955,7 @@ dependencies = [
  "nu-errors",
  "nu-macros",
  "nu-parser",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "nu-test-support",
@@ -2083,6 +2084,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-plugin"
+version = "0.7.0"
+dependencies = [
+ "indexmap",
+ "nu-build",
+ "nu-errors",
+ "nu-protocol",
+ "nu-source",
+ "nu-value-ext",
+ "num-bigint",
+ "serde 1.0.103",
+ "serde_json",
+]
+
+[[package]]
 name = "nu-protocol"
 version = "0.7.0"
 dependencies = [
@@ -2159,6 +2175,7 @@ version = "0.7.0"
 dependencies = [
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
 ]
@@ -2173,6 +2190,7 @@ dependencies = [
  "neso",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "pretty-hex",
@@ -2186,6 +2204,7 @@ dependencies = [
  "futures-preview",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "surf",
@@ -2199,6 +2218,7 @@ dependencies = [
  "indexmap",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "nu-value-ext",
@@ -2212,6 +2232,7 @@ dependencies = [
  "futures-preview",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "regex",
@@ -2225,6 +2246,7 @@ dependencies = [
  "futures-preview",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "num-traits 0.2.10",
@@ -2243,6 +2265,7 @@ dependencies = [
  "heim",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "pin-utils",
@@ -2255,6 +2278,7 @@ dependencies = [
  "indexmap",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "nu-value-ext",
@@ -2268,6 +2292,7 @@ version = "0.7.0"
 dependencies = [
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
 ]
@@ -2282,6 +2307,7 @@ dependencies = [
  "heim",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
 ]
@@ -2294,6 +2320,7 @@ dependencies = [
  "crossterm",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "onig_sys",
@@ -2308,6 +2335,7 @@ dependencies = [
  "derive-new",
  "nu-build",
  "nu-errors",
+ "nu-plugin",
  "nu-protocol",
  "nu-source",
  "ptree",

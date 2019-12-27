@@ -6,9 +6,9 @@ use futures_util::StreamExt;
 use heim::units::{frequency, information, thermodynamic_temperature, time};
 use heim::{disk, host, memory, net, sensors};
 use nu_errors::ShellError;
+use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{
-    serve_plugin, CallInfo, Plugin, ReturnSuccess, ReturnValue, Signature, TaggedDictBuilder,
-    UntaggedValue, Value,
+    CallInfo, ReturnSuccess, ReturnValue, Signature, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tag;
 

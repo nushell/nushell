@@ -30,6 +30,7 @@ members = [
     "crates/nu_plugin_textview",
     "crates/nu_plugin_tree",
     "crates/nu-protocol",
+    "crates/nu-plugin",
     "crates/nu-parser",
     "crates/nu-value-ext",
     "crates/nu-build"
@@ -39,6 +40,7 @@ members = [
 
 [dependencies]
 nu-source = { version = "0.7.0", path = "./crates/nu-source" }
+nu-plugin = { version = "0.7.0", path = "./crates/nu-plugin" }
 nu-protocol = { version = "0.7.0", path = "./crates/nu-protocol" }
 nu-errors = { version = "0.7.0", path = "./crates/nu-errors" }
 nu-parser = { version = "0.7.0", path = "./crates/nu-parser" }
@@ -143,7 +145,7 @@ sys = ["heim", "battery"]
 ps = ["heim", "futures-timer"]
 textview = ["crossterm", "syntect", "onig_sys", "url"]
 inc = ["semver"]
-str = []
+str = ["nu_plugin_str"]
 
 # Stable
 average = ["nu_plugin_average"]
