@@ -202,7 +202,7 @@ To set one of these variables, you can use `config --set`. For example:
 
 ```
 > config --set [edit_mode "vi"]
-> config --set [path $nu:path]
+> config --set [path $nu.path]
 ```
 
 ## Shells
