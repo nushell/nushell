@@ -5,7 +5,6 @@ pub(crate) mod external_command;
 pub(crate) mod named;
 pub(crate) mod path;
 pub(crate) mod range;
-pub(crate) mod signature;
 pub mod syntax_shape;
 pub(crate) mod tokens_iterator;
 
@@ -296,115 +295,6 @@ impl PrettyDebugWithSource for SpannedExpression {
             },
         }
     }
-}
-
-impl SpannedExpression {
-    // pub fn number(i: impl Into<Number>, span: impl Into<Span>) -> Expression {
-    //     let span = span.into();
-
-    //     RawExpression::Literal(RawLiteral::Number(i.into()).into_literal(span)).into_expr(span)
-    // }
-
-    // pub fn size(i: impl Into<Number>, unit: impl Into<Unit>, span: impl Into<Span>) -> Expression {
-    //     let span = span.into();
-
-    //     RawExpression::Literal(RawLiteral::Size(i.into(), unit.into()).into_literal(span))
-    //         .into_expr(span)
-    // }
-
-    // pub fn synthetic_string(s: impl Into<String>) -> Expression {
-    //     RawExpression::Synthetic(Synthetic::String(s.into())).into_unspanned_expr()
-    // }
-
-    // pub fn string(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-    //     let outer = outer.into();
-
-    //     RawExpression::Literal(RawLiteral::String(inner.into()).into_literal(outer))
-    //         .into_expr(outer)
-    // }
-
-    // pub fn column_path(members: Vec<Member>, span: impl Into<Span>) -> Expression {
-    //     let span = span.into();
-
-    //     RawExpression::Literal(RawLiteral::ColumnPath(members).into_literal(span)).into_expr(span)
-    // }
-
-    // pub fn path(
-    //     head: Expression,
-    //     tail: Vec<impl Into<PathMember>>,
-    //     span: impl Into<Span>,
-    // ) -> Expression {
-    //     let tail = tail.into_iter().map(|t| t.into()).collect();
-    //     RawExpression::Path(Box::new(Path::new(head, tail))).into_expr(span.into())
-    // }
-
-    // pub fn dot_member(head: Expression, next: impl Into<PathMember>) -> Expression {
-    //     let Expression { expr: item, span } = head;
-    //     let next = next.into();
-
-    //     let new_span = head.span.until(next.span);
-
-    //     match item {
-    //         RawExpression::Path(path) => {
-    //             let (head, mut tail) = path.parts();
-
-    //             tail.push(next);
-    //             Expression::path(head, tail, new_span)
-    //         }
-
-    //         other => Expression::path(other.into_expr(span), vec![next], new_span),
-    //     }
-    // }
-
-    // pub fn infix(
-    //     left: Expression,
-    //     op: Spanned<impl Into<CompareOperator>>,
-    //     right: Expression,
-    // ) -> Expression {
-    //     let new_span = left.span.until(right.span);
-
-    //     RawExpression::Binary(Box::new(Binary::new(left, op.map(|o| o.into()), right)))
-    //         .into_expr(new_span)
-    // }
-
-    // pub fn range(left: Expression, op: Span, right: Expression) -> Expression {
-    //     let new_span = left.span.until(right.span);
-
-    //     RawExpression::Range(Box::new(Range::new(left, op, right))).into_expr(new_span)
-    // }
-
-    // pub fn file_path(path: impl Into<PathBuf>, outer: impl Into<Span>) -> Expression {
-    //     RawExpression::FilePath(path.into()).into_expr(outer)
-    // }
-
-    // pub fn list(list: Vec<Expression>, span: impl Into<Span>) -> Expression {
-    //     RawExpression::List(list).into_expr(span)
-    // }
-
-    // pub fn bare(span: impl Into<Span>) -> Expression {
-    //     let span = span.into();
-
-    //     RawExpression::Literal(RawLiteral::Bare.into_literal(span)).into_expr(span)
-    // }
-
-    // pub fn pattern(inner: impl Into<String>, outer: impl Into<Span>) -> Expression {
-    //     let outer = outer.into();
-
-    //     RawExpression::Literal(RawLiteral::GlobPattern(inner.into()).into_literal(outer))
-    //         .into_expr(outer)
-    // }
-
-    // pub fn variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-    //     RawExpression::Variable(Variable::Other(inner.into())).into_expr(outer)
-    // }
-
-    // pub fn external_command(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-    //     RawExpression::ExternalCommand(ExternalCommand::new(inner.into())).into_expr(outer)
-    // }
-
-    // pub fn it_variable(inner: impl Into<Span>, outer: impl Into<Span>) -> Expression {
-    //     RawExpression::Variable(Variable::It(inner.into())).into_expr(outer)
-    // }
 }
 
 impl Expression {
