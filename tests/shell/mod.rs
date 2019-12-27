@@ -32,11 +32,11 @@ mod pipeline {
     #[test]
     fn doesnt_break_on_utf8_command() {
         let actual = nu!(
-            cwd: std::path::PathBuf::from("."),
+            cwd: ".", pipeline(
             r#"
-                sh -c "echo ö"
+                echo ö
             "#
-        );
+        ));
 
         assert!(
             actual.contains("ö"),
