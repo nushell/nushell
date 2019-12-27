@@ -357,7 +357,10 @@ fn word<'a, T, U, V>(
 
 pub fn matches(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpan, NomSpan> + Copy {
     move |input: NomSpan| match input.iter_elements().next() {
-        Option::Some(c) if cond(c) => Ok((input.slice(1..), input.slice(0..1))),
+        Option::Some(c) if cond(c) => {
+            let len_utf8 = c.len_utf8();
+            Ok((input.slice(len_utf8..), input.slice(0..len_utf8)))
+        }
         _ => Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
             input,
             nom::error::ErrorKind::Many0,
