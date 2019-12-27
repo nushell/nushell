@@ -11,6 +11,7 @@ license = "MIT"
 [dependencies]
 ansi_term = "0.12.1"
 crossterm = { version = "0.10.2" }
+nu-plugin = { path = "../nu-plugin", version="0.7.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.7.0" }
 nu-source = { path = "../nu-source", version = "0.7.0" }
 nu-errors = { path = "../nu-errors", version = "0.7.0" }

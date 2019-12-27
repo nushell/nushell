@@ -1,9 +1,10 @@
 use futures::executor::block_on;
 use mime::Mime;
 use nu_errors::ShellError;
+use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{
-    serve_plugin, CallInfo, CommandAction, Plugin, ReturnSuccess, ReturnValue, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    CallInfo, CommandAction, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue,
+    Value,
 };
 use nu_source::{AnchorLocation, Span, Tag};
 use std::path::PathBuf;

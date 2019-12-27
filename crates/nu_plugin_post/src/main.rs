@@ -2,9 +2,10 @@ use base64::encode;
 use futures::executor::block_on;
 use mime::Mime;
 use nu_errors::{CoerceInto, ShellError};
+use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{
-    serve_plugin, CallInfo, CommandAction, Plugin, Primitive, ReturnSuccess, ReturnValue,
-    Signature, SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
+    CallInfo, CommandAction, Primitive, ReturnSuccess, ReturnValue, Signature, SyntaxShape,
+    UnspannedPathMember, UntaggedValue, Value,
 };
 use nu_source::{AnchorLocation, Tag, TaggedItem};
 use num_traits::cast::ToPrimitive;
