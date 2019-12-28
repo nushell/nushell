@@ -28,3 +28,4 @@ mod split_by;
 mod split_column;
 mod where_;
 mod wrap;
+mod uniq;
