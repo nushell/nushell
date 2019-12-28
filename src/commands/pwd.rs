@@ -3,9 +3,9 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::Signature;
 
-pub struct PWD;
+pub struct Pwd;
 
-impl WholeStreamCommand for PWD {
+impl WholeStreamCommand for Pwd {
     fn name(&self) -> &str {
         "pwd"
     }

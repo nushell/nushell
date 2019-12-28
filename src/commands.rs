@@ -97,7 +97,7 @@ pub(crate) mod which_;
 pub(crate) mod wrap;
 
 pub(crate) use autoview::Autoview;
-pub(crate) use cd::CD;
+pub(crate) use cd::Cd;
 pub(crate) use command::{
     per_item_command, whole_stream_command, Command, PerItemCommand, RawCommandArgs,
     UnevaluatedCallInfo, WholeStreamCommand,
@@ -142,7 +142,7 @@ pub(crate) use history::History;
 pub(crate) use insert::Insert;
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
-pub(crate) use ls::LS;
+pub(crate) use ls::Ls;
 #[allow(unused)]
 pub(crate) use map_max_by::MapMaxBy;
 pub(crate) use mkdir::Mkdir;
@@ -155,7 +155,7 @@ pub(crate) use pick::Pick;
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
-pub(crate) use pwd::PWD;
+pub(crate) use pwd::Pwd;
 pub(crate) use range::Range;
 #[allow(unused)]
 pub(crate) use reduce_by::ReduceBy;
