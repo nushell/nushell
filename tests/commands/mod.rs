@@ -26,6 +26,6 @@ mod save;
 mod sort_by;
 mod split_by;
 mod split_column;
+mod uniq;
 mod where_;
 mod wrap;
-mod uniq;

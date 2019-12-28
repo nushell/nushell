@@ -1,10 +1,10 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
+use indexmap::set::IndexSet;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
-use indexmap::set::IndexSet;
 
 #[derive(Deserialize)]
 struct UniqArgs {
@@ -19,8 +19,7 @@ impl WholeStreamCommand for Uniq {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("uniq")
-            .rest(SyntaxShape::Any, "TODO: Figure out how to omit args")
+        Signature::build("uniq").rest(SyntaxShape::Any, "TODO: Figure out how to omit args")
     }
 
     fn usage(&self) -> &str {
@@ -38,7 +37,7 @@ impl WholeStreamCommand for Uniq {
 
 fn uniq(
     UniqArgs { rest: _fields }: UniqArgs,
-    RunnableContext { input, .. } : RunnableContext,
+    RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let uniq_values: IndexSet<_> = input.values.collect().await;
@@ -50,4 +49,3 @@ fn uniq(
 
     Ok(stream.to_output_stream())
 }
-
