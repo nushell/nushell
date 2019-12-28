@@ -1,10 +1,10 @@
 use crate::commands::WholeStreamCommand;
 use crate::context::CommandRegistry;
-use crate::data::base::select_fields;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, SyntaxShape};
 use nu_source::Tagged;
+use indexmap::set::IndexSet;
 
 #[derive(Deserialize)]
 struct UniqArgs {
@@ -20,7 +20,7 @@ impl WholeStreamCommand for Uniq {
 
     fn signature(&self) -> Signature {
         Signature::build("uniq")
-            .rest(SyntaxShape::Any, "The columns to be unique over")
+            .rest(SyntaxShape::Any, "TODO: Figure out how to omit args")
     }
 
     fn usage(&self) -> &str {
@@ -37,25 +37,17 @@ impl WholeStreamCommand for Uniq {
 }
 
 fn uniq(
-    UniqArgs { rest: fields }: UniqArgs,
-    mut context: RunnableContext,
+    UniqArgs { rest: _fields }: UniqArgs,
+    RunnableContext { input, .. } : RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    use std::collections::HashSet;
+    let stream = async_stream! {
+        let uniq_values: IndexSet<_> = input.values.collect().await;
 
-    Ok(OutputStream::new(async_stream! {
-        let mut uniq_values = HashSet::new();
-
-        let fields: Vec<_> = fields.iter().map(|field| field.item.clone()).collect();
-        let vec = context.input.drain_vec().await;
-
-        for item in vec {
-            uniq_values.insert(item);
+        for item in uniq_values.iter().map(|row| ReturnSuccess::value(row.clone())) {
+            yield item;
         }
+    };
 
-        for item in uniq_values {
-            yield item.into();
-        }
-
-    }))
+    Ok(stream.to_output_stream())
 }
 

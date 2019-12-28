@@ -12,7 +12,7 @@ use num_traits::cast::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
     #[serde(with = "serde_bigint")]
@@ -55,6 +55,22 @@ impl Primitive {
         }
     }
 }
+
+// impl Hash for Box<Range> {
+//     fn hash<H>(&self, state: &mut H) where H: ?Sized + Hasher,
+//     {
+//         state.write_u32(self.0);
+//         state.finish();
+
+//         fn finish(&self) -> u64 {
+//             self.0.finish()
+//         }
+
+//         fn write(&mut self, bytes: &[u8]) {
+//             self.0.write(bytes)
+//         }
+//     }
+// }
 
 impl From<BigDecimal> for Primitive {
     fn from(decimal: BigDecimal) -> Primitive {
