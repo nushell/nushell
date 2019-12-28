@@ -4,9 +4,9 @@ use nu_errors::ShellError;
 use nu_macros::signature;
 use nu_protocol::{Signature, SyntaxShape};
 
-pub struct CD;
+pub struct Cd;
 
-impl WholeStreamCommand for CD {
+impl WholeStreamCommand for Cd {
     fn name(&self) -> &str {
         "cd"
     }

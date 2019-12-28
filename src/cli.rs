@@ -232,9 +232,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         context.add_commands(vec![
             // System/file operations
-            whole_stream_command(PWD),
-            whole_stream_command(LS),
-            whole_stream_command(CD),
+            whole_stream_command(Pwd),
+            whole_stream_command(Ls),
+            whole_stream_command(Cd),
             whole_stream_command(Env),
             per_item_command(Remove),
             per_item_command(Open),
