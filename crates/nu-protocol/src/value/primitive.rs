@@ -56,22 +56,6 @@ impl Primitive {
     }
 }
 
-// impl Hash for Box<Range> {
-//     fn hash<H>(&self, state: &mut H) where H: ?Sized + Hasher,
-//     {
-//         state.write_u32(self.0);
-//         state.finish();
-
-//         fn finish(&self) -> u64 {
-//             self.0.finish()
-//         }
-
-//         fn write(&mut self, bytes: &[u8]) {
-//             self.0.write(bytes)
-//         }
-//     }
-// }
-
 impl From<BigDecimal> for Primitive {
     fn from(decimal: BigDecimal) -> Primitive {
         Primitive::Decimal(decimal)
