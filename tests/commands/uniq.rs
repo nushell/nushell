@@ -90,4 +90,3 @@ fn uniq_values() {
         assert_eq!(actual, "2");
     })
 }
-
