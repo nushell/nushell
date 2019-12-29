@@ -60,3 +60,34 @@ fn uniq_columns() {
         assert_eq!(actual, "2");
     })
 }
+
+#[test]
+fn uniq_values() {
+    Playground::setup("uniq_test_3", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_tres_caballeros.csv",
+            r#"
+                first_name,last_name,rusty_at,type
+                Andrés,Robalino,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
+                Jonathan,Turner,10/12/2013,B
+                Yehuda,Katz,10/11/2013,A
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_tres_caballeros.csv
+                | pick get type
+                | uniq
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "2");
+    })
+}
+
