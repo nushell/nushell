@@ -1,9 +1,8 @@
 use crate::Plugin;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, EvaluatedArgs, Primitive, ReturnValue, UntaggedValue, Value};
+use nu_protocol::{CallInfo, EvaluatedArgs, ReturnSuccess, ReturnValue, UntaggedValue, Value};
 use nu_source::Tag;
-use nu_value_ext::ValueExt;
 
 pub struct PluginTest<'a, T: Plugin> {
     plugin: &'a mut T,
@@ -100,20 +99,6 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
 pub fn plugin<T: Plugin>(plugin: &mut T) -> PluginTest<T> {
     PluginTest::for_plugin(plugin)
 }
-
-pub fn table(list: &Vec<Value>) -> Value {
-    UntaggedValue::table(list).into_untagged_value()
-}
-
-pub fn column_path(paths: &Vec<Value>) -> Value {
-    UntaggedValue::Primitive(Primitive::ColumnPath(
-        table(&paths.iter().cloned().collect())
-            .as_column_path()
-            .unwrap()
-            .item,
-    ))
-    .into_untagged_value()
-}
 pub struct CallStub {
     positionals: Vec<Value>,
     flags: IndexMap<String, Value>,
@@ -146,7 +131,7 @@ impl CallStub {
             .map(|s| UntaggedValue::string(s.to_string()).into_value(Tag::unknown()))
             .collect();
 
-        self.positionals.push(column_path(&fields));
+        self.positionals.push(value::column_path(&fields));
         self
     }
 
@@ -155,5 +140,73 @@ impl CallStub {
             args: EvaluatedArgs::new(Some(self.positionals.clone()), Some(self.flags.clone())),
             name_tag: Tag::unknown(),
         }
+    }
+}
+
+pub fn expect_return_value_at(
+    for_results: Result<Vec<Result<ReturnSuccess, ShellError>>, ShellError>,
+    at: usize,
+) -> Value {
+    let return_values = for_results
+        .expect("Failed! This seems to be an error getting back the results from the plugin.");
+
+    for (idx, item) in return_values.iter().enumerate() {
+        let item = match item {
+            Ok(return_value) => return_value,
+            Err(reason) => panic!(format!("{}", reason)),
+        };
+
+        if idx == at {
+            return item.raw_value().unwrap();
+        }
+    }
+
+    panic!(format!(
+        "Couldn't get return value from stream at {}. (There are {} items)",
+        at,
+        return_values.len() - 1
+    ))
+}
+
+pub mod value {
+    use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
+    use nu_source::Tag;
+    use nu_value_ext::ValueExt;
+    use num_bigint::BigInt;
+
+    pub fn get_data(for_value: Value, key: &str) -> Value {
+        for_value.get_data(&key.to_string()).borrow().clone()
+    }
+
+    pub fn int(i: impl Into<BigInt>) -> Value {
+        UntaggedValue::Primitive(Primitive::Int(i.into())).into_untagged_value()
+    }
+
+    pub fn string(input: impl Into<String>) -> Value {
+        UntaggedValue::string(input.into()).into_untagged_value()
+    }
+
+    pub fn structured_sample_record(key: &str, value: &str) -> Value {
+        let mut record = TaggedDictBuilder::new(Tag::unknown());
+        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.into_value()
+    }
+
+    pub fn unstructured_sample_record(value: &str) -> Value {
+        UntaggedValue::string(value).into_value(Tag::unknown())
+    }
+
+    pub fn table(list: &Vec<Value>) -> Value {
+        UntaggedValue::table(list).into_untagged_value()
+    }
+
+    pub fn column_path(paths: &Vec<Value>) -> Value {
+        UntaggedValue::Primitive(Primitive::ColumnPath(
+            table(&paths.iter().cloned().collect())
+                .as_column_path()
+                .unwrap()
+                .item,
+        ))
+        .into_untagged_value()
     }
 }

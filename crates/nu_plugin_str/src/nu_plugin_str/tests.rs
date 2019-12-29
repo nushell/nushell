@@ -1,11 +1,11 @@
 mod integration {
     use crate::strutils::{Action, ReplaceAction};
-    use crate::tests::{
-        expect_return_value_at, get_data, int, string, structured_sample_record,
+    use crate::Str;
+    use nu_plugin::test_helpers::value::{
+        column_path, get_data, int, string, structured_sample_record, table,
         unstructured_sample_record,
     };
-    use crate::Str;
-    use nu_plugin::test_helpers::{column_path, plugin, table, CallStub};
+    use nu_plugin::test_helpers::{expect_return_value_at, plugin, CallStub};
     use nu_protocol::UntaggedValue;
 
     #[test]
@@ -24,6 +24,7 @@ mod integration {
                 assert_eq!(plugin.error, Some("can only apply one".to_string()));
             });
     }
+
     #[test]
     fn picks_up_downcase_flag() {
         plugin(&mut Str::new())

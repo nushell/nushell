@@ -2,7 +2,6 @@ use nu_errors::ShellError;
 use nu_protocol::{did_you_mean, ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::{span_for_spanned_list, Tagged};
 use nu_value_ext::ValueExt;
-
 use regex::Regex;
 use std::cmp;
 
@@ -206,42 +205,35 @@ impl Str {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{ReplaceAction, Str};
-    use crate::tests::{int, string};
+    use super::ReplaceAction;
+    use super::Str;
+    use nu_plugin::test_helpers::value::{int, string};
 
     #[test]
     fn downcases() {
         let mut strutils = Str::new();
-
         strutils.for_downcase();
-
         assert_eq!(strutils.apply("ANDRES").unwrap(), string("andres").value);
     }
 
     #[test]
     fn upcases() {
         let mut strutils = Str::new();
-
         strutils.for_upcase();
-
         assert_eq!(strutils.apply("andres").unwrap(), string("ANDRES").value);
     }
 
     #[test]
     fn converts_to_int() {
         let mut strutils = Str::new();
-
         strutils.for_to_int();
-
         assert_eq!(strutils.apply("9999").unwrap(), int(9999 as i64).value);
     }
 
     #[test]
     fn replaces() {
         let mut strutils = Str::new();
-
         strutils.for_replace(ReplaceAction::Direct("robalino".to_string()));
-
         assert_eq!(strutils.apply("andres").unwrap(), string("robalino").value);
     }
 

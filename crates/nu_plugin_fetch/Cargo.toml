@@ -6,8 +6,6 @@ edition = "2018"
 description = "A URL fetch plugin for Nushell"
 license = "MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version="0.7.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.7.0" }
