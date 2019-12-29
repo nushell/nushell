@@ -6,7 +6,8 @@ edition = "2018"
 description = "Core values and protocols for Nushell"
 license = "MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+doctest = false
 
 [dependencies]
 nu-source = { path = "../nu-source", version = "0.7.0" }
