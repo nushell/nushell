@@ -92,6 +92,16 @@ fn uniq_values() {
 }
 
 #[test]
+fn uniq_nested_json_top_level() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "open nested_uniq.json | uniq | count | echo $it"
+    );
+
+    assert_eq!(actual, "2");
+}
+
+#[test]
 fn uniq_nested_json() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
