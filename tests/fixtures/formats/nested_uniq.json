@@ -1,0 +1,41 @@
+[ 
+  {
+    "name": "same name",
+    "nesting": [
+      {
+        "a": "a",
+        "b": "b"
+      },
+      {
+        "c": "c",
+        "d": "d"
+      }
+    ]
+  },
+  {
+    "name": "same name",
+    "nesting": [
+      {
+        "a": "a",
+        "b": "b"
+      },
+      {
+        "c": "c",
+        "d": "d"
+      }
+    ]
+  },
+  {
+    "name": "same name",
+    "nesting": [
+      {
+        "a": "a",
+        "b": "b"
+      },
+      {
+        "d": "d",
+        "c": "c"
+      }
+    ]
+  }
+]

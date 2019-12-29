@@ -90,3 +90,13 @@ fn uniq_values() {
         assert_eq!(actual, "2");
     })
 }
+
+#[test]
+fn uniq_nested_json() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        "open nested_uniq.json | get nesting | uniq | count | echo $it"
+    );
+
+    assert_eq!(actual, "3");
+}
