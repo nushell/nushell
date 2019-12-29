@@ -1986,7 +1986,6 @@ dependencies = [
  "roxmltree",
  "rusqlite",
  "rustyline",
- "semver",
  "serde 1.0.103",
  "serde-hjson 0.9.1",
  "serde_bytes",
@@ -2215,7 +2214,6 @@ dependencies = [
 name = "nu_plugin_inc"
 version = "0.7.0"
 dependencies = [
- "indexmap",
  "nu-build",
  "nu-errors",
  "nu-plugin",
@@ -2275,7 +2273,6 @@ dependencies = [
 name = "nu_plugin_str"
 version = "0.7.0"
 dependencies = [
- "indexmap",
  "nu-build",
  "nu-errors",
  "nu-plugin",

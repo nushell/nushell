@@ -1,16 +1,16 @@
-mod nu_plugin_str;
-mod strutils;
+mod inc;
+mod nu_plugin_inc;
 
-pub use strutils::Str;
+pub use inc::Inc;
 
 #[cfg(test)]
 mod tests {
-    use super::Str;
-    use crate::strutils::Action;
+    use super::Inc;
+    use crate::inc::Action;
     use nu_protocol::Value;
     use nu_value_ext::ValueExt;
 
-    impl Str {
+    impl Inc {
         pub fn expect_action(&self, action: Action) {
             match &self.action {
                 Some(set) if set == &action => {}
