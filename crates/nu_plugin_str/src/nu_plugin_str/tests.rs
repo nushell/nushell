@@ -72,7 +72,7 @@ mod integration {
                 CallStub::new()
                     .with_named_parameter(
                         "find-replace",
-                        table(&vec![string(&search_argument), string(&replace_argument)]),
+                        table(&[string(&search_argument), string(&replace_argument)]),
                     )
                     .create(),
             )
@@ -91,7 +91,7 @@ mod integration {
                     .create(),
             )
             .setup(|plugin, _| {
-                plugin.expect_field(column_path(&vec![string("package"), string("description")]))
+                plugin.expect_field(column_path(&[string("package"), string("description")]))
             });
     }
 
@@ -194,7 +194,7 @@ mod integration {
                     .with_parameter("staff")
                     .with_named_parameter(
                         "find-replace",
-                        table(&vec![string("kittens"), string("jotandrehuda")]),
+                        table(&[string("kittens"), string("jotandrehuda")]),
                     )
                     .create(),
             )
@@ -353,7 +353,7 @@ mod integration {
                 CallStub::new()
                     .with_named_parameter(
                         "find-replace",
-                        table(&vec![string("kittens"), string("jotandrehuda")]),
+                        table(&[string("kittens"), string("jotandrehuda")]),
                     )
                     .create(),
             )

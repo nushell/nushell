@@ -85,7 +85,7 @@ mod pipeline {
             );
 
             assert!(
-                !actual.contains("~"),
+                !actual.contains('~'),
                 format!("'{}' should not contain ~", actual)
             );
         }

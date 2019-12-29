@@ -35,7 +35,7 @@ pub enum FlatShape {
 }
 
 impl FlatShape {
-    pub fn from(token: &TokenNode, source: &Text, shapes: &mut Vec<Spanned<FlatShape>>) -> () {
+    pub fn from(token: &TokenNode, source: &Text, shapes: &mut Vec<Spanned<FlatShape>>) {
         match token {
             TokenNode::Token(token) => match token.unspanned {
                 UnspannedToken::Number(RawNumber::Int(_)) => {
@@ -84,7 +84,7 @@ impl FlatShape {
             }
             TokenNode::Pipeline(pipeline) => {
                 for part in &pipeline.parts {
-                    if let Some(_) = part.pipe {
+                    if part.pipe.is_some() {
                         shapes.push(FlatShape::Pipe.spanned(part.span()));
                     }
                 }

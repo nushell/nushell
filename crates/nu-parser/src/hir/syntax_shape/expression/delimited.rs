@@ -6,7 +6,7 @@ use nu_errors::ParseError;
 use nu_source::{Span, SpannedItem, Tag};
 
 pub fn expand_delimited_square(
-    children: &Vec<TokenNode>,
+    children: &[TokenNode],
     span: Span,
     context: &ExpandContext,
 ) -> Result<hir::Expression, ParseError> {

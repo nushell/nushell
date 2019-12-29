@@ -13,7 +13,7 @@ pub struct PluginTest<'a, T: Plugin> {
 impl<'a, T: Plugin> PluginTest<'a, T> {
     pub fn for_plugin(plugin: &'a mut T) -> Self {
         PluginTest {
-            plugin: plugin,
+            plugin,
             call_info: CallStub::new().create(),
             input: UntaggedValue::nothing().into_value(Tag::unknown()),
         }
@@ -99,17 +99,16 @@ impl<'a, T: Plugin> PluginTest<'a, T> {
 pub fn plugin<T: Plugin>(plugin: &mut T) -> PluginTest<T> {
     PluginTest::for_plugin(plugin)
 }
+
+#[derive(Default)]
 pub struct CallStub {
     positionals: Vec<Value>,
     flags: IndexMap<String, Value>,
 }
 
 impl CallStub {
-    pub fn new() -> CallStub {
-        CallStub {
-            positionals: vec![],
-            flags: indexmap::IndexMap::new(),
-        }
+    pub fn new() -> Self {
+        Default::default()
     }
 
     pub fn with_named_parameter(&mut self, name: &str, value: Value) -> &mut Self {
@@ -127,7 +126,7 @@ impl CallStub {
 
     pub fn with_parameter(&mut self, name: &str) -> &mut Self {
         let fields: Vec<Value> = name
-            .split(".")
+            .split('.')
             .map(|s| UntaggedValue::string(s.to_string()).into_value(Tag::unknown()))
             .collect();
 
@@ -188,7 +187,7 @@ pub mod value {
 
     pub fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.insert_untagged(key, UntaggedValue::string(value));
         record.into_value()
     }
 
@@ -196,16 +195,13 @@ pub mod value {
         UntaggedValue::string(value).into_value(Tag::unknown())
     }
 
-    pub fn table(list: &Vec<Value>) -> Value {
+    pub fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
-    pub fn column_path(paths: &Vec<Value>) -> Value {
+    pub fn column_path(paths: &[Value]) -> Value {
         UntaggedValue::Primitive(Primitive::ColumnPath(
-            table(&paths.iter().cloned().collect())
-                .as_column_path()
-                .unwrap()
-                .item,
+            table(&paths.to_vec()).as_column_path().unwrap().item,
         ))
         .into_untagged_value()
     }

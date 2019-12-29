@@ -111,7 +111,7 @@ pub fn evaluate(
                                 } => {
                                     let data: Vec<_> = data
                                         .into_iter()
-                                        .map(|x| evaluate_with(x.clone(), tag.clone()).unwrap())
+                                        .map(|x| evaluate_with(x, tag.clone()).unwrap())
                                         .collect();
                                     UntaggedValue::Table(data).into_value(&tag)
                                 }
@@ -124,7 +124,7 @@ pub fn evaluate(
                 })
                 .collect();
 
-            UntaggedValue::Table(datasets.clone()).into_value(&tag)
+            UntaggedValue::Table(datasets).into_value(&tag)
         }
         _ => UntaggedValue::Table(vec![]).into_value(&tag),
     };
@@ -156,7 +156,7 @@ mod tests {
         UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Value>) -> Value {
+    fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
@@ -233,10 +233,10 @@ mod tests {
     fn evaluates_the_tables() {
         assert_eq!(
             evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap(),
-            table(&vec![table(&vec![
-                table(&vec![int(1), int(1), int(1)]),
-                table(&vec![int(1), int(1), int(1)]),
-                table(&vec![int(1), int(1), int(1)]),
+            table(&[table(&[
+                table(&[int(1), int(1), int(1)]),
+                table(&[int(1), int(1), int(1)]),
+                table(&[int(1), int(1), int(1)]),
             ]),])
         );
     }
@@ -247,10 +247,10 @@ mod tests {
 
         assert_eq!(
             evaluate(&nu_releases_sorted_by_date(), Some(eval), Tag::unknown()).unwrap(),
-            table(&vec![table(&vec![
-                table(&vec![string("AR"), string("JT"), string("YK")]),
-                table(&vec![string("AR"), string("YK"), string("JT")]),
-                table(&vec![string("YK"), string("JT"), string("AR")]),
+            table(&[table(&[
+                table(&[string("AR"), string("JT"), string("YK")]),
+                table(&[string("AR"), string("YK"), string("JT")]),
+                table(&[string("YK"), string("JT"), string("AR")]),
             ]),])
         );
     }

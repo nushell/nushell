@@ -61,7 +61,7 @@ impl ValueShell {
                 }
             }
             x => {
-                shell_entries.push_back(x.clone());
+                shell_entries.push_back(x);
             }
         }
 
@@ -222,7 +222,7 @@ impl Shell for ValueShell {
 
     fn set_path(&mut self, path: String) {
         self.last_path = self.path.clone();
-        self.path = path.clone();
+        self.path = path;
     }
 
     fn complete(

@@ -732,9 +732,9 @@ impl ExpandSyntax for CommandHeadShape {
             });
 
         match node {
-            Ok(expr) => return Ok(expr),
+            Ok(expr) => Ok(expr),
             Err(_) => match expand_expr(&AnyExpressionShape, token_nodes, context) {
-                Ok(expr) => return Ok(CommandSignature::Expression(expr)),
+                Ok(expr) => Ok(CommandSignature::Expression(expr)),
                 Err(_) => Err(token_nodes.peek_non_ws().type_error("command head3")),
             },
         }
@@ -834,7 +834,7 @@ impl FallibleColorSyntax for InternalCommandHeadShape {
 
         let node = peeked_head.commit();
 
-        let _expr = match node {
+        match node {
             TokenNode::Token(Token {
                 unspanned: UnspannedToken::Bare,
                 span,
@@ -904,8 +904,8 @@ impl<'token> SingleError<'token> {
     }
 }
 
-fn parse_single_node<'a, 'b, T>(
-    token_nodes: &'b mut TokensIterator<'a>,
+fn parse_single_node<T>(
+    token_nodes: &mut TokensIterator<'_>,
     expected: &'static str,
     callback: impl FnOnce(UnspannedToken, Span, SingleError) -> Result<T, ParseError>,
 ) -> Result<T, ParseError> {
@@ -926,8 +926,8 @@ fn parse_single_node<'a, 'b, T>(
     })
 }
 
-fn parse_single_node_skipping_ws<'a, 'b, T>(
-    token_nodes: &'b mut TokensIterator<'a>,
+fn parse_single_node_skipping_ws<T>(
+    token_nodes: &mut TokensIterator<'_>,
     expected: &'static str,
     callback: impl FnOnce(UnspannedToken, Span, SingleError) -> Result<T, ShellError>,
 ) -> Result<T, ShellError> {
@@ -982,7 +982,7 @@ impl FallibleColorSyntax for WhitespaceShape {
 
         let node = peeked.commit();
 
-        let _ = match node {
+        match node {
             TokenNode::Whitespace(span) => {
                 token_nodes.color_shape(FlatShape::Whitespace.spanned(*span))
             }

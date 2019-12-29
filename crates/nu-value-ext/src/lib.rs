@@ -9,7 +9,7 @@ use num_traits::cast::ToPrimitive;
 
 pub trait ValueExt {
     fn into_parts(self) -> (UntaggedValue, Tag);
-    fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value>;
+    fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value>;
     fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value>;
     fn get_data_by_member(&self, name: &PathMember) -> Result<Value, ShellError>;
     fn get_data_by_column_path(
@@ -43,7 +43,7 @@ impl ValueExt for Value {
         (self.value, self.tag)
     }
 
-    fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
+    fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value> {
         get_data(self, desc)
     }
 
@@ -163,14 +163,9 @@ pub fn get_data_by_member(value: &Value, name: &PathMember) -> Result<Value, She
                         )
                     })?;
 
-                    match get_data_by_index(value, index.spanned(value.tag.span)) {
-                        Some(v) => Ok(v.clone()),
-                        None => Err(ShellError::range_error(
-                            0..(l.len()),
-                            &int.spanned(name.span),
-                            "indexing",
-                        )),
-                    }
+                    get_data_by_index(value, index.spanned(value.tag.span)).ok_or_else(|| {
+                        ShellError::range_error(0..(l.len()), &int.spanned(name.span), "indexing")
+                    })
                 }
             }
         }
@@ -193,7 +188,7 @@ pub fn get_data_by_column_path(
 
         match value {
             Ok(v) => current = v.clone(),
-            Err(e) => return Err(callback((&current.clone(), &p.clone(), e))),
+            Err(e) => return Err(callback((&current, &p.clone(), e))),
         }
     }
 
@@ -210,10 +205,9 @@ pub fn insert_data_at_path(value: &Value, path: &str, new_value: Value) -> Optio
 
         if split_path.len() == 1 {
             // Special case for inserting at the top level
-            current.entries.insert(
-                path.to_string(),
-                new_value.value.clone().into_value(&value.tag),
-            );
+            current
+                .entries
+                .insert(path.to_string(), new_value.value.into_value(&value.tag));
             return Some(new_obj);
         }
 
@@ -275,7 +269,7 @@ pub fn insert_data_at_member(
                     )
                 })?;
 
-                insert_data_at_index(array, int.tagged(member.span), new_value.clone())?;
+                insert_data_at_index(array, int.tagged(member.span), new_value)?;
                 Ok(())
             }
         },
@@ -428,7 +422,7 @@ fn insert_data_at_index(
     }
 }
 
-pub fn get_data<'value>(value: &'value Value, desc: &String) -> MaybeOwned<'value, Value> {
+pub fn get_data<'value>(value: &'value Value, desc: &str) -> MaybeOwned<'value, Value> {
     match &value.value {
         UntaggedValue::Primitive(_) => MaybeOwned::Borrowed(value),
         UntaggedValue::Row(o) => o.get_data(desc),

@@ -1,3 +1,5 @@
+#![allow(clippy::module_inception)]
+
 pub(crate) mod completer;
 pub(crate) mod filesystem_shell;
 pub(crate) mod help_shell;

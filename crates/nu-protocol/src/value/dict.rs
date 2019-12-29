@@ -95,7 +95,7 @@ impl From<IndexMap<String, Value>> for Dictionary {
 }
 
 impl Dictionary {
-    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
+    pub fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(

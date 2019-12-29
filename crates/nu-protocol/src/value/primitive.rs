@@ -108,7 +108,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
 
             match byte.get_unit() {
                 byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
-                _ => byte.format(1).to_string(),
+                _ => byte.format(1),
             }
         }
         Primitive::Duration(sec) => format_duration(*sec),
@@ -150,7 +150,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         }
         .to_owned(),
         Primitive::Binary(_) => "<binary>".to_owned(),
-        Primitive::Date(d) => d.humanize().to_string(),
+        Primitive::Date(d) => d.humanize(),
     }
 }
 

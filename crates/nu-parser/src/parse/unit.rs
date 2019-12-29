@@ -40,8 +40,8 @@ fn convert_number_to_u64(number: &Number) -> u64 {
 }
 
 impl Unit {
-    pub fn as_str(&self) -> &str {
-        match *self {
+    pub fn as_str(self) -> &'static str {
+        match self {
             Unit::Byte => "B",
             Unit::Kilobyte => "KB",
             Unit::Megabyte => "MB",
@@ -58,10 +58,10 @@ impl Unit {
         }
     }
 
-    pub fn compute(&self, size: &Number) -> UntaggedValue {
+    pub fn compute(self, size: &Number) -> UntaggedValue {
         let size = size.clone();
 
-        match &self {
+        match self {
             Unit::Byte => number(size),
             Unit::Kilobyte => number(size * 1024),
             Unit::Megabyte => number(size * 1024 * 1024),

@@ -68,9 +68,9 @@ impl ExpandExpression for PatternShape {
             | UnspannedAtomicToken::ExternalWord { text: body }
             | UnspannedAtomicToken::GlobPattern { pattern: body } => {
                 let path = expand_file_path(body.slice(context.source), context);
-                return Ok(hir::Expression::pattern(path.to_string_lossy(), atom.span));
+                Ok(hir::Expression::pattern(path.to_string_lossy(), atom.span))
             }
-            _ => return atom.into_hir(context, "pattern"),
+            _ => atom.to_hir(context, "pattern"),
         }
     }
 }

@@ -46,12 +46,7 @@ impl UntaggedValue {
     pub fn data_descriptors(&self) -> Vec<String> {
         match self {
             UntaggedValue::Primitive(_) => vec![],
-            UntaggedValue::Row(columns) => columns
-                .entries
-                .keys()
-                .into_iter()
-                .map(|x| x.to_string())
-                .collect(),
+            UntaggedValue::Row(columns) => columns.entries.keys().map(|x| x.to_string()).collect(),
             UntaggedValue::Block(_) => vec![],
             UntaggedValue::Table(_) => vec![],
             UntaggedValue::Error(_) => vec![],
@@ -116,7 +111,7 @@ impl UntaggedValue {
         UntaggedValue::Row(entries.into())
     }
 
-    pub fn table(list: &Vec<Value>) -> UntaggedValue {
+    pub fn table(list: &[Value]) -> UntaggedValue {
         UntaggedValue::Table(list.to_vec())
     }
 
@@ -227,9 +222,7 @@ impl Value {
     pub fn as_path(&self) -> Result<PathBuf, ShellError> {
         match &self.value {
             UntaggedValue::Primitive(Primitive::Path(path)) => Ok(path.clone()),
-            UntaggedValue::Primitive(Primitive::String(path_str)) => {
-                Ok(PathBuf::from(&path_str).clone())
-            }
+            UntaggedValue::Primitive(Primitive::String(path_str)) => Ok(PathBuf::from(&path_str)),
             _ => Err(ShellError::type_error("Path", self.spanned_type_name())),
         }
     }

@@ -5,7 +5,6 @@ use self::debug::{ColorTracer, ExpandTracer};
 use crate::hir::syntax_shape::FlatShape;
 use crate::hir::Expression;
 use crate::TokenNode;
-#[allow(unused)]
 use getset::{Getters, MutGetters};
 use nu_errors::{ParseError, ShellError};
 use nu_protocol::SpannedTypeName;
@@ -102,7 +101,7 @@ impl<'content, 'me> Peeked<'content, 'me> {
     }
 
     pub fn type_error(&self, expected: &'static str) -> ParseError {
-        peek_error(&self.node, self.iterator.eof_span(), expected)
+        peek_error(self.node, self.iterator.eof_span(), expected)
     }
 }
 
@@ -130,11 +129,11 @@ impl<'content, 'me> PeekedNode<'content, 'me> {
     pub fn rollback(self) {}
 
     pub fn type_error(&self, expected: &'static str) -> ParseError {
-        peek_error(&Some(self.node), self.iterator.eof_span(), expected)
+        peek_error(Some(self.node), self.iterator.eof_span(), expected)
     }
 }
 
-pub fn peek_error(node: &Option<&TokenNode>, eof_span: Span, expected: &'static str) -> ParseError {
+pub fn peek_error(node: Option<&TokenNode>, eof_span: Span, expected: &'static str) -> ParseError {
     match node {
         None => ParseError::unexpected_eof(expected, eof_span),
         Some(node) => ParseError::mismatch(expected, node.spanned_type_name()),
@@ -158,7 +157,7 @@ impl<'content> TokensIterator<'content> {
                 shapes: vec![],
             },
             color_tracer: ColorTracer::new(source.clone()),
-            expand_tracer: ExpandTracer::new(source.clone()),
+            expand_tracer: ExpandTracer::new(source),
         }
     }
 
@@ -172,6 +171,10 @@ impl<'content> TokensIterator<'content> {
 
     pub fn len(&self) -> usize {
         self.state.tokens.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn spanned<T>(
@@ -233,7 +236,7 @@ impl<'content> TokensIterator<'content> {
         let mut color_tracer = ColorTracer::new(source.clone());
         std::mem::swap(&mut color_tracer, &mut self.color_tracer);
 
-        let mut expand_tracer = ExpandTracer::new(source.clone());
+        let mut expand_tracer = ExpandTracer::new(source);
         std::mem::swap(&mut expand_tracer, &mut self.expand_tracer);
 
         let mut iterator = TokensIterator {
@@ -409,7 +412,7 @@ impl<'content> TokensIterator<'content> {
         let value = block(checkpoint.iterator)?;
 
         checkpoint.commit();
-        return Ok(value);
+        Ok(value)
     }
 
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
@@ -437,7 +440,7 @@ impl<'content> TokensIterator<'content> {
         let value = block(checkpoint.iterator)?;
 
         checkpoint.commit();
-        return Ok(value);
+        Ok(value)
     }
 
     /// Use a checkpoint when you need to peek more than one token ahead, but can't be sure
@@ -474,7 +477,7 @@ impl<'content> TokensIterator<'content> {
 
         checkpoint.commit();
         std::mem::swap(&mut self.state.shapes, &mut shapes);
-        return (Ok(value), shapes);
+        (Ok(value), shapes)
     }
 
     fn eof_span(&self) -> Span {
@@ -583,12 +586,12 @@ impl<'content> TokensIterator<'content> {
         let peeked = peeked.not_eof(expected);
 
         match peeked {
-            Err(err) => return Err(err),
+            Err(err) => Err(err),
             Ok(peeked) => match block(peeked.node) {
-                Err(err) => return Err(err),
+                Err(err) => Err(err),
                 Ok(val) => {
                     peeked.commit();
-                    return Ok(val);
+                    Ok(val)
                 }
             },
         }
@@ -658,10 +661,7 @@ fn peek<'content, 'me>(
     }
 }
 
-fn peek_pos<'content, 'me>(
-    iterator: &'me TokensIterator<'content>,
-    skip_ws: bool,
-) -> Option<usize> {
+fn peek_pos(iterator: &TokensIterator<'_>, skip_ws: bool) -> Option<usize> {
     let state = iterator.state();
 
     let mut to = state.index;

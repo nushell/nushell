@@ -159,7 +159,7 @@ fn inner_string_span(span: Span) -> Span {
 }
 
 pub fn print_err(err: ShellError, source: &Text) {
-    let diag = err.to_diagnostic();
+    let diag = err.into_diagnostic();
 
     let writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
     let mut source = source.to_string();

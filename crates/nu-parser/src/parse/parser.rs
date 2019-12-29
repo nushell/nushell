@@ -233,13 +233,9 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, RawNumber> {
 
     let dotdot_result = dotdot(input);
 
-    match dotdot_result {
+    if let Ok((dotdot_input, _)) = dotdot_result {
         // If we see a `..` immediately after an integer, it's a range, not a decimal
-        Ok((dotdot_input, _)) => {
-            return Ok((input, RawNumber::int(Span::new(start, input.offset))))
-        }
-
-        Err(_) => {}
+        return Ok((input, RawNumber::int(Span::new(start, input.offset))));
     }
 
     let dot: IResult<NomSpan, NomSpan, (NomSpan, nom::error::ErrorKind)> = tag(".")(input);
@@ -434,10 +430,8 @@ enum SawSpecial {
 fn start_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
     let path_sep_result = special_file_char(input);
 
-    match path_sep_result {
-        Ok((input, special)) => return Ok((input, special)),
-
-        Err(_) => {}
+    if let Ok((input, special)) = path_sep_result {
+        return Ok((input, special));
     }
 
     start_filename(input).map(|(input, output)| (input, BitFlags::empty()))
@@ -447,9 +441,8 @@ fn start_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
 fn continue_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
     let path_sep_result = special_file_char(input);
 
-    match path_sep_result {
-        Ok((input, special)) => return Ok((input, special)),
-        Err(_) => {}
+    if let Ok((input, special)) = path_sep_result {
+        return Ok((input, special));
     }
 
     matches(is_file_char)(input).map(|(input, _)| (input, BitFlags::empty()))
@@ -457,9 +450,8 @@ fn continue_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> 
 
 #[tracable_parser]
 fn special_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
-    match matches(is_path_separator)(input) {
-        Ok((input, _)) => return Ok((input, BitFlags::empty() | SawSpecial::PathSeparator)),
-        Err(_) => {}
+    if let Ok((input, _)) = matches(is_path_separator)(input) {
+        return Ok((input, BitFlags::empty() | SawSpecial::PathSeparator));
     }
 
     let (input, _) = matches(is_glob_specific_char)(input)?;
@@ -667,9 +659,13 @@ pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<TokenNo
 
     let mut out = vec![];
 
-    pre_ws.map(|pre_ws| out.extend(pre_ws));
+    if let Some(pre_ws) = pre_ws {
+        out.extend(pre_ws)
+    }
     out.extend(items.item);
-    post_ws.map(|post_ws| out.extend(post_ws));
+    if let Some(post_ws) = post_ws {
+        out.extend(post_ws)
+    }
 
     Ok((input, out.spanned(Span::new(start, end))))
 }
@@ -917,7 +913,7 @@ fn parse_int<T>(frag: &str, neg: Option<T>) -> i64 {
 
     match neg {
         None => int,
-        Some(_) => int * -1,
+        Some(_) => -int,
     }
 }
 

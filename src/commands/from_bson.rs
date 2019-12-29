@@ -102,7 +102,7 @@ fn convert_bson_value_to_nu_value(v: &Bson, tag: impl Into<Tag>) -> Result<Value
             );
             collected.insert_value(
                 "$scope".to_string(),
-                convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag.clone())?,
+                convert_bson_value_to_nu_value(&Bson::Document(doc.to_owned()), tag)?,
             );
             collected.into_value()
         }

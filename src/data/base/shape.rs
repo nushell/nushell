@@ -168,7 +168,7 @@ impl PrettyDebug for FormatInlineShape {
                         (b::primitive(format!("{}", byte.get_value())) + b::space() + b::kind("B"))
                             .group()
                     }
-                    _ => b::primitive(byte.format(1).to_string()),
+                    _ => b::primitive(byte.format(1)),
                 }
             }
             InlineShape::String(string) => b::primitive(string),

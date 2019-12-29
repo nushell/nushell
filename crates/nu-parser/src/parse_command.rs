@@ -134,7 +134,7 @@ pub fn parse_command_tail(
 
     trace!(target: "nu::parse", "Constructed positional={:?} named={:?}", positional, named);
 
-    let positional = if positional.len() == 0 {
+    let positional = if positional.is_empty() {
         None
     } else {
         Some(positional)
@@ -204,7 +204,7 @@ impl ColorSyntax for CommandTailShape {
 
         fn insert_flag(
             token_nodes: &mut TokensIterator,
-            syntax_type: &SyntaxShape,
+            syntax_type: SyntaxShape,
             args: &mut ColoringArgs,
             flag: Flag,
             pos: usize,
@@ -226,7 +226,7 @@ impl ColorSyntax for CommandTailShape {
 
                     // If the part after a mandatory flag isn't present, that's ok, but we
                     // should roll back any whitespace we chomped
-                    color_fallible_syntax(syntax_type, token_nodes, context)?;
+                    color_fallible_syntax(&syntax_type, token_nodes, context)?;
 
                     Ok(())
                 });
@@ -243,9 +243,10 @@ impl ColorSyntax for CommandTailShape {
 
             match &kind.0 {
                 NamedType::Switch => {
-                    match token_nodes.extract(|t| t.as_flag(name, context.source())) {
-                        Some((pos, flag)) => args.insert(pos, vec![flag.color()]),
-                        None => {}
+                    if let Some((pos, flag)) =
+                        token_nodes.extract(|t| t.as_flag(name, context.source()))
+                    {
+                        args.insert(pos, vec![flag.color()])
                     }
                 }
                 NamedType::Mandatory(syntax_type) => {
@@ -260,7 +261,7 @@ impl ColorSyntax for CommandTailShape {
                             // The mandatory flag didn't exist at all, so there's nothing to color
                         }
                         Ok((pos, flag)) => {
-                            insert_flag(token_nodes, syntax_type, &mut args, flag, pos, context)
+                            insert_flag(token_nodes, *syntax_type, &mut args, flag, pos, context)
                         }
                     }
                 }
@@ -270,7 +271,7 @@ impl ColorSyntax for CommandTailShape {
                             // The optional flag didn't exist at all, so there's nothing to color
                         }
                         Ok(Some((pos, flag))) => {
-                            insert_flag(token_nodes, syntax_type, &mut args, flag, pos, context)
+                            insert_flag(token_nodes, *syntax_type, &mut args, flag, pos, context)
                         }
 
                         Ok(None) => {

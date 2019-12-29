@@ -628,7 +628,7 @@ pub fn classify_pipeline(
 }
 
 pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
-    let diag = err.to_diagnostic();
+    let diag = err.into_diagnostic();
 
     let writer = host.err_termcolor();
     let mut source = source.to_string();

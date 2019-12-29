@@ -56,7 +56,7 @@ mod integration {
         plugin(&mut Inc::new())
             .args(CallStub::new().with_parameter("package.version").create())
             .setup(|plugin, _| {
-                plugin.expect_field(column_path(&vec![string("package"), string("version")]))
+                plugin.expect_field(column_path(&[string("package"), string("version")]))
             });
     }
 

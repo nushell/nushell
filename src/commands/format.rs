@@ -55,13 +55,10 @@ impl PerItemCommand for Format {
                         output.push_str(s);
                     }
                     FormatCommand::Column(c) => {
-                        match dict.entries.get(c) {
-                            Some(c) => output
-                                .push_str(&value::format_leaf(c.borrow()).plain_string(100_000)),
-                            None => {
-                                // This column doesn't match, so don't emit anything
-                            }
+                        if let Some(c) = dict.entries.get(c) {
+                            output.push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
                         }
+                        // That column doesn't match, so don't emit anything
                     }
                 }
             }

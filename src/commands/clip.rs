@@ -58,7 +58,7 @@ pub mod clipboard {
         let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
         let mut new_copy_data = String::new();
 
-        if input.len() > 0 {
+        if !input.is_empty() {
             let mut first = true;
             for i in input.iter() {
                 if !first {

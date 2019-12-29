@@ -65,7 +65,7 @@ fn nth(
                 .iter()
                 .any(|requested| requested.item == idx as u64)
             {
-                result.push_back(ReturnSuccess::value(item.clone()));
+                result.push_back(ReturnSuccess::value(item));
             }
 
             result

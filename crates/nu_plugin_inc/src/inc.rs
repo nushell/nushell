@@ -16,6 +16,7 @@ pub enum SemVerAction {
     Patch,
 }
 
+#[derive(Default)]
 pub struct Inc {
     pub field: Option<Tagged<ColumnPath>>,
     pub error: Option<String>,
@@ -23,12 +24,8 @@ pub struct Inc {
 }
 
 impl Inc {
-    pub fn new() -> Inc {
-        Inc {
-            field: None,
-            error: None,
-            action: None,
-        }
+    pub fn new() -> Self {
+        Default::default()
     }
 
     fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
@@ -122,12 +119,11 @@ impl Inc {
                     );
 
                     let got = replace_for?;
-                    let replacement = self.inc(got.clone())?;
+                    let replacement = self.inc(got)?;
 
-                    match value.replace_data_at_column_path(
-                        &f,
-                        replacement.value.clone().into_untagged_value(),
-                    ) {
+                    match value
+                        .replace_data_at_column_path(&f, replacement.value.into_untagged_value())
+                    {
                         Some(v) => Ok(v),
                         None => Err(ShellError::labeled_error(
                             "inc could not find field to replace",

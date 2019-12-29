@@ -24,9 +24,9 @@ pub trait Plugin {
 }
 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
-    let args = std::env::args();
+    let mut args = std::env::args();
     if args.len() > 1 {
-        let input = args.skip(1).next();
+        let input = args.nth(1);
 
         let input = match input {
             Some(arg) => std::fs::read_to_string(arg),

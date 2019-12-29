@@ -39,21 +39,17 @@ impl FallibleColorSyntax for AnyBlockShape {
         // is it just a block?
         let block = block.node.as_block();
 
-        match block {
-            // If so, color it as a block
-            Some((children, spans)) => {
-                token_nodes.child(children, context.source.clone(), |token_nodes| {
-                    color_syntax_with(
-                        &DelimitedShape,
-                        &(Delimiter::Brace, spans.0, spans.1),
-                        token_nodes,
-                        context,
-                    );
-                });
+        if let Some((children, spans)) = block {
+            token_nodes.child(children, context.source.clone(), |token_nodes| {
+                color_syntax_with(
+                    &DelimitedShape,
+                    &(Delimiter::Brace, spans.0, spans.1),
+                    token_nodes,
+                    context,
+                );
+            });
 
-                return Ok(());
-            }
-            _ => {}
+            return Ok(());
         }
 
         // Otherwise, look for a shorthand block. If none found, fail
@@ -76,16 +72,13 @@ impl ExpandExpression for AnyBlockShape {
         // is it just a block?
         let block = block.node.as_block();
 
-        match block {
-            Some((block, _tags)) => {
-                let mut iterator =
-                    TokensIterator::new(&block.item, block.span, context.source.clone(), false);
+        if let Some((block, _tags)) = block {
+            let mut iterator =
+                TokensIterator::new(&block.item, block.span, context.source.clone(), false);
 
-                let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?.exprs;
+            let exprs = expand_syntax(&ExpressionListShape, &mut iterator, context)?.exprs;
 
-                return Ok(hir::RawExpression::Block(exprs.item).into_expr(block.span));
-            }
-            _ => {}
+            return Ok(hir::RawExpression::Block(exprs.item).into_expr(block.span));
         }
 
         expand_syntax(&ShorthandBlock, token_nodes, context)
@@ -169,30 +162,20 @@ impl FallibleColorSyntax for ShorthandPath {
         token_nodes.atomic(|token_nodes| {
             let variable = color_fallible_syntax(&VariablePathShape, token_nodes, context);
 
-            match variable {
-                Ok(_) => {
-                    // if it's a variable path, that's the head part
-                    return Ok(());
-                }
-
-                Err(_) => {
-                    // otherwise, we'll try to find a member path
-                }
+            if variable.is_ok() {
+                // if it's a variable path, that's the head part
+                return Ok(());
             }
+
+            // otherwise, we'll try to find a member path
 
             // look for a member (`<member>` -> `$it.<member>`)
             color_fallible_syntax(&MemberShape, token_nodes, context)?;
 
             // Now that we've synthesized the head, of the path, proceed to expand the tail of the path
             // like any other path.
-            let tail = color_fallible_syntax(&PathTailShape, token_nodes, context);
-
-            match tail {
-                Ok(_) => {}
-                Err(_) => {
-                    // It's ok if there's no path tail; a single member is sufficient
-                }
-            }
+            // It's ok if there's no path tail; a single member is sufficient
+            let _ = color_fallible_syntax(&PathTailShape, token_nodes, context);
 
             Ok(())
         })
@@ -212,9 +195,8 @@ impl ExpandExpression for ShorthandPath {
         // if it's a variable path, that's the head part
         let path = expand_expr(&VariablePathShape, token_nodes, context);
 
-        match path {
-            Ok(path) => return Ok(path),
-            Err(_) => {}
+        if let Ok(path) = path {
+            return Ok(path);
         }
 
         // Synthesize the head of the shorthand path (`<member>` -> `$it.<member>`)
@@ -225,7 +207,7 @@ impl ExpandExpression for ShorthandPath {
         let tail = expand_syntax(&PathTailShape, token_nodes, context);
 
         match tail {
-            Err(_) => return Ok(head),
+            Err(_) => Ok(head),
             Ok(PathTailSyntax { tail, .. }) => {
                 // For each member that `PathTailShape` expanded, join it onto the existing expression
                 // to form a new path

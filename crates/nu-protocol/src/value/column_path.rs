@@ -69,7 +69,7 @@ impl PrettyDebug for ColumnPath {
 
 impl HasFallibleSpan for ColumnPath {
     fn maybe_span(&self) -> Option<Span> {
-        if self.members.len() == 0 {
+        if self.members.is_empty() {
             None
         } else {
             Some(span_for_spanned_list(self.members.iter().map(|m| m.span)))
@@ -98,7 +98,7 @@ pub fn did_you_mean(obj_source: &Value, field_tried: &PathMember) -> Option<Vec<
     let mut possible_matches: Vec<_> = possibilities
         .into_iter()
         .map(|x| {
-            let word = x.clone();
+            let word = x;
             let distance = natural::distance::levenshtein_distance(&word, &field_tried);
 
             (distance, word)

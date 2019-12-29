@@ -132,10 +132,10 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
             let tmp = format!("{}", b);
             Ok(tmp)
         }
-        UntaggedValue::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?.to_string()),
-        UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?.to_string()),
-        UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?.to_string()),
-        UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?.to_string()),
+        UntaggedValue::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
+        UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
         UntaggedValue::Table(_) => Ok(String::from("[Table]")),
         UntaggedValue::Row(_) => Ok(String::from("[Row]")),
         UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.to_string()),

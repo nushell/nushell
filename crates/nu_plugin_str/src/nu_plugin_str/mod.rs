@@ -81,8 +81,8 @@ impl Plugin for Str {
             }) = args.get("find-replace")
             {
                 self.for_replace(ReplaceAction::FindAndReplace(
-                    arguments.get(0).unwrap().as_string()?.to_string(),
-                    arguments.get(1).unwrap().as_string()?.to_string(),
+                    arguments.get(0).unwrap().as_string()?,
+                    arguments.get(1).unwrap().as_string()?,
                 ));
             }
         }

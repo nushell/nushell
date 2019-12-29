@@ -1,3 +1,5 @@
+#![allow(clippy::should_implement_trait)]
+
 #[derive(Debug)]
 pub enum MaybeOwned<'a, T> {
     Owned(T),

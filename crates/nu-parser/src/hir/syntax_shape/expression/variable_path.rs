@@ -41,9 +41,8 @@ impl ExpandExpression for VariablePathShape {
         let mut tail: Vec<PathMember> = vec![];
 
         loop {
-            match DotShape.skip(token_nodes, context) {
-                Err(_) => break,
-                Ok(_) => {}
+            if DotShape.skip(token_nodes, context).is_err() {
+                break;
             }
 
             let member = expand_syntax(&MemberShape, token_nodes, context)?;
@@ -77,17 +76,16 @@ impl FallibleColorSyntax for VariablePathShape {
 
             loop {
                 // look for a dot at the head of a stream
-                let dot = color_fallible_syntax_with(
+                if color_fallible_syntax_with(
                     &ColorableDotShape,
                     &FlatShape::Dot,
                     token_nodes,
                     context,
-                );
-
-                // if there's no dot, we're done
-                match dot {
-                    Err(_) => break,
-                    Ok(_) => {}
+                )
+                .is_err()
+                {
+                    // if there's no dot, we're done
+                    break;
                 }
 
                 // otherwise, look for a member, and if you don't find one, fail
@@ -125,9 +123,8 @@ impl FallibleColorSyntax for PathTailShape {
                 context,
             );
 
-            match result {
-                Err(_) => return Ok(()),
-                Ok(_) => {}
+            if result.is_err() {
+                return Ok(());
             }
 
             // If we've seen a dot but not a member, fail
@@ -170,9 +167,8 @@ impl ExpandSyntax for PathTailShape {
         let mut tail: Vec<PathMember> = vec![];
 
         loop {
-            match DotShape.skip(token_nodes, context) {
-                Err(_) => break,
-                Ok(_) => {}
+            if DotShape.skip(token_nodes, context).is_err() {
+                break;
             }
 
             let member = expand_syntax(&MemberShape, token_nodes, context)?;
@@ -649,12 +645,11 @@ impl FallibleColorSyntax for MemberShape {
         let bare =
             color_fallible_syntax_with(&BareShape, &FlatShape::BareMember, token_nodes, context);
 
-        match bare {
-            Ok(_) => return Ok(()),
-            Err(_) => {
-                // If we don't have a bare word, we'll look for a string
-            }
+        if bare.is_ok() {
+            return Ok(());
         }
+
+        // If we don't have a bare word, we'll look for a string
 
         // Look for a string token. If we don't find one, fail
         color_fallible_syntax_with(&StringShape, &FlatShape::StringMember, token_nodes, context)
@@ -696,7 +691,7 @@ impl ExpandSyntax for IntMemberShape {
                     let int = BigInt::from_str(text.slice(context.source));
 
                     match int {
-                        Ok(int) => return Ok(Member::Int(int, text)),
+                        Ok(int) => Ok(Member::Int(int, text)),
                         Err(_) => Err(ParseError::mismatch("integer member", "word".spanned(text))),
                     }
                 }

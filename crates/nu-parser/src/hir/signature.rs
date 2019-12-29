@@ -111,15 +111,12 @@ impl ExpandSyntax for KeywordShape {
     ) -> Result<Self::Output, ParseError> {
         let atom = expand_atom(token_nodes, "keyword", context, ExpansionRule::new())?;
 
-        match &atom.unspanned {
-            UnspannedAtomicToken::Word { text } => {
-                let word = text.slice(context.source());
+        if let UnspannedAtomicToken::Word { text } = &atom.unspanned {
+            let word = text.slice(context.source());
 
-                if word == self.keyword {
-                    return Ok(atom.span);
-                }
+            if word == self.keyword {
+                return Ok(atom.span);
             }
-            _ => {}
         }
 
         Err(ParseError::mismatch(self.keyword, atom.spanned_type_name()))
@@ -338,17 +335,14 @@ impl ExpandSyntax for IdentifierShape {
     ) -> Result<Self::Output, ParseError> {
         let atom = expand_atom(token_nodes, "identifier", context, ExpansionRule::new())?;
 
-        match atom.unspanned {
-            UnspannedAtomicToken::Word { text } => {
-                let body = text.slice(context.source());
-                if is_id(body) {
-                    return Ok(Identifier {
-                        body: body.to_string(),
-                        span: text,
-                    });
-                }
+        if let UnspannedAtomicToken::Word { text } = atom.unspanned {
+            let body = text.slice(context.source());
+            if is_id(body) {
+                return Ok(Identifier {
+                    body: body.to_string(),
+                    span: text,
+                });
             }
-            _ => {}
         }
 
         Err(ParseError::mismatch("identifier", atom.spanned_type_name()))
@@ -359,7 +353,7 @@ fn is_id(input: &str) -> bool {
     let source = nu_source::nom_input(input);
     match crate::parse::parser::ident(source) {
         Err(_) => false,
-        Ok((input, _)) => input.fragment.len() == 0,
+        Ok((input, _)) => input.fragment.is_empty(),
     }
 }
 

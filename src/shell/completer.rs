@@ -97,56 +97,45 @@ impl NuCompleter {
         let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
         line_copy.replace_range(replace_pos..pos, &replace_string);
 
-        match nu_parser::parse(&line_copy) {
-            Ok(val) => {
-                let source = Text::from(line);
-                let pipeline_list = vec![val.clone()];
-                let mut iterator =
-                    nu_parser::TokensIterator::all(&pipeline_list, source.clone(), val.span());
+        if let Ok(val) = nu_parser::parse(&line_copy) {
+            let source = Text::from(line);
+            let pipeline_list = vec![val.clone()];
+            let mut iterator =
+                nu_parser::TokensIterator::all(&pipeline_list, source.clone(), val.span());
 
-                let expand_context = nu_parser::ExpandContext {
-                    homedir: None,
-                    registry: Box::new(self.commands.clone()),
-                    source: &source,
-                };
+            let expand_context = nu_parser::ExpandContext {
+                homedir: None,
+                registry: Box::new(self.commands.clone()),
+                source: &source,
+            };
 
-                let result = nu_parser::expand_syntax(
-                    &nu_parser::PipelineShape,
-                    &mut iterator,
-                    &expand_context,
-                );
+            let result =
+                nu_parser::expand_syntax(&nu_parser::PipelineShape, &mut iterator, &expand_context);
 
-                if let Ok(result) = result {
-                    for command in result.commands.list {
-                        match command {
-                            nu_parser::ClassifiedCommand::Internal(
-                                nu_parser::InternalCommand { args, .. },
-                            ) => {
-                                if replace_pos >= args.span.start()
-                                    && replace_pos <= args.span.end()
-                                {
-                                    if let Some(named) = args.named {
-                                        for (name, _) in named.iter() {
-                                            let full_flag = format!("--{}", name);
+            if let Ok(result) = result {
+                for command in result.commands.list {
+                    if let nu_parser::ClassifiedCommand::Internal(nu_parser::InternalCommand {
+                        args,
+                        ..
+                    }) = command
+                    {
+                        if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
+                            if let Some(named) = args.named {
+                                for (name, _) in named.iter() {
+                                    let full_flag = format!("--{}", name);
 
-                                            if full_flag.starts_with(&substring) {
-                                                matching_arguments.push(
-                                                    rustyline::completion::Pair {
-                                                        display: full_flag.clone(),
-                                                        replacement: full_flag,
-                                                    },
-                                                );
-                                            }
-                                        }
+                                    if full_flag.starts_with(&substring) {
+                                        matching_arguments.push(rustyline::completion::Pair {
+                                            display: full_flag.clone(),
+                                            replacement: full_flag,
+                                        });
                                     }
                                 }
                             }
-                            _ => {}
                         }
                     }
                 }
             }
-            _ => {}
         }
 
         matching_arguments

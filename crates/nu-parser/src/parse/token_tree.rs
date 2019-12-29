@@ -349,7 +349,7 @@ pub enum Delimiter {
 }
 
 impl Delimiter {
-    pub(crate) fn open(&self) -> &'static str {
+    pub(crate) fn open(self) -> &'static str {
         match self {
             Delimiter::Paren => "(",
             Delimiter::Brace => "{",
@@ -357,7 +357,7 @@ impl Delimiter {
         }
     }
 
-    pub(crate) fn close(&self) -> &'static str {
+    pub(crate) fn close(self) -> &'static str {
         match self {
             Delimiter::Paren => ")",
             Delimiter::Brace => "}",

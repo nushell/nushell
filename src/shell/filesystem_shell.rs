@@ -212,7 +212,7 @@ impl Shell for FilesystemShell {
                         return Err(ShellError::labeled_error(
                             "Can not change to directory",
                             "is not a directory",
-                            v.tag().clone(),
+                            v.tag(),
                         ));
                     }
 
@@ -222,7 +222,7 @@ impl Shell for FilesystemShell {
                             return Err(ShellError::labeled_error(
                                 "Can not change to directory",
                                 "directory not found",
-                                v.tag().clone(),
+                                v.tag(),
                             ))
                         }
                     }
