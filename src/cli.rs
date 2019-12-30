@@ -17,7 +17,7 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
-use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
+use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor, KeyPress, Cmd, Movement, Word, At};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -349,6 +349,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let mut rl: Editor<_> = Editor::with_config(config);
+
+    rl.bind_sequence(KeyPress::ControlLeft, Cmd::Move(Movement::BackwardWord(1, Word::Vi)));
+    rl.bind_sequence(KeyPress::ControlRight, Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)));
 
     #[cfg(windows)]
     {
