@@ -350,6 +350,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let mut rl: Editor<_> = Editor::with_config(config);
 
+    // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
     rl.bind_sequence(KeyPress::ControlLeft, Cmd::Move(Movement::BackwardWord(1, Word::Vi)));
     rl.bind_sequence(KeyPress::ControlRight, Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)));
 
