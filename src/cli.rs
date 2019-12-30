@@ -17,7 +17,10 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
-use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor, KeyPress, Cmd, Movement, Word, At};
+use rustyline::{
+    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, Config, Editor, KeyPress,
+    Movement, Word,
+};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -351,8 +354,14 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     let mut rl: Editor<_> = Editor::with_config(config);
 
     // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
-    rl.bind_sequence(KeyPress::ControlLeft, Cmd::Move(Movement::BackwardWord(1, Word::Vi)));
-    rl.bind_sequence(KeyPress::ControlRight, Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)));
+    rl.bind_sequence(
+        KeyPress::ControlLeft,
+        Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
+    );
+    rl.bind_sequence(
+        KeyPress::ControlRight,
+        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
+    );
 
     #[cfg(windows)]
     {
