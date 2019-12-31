@@ -23,11 +23,8 @@ impl Plugin for BinaryView {
     fn sink(&mut self, call_info: CallInfo, input: Vec<Value>) {
         for v in input {
             let value_anchor = v.anchor();
-            match &v.value {
-                UntaggedValue::Primitive(Primitive::Binary(b)) => {
-                    let _ = view_binary(&b, value_anchor.as_ref(), call_info.args.has("lores"));
-                }
-                _ => {}
+            if let UntaggedValue::Primitive(Primitive::Binary(b)) = &v.value {
+                let _ = view_binary(&b, value_anchor.as_ref(), call_info.args.has("lores"));
             }
         }
     }
@@ -39,12 +36,9 @@ fn view_binary(
     lores_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if b.len() > 3 {
-        match (b[0], b[1], b[2]) {
-            (0x4e, 0x45, 0x53) => {
-                view_contents_interactive(b, source, lores_mode)?;
-                return Ok(());
-            }
-            _ => {}
+        if let (0x4e, 0x45, 0x53) = (b[0], b[1], b[2]) {
+            view_contents_interactive(b, source, lores_mode)?;
+            return Ok(());
         }
     }
     view_contents(b, source, lores_mode)?;
@@ -155,16 +149,13 @@ impl RenderContext {
             }
         }
         if prev_count > 0 {
-            match (prev_fg, prev_bg) {
-                (Some(c), Some(d)) => {
-                    print!(
-                        "{}",
-                        ansi_term::Colour::RGB(c.0, c.1, c.2)
-                            .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
-                            .paint((0..prev_count).map(|_| "▀").collect::<String>())
-                    );
-                }
-                _ => {}
+            if let (Some(c), Some(d)) = (prev_fg, prev_bg) {
+                print!(
+                    "{}",
+                    ansi_term::Colour::RGB(c.0, c.1, c.2)
+                        .on(ansi_term::Colour::RGB(d.0, d.1, d.2,))
+                        .paint((0..prev_count).map(|_| "▀").collect::<String>())
+                );
             }
         }
         outln!("{}", Attribute::Reset);
@@ -407,11 +398,11 @@ pub fn view_contents_interactive(
             if rawkey.is_pressed(rawkey::KeyCode::Escape) {
                 break 'gameloop;
             } else {
-                for i in 0..buttons.len() {
-                    if rawkey.is_pressed(buttons[i]) {
-                        nes.press_button(0, i as u8);
+                for (idx, button) in buttons.iter().enumerate() {
+                    if rawkey.is_pressed(*button) {
+                        nes.press_button(0, idx as u8);
                     } else {
-                        nes.release_button(0, i as u8);
+                        nes.release_button(0, idx as u8);
                     }
                 }
             }

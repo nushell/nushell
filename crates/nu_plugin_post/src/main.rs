@@ -61,15 +61,12 @@ impl Post {
             file => Some(file.clone()),
         };
 
-        self.user = call_info
-            .args
-            .get("user")
-            .map(|x| x.as_string().unwrap().to_string());
+        self.user = call_info.args.get("user").map(|x| x.as_string().unwrap());
 
         self.password = call_info
             .args
             .get("password")
-            .map(|x| x.as_string().unwrap().to_string());
+            .map(|x| x.as_string().unwrap());
 
         self.headers = get_headers(&call_info)?;
 
@@ -166,18 +163,18 @@ async fn post_helper(
     } else {
         // If the extension could not be determined via mimetype, try to use the path
         // extension. Some file types do not declare their mimetypes (such as bson files).
-        file_extension.or(path_str.split('.').last().map(String::from))
+        file_extension.or_else(|| path_str.split('.').last().map(String::from))
     };
 
     let tagged_contents = contents.into_value(&contents_tag);
 
     if let Some(extension) = file_extension {
-        return Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
+        Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
             tagged_contents,
             extension,
-        )));
+        )))
     } else {
-        return ReturnSuccess::value(tagged_contents);
+        ReturnSuccess::value(tagged_contents)
     }
 }
 
@@ -468,7 +465,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
     })
 }
 
-fn json_list(input: &Vec<Value>) -> Result<Vec<serde_json::Value>, ShellError> {
+fn json_list(input: &[Value]) -> Result<Vec<serde_json::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
@@ -482,20 +479,22 @@ fn get_headers(call_info: &CallInfo) -> Result<Vec<HeaderKind>, ShellError> {
     let mut headers = vec![];
 
     match extract_header_value(&call_info, "content-type") {
-        Ok(h) => match h {
-            Some(ct) => headers.push(HeaderKind::ContentType(ct)),
-            None => {}
-        },
+        Ok(h) => {
+            if let Some(ct) = h {
+                headers.push(HeaderKind::ContentType(ct))
+            }
+        }
         Err(e) => {
             return Err(e);
         }
     };
 
     match extract_header_value(&call_info, "content-length") {
-        Ok(h) => match h {
-            Some(cl) => headers.push(HeaderKind::ContentLength(cl)),
-            None => {}
-        },
+        Ok(h) => {
+            if let Some(cl) = h {
+                headers.push(HeaderKind::ContentLength(cl))
+            }
+        }
         Err(e) => {
             return Err(e);
         }

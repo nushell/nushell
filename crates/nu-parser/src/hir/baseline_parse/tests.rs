@@ -107,7 +107,7 @@ impl SignatureRegistry for TestRegistry {
         self.signatures.contains_key(name)
     }
     fn get(&self, name: &str) -> Option<Signature> {
-        self.signatures.get(name).map(|sig| sig.clone())
+        self.signatures.get(name).cloned()
     }
 }
 
