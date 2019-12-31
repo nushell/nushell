@@ -47,7 +47,7 @@ fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value 
         UntaggedValue::Primitive(Primitive::Boolean(builtin)).into_value(tag.clone()),
     );
 
-    UntaggedValue::row(map).into_value(tag.clone())
+    UntaggedValue::row(map).into_value(tag)
 }
 
 macro_rules! entry_builtin {
@@ -83,7 +83,7 @@ fn which(
     WhichArgs { bin, all }: WhichArgs,
     RunnableContext { commands, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let external = bin.chars().next().unwrap() == '^';
+    let external = bin.starts_with('^');
     let item = if external {
         bin.item[1..].to_string()
     } else {
