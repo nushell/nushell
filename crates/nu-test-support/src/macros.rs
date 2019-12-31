@@ -34,7 +34,7 @@ macro_rules! nu {
             .spawn()
         {
             Ok(child) => child,
-            Err(why) => panic!("Can't run test {}", why.description()),
+            Err(why) => panic!("Can't run test {}", why.to_string()),
         };
 
         let stdin = process.stdin.as_mut().expect("couldn't open stdin");

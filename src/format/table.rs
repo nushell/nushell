@@ -153,6 +153,7 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
     entries
 }
 
+#[allow(clippy::ptr_arg)]
 fn max_per_column(headers: &[String], entries: &Entries, values_len: usize) -> Vec<usize> {
     let mut max_per_column = vec![];
 

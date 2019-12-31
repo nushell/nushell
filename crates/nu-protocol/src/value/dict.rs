@@ -15,6 +15,7 @@ pub struct Dictionary {
     pub entries: IndexMap<String, Value>,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Dictionary {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut entries = self.entries.clone();
@@ -105,7 +106,7 @@ impl From<IndexMap<String, Value>> for Dictionary {
 }
 
 impl Dictionary {
-    pub fn get_data(&self, desc: &String) -> MaybeOwned<'_, Value> {
+    pub fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
             None => MaybeOwned::Owned(

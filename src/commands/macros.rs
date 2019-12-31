@@ -114,7 +114,7 @@ macro_rules! command {
                 $($extract)* {
                     use std::convert::TryInto;
 
-                    $args.get(stringify!($param_name)).clone().try_into()?
+                    $args.get(stringify!($param_name)).try_into()?
                 }
             }
         );
@@ -164,7 +164,7 @@ macro_rules! command {
                 $($extract)* {
                     use std::convert::TryInto;
 
-                    $args.get(stringify!($param_name)).clone().try_into()?
+                    $args.get(stringify!($param_name)).try_into()?
                 }
             }
         );
@@ -214,7 +214,7 @@ macro_rules! command {
                 $($extract)* {
                     use std::convert::TryInto;
 
-                    $args.get(stringify!($param_name)).clone().try_into()?
+                    $args.get(stringify!($param_name)).try_into()?
                 }
             }
         );

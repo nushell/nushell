@@ -133,7 +133,7 @@ impl DisplayPath for str {
 
 impl DisplayPath for &str {
     fn display_path(&self) -> String {
-        self.to_string()
+        (*self).to_string()
     }
 }
 
@@ -145,7 +145,7 @@ impl DisplayPath for String {
 
 impl DisplayPath for &String {
     fn display_path(&self) -> String {
-        self.to_string()
+        (*self).to_string()
     }
 }
 pub enum Stub<'a> {
@@ -196,7 +196,7 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
         panic!(format!("{:?} exists", parent.display()));
     }
 
-    std::fs::write(full_path, "fake data".as_bytes())
+    std::fs::write(full_path, b"fake data")
 }
 
 pub fn copy_file_to(source: &str, destination: &str) {

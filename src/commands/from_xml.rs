@@ -52,7 +52,7 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             .collect();
 
         let mut collected = TaggedDictBuilder::new(tag);
-        collected.insert_untagged(name.clone(), UntaggedValue::Table(children_values));
+        collected.insert_untagged(name, UntaggedValue::Table(children_values));
 
         collected.into_value()
     } else if n.is_comment() {
@@ -145,7 +145,7 @@ mod tests {
         UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Value>) -> Value {
+    fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
@@ -160,7 +160,7 @@ mod tests {
         assert_eq!(
             parse(source),
             row(indexmap! {
-                "nu".into() => table(&vec![])
+                "nu".into() => table(&[])
             })
         );
     }
@@ -172,7 +172,7 @@ mod tests {
         assert_eq!(
             parse(source),
             row(indexmap! {
-                "nu".into() => table(&vec![string("La era de los tres caballeros")])
+                "nu".into() => table(&[string("La era de los tres caballeros")])
             })
         );
     }
@@ -189,10 +189,10 @@ mod tests {
         assert_eq!(
             parse(source),
             row(indexmap! {
-                "nu".into() => table(&vec![
-                    row(indexmap! {"dev".into() => table(&vec![string("Andrés")])}),
-                    row(indexmap! {"dev".into() => table(&vec![string("Jonathan")])}),
-                    row(indexmap! {"dev".into() => table(&vec![string("Yehuda")])})
+                "nu".into() => table(&[
+                    row(indexmap! {"dev".into() => table(&[string("Andrés")])}),
+                    row(indexmap! {"dev".into() => table(&[string("Jonathan")])}),
+                    row(indexmap! {"dev".into() => table(&[string("Yehuda")])})
                 ])
             })
         );

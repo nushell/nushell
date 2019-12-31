@@ -180,7 +180,7 @@ mod tests {
         UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Value>) -> Value {
+    fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
@@ -254,7 +254,7 @@ mod tests {
                 Some(String::from("sum")),
                 Tag::unknown()
             ),
-            Ok(table(&vec![table(&vec![int(3), int(3), int(3)])]))
+            Ok(table(&[table(&[int(3), int(3), int(3)])]))
         );
     }
 }

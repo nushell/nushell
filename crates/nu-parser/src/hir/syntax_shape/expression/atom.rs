@@ -148,7 +148,7 @@ impl<'tokens> Deref for AtomicToken<'tokens> {
 }
 
 impl<'tokens> AtomicToken<'tokens> {
-    pub fn into_hir(
+    pub fn to_hir(
         &self,
         context: &ExpandContext,
         expected: &'static str,
@@ -198,59 +198,49 @@ impl<'tokens> AtomicToken<'tokens> {
     pub(crate) fn color_tokens(&self, shapes: &mut Vec<Spanned<FlatShape>>) {
         match &self.unspanned {
             UnspannedAtomicToken::Eof { .. } => {}
-            UnspannedAtomicToken::Error { .. } => {
-                return shapes.push(FlatShape::Error.spanned(self.span))
-            }
+            UnspannedAtomicToken::Error { .. } => shapes.push(FlatShape::Error.spanned(self.span)),
             UnspannedAtomicToken::CompareOperator { .. } => {
-                return shapes.push(FlatShape::CompareOperator.spanned(self.span));
+                shapes.push(FlatShape::CompareOperator.spanned(self.span))
             }
             UnspannedAtomicToken::ShorthandFlag { .. } => {
-                return shapes.push(FlatShape::ShorthandFlag.spanned(self.span));
+                shapes.push(FlatShape::ShorthandFlag.spanned(self.span))
             }
             UnspannedAtomicToken::Whitespace { .. } => {
-                return shapes.push(FlatShape::Whitespace.spanned(self.span));
+                shapes.push(FlatShape::Whitespace.spanned(self.span))
             }
             UnspannedAtomicToken::Number {
                 number: RawNumber::Decimal(_),
-            } => {
-                return shapes.push(FlatShape::Decimal.spanned(self.span));
-            }
+            } => shapes.push(FlatShape::Decimal.spanned(self.span)),
             UnspannedAtomicToken::Number {
                 number: RawNumber::Int(_),
-            } => {
-                return shapes.push(FlatShape::Int.spanned(self.span));
-            }
-            UnspannedAtomicToken::Size { number, unit } => {
-                return shapes.push(
-                    FlatShape::Size {
-                        number: number.span(),
-                        unit: unit.span,
-                    }
-                    .spanned(self.span),
-                );
-            }
+            } => shapes.push(FlatShape::Int.spanned(self.span)),
+            UnspannedAtomicToken::Size { number, unit } => shapes.push(
+                FlatShape::Size {
+                    number: number.span(),
+                    unit: unit.span,
+                }
+                .spanned(self.span),
+            ),
             UnspannedAtomicToken::String { .. } => {
-                return shapes.push(FlatShape::String.spanned(self.span))
+                shapes.push(FlatShape::String.spanned(self.span))
             }
             UnspannedAtomicToken::ItVariable { .. } => {
-                return shapes.push(FlatShape::ItVariable.spanned(self.span))
+                shapes.push(FlatShape::ItVariable.spanned(self.span))
             }
             UnspannedAtomicToken::Variable { .. } => {
-                return shapes.push(FlatShape::Variable.spanned(self.span))
+                shapes.push(FlatShape::Variable.spanned(self.span))
             }
             UnspannedAtomicToken::ExternalCommand { .. } => {
-                return shapes.push(FlatShape::ExternalCommand.spanned(self.span));
+                shapes.push(FlatShape::ExternalCommand.spanned(self.span))
             }
             UnspannedAtomicToken::ExternalWord { .. } => {
-                return shapes.push(FlatShape::ExternalWord.spanned(self.span))
+                shapes.push(FlatShape::ExternalWord.spanned(self.span))
             }
             UnspannedAtomicToken::GlobPattern { .. } => {
-                return shapes.push(FlatShape::GlobPattern.spanned(self.span))
+                shapes.push(FlatShape::GlobPattern.spanned(self.span))
             }
-            UnspannedAtomicToken::Word { .. } => {
-                return shapes.push(FlatShape::Word.spanned(self.span))
-            }
-            _ => return shapes.push(FlatShape::Error.spanned(self.span)),
+            UnspannedAtomicToken::Word { .. } => shapes.push(FlatShape::Word.spanned(self.span)),
+            _ => shapes.push(FlatShape::Error.spanned(self.span)),
         }
     }
 }
@@ -524,14 +514,13 @@ fn expand_atom_inner<'me, 'content>(
     rule: ExpansionRule,
 ) -> Result<AtomicToken<'content>, ParseError> {
     if token_nodes.at_end() {
-        match rule.allow_eof {
-            true => {
-                return Ok(UnspannedAtomicToken::Eof {
-                    span: Span::unknown(),
-                }
-                .into_atomic_token(Span::unknown()))
+        if rule.allow_eof {
+            return Ok(UnspannedAtomicToken::Eof {
+                span: Span::unknown(),
             }
-            false => return Err(ParseError::unexpected_eof("anything", Span::unknown())),
+            .into_atomic_token(Span::unknown()));
+        } else {
+            return Err(ParseError::unexpected_eof("anything", Span::unknown()));
         }
     }
 
@@ -540,9 +529,8 @@ fn expand_atom_inner<'me, 'content>(
 
     // If treat_size_as_word, don't try to parse the head of the token stream
     // as a size.
-    match rule.treat_size_as_word {
-        true => {}
-        false => match expand_syntax(&UnitShape, token_nodes, context) {
+    if !rule.treat_size_as_word {
+        match expand_syntax(&UnitShape, token_nodes, context) {
             // If the head of the stream isn't a valid unit, we'll try to parse
             // it again next as a word
             Err(_) => {}
@@ -552,31 +540,28 @@ fn expand_atom_inner<'me, 'content>(
                 unit: (number, unit),
                 span,
             }) => return Ok(UnspannedAtomicToken::Size { number, unit }.into_atomic_token(span)),
-        },
+        }
     }
 
-    match rule.separate_members {
-        false => {}
-        true => {
-            let mut next = token_nodes.peek_any();
+    if rule.separate_members {
+        let mut next = token_nodes.peek_any();
 
-            match next.node {
-                Some(token) if token.is_word() => {
-                    next.commit();
-                    return Ok(UnspannedAtomicToken::Word { text: token.span() }
-                        .into_atomic_token(token.span()));
-                }
-
-                Some(token) if token.is_int() => {
-                    next.commit();
-                    return Ok(UnspannedAtomicToken::Number {
-                        number: RawNumber::Int(token.span()),
-                    }
+        match next.node {
+            Some(token) if token.is_word() => {
+                next.commit();
+                return Ok(UnspannedAtomicToken::Word { text: token.span() }
                     .into_atomic_token(token.span()));
-                }
-
-                _ => {}
             }
+
+            Some(token) if token.is_int() => {
+                next.commit();
+                return Ok(UnspannedAtomicToken::Number {
+                    number: RawNumber::Int(token.span()),
+                }
+                .into_atomic_token(token.span()));
+            }
+
+            _ => {}
         }
     }
 

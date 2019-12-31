@@ -31,7 +31,7 @@ fn get_cargo_workspace(manifest_dir: &str) -> Option<&Path> {
         let manifest: Manifest = serde_json::from_slice(&output.stdout).unwrap();
         let path = Box::leak(Box::new(PathBuf::from(manifest.workspace_root)));
         workspaces.insert(manifest_dir.to_string(), path.as_path());
-        workspaces.get(manifest_dir).map(|w| *w)
+        workspaces.get(manifest_dir).cloned()
     }
 }
 
@@ -47,7 +47,7 @@ pub fn build() -> Result<(), Box<dyn std::error::Error>> {
 
     let all_on = env::var("NUSHELL_ENABLE_ALL_FLAGS").is_ok();
     let flags: HashSet<String> = env::var("NUSHELL_ENABLE_FLAGS")
-        .map(|s| s.split(",").map(|s| s.to_string()).collect())
+        .map(|s| s.split(',').map(|s| s.to_string()).collect())
         .unwrap_or_else(|_| HashSet::new());
 
     if all_on && !flags.is_empty() {
@@ -72,7 +72,7 @@ pub fn build() -> Result<(), Box<dyn std::error::Error>> {
     let toml: HashMap<String, Feature> = toml::from_str(&std::fs::read_to_string(path)?)?;
 
     for (key, value) in toml.iter() {
-        if value.enabled == true || all_on || flags.contains(key) {
+        if value.enabled || all_on || flags.contains(key) {
             println!("cargo:rustc-cfg={}", key);
         }
     }

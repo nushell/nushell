@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant, clippy::type_complexity)]
+
 pub mod commands;
 pub mod hir;
 pub mod parse;

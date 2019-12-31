@@ -50,7 +50,7 @@ impl PrettyDebug for ExternalCommand {
                 + b::preceded(
                     b::space(),
                     b::intersperse(
-                        self.args.iter().map(|a| b::primitive(format!("{}", a.arg))),
+                        self.args.iter().map(|a| b::primitive(a.arg.to_string())),
                         b::space(),
                     ),
                 ),

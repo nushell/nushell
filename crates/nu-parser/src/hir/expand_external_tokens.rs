@@ -295,7 +295,7 @@ impl ColorSyntax for ExternalExpressionShape {
         };
 
         token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes));
-        return ExternalExpressionResult::Processed;
+        ExternalExpressionResult::Processed
     }
 }
 

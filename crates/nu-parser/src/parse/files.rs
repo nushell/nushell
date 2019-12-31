@@ -26,7 +26,7 @@ impl language_reporting::ReportingFiles for Files {
     }
 
     fn file_name(&self, _file: Self::FileId) -> FileName {
-        FileName::Verbatim(format!("shell"))
+        FileName::Verbatim("shell".to_string())
     }
 
     fn byte_index(&self, _file: Self::FileId, _line: usize, _column: usize) -> Option<usize> {
@@ -143,9 +143,7 @@ impl language_reporting::ReportingFiles for Files {
     fn source(&self, span: Self::Span) -> Option<String> {
         trace!("source(tag={:?}) snippet={:?}", span, self.snippet);
 
-        if span.start() > span.end() {
-            return None;
-        } else if span.end() > self.snippet.len() {
+        if span.start() > span.end() || span.end() > self.snippet.len() {
             return None;
         }
         Some(span.slice(&self.snippet).to_string())

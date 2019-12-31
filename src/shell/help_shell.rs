@@ -97,7 +97,7 @@ impl HelpShell {
                 }
             }
             x => {
-                cmds.push_back(x.clone());
+                cmds.push_back(x);
             }
         }
 
@@ -129,7 +129,7 @@ impl Shell for HelpShell {
 
     fn set_path(&mut self, path: String) {
         let _ = std::env::set_current_dir(&path);
-        self.path = path.clone();
+        self.path = path;
     }
 
     fn ls(

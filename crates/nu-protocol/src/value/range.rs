@@ -10,14 +10,14 @@ pub enum RangeInclusion {
 }
 
 impl RangeInclusion {
-    pub fn debug_left_bracket(&self) -> DebugDocBuilder {
+    pub fn debug_left_bracket(self) -> DebugDocBuilder {
         b::delimiter(match self {
             RangeInclusion::Exclusive => "(",
             RangeInclusion::Inclusive => "[",
         })
     }
 
-    pub fn debug_right_bracket(&self) -> DebugDocBuilder {
+    pub fn debug_right_bracket(self) -> DebugDocBuilder {
         b::delimiter(match self {
             RangeInclusion::Exclusive => ")",
             RangeInclusion::Inclusive => "]",

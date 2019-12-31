@@ -488,6 +488,7 @@ fn hash_doc<H: std::hash::Hasher>(doc: &PrettyDebugDoc, state: &mut H) {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl std::hash::Hash for DebugDoc {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         hash_doc(&self.inner, state);

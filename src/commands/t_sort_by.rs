@@ -122,7 +122,7 @@ pub fn columns_sorted(
                         value: UntaggedValue::Primitive(Primitive::Date(d)),
                         ..
                     } => format!("{}", d.format("%B %d-%Y")),
-                    _ => k.as_string().unwrap().to_string(),
+                    _ => k.as_string().unwrap(),
                 })
                 .collect();
 
@@ -181,10 +181,7 @@ pub fn t_sort(
                                     Some(Value {
                                         value: UntaggedValue::Row(dict),
                                         ..
-                                    }) => dict
-                                        .get_data_by_key(label.borrow_spanned())
-                                        .unwrap()
-                                        .clone(),
+                                    }) => dict.get_data_by_key(label.borrow_spanned()).unwrap(),
                                     _ => UntaggedValue::Table(vec![]).into_value(&origin_tag),
                                 })
                                 .collect()
@@ -223,7 +220,7 @@ mod tests {
         UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Value>) -> Value {
+    fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
@@ -275,9 +272,9 @@ mod tests {
                 Tag::unknown()
             ),
             vec![
-                format!("August 23-2019").tagged_unknown(),
-                format!("September 24-2019").tagged_unknown(),
-                format!("October 10-2019").tagged_unknown()
+                "August 23-2019".to_string().tagged_unknown(),
+                "September 24-2019".to_string().tagged_unknown(),
+                "October 10-2019".to_string().tagged_unknown()
             ]
         )
     }
@@ -294,8 +291,8 @@ mod tests {
                 Tag::unknown()
             )
             .unwrap(),
-            table(&vec![table(&vec![
-                table(&vec![
+            table(&[table(&[
+                table(&[
                     row(
                         indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}
                     ),
@@ -306,7 +303,7 @@ mod tests {
                         indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")}
                     )
                 ]),
-                table(&vec![
+                table(&[
                     row(
                         indexmap! {"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("September 24-2019")}
                     ),
@@ -317,7 +314,7 @@ mod tests {
                         indexmap! {"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("September 24-2019")}
                     )
                 ]),
-                table(&vec![
+                table(&[
                     row(
                         indexmap! {"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}
                     ),

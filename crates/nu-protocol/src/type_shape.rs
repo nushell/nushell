@@ -278,7 +278,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
     fn pretty(&self) -> DebugDocBuilder {
         (b::key(match self.key {
             Column::String(string) => string.clone(),
-            Column::Value => format!("<value>"),
+            Column::Value => "<value>".to_string(),
         }) + b::delimit("(", self.value.pretty(), ")").into_kind())
     }
 }
@@ -346,12 +346,12 @@ where
             None => {
                 self.values.insert(key, {
                     let mut group = G::new();
-                    group.merge(value.into());
+                    group.merge(value);
                     group
                 });
             }
             Some(group) => {
-                group.merge(value.into());
+                group.merge(value);
             }
         }
     }

@@ -120,27 +120,21 @@ impl ColorSyntax for ExpressionListShape {
                 }
             } else {
                 // Try to color the head of the stream as an expression
-                match color_fallible_syntax(&AnyExpressionShape, token_nodes, context) {
+                if color_fallible_syntax(&AnyExpressionShape, token_nodes, context).is_err() {
                     // If no expression was found, switch to backoff coloring mode
-                    Err(_) => {
-                        backoff = true;
-                        continue;
-                    }
-                    Ok(_) => {}
+
+                    backoff = true;
+                    continue;
                 }
 
                 // If an expression was found, consume a space
-                match color_fallible_syntax(&SpaceShape, token_nodes, context) {
-                    Err(_) => {
-                        // If no space was found, we're either at the end or there's an error.
-                        // Either way, switch to backoff coloring mode. If we're at the end
-                        // it won't have any consequences.
-                        backoff = true;
-                    }
-                    Ok(_) => {
-                        // Otherwise, move on to the next expression
-                    }
+                if color_fallible_syntax(&SpaceShape, token_nodes, context).is_err() {
+                    // If no space was found, we're either at the end or there's an error.
+                    // Either way, switch to backoff coloring mode. If we're at the end
+                    // it won't have any consequences.
+                    backoff = true;
                 }
+                // Otherwise, move on to the next expression
             }
         }
     }

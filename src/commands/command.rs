@@ -192,7 +192,7 @@ impl CommandArgs {
 
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(call_info.clone());
+        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
         Ok(RunnableRawArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -556,7 +556,6 @@ impl WholeStreamCommand for FnFilterCommand {
         } = args;
 
         let host: Arc<Mutex<dyn Host>> = host.clone();
-        let shell_manager = shell_manager.clone();
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
 

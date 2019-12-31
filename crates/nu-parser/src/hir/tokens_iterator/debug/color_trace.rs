@@ -49,7 +49,7 @@ pub struct ColorFrame {
 impl ColorFrame {
     fn colored_leaf_description(&self, f: &mut impl io::Write) -> io::Result<()> {
         if self.has_only_error_descendents() {
-            if self.children.len() == 0 {
+            if self.children.is_empty() {
                 write!(
                     f,
                     "{}",
@@ -109,14 +109,10 @@ impl ColorFrame {
 
     fn any_child_shape(&self, predicate: impl Fn(Spanned<FlatShape>) -> bool) -> bool {
         for item in &self.children {
-            match item {
-                FrameChild::Shape(shape) => {
-                    if predicate(*shape) {
-                        return true;
-                    }
+            if let FrameChild::Shape(shape) = item {
+                if predicate(*shape) {
+                    return true;
                 }
-
-                _ => {}
             }
         }
 
@@ -125,14 +121,10 @@ impl ColorFrame {
 
     fn any_child_frame(&self, predicate: impl Fn(&ColorFrame) -> bool) -> bool {
         for item in &self.children {
-            match item {
-                FrameChild::Frame(frame) => {
-                    if predicate(frame) {
-                        return true;
-                    }
+            if let FrameChild::Frame(frame) = item {
+                if predicate(frame) {
+                    return true;
                 }
-
-                _ => {}
             }
         }
 
@@ -148,7 +140,7 @@ impl ColorFrame {
     }
 
     fn has_only_error_descendents(&self) -> bool {
-        if self.children.len() == 0 {
+        if self.children.is_empty() {
             // if this frame has no children at all, it has only error descendents if this frame
             // is an error
             self.error.is_some()
@@ -259,7 +251,7 @@ impl ColorTracer {
 
         let result = self.frame_stack.pop().expect("Can't pop root tracer frame");
 
-        if self.frame_stack.len() == 0 {
+        if self.frame_stack.is_empty() {
             panic!("Can't pop root tracer frame {:#?}", self);
         }
 

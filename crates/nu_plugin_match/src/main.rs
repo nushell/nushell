@@ -12,6 +12,7 @@ struct Match {
 }
 
 impl Match {
+    #[allow(clippy::trivial_regex)]
     fn new() -> Self {
         Match {
             column: String::new(),

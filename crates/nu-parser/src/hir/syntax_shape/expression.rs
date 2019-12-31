@@ -111,13 +111,9 @@ pub(crate) fn continue_coloring_expression(
         // Check to see whether there's any continuation after the head expression
         let result = color_fallible_syntax(&ExpressionContinuationShape, token_nodes, context);
 
-        match result {
-            Err(_) => {
-                // We already saw one continuation, so just return
-                return Ok(());
-            }
-
-            Ok(_) => {}
+        if result.is_err() {
+            // We already saw one continuation, so just return
+            return Ok(());
         }
     }
 }
@@ -138,19 +134,17 @@ impl ExpandExpression for AnyExpressionStartShape {
         let atom = expand_atom(token_nodes, "expression", context, ExpansionRule::new())?;
 
         match atom.unspanned {
-            UnspannedAtomicToken::Size { number, unit } => {
-                return Ok(hir::Expression::size(
-                    number.to_number(context.source),
-                    unit.item,
-                    Tag {
-                        span: atom.span,
-                        anchor: None,
-                    },
-                ))
-            }
+            UnspannedAtomicToken::Size { number, unit } => Ok(hir::Expression::size(
+                number.to_number(context.source),
+                unit.item,
+                Tag {
+                    span: atom.span,
+                    anchor: None,
+                },
+            )),
 
             UnspannedAtomicToken::SquareDelimited { nodes, .. } => {
-                expand_delimited_square(&nodes, atom.span.into(), context)
+                expand_delimited_square(&nodes, atom.span, context)
             }
 
             UnspannedAtomicToken::Word { .. } => {
@@ -158,11 +152,9 @@ impl ExpandExpression for AnyExpressionStartShape {
                 Ok(hir::Expression::bare(atom.span.until_option(end)))
             }
 
-            other => {
-                return other
-                    .into_atomic_token(atom.span)
-                    .into_hir(context, "expression")
-            }
+            other => other
+                .into_atomic_token(atom.span)
+                .to_hir(context, "expression"),
         }
     }
 }
@@ -208,7 +200,7 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
             UnspannedAtomicToken::Size { number, unit } => token_nodes.color_shape(
                 FlatShape::Size {
                     number: number.span(),
-                    unit: unit.span.into(),
+                    unit: unit.span,
                 }
                 .spanned(atom.span),
             ),
@@ -218,7 +210,7 @@ impl FallibleColorSyntax for AnyExpressionStartShape {
                     (&nodes[..]).spanned(atom.span),
                     context.source.clone(),
                     |tokens| {
-                        color_delimited_square(spans, tokens, atom.span.into(), context);
+                        color_delimited_square(spans, tokens, atom.span, context);
                     },
                 );
             }
@@ -257,12 +249,12 @@ impl FallibleColorSyntax for BareTailShape {
             let word =
                 color_fallible_syntax_with(&BareShape, &FlatShape::Word, token_nodes, context);
 
-            match word {
+            if word.is_ok() {
                 // if a word was found, continue
-                Ok(_) => continue,
-                // if a word wasn't found, try to find a dot
-                Err(_) => {}
+                continue;
             }
+
+            // if a word wasn't found, try to find a dot
 
             // try to find a dot
             let dot = color_fallible_syntax_with(

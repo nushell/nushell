@@ -116,7 +116,7 @@ pub(crate) use echo::Echo;
 pub(crate) use edit::Edit;
 pub(crate) use enter::Enter;
 pub(crate) use env::Env;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use evaluate_by::EvaluateBy;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
@@ -144,7 +144,7 @@ pub(crate) use insert::Insert;
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
 pub(crate) use ls::Ls;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
@@ -158,7 +158,7 @@ pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
 pub(crate) use pwd::Pwd;
 pub(crate) use range::Range;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;
 pub(crate) use reverse::Reverse;
@@ -172,7 +172,7 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split_by::SplitBy;
 pub(crate) use split_column::SplitColumn;
 pub(crate) use split_row::SplitRow;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;

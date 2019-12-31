@@ -9,7 +9,7 @@ where
     serde::Serialize::serialize(
         &big_decimal
             .to_f64()
-            .ok_or(serde::ser::Error::custom("expected a f64-sized bignum"))?,
+            .ok_or_else(|| serde::ser::Error::custom("expected a f64-sized bignum"))?,
         serializer,
     )
 }
@@ -20,5 +20,5 @@ where
 {
     let x: f64 = serde::Deserialize::deserialize(deserializer)?;
     Ok(BigDecimal::from_f64(x)
-        .ok_or(serde::de::Error::custom("expected a f64-sized bigdecimal"))?)
+        .ok_or_else(|| serde::de::Error::custom("expected a f64-sized bigdecimal"))?)
 }

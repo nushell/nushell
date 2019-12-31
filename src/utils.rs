@@ -201,15 +201,12 @@ mod tests {
         sdx.push("fixtures");
         sdx.push("formats");
 
-        match dunce::canonicalize(sdx) {
-            Ok(path) => path,
-            Err(_) => panic!("Wrong path."),
-        }
+        dunce::canonicalize(sdx).expect("Wrong path")
     }
 
     fn structured_sample_record(key: &str, value: &str) -> Value {
         let mut record = TaggedDictBuilder::new(Tag::unknown());
-        record.insert_untagged(key.clone(), UntaggedValue::string(value));
+        record.insert_untagged(key, UntaggedValue::string(value));
         record.into_value()
     }
 

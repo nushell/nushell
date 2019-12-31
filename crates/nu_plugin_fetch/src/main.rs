@@ -100,18 +100,18 @@ async fn fetch_helper(path: &Value, has_raw: bool, row: Value) -> ReturnValue {
     } else {
         // If the extension could not be determined via mimetype, try to use the path
         // extension. Some file types do not declare their mimetypes (such as bson files).
-        file_extension.or(path_str.split('.').last().map(String::from))
+        file_extension.or_else(|| path_str.split('.').last().map(String::from))
     };
 
     let tagged_contents = contents.retag(&contents_tag);
 
     if let Some(extension) = file_extension {
-        return Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
+        Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
             tagged_contents,
             extension,
-        )));
+        )))
     } else {
-        return ReturnSuccess::value(tagged_contents);
+        ReturnSuccess::value(tagged_contents)
     }
 }
 

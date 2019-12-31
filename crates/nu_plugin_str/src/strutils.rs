@@ -20,6 +20,7 @@ pub enum ReplaceAction {
     FindAndReplace(String, String),
 }
 
+#[derive(Default)]
 pub struct Str {
     pub field: Option<Tagged<ColumnPath>>,
     pub error: Option<String>,
@@ -27,12 +28,8 @@ pub struct Str {
 }
 
 impl Str {
-    pub fn new() -> Str {
-        Str {
-            field: None,
-            error: None,
-            action: None,
-        }
+    pub fn new() -> Self {
+        Default::default()
     }
 
     fn apply(&self, input: &str) -> Result<UntaggedValue, ShellError> {
@@ -174,12 +171,11 @@ impl Str {
                         );
 
                     let got = replace_for?;
-                    let replacement = self.strutils(got.clone())?;
+                    let replacement = self.strutils(got)?;
 
-                    match value.replace_data_at_column_path(
-                        &f,
-                        replacement.value.clone().into_untagged_value(),
-                    ) {
+                    match value
+                        .replace_data_at_column_path(&f, replacement.value.into_untagged_value())
+                    {
                         Some(v) => Ok(v),
                         None => Err(ShellError::labeled_error(
                             "str could not find field to replace",

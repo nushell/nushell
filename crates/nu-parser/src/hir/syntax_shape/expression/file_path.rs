@@ -74,15 +74,15 @@ impl ExpandExpression for FilePathShape {
             | UnspannedAtomicToken::ExternalWord { text: body }
             | UnspannedAtomicToken::String { body } => {
                 let path = expand_file_path(body.slice(context.source), context);
-                return Ok(hir::Expression::file_path(path, atom.span));
+                Ok(hir::Expression::file_path(path, atom.span))
             }
 
             UnspannedAtomicToken::Number { .. } | UnspannedAtomicToken::Size { .. } => {
                 let path = atom.span.slice(context.source);
-                return Ok(hir::Expression::file_path(path, atom.span));
+                Ok(hir::Expression::file_path(path, atom.span))
             }
 
-            _ => return atom.into_hir(context, "file path"),
+            _ => atom.to_hir(context, "file path"),
         }
     }
 }

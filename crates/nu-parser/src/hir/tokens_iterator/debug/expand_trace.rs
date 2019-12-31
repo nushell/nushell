@@ -19,7 +19,7 @@ impl FrameChild {
     fn get_error_leaf(&self) -> Option<&'static str> {
         match self {
             FrameChild::Frame(frame) if frame.error.is_some() => {
-                if frame.children.len() == 0 {
+                if frame.children.is_empty() {
                     Some(frame.description)
                 } else {
                     None
@@ -33,12 +33,12 @@ impl FrameChild {
         match self {
             FrameChild::Expr(expr) => TreeChild::OkExpr(expr.clone(), text.clone()),
             FrameChild::Result(result) => {
-                let result = format!("{}", result.display());
+                let result = result.display();
                 TreeChild::OkNonExpr(result)
             }
             FrameChild::Frame(frame) => {
                 if frame.error.is_some() {
-                    if frame.children.len() == 0 {
+                    if frame.children.is_empty() {
                         TreeChild::ErrorLeaf(vec![frame.description])
                     } else {
                         TreeChild::ErrorFrame(frame.to_tree_frame(text), text.clone())
@@ -67,7 +67,7 @@ impl ExprFrame {
             if let Some(error_leaf) = child.get_error_leaf() {
                 errors.push(error_leaf);
                 continue;
-            } else if errors.len() > 0 {
+            } else if !errors.is_empty() {
                 children.push(TreeChild::ErrorLeaf(errors));
                 errors = vec![];
             }
@@ -75,7 +75,7 @@ impl ExprFrame {
             children.push(child.to_tree_child(text));
         }
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             children.push(TreeChild::ErrorLeaf(errors));
         }
 
@@ -115,22 +115,20 @@ impl TreeFrame {
 
             write!(f, " -> ")?;
             self.children[0].leaf_description(f)
-        } else {
-            if self.error.is_some() {
-                if self.children.len() == 0 {
-                    write!(
-                        f,
-                        "{}",
-                        Color::White.bold().on(Color::Red).paint(self.description)
-                    )
-                } else {
-                    write!(f, "{}", Color::Red.normal().paint(self.description))
-                }
-            } else if self.has_descendent_green() {
-                write!(f, "{}", Color::Green.normal().paint(self.description))
+        } else if self.error.is_some() {
+            if self.children.is_empty() {
+                write!(
+                    f,
+                    "{}",
+                    Color::White.bold().on(Color::Red).paint(self.description)
+                )
             } else {
-                write!(f, "{}", Color::Yellow.bold().paint(self.description))
+                write!(f, "{}", Color::Red.normal().paint(self.description))
             }
+        } else if self.has_descendent_green() {
+            write!(f, "{}", Color::Green.normal().paint(self.description))
+        } else {
+            write!(f, "{}", Color::Yellow.bold().paint(self.description))
         }
     }
 
@@ -143,14 +141,10 @@ impl TreeFrame {
 
     fn any_child_frame(&self, predicate: impl Fn(&TreeFrame) -> bool) -> bool {
         for item in &self.children {
-            match item {
-                TreeChild::OkFrame(frame, ..) => {
-                    if predicate(frame) {
-                        return true;
-                    }
+            if let TreeChild::OkFrame(frame, ..) = item {
+                if predicate(frame) {
+                    return true;
                 }
-
-                _ => {}
             }
         }
 
@@ -209,7 +203,7 @@ impl TreeChild {
                 Color::White
                     .bold()
                     .on(Color::Green)
-                    .paint(format!("{}", result))
+                    .paint(result.to_string())
             ),
 
             TreeChild::ErrorLeaf(desc) => {
@@ -260,12 +254,7 @@ pub struct ExpandTracer {
 
 impl ExpandTracer {
     pub fn print(&self, source: Text) -> PrintTracer {
-        let root = self
-            .frame_stack
-            .iter()
-            .nth(0)
-            .unwrap()
-            .to_tree_frame(&source);
+        let root = self.frame_stack.get(0).unwrap().to_tree_frame(&source);
 
         PrintTracer { root, source }
     }
@@ -292,7 +281,7 @@ impl ExpandTracer {
     fn pop_frame(&mut self) -> ExprFrame {
         let result = self.frame_stack.pop().expect("Can't pop root tracer frame");
 
-        if self.frame_stack.len() == 0 {
+        if self.frame_stack.is_empty() {
             panic!("Can't pop root tracer frame");
         }
 
