@@ -2,7 +2,8 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use indexmap::map::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_source::Tagged;
 
 pub struct Which;
 
@@ -12,10 +13,12 @@ impl WholeStreamCommand for Which {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("which").rest(
-            SyntaxShape::Any,
-            "the names of the commands to find the path to",
-        )
+        Signature::build("which")
+            .switch("all", "list all executables")
+            .rest(
+                SyntaxShape::String,
+                "the names of the commands to find the path to",
+            )
     }
 
     fn usage(&self) -> &str {
@@ -27,7 +30,7 @@ impl WholeStreamCommand for Which {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        which(args, registry)
+        args.process(registry, which)?.run()
     }
 }
 
@@ -70,44 +73,29 @@ macro_rules! entry_path {
     };
 }
 
-pub fn which(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = args.call_info.name_tag.clone();
+#[derive(Deserialize, Debug)]
+struct WhichArgs {
+    bin: Tagged<String>,
+    all: bool,
+}
 
-    let rows = if let Some(ref positional) = args.call_info.args.positional {
-        positional
-            .iter()
-            .map(|i| match i {
-                Value {
-                    value: UntaggedValue::Primitive(Primitive::String(s)),
-                    tag,
-                } => {
-                    if registry.has(s) {
-                        Ok(entry_builtin!(s, tag.clone()))
-                    } else if let Ok(ok) = which::which(&s) {
-                        Ok(entry_path!(s, ok, tag.clone()))
-                    } else {
-                        Err(ShellError::labeled_error(
-                            "Binary not found for argument, and argument is not a builtin",
-                            "not found",
-                            tag,
-                        ))
-                    }
-                }
-                Value { tag, .. } => Err(ShellError::labeled_error(
-                    "Expected a filename to find",
-                    "needs a filename",
-                    tag,
-                )),
-            })
-            .collect::<Result<VecDeque<_>, _>>()
-    } else {
-        Err(ShellError::labeled_error(
-            "Expected a binary to find",
-            "needs application name",
-            tag,
-        ))
-    }?;
+fn which(
+    WhichArgs { bin, .. }: WhichArgs,
+    RunnableContext { commands, .. }: RunnableContext,
+) -> Result<OutputStream, ShellError> {
+    let stream = async_stream! {
+        if commands.has(&bin.item) {
+            yield ReturnSuccess::value(entry_builtin!(&bin.item, bin.tag.clone()))
+        } else if let Ok(ok) = which::which(&bin.item) {
+            yield ReturnSuccess::value(entry_path!(&bin.item, ok, bin.tag.clone()))
+        } else {
+            yield Err(ShellError::labeled_error(
+                "Binary not found for argument, and argument is not a builtin",
+                "not found",
+                &bin.tag,
+            ))
+        }
+    };
 
-    Ok(rows.to_output_stream())
+    Ok(stream.to_output_stream())
 }
