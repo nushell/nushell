@@ -15,6 +15,7 @@ pub struct Dictionary {
     pub entries: IndexMap<String, Value>,
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Dictionary {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut entries = self.entries.clone();
