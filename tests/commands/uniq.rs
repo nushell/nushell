@@ -92,20 +92,26 @@ fn uniq_values() {
 }
 
 #[test]
-fn uniq_nested_json_top_level() {
+fn uniq_when_keys_out_of_order() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open nested_uniq.json | uniq | count | echo $it"
-    );
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            echo '[{"a": "a", "b": [1,2,3]},{"b": [1,2,3], "a": "a"}]'
+            | from-json
+            | uniq
+            | count
+            | echo $it
+        "#
+    ));
 
-    assert_eq!(actual, "2");
+    assert_eq!(actual, "1");
 }
 
 #[test]
-fn uniq_nested_json() {
+fn uniq_nested_json_structures() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open nested_uniq.json | get nesting | uniq | count | echo $it"
+        "open nested_uniq.json | uniq | count | echo $it"
     );
 
     assert_eq!(actual, "3");

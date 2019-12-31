@@ -17,8 +17,10 @@ pub struct Dictionary {
 
 impl Hash for Dictionary {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entries.keys().collect::<Vec<&String>>().hash(state);
-        self.entries.values().collect::<Vec<&Value>>().hash(state);
+        let mut entries = self.entries.clone();
+        entries.sort_keys();
+        entries.keys().collect::<Vec<&String>>().hash(state);
+        entries.values().collect::<Vec<&Value>>().hash(state);
     }
 }
 

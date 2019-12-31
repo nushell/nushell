@@ -1,6 +1,6 @@
 [ 
   {
-    "name": "same name",
+    "name": "this is duplicated",
     "nesting": [
       {
         "a": "a",
@@ -10,32 +10,63 @@
         "c": "c",
         "d": "d"
       }
-    ]
+    ],
+    "can_be_ordered_differently": {
+      "array": [1, 2, 3, 4, 5],
+      "something": { "else": "works" }
+    }
   },
   {
-    "name": "same name",
+    "can_be_ordered_differently": {
+      "something": { "else": "works" },
+      "array": [1, 2, 3, 4, 5]
+    },
     "nesting": [
       {
-        "a": "a",
-        "b": "b"
-      },
-      {
-        "c": "c",
-        "d": "d"
-      }
-    ]
-  },
-  {
-    "name": "same name",
-    "nesting": [
-      {
-        "a": "a",
-        "b": "b"
+        "b": "b",
+        "a": "a"
       },
       {
         "d": "d",
         "c": "c"
       }
-    ]
+    ],
+    "name": "this is duplicated"
+  },
+  {
+    "name": "this is unique",
+    "nesting": [
+      {
+        "a": "b",
+        "b": "a"
+      },
+      {
+        "c": "d",
+        "d": "c"
+      }
+    ],
+    "can_be_ordered_differently": {
+      "array": [],
+      "something": { "else": "does not work" }
+    }
+  },
+  {
+    "name": "this is unique",
+    "nesting": [
+      {
+        "a": "a",
+        "b": "b",
+        "c": "c"
+      },
+      {
+        "d": "d",
+        "e": "e",
+        "f": "f"
+      }
+    ],
+    "can_be_ordered_differently": {
+      "array": [],
+      "something": { "else": "works" }
+    }
   }
 ]
