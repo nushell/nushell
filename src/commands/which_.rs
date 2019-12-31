@@ -86,8 +86,8 @@ fn which(
     let stream = async_stream! {
         if commands.has(&bin.item) {
             yield ReturnSuccess::value(entry_builtin!(&bin.item, bin.tag.clone()))
-        } else if let Ok(ok) = which::which(&bin.item) {
-            yield ReturnSuccess::value(entry_path!(&bin.item, ok, bin.tag.clone()))
+        } else if let Ok(ok) = ichwh::which(&bin.item).await {
+            yield ReturnSuccess::value(entry_path!(&bin.item, ok.into(), bin.tag.clone()))
         } else {
             yield Err(ShellError::labeled_error(
                 "Binary not found for argument, and argument is not a builtin",
