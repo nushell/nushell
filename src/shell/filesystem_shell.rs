@@ -753,7 +753,7 @@ impl Shell for FilesystemShell {
                                 new_dst.push(fragment);
                             }
 
-                            Ok((PathBuf::from(&source_file), PathBuf::from(new_dst)))
+                            Ok((PathBuf::from(&source_file), new_dst))
                         };
 
                         let sources = sources.paths_applying_with(strategy)?;
