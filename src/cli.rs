@@ -294,6 +294,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Default),
             whole_stream_command(SkipWhile),
             whole_stream_command(Range),
+            whole_stream_command(Uniq),
             // Table manipulation
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),

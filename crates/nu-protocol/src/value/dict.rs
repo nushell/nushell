@@ -7,11 +7,21 @@ use indexmap::IndexMap;
 use nu_source::{b, DebugDocBuilder, PrettyDebug, Spanned, Tag};
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering, PartialOrd};
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone, Getters, new)]
 pub struct Dictionary {
     #[get = "pub"]
     pub entries: IndexMap<String, Value>,
+}
+
+impl Hash for Dictionary {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.entries.clone();
+        entries.sort_keys();
+        entries.keys().collect::<Vec<&String>>().hash(state);
+        entries.values().collect::<Vec<&Value>>().hash(state);
+    }
 }
 
 impl PartialOrd for Dictionary {
