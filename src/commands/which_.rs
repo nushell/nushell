@@ -53,7 +53,7 @@ fn entry(arg: impl Into<String>, path: Value, builtin: bool, tag: Tag) -> Value 
 macro_rules! entry_builtin {
     ($arg:expr, $tag:expr) => {
         entry(
-            $arg,
+            $arg.clone(),
             UntaggedValue::Primitive(Primitive::String("nushell built-in command".to_string()))
                 .into_value($tag.clone()),
             true,
@@ -65,7 +65,7 @@ macro_rules! entry_builtin {
 macro_rules! entry_path {
     ($arg:expr, $path:expr, $tag:expr) => {
         entry(
-            $arg,
+            $arg.clone(),
             UntaggedValue::Primitive(Primitive::Path($path)).into_value($tag.clone()),
             false,
             $tag,
@@ -83,14 +83,27 @@ fn which(
     WhichArgs { bin, all }: WhichArgs,
     RunnableContext { commands, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
+    let external = bin.chars().next().unwrap() == '^';
+    let item = if external {
+        bin.item[1..].to_string()
+    } else {
+        bin.item.clone()
+    };
+
     if all {
         let stream = async_stream! {
-            let builtin = commands.has(&bin.item);
-            if builtin {
-                yield ReturnSuccess::value(entry_builtin!(&bin.item, bin.tag.clone()));
+            if external {
+                if let Ok(path) = ichwh::which(&item).await {
+                    yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
+                }
             }
 
-            if let Ok(paths) = ichwh::which_all(&bin.item).await {
+            let builtin = commands.has(&item);
+            if builtin {
+                yield ReturnSuccess::value(entry_builtin!(item, bin.tag.clone()));
+            }
+
+            if let Ok(paths) = ichwh::which_all(&item).await {
                 if !builtin && paths.len() == 0 {
                     yield Err(ShellError::labeled_error(
                         "Binary not found for argument, and argument is not a builtin",
@@ -99,7 +112,7 @@ fn which(
                     ));
                 } else {
                     for path in paths {
-                        yield ReturnSuccess::value(entry_path!(&bin.item, path.into(), bin.tag.clone()));
+                        yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
                     }
                 }
             } else {
@@ -114,10 +127,14 @@ fn which(
         Ok(stream.to_output_stream())
     } else {
         let stream = async_stream! {
-            if commands.has(&bin.item) {
-                yield ReturnSuccess::value(entry_builtin!(&bin.item, bin.tag.clone()));
-            } else if let Ok(path) = ichwh::which(&bin.item).await {
-                yield ReturnSuccess::value(entry_path!(&bin.item, path.into(), bin.tag.clone()));
+            if external {
+                if let Ok(path) = ichwh::which(&item).await {
+                    yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
+                }
+            } else if commands.has(&item) {
+                yield ReturnSuccess::value(entry_builtin!(item, bin.tag.clone()));
+            } else if let Ok(path) = ichwh::which(&item).await {
+                yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
             } else {
                 yield Err(ShellError::labeled_error(
                     "Binary not found for argument, and argument is not a builtin",
