@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum UntaggedValue {
     Primitive(Primitive),
     Row(Dictionary),
@@ -177,7 +177,7 @@ impl UntaggedValue {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, PartialEq, Ord, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Ord, Eq, Hash, Serialize, Deserialize)]
 pub struct Value {
     pub value: UntaggedValue,
     pub tag: Tag,

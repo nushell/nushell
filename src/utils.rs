@@ -323,6 +323,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("nested_uniq.json"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sample.bson"),
                     at: 0
                 },

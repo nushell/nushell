@@ -17,7 +17,10 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
-use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
+use rustyline::{
+    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, Config, Editor, KeyPress,
+    Movement, Word,
+};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -294,6 +297,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Default),
             whole_stream_command(SkipWhile),
             whole_stream_command(Range),
+            whole_stream_command(Uniq),
             // Table manipulation
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
@@ -349,6 +353,16 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let mut rl: Editor<_> = Editor::with_config(config);
+
+    // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
+    rl.bind_sequence(
+        KeyPress::ControlLeft,
+        Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
+    );
+    rl.bind_sequence(
+        KeyPress::ControlRight,
+        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
+    );
 
     #[cfg(windows)]
     {

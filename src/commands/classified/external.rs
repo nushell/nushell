@@ -134,7 +134,11 @@ pub(crate) async fn run_external_command(
             let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
 
             let arg_chars: Vec<_> = arg.chars().collect();
-            if arg_chars.len() > 1 && arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"' {
+
+            if arg_chars.len() > 1
+                && ((arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"')
+                    || (arg_chars[0] == '\'' && arg_chars[arg_chars.len() - 1] == '\''))
+            {
                 // quoted string
                 let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                 process = process.arg(new_arg);
