@@ -52,7 +52,7 @@ impl Plugin for Str {
                         value: UntaggedValue::Primitive(Primitive::String(s)),
                         ..
                     } => {
-                        self.for_substring(s.to_string());
+                        self.for_substring(s.to_string())?;
                     }
                     _ => {
                         return Err(ShellError::labeled_error(
@@ -77,12 +77,30 @@ impl Plugin for Str {
         if args.has("find-replace") {
             if let Some(Value {
                 value: UntaggedValue::Table(arguments),
-                ..
+                tag,
             }) = args.get("find-replace")
             {
                 self.for_replace(ReplaceAction::FindAndReplace(
-                    arguments.get(0).unwrap().as_string()?,
-                    arguments.get(1).unwrap().as_string()?,
+                    arguments
+                        .get(0)
+                        .ok_or_else(|| {
+                            ShellError::labeled_error(
+                                "expected file and replace strings eg) [find replace]",
+                                "missing find-replace values",
+                                tag,
+                            )
+                        })?
+                        .as_string()?,
+                    arguments
+                        .get(1)
+                        .ok_or_else(|| {
+                            ShellError::labeled_error(
+                                "expected file and replace strings eg) [find replace]",
+                                "missing find-replace values",
+                                tag,
+                            )
+                        })?
+                        .as_string()?,
                 ));
             }
         }

@@ -152,24 +152,27 @@ mod tests {
         use nu_plugin::test_helpers::value::string;
 
         #[test]
-        fn major() {
+        fn major() -> Result<(), Box<dyn std::error::Error>> {
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Major);
-            assert_eq!(inc.apply("0.1.3").unwrap(), string("1.0.0").value);
+            assert_eq!(inc.apply("0.1.3")?, string("1.0.0").value);
+            Ok(())
         }
 
         #[test]
-        fn minor() {
+        fn minor() -> Result<(), Box<dyn std::error::Error>> {
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Minor);
-            assert_eq!(inc.apply("0.1.3").unwrap(), string("0.2.0").value);
+            assert_eq!(inc.apply("0.1.3")?, string("0.2.0").value);
+            Ok(())
         }
 
         #[test]
-        fn patch() {
+        fn patch() -> Result<(), Box<dyn std::error::Error>> {
             let mut inc = Inc::new();
             inc.for_semver(SemVerAction::Patch);
-            assert_eq!(inc.apply("0.1.3").unwrap(), string("0.1.4").value);
+            assert_eq!(inc.apply("0.1.3")?, string("0.1.4").value);
+            Ok(())
         }
     }
 }

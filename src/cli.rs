@@ -422,9 +422,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         };
 
         let prompt = {
-            let bytes = strip_ansi_escapes::strip(&colored_prompt).unwrap();
-
-            String::from_utf8_lossy(&bytes).to_string()
+            if let Ok(bytes) = strip_ansi_escapes::strip(&colored_prompt) {
+                String::from_utf8_lossy(&bytes).to_string()
+            } else {
+                "> ".to_string()
+            }
         };
 
         rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;

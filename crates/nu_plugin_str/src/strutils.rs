@@ -112,15 +112,21 @@ impl Str {
         }
     }
 
-    pub fn for_substring(&mut self, s: String) {
+    pub fn for_substring(&mut self, s: String) -> Result<(), ShellError> {
         let v: Vec<&str> = s.split(',').collect();
         let start: usize = match v[0] {
             "" => 0,
-            _ => v[0].trim().parse().unwrap(),
+            _ => v[0]
+                .trim()
+                .parse()
+                .map_err(|_| ShellError::untagged_runtime_error("Could not perform substring"))?,
         };
         let end: usize = match v[1] {
             "" => usize::max_value(),
-            _ => v[1].trim().parse().unwrap(),
+            _ => v[1]
+                .trim()
+                .parse()
+                .map_err(|_| ShellError::untagged_runtime_error("Could not perform substring"))?,
         };
         if start > end {
             self.log_error("End must be greater than or equal to Start");
@@ -129,6 +135,8 @@ impl Str {
         } else {
             self.log_error("can only apply one");
         }
+
+        Ok(())
     }
 
     pub fn for_replace(&mut self, mode: ReplaceAction) {
@@ -206,35 +214,39 @@ pub mod tests {
     use nu_plugin::test_helpers::value::{int, string};
 
     #[test]
-    fn downcases() {
+    fn downcases() -> Result<(), Box<dyn std::error::Error>> {
         let mut strutils = Str::new();
         strutils.for_downcase();
-        assert_eq!(strutils.apply("ANDRES").unwrap(), string("andres").value);
+        assert_eq!(strutils.apply("ANDRES")?, string("andres").value);
+        Ok(())
     }
 
     #[test]
-    fn upcases() {
+    fn upcases() -> Result<(), Box<dyn std::error::Error>> {
         let mut strutils = Str::new();
         strutils.for_upcase();
-        assert_eq!(strutils.apply("andres").unwrap(), string("ANDRES").value);
+        assert_eq!(strutils.apply("andres")?, string("ANDRES").value);
+        Ok(())
     }
 
     #[test]
-    fn converts_to_int() {
+    fn converts_to_int() -> Result<(), Box<dyn std::error::Error>> {
         let mut strutils = Str::new();
         strutils.for_to_int();
-        assert_eq!(strutils.apply("9999").unwrap(), int(9999 as i64).value);
+        assert_eq!(strutils.apply("9999")?, int(9999 as i64).value);
+        Ok(())
     }
 
     #[test]
-    fn replaces() {
+    fn replaces() -> Result<(), Box<dyn std::error::Error>> {
         let mut strutils = Str::new();
         strutils.for_replace(ReplaceAction::Direct("robalino".to_string()));
-        assert_eq!(strutils.apply("andres").unwrap(), string("robalino").value);
+        assert_eq!(strutils.apply("andres")?, string("robalino").value);
+        Ok(())
     }
 
     #[test]
-    fn find_and_replaces() {
+    fn find_and_replaces() -> Result<(), Box<dyn std::error::Error>> {
         let mut strutils = Str::new();
 
         strutils.for_replace(ReplaceAction::FindAndReplace(
@@ -242,9 +254,7 @@ pub mod tests {
             "jotandrehuda".to_string(),
         ));
 
-        assert_eq!(
-            strutils.apply("wykittens").unwrap(),
-            string("wyjotandrehuda").value
-        );
+        assert_eq!(strutils.apply("wykittens")?, string("wyjotandrehuda").value);
+        Ok(())
     }
 }
