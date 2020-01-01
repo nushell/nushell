@@ -195,40 +195,32 @@ struct RawImageBuffer {
     buffer: Vec<u8>,
 }
 
-fn load_from_png_buffer(buffer: &[u8]) -> Option<RawImageBuffer> {
+fn load_from_png_buffer(buffer: &[u8]) -> Result<RawImageBuffer, Box<dyn std::error::Error>> {
     use image::ImageDecoder;
 
-    let decoder = image::png::PNGDecoder::new(buffer);
-    if decoder.is_err() {
-        return None;
-    }
-    let decoder = decoder.unwrap();
+    let decoder = image::png::PNGDecoder::new(buffer)?;
 
     let dimensions = decoder.dimensions();
     let colortype = decoder.colortype();
-    let buffer = decoder.read_image().unwrap();
+    let buffer = decoder.read_image()?;
 
-    Some(RawImageBuffer {
+    Ok(RawImageBuffer {
         dimensions,
         colortype,
         buffer,
     })
 }
 
-fn load_from_jpg_buffer(buffer: &[u8]) -> Option<RawImageBuffer> {
+fn load_from_jpg_buffer(buffer: &[u8]) -> Result<RawImageBuffer, Box<dyn std::error::Error>> {
     use image::ImageDecoder;
 
-    let decoder = image::jpeg::JPEGDecoder::new(buffer);
-    if decoder.is_err() {
-        return None;
-    }
-    let decoder = decoder.unwrap();
+    let decoder = image::jpeg::JPEGDecoder::new(buffer)?;
 
     let dimensions = decoder.dimensions();
     let colortype = decoder.colortype();
-    let buffer = decoder.read_image().unwrap();
+    let buffer = decoder.read_image()?;
 
-    Some(RawImageBuffer {
+    Ok(RawImageBuffer {
         dimensions,
         colortype,
         buffer,
@@ -242,16 +234,16 @@ pub fn view_contents(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut raw_image_buffer = load_from_png_buffer(buffer);
 
-    if raw_image_buffer.is_none() {
+    if raw_image_buffer.is_err() {
         raw_image_buffer = load_from_jpg_buffer(buffer);
     }
 
-    if raw_image_buffer.is_none() {
+    if raw_image_buffer.is_err() {
         //Not yet supported
         outln!("{:?}", buffer.hex_dump());
         return Ok(());
     }
-    let raw_image_buffer = raw_image_buffer.unwrap();
+    let raw_image_buffer = raw_image_buffer?;
 
     let mut render_context: RenderContext = RenderContext::blank(lores_mode);
     let _ = render_context.update();
@@ -264,7 +256,7 @@ pub fn view_contents(
                 raw_image_buffer.dimensions.1 as u32,
                 raw_image_buffer.buffer,
             )
-            .unwrap();
+            .ok_or("Cannot convert image data")?;
 
             let resized_img = image::imageops::resize(
                 &img,
@@ -287,7 +279,7 @@ pub fn view_contents(
                 raw_image_buffer.dimensions.1 as u32,
                 raw_image_buffer.buffer,
             )
-            .unwrap();
+            .ok_or("Cannot convert image data")?;
 
             let resized_img = image::imageops::resize(
                 &img,
@@ -374,8 +366,8 @@ pub fn view_contents_interactive(
             let image_buffer = nes.image_buffer();
 
             let slice = unsafe { std::slice::from_raw_parts(image_buffer, 256 * 240 * 4) };
-            let img =
-                image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(256, 240, slice).unwrap();
+            let img = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(256, 240, slice)
+                .ok_or("Cannot convert image data")?;
             let resized_img = image::imageops::resize(
                 &img,
                 render_context.width as u32,

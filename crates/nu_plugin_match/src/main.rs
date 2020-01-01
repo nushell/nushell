@@ -13,11 +13,11 @@ struct Match {
 
 impl Match {
     #[allow(clippy::trivial_regex)]
-    fn new() -> Self {
-        Match {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(Match {
             column: String::new(),
-            regex: Regex::new("").unwrap(),
-        }
+            regex: Regex::new("")?,
+        })
     }
 }
 
@@ -49,14 +49,20 @@ impl Plugin for Match {
             match &args[1] {
                 Value {
                     value: UntaggedValue::Primitive(Primitive::String(s)),
-                    ..
+                    tag,
                 } => {
-                    self.regex = Regex::new(s).unwrap();
+                    self.regex = Regex::new(s).map_err(|_| {
+                        ShellError::labeled_error(
+                            "Internal error while creating regex",
+                            "internal error created by pattern",
+                            tag,
+                        )
+                    })?;
                 }
                 Value { tag, .. } => {
                     return Err(ShellError::labeled_error(
                         "Unrecognized type in params",
-                        "value",
+                        "unexpected value",
                         tag,
                     ));
                 }
@@ -102,6 +108,7 @@ impl Plugin for Match {
     }
 }
 
-fn main() {
-    serve_plugin(&mut Match::new());
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    serve_plugin(&mut Match::new()?);
+    Ok(())
 }

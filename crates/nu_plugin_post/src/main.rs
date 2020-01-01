@@ -26,6 +26,7 @@ struct Post {
     user: Option<String>,
     password: Option<String>,
     headers: Vec<HeaderKind>,
+    tag: Tag,
 }
 
 impl Post {
@@ -37,6 +38,7 @@ impl Post {
             user: None,
             password: None,
             headers: vec![],
+            tag: Tag::unknown(),
         }
     }
 
@@ -61,14 +63,19 @@ impl Post {
             file => Some(file.clone()),
         };
 
-        self.user = call_info.args.get("user").map(|x| x.as_string().unwrap());
+        self.user = match call_info.args.get("user") {
+            Some(user) => Some(user.as_string()?),
+            None => None,
+        };
 
-        self.password = call_info
-            .args
-            .get("password")
-            .map(|x| x.as_string().unwrap());
+        self.password = match call_info.args.get("password") {
+            Some(password) => Some(password.as_string()?),
+            None => None,
+        };
 
         self.headers = get_headers(&call_info)?;
+
+        self.tag = call_info.name_tag;
 
         ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value())
     }
@@ -107,9 +114,13 @@ impl Plugin for Post {
 
     fn filter(&mut self, row: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![block_on(post_helper(
-            &self.path.clone().unwrap(),
+            &self.path.clone().ok_or_else(|| {
+                ShellError::labeled_error("expected a 'path'", "expected a 'path'", &self.tag)
+            })?,
             self.has_raw,
-            &self.body.clone().unwrap(),
+            &self.body.clone().ok_or_else(|| {
+                ShellError::labeled_error("expected a 'body'", "expected a 'body'", &self.tag)
+            })?,
             self.user.clone(),
             self.password.clone(),
             &self.headers.clone(),
@@ -154,9 +165,7 @@ async fn post_helper(
     };
 
     let (file_extension, contents, contents_tag) =
-        post(&path_str, &body, user, password, &headers, path_tag.clone())
-            .await
-            .unwrap();
+        post(&path_str, &body, user, password, &headers, path_tag.clone()).await?;
 
     let file_extension = if has_raw {
         None
@@ -252,7 +261,13 @@ pub async fn post(
         match response {
             Ok(mut r) => match r.headers().get("content-type") {
                 Some(content_type) => {
-                    let content_type = Mime::from_str(content_type).unwrap();
+                    let content_type = Mime::from_str(content_type).map_err(|_| {
+                        ShellError::labeled_error(
+                            format!("Unknown MIME type: {}", content_type),
+                            "unknown MIME type",
+                            &tag,
+                        )
+                    })?;
                     match (content_type.type_(), content_type.subtype()) {
                         (mime::APPLICATION, mime::XML) => Ok((
                             Some("xml".to_string()),
@@ -332,7 +347,13 @@ pub async fn post(
                         )),
                         (mime::TEXT, mime::PLAIN) => {
                             let path_extension = url::Url::parse(location)
-                                .unwrap()
+                                .map_err(|_| {
+                                    ShellError::labeled_error(
+                                        format!("could not parse URL: {}", location),
+                                        "could not parse URL",
+                                        &tag,
+                                    )
+                                })?
                                 .path_segments()
                                 .and_then(|segments| segments.last())
                                 .and_then(|name| if name.is_empty() { None } else { Some(name) })
@@ -412,7 +433,13 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
             serde_json::Number::from_f64(
                 f.to_f64().expect("TODO: What about really big decimals?"),
             )
-            .unwrap(),
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Can not convert big decimal to f64",
+                    "cannot convert big decimal to f64",
+                    &v.tag,
+                )
+            })?,
         ),
         UntaggedValue::Primitive(Primitive::Int(i)) => {
             serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
@@ -448,13 +475,22 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Block(_) | UntaggedValue::Primitive(Primitive::Range(_)) => {
             serde_json::Value::Null
         }
-        UntaggedValue::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
-            b.iter()
-                .map(|x| {
-                    serde_json::Value::Number(serde_json::Number::from_f64(*x as f64).unwrap())
-                })
-                .collect(),
-        ),
+        UntaggedValue::Primitive(Primitive::Binary(b)) => {
+            let mut output = vec![];
+
+            for item in b.iter() {
+                output.push(serde_json::Value::Number(
+                    serde_json::Number::from_f64(*item as f64).ok_or_else(|| {
+                        ShellError::labeled_error(
+                            "Cannot create number from from f64",
+                            "cannot created number from f64",
+                            &v.tag,
+                        )
+                    })?,
+                ));
+            }
+            serde_json::Value::Array(output)
+        }
         UntaggedValue::Row(o) => {
             let mut m = serde_json::Map::new();
             for (k, v) in o.entries.iter() {
