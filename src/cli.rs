@@ -145,7 +145,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
-    set_env_from_config();
+    set_env_from_config()?;
 
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
@@ -501,8 +501,8 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-fn set_env_from_config() {
-    let config = crate::data::config::read(Tag::unknown(), &None).unwrap();
+fn set_env_from_config() -> Result<(), ShellError> {
+    let config = crate::data::config::read(Tag::unknown(), &None)?;
 
     if config.contains_key("env") {
         // Clear the existing vars, we're about to replace them
@@ -550,6 +550,7 @@ fn set_env_from_config() {
             }
         }
     }
+    Ok(())
 }
 
 enum LineResult {
@@ -601,7 +602,10 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
-            set_env_from_config();
+            // FIXME: we probably want to be a bit more graceful if we can't set the environment
+            if let Err(err) = set_env_from_config() {
+                return LineResult::Error(line.to_string(), err);
+            }
 
             let input = ClassifiedInputStream::new();
 

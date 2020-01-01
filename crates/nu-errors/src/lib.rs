@@ -24,6 +24,10 @@ pub enum ParseErrorReason {
         expected: &'static str,
         actual: Spanned<String>,
     },
+
+    /// An unexpected internal error has occurred
+    InternalError { message: Spanned<String> },
+
     /// The parser tried to parse an argument for a command, but it failed for
     /// some reason
     ArgumentError {
@@ -69,6 +73,15 @@ impl ParseError {
         }
     }
 
+    /// Construct a [ParseErrorReason::InternalError](ParseErrorReason::InternalError)
+    pub fn internal_error(message: Spanned<impl Into<String>>) -> ParseError {
+        ParseError {
+            reason: ParseErrorReason::InternalError {
+                message: message.item.into().spanned(message.span),
+            },
+        }
+    }
+
     /// Construct a [ParseErrorReason::ArgumentError](ParseErrorReason::ArgumentError)
     pub fn argument_error(command: Spanned<impl Into<String>>, kind: ArgumentError) -> ParseError {
         ParseError {
@@ -89,6 +102,11 @@ impl From<ParseError> for ShellError {
             ParseErrorReason::Mismatch { actual, expected } => {
                 ShellError::type_error(expected, actual)
             }
+            ParseErrorReason::InternalError { message } => ShellError::labeled_error(
+                format!("Internal error: {}", message.item),
+                &message.item,
+                &message.span,
+            ),
             ParseErrorReason::ArgumentError { command, error } => {
                 ShellError::argument_error(command, error)
             }

@@ -676,7 +676,13 @@ impl FallibleColorSyntax for CommandHeadShape {
                     if context.registry.has(name) {
                         // If the registry has the command, color it as an internal command
                         token_nodes.color_shape(FlatShape::InternalCommand.spanned(text));
-                        let signature = context.registry.get(name).unwrap();
+                        let signature = context.registry.get(name).ok_or_else(|| {
+                            ShellError::labeled_error(
+                                "Internal error: could not load signature from registry",
+                                "could not load from registry",
+                                text,
+                            )
+                        })?;
                         Ok(CommandHeadKind::Internal(signature))
                     } else {
                         // Otherwise, color it as an external command
@@ -716,7 +722,9 @@ impl ExpandSyntax for CommandHeadShape {
                     UnspannedToken::Bare => {
                         let name = token_span.slice(context.source);
                         if context.registry.has(name) {
-                            let signature = context.registry.get(name).unwrap();
+                            let signature = context.registry.get(name).ok_or_else(|| {
+                                ParseError::internal_error(name.spanned(token_span))
+                            })?;
                             CommandSignature::Internal(signature.spanned(token_span))
                         } else {
                             CommandSignature::External(token_span)
