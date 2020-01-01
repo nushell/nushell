@@ -14,11 +14,8 @@ impl WholeStreamCommand for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
+            .required("application", SyntaxShape::String, "application")
             .switch("all", "list all executables")
-            .rest(
-                SyntaxShape::String,
-                "the names of the commands to find the path to",
-            )
     }
 
     fn usage(&self) -> &str {
@@ -75,32 +72,32 @@ macro_rules! entry_path {
 
 #[derive(Deserialize, Debug)]
 struct WhichArgs {
-    bin: Tagged<String>,
+    application: Tagged<String>,
     all: bool,
 }
 
 fn which(
-    WhichArgs { bin, all }: WhichArgs,
+    WhichArgs { application, all }: WhichArgs,
     RunnableContext { commands, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let external = bin.starts_with('^');
+    let external = application.starts_with('^');
     let item = if external {
-        bin.item[1..].to_string()
+        application.item[1..].to_string()
     } else {
-        bin.item.clone()
+        application.item.clone()
     };
 
     if all {
         let stream = async_stream! {
             if external {
                 if let Ok(path) = ichwh::which(&item).await {
-                    yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
+                    yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
                 }
             }
 
             let builtin = commands.has(&item);
             if builtin {
-                yield ReturnSuccess::value(entry_builtin!(item, bin.tag.clone()));
+                yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
             }
 
             if let Ok(paths) = ichwh::which_all(&item).await {
@@ -108,18 +105,18 @@ fn which(
                     yield Err(ShellError::labeled_error(
                         "Binary not found for argument, and argument is not a builtin",
                         "not found",
-                        &bin.tag,
+                        &application.tag,
                     ));
                 } else {
                     for path in paths {
-                        yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
+                        yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
                     }
                 }
             } else {
                 yield Err(ShellError::labeled_error(
                     "Error trying to find binary for argument",
                     "error",
-                    &bin.tag,
+                    &application.tag,
                 ));
             }
         };
@@ -129,17 +126,17 @@ fn which(
         let stream = async_stream! {
             if external {
                 if let Ok(path) = ichwh::which(&item).await {
-                    yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
+                    yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
                 }
             } else if commands.has(&item) {
-                yield ReturnSuccess::value(entry_builtin!(item, bin.tag.clone()));
+                yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
             } else if let Ok(path) = ichwh::which(&item).await {
-                yield ReturnSuccess::value(entry_path!(item, path.into(), bin.tag.clone()));
+                yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
             } else {
                 yield Err(ShellError::labeled_error(
                     "Binary not found for argument, and argument is not a builtin",
                     "not found",
-                    &bin.tag,
+                    &application.tag,
                 ));
             }
         };

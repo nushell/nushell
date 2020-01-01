@@ -3,11 +3,14 @@
 Finds a program file.
 
 Usage:
-  > which  ...args{flags}
+  > which <application> {flags}
 
 ## Parameters
 
-- ...args: the names of the commands to find the path to
+- application: the name of the command to find the path to
+
+## Flags
+
 - --all: list all executables
 
 ## Examples
