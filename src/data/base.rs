@@ -43,7 +43,7 @@ impl EvaluateTrait for Block {
             return Ok(UntaggedValue::nothing().into_value(&self.tag));
         }
 
-        let mut last = None;
+        let mut last = Ok(UntaggedValue::nothing().into_value(&self.tag));
 
         trace!(
             "EXPRS = {:?}",
@@ -54,15 +54,10 @@ impl EvaluateTrait for Block {
         );
 
         for expr in self.expressions.iter() {
-            last = Some(evaluate_baseline_expr(
-                &expr,
-                &CommandRegistry::empty(),
-                &scope,
-                &self.source,
-            )?)
+            last = evaluate_baseline_expr(&expr, &CommandRegistry::empty(), &scope, &self.source)
         }
 
-        Ok(last.unwrap())
+        last
     }
 
     fn clone_box(&self) -> Evaluate {
@@ -382,7 +377,7 @@ mod tests {
         let actual = sample
             .into_untagged_value()
             .replace_data_at_column_path(&field_path?.item, replacement)
-            .unwrap();
+            .ok_or_else(|| ShellError::untagged_runtime_error("Could not replace column"))?;
 
         assert_eq!(actual, row(indexmap! {"amigos".into() => string("jonas")}));
 
@@ -411,9 +406,15 @@ mod tests {
         let tag = replacement.tag.clone();
 
         let actual = sample
-            .into_value(tag.clone())
+            .into_value(&tag)
             .replace_data_at_column_path(&field_path?.item, replacement.clone())
-            .unwrap();
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not replace column",
+                    "could not replace column",
+                    &tag,
+                )
+            })?;
 
         assert_eq!(
             actual,
@@ -467,7 +468,13 @@ mod tests {
         let actual = sample
             .into_value(tag.clone())
             .replace_data_at_column_path(&field_path?.item, replacement.clone())
-            .unwrap();
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not replace column",
+                    "could not replace column",
+                    &tag,
+                )
+            })?;
 
         assert_eq!(
             actual,

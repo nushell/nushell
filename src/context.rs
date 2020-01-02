@@ -54,32 +54,46 @@ impl CommandRegistry {
         }
     }
 
-    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
-        let registry = self.registry.lock().unwrap();
+    pub(crate) fn get_command(&self, name: &str) -> Result<Option<Arc<Command>>, ShellError> {
+        let registry = self.registry.lock().map_err(|_| {
+            ShellError::untagged_runtime_error("Internal error: get_command could not get mutex")
+        })?;
 
-        registry.get(name).cloned()
+        Ok(registry.get(name).cloned())
     }
 
     pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
-        self.get_command(name).ok_or_else(|| {
+        self.get_command(name)?.ok_or_else(|| {
             ShellError::untagged_runtime_error(format!("Could not load command: {}", name))
         })
     }
 
-    pub(crate) fn has(&self, name: &str) -> bool {
-        let registry = self.registry.lock().unwrap();
+    pub(crate) fn has(&self, name: &str) -> Result<bool, ShellError> {
+        let registry = self.registry.lock().map_err(|_| {
+            ShellError::untagged_runtime_error("Internal error: has could not get mutex")
+        })?;
 
-        registry.contains_key(name)
+        Ok(registry.contains_key(name))
     }
 
-    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
-        let mut registry = self.registry.lock().unwrap();
+    pub(crate) fn insert(
+        &mut self,
+        name: impl Into<String>,
+        command: Arc<Command>,
+    ) -> Result<(), ShellError> {
+        let mut registry = self.registry.lock().map_err(|_| {
+            ShellError::untagged_runtime_error("Internal error: insert could not get mutex")
+        })?;
+
         registry.insert(name.into(), command);
+        Ok(())
     }
 
-    pub(crate) fn names(&self) -> Vec<String> {
-        let registry = self.registry.lock().unwrap();
-        registry.keys().cloned().collect()
+    pub(crate) fn names(&self) -> Result<Vec<String>, ShellError> {
+        let registry = self.registry.lock().map_err(|_| {
+            ShellError::untagged_runtime_error("Internal error: names could not get mutex")
+        })?;
+        Ok(registry.keys().cloned().collect())
     }
 }
 
@@ -175,13 +189,15 @@ impl Context {
         block(&mut *errors)
     }
 
-    pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) {
+    pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) -> Result<(), ShellError> {
         for command in commands {
-            self.registry.insert(command.name().to_string(), command);
+            self.registry.insert(command.name().to_string(), command)?;
         }
+
+        Ok(())
     }
 
-    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+    pub(crate) fn get_command(&self, name: &str) -> Result<Option<Arc<Command>>, ShellError> {
         self.registry.get_command(name)
     }
 

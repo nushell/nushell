@@ -51,7 +51,7 @@ impl PerItemCommand for Enter {
 
                     let (_, command) = (spec[0], spec[1]);
 
-                    if registry.has(command) {
+                    if registry.has(command)? {
                         Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
                             UntaggedValue::string(command).into_value(Tag::unknown()),
                         )))]
@@ -88,7 +88,7 @@ impl PerItemCommand for Enter {
                                 if let Some(extension) = file_extension {
                                     let command_name = format!("from-{}", extension);
                                     if let Some(converter) =
-                                        registry.get_command(&command_name)
+                                        registry.get_command(&command_name)?
                                     {
                                         let new_args = RawCommandArgs {
                                             host: raw_args.host,

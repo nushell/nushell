@@ -95,7 +95,7 @@ fn which(
                 }
             }
 
-            let builtin = commands.has(&item);
+            let builtin = commands.has(&item)?;
             if builtin {
                 yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
             }
@@ -128,7 +128,7 @@ fn which(
                 if let Ok(path) = ichwh::which(&item).await {
                     yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
                 }
-            } else if commands.has(&item) {
+            } else if commands.has(&item)? {
                 yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
             } else if let Ok(path) = ichwh::which(&item).await {
                 yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));

@@ -40,12 +40,12 @@ impl PerItemCommand for Help {
             }) => {
                 let mut help = VecDeque::new();
                 if document == "commands" {
-                    let mut sorted_names = registry.names();
+                    let mut sorted_names = registry.names()?;
                     sorted_names.sort();
                     for cmd in sorted_names {
                         let mut short_desc = TaggedDictBuilder::new(tag.clone());
                         let value = command_dict(
-                            registry.get_command(&cmd).ok_or_else(|| {
+                            registry.get_command(&cmd)?.ok_or_else(|| {
                                 ShellError::labeled_error(
                                     format!("Could not load {}", cmd),
                                     "could not load command",
@@ -71,7 +71,7 @@ impl PerItemCommand for Help {
 
                         help.push_back(ReturnSuccess::value(short_desc.into_value()));
                     }
-                } else if let Some(command) = registry.get_command(document) {
+                } else if let Some(command) = registry.get_command(document)? {
                     let mut long_desc = String::new();
 
                     long_desc.push_str(&command.usage());
