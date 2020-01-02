@@ -103,11 +103,11 @@ impl TestRegistry {
 }
 
 impl SignatureRegistry for TestRegistry {
-    fn has(&self, name: &str) -> bool {
-        self.signatures.contains_key(name)
+    fn has(&self, name: &str) -> Result<bool, ShellError> {
+        Ok(self.signatures.contains_key(name))
     }
-    fn get(&self, name: &str) -> Option<Signature> {
-        self.signatures.get(name).cloned()
+    fn get(&self, name: &str) -> Result<Option<Signature>, ShellError> {
+        Ok(self.signatures.get(name).cloned())
     }
 }
 

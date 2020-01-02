@@ -224,25 +224,28 @@ mod tests {
         move |(_obj_source, _column_path_tried, _err)| ShellError::unimplemented(reason)
     }
 
-    fn column_path(paths: &[Value]) -> Tagged<ColumnPathValue> {
-        as_column_path(&table(paths)).unwrap()
+    fn column_path(paths: &[Value]) -> Result<Tagged<ColumnPathValue>, ShellError> {
+        as_column_path(&table(paths))
     }
 
     #[test]
-    fn gets_matching_field_from_a_row() {
+    fn gets_matching_field_from_a_row() -> Result<(), ShellError> {
         let row = UntaggedValue::row(indexmap! {
             "amigos".into() => table(&[string("andres"),string("jonathan"),string("yehuda")])
         })
         .into_untagged_value();
 
         assert_eq!(
-            row.get_data_by_key("amigos".spanned_unknown()).unwrap(),
+            row.get_data_by_key("amigos".spanned_unknown())
+                .ok_or_else(|| ShellError::unexpected("Failure during testing"))?,
             table(&[string("andres"), string("jonathan"), string("yehuda")])
         );
+
+        Ok(())
     }
 
     #[test]
-    fn gets_matching_field_from_nested_rows_inside_a_row() {
+    fn gets_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
         let field_path = column_path(&[string("package"), string("version")]);
 
         let (version, tag) = string("0.4.0").into_parts();
@@ -256,16 +259,19 @@ mod tests {
         });
 
         assert_eq!(
-            *value
-                .into_value(tag)
-                .get_data_by_column_path(&field_path, Box::new(error_callback("package.version")))
-                .unwrap(),
+            *value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.version"))
+            )?,
             version
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() {
+    fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() -> Result<(), ShellError>
+    {
         let field_path = column_path(&[string("package"), string("authors"), string("name")]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
@@ -283,23 +289,22 @@ mod tests {
         });
 
         assert_eq!(
-            value
-                .into_value(tag)
-                .get_data_by_column_path(
-                    &field_path,
-                    Box::new(error_callback("package.authors.name"))
-                )
-                .unwrap(),
+            value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.authors.name"))
+            )?,
             table(&[
                 string("Andrés N. Robalino"),
                 string("Jonathan Turner"),
                 string("Yehuda Katz")
             ])
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() {
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() -> Result<(), ShellError> {
         let field_path = column_path(&[string("package"), string("authors"), int(0)]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
@@ -317,18 +322,20 @@ mod tests {
         });
 
         assert_eq!(
-            *value
-                .into_value(tag)
-                .get_data_by_column_path(&field_path, Box::new(error_callback("package.authors.0")))
-                .unwrap(),
+            *value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.authors.0"))
+            )?,
             UntaggedValue::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() {
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() -> Result<(), ShellError> {
         let field_path = column_path(&[string("package"), string("authors"), string("0")]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
@@ -346,21 +353,20 @@ mod tests {
         });
 
         assert_eq!(
-            *value
-                .into_value(tag)
-                .get_data_by_column_path(
-                    &field_path,
-                    Box::new(error_callback("package.authors.\"0\""))
-                )
-                .unwrap(),
+            *value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.authors.\"0\""))
+            )?,
             UntaggedValue::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn replaces_matching_field_from_a_row() {
+    fn replaces_matching_field_from_a_row() -> Result<(), ShellError> {
         let field_path = column_path(&[string("amigos")]);
 
         let sample = UntaggedValue::row(indexmap! {
@@ -375,14 +381,16 @@ mod tests {
 
         let actual = sample
             .into_untagged_value()
-            .replace_data_at_column_path(&field_path, replacement)
+            .replace_data_at_column_path(&field_path?.item, replacement)
             .unwrap();
 
         assert_eq!(actual, row(indexmap! {"amigos".into() => string("jonas")}));
+
+        Ok(())
     }
 
     #[test]
-    fn replaces_matching_field_from_nested_rows_inside_a_row() {
+    fn replaces_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
         let field_path = column_path(&[
             string("package"),
             string("authors"),
@@ -404,7 +412,7 @@ mod tests {
 
         let actual = sample
             .into_value(tag.clone())
-            .replace_data_at_column_path(&field_path, replacement.clone())
+            .replace_data_at_column_path(&field_path?.item, replacement.clone())
             .unwrap();
 
         assert_eq!(
@@ -417,9 +425,11 @@ mod tests {
                     "los.3.caballeros".into()  => replacement})})})
             .into_value(tag)
         );
+
+        Ok(())
     }
     #[test]
-    fn replaces_matching_field_from_rows_inside_a_table() {
+    fn replaces_matching_field_from_rows_inside_a_table() -> Result<(), ShellError> {
         let field_path = column_path(&[
             string("shell_policy"),
             string("releases"),
@@ -456,7 +466,7 @@ mod tests {
 
         let actual = sample
             .into_value(tag.clone())
-            .replace_data_at_column_path(&field_path, replacement.clone())
+            .replace_data_at_column_path(&field_path?.item, replacement.clone())
             .unwrap();
 
         assert_eq!(
@@ -481,5 +491,7 @@ mod tests {
                 })
             }).into_value(&tag)
         );
+
+        Ok(())
     }
 }
