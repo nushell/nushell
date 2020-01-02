@@ -37,9 +37,7 @@ impl Plugin for Inc {
         if let Some(args) = call_info.args.positional {
             for arg in args {
                 match arg {
-                    table
-                    @
-                    Value {
+                    table @ Value {
                         value: UntaggedValue::Primitive(Primitive::ColumnPath(_)),
                         ..
                     } => {

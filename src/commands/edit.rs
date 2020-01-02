@@ -42,9 +42,7 @@ impl PerItemCommand for Edit {
         let replacement = call_info.args.expect_nth(1)?.tagged_unknown();
 
         let stream = match value {
-            obj
-            @
-            Value {
+            obj @ Value {
                 value: UntaggedValue::Row(_),
                 ..
             } => match obj.replace_data_at_column_path(&field, replacement.item.clone()) {
