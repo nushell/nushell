@@ -291,25 +291,30 @@ pub fn insert_data_at_column_path(
     split_path: &ColumnPath,
     new_value: Value,
 ) -> Result<Value, ShellError> {
-    let (last, front) = split_path.split_last();
-    let mut original = value.clone();
+    if let Some((last, front)) = split_path.split_last() {
+        let mut original = value.clone();
 
-    let mut current: &mut Value = &mut original;
+        let mut current: &mut Value = &mut original;
 
-    for member in front {
-        let type_name = current.spanned_type_name();
+        for member in front {
+            let type_name = current.spanned_type_name();
 
-        current = get_mut_data_by_member(current, &member).ok_or_else(|| {
-            ShellError::missing_property(
-                member.plain_string(std::usize::MAX).spanned(member.span),
-                type_name,
-            )
-        })?
+            current = get_mut_data_by_member(current, &member).ok_or_else(|| {
+                ShellError::missing_property(
+                    member.plain_string(std::usize::MAX).spanned(member.span),
+                    type_name,
+                )
+            })?
+        }
+
+        insert_data_at_member(current, &last, new_value)?;
+
+        Ok(original)
+    } else {
+        Err(ShellError::untagged_runtime_error(
+            "Internal error: could not split column-path correctly",
+        ))
     }
-
-    insert_data_at_member(current, &last, new_value)?;
-
-    Ok(original)
 }
 
 pub fn replace_data_at_column_path(

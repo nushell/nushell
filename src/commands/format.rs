@@ -37,9 +37,17 @@ impl PerItemCommand for Format {
         value: Value,
     ) -> Result<OutputStream, ShellError> {
         //let value_tag = value.tag();
-        let pattern = call_info.args.expect_nth(0)?.as_string().unwrap();
+        let pattern = call_info.args.expect_nth(0)?;
+        let pattern_tag = pattern.tag.clone();
+        let pattern = pattern.as_string()?;
 
-        let format_pattern = format(&pattern).unwrap();
+        let format_pattern = format(&pattern).map_err(|_| {
+            ShellError::labeled_error(
+                "Could not create format pattern",
+                "could not create format pattern",
+                pattern_tag,
+            )
+        })?;
         let commands = format_pattern.1;
 
         let output = if let Value {

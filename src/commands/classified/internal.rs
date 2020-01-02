@@ -148,10 +148,10 @@ pub(crate) async fn run_internal_command(
                     let doc = PrettyDebug::pretty_doc(&v);
                     let mut buffer = termcolor::Buffer::ansi();
 
-                    doc.render_raw(
+                    let _ = doc.render_raw(
                         context.with_host(|host| host.width() - 5),
                         &mut nu_source::TermColored::new(&mut buffer),
-                    ).unwrap();
+                    );
 
                     let value = String::from_utf8_lossy(buffer.as_slice());
 

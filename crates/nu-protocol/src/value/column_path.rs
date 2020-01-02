@@ -48,8 +48,8 @@ impl ColumnPath {
         self.members.iter()
     }
 
-    pub fn split_last(&self) -> (&PathMember, &[PathMember]) {
-        self.members.split_last().unwrap()
+    pub fn split_last(&self) -> Option<(&PathMember, &[PathMember])> {
+        self.members.split_last()
     }
 }
 

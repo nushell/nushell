@@ -155,7 +155,7 @@ pub fn config(
 
             if result.contains_key(&key) {
                 result.swap_remove(&key);
-                config::write(&result, &configuration).unwrap();
+                config::write(&result, &configuration)?
             } else {
                 yield Err(ShellError::labeled_error(
                     "Key does not exist in config",
