@@ -56,7 +56,7 @@ fn from_xlsx(
                 UntaggedValue::Primitive(Primitive::Binary(vb)) => {
                     let mut buf: Cursor<Vec<u8>> = Cursor::new(vb);
                     let mut xls = Xlsx::<_>::new(buf).map_err(|_| ShellError::labeled_error(
-                        format!("Could not load xlsx file"),
+                        "Could not load xlsx file",
                         "could not load xlsx file",
                         &tag))?;
 
@@ -89,7 +89,7 @@ fn from_xlsx(
                             dict.insert_untagged(sheet_name, sheet_output.into_untagged_value());
                         } else {
                             yield Err(ShellError::labeled_error(
-                                format!("Could not load sheet name: {}", sheet_name),
+                                "Could not load sheet",
                                 "could not load sheet",
                                 &tag));
                         }
