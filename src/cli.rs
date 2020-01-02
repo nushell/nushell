@@ -337,7 +337,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 whole_stream_command(EvaluateBy),
                 whole_stream_command(TSortBy),
                 whole_stream_command(MapMaxBy),
-                ]);
+                ])?;
             }
         }
 
