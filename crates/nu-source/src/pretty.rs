@@ -414,8 +414,7 @@ pub trait PrettyDebug {
         let doc = self.pretty_doc();
         let mut buffer = termcolor::Buffer::no_color();
 
-        doc.render_raw(width, &mut TermColored::new(&mut buffer))
-            .unwrap();
+        let _ = doc.render_raw(width, &mut TermColored::new(&mut buffer));
 
         String::from_utf8_lossy(buffer.as_slice()).to_string()
     }
@@ -424,8 +423,7 @@ pub trait PrettyDebug {
         let doc = self.pretty_doc();
         let mut buffer = termcolor::Buffer::ansi();
 
-        doc.render_raw(width, &mut TermColored::new(&mut buffer))
-            .unwrap();
+        let _ = doc.render_raw(width, &mut TermColored::new(&mut buffer));
 
         String::from_utf8_lossy(buffer.as_slice()).to_string()
     }
