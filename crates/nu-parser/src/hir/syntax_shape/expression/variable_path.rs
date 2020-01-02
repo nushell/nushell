@@ -683,7 +683,11 @@ impl ExpandSyntax for IntMemberShape {
                 UnspannedAtomicToken::Number {
                     number: RawNumber::Int(int),
                 } => Ok(Member::Int(
-                    BigInt::from_str(int.slice(context.source)).unwrap(),
+                    BigInt::from_str(int.slice(context.source)).map_err(|_| {
+                        ParseError::internal_error(
+                            "can't convert from string to big int".spanned(int),
+                        )
+                    })?,
                     int,
                 )),
 
@@ -732,7 +736,9 @@ impl ExpandSyntax for MemberShape {
 
         if let Some(peeked) = number {
             let node = peeked.not_eof("column")?.commit();
-            let (n, span) = node.as_number().unwrap();
+            let (n, span) = node.as_number().ok_or_else(|| {
+                ParseError::internal_error("can't convert node to number".spanned(node.span()))
+            })?;
 
             return Ok(Member::Number(n, span))
         }*/
@@ -741,7 +747,9 @@ impl ExpandSyntax for MemberShape {
 
         if let Some(peeked) = string {
             let node = peeked.not_eof("column")?.commit();
-            let (outer, inner) = node.as_string().unwrap();
+            let (outer, inner) = node.as_string().ok_or_else(|| {
+                ParseError::internal_error("can't convert node to string".spanned(node.span()))
+            })?;
 
             return Ok(Member::String(outer, inner));
         }

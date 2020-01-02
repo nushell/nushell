@@ -87,15 +87,15 @@ pub fn histogram(
 
                 let column = (*column_name).clone();
 
-                if let Value { value: UntaggedValue::Table(start), .. } = datasets.get(0).unwrap() {
+                if let Value { value: UntaggedValue::Table(start), .. } = datasets.get(0).ok_or_else(|| ShellError::labeled_error("Unable to load dataset", "unabled to load dataset", &name))? {
                     for percentage in start.iter() {
 
                         let mut fact = TaggedDictBuilder::new(&name);
-                        let value: Tagged<String> = group_labels.get(idx).unwrap().clone();
+                        let value: Tagged<String> = group_labels.get(idx).ok_or_else(|| ShellError::labeled_error("Unable to load group labels", "unabled to load group labels", &name))?.clone();
                         fact.insert_value(&column, UntaggedValue::string(value.item).into_value(value.tag));
 
-                        if let Value { value: UntaggedValue::Primitive(Primitive::Int(ref num)), .. } = percentage.clone() {
-                            let string = std::iter::repeat("*").take(num.to_i32().unwrap() as usize).collect::<String>();
+                        if let Value { value: UntaggedValue::Primitive(Primitive::Int(ref num)), ref tag } = percentage.clone() {
+                            let string = std::iter::repeat("*").take(num.to_i32().ok_or_else(|| ShellError::labeled_error("Expected a number", "expected a number", tag))? as usize).collect::<String>();
                             fact.insert_untagged(&frequency_column_name, UntaggedValue::string(string));
                         }
 

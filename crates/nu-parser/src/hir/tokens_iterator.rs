@@ -67,8 +67,8 @@ impl<'content, 'me> std::ops::Drop for Checkpoint<'content, 'me> {
 pub struct Peeked<'content, 'me> {
     pub(crate) node: Option<&'content TokenNode>,
     iterator: &'me mut TokensIterator<'content>,
-    from: usize,
-    to: usize,
+    pub from: usize,
+    pub to: usize,
 }
 
 impl<'content, 'me> Peeked<'content, 'me> {

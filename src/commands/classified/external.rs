@@ -181,11 +181,19 @@ pub(crate) async fn run_external_command(
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
-                let stdout = popen.stdout.take().unwrap();
+                let stdout = popen.stdout.take().ok_or_else(|| {
+                    ShellError::untagged_runtime_error(
+                        "Can't redirect the stdout for external command",
+                    )
+                })?;
                 Ok(ClassifiedInputStream::from_stdout(stdout))
             }
             StreamNext::Internal => {
-                let stdout = popen.stdout.take().unwrap();
+                let stdout = popen.stdout.take().ok_or_else(|| {
+                    ShellError::untagged_runtime_error(
+                        "Can't redirect the stdout for internal command",
+                    )
+                })?;
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
                 let stream = stream.map(move |line| line.unwrap().into_value(&name_tag));

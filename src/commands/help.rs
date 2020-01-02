@@ -44,15 +44,29 @@ impl PerItemCommand for Help {
                     sorted_names.sort();
                     for cmd in sorted_names {
                         let mut short_desc = TaggedDictBuilder::new(tag.clone());
-                        let value = command_dict(registry.get_command(&cmd).unwrap(), tag.clone());
+                        let value = command_dict(
+                            registry.get_command(&cmd).ok_or_else(|| {
+                                ShellError::labeled_error(
+                                    format!("Could not load {}", cmd),
+                                    "could not load command",
+                                    tag,
+                                )
+                            })?,
+                            tag.clone(),
+                        );
 
                         short_desc.insert_untagged("name", cmd);
                         short_desc.insert_untagged(
                             "description",
                             get_data_by_key(&value, "usage".spanned_unknown())
-                                .unwrap()
-                                .as_string()
-                                .unwrap(),
+                                .ok_or_else(|| {
+                                    ShellError::labeled_error(
+                                        "Expected a usage key",
+                                        "expected a 'usage' key",
+                                        &value.tag,
+                                    )
+                                })?
+                                .as_string()?,
                         );
 
                         help.push_back(ReturnSuccess::value(short_desc.into_value()));
@@ -102,16 +116,9 @@ impl PerItemCommand for Help {
                                 }
                             }
                         }
-                        if signature.rest_positional.is_some() {
-                            long_desc.push_str(&format!(
-                                "  ...args{} {}\n",
-                                if signature.rest_positional.is_some() {
-                                    ":"
-                                } else {
-                                    ""
-                                },
-                                signature.rest_positional.unwrap().1
-                            ));
+
+                        if let Some(rest_positional) = signature.rest_positional {
+                            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
                         }
                     }
                     if !signature.named.is_empty() {
