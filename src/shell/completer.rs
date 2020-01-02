@@ -17,7 +17,7 @@ impl NuCompleter {
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<rustyline::completion::Pair>)> {
-        let commands: Vec<String> = self.commands.names();
+        let commands: Vec<String> = self.commands.names().unwrap_or(vec![]);
 
         let line_chars: Vec<_> = line[..pos].chars().collect();
 

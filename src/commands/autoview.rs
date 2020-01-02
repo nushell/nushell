@@ -70,7 +70,7 @@ pub fn autoview(
                                 }
                             }
                         };
-                        if let Some(table) = table {
+                        if let Some(table) = table? {
                             let mut new_output_stream: OutputStream = stream.to_output_stream();
                             let mut finished = false;
                             let mut current_idx = 0;
@@ -136,7 +136,7 @@ pub fn autoview(
                                     value: UntaggedValue::Primitive(Primitive::String(ref s)),
                                     tag: Tag { anchor, span },
                                 } if anchor.is_some() => {
-                                    if let Some(text) = text {
+                                    if let Some(text) = text? {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
@@ -155,7 +155,7 @@ pub fn autoview(
                                     value: UntaggedValue::Primitive(Primitive::Line(ref s)),
                                     tag: Tag { anchor, span },
                                 } if anchor.is_some() => {
-                                    if let Some(text) = text {
+                                    if let Some(text) = text? {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
@@ -190,7 +190,7 @@ pub fn autoview(
                                 }
 
                                 Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {
-                                    if let Some(binary) = binary {
+                                    if let Some(binary) = binary? {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x);
                                         let result = binary.run(raw.with_input(stream.into()), &context.commands);
@@ -205,7 +205,7 @@ pub fn autoview(
                                     yield Err(e);
                                 }
                                 Value { value: ref item, .. } => {
-                                    if let Some(table) = table {
+                                    if let Some(table) = table? {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x);
                                         let result = table.run(raw.with_input(stream.into()), &context.commands);

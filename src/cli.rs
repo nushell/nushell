@@ -61,16 +61,16 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         let name = params.name.clone();
                         let fname = fname.to_string();
 
-                        if context.get_command(&name).is_some() {
+                        if context.get_command(&name)?.is_some() {
                             trace!("plugin {:?} already loaded.", &name);
                         } else if params.is_filter {
-                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
-                                name, fname, params,
-                            ))]);
+                            context.add_commands(vec![whole_stream_command(
+                                PluginCommand::new(name, fname, params),
+                            )])?;
                         } else {
                             context.add_commands(vec![whole_stream_command(PluginSink::new(
                                 name, fname, params,
-                            ))]);
+                            ))])?;
                         }
                         Ok(())
                     }
@@ -328,7 +328,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),
-        ]);
+        ])?;
 
         cfg_if::cfg_if! {
             if #[cfg(data_processing_primitives)] {
@@ -345,7 +345,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         {
             context.add_commands(vec![whole_stream_command(
                 crate::commands::clip::clipboard::Clip,
-            )]);
+            )])?;
         }
     }
 

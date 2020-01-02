@@ -21,13 +21,13 @@ pub struct HelpShell {
 }
 
 impl HelpShell {
-    pub fn index(registry: &CommandRegistry) -> Result<HelpShell, std::io::Error> {
+    pub fn index(registry: &CommandRegistry) -> Result<HelpShell, ShellError> {
         let mut cmds = TaggedDictBuilder::new(Tag::unknown());
         let mut specs = Vec::new();
 
-        for cmd in registry.names() {
+        for cmd in registry.names()? {
             let mut spec = TaggedDictBuilder::new(Tag::unknown());
-            let value = command_dict(registry.get_command(&cmd).unwrap(), Tag::unknown());
+            let value = command_dict(registry.get_command(&cmd)?.unwrap(), Tag::unknown());
 
             spec.insert_untagged("name", cmd);
             spec.insert_untagged(
@@ -51,10 +51,7 @@ impl HelpShell {
         })
     }
 
-    pub fn for_command(
-        cmd: Value,
-        registry: &CommandRegistry,
-    ) -> Result<HelpShell, std::io::Error> {
+    pub fn for_command(cmd: Value, registry: &CommandRegistry) -> Result<HelpShell, ShellError> {
         let mut sh = HelpShell::index(&registry)?;
 
         if let Value {

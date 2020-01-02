@@ -179,7 +179,7 @@ fn save(
             break if !save_raw {
                 if let Some(extension) = full_path.extension() {
                     let command_name = format!("to-{}", extension.to_string_lossy());
-                    if let Some(converter) = registry.get_command(&command_name) {
+                    if let Some(converter) = registry.get_command(&command_name)? {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,

@@ -1047,7 +1047,13 @@ impl Shell for FilesystemShell {
                     }
 
                     if trash.item {
-                        SendToTrash::remove(path).unwrap();
+                        SendToTrash::remove(path).map_err(|_| {
+                            ShellError::labeled_error(
+                                "Could not move file to trash",
+                                "could not move to trash",
+                                target.tag(),
+                            )
+                        })?;
                     } else if path.is_dir() {
                         std::fs::remove_dir_all(&path)?;
                     } else if path.is_file() {
