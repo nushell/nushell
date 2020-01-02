@@ -60,7 +60,10 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
     } else if n.is_pi() {
         UntaggedValue::string("<processing_instruction>").into_value(tag)
     } else if n.is_text() {
-        UntaggedValue::string(n.text().unwrap()).into_value(tag)
+        match n.text() {
+            Some(text) => UntaggedValue::string(text).into_value(tag),
+            None => UntaggedValue::string("<error>").into_value(tag),
+        }
     } else {
         UntaggedValue::string("<unknown>").into_value(tag)
     }
@@ -149,36 +152,40 @@ mod tests {
         UntaggedValue::table(list).into_untagged_value()
     }
 
-    fn parse(xml: &str) -> Value {
-        from_xml::from_xml_string_to_value(xml.to_string(), Tag::unknown()).unwrap()
+    fn parse(xml: &str) -> Result<Value, roxmltree::Error> {
+        from_xml::from_xml_string_to_value(xml.to_string(), Tag::unknown())
     }
 
     #[test]
-    fn parses_empty_element() {
+    fn parses_empty_element() -> Result<(), roxmltree::Error> {
         let source = "<nu></nu>";
 
         assert_eq!(
-            parse(source),
+            parse(source)?,
             row(indexmap! {
                 "nu".into() => table(&[])
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn parses_element_with_text() {
+    fn parses_element_with_text() -> Result<(), roxmltree::Error> {
         let source = "<nu>La era de los tres caballeros</nu>";
 
         assert_eq!(
-            parse(source),
+            parse(source)?,
             row(indexmap! {
                 "nu".into() => table(&[string("La era de los tres caballeros")])
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn parses_element_with_elements() {
+    fn parses_element_with_elements() -> Result<(), roxmltree::Error> {
         let source = "\
 <nu>
     <dev>Andrés</dev>
@@ -187,7 +194,7 @@ mod tests {
 </nu>";
 
         assert_eq!(
-            parse(source),
+            parse(source)?,
             row(indexmap! {
                 "nu".into() => table(&[
                     row(indexmap! {"dev".into() => table(&[string("Andrés")])}),
@@ -196,5 +203,7 @@ mod tests {
                 ])
             })
         );
+
+        Ok(())
     }
 }

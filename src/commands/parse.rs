@@ -101,13 +101,21 @@ impl PerItemCommand for Parse {
         value: Value,
     ) -> Result<OutputStream, ShellError> {
         //let value_tag = value.tag();
-        let pattern = call_info.args.expect_nth(0)?.as_string().unwrap();
+        let pattern = call_info.args.expect_nth(0)?.as_string()?;
 
-        let parse_pattern = parse(&pattern).unwrap();
+        let parse_pattern = parse(&pattern).map_err(|_| {
+            ShellError::labeled_error(
+                "Could not create parse pattern",
+                "could not create parse pattern",
+                &value.tag,
+            )
+        })?;
         let parse_regex = build_regex(&parse_pattern.1);
 
         let column_names = column_names(&parse_pattern.1);
-        let regex = Regex::new(&parse_regex).unwrap();
+        let regex = Regex::new(&parse_regex).map_err(|_| {
+            ShellError::labeled_error("Could not parse regex", "could not parse regex", &value.tag)
+        })?;
 
         let output = if let Ok(s) = value.as_string() {
             let mut results = vec![];

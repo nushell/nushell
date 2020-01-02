@@ -38,11 +38,13 @@ impl PerItemCommand for Insert {
         value: Value,
     ) -> Result<OutputStream, ShellError> {
         let value_tag = value.tag();
-        let field = call_info.args.expect_nth(0)?.as_column_path().unwrap();
+        let field = call_info.args.expect_nth(0)?.as_column_path()?;
         let replacement = call_info.args.expect_nth(1)?.tagged_unknown();
 
         let stream = match value {
-            obj @ Value {
+            obj
+            @
+            Value {
                 value: UntaggedValue::Row(_),
                 ..
             } => match obj.insert_data_at_column_path(&field, replacement.item.clone()) {
