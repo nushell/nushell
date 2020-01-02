@@ -156,6 +156,7 @@ mod tests {
     use crate::commands::group_by::group;
     use crate::commands::split_by::split;
     use indexmap::IndexMap;
+    use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
 
@@ -171,9 +172,9 @@ mod tests {
         UntaggedValue::table(list).into_untagged_value()
     }
 
-    fn nu_releases_grouped_by_date() -> Value {
+    fn nu_releases_grouped_by_date() -> Result<Value, ShellError> {
         let key = String::from("date").tagged_unknown();
-        group(&key, nu_releases_commiters(), Tag::unknown()).unwrap()
+        group(&key, nu_releases_commiters(), Tag::unknown())
     }
 
     fn nu_releases_commiters() -> Vec<Value> {
@@ -209,11 +210,11 @@ mod tests {
     }
 
     #[test]
-    fn splits_inner_tables_by_key() {
+    fn splits_inner_tables_by_key() -> Result<(), ShellError> {
         let for_key = String::from("country").tagged_unknown();
 
         assert_eq!(
-            split(&for_key, &nu_releases_grouped_by_date(), Tag::unknown()).unwrap(),
+            split(&for_key, &nu_releases_grouped_by_date()?, Tag::unknown())?,
             UntaggedValue::row(indexmap! {
                 "EC".into() => row(indexmap! {
                     "August 23-2019".into() => table(&[
@@ -250,6 +251,8 @@ mod tests {
                 })
             }).into_untagged_value()
         );
+
+        Ok(())
     }
 
     #[test]

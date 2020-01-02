@@ -17,13 +17,25 @@ pub struct CommandRegistry {
 }
 
 impl SignatureRegistry for CommandRegistry {
-    fn has(&self, name: &str) -> bool {
-        let registry = self.registry.lock().unwrap();
-        registry.contains_key(name)
+    fn has(&self, name: &str) -> Result<bool, ShellError> {
+        if let Ok(registry) = self.registry.lock() {
+            Ok(registry.contains_key(name))
+        } else {
+            Err(ShellError::untagged_runtime_error(format!(
+                "Could not load from registry: {}",
+                name
+            )))
+        }
     }
-    fn get(&self, name: &str) -> Option<Signature> {
-        let registry = self.registry.lock().unwrap();
-        registry.get(name).map(|command| command.signature())
+    fn get(&self, name: &str) -> Result<Option<Signature>, ShellError> {
+        if let Ok(registry) = self.registry.lock() {
+            Ok(registry.get(name).map(|command| command.signature()))
+        } else {
+            Err(ShellError::untagged_runtime_error(format!(
+                "Could not get from registry: {}",
+                name
+            )))
+        }
     }
 }
 
@@ -48,8 +60,10 @@ impl CommandRegistry {
         registry.get(name).cloned()
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
-        self.get_command(name).unwrap()
+    pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
+        self.get_command(name).ok_or_else(|| {
+            ShellError::untagged_runtime_error(format!("Could not load command: {}", name))
+        })
     }
 
     pub(crate) fn has(&self, name: &str) -> bool {
@@ -171,7 +185,7 @@ impl Context {
         self.registry.get_command(name)
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
+    pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
         self.registry.expect_command(name)
     }
 
