@@ -254,7 +254,7 @@ pub struct ExpandTracer {
 
 impl ExpandTracer {
     pub fn print(&self, source: Text) -> PrintTracer {
-        let root = self.frame_stack.get(0).unwrap().to_tree_frame(&source);
+        let root = self.frame_stack[0].to_tree_frame(&source);
 
         PrintTracer { root, source }
     }

@@ -39,7 +39,10 @@ impl Completer for Helper {
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        self.context.shell_manager.hint(line, pos, ctx)
+        match self.context.shell_manager.hint(line, pos, ctx) {
+            Ok(output) => output,
+            Err(e) => Some(format!("{}", e)),
+        }
     }
 }
 
@@ -78,31 +81,43 @@ impl Highlighter for Helper {
                 let mut tokens = TokensIterator::all(&tokens[..], Text::from(line), v.span());
 
                 let text = Text::from(line);
-                let expand_context = self.context.expand_context(&text);
+                match self.context.expand_context(&text) {
+                    Ok(expand_context) => {
+                        let shapes = {
+                            // We just constructed a token list that only contains a pipeline, so it can't fail
+                            if let Err(err) =
+                                color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context)
+                            {
+                                let error_msg = format!("{}", err);
+                                return Cow::Owned(error_msg);
+                            }
+                            tokens.with_color_tracer(|_, tracer| tracer.finish());
 
-                let shapes = {
-                    // We just constructed a token list that only contains a pipeline, so it can't fail
-                    color_fallible_syntax(&PipelineShape, &mut tokens, &expand_context).unwrap();
-                    tokens.with_color_tracer(|_, tracer| tracer.finish());
+                            tokens.state().shapes()
+                        };
 
-                    tokens.state().shapes()
-                };
+                        trace!(target: "nu::color_syntax", "{:#?}", tokens.color_tracer());
 
-                trace!(target: "nu::color_syntax", "{:#?}", tokens.color_tracer());
+                        if log_enabled!(target: "nu::color_syntax", log::Level::Debug) {
+                            outln!("");
+                            let _ = ptree::print_tree(
+                                &tokens.color_tracer().clone().print(Text::from(line)),
+                            );
+                            outln!("");
+                        }
 
-                if log_enabled!(target: "nu::color_syntax", log::Level::Debug) {
-                    outln!("");
-                    ptree::print_tree(&tokens.color_tracer().clone().print(Text::from(line)))
-                        .unwrap();
-                    outln!("");
+                        for shape in shapes {
+                            let styled = paint_flat_shape(&shape, line);
+                            out.push_str(&styled);
+                        }
+
+                        Cow::Owned(out)
+                    }
+                    Err(err) => {
+                        let error_msg = format!("{}", err);
+                        Cow::Owned(error_msg)
+                    }
                 }
-
-                for shape in shapes {
-                    let styled = paint_flat_shape(&shape, line);
-                    out.push_str(&styled);
-                }
-
-                Cow::Owned(out)
             }
         }
     }

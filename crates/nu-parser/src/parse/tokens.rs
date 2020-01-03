@@ -88,9 +88,19 @@ impl RawNumber {
 
     pub(crate) fn to_number(self, source: &Text) -> Number {
         match self {
-            RawNumber::Int(tag) => Number::Int(BigInt::from_str(tag.slice(source)).unwrap()),
+            RawNumber::Int(tag) => {
+                if let Ok(int) = BigInt::from_str(tag.slice(source)) {
+                    Number::Int(int)
+                } else {
+                    unreachable!("Internal error: to_number failed")
+                }
+            }
             RawNumber::Decimal(tag) => {
-                Number::Decimal(BigDecimal::from_str(tag.slice(source)).unwrap())
+                if let Ok(decimal) = BigDecimal::from_str(tag.slice(source)) {
+                    Number::Decimal(decimal)
+                } else {
+                    unreachable!("Internal error: to_number failed")
+                }
             }
         }
     }

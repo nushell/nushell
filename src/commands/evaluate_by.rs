@@ -45,7 +45,6 @@ pub fn evaluate_by(
     let stream = async_stream! {
         let values: Vec<Value> = input.values.collect().await;
 
-
         if values.is_empty() {
             yield Err(ShellError::labeled_error(
                     "Expected table from pipeline",
@@ -141,6 +140,7 @@ mod tests {
     use crate::data::value;
     use crate::prelude::*;
     use indexmap::IndexMap;
+    use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
     use nu_source::TaggedItem;
 
@@ -160,21 +160,20 @@ mod tests {
         UntaggedValue::table(list).into_untagged_value()
     }
 
-    fn nu_releases_sorted_by_date() -> Value {
+    fn nu_releases_sorted_by_date() -> Result<Value, ShellError> {
         let key = String::from("date");
 
         t_sort(
             Some(key),
             None,
-            &nu_releases_grouped_by_date(),
+            &nu_releases_grouped_by_date()?,
             Tag::unknown(),
         )
-        .unwrap()
     }
 
-    fn nu_releases_grouped_by_date() -> Value {
+    fn nu_releases_grouped_by_date() -> Result<Value, ShellError> {
         let key = String::from("date").tagged_unknown();
-        group(&key, nu_releases_commiters(), Tag::unknown()).unwrap()
+        group(&key, nu_releases_commiters(), Tag::unknown())
     }
 
     fn nu_releases_commiters() -> Vec<Value> {
@@ -230,28 +229,32 @@ mod tests {
     }
 
     #[test]
-    fn evaluates_the_tables() {
+    fn evaluates_the_tables() -> Result<(), ShellError> {
         assert_eq!(
-            evaluate(&nu_releases_sorted_by_date(), None, Tag::unknown()).unwrap(),
+            evaluate(&nu_releases_sorted_by_date()?, None, Tag::unknown())?,
             table(&[table(&[
                 table(&[int(1), int(1), int(1)]),
                 table(&[int(1), int(1), int(1)]),
                 table(&[int(1), int(1), int(1)]),
             ]),])
         );
+
+        Ok(())
     }
 
     #[test]
-    fn evaluates_the_tables_with_custom_evaluator() {
+    fn evaluates_the_tables_with_custom_evaluator() -> Result<(), ShellError> {
         let eval = String::from("name");
 
         assert_eq!(
-            evaluate(&nu_releases_sorted_by_date(), Some(eval), Tag::unknown()).unwrap(),
+            evaluate(&nu_releases_sorted_by_date()?, Some(eval), Tag::unknown())?,
             table(&[table(&[
                 table(&[string("AR"), string("JT"), string("YK")]),
                 table(&[string("AR"), string("YK"), string("JT")]),
                 table(&[string("YK"), string("JT"), string("AR")]),
             ]),])
         );
+
+        Ok(())
     }
 }

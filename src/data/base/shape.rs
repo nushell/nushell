@@ -359,12 +359,14 @@ impl Shapes {
 
     pub fn to_values(&self) -> Vec<Value> {
         if self.shapes.len() == 1 {
-            let shape = self.shapes.keys().nth(0).unwrap();
-
-            let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
-            tagged_dict.insert_untagged("type", shape.to_value());
-            tagged_dict.insert_untagged("rows", UntaggedValue::string("all"));
-            vec![tagged_dict.into_value()]
+            if let Some(shape) = self.shapes.keys().nth(0) {
+                let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
+                tagged_dict.insert_untagged("type", shape.to_value());
+                tagged_dict.insert_untagged("rows", UntaggedValue::string("all"));
+                vec![tagged_dict.into_value()]
+            } else {
+                unreachable!("Internal error: impossible state in to_values")
+            }
         } else {
             self.shapes
                 .iter()

@@ -129,7 +129,15 @@ where
 {
     fn to_input_stream(self) -> InputStream {
         InputStream {
-            values: self.map(|item| item.into().unwrap()).boxed(),
+            values: self
+                .map(|item| {
+                    if let Ok(result) = item.into() {
+                        result
+                    } else {
+                        unreachable!("Internal errors: to_input_stream in inconsistent state")
+                    }
+                })
+                .boxed(),
         }
     }
 }

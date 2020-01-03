@@ -25,18 +25,21 @@ impl HelpShell {
         let mut cmds = TaggedDictBuilder::new(Tag::unknown());
         let mut specs = Vec::new();
 
-        for cmd in registry.names()? {
-            let mut spec = TaggedDictBuilder::new(Tag::unknown());
-            let value = command_dict(registry.get_command(&cmd)?.unwrap(), Tag::unknown());
+        let snapshot = registry.snapshot()?;
 
-            spec.insert_untagged("name", cmd);
+        for (name, cmd) in snapshot.iter() {
+            let mut spec = TaggedDictBuilder::new(Tag::unknown());
+            let value = command_dict(cmd.clone(), Tag::unknown());
+
+            spec.insert_untagged("name", name.to_string());
             spec.insert_untagged(
                 "description",
                 value
                     .get_data_by_key("usage".spanned_unknown())
-                    .unwrap()
-                    .as_string()
-                    .unwrap(),
+                    .ok_or_else(|| {
+                        ShellError::untagged_runtime_error("Internal error: expected to find usage")
+                    })?
+                    .as_string()?,
             );
             spec.insert_value("details", value);
 
@@ -77,7 +80,8 @@ impl HelpShell {
             match p {
                 x if x == sep => {}
                 step => {
-                    let value = viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown());
+                    let step: &str = &step.to_string_lossy().to_string();
+                    let value = viewed.get_data_by_key(step.spanned_unknown());
                     if let Some(v) = value {
                         viewed = v.clone();
                     }

@@ -1,6 +1,7 @@
 mod integration {
     use crate::strutils::{Action, ReplaceAction};
     use crate::Str;
+    use nu_errors::ShellError;
     use nu_plugin::test_helpers::value::{
         column_path, get_data, int, string, structured_sample_record, table,
         unstructured_sample_record,
@@ -83,16 +84,21 @@ mod integration {
     }
 
     #[test]
-    fn picks_up_argument_for_field() {
+    fn picks_up_argument_for_field() -> Result<(), ShellError> {
         plugin(&mut Str::new())
             .args(
                 CallStub::new()
-                    .with_parameter("package.description")
+                    .with_parameter("package.description")?
                     .create(),
             )
             .setup(|plugin, _| {
-                plugin.expect_field(column_path(&[string("package"), string("description")]))
+                //FIXME: this is possibly not correct
+                if let Ok(column_path) = column_path(&[string("package"), string("description")]) {
+                    plugin.expect_field(column_path)
+                }
             });
+
+        Ok(())
     }
 
     #[test]
@@ -115,12 +121,12 @@ mod integration {
     }
 
     #[test]
-    fn upcases_the_input_using_the_field_passed_as_parameter() {
+    fn upcases_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
         let run = plugin(&mut Str::new())
             .args(
                 CallStub::new()
                     .with_long_flag("upcase")
-                    .with_parameter("name")
+                    .with_parameter("name")?
                     .create(),
             )
             .input(structured_sample_record("name", "jotandrehuda"))
@@ -130,15 +136,16 @@ mod integration {
         let actual = expect_return_value_at(run, 0);
 
         assert_eq!(get_data(actual, "name"), string("JOTANDREHUDA"));
+        Ok(())
     }
 
     #[test]
-    fn downcases_the_input_using_the_field_passed_as_parameter() {
+    fn downcases_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
         let run = plugin(&mut Str::new())
             .args(
                 CallStub::new()
                     .with_long_flag("downcase")
-                    .with_parameter("name")
+                    .with_parameter("name")?
                     .create(),
             )
             .input(structured_sample_record("name", "JOTANDREHUDA"))
@@ -148,15 +155,17 @@ mod integration {
         let actual = expect_return_value_at(run, 0);
 
         assert_eq!(get_data(actual, "name"), string("jotandrehuda"));
+        Ok(())
     }
 
     #[test]
-    fn converts_the_input_to_integer_using_the_field_passed_as_parameter() {
+    fn converts_the_input_to_integer_using_the_field_passed_as_parameter() -> Result<(), ShellError>
+    {
         let run = plugin(&mut Str::new())
             .args(
                 CallStub::new()
                     .with_long_flag("to-int")
-                    .with_parameter("Nu_birthday")
+                    .with_parameter("Nu_birthday")?
                     .create(),
             )
             .input(structured_sample_record("Nu_birthday", "10"))
@@ -166,14 +175,15 @@ mod integration {
         let actual = expect_return_value_at(run, 0);
 
         assert_eq!(get_data(actual, "Nu_birthday"), int(10));
+        Ok(())
     }
 
     #[test]
-    fn replaces_the_input_using_the_field_passed_as_parameter() {
+    fn replaces_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
         let run = plugin(&mut Str::new())
             .args(
                 CallStub::new()
-                    .with_parameter("rustconf")
+                    .with_parameter("rustconf")?
                     .with_named_parameter("replace", string("22nd August 2019"))
                     .create(),
             )
@@ -184,14 +194,15 @@ mod integration {
         let actual = expect_return_value_at(run, 0);
 
         assert_eq!(get_data(actual, "rustconf"), string("22nd August 2019"));
+        Ok(())
     }
 
     #[test]
-    fn find_and_replaces_the_input_using_the_field_passed_as_parameter() {
+    fn find_and_replaces_the_input_using_the_field_passed_as_parameter() -> Result<(), ShellError> {
         let run = plugin(&mut Str::new())
             .args(
                 CallStub::new()
-                    .with_parameter("staff")
+                    .with_parameter("staff")?
                     .with_named_parameter(
                         "find-replace",
                         table(&[string("kittens"), string("jotandrehuda")]),
@@ -205,6 +216,7 @@ mod integration {
         let actual = expect_return_value_at(run, 0);
 
         assert_eq!(get_data(actual, "staff"), string("wyjotandrehuda"));
+        Ok(())
     }
 
     #[test]

@@ -40,7 +40,7 @@ impl PerItemCommand for Open {
 
 fn run(call_info: &CallInfo, raw_args: &RawCommandArgs) -> Result<OutputStream, ShellError> {
     let shell_manager = &raw_args.shell_manager;
-    let cwd = PathBuf::from(shell_manager.path());
+    let cwd = PathBuf::from(shell_manager.path()?);
     let full_path = cwd;
 
     let path = call_info.args.nth(0).ok_or_else(|| {

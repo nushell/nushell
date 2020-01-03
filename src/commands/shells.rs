@@ -32,7 +32,16 @@ fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
     let mut shells_out = VecDeque::new();
     let tag = args.call_info.name_tag;
 
-    for (index, shell) in args.shell_manager.shells.lock().unwrap().iter().enumerate() {
+    for (index, shell) in args
+        .shell_manager
+        .shells
+        .lock()
+        .map_err(|_| {
+            ShellError::labeled_error("Could not list shells", "could not list shells", &tag)
+        })?
+        .iter()
+        .enumerate()
+    {
         let mut dict = TaggedDictBuilder::new(&tag);
 
         if index == (*args.shell_manager.current_shell).load(Ordering::SeqCst) {

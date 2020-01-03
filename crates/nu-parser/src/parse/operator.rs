@@ -42,7 +42,11 @@ impl CompareOperator {
 
 impl From<&str> for CompareOperator {
     fn from(input: &str) -> CompareOperator {
-        CompareOperator::from_str(input).unwrap()
+        if let Ok(output) = CompareOperator::from_str(input) {
+            output
+        } else {
+            unreachable!("Internal error: CompareOperator from failed")
+        }
     }
 }
 
@@ -90,7 +94,11 @@ impl EvaluationOperator {
 
 impl From<&str> for EvaluationOperator {
     fn from(input: &str) -> EvaluationOperator {
-        EvaluationOperator::from_str(input).unwrap()
+        if let Ok(output) = EvaluationOperator::from_str(input) {
+            output
+        } else {
+            unreachable!("Internal error: EvaluationOperator 'from' failed")
+        }
     }
 }
 

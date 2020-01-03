@@ -376,7 +376,7 @@ impl RenderView for TableView {
             ));
         }
 
-        table.print_term(&mut *host.out_terminal()).unwrap();
+        table.print_term(&mut *host.out_terminal()).map_err(|_| ShellError::untagged_runtime_error("Internal error: could not print to terminal (for unix systems check to make sure TERM is set)"))?;
 
         Ok(())
     }
