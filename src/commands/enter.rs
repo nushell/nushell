@@ -72,7 +72,7 @@ impl PerItemCommand for Enter {
                         // If it's a file, attempt to open the file as a value and enter it
                         let cwd = raw_args.shell_manager.path();
 
-                        let full_path = std::path::PathBuf::from(cwd);
+                        let full_path = std::path::PathBuf::from(cwd?);
 
                         let (file_extension, contents, contents_tag) =
                             crate::commands::open::fetch(

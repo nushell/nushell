@@ -114,12 +114,12 @@ impl Context {
     pub(crate) fn expand_context<'context>(
         &'context self,
         source: &'context Text,
-    ) -> ExpandContext<'context> {
-        ExpandContext::new(
+    ) -> Result<ExpandContext<'context>, ShellError> {
+        Ok(ExpandContext::new(
             Box::new(self.registry.clone()),
             source,
-            self.shell_manager.homedir(),
-        )
+            self.shell_manager.homedir()?,
+        ))
     }
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {

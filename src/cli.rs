@@ -384,7 +384,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let cwd = context.shell_manager.path();
+        let cwd = context.shell_manager.path()?;
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
@@ -634,7 +634,7 @@ pub fn classify_pipeline(
     let result = expand_syntax(
         &PipelineShape,
         &mut iterator,
-        &context.expand_context(source),
+        &context.expand_context(source)?,
     )
     .map_err(|err| err.into());
 

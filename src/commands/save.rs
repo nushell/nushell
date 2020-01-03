@@ -130,7 +130,7 @@ fn save(
     }: RunnableContext,
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let mut full_path = PathBuf::from(shell_manager.path());
+    let mut full_path = PathBuf::from(shell_manager.path()?);
     let name_tag = name.clone();
 
     let stream = async_stream! {

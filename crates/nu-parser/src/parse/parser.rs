@@ -148,13 +148,21 @@ macro_rules! primitive_decimal {
         $(
             impl From<$ty> for Number {
                 fn from(decimal: $ty) -> Number {
-                    Number::Decimal(BigDecimal::$from(decimal).unwrap())
+                    if let Some(num) = BigDecimal::$from(decimal) {
+                        Number::Decimal(num)
+                    } else {
+                        unreachable!("Internal error: BigDecimal 'from' failed")
+                    }
                 }
             }
 
             impl From<&$ty> for Number {
                 fn from(decimal: &$ty) -> Number {
-                    Number::Decimal(BigDecimal::$from(*decimal).unwrap())
+                    if let Some(num) = BigDecimal::$from(*decimal) {
+                        Number::Decimal(num)
+                    } else {
+                        unreachable!("Internal error: BigDecimal 'from' failed")
+                    }
                 }
             }
         )*
@@ -909,11 +917,13 @@ pub fn module(input: NomSpan) -> IResult<NomSpan, TokenNode> {
 }
 
 fn parse_int<T>(frag: &str, neg: Option<T>) -> i64 {
-    let int = FromStr::from_str(frag).unwrap();
-
-    match neg {
-        None => int,
-        Some(_) => -int,
+    if let Ok(int) = FromStr::from_str(frag) {
+        match neg {
+            None => int,
+            Some(_) => -int,
+        }
+    } else {
+        unreachable!("Internal error: parse_int failed");
     }
 }
 

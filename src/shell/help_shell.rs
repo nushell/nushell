@@ -35,8 +35,7 @@ impl HelpShell {
                 value
                     .get_data_by_key("usage".spanned_unknown())
                     .unwrap()
-                    .as_string()
-                    .unwrap(),
+                    .as_string()?,
             );
             spec.insert_value("details", value);
 
@@ -77,7 +76,8 @@ impl HelpShell {
             match p {
                 x if x == sep => {}
                 step => {
-                    let value = viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown());
+                    let step: &str = &step.to_string_lossy().to_string();
+                    let value = viewed.get_data_by_key(step.spanned_unknown());
                     if let Some(v) = value {
                         viewed = v.clone();
                     }

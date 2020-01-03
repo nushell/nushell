@@ -323,10 +323,13 @@ impl TokenTreeBuilder {
 
         let mut input = input.into_iter();
 
-        let head = input.next().unwrap();
-        let tail = input.collect();
+        if let Some(head) = input.next() {
+            let tail = input.collect();
 
-        CallNode::new(Box::new(head), tail).spanned(span.into())
+            CallNode::new(Box::new(head), tail).spanned(span.into())
+        } else {
+            unreachable!("Internal error: spanned_call failed")
+        }
     }
 
     fn consume_delimiter(

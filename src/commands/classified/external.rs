@@ -148,7 +148,7 @@ pub(crate) async fn run_external_command(
         }
     }
 
-    process = process.cwd(context.shell_manager.path());
+    process = process.cwd(context.shell_manager.path()?);
 
     trace!(target: "nu::run::external", "cwd = {:?}", context.shell_manager.path());
 
