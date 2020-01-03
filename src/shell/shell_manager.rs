@@ -112,7 +112,8 @@ impl ShellManager {
 
     pub fn set_path(&mut self, path: String) -> Result<(), ShellError> {
         if let Ok(mut shells) = self.shells.lock() {
-            Ok(shells[self.current_shell()].set_path(path))
+            shells[self.current_shell()].set_path(path);
+            Ok(())
         } else {
             Err(ShellError::untagged_runtime_error(
                 "Internal error: could not lock shells ring buffer (set_path)",

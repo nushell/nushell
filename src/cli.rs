@@ -452,7 +452,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
                 context.with_host(|host| {
                     print_err(err, host, &Text::from(line.clone()));
-                });
+                })?;
 
                 context.maybe_print_errors(Text::from(line.clone()));
             }
@@ -474,7 +474,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     let _ = rl.save_history(&History::path());
                     std::process::exit(0);
                 } else {
-                    context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
+                    context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"))?;
                     ctrlcbreak = true;
                     continue;
                 }
@@ -640,7 +640,7 @@ pub fn classify_pipeline(
 
     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
         outln!("");
-        ptree::print_tree(&iterator.expand_tracer().print(source.clone())).unwrap();
+        let _ = ptree::print_tree(&iterator.expand_tracer().print(source.clone()));
         outln!("");
     }
 

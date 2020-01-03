@@ -50,7 +50,7 @@ pub(crate) async fn run_internal_command(
                     }
                     CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
                     CommandAction::Error(err) => {
-                        context.error(err);
+                        context.error(err)?;
                         break;
                     }
                     CommandAction::AutoConvert(tagged_contents, extension) => {
@@ -109,9 +109,11 @@ pub(crate) async fn run_internal_command(
                                 result?
                             }
                             _ => {
-                                context.shell_manager.insert_at_current(Box::new(
-                                    HelpShell::index(&context.registry()).unwrap(),
-                                ))?;
+                                let result = context.shell_manager.insert_at_current(Box::new(
+                                    HelpShell::index(&context.registry())?,
+                                ));
+
+                                result?
                             }
                         }
                     }
@@ -151,7 +153,7 @@ pub(crate) async fn run_internal_command(
                     let mut buffer = termcolor::Buffer::ansi();
 
                     let _ = doc.render_raw(
-                        context.with_host(|host| host.width() - 5),
+                        context.with_host(|host| host.width() - 5)?,
                         &mut nu_source::TermColored::new(&mut buffer),
                     );
 
@@ -161,7 +163,7 @@ pub(crate) async fn run_internal_command(
                 }
 
                 Err(err) => {
-                    context.error(err);
+                    context.error(err)?;
                     break;
                 }
             }

@@ -124,14 +124,14 @@ impl CallStub {
         self
     }
 
-    pub fn with_parameter(&mut self, name: &str) -> &mut Self {
+    pub fn with_parameter(&mut self, name: &str) -> Result<&mut Self, ShellError> {
         let fields: Vec<Value> = name
             .split('.')
             .map(|s| UntaggedValue::string(s.to_string()).into_value(Tag::unknown()))
             .collect();
 
-        self.positionals.push(value::column_path(&fields));
-        self
+        self.positionals.push(value::column_path(&fields)?);
+        Ok(self)
     }
 
     pub fn create(&self) -> CallInfo {
@@ -156,7 +156,11 @@ pub fn expect_return_value_at(
         };
 
         if idx == at {
-            return item.raw_value().unwrap();
+            if let Some(value) = item.raw_value() {
+                return value;
+            } else {
+                panic!("Internal error: could not get raw value in expect_return_value_at")
+            }
         }
     }
 
@@ -168,6 +172,7 @@ pub fn expect_return_value_at(
 }
 
 pub mod value {
+    use nu_errors::ShellError;
     use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
     use nu_source::Tag;
     use nu_value_ext::ValueExt;
@@ -199,10 +204,10 @@ pub mod value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
-    pub fn column_path(paths: &[Value]) -> Value {
-        UntaggedValue::Primitive(Primitive::ColumnPath(
-            table(&paths.to_vec()).as_column_path().unwrap().item,
+    pub fn column_path(paths: &[Value]) -> Result<Value, ShellError> {
+        Ok(UntaggedValue::Primitive(Primitive::ColumnPath(
+            table(&paths.to_vec()).as_column_path()?.item,
         ))
-        .into_untagged_value()
+        .into_untagged_value())
     }
 }

@@ -30,7 +30,11 @@ impl AbsoluteFile {
     }
 
     pub fn dir(&self) -> AbsolutePath {
-        AbsolutePath::new(self.inner.parent().unwrap())
+        AbsolutePath::new(if let Some(parent) = self.inner.parent() {
+            parent
+        } else {
+            unreachable!("Internal error: could not get parent in dir")
+        })
     }
 }
 

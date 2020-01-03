@@ -95,6 +95,13 @@ impl CommandRegistry {
         })?;
         Ok(registry.keys().cloned().collect())
     }
+
+    pub(crate) fn snapshot(&self) -> Result<IndexMap<String, Arc<Command>>, ShellError> {
+        let registry = self.registry.lock().map_err(|_| {
+            ShellError::untagged_runtime_error("Internal error: names could not get mutex")
+        })?;
+        Ok(registry.clone())
+    }
 }
 
 #[derive(Clone)]
@@ -133,7 +140,7 @@ impl Context {
         })
     }
 
-    pub(crate) fn error(&mut self, error: ShellError) {
+    pub(crate) fn error(&mut self, error: ShellError) -> Result<(), ShellError> {
         self.with_errors(|errors| errors.push(error))
     }
 
@@ -177,16 +184,30 @@ impl Context {
         result
     }
 
-    pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
-        let mut host = self.host.lock().unwrap();
-
-        block(&mut *host)
+    pub(crate) fn with_host<T>(
+        &mut self,
+        block: impl FnOnce(&mut dyn Host) -> T,
+    ) -> Result<T, ShellError> {
+        if let Ok(mut host) = self.host.lock() {
+            Ok(block(&mut *host))
+        } else {
+            Err(ShellError::untagged_runtime_error(
+                "Internal error: could not lock host in with_host",
+            ))
+        }
     }
 
-    pub(crate) fn with_errors<T>(&mut self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
-        let mut errors = self.current_errors.lock().unwrap();
-
-        block(&mut *errors)
+    pub(crate) fn with_errors<T>(
+        &mut self,
+        block: impl FnOnce(&mut Vec<ShellError>) -> T,
+    ) -> Result<T, ShellError> {
+        if let Ok(mut errors) = self.current_errors.lock() {
+            Ok(block(&mut *errors))
+        } else {
+            Err(ShellError::untagged_runtime_error(
+                "Internal error: could not lock host in with_errors",
+            ))
+        }
     }
 
     pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) -> Result<(), ShellError> {
