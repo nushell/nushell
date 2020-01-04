@@ -45,7 +45,8 @@ impl ValueShell {
             match p {
                 x if x == sep => {}
                 step => {
-                    let value = viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown());
+                    let name: &str = &step.to_string_lossy().to_string();
+                    let value = viewed.get_data_by_key(name.spanned_unknown());
                     if let Some(v) = value {
                         viewed = v.clone();
                     }
@@ -62,7 +63,7 @@ impl ValueShell {
                 }
             }
             x => {
-                shell_entries.push_back(x.clone());
+                shell_entries.push_back(x);
             }
         }
 
@@ -223,7 +224,7 @@ impl Shell for ValueShell {
 
     fn set_path(&mut self, path: String) {
         self.last_path = self.path.clone();
-        self.path = path.clone();
+        self.path = path;
     }
 
     fn complete(

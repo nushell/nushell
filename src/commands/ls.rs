@@ -5,7 +5,7 @@ use nu_protocol::{Signature, SyntaxShape};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
-pub struct LS;
+pub struct Ls;
 
 #[derive(Deserialize)]
 pub struct LsArgs {
@@ -13,7 +13,7 @@ pub struct LsArgs {
     full: bool,
 }
 
-impl WholeStreamCommand for LS {
+impl WholeStreamCommand for Ls {
     fn name(&self) -> &str {
         "ls"
     }

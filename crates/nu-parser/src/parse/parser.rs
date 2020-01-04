@@ -148,13 +148,21 @@ macro_rules! primitive_decimal {
         $(
             impl From<$ty> for Number {
                 fn from(decimal: $ty) -> Number {
-                    Number::Decimal(BigDecimal::$from(decimal).unwrap())
+                    if let Some(num) = BigDecimal::$from(decimal) {
+                        Number::Decimal(num)
+                    } else {
+                        unreachable!("Internal error: BigDecimal 'from' failed")
+                    }
                 }
             }
 
             impl From<&$ty> for Number {
                 fn from(decimal: &$ty) -> Number {
-                    Number::Decimal(BigDecimal::$from(*decimal).unwrap())
+                    if let Some(num) = BigDecimal::$from(*decimal) {
+                        Number::Decimal(num)
+                    } else {
+                        unreachable!("Internal error: BigDecimal 'from' failed")
+                    }
                 }
             }
         )*
@@ -245,13 +253,9 @@ pub fn raw_number(input: NomSpan) -> IResult<NomSpan, RawNumber> {
 
     let dotdot_result = dotdot(input);
 
-    match dotdot_result {
+    if let Ok((dotdot_input, _)) = dotdot_result {
         // If we see a `..` immediately after an integer, it's a range, not a decimal
-        Ok((dotdot_input, _)) => {
-            return Ok((input, RawNumber::int(Span::new(start, input.offset))))
-        }
-
-        Err(_) => {}
+        return Ok((input, RawNumber::int(Span::new(start, input.offset))));
     }
 
     let dot: IResult<NomSpan, NomSpan, (NomSpan, nom::error::ErrorKind)> = tag(".")(input);
@@ -379,7 +383,10 @@ fn word<'a, T, U, V>(
 
 pub fn matches(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpan, NomSpan> + Copy {
     move |input: NomSpan| match input.iter_elements().next() {
-        Option::Some(c) if cond(c) => Ok((input.slice(1..), input.slice(0..1))),
+        Option::Some(c) if cond(c) => {
+            let len_utf8 = c.len_utf8();
+            Ok((input.slice(len_utf8..), input.slice(0..len_utf8)))
+        }
         _ => Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
             input,
             nom::error::ErrorKind::Many0,
@@ -453,10 +460,8 @@ enum SawSpecial {
 fn start_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
     let path_sep_result = special_file_char(input);
 
-    match path_sep_result {
-        Ok((input, special)) => return Ok((input, special)),
-
-        Err(_) => {}
+    if let Ok((input, special)) = path_sep_result {
+        return Ok((input, special));
     }
 
     start_filename(input).map(|(input, output)| (input, BitFlags::empty()))
@@ -466,9 +471,8 @@ fn start_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
 fn continue_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
     let path_sep_result = special_file_char(input);
 
-    match path_sep_result {
-        Ok((input, special)) => return Ok((input, special)),
-        Err(_) => {}
+    if let Ok((input, special)) = path_sep_result {
+        return Ok((input, special));
     }
 
     matches(is_file_char)(input).map(|(input, _)| (input, BitFlags::empty()))
@@ -476,9 +480,8 @@ fn continue_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> 
 
 #[tracable_parser]
 fn special_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
-    match matches(is_path_separator)(input) {
-        Ok((input, _)) => return Ok((input, BitFlags::empty() | SawSpecial::PathSeparator)),
-        Err(_) => {}
+    if let Ok((input, _)) = matches(is_path_separator)(input) {
+        return Ok((input, BitFlags::empty() | SawSpecial::PathSeparator));
     }
 
     let (input, _) = matches(is_glob_specific_char)(input)?;
@@ -712,9 +715,13 @@ pub fn spaced_token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<Spanned
 
     let mut out = vec![];
 
-    pre_ws.map(|pre_ws| out.extend(pre_ws));
+    if let Some(pre_ws) = pre_ws {
+        out.extend(pre_ws)
+    }
     out.extend(items.item);
-    post_ws.map(|post_ws| out.extend(post_ws));
+    if let Some(post_ws) = post_ws {
+        out.extend(post_ws)
+    }
 
     Ok((input, out.spanned(Span::new(start, end))))
 }
@@ -959,11 +966,13 @@ pub fn module(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 }
 
 fn parse_int<T>(frag: &str, neg: Option<T>) -> i64 {
-    let int = FromStr::from_str(frag).unwrap();
-
-    match neg {
-        None => int,
-        Some(_) => int * -1,
+    if let Ok(int) = FromStr::from_str(frag) {
+        match neg {
+            None => int,
+            Some(_) => -int,
+        }
+    } else {
+        unreachable!("Internal error: parse_int failed");
     }
 }
 
@@ -1150,42 +1159,63 @@ mod tests {
     }
 
     #[test]
-    fn test_operator() {
+    fn test_gt_operator() {
         equal_tokens! {
             <nodes>
             ">" -> b::token_list(vec![b::op(">")])
         }
+    }
 
+    #[test]
+    fn test_gte_operator() {
         equal_tokens! {
             <nodes>
             ">=" -> b::token_list(vec![b::op(">=")])
         }
+    }
 
+    #[test]
+    fn test_lt_operator() {
         equal_tokens! {
             <nodes>
             "<" -> b::token_list(vec![b::op("<")])
         }
+    }
 
+    #[test]
+    fn test_lte_operator() {
         equal_tokens! {
             <nodes>
             "<=" -> b::token_list(vec![b::op("<=")])
         }
+    }
 
+    #[test]
+    fn test_eq_operator() {
         equal_tokens! {
             <nodes>
             "==" -> b::token_list(vec![b::op("==")])
         }
+    }
 
+    #[test]
+    fn test_ne_operator() {
         equal_tokens! {
-            <nodes>
-            "!=" -> b::token_list(vec![b::op("!=")])
+        <nodes>
+        "!=" -> b::token_list(vec![b::op("!=")])
         }
+    }
 
+    #[test]
+    fn test_sim_operator() {
         equal_tokens! {
             <nodes>
             "=~" -> b::token_list(vec![b::op("=~")])
         }
+    }
 
+    #[test]
+    fn test_nsim_operator() {
         equal_tokens! {
             <nodes>
             "!~" -> b::token_list(vec![b::op("!~")])
@@ -1452,37 +1482,58 @@ mod tests {
             <nodes>
             "git add ." -> b::token_list(vec![b::bare("git"), b::sp(), b::bare("add"), b::sp(), b::bare(".")])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_open() {
         equal_tokens! {
             <nodes>
             "open Cargo.toml" -> b::token_list(vec![b::bare("open"), b::sp(), b::bare("Cargo"), b::dot(), b::bare("toml")])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_select() {
         equal_tokens! {
             <nodes>
             "select package.version" -> b::token_list(vec![b::bare("select"), b::sp(), b::bare("package"), b::dot(), b::bare("version")])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_it() {
         equal_tokens! {
             <nodes>
             "echo $it" -> b::token_list(vec![b::bare("echo"), b::sp(), b::it_var()])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_open_raw() {
         equal_tokens! {
             <nodes>
             "open Cargo.toml --raw" -> b::token_list(vec![b::bare("open"), b::sp(), b::bare("Cargo"), b::dot(), b::bare("toml"), b::sp(), b::flag("raw")])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_open_r() {
         equal_tokens! {
             <nodes>
             "open Cargo.toml -r" -> b::token_list(vec![b::bare("open"), b::sp(), b::bare("Cargo"), b::dot(), b::bare("toml"), b::sp(), b::shorthand("r")])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_config() {
         equal_tokens! {
             <nodes>
             "config --set tabs 2" -> b::token_list(vec![b::bare("config"), b::sp(), b::flag("set"), b::sp(), b::bare("tabs"), b::sp(), b::int(2)])
         }
+    }
 
+    #[test]
+    fn test_smoke_single_command_inc() {
         equal_tokens! {
             <nodes>
             "inc --patch package.version" -> b::token_list(

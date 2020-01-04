@@ -92,6 +92,7 @@ impl ExpandSyntax for ExpressionListShape {
                         backoff = true;
                     }
                 }
+                // Otherwise, move on to the next expression
             }
         }
     }

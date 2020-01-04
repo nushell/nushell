@@ -12,7 +12,7 @@ use num_traits::cast::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub enum Primitive {
     Nothing,
     #[serde(with = "serde_bigint")]
@@ -64,7 +64,11 @@ impl From<BigDecimal> for Primitive {
 
 impl From<f64> for Primitive {
     fn from(float: f64) -> Primitive {
-        Primitive::Decimal(BigDecimal::from_f64(float).unwrap())
+        if let Some(f) = BigDecimal::from_f64(float) {
+            Primitive::Decimal(f)
+        } else {
+            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+        }
     }
 }
 
@@ -108,7 +112,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
 
             match byte.get_unit() {
                 byte_unit::ByteUnit::B => format!("{} B ", byte.get_value()),
-                _ => byte.format(1).to_string(),
+                _ => byte.format(1),
             }
         }
         Primitive::Duration(sec) => format_duration(*sec),
@@ -150,7 +154,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
         }
         .to_owned(),
         Primitive::Binary(_) => "<binary>".to_owned(),
-        Primitive::Date(d) => d.humanize().to_string(),
+        Primitive::Date(d) => d.humanize(),
     }
 }
 

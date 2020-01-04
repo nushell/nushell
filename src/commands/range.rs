@@ -41,13 +41,13 @@ impl WholeStreamCommand for Range {
 
 fn range(
     RangeArgs { area }: RangeArgs,
-    RunnableContext { input, name: _, .. }: RunnableContext,
+    RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let range = area.item;
     let (from, _) = range.from;
     let (to, _) = range.to;
 
-    return Ok(OutputStream::from_input(
+    Ok(OutputStream::from_input(
         input.values.skip(*from).take(*to - *from + 1),
-    ));
+    ))
 }

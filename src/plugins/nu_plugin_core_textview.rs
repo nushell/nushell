@@ -1,9 +1,8 @@
 use crossterm::{cursor, terminal, RawScreen};
 use crossterm::{InputEvent, KeyEvent};
 use nu_errors::ShellError;
-use nu_protocol::{
-    outln, serve_plugin, CallInfo, Plugin, Primitive, Signature, UntaggedValue, Value,
-};
+use nu_plugin::{serve_plugin, Plugin};
+use nu_protocol::{outln, CallInfo, Primitive, Signature, UntaggedValue, Value};
 use nu_source::AnchorLocation;
 
 use syntect::easy::HighlightLines;
@@ -39,7 +38,7 @@ impl Plugin for TextView {
 }
 
 fn paint_textview(
-    draw_commands: &Vec<DrawCommand>,
+    draw_commands: &[DrawCommand],
     starting_row: usize,
     use_color_buffer: bool,
 ) -> usize {
@@ -149,8 +148,8 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
 
             loop {
                 if let Some(ev) = sync_stdin.next() {
-                    match ev {
-                        InputEvent::Keyboard(k) => match k {
+                    if let InputEvent::Keyboard(k) = ev {
+                        match k {
                             KeyEvent::Esc => {
                                 break;
                             }
@@ -188,8 +187,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
                             _ => {}
-                        },
-                        _ => {}
+                        }
                     }
                 }
 
@@ -221,73 +219,67 @@ fn scroll_view(s: &str) {
 
 fn view_text_value(value: &Value) {
     let value_anchor = value.anchor();
-    match &value.value {
-        UntaggedValue::Primitive(Primitive::String(ref s)) => {
-            if let Some(source) = value_anchor {
-                let extension: Option<String> = match source {
-                    AnchorLocation::File(file) => {
-                        let path = Path::new(&file);
-                        path.extension().map(|x| x.to_string_lossy().to_string())
-                    }
-                    AnchorLocation::Url(url) => {
-                        let url = url::Url::parse(&url);
-                        if let Ok(url) = url {
-                            let url = url.clone();
-                            if let Some(mut segments) = url.path_segments() {
-                                if let Some(file) = segments.next_back() {
-                                    let path = Path::new(file);
-                                    path.extension().map(|x| x.to_string_lossy().to_string())
-                                } else {
-                                    None
-                                }
+    if let UntaggedValue::Primitive(Primitive::String(ref s)) = &value.value {
+        if let Some(source) = value_anchor {
+            let extension: Option<String> = match source {
+                AnchorLocation::File(file) => {
+                    let path = Path::new(&file);
+                    path.extension().map(|x| x.to_string_lossy().to_string())
+                }
+                AnchorLocation::Url(url) => {
+                    let url = url::Url::parse(&url);
+                    if let Ok(url) = url {
+                        if let Some(mut segments) = url.path_segments() {
+                            if let Some(file) = segments.next_back() {
+                                let path = Path::new(file);
+                                path.extension().map(|x| x.to_string_lossy().to_string())
                             } else {
                                 None
                             }
                         } else {
                             None
                         }
+                    } else {
+                        None
                     }
-                    //FIXME: this probably isn't correct
-                    AnchorLocation::Source(_source) => None,
-                };
+                }
+                //FIXME: this probably isn't correct
+                AnchorLocation::Source(_source) => None,
+            };
 
-                match extension {
-                    Some(extension) => {
-                        // Load these once at the start of your program
-                        let ps: SyntaxSet = syntect::dumps::from_binary(include_bytes!(
-                            "../../assets/syntaxes.bin"
-                        ));
+            match extension {
+                Some(extension) => {
+                    // Load these once at the start of your program
+                    let ps: SyntaxSet =
+                        syntect::dumps::from_binary(include_bytes!("../../assets/syntaxes.bin"));
 
-                        if let Some(syntax) = ps.find_syntax_by_extension(&extension) {
-                            let ts: ThemeSet = syntect::dumps::from_binary(include_bytes!(
-                                "../../assets/themes.bin"
-                            ));
-                            let mut h = HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
+                    if let Some(syntax) = ps.find_syntax_by_extension(&extension) {
+                        let ts: ThemeSet =
+                            syntect::dumps::from_binary(include_bytes!("../../assets/themes.bin"));
+                        let mut h = HighlightLines::new(syntax, &ts.themes["OneHalfDark"]);
 
-                            let mut v = vec![];
-                            for line in s.lines() {
-                                let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
+                        let mut v = vec![];
+                        for line in s.lines() {
+                            let ranges: Vec<(Style, &str)> = h.highlight(line, &ps);
 
-                                for range in ranges {
-                                    v.push(DrawCommand::DrawString(range.0, range.1.to_string()));
-                                }
-
-                                v.push(DrawCommand::NextLine);
+                            for range in ranges {
+                                v.push(DrawCommand::DrawString(range.0, range.1.to_string()));
                             }
-                            scroll_view_lines_if_needed(v, true);
-                        } else {
-                            scroll_view(s);
+
+                            v.push(DrawCommand::NextLine);
                         }
-                    }
-                    _ => {
+                        scroll_view_lines_if_needed(v, true);
+                    } else {
                         scroll_view(s);
                     }
                 }
-            } else {
-                scroll_view(s);
+                _ => {
+                    scroll_view(s);
+                }
             }
+        } else {
+            scroll_view(s);
         }
-        _ => {}
     }
 }
 

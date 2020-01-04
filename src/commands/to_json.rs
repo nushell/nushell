@@ -39,12 +39,28 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_json::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_json::Value::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_json::Value::Null,
-        UntaggedValue::Primitive(Primitive::Decimal(f)) => serde_json::Value::Number(
-            serde_json::Number::from_f64(
-                f.to_f64().expect("TODO: What about really big decimals?"),
-            )
-            .unwrap(),
-        ),
+        UntaggedValue::Primitive(Primitive::Decimal(f)) => {
+            if let Some(f) = f.to_f64() {
+                if let Some(num) = serde_json::Number::from_f64(
+                    f.to_f64().expect("TODO: What about really big decimals?"),
+                ) {
+                    serde_json::Value::Number(num)
+                } else {
+                    return Err(ShellError::labeled_error(
+                        "Could not convert value to decimal number",
+                        "could not convert to decimal",
+                        &v.tag,
+                    ));
+                }
+            } else {
+                return Err(ShellError::labeled_error(
+                    "Could not convert value to decimal number",
+                    "could not convert to decimal",
+                    &v.tag,
+                ));
+            }
+        }
+
         UntaggedValue::Primitive(Primitive::Int(i)) => {
             serde_json::Value::Number(serde_json::Number::from(CoerceInto::<i64>::coerce_into(
                 i.tagged(&v.tag),
@@ -82,8 +98,17 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()
                 .map(|x| {
-                    serde_json::Value::Number(serde_json::Number::from_f64(*x as f64).unwrap())
+                    serde_json::Number::from_f64(*x as f64).ok_or_else(|| {
+                        ShellError::labeled_error(
+                            "Can not convert number from floating point",
+                            "can not convert to number",
+                            &v.tag,
+                        )
+                    })
                 })
+                .collect::<Result<Vec<serde_json::Number>, ShellError>>()?
+                .into_iter()
+                .map(serde_json::Value::Number)
                 .collect(),
         ),
         UntaggedValue::Row(o) => {

@@ -26,7 +26,7 @@ pub(crate) async fn run_internal_command(
 
     let result = {
         context.run_command(
-            internal_command,
+            internal_command?,
             command.name_tag.clone(),
             command.args.clone(),
             &source,
@@ -103,12 +103,12 @@ pub(crate) async fn run_internal_command(
                                     HelpShell::for_command(
                                         UntaggedValue::string(cmd).into_value(tag),
                                         &context.registry(),
-                                    ).unwrap(),
+                                    )?,
                                 ));
                             }
                             _ => {
                                 context.shell_manager.insert_at_current(Box::new(
-                                    HelpShell::index(&context.registry()).unwrap(),
+                                    HelpShell::index(&context.registry())?,
                                 ));
                             }
                         }
@@ -120,7 +120,7 @@ pub(crate) async fn run_internal_command(
                     }
                     CommandAction::EnterShell(location) => {
                         context.shell_manager.insert_at_current(Box::new(
-                            FilesystemShell::with_location(location, context.registry().clone()).unwrap(),
+                            FilesystemShell::with_location(location, context.registry().clone()),
                         ));
                     }
                     CommandAction::PreviousShell => {
@@ -148,10 +148,10 @@ pub(crate) async fn run_internal_command(
                     let doc = PrettyDebug::pretty_doc(&v);
                     let mut buffer = termcolor::Buffer::ansi();
 
-                    doc.render_raw(
+                    let _ = doc.render_raw(
                         context.with_host(|host| host.width() - 5),
                         &mut nu_source::TermColored::new(&mut buffer),
-                    ).unwrap();
+                    );
 
                     let value = String::from_utf8_lossy(buffer.as_slice());
 

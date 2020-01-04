@@ -403,7 +403,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut ConfigDeserializer<'de> {
             Value {
                 value: UntaggedValue::Primitive(Primitive::Path(p)),
                 ..
-            } => visit::<Tagged<PathBuf>, _>(p.clone().tagged(tag), name, fields, visitor),
+            } => visit::<Tagged<PathBuf>, _>(p.tagged(tag), name, fields, visitor),
             Value {
                 value: UntaggedValue::Primitive(Primitive::Int(int)),
                 ..

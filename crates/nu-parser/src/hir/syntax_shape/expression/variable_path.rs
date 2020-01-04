@@ -488,7 +488,9 @@ impl ExpandSyntax for MemberShape {
 
         if let Some(peeked) = number {
             let node = peeked.not_eof("column")?.commit();
-            let (n, span) = node.as_number().unwrap();
+            let (n, span) = node.as_number().ok_or_else(|| {
+                ParseError::internal_error("can't convert node to number".spanned(node.span()))
+            })?;
 
             return Ok(Member::Number(n, span))
         }*/

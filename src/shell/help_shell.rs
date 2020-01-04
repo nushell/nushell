@@ -22,7 +22,7 @@ pub struct HelpShell {
 }
 
 impl HelpShell {
-    pub fn index(registry: &CommandRegistry) -> Result<HelpShell, std::io::Error> {
+    pub fn index(registry: &CommandRegistry) -> Result<HelpShell, ShellError> {
         let mut cmds = TaggedDictBuilder::new(Tag::unknown());
         let mut specs = Vec::new();
 
@@ -52,10 +52,7 @@ impl HelpShell {
         })
     }
 
-    pub fn for_command(
-        cmd: Value,
-        registry: &CommandRegistry,
-    ) -> Result<HelpShell, std::io::Error> {
+    pub fn for_command(cmd: Value, registry: &CommandRegistry) -> Result<HelpShell, ShellError> {
         let mut sh = HelpShell::index(&registry)?;
 
         if let Value {
@@ -81,7 +78,8 @@ impl HelpShell {
             match p {
                 x if x == sep => {}
                 step => {
-                    let value = viewed.get_data_by_key(step.to_str().unwrap().spanned_unknown());
+                    let step: &str = &step.to_string_lossy().to_string();
+                    let value = viewed.get_data_by_key(step.spanned_unknown());
                     if let Some(v) = value {
                         viewed = v.clone();
                     }
@@ -98,7 +96,7 @@ impl HelpShell {
                 }
             }
             x => {
-                cmds.push_back(x.clone());
+                cmds.push_back(x);
             }
         }
 
@@ -130,7 +128,7 @@ impl Shell for HelpShell {
 
     fn set_path(&mut self, path: String) {
         let _ = std::env::set_current_dir(&path);
-        self.path = path.clone();
+        self.path = path;
     }
 
     fn ls(

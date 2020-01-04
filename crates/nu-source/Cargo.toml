@@ -6,7 +6,8 @@ edition = "2018"
 description = "A source string characterizer for Nushell"
 license = "MIT"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+doctest = false
 
 [dependencies]
 serde = { version = "1.0.103", features = ["derive"] }

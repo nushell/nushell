@@ -90,6 +90,7 @@ pub(crate) mod to_tsv;
 pub(crate) mod to_url;
 pub(crate) mod to_yaml;
 pub(crate) mod trim;
+pub(crate) mod uniq;
 pub(crate) mod version;
 pub(crate) mod what;
 pub(crate) mod where_;
@@ -97,7 +98,7 @@ pub(crate) mod which_;
 pub(crate) mod wrap;
 
 pub(crate) use autoview::Autoview;
-pub(crate) use cd::CD;
+pub(crate) use cd::Cd;
 pub(crate) use command::{
     per_item_command, whole_stream_command, Command, PerItemCommand, RawCommandArgs,
     UnevaluatedCallInfo, WholeStreamCommand,
@@ -115,7 +116,7 @@ pub(crate) use echo::Echo;
 pub(crate) use edit::Edit;
 pub(crate) use enter::Enter;
 pub(crate) use env::Env;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use evaluate_by::EvaluateBy;
 pub(crate) use exit::Exit;
 pub(crate) use first::First;
@@ -142,8 +143,8 @@ pub(crate) use history::History;
 pub(crate) use insert::Insert;
 pub(crate) use last::Last;
 pub(crate) use lines::Lines;
-pub(crate) use ls::LS;
-#[allow(unused)]
+pub(crate) use ls::Ls;
+#[allow(unused_imports)]
 pub(crate) use map_max_by::MapMaxBy;
 pub(crate) use mkdir::Mkdir;
 pub(crate) use mv::Move;
@@ -155,9 +156,9 @@ pub(crate) use pick::Pick;
 pub(crate) use pivot::Pivot;
 pub(crate) use prepend::Prepend;
 pub(crate) use prev::Previous;
-pub(crate) use pwd::PWD;
+pub(crate) use pwd::Pwd;
 pub(crate) use range::Range;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;
 pub(crate) use reverse::Reverse;
@@ -171,7 +172,7 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split_by::SplitBy;
 pub(crate) use split_column::SplitColumn;
 pub(crate) use split_row::SplitRow;
-#[allow(unused)]
+#[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
 pub(crate) use table::Table;
 pub(crate) use tags::Tags;
@@ -185,6 +186,7 @@ pub(crate) use to_tsv::ToTSV;
 pub(crate) use to_url::ToURL;
 pub(crate) use to_yaml::ToYAML;
 pub(crate) use trim::Trim;
+pub(crate) use uniq::Uniq;
 pub(crate) use version::Version;
 pub(crate) use what::What;
 pub(crate) use where_::Where;

@@ -60,7 +60,7 @@ impl ShellManager {
                 }
             }
         }
-        self.set_path(self.path());
+        self.set_path(self.path())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -110,7 +110,7 @@ impl ShellManager {
                     .store(self.current_shell() + 1, Ordering::SeqCst);
             }
         }
-        self.set_path(self.path());
+        self.set_path(self.path())
     }
 
     pub fn prev(&mut self) {
@@ -123,7 +123,7 @@ impl ShellManager {
                     .store(self.current_shell() - 1, Ordering::SeqCst);
             }
         }
-        self.set_path(self.path());
+        self.set_path(self.path())
     }
 
     pub fn homedir(&self) -> Option<PathBuf> {
@@ -154,10 +154,10 @@ impl ShellManager {
         args: CopyArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock();
+        let shells = self.shells.lock();
 
-        let path = env[self.current_shell()].path();
-        env[self.current_shell()].cp(args, context.name.clone(), &path)
+        let path = shells[self.current_shell()].path();
+        shells[self.current_shell()].cp(args, context.name.clone(), &path)
     }
 
     pub fn rm(
@@ -165,10 +165,10 @@ impl ShellManager {
         args: RemoveArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock();
+        let shells = self.shells.lock();
 
-        let path = env[self.current_shell()].path();
-        env[self.current_shell()].rm(args, context.name.clone(), &path)
+        let path = shells[self.current_shell()].path();
+        shells[self.current_shell()].rm(args, context.name.clone(), &path)
     }
 
     pub fn mkdir(
@@ -176,10 +176,10 @@ impl ShellManager {
         args: MkdirArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock();
+        let shells = self.shells.lock();
 
-        let path = env[self.current_shell()].path();
-        env[self.current_shell()].mkdir(args, context.name.clone(), &path)
+        let path = shells[self.current_shell()].path();
+        shells[self.current_shell()].mkdir(args, context.name.clone(), &path)
     }
 
     pub fn mv(
@@ -187,9 +187,9 @@ impl ShellManager {
         args: MoveArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let env = self.shells.lock();
+        let shells = self.shells.lock();
 
-        let path = env[self.current_shell()].path();
-        env[self.current_shell()].mv(args, context.name.clone(), &path)
+        let path = shells[self.current_shell()].path();
+        shells[self.current_shell()].mv(args, context.name.clone(), &path)
     }
 }

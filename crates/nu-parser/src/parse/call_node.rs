@@ -30,7 +30,7 @@ impl PrettyDebugWithSource for CallNode {
 
 impl CallNode {
     pub fn new(head: Box<SpannedToken>, children: Vec<SpannedToken>) -> CallNode {
-        if children.len() == 0 {
+        if children.is_empty() {
             CallNode {
                 head,
                 children: None,

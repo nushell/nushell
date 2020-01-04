@@ -4,8 +4,8 @@ use nu_errors::ShellError;
 use std::fmt::Debug;
 
 pub trait Host: Debug + Send {
-    fn out_terminal(&self) -> Box<term::StdoutTerminal>;
-    fn err_terminal(&self) -> Box<term::StderrTerminal>;
+    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>>;
+    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>>;
 
     fn out_termcolor(&self) -> termcolor::StandardStream;
     fn err_termcolor(&self) -> termcolor::StandardStream;
@@ -17,11 +17,11 @@ pub trait Host: Debug + Send {
 }
 
 impl Host for Box<dyn Host> {
-    fn out_terminal(&self) -> Box<term::StdoutTerminal> {
+    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>> {
         (**self).out_terminal()
     }
 
-    fn err_terminal(&self) -> Box<term::StderrTerminal> {
+    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>> {
         (**self).err_terminal()
     }
 
@@ -50,12 +50,12 @@ impl Host for Box<dyn Host> {
 pub struct BasicHost;
 
 impl Host for BasicHost {
-    fn out_terminal(&self) -> Box<term::StdoutTerminal> {
-        term::stdout().unwrap()
+    fn out_terminal(&self) -> Option<Box<term::StdoutTerminal>> {
+        term::stdout()
     }
 
-    fn err_terminal(&self) -> Box<term::StderrTerminal> {
-        term::stderr().unwrap()
+    fn err_terminal(&self) -> Option<Box<term::StderrTerminal>> {
+        term::stderr()
     }
 
     fn stdout(&mut self, out: &str) {

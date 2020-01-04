@@ -36,7 +36,7 @@ pub fn pipeline_shapes(line: &str, expand_context: ExpandContext) -> Vec<ShapeRe
                 Ok(v) => v,
             };
 
-            let tokens = vec![Token::Pipeline(pipeline.clone()).into_spanned(v.span())];
+            let tokens = vec![Token::Pipeline(pipeline).into_spanned(v.span())];
             let mut tokens = TokensIterator::new(&tokens[..], expand_context, v.span());
 
             let shapes = {
@@ -57,7 +57,7 @@ pub fn pipeline_shapes(line: &str, expand_context: ExpandContext) -> Vec<ShapeRe
 
             if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
                 outln!("");
-                ptree::print_tree(&tokens.expand_tracer().clone().print(Text::from(line))).unwrap();
+                let _ = ptree::print_tree(&tokens.expand_tracer().clone().print(Text::from(line)));
                 outln!("");
             }
 

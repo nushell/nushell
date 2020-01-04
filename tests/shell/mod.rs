@@ -30,6 +30,21 @@ mod pipeline {
     }
 
     #[test]
+    fn doesnt_break_on_utf8_command() {
+        let actual = nu!(
+            cwd: ".", pipeline(
+            r#"
+                echo ö
+            "#
+        ));
+
+        assert!(
+            actual.contains("ö"),
+            format!("'{}' should contain ö", actual)
+        );
+    }
+
+    #[test]
     fn can_process_row_as_it_argument_to_an_external_command_given_the_it_data_is_one_string_line()
     {
         Playground::setup("it_argument_test_2", |dirs, sandbox| {
@@ -70,7 +85,7 @@ mod pipeline {
             );
 
             assert!(
-                !actual.contains("~"),
+                !actual.contains('~'),
                 format!("'{}' should not contain ~", actual)
             );
         }

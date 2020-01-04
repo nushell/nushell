@@ -183,7 +183,7 @@ fn parse_separated_columns<'a>(
         let headers = (1..=num_columns)
             .map(|i| format!("Column{}", i))
             .collect::<Vec<String>>();
-        collect(headers, ls.iter().map(|s| s.as_ref()), separator)
+        collect(headers, ls.into_iter(), separator)
     };
 
     match headers {
@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn it_trims_remaining_separator_space() {
+    fn it_trims_remaining_separator_space() -> Result<(), ShellError> {
         let input = r#"
             colA   colB     colC
             val1   val2     val3
@@ -399,14 +399,17 @@ mod tests {
 
         let trimmed = |s: &str| s.trim() == s;
 
-        let result = string_to_table(input, false, true, 2).unwrap();
+        let result = string_to_table(input, false, true, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
         assert!(result
             .iter()
-            .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b))))
+            .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b))));
+
+        Ok(())
     }
 
     #[test]
-    fn it_keeps_empty_columns() {
+    fn it_keeps_empty_columns() -> Result<(), ShellError> {
         let input = r#"
             colA   col B     col C
                    val2      val3
@@ -414,7 +417,8 @@ mod tests {
             val7             val8
         "#;
 
-        let result = string_to_table(input, false, true, 2).unwrap();
+        let result = string_to_table(input, false, true, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
         assert_eq!(
             result,
             vec![
@@ -434,35 +438,39 @@ mod tests {
                     owned("col C", "val8")
                 ],
             ]
-        )
+        );
+        Ok(())
     }
 
     #[test]
-    fn it_uses_the_full_final_column() {
+    fn it_uses_the_full_final_column() -> Result<(), ShellError> {
         let input = r#"
             colA   col B
             val1   val2   trailing value that should be included
         "#;
 
-        let result = string_to_table(input, false, true, 2).unwrap();
+        let result = string_to_table(input, false, true, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
         assert_eq!(
             result,
             vec![vec![
                 owned("colA", "val1"),
                 owned("col B", "val2   trailing value that should be included"),
             ],]
-        )
+        );
+        Ok(())
     }
 
     #[test]
-    fn it_handles_empty_values_when_headerless_and_aligned_columns() {
+    fn it_handles_empty_values_when_headerless_and_aligned_columns() -> Result<(), ShellError> {
         let input = r#"
             a multi-word value  b           d
             1                        3-3    4
                                                        last
         "#;
 
-        let result = string_to_table(input, true, true, 2).unwrap();
+        let result = string_to_table(input, true, true, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
         assert_eq!(
             result,
             vec![
@@ -488,22 +496,28 @@ mod tests {
                     owned("Column5", "last")
                 ],
             ]
-        )
+        );
+        Ok(())
     }
 
     #[test]
-    fn input_is_parsed_correctly_if_either_option_works() {
+    fn input_is_parsed_correctly_if_either_option_works() -> Result<(), ShellError> {
         let input = r#"
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
                 kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
                 kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
             "#;
 
-        let aligned_columns_headerless = string_to_table(input, true, true, 2).unwrap();
-        let separator_headerless = string_to_table(input, true, false, 2).unwrap();
-        let aligned_columns_with_headers = string_to_table(input, false, true, 2).unwrap();
-        let separator_with_headers = string_to_table(input, false, false, 2).unwrap();
+        let aligned_columns_headerless = string_to_table(input, true, true, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let separator_headerless = string_to_table(input, true, false, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let aligned_columns_with_headers = string_to_table(input, false, true, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let separator_with_headers = string_to_table(input, false, false, 2)
+            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
         assert_eq!(aligned_columns_headerless, separator_headerless);
         assert_eq!(aligned_columns_with_headers, separator_with_headers);
+        Ok(())
     }
 }

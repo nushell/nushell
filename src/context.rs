@@ -52,8 +52,10 @@ impl CommandRegistry {
         registry.get(name).cloned()
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
-        self.get_command(name).unwrap()
+    pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
+        self.get_command(name).ok_or_else(|| {
+            ShellError::untagged_runtime_error(format!("Could not load command: {}", name))
+        })
     }
 
     pub(crate) fn has(&self, name: &str) -> bool {
@@ -76,7 +78,7 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     pub registry: CommandRegistry,
-    pub host: Arc<Mutex<Box<dyn Host>>>,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
@@ -90,7 +92,7 @@ impl Context {
     pub(crate) fn expand_context<'context>(
         &'context self,
         source: &'context Text,
-    ) -> ExpandContext<'context> {
+    ) -> ExpandContext {
         ExpandContext::new(
             Box::new(self.registry.clone()),
             source,
@@ -102,7 +104,9 @@ impl Context {
         let registry = CommandRegistry::new();
         Ok(Context {
             registry: registry.clone(),
-            host: Arc::new(Mutex::new(Box::new(crate::env::host::BasicHost))),
+            host: Arc::new(parking_lot::Mutex::new(Box::new(
+                crate::env::host::BasicHost,
+            ))),
             current_errors: Arc::new(Mutex::new(vec![])),
             ctrl_c: Arc::new(AtomicBool::new(false)),
             shell_manager: ShellManager::basic(registry)?,
@@ -157,7 +161,7 @@ impl Context {
         self.registry.get_command(name)
     }
 
-    pub(crate) fn expect_command(&self, name: &str) -> Arc<Command> {
+    pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
         self.registry.expect_command(name)
     }
 

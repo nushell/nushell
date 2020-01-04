@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant, clippy::type_complexity)]
+
 mod block;
 mod expression;
 pub mod flat_shape;

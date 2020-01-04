@@ -153,6 +153,7 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
     entries
 }
 
+#[allow(clippy::ptr_arg)]
 fn max_per_column(headers: &[String], entries: &Entries, values_len: usize) -> Vec<usize> {
     let mut max_per_column = vec![];
 
@@ -325,13 +326,16 @@ impl RenderView for TableView {
 
         let mut table = Table::new();
 
-        let table_mode = crate::data::config::config(Tag::unknown())?
-            .get("table_mode")
-            .map(|s| match s.as_string().unwrap().as_ref() {
-                "light" => TableMode::Light,
+        let table_mode = crate::data::config::config(Tag::unknown());
+
+        let table_mode = if let Some(s) = table_mode?.get("table_mode") {
+            match s.as_string() {
+                Ok(typ) if typ == "light" => TableMode::Light,
                 _ => TableMode::Normal,
-            })
-            .unwrap_or(TableMode::Normal);
+            }
+        } else {
+            TableMode::Normal
+        };
 
         match table_mode {
             TableMode::Light => {
@@ -375,7 +379,8 @@ impl RenderView for TableView {
             ));
         }
 
-        table.print_term(&mut *host.out_terminal()).unwrap();
+        table.print_term(&mut *host.out_terminal().ok_or_else(|| ShellError::untagged_runtime_error("Could not open terminal for output"))?)
+            .map_err(|_| ShellError::untagged_runtime_error("Internal error: could not print to terminal (for unix systems check to make sure TERM is set)"))?;
 
         Ok(())
     }

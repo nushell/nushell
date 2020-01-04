@@ -1,8 +1,7 @@
 use derive_new::new;
 use nu_errors::ShellError;
-use nu_protocol::{
-    format_primitive, serve_plugin, CallInfo, Plugin, Signature, UntaggedValue, Value,
-};
+use nu_plugin::{serve_plugin, Plugin};
+use nu_protocol::{format_primitive, CallInfo, Signature, UntaggedValue, Value};
 use ptree::item::StringItem;
 use ptree::output::print_tree_with;
 use ptree::print_config::PrintConfig;
@@ -88,7 +87,7 @@ impl Plugin for TreeViewer {
     }
 
     fn sink(&mut self, _call_info: CallInfo, input: Vec<Value>) {
-        if input.len() > 0 {
+        if !input.is_empty() {
             for i in input.iter() {
                 let view = TreeView::from_value(&i);
                 let _ = view.render_view();

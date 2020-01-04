@@ -74,7 +74,11 @@ pub fn group(
     for value in values {
         let group_key = get_data_by_key(&value, column_name.borrow_spanned());
 
-        if group_key.is_none() {
+        if let Some(group_key) = group_key {
+            let group_key = group_key.as_string()?.to_string();
+            let group = groups.entry(group_key).or_insert(vec![]);
+            group.push(value);
+        } else {
             let possibilities = value.data_descriptors();
 
             let mut possible_matches: Vec<_> = possibilities
@@ -98,10 +102,6 @@ pub fn group(
                 ));
             }
         }
-
-        let group_key = group_key.unwrap().as_string()?.to_string();
-        let group = groups.entry(group_key).or_insert(vec![]);
-        group.push(value);
     }
 
     let mut out = TaggedDictBuilder::new(&tag);
@@ -117,6 +117,7 @@ pub fn group(
 mod tests {
     use crate::commands::group_by::group;
     use indexmap::IndexMap;
+    use nu_errors::ShellError;
     use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
 
@@ -128,7 +129,7 @@ mod tests {
         UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Value>) -> Value {
+    fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
@@ -165,54 +166,58 @@ mod tests {
     }
 
     #[test]
-    fn groups_table_by_date_column() {
+    fn groups_table_by_date_column() -> Result<(), ShellError> {
         let for_key = String::from("date").tagged_unknown();
 
         assert_eq!(
-            group(&for_key, nu_releases_commiters(), Tag::unknown()).unwrap(),
+            group(&for_key, nu_releases_commiters(), Tag::unknown())?,
             row(indexmap! {
-                "August 23-2019".into() =>  table(&vec![
+                "August 23-2019".into() =>  table(&[
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
                     row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")})
                 ]),
-                "October 10-2019".into() =>  table(&vec![
+                "October 10-2019".into() =>  table(&[
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}),
                     row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")})
                 ]),
-                "Sept 24-2019".into() =>  table(&vec![
+                "Sept 24-2019".into() =>  table(&[
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")}),
                     row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")})
                 ]),
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn groups_table_by_country_column() {
+    fn groups_table_by_country_column() -> Result<(), ShellError> {
         let for_key = String::from("country").tagged_unknown();
 
         assert_eq!(
-            group(&for_key, nu_releases_commiters(), Tag::unknown()).unwrap(),
+            group(&for_key, nu_releases_commiters(), Tag::unknown())?,
             row(indexmap! {
-                "EC".into() =>  table(&vec![
+                "EC".into() =>  table(&[
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("August 23-2019")}),
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("Sept 24-2019")}),
                     row(indexmap!{"name".into() => string("AR"), "country".into() => string("EC"), "date".into() => string("October 10-2019")})
                 ]),
-                "NZ".into() =>  table(&vec![
+                "NZ".into() =>  table(&[
                     row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("August 23-2019")}),
                     row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("October 10-2019")}),
                     row(indexmap!{"name".into() => string("JT"), "country".into() => string("NZ"), "date".into() => string("Sept 24-2019")})
                 ]),
-                "US".into() =>  table(&vec![
+                "US".into() =>  table(&[
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("October 10-2019")}),
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("Sept 24-2019")}),
                     row(indexmap!{"name".into() => string("YK"), "country".into() => string("US"), "date".into() => string("August 23-2019")}),
                 ]),
             })
         );
+
+        Ok(())
     }
 }

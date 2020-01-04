@@ -320,7 +320,7 @@ impl<'content> TokensIterator<'content> {
         let value = block(checkpoint.iterator)?;
 
         checkpoint.commit();
-        return Ok(value);
+        Ok(value)
     }
 
     fn eof_span(&self) -> Span {

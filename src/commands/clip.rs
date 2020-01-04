@@ -55,35 +55,52 @@ pub mod clipboard {
     }
 
     async fn inner_clip(input: Vec<Value>, name: Tag) -> OutputStream {
-        let mut clip_context: ClipboardContext = ClipboardProvider::new().unwrap();
-        let mut new_copy_data = String::new();
+        if let Ok(clip_context) = ClipboardProvider::new() {
+            let mut clip_context: ClipboardContext = clip_context;
+            let mut new_copy_data = String::new();
 
-        if input.len() > 0 {
-            let mut first = true;
-            for i in input.iter() {
-                if !first {
-                    new_copy_data.push_str("\n");
-                } else {
-                    first = false;
-                }
-
-                let string: String = match i.as_string() {
-                    Ok(string) => string.to_string(),
-                    Err(_) => {
-                        return OutputStream::one(Err(ShellError::labeled_error(
-                            "Given non-string data",
-                            "expected strings from pipeline",
-                            name,
-                        )))
+            if !input.is_empty() {
+                let mut first = true;
+                for i in input.iter() {
+                    if !first {
+                        new_copy_data.push_str("\n");
+                    } else {
+                        first = false;
                     }
-                };
 
-                new_copy_data.push_str(&string);
+                    let string: String = match i.as_string() {
+                        Ok(string) => string.to_string(),
+                        Err(_) => {
+                            return OutputStream::one(Err(ShellError::labeled_error(
+                                "Given non-string data",
+                                "expected strings from pipeline",
+                                name,
+                            )))
+                        }
+                    };
+
+                    new_copy_data.push_str(&string);
+                }
             }
+
+            match clip_context.set_contents(new_copy_data) {
+                Ok(_) => {}
+                Err(_) => {
+                    return OutputStream::one(Err(ShellError::labeled_error(
+                        "Could not set contents of clipboard",
+                        "could not set contents of clipboard",
+                        name,
+                    )));
+                }
+            }
+
+            OutputStream::empty()
+        } else {
+            OutputStream::one(Err(ShellError::labeled_error(
+                "Could not open clipboard",
+                "could not open clipboard",
+                name,
+            )))
         }
-
-        clip_context.set_contents(new_copy_data).unwrap();
-
-        OutputStream::empty()
     }
 }

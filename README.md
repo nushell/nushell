@@ -52,10 +52,10 @@ To install Nu via cargo (make sure you have installed [rustup](https://rustup.rs
 cargo install nu
 ```
 
-You can also install Nu with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform):
+You can also build Nu yourself with all the bells and whistles (be sure to have installed the [dependencies](https://www.nushell.sh/book/en/installation.html#dependencies) for your platform), once you have checked out this repo with git:
 
 ```
-cargo install nu --features=stable
+cargo build --all --features=stable
 ```
 
 ## Docker
@@ -202,7 +202,7 @@ To set one of these variables, you can use `config --set`. For example:
 
 ```
 > config --set [edit_mode "vi"]
-> config --set [path $nu:path]
+> config --set [path $nu.path]
 ```
 
 ## Shells

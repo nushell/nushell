@@ -49,7 +49,15 @@ pub fn value_to_bson_value(v: &Value) -> Result<Bson, ShellError> {
         UntaggedValue::Primitive(Primitive::Date(d)) => Bson::UtcDatetime(*d),
         UntaggedValue::Primitive(Primitive::EndOfStream) => Bson::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => Bson::Null,
-        UntaggedValue::Primitive(Primitive::Decimal(d)) => Bson::FloatingPoint(d.to_f64().unwrap()),
+        UntaggedValue::Primitive(Primitive::Decimal(d)) => {
+            Bson::FloatingPoint(d.to_f64().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not convert value to decimal",
+                    "could not convert to decimal",
+                    &v.tag,
+                )
+            })?)
+        }
         UntaggedValue::Primitive(Primitive::Int(i)) => {
             Bson::I64(i.tagged(&v.tag).coerce_into("converting to BSON")?)
         }
@@ -145,9 +153,9 @@ fn object_value_to_bson(o: &Dictionary) -> Result<Bson, ShellError> {
                     let bst = get_binary_subtype(tagged_binary_subtype_value);
                     let bin: Result<Vec<u8>, _> = tagged_bin_value.try_into();
 
-                    match bst {
-                        Err(_) => generic_object_value_to_bson(o),
-                        Ok(v) => Ok(Bson::Binary(v, bin.unwrap())),
+                    match (bin, bst) {
+                        (Ok(bin), Ok(v)) => Ok(Bson::Binary(v, bin)),
+                        _ => generic_object_value_to_bson(o),
                     }
                 }
                 _ => generic_object_value_to_bson(o),

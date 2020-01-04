@@ -235,7 +235,7 @@ impl PrettyDebug for Type {
                 (b::kind("table") + b::space() + b::keyword("of")).group()
                     + b::space()
                     + (if group.len() == 1 {
-                        let (doc, _) = group.into_iter().nth(0).unwrap();
+                        let (doc, _) = group.into_iter().collect::<Vec<_>>()[0].clone();
                         DebugDocBuilder::from_doc(doc)
                     } else {
                         b::intersperse(
@@ -278,7 +278,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
     fn pretty(&self) -> DebugDocBuilder {
         (b::key(match self.key {
             Column::String(string) => string.clone(),
-            Column::Value => format!("<value>"),
+            Column::Value => "<value>".to_string(),
         }) + b::delimit("(", self.value.pretty(), ")").into_kind())
     }
 }
@@ -346,12 +346,12 @@ where
             None => {
                 self.values.insert(key, {
                     let mut group = G::new();
-                    group.merge(value.into());
+                    group.merge(value);
                     group
                 });
             }
             Some(group) => {
-                group.merge(value.into());
+                group.merge(value);
             }
         }
     }

@@ -25,6 +25,10 @@ pub enum ParseErrorReason {
         expected: String,
         actual: Spanned<String>,
     },
+
+    /// An unexpected internal error has occurred
+    InternalError { message: Spanned<String> },
+
     /// The parser tried to parse an argument for a command, but it failed for
     /// some reason
     ArgumentError {
@@ -74,6 +78,15 @@ impl ParseError {
         }
     }
 
+    /// Construct a [ParseErrorReason::InternalError](ParseErrorReason::InternalError)
+    pub fn internal_error(message: Spanned<impl Into<String>>) -> ParseError {
+        ParseError {
+            reason: ParseErrorReason::InternalError {
+                message: message.item.into().spanned(message.span),
+            },
+        }
+    }
+
     /// Construct a [ParseErrorReason::ArgumentError](ParseErrorReason::ArgumentError)
     pub fn argument_error(command: Spanned<impl Into<String>>, kind: ArgumentError) -> ParseError {
         ParseError {
@@ -90,12 +103,15 @@ impl From<ParseError> for ShellError {
     fn from(error: ParseError) -> ShellError {
         match error.reason {
             ParseErrorReason::Eof { expected, span } => ShellError::unexpected_eof(expected, span),
-            ParseErrorReason::ExtraTokens { actual } => {
-                ShellError::type_error("nothing", actual.clone())
-            }
+            ParseErrorReason::ExtraTokens { actual } => ShellError::type_error("nothing", actual),
             ParseErrorReason::Mismatch { actual, expected } => {
-                ShellError::type_error(expected, actual.clone())
+                ShellError::type_error(expected, actual)
             }
+            ParseErrorReason::InternalError { message } => ShellError::labeled_error(
+                format!("Internal error: {}", message.item),
+                &message.item,
+                &message.span,
+            ),
             ParseErrorReason::ArgumentError { command, error } => {
                 ShellError::argument_error(command, error)
             }
@@ -151,7 +167,7 @@ pub struct ShellError {
     cause: Option<Box<ShellError>>,
 }
 
-/// `PrettyDebug` is for internal debugging. For user-facing debugging, [to_diagnostic](ShellError::to_diagnostic)
+/// `PrettyDebug` is for internal debugging. For user-facing debugging, [into_diagnostic](ShellError::into_diagnostic)
 /// is used, which prints an error, highlighting spans.
 impl PrettyDebug for ShellError {
     fn pretty(&self) -> DebugDocBuilder {
@@ -174,7 +190,7 @@ impl PrettyDebug for ShellError {
                             + b::space()
                             + b::description("actual:")
                             + b::space()
-                            + b::option(actual.item.as_ref().map(|actual| b::description(actual))),
+                            + b::option(actual.item.as_ref().map(b::description)),
                         ")",
                     )
             }
@@ -393,13 +409,13 @@ impl ShellError {
                 // TODO: Get span of EOF
                 let diagnostic = Diagnostic::new(
                     Severity::Error,
-                    format!("Parse Error: Unexpected end of line"),
+                    "Parse Error: Unexpected end of line".to_string(),
                 );
 
                 ShellError::diagnostic(diagnostic)
             }
             nom::Err::Failure(span) | nom::Err::Error(span) => {
-                let diagnostic = Diagnostic::new(Severity::Error, format!("Parse Error"))
+                let diagnostic = Diagnostic::new(Severity::Error, "Parse Error".to_string())
                     .with_label(Label::new_primary(Span::from(span.0)));
 
                 ShellError::diagnostic(diagnostic)
@@ -411,7 +427,7 @@ impl ShellError {
         ProximateShellError::Diagnostic(ShellDiagnostic { diagnostic }).start()
     }
 
-    pub fn to_diagnostic(self) -> Diagnostic<Span> {
+    pub fn into_diagnostic(self) -> Diagnostic<Span> {
         match self.error {
             ProximateShellError::MissingValue { span, reason } => {
                 let mut d = Diagnostic::new(
@@ -431,7 +447,7 @@ impl ShellError {
             } => match error {
                 ArgumentError::InvalidExternalWord => Diagnostic::new(
                     Severity::Error,
-                    format!("Invalid bare word for Nu command (did you intend to invoke an external command?)"))
+                    "Invalid bare word for Nu command (did you intend to invoke an external command?)".to_string())
                 .with_label(Label::new_primary(command.span)),
                 ArgumentError::MissingMandatoryFlag(name) => Diagnostic::new(
                     Severity::Error,
@@ -488,7 +504,7 @@ impl ShellError {
 
             ProximateShellError::UnexpectedEof {
                 expected, span
-            } => Diagnostic::new(Severity::Error, format!("Unexpected end of input"))
+            } => Diagnostic::new(Severity::Error, "Unexpected end of input".to_string())
                 .with_label(Label::new_primary(span).with_message(format!("Expected {}", expected))),
 
             ProximateShellError::RangeError {

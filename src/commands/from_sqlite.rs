@@ -107,9 +107,9 @@ fn convert_sqlite_value_to_nu_value(value: ValueRef, tag: impl Into<Tag> + Clone
         }
         ValueRef::Integer(i) => UntaggedValue::int(i).into_value(tag),
         ValueRef::Real(f) => UntaggedValue::decimal(f).into_value(tag),
-        t @ ValueRef::Text(_) => {
+        ValueRef::Text(s) => {
             // this unwrap is safe because we know the ValueRef is Text.
-            UntaggedValue::Primitive(Primitive::String(t.as_str().unwrap().to_string()))
+            UntaggedValue::Primitive(Primitive::String(String::from_utf8_lossy(s).to_string()))
                 .into_value(tag)
         }
         ValueRef::Blob(u) => UntaggedValue::binary(u.to_owned()).into_value(tag),

@@ -25,6 +25,7 @@ fn err_desc(error: &ParseError) -> &'static str {
         ParseErrorReason::Mismatch { .. } => "mismatch",
         ParseErrorReason::ArgumentError { .. } => "argument error",
         ParseErrorReason::Eof { .. } => "eof",
+        ParseErrorReason::InternalError { .. } => "internal error",
     }
 }
 
@@ -66,7 +67,7 @@ impl<T: SpannedTypeName> FrameChild<T> {
                 fallback: true,
             },
             FrameChild::Result(result) => {
-                let result = format!("{}", result.display());
+                let result = result.display();
                 TreeChild::OkNonExpr(result)
             }
             FrameChild::Frame(frame) => {
@@ -111,7 +112,7 @@ impl<T: SpannedTypeName> ExprFrame<T> {
             if let Some(error_leaf) = child.get_error_leaf() {
                 errors.push(error_leaf);
                 continue;
-            } else if errors.len() > 0 {
+            } else if !errors.is_empty() {
                 children.push(TreeChild::ErrorLeaf(errors, self.token_desc()));
                 errors = vec![];
             }
@@ -119,7 +120,7 @@ impl<T: SpannedTypeName> ExprFrame<T> {
             children.push(child.to_tree_child(text));
         }
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             children.push(TreeChild::ErrorLeaf(errors, self.token_desc()));
         }
 
@@ -177,7 +178,7 @@ impl TreeFrame {
             self.children[0].leaf_description(f)
         } else {
             if self.error.is_some() {
-                if self.children.len() == 0 {
+                if self.children.is_empty() {
                     write!(
                         f,
                         "{}",
@@ -209,14 +210,10 @@ impl TreeFrame {
 
     fn any_child_frame(&self, predicate: impl Fn(&TreeFrame) -> bool) -> bool {
         for item in &self.children {
-            match item {
-                TreeChild::OkFrame(frame, ..) => {
-                    if predicate(frame) {
-                        return true;
-                    }
+            if let TreeChild::OkFrame(frame, ..) = item {
+                if predicate(frame) {
+                    return true;
                 }
-
-                _ => {}
             }
         }
 
@@ -299,7 +296,7 @@ impl TreeChild {
                 Color::White
                     .bold()
                     .on(Color::Green)
-                    .paint(format!("{}", result))
+                    .paint(result.to_string())
             ),
 
             TreeChild::ErrorLeaf(desc, token_desc) => {
@@ -356,12 +353,7 @@ pub struct ExpandTracer<T: SpannedTypeName> {
 
 impl<T: SpannedTypeName + Debug> ExpandTracer<T> {
     pub fn print(&self, source: Text) -> PrintTracer {
-        let root = self
-            .frame_stack
-            .iter()
-            .nth(0)
-            .unwrap()
-            .to_tree_frame(&source);
+        let root = self.frame_stack[0].to_tree_frame(&source);
 
         PrintTracer {
             root,
@@ -394,7 +386,7 @@ impl<T: SpannedTypeName + Debug> ExpandTracer<T> {
     fn pop_frame(&mut self) -> ExprFrame<T> {
         let result = self.frame_stack.pop().expect("Can't pop root tracer frame");
 
-        if self.frame_stack.len() == 0 {
+        if self.frame_stack.is_empty() {
             panic!("Can't pop root tracer frame");
         }
 

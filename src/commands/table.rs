@@ -39,7 +39,12 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
         let host = args.host.clone();
         let start_number = match args.get("start_number") {
             Some(Value { value: UntaggedValue::Primitive(Primitive::Int(i)), .. }) => {
-                i.to_usize().unwrap()
+                if let Some(num) = i.to_usize() {
+                    num
+                } else {
+                    yield Err(ShellError::labeled_error("Expected a row number", "expected a row number", &args.args.call_info.name_tag));
+                    0
+                }
             }
             _ => {
                 0

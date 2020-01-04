@@ -106,14 +106,26 @@ pub fn filter_plugin(
                 let mut reader = BufReader::new(stdout);
 
                 let request = JsonRpc::new("begin_filter", call_info.clone());
-                let request_raw = serde_json::to_string(&request).unwrap();
-                match stdin.write(format!("{}\n", request_raw).as_bytes()) {
-                    Ok(_) => {}
-                    Err(err) => {
+                let request_raw = serde_json::to_string(&request);
+
+                match request_raw {
+                    Err(_) => {
                         let mut result = VecDeque::new();
-                        result.push_back(Err(ShellError::unexpected(format!("{}", err))));
+                        result.push_back(Err(ShellError::labeled_error(
+                            "Could not load json from plugin",
+                            "could not load json from plugin",
+                            &call_info.name_tag,
+                        )));
                         return result;
                     }
+                    Ok(request_raw) => match stdin.write(format!("{}\n", request_raw).as_bytes()) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            let mut result = VecDeque::new();
+                            result.push_back(Err(ShellError::unexpected(format!("{}", err))));
+                            return result;
+                        }
+                    },
                 }
 
                 let mut input = String::new();
@@ -179,8 +191,20 @@ pub fn filter_plugin(
                                 Ok(params) => {
                                     let request: JsonRpc<std::vec::Vec<Value>> =
                                         JsonRpc::new("quit", vec![]);
-                                    let request_raw = serde_json::to_string(&request).unwrap();
-                                    let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                                    let request_raw = serde_json::to_string(&request);
+                                    match request_raw {
+                                        Ok(request_raw) => {
+                                            let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                                        }
+                                        Err(e) => {
+                                            let mut result = VecDeque::new();
+                                            result.push_back(Err(ShellError::untagged_runtime_error(format!(
+                                                "Error while processing begin_filter response: {:?} {}",
+                                                e, input
+                                            ))));
+                                            return result;
+                                        }
+                                    }
 
                                     params
                                 }
@@ -221,8 +245,20 @@ pub fn filter_plugin(
                 let mut reader = BufReader::new(stdout);
 
                 let request = JsonRpc::new("filter", v);
-                let request_raw = serde_json::to_string(&request).unwrap();
-                let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                let request_raw = serde_json::to_string(&request);
+                match request_raw {
+                    Ok(request_raw) => {
+                        let _ = stdin.write(format!("{}\n", request_raw).as_bytes()); // TODO: Handle error
+                    }
+                    Err(e) => {
+                        let mut result = VecDeque::new();
+                        result.push_back(Err(ShellError::untagged_runtime_error(format!(
+                            "Error while processing filter response: {:?}",
+                            e
+                        ))));
+                        return result;
+                    }
+                }
 
                 let mut input = String::new();
                 match reader.read_line(&mut input) {
@@ -304,21 +340,31 @@ pub fn sink_plugin(
         let input: Vec<Value> = args.input.values.collect().await;
 
         let request = JsonRpc::new("sink", (call_info.clone(), input));
-        let request_raw = serde_json::to_string(&request).unwrap();
-        let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
-        let _ = writeln!(tmpfile, "{}", request_raw);
-        let _ = tmpfile.flush();
+        let request_raw = serde_json::to_string(&request);
+        if let Ok(request_raw) = request_raw {
+            if let Ok(mut tmpfile) = tempfile::NamedTempFile::new() {
+                let _ = writeln!(tmpfile, "{}", request_raw);
+                let _ = tmpfile.flush();
 
-        let mut child = std::process::Command::new(path)
-            .arg(tmpfile.path())
-            .spawn()
-            .expect("Failed to spawn child process");
+                let mut child = std::process::Command::new(path)
+                    .arg(tmpfile.path())
+                    .spawn();
 
-        let _ = child.wait();
+                if let Ok(mut child) = child {
+                    let _ = child.wait();
 
-        // Needed for async_stream to type check
-        if false {
-            yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
+                    // Needed for async_stream to type check
+                    if false {
+                        yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
+                    }
+                } else {
+                    yield Err(ShellError::untagged_runtime_error("Could not create process for sink command"));
+                }
+            } else {
+                yield Err(ShellError::untagged_runtime_error("Could not open file to send sink command message"));
+            }
+        } else {
+            yield Err(ShellError::untagged_runtime_error("Could not create message to sink command"));
         }
     };
     Ok(OutputStream::new(stream))

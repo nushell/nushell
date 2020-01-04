@@ -18,7 +18,10 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
-use rustyline::{self, config::Configurer, config::EditMode, ColorMode, Config, Editor};
+use rustyline::{
+    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, Config, Editor, KeyPress,
+    Movement, Word,
+};
 use std::error::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::iter::Iterator;
@@ -143,7 +146,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
-    set_env_from_config();
+    set_env_from_config()?;
 
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
@@ -233,9 +236,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         context.add_commands(vec![
             // System/file operations
-            whole_stream_command(PWD),
-            whole_stream_command(LS),
-            whole_stream_command(CD),
+            whole_stream_command(Pwd),
+            whole_stream_command(Ls),
+            whole_stream_command(Cd),
             whole_stream_command(Env),
             per_item_command(Remove),
             per_item_command(Open),
@@ -295,6 +298,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Default),
             whole_stream_command(SkipWhile),
             whole_stream_command(Range),
+            whole_stream_command(Uniq),
             // Table manipulation
             whole_stream_command(Wrap),
             whole_stream_command(Pivot),
@@ -334,7 +338,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 whole_stream_command(EvaluateBy),
                 whole_stream_command(TSortBy),
                 whole_stream_command(MapMaxBy),
-                ]);
+                ])?;
             }
         }
 
@@ -350,6 +354,16 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
     let mut rl: Editor<_> = Editor::with_config(config);
+
+    // add key bindings to move over a whole word with Ctrl+ArrowLeft and Ctrl+ArrowRight
+    rl.bind_sequence(
+        KeyPress::ControlLeft,
+        Cmd::Move(Movement::BackwardWord(1, Word::Vi)),
+    );
+    rl.bind_sequence(
+        KeyPress::ControlRight,
+        Cmd::Move(Movement::ForwardWord(1, At::AfterEnd, Word::Vi)),
+    );
 
     #[cfg(windows)]
     {
@@ -409,9 +423,11 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         };
 
         let prompt = {
-            let bytes = strip_ansi_escapes::strip(&colored_prompt).unwrap();
-
-            String::from_utf8_lossy(&bytes).to_string()
+            if let Ok(bytes) = strip_ansi_escapes::strip(&colored_prompt) {
+                String::from_utf8_lossy(&bytes).to_string()
+            } else {
+                "> ".to_string()
+            }
         };
 
         rl.helper_mut().expect("No helper").colored_prompt = colored_prompt;
@@ -486,8 +502,8 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-fn set_env_from_config() {
-    let config = crate::data::config::read(Tag::unknown(), &None).unwrap();
+fn set_env_from_config() -> Result<(), ShellError> {
+    let config = crate::data::config::read(Tag::unknown(), &None)?;
 
     if config.contains_key("env") {
         // Clear the existing vars, we're about to replace them
@@ -535,6 +551,7 @@ fn set_env_from_config() {
             }
         }
     }
+    Ok(())
 }
 
 enum LineResult {
@@ -593,7 +610,10 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 
             // Check the config to see if we need to update the path
             // TODO: make sure config is cached so we don't path this load every call
-            set_env_from_config();
+            // FIXME: we probably want to be a bit more graceful if we can't set the environment
+            if let Err(err) = set_env_from_config() {
+                return LineResult::Error(line.to_string(), err);
+            }
 
             let input = ClassifiedInputStream::new();
 
@@ -624,7 +644,7 @@ pub fn classify_pipeline(
 
     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
         outln!("");
-        ptree::print_tree(&iterator.expand_tracer().print(source.clone())).unwrap();
+        let _ = ptree::print_tree(&iterator.expand_tracer().print(source.clone()));
         outln!("");
     }
 
@@ -632,7 +652,7 @@ pub fn classify_pipeline(
 }
 
 pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
-    let diag = err.to_diagnostic();
+    let diag = err.into_diagnostic();
 
     let writer = host.err_termcolor();
     let mut source = source.to_string();

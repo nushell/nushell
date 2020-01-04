@@ -169,7 +169,7 @@ impl FlatShape {
             }
             Token::Pipeline(pipeline) => {
                 for part in &pipeline.parts {
-                    if let Some(_) = part.pipe {
+                    if part.pipe.is_some() {
                         shapes.push(FlatShape::Pipe.spanned(part.span()));
                     }
                 }

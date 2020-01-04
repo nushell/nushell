@@ -63,7 +63,7 @@ impl CallInfoExt for CallInfo {
 #[derive(Getters)]
 #[get = "pub(crate)"]
 pub struct CommandArgs {
-    pub host: Arc<Mutex<Box<dyn Host>>>,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
@@ -73,7 +73,7 @@ pub struct CommandArgs {
 #[derive(Getters, Clone)]
 #[get = "pub(crate)"]
 pub struct RawCommandArgs {
-    pub host: Arc<Mutex<Box<dyn Host>>>,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: UnevaluatedCallInfo,
@@ -192,7 +192,7 @@ impl CommandArgs {
 
         let (input, args) = args.split();
         let name_tag = args.call_info.name_tag;
-        let mut deserializer = ConfigDeserializer::from_call_info(call_info.clone());
+        let mut deserializer = ConfigDeserializer::from_call_info(call_info);
 
         Ok(RunnableRawArgs {
             args: T::deserialize(&mut deserializer)?,
@@ -219,7 +219,7 @@ pub struct RunnablePerItemContext {
 pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
-    pub host: Arc<Mutex<Box<dyn Host>>>,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub source: Text,
     pub ctrl_c: Arc<AtomicBool>,
     pub commands: CommandRegistry,
@@ -286,7 +286,7 @@ impl Deref for EvaluatedWholeStreamCommandArgs {
 
 impl EvaluatedWholeStreamCommandArgs {
     pub fn new(
-        host: Arc<Mutex<dyn Host>>,
+        host: Arc<parking_lot::Mutex<dyn Host>>,
         ctrl_c: Arc<AtomicBool>,
         shell_manager: ShellManager,
         call_info: CallInfo,
@@ -335,7 +335,7 @@ impl Deref for EvaluatedFilterCommandArgs {
 
 impl EvaluatedFilterCommandArgs {
     pub fn new(
-        host: Arc<Mutex<dyn Host>>,
+        host: Arc<parking_lot::Mutex<dyn Host>>,
         ctrl_c: Arc<AtomicBool>,
         shell_manager: ShellManager,
         call_info: CallInfo,
@@ -354,7 +354,7 @@ impl EvaluatedFilterCommandArgs {
 #[derive(Getters, new)]
 #[get = "pub(crate)"]
 pub struct EvaluatedCommandArgs {
-    pub host: Arc<Mutex<dyn Host>>,
+    pub host: Arc<parking_lot::Mutex<dyn Host>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub shell_manager: ShellManager,
     pub call_info: CallInfo,
@@ -555,8 +555,7 @@ impl WholeStreamCommand for FnFilterCommand {
             input,
         } = args;
 
-        let host: Arc<Mutex<dyn Host>> = host.clone();
-        let shell_manager = shell_manager.clone();
+        let host: Arc<parking_lot::Mutex<dyn Host>> = host.clone();
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
 

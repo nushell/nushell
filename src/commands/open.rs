@@ -64,7 +64,7 @@ fn run(call_info: &CallInfo, raw_args: &RawCommandArgs) -> Result<OutputStream, 
             yield Err(e);
             return;
         }
-        let (file_extension, contents, contents_tag) = result.unwrap();
+        let (file_extension, contents, contents_tag) = result?;
 
         let file_extension = if has_raw {
             None

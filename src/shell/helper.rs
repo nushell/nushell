@@ -100,8 +100,8 @@ impl Highlighter for Helper {
 
                 if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
                     outln!("");
-                    ptree::print_tree(&tokens.expand_tracer().clone().print(Text::from(line)))
-                        .unwrap();
+                    let _ =
+                        ptree::print_tree(&tokens.expand_tracer().clone().print(Text::from(line)));
                     outln!("");
                 }
 

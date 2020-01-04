@@ -168,7 +168,7 @@ impl PrettyDebug for FormatInlineShape {
                         (b::primitive(format!("{}", byte.get_value())) + b::space() + b::kind("B"))
                             .group()
                     }
-                    _ => b::primitive(byte.format(1).to_string()),
+                    _ => b::primitive(byte.format(1)),
                 }
             }
             InlineShape::String(string) => b::primitive(string),
@@ -359,12 +359,14 @@ impl Shapes {
 
     pub fn to_values(&self) -> Vec<Value> {
         if self.shapes.len() == 1 {
-            let shape = self.shapes.keys().nth(0).unwrap();
-
-            let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
-            tagged_dict.insert_untagged("type", shape.to_value());
-            tagged_dict.insert_untagged("rows", UntaggedValue::string("all"));
-            vec![tagged_dict.into_value()]
+            if let Some(shape) = self.shapes.keys().nth(0) {
+                let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
+                tagged_dict.insert_untagged("type", shape.to_value());
+                tagged_dict.insert_untagged("rows", UntaggedValue::string("all"));
+                vec![tagged_dict.into_value()]
+            } else {
+                unreachable!("Internal error: impossible state in to_values")
+            }
         } else {
             self.shapes
                 .iter()

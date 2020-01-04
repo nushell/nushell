@@ -9,7 +9,7 @@ where
     serde::Serialize::serialize(
         &big_int
             .to_i64()
-            .ok_or(serde::ser::Error::custom("expected a i64-sized bignum"))?,
+            .ok_or_else(|| serde::ser::Error::custom("expected a i64-sized bignum"))?,
         serializer,
     )
 }
@@ -19,5 +19,6 @@ where
     D: serde::Deserializer<'de>,
 {
     let x: i64 = serde::Deserialize::deserialize(deserializer)?;
-    Ok(BigInt::from_i64(x).ok_or(serde::de::Error::custom("expected a i64-sized bignum"))?)
+    Ok(BigInt::from_i64(x)
+        .ok_or_else(|| serde::de::Error::custom("expected a i64-sized bignum"))?)
 }

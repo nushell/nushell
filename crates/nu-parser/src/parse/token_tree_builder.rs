@@ -9,17 +9,15 @@ use bigdecimal::BigDecimal;
 use nu_source::{Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 
+#[derive(Default)]
 pub struct TokenTreeBuilder {
     pos: usize,
     output: String,
 }
 
 impl TokenTreeBuilder {
-    pub fn new() -> TokenTreeBuilder {
-        TokenTreeBuilder {
-            pos: 0,
-            output: String::new(),
-        }
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
@@ -346,16 +344,19 @@ impl TokenTreeBuilder {
     }
 
     pub fn spanned_call(input: Vec<SpannedToken>, span: impl Into<Span>) -> Spanned<CallNode> {
-        if input.len() == 0 {
+        if input.is_empty() {
             panic!("BUG: spanned call (TODO)")
         }
 
         let mut input = input.into_iter();
 
-        let head = input.next().unwrap();
-        let tail = input.collect();
+        if let Some(head) = input.next() {
+            let tail = input.collect();
 
-        CallNode::new(Box::new(head), tail).spanned(span.into())
+            CallNode::new(Box::new(head), tail).spanned(span.into())
+        } else {
+            unreachable!("Internal error: spanned_call failed")
+        }
     }
 
     fn consume_delimiter(

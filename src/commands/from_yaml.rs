@@ -51,31 +51,49 @@ impl WholeStreamCommand for FromYML {
     }
 }
 
-fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) -> Value {
+fn convert_yaml_value_to_nu_value(
+    v: &serde_yaml::Value,
+    tag: impl Into<Tag>,
+) -> Result<Value, ShellError> {
     let tag = tag.into();
 
-    match v {
+    Ok(match v {
         serde_yaml::Value::Bool(b) => UntaggedValue::boolean(*b).into_value(tag),
         serde_yaml::Value::Number(n) if n.is_i64() => {
-            UntaggedValue::int(n.as_i64().unwrap()).into_value(tag)
+            UntaggedValue::int(n.as_i64().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Expected a compatible number",
+                    "expected a compatible number",
+                    &tag,
+                )
+            })?)
+            .into_value(tag)
         }
         serde_yaml::Value::Number(n) if n.is_f64() => {
-            UntaggedValue::decimal(n.as_f64().unwrap()).into_value(tag)
+            UntaggedValue::decimal(n.as_f64().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Expected a compatible number",
+                    "expected a compatible number",
+                    &tag,
+                )
+            })?)
+            .into_value(tag)
         }
         serde_yaml::Value::String(s) => UntaggedValue::string(s).into_value(tag),
-        serde_yaml::Value::Sequence(a) => UntaggedValue::Table(
-            a.iter()
+        serde_yaml::Value::Sequence(a) => {
+            let result: Result<Vec<Value>, ShellError> = a
+                .iter()
                 .map(|x| convert_yaml_value_to_nu_value(x, &tag))
-                .collect(),
-        )
-        .into_value(tag),
+                .collect();
+            UntaggedValue::Table(result?).into_value(tag)
+        }
         serde_yaml::Value::Mapping(t) => {
             let mut collected = TaggedDictBuilder::new(&tag);
 
             for (k, v) in t.iter() {
                 match k {
                     serde_yaml::Value::String(k) => {
-                        collected.insert_value(k.clone(), convert_yaml_value_to_nu_value(v, &tag));
+                        collected.insert_value(k.clone(), convert_yaml_value_to_nu_value(v, &tag)?);
                     }
                     _ => unimplemented!("Unknown key type"),
                 }
@@ -85,12 +103,19 @@ fn convert_yaml_value_to_nu_value(v: &serde_yaml::Value, tag: impl Into<Tag>) ->
         }
         serde_yaml::Value::Null => UntaggedValue::Primitive(Primitive::Nothing).into_value(tag),
         x => unimplemented!("Unsupported yaml case: {:?}", x),
-    }
+    })
 }
 
-pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> serde_yaml::Result<Value> {
-    let v: serde_yaml::Value = serde_yaml::from_str(&s)?;
-    Ok(convert_yaml_value_to_nu_value(&v, tag))
+pub fn from_yaml_string_to_value(s: String, tag: impl Into<Tag>) -> Result<Value, ShellError> {
+    let tag = tag.into();
+    let v: serde_yaml::Value = serde_yaml::from_str(&s).map_err(|x| {
+        ShellError::labeled_error(
+            format!("Could not load yaml: {}", x),
+            "could not load yaml from text",
+            &tag,
+        )
+    })?;
+    Ok(convert_yaml_value_to_nu_value(&v, tag)?)
 }
 
 fn from_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {

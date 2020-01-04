@@ -24,13 +24,11 @@ pub(crate) fn debug_tokens(state: &TokensIteratorState, source: &str) -> Vec<Deb
             out.push(DebugIteratorToken::Cursor);
         }
 
+        let msg = token.debug(source).to_string();
         if state.seen.contains(&i) {
-            out.push(DebugIteratorToken::Seen(format!("{}", token.debug(source))));
+            out.push(DebugIteratorToken::Seen(msg));
         } else {
-            out.push(DebugIteratorToken::Unseen(format!(
-                "{}",
-                token.debug(source)
-            )));
+            out.push(DebugIteratorToken::Unseen(msg));
         }
     }
 

@@ -134,7 +134,11 @@ pub(crate) async fn run_external_command(
             let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
 
             let arg_chars: Vec<_> = arg.chars().collect();
-            if arg_chars.len() > 1 && arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"' {
+
+            if arg_chars.len() > 1
+                && ((arg_chars[0] == '"' && arg_chars[arg_chars.len() - 1] == '"')
+                    || (arg_chars[0] == '\'' && arg_chars[arg_chars.len() - 1] == '\''))
+            {
                 // quoted string
                 let new_arg: String = arg_chars[1..arg_chars.len() - 1].iter().collect();
                 process = process.arg(new_arg);
@@ -177,14 +181,28 @@ pub(crate) async fn run_external_command(
                 Ok(ClassifiedInputStream::new())
             }
             StreamNext::External => {
-                let stdout = popen.stdout.take().unwrap();
+                let stdout = popen.stdout.take().ok_or_else(|| {
+                    ShellError::untagged_runtime_error(
+                        "Can't redirect the stdout for external command",
+                    )
+                })?;
                 Ok(ClassifiedInputStream::from_stdout(stdout))
             }
             StreamNext::Internal => {
-                let stdout = popen.stdout.take().unwrap();
+                let stdout = popen.stdout.take().ok_or_else(|| {
+                    ShellError::untagged_runtime_error(
+                        "Can't redirect the stdout for internal command",
+                    )
+                })?;
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| line.unwrap().into_value(&name_tag));
+                let stream = stream.map(move |line| {
+                    if let Ok(line) = line {
+                        line.into_value(&name_tag)
+                    } else {
+                        panic!("Internal error: could not read lines of text from stdin")
+                    }
+                });
                 Ok(ClassifiedInputStream::from_input_stream(
                     stream.boxed() as BoxStream<'static, Value>
                 ))

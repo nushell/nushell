@@ -36,16 +36,14 @@ impl PrettyDebugWithSource for NamedValue {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NamedArguments {
     pub named: IndexMap<String, NamedValue>,
 }
 
 impl NamedArguments {
     pub fn new() -> NamedArguments {
-        NamedArguments {
-            named: IndexMap::new(),
-        }
+        Default::default()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&String, &NamedValue)> {
@@ -59,7 +57,7 @@ impl NamedArguments {
         trace!("Inserting switch -- {} = {:?}", name, switch);
 
         match switch {
-            None => self.named.insert(name.into(), NamedValue::AbsentSwitch),
+            None => self.named.insert(name, NamedValue::AbsentSwitch),
             Some(flag) => self.named.insert(
                 name,
                 NamedValue::PresentSwitch(Tag {

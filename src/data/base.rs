@@ -43,7 +43,7 @@ impl EvaluateTrait for Block {
             return Ok(UntaggedValue::nothing().into_value(&self.tag));
         }
 
-        let mut last = None;
+        let mut last = Ok(UntaggedValue::nothing().into_value(&self.tag));
 
         trace!(
             "EXPRS = {:?}",
@@ -54,15 +54,10 @@ impl EvaluateTrait for Block {
         );
 
         for expr in self.expressions.iter() {
-            last = Some(evaluate_baseline_expr(
-                &expr,
-                &CommandRegistry::empty(),
-                &scope,
-                &self.source,
-            )?)
+            last = evaluate_baseline_expr(&expr, &CommandRegistry::empty(), &scope, &self.source)
         }
 
-        Ok(last.unwrap())
+        last
     }
 
     fn clone_box(&self) -> Evaluate {
@@ -214,7 +209,7 @@ mod tests {
         UntaggedValue::row(entries).into_untagged_value()
     }
 
-    fn table(list: &Vec<Value>) -> Value {
+    fn table(list: &[Value]) -> Value {
         UntaggedValue::table(list).into_untagged_value()
     }
 
@@ -224,30 +219,29 @@ mod tests {
         move |(_obj_source, _column_path_tried, _err)| ShellError::unimplemented(reason)
     }
 
-    fn column_path(paths: &Vec<Value>) -> Tagged<ColumnPathValue> {
-        as_column_path(&table(&paths.iter().cloned().collect())).unwrap()
+    fn column_path(paths: &[Value]) -> Result<Tagged<ColumnPathValue>, ShellError> {
+        as_column_path(&table(paths))
     }
 
     #[test]
-    fn gets_matching_field_from_a_row() {
+    fn gets_matching_field_from_a_row() -> Result<(), ShellError> {
         let row = UntaggedValue::row(indexmap! {
-            "amigos".into() => table(&vec![string("andres"),string("jonathan"),string("yehuda")])
+            "amigos".into() => table(&[string("andres"),string("jonathan"),string("yehuda")])
         })
         .into_untagged_value();
 
         assert_eq!(
-            row.get_data_by_key("amigos".spanned_unknown()).unwrap(),
-            table(&vec![
-                string("andres"),
-                string("jonathan"),
-                string("yehuda")
-            ])
+            row.get_data_by_key("amigos".spanned_unknown())
+                .ok_or_else(|| ShellError::unexpected("Failure during testing"))?,
+            table(&[string("andres"), string("jonathan"), string("yehuda")])
         );
+
+        Ok(())
     }
 
     #[test]
-    fn gets_matching_field_from_nested_rows_inside_a_row() {
-        let field_path = column_path(&vec![string("package"), string("version")]);
+    fn gets_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
+        let field_path = column_path(&[string("package"), string("version")]);
 
         let (version, tag) = string("0.4.0").into_parts();
 
@@ -260,17 +254,20 @@ mod tests {
         });
 
         assert_eq!(
-            *value
-                .into_value(tag)
-                .get_data_by_column_path(&field_path, Box::new(error_callback("package.version")))
-                .unwrap(),
+            *value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.version"))
+            )?,
             version
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() {
-        let field_path = column_path(&vec![string("package"), string("authors"), string("name")]);
+    fn gets_first_matching_field_from_rows_with_same_field_inside_a_table() -> Result<(), ShellError>
+    {
+        let field_path = column_path(&[string("package"), string("authors"), string("name")]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -278,7 +275,7 @@ mod tests {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
-                "authors".into() => table(&vec![
+                "authors".into() => table(&[
                     row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
                     row(indexmap!{"name".into() => string("Jonathan Turner")}),
                     row(indexmap!{"name".into() => string("Yehuda Katz")})
@@ -287,24 +284,23 @@ mod tests {
         });
 
         assert_eq!(
-            value
-                .into_value(tag)
-                .get_data_by_column_path(
-                    &field_path,
-                    Box::new(error_callback("package.authors.name"))
-                )
-                .unwrap(),
-            table(&vec![
+            value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.authors.name"))
+            )?,
+            table(&[
                 string("Andrés N. Robalino"),
                 string("Jonathan Turner"),
                 string("Yehuda Katz")
             ])
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
-    fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() {
-        let field_path = column_path(&vec![string("package"), string("authors"), int(0)]);
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_table() -> Result<(), ShellError> {
+        let field_path = column_path(&[string("package"), string("authors"), int(0)]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -312,7 +308,7 @@ mod tests {
             "package".into() => row(indexmap! {
                 "name".into() => string("nu"),
                 "version".into() => string("0.4.0"),
-                "authors".into() => table(&vec![
+                "authors".into() => table(&[
                     row(indexmap!{"name".into() => string("Andrés N. Robalino")}),
                     row(indexmap!{"name".into() => string("Jonathan Turner")}),
                     row(indexmap!{"name".into() => string("Yehuda Katz")})
@@ -321,19 +317,21 @@ mod tests {
         });
 
         assert_eq!(
-            *value
-                .into_value(tag)
-                .get_data_by_column_path(&field_path, Box::new(error_callback("package.authors.0")))
-                .unwrap(),
+            *value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.authors.0"))
+            )?,
             UntaggedValue::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() {
-        let field_path = column_path(&vec![string("package"), string("authors"), string("0")]);
+    fn column_path_that_contains_just_a_number_gets_a_row_from_a_row() -> Result<(), ShellError> {
+        let field_path = column_path(&[string("package"), string("authors"), string("0")]);
 
         let (_, tag) = string("Andrés N. Robalino").into_parts();
 
@@ -350,25 +348,24 @@ mod tests {
         });
 
         assert_eq!(
-            *value
-                .into_value(tag)
-                .get_data_by_column_path(
-                    &field_path,
-                    Box::new(error_callback("package.authors.\"0\""))
-                )
-                .unwrap(),
+            *value.into_value(tag).get_data_by_column_path(
+                &field_path?.item,
+                Box::new(error_callback("package.authors.\"0\""))
+            )?,
             UntaggedValue::row(indexmap! {
                 "name".into() => string("Andrés N. Robalino")
             })
         );
+
+        Ok(())
     }
 
     #[test]
-    fn replaces_matching_field_from_a_row() {
-        let field_path = column_path(&vec![string("amigos")]);
+    fn replaces_matching_field_from_a_row() -> Result<(), ShellError> {
+        let field_path = column_path(&[string("amigos")]);
 
         let sample = UntaggedValue::row(indexmap! {
-            "amigos".into() => table(&vec![
+            "amigos".into() => table(&[
                 string("andres"),
                 string("jonathan"),
                 string("yehuda"),
@@ -379,15 +376,17 @@ mod tests {
 
         let actual = sample
             .into_untagged_value()
-            .replace_data_at_column_path(&field_path, replacement)
-            .unwrap();
+            .replace_data_at_column_path(&field_path?.item, replacement)
+            .ok_or_else(|| ShellError::untagged_runtime_error("Could not replace column"))?;
 
         assert_eq!(actual, row(indexmap! {"amigos".into() => string("jonas")}));
+
+        Ok(())
     }
 
     #[test]
-    fn replaces_matching_field_from_nested_rows_inside_a_row() {
-        let field_path = column_path(&vec![
+    fn replaces_matching_field_from_nested_rows_inside_a_row() -> Result<(), ShellError> {
+        let field_path = column_path(&[
             string("package"),
             string("authors"),
             string("los.3.caballeros"),
@@ -396,35 +395,43 @@ mod tests {
         let sample = UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "authors".into() => row(indexmap! {
-                    "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
-                    "los.3.amigos".into() => table(&vec![string("andres::yehuda::jonathan")]),
-                    "los.3.caballeros".into() => table(&vec![string("andres::yehuda::jonathan")])
+                    "los.3.mosqueteros".into() => table(&[string("andres::yehuda::jonathan")]),
+                    "los.3.amigos".into() => table(&[string("andres::yehuda::jonathan")]),
+                    "los.3.caballeros".into() => table(&[string("andres::yehuda::jonathan")])
                 })
             })
         });
 
-        let replacement = table(&vec![string("yehuda::jonathan::andres")]);
+        let replacement = table(&[string("yehuda::jonathan::andres")]);
         let tag = replacement.tag.clone();
 
         let actual = sample
-            .into_value(tag.clone())
-            .replace_data_at_column_path(&field_path, replacement.clone())
-            .unwrap();
+            .into_value(&tag)
+            .replace_data_at_column_path(&field_path?.item, replacement.clone())
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not replace column",
+                    "could not replace column",
+                    &tag,
+                )
+            })?;
 
         assert_eq!(
             actual,
             UntaggedValue::row(indexmap! {
             "package".into() => row(indexmap! {
                 "authors".into() => row(indexmap! {
-                    "los.3.mosqueteros".into() => table(&vec![string("andres::yehuda::jonathan")]),
-                    "los.3.amigos".into()      => table(&vec![string("andres::yehuda::jonathan")]),
-                    "los.3.caballeros".into()  => replacement.clone()})})})
+                    "los.3.mosqueteros".into() => table(&[string("andres::yehuda::jonathan")]),
+                    "los.3.amigos".into()      => table(&[string("andres::yehuda::jonathan")]),
+                    "los.3.caballeros".into()  => replacement})})})
             .into_value(tag)
         );
+
+        Ok(())
     }
     #[test]
-    fn replaces_matching_field_from_rows_inside_a_table() {
-        let field_path = column_path(&vec![
+    fn replaces_matching_field_from_rows_inside_a_table() -> Result<(), ShellError> {
+        let field_path = column_path(&[
             string("shell_policy"),
             string("releases"),
             string("nu.version.arepa"),
@@ -432,7 +439,7 @@ mod tests {
 
         let sample = UntaggedValue::row(indexmap! {
             "shell_policy".into() => row(indexmap! {
-                "releases".into() => table(&vec![
+                "releases".into() => table(&[
                     row(indexmap! {
                         "nu.version.arepa".into() => row(indexmap! {
                             "code".into() => string("0.4.0"), "tag_line".into() => string("GitHub-era")
@@ -460,14 +467,20 @@ mod tests {
 
         let actual = sample
             .into_value(tag.clone())
-            .replace_data_at_column_path(&field_path, replacement.clone())
-            .unwrap();
+            .replace_data_at_column_path(&field_path?.item, replacement.clone())
+            .ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not replace column",
+                    "could not replace column",
+                    &tag,
+                )
+            })?;
 
         assert_eq!(
             actual,
             UntaggedValue::row(indexmap! {
                 "shell_policy".into() => row(indexmap! {
-                    "releases".into() => table(&vec![
+                    "releases".into() => table(&[
                         row(indexmap! {
                             "nu.version.arepa".into() => replacement
                         }),
@@ -485,5 +498,7 @@ mod tests {
                 })
             }).into_value(&tag)
         );
+
+        Ok(())
     }
 }

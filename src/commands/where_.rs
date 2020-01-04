@@ -30,18 +30,17 @@ impl PerItemCommand for Where {
         _raw_args: &RawCommandArgs,
         input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let input_clone = input.clone();
         let condition = call_info.args.expect_nth(0)?;
         let stream = match condition {
             Value {
                 value: UntaggedValue::Block(block),
                 ..
             } => {
-                let result = block.invoke(&Scope::new(input_clone.clone()));
+                let result = block.invoke(&Scope::new(input.clone()));
                 match result {
                     Ok(v) => {
                         if v.is_true() {
-                            VecDeque::from(vec![Ok(ReturnSuccess::Value(input_clone))])
+                            VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
                         } else {
                             VecDeque::new()
                         }

@@ -99,9 +99,8 @@ impl ExpandSyntax for ShorthandPath {
         // if it's a variable path, that's the head part
         let path = token_nodes.expand_syntax(VariablePathShape);
 
-        match path {
-            Ok(path) => return Ok(path),
-            Err(_) => {}
+        if let Ok(path) = path {
+            return Ok(path);
         }
 
         // Synthesize the head of the shorthand path (`<member>` -> `$it.<member>`)

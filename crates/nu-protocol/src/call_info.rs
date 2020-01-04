@@ -30,14 +30,14 @@ impl EvaluatedArgs {
     pub fn nth(&self, pos: usize) -> Option<&Value> {
         match &self.positional {
             None => None,
-            Some(array) => array.iter().nth(pos),
+            Some(array) => array.get(pos),
         }
     }
 
     pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
         match &self.positional {
             None => Err(ShellError::unimplemented("Better error: expect_nth")),
-            Some(array) => match array.iter().nth(pos) {
+            Some(array) => match array.get(pos) {
                 None => Err(ShellError::unimplemented("Better error: expect_nth")),
                 Some(item) => Ok(item),
             },
@@ -49,6 +49,10 @@ impl EvaluatedArgs {
             None => 0,
             Some(array) => array.len(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn has(&self, name: &str) -> bool {

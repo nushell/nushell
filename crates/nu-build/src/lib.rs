@@ -13,10 +13,10 @@ lazy_static! {
 
 // got from https://github.com/mitsuhiko/insta/blob/b113499249584cb650150d2d01ed96ee66db6b30/src/runtime.rs#L67-L88
 
-fn get_cargo_workspace(manifest_dir: &str) -> Option<&Path> {
-    let mut workspaces = WORKSPACES.lock().unwrap();
+fn get_cargo_workspace(manifest_dir: &str) -> Result<Option<&Path>, Box<dyn std::error::Error>> {
+    let mut workspaces = WORKSPACES.lock()?;
     if let Some(rv) = workspaces.get(manifest_dir) {
-        Some(rv)
+        Ok(Some(rv))
     } else {
         #[derive(Deserialize)]
         struct Manifest {
@@ -26,12 +26,11 @@ fn get_cargo_workspace(manifest_dir: &str) -> Option<&Path> {
             .arg("metadata")
             .arg("--format-version=1")
             .current_dir(manifest_dir)
-            .output()
-            .unwrap();
-        let manifest: Manifest = serde_json::from_slice(&output.stdout).unwrap();
+            .output()?;
+        let manifest: Manifest = serde_json::from_slice(&output.stdout)?;
         let path = Box::leak(Box::new(PathBuf::from(manifest.workspace_root)));
         workspaces.insert(manifest_dir.to_string(), path.as_path());
-        workspaces.get(manifest_dir).map(|w| *w)
+        Ok(workspaces.get(manifest_dir).cloned())
     }
 }
 
@@ -43,11 +42,11 @@ struct Feature {
 }
 
 pub fn build() -> Result<(), Box<dyn std::error::Error>> {
-    let input = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let input = env::var("CARGO_MANIFEST_DIR")?;
 
     let all_on = env::var("NUSHELL_ENABLE_ALL_FLAGS").is_ok();
     let flags: HashSet<String> = env::var("NUSHELL_ENABLE_FLAGS")
-        .map(|s| s.split(",").map(|s| s.to_string()).collect())
+        .map(|s| s.split(',').map(|s| s.to_string()).collect())
         .unwrap_or_else(|_| HashSet::new());
 
     if all_on && !flags.is_empty() {
@@ -56,7 +55,7 @@ pub fn build() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    let workspace = match get_cargo_workspace(&input) {
+    let workspace = match get_cargo_workspace(&input)? {
         // If the crate is being downloaded from crates.io, it won't have a workspace root, and that's ok
         None => return Ok(()),
         Some(workspace) => workspace,
@@ -72,7 +71,7 @@ pub fn build() -> Result<(), Box<dyn std::error::Error>> {
     let toml: HashMap<String, Feature> = toml::from_str(&std::fs::read_to_string(path)?)?;
 
     for (key, value) in toml.iter() {
-        if value.enabled == true || all_on || flags.contains(key) {
+        if value.enabled || all_on || flags.contains(key) {
             println!("cargo:rustc-cfg={}", key);
         }
     }

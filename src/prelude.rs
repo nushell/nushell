@@ -96,7 +96,6 @@ pub(crate) use nu_source::{
 pub(crate) use nu_value_ext::ValueExt;
 pub(crate) use num_bigint::BigInt;
 pub(crate) use num_traits::cast::ToPrimitive;
-pub(crate) use parking_lot::Mutex;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
@@ -130,7 +129,15 @@ where
 {
     fn to_input_stream(self) -> InputStream {
         InputStream {
-            values: self.map(|item| item.into().unwrap()).boxed(),
+            values: self
+                .map(|item| {
+                    if let Ok(result) = item.into() {
+                        result
+                    } else {
+                        unreachable!("Internal errors: to_input_stream in inconsistent state")
+                    }
+                })
+                .boxed(),
         }
     }
 }

@@ -1,9 +1,10 @@
 use futures::executor::block_on;
 use mime::Mime;
 use nu_errors::ShellError;
+use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{
-    serve_plugin, CallInfo, CommandAction, Plugin, ReturnSuccess, ReturnValue, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    CallInfo, CommandAction, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue,
+    Value,
 };
 use nu_source::{AnchorLocation, Span, Tag};
 use std::path::PathBuf;
@@ -62,7 +63,13 @@ impl Plugin for Fetch {
 
     fn filter(&mut self, value: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![block_on(fetch_helper(
-            &self.path.clone().unwrap(),
+            &self.path.clone().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "internal error: path not set",
+                    "path not set",
+                    &value.tag,
+                )
+            })?,
             self.has_raw,
             value,
         ))])
@@ -92,25 +99,25 @@ async fn fetch_helper(path: &Value, has_raw: bool, row: Value) -> ReturnValue {
     if let Err(e) = result {
         return Err(e);
     }
-    let (file_extension, contents, contents_tag) = result.unwrap();
+    let (file_extension, contents, contents_tag) = result?;
 
     let file_extension = if has_raw {
         None
     } else {
         // If the extension could not be determined via mimetype, try to use the path
         // extension. Some file types do not declare their mimetypes (such as bson files).
-        file_extension.or(path_str.split('.').last().map(String::from))
+        file_extension.or_else(|| path_str.split('.').last().map(String::from))
     };
 
     let tagged_contents = contents.retag(&contents_tag);
 
     if let Some(extension) = file_extension {
-        return Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
+        Ok(ReturnSuccess::Action(CommandAction::AutoConvert(
             tagged_contents,
             extension,
-        )));
+        )))
     } else {
-        return ReturnSuccess::value(tagged_contents);
+        ReturnSuccess::value(tagged_contents)
     }
 }
 
@@ -130,7 +137,13 @@ pub async fn fetch(
     match response {
         Ok(mut r) => match r.headers().get("content-type") {
             Some(content_type) => {
-                let content_type = Mime::from_str(content_type).unwrap();
+                let content_type = Mime::from_str(content_type).map_err(|_| {
+                    ShellError::labeled_error(
+                        format!("MIME type unknown: {}", content_type),
+                        "given unknown MIME type",
+                        span,
+                    )
+                })?;
                 match (content_type.type_(), content_type.subtype()) {
                     (mime::APPLICATION, mime::XML) => Ok((
                         Some("xml".to_string()),
@@ -224,7 +237,13 @@ pub async fn fetch(
                     )),
                     (mime::TEXT, mime::PLAIN) => {
                         let path_extension = url::Url::parse(location)
-                            .unwrap()
+                            .map_err(|_| {
+                                ShellError::labeled_error(
+                                    format!("Cannot parse URL: {}", location),
+                                    "cannot parse",
+                                    span,
+                                )
+                            })?
                             .path_segments()
                             .and_then(|segments| segments.last())
                             .and_then(|name| if name.is_empty() { None } else { Some(name) })

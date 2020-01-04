@@ -122,10 +122,11 @@ pub fn parse_command_tail(
                     break;
                 }
 
-                PositionalType::Optional(..) => match tail.expand_syntax(MaybeWhitespaceEof) {
-                    Ok(_) => break,
-                    Err(_) => {}
-                },
+                PositionalType::Optional(..) => {
+                    if tail.expand_syntax(MaybeWhitespaceEof).is_ok() {
+                        break;
+                    }
+                }
             },
             Ok(result) => {
                 rest_signature.shift_positional();
@@ -180,7 +181,7 @@ pub fn parse_command_tail(
 
     trace!(target: "nu::parse::trace_remaining", "Constructed positional={:?} named={:?}", positional, named);
 
-    let positional = if positional.len() == 0 {
+    let positional = if positional.is_empty() {
         None
     } else {
         Some(positional)
