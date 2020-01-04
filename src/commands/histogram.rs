@@ -1,17 +1,14 @@
-use crate::commands::evaluate_by::evaluate;
 use crate::commands::group_by::group;
-use crate::commands::map_max_by::map_max;
-use crate::commands::reduce_by::reduce;
-use crate::commands::t_sort_by::columns_sorted;
-use crate::commands::t_sort_by::t_sort;
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
+use crate::utils::data_processing::{columns_sorted, evaluate, map_max, reduce, t_sort};
 use nu_errors::ShellError;
 use nu_protocol::{
     Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
 use num_traits::cast::ToPrimitive;
+use num_traits::identities::Zero;
 
 pub struct Histogram;
 
@@ -127,31 +124,28 @@ fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value,
                         value: UntaggedValue::Table(data),
                         ..
                     } => {
-                        let data =
-                                data.iter()
-                                    .map(|d| match d {
+                        let data = data
+                            .iter()
+                            .map(|d| match d {
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::Int(n)),
+                                    ..
+                                } => {
+                                    let max = match &max {
                                         Value {
-                                            value: UntaggedValue::Primitive(Primitive::Int(n)),
+                                            value: UntaggedValue::Primitive(Primitive::Int(maxima)),
                                             ..
-                                        } => {
-                                            let max = match max {
-                                                Value {
-                                                    value:
-                                                        UntaggedValue::Primitive(Primitive::Int(
-                                                            ref maxima,
-                                                        )),
-                                                    ..
-                                                } => maxima.to_i32().unwrap(),
-                                                _ => 0,
-                                            };
+                                        } => maxima.clone(),
+                                        _ => BigInt::zero(),
+                                    };
 
-                                            let n = { n.to_i32().unwrap() * 100 / max };
+                                    let n = (n * 100) / max;
 
-                                            UntaggedValue::int(n).into_value(&tag)
-                                        }
-                                        _ => UntaggedValue::int(0).into_value(&tag),
-                                    })
-                                    .collect::<Vec<_>>();
+                                    UntaggedValue::int(n).into_value(&tag)
+                                }
+                                _ => UntaggedValue::int(0).into_value(&tag),
+                            })
+                            .collect::<Vec<_>>();
                         UntaggedValue::Table(data).into_value(&tag)
                     }
                     _ => UntaggedValue::Table(vec![]).into_value(&tag),

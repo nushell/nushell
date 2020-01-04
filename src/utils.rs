@@ -1,3 +1,5 @@
+pub mod data_processing;
+
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::path::{Component, Path, PathBuf};
