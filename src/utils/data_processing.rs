@@ -5,7 +5,7 @@ use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};
 use num_bigint::BigInt;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::Zero;
 
 pub fn columns_sorted(
     _group_by_name: Option<String>,
@@ -46,7 +46,7 @@ pub fn columns_sorted(
                         value: UntaggedValue::Primitive(Primitive::Date(d)),
                         ..
                     } => format!("{}", d.format("%B %d-%Y")),
-                    _ => k.as_string().unwrap(),
+                    _ => k.as_string().unwrap_or_else(|_| String::from("<string>")),
                 })
                 .collect();
 
@@ -105,7 +105,11 @@ pub fn t_sort(
                                     Some(Value {
                                         value: UntaggedValue::Row(dict),
                                         ..
-                                    }) => dict.get_data_by_key(label.borrow_spanned()).unwrap(),
+                                    }) => {
+                                        dict.get_data_by_key(label.borrow_spanned()).unwrap_or_else(
+                                            || UntaggedValue::Table(vec![]).into_value(&origin_tag),
+                                        )
+                                    }
                                     _ => UntaggedValue::Table(vec![]).into_value(&origin_tag),
                                 })
                                 .collect()
@@ -168,7 +172,10 @@ pub fn evaluate(
                                 } => {
                                     let data: Vec<_> = data
                                         .into_iter()
-                                        .map(|x| evaluate_with(x, tag.clone()).unwrap())
+                                        .map(|x| match evaluate_with(x, tag.clone()) {
+                                            Some(val) => val,
+                                            None => UntaggedValue::int(1).into_value(tag.clone()),
+                                        })
                                         .collect();
                                     UntaggedValue::Table(data).into_value(&tag)
                                 }
@@ -318,38 +325,29 @@ pub fn map_max(
                         value: UntaggedValue::Table(data),
                         ..
                     } => {
-                        let data = data.iter().fold(0, |acc, value| match value {
-                            Value {
-                                value: UntaggedValue::Primitive(Primitive::Int(n)),
-                                ..
-                            } => {
-                                if n.to_i32().unwrap() > acc {
-                                    n.to_i32().unwrap()
-                                } else {
-                                    acc
-                                }
-                            }
-                            _ => acc,
-                        });
+                        let data: BigInt =
+                            data.iter().fold(Zero::zero(), |acc, value| match value {
+                                Value {
+                                    value: UntaggedValue::Primitive(Primitive::Int(n)),
+                                    ..
+                                } if *n > acc => n.clone(),
+                                _ => acc,
+                            });
                         UntaggedValue::int(data).into_value(&tag)
                     }
                     _ => UntaggedValue::int(0).into_value(&tag),
                 })
                 .collect();
 
-            let datasets = datasets.iter().fold(0, |max, value| match value {
-                Value {
-                    value: UntaggedValue::Primitive(Primitive::Int(n)),
-                    ..
-                } => {
-                    if n.to_i32().unwrap() > max {
-                        n.to_i32().unwrap()
-                    } else {
-                        max
-                    }
-                }
-                _ => max,
-            });
+            let datasets: BigInt = datasets
+                .iter()
+                .fold(Zero::zero(), |max, value| match value {
+                    Value {
+                        value: UntaggedValue::Primitive(Primitive::Int(n)),
+                        ..
+                    } if *n > max => n.clone(),
+                    _ => max,
+                });
             UntaggedValue::int(datasets).into_value(&tag)
         }
         _ => UntaggedValue::int(-1).into_value(&tag),
@@ -587,8 +585,8 @@ mod tests {
                 &nu_releases_evaluated_by_default_one()?,
                 Some(String::from("sum")),
                 Tag::unknown()
-            ),
-            Ok(table(&[table(&[int(3), int(3), int(3)])]))
+            )?,
+            table(&[table(&[int(3), int(3), int(3)])])
         );
 
         Ok(())
