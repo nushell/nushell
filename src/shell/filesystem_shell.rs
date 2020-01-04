@@ -59,12 +59,9 @@ impl FilesystemShell {
         })
     }
 
-    pub fn with_location(
-        path: String,
-        commands: CommandRegistry,
-    ) -> Result<FilesystemShell, std::io::Error> {
+    pub fn with_location(path: String, commands: CommandRegistry) -> FilesystemShell {
         let last_path = path.clone();
-        Ok(FilesystemShell {
+        FilesystemShell {
             path,
             last_path,
             completer: NuCompleter {
@@ -72,7 +69,7 @@ impl FilesystemShell {
                 commands,
             },
             hinter: HistoryHinter {},
-        })
+        }
     }
 }
 

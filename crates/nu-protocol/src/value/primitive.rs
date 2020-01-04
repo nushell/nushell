@@ -64,7 +64,11 @@ impl From<BigDecimal> for Primitive {
 
 impl From<f64> for Primitive {
     fn from(float: f64) -> Primitive {
-        Primitive::Decimal(BigDecimal::from_f64(float).unwrap())
+        if let Some(f) = BigDecimal::from_f64(float) {
+            Primitive::Decimal(f)
+        } else {
+            unreachable!("Internal error: protocol did not use f64-compatible decimal")
+        }
     }
 }
 
