@@ -108,7 +108,7 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
                 })
                 .collect::<Result<Vec<serde_json::Number>, ShellError>>()?
                 .into_iter()
-                .map(|x| serde_json::Value::Number(x))
+                .map(serde_json::Value::Number)
                 .collect(),
         ),
         UntaggedValue::Row(o) => {

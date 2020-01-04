@@ -107,7 +107,7 @@ impl CommandRegistry {
 #[derive(Clone)]
 pub struct Context {
     pub registry: CommandRegistry,
-    pub host: Arc<Mutex<Box<dyn Host>>>,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
@@ -133,7 +133,9 @@ impl Context {
         let registry = CommandRegistry::new();
         Ok(Context {
             registry: registry.clone(),
-            host: Arc::new(Mutex::new(Box::new(crate::env::host::BasicHost))),
+            host: Arc::new(parking_lot::Mutex::new(Box::new(
+                crate::env::host::BasicHost,
+            ))),
             current_errors: Arc::new(Mutex::new(vec![])),
             ctrl_c: Arc::new(AtomicBool::new(false)),
             shell_manager: ShellManager::basic(registry)?,
@@ -161,14 +163,7 @@ impl Context {
                 );
                 result = false;
             }
-            (_, Err(err)) => {
-                errln!(
-                    "Unexpected error attempting to acquire the lock of the current errors: {:?}",
-                    err
-                );
-                result = false;
-            }
-            (Ok(mut errors), Ok(host)) => {
+            (Ok(mut errors), host) => {
                 if errors.len() > 0 {
                     let error = errors[0].clone();
                     *errors = vec![];
@@ -188,13 +183,8 @@ impl Context {
         &mut self,
         block: impl FnOnce(&mut dyn Host) -> T,
     ) -> Result<T, ShellError> {
-        if let Ok(mut host) = self.host.lock() {
-            Ok(block(&mut *host))
-        } else {
-            Err(ShellError::untagged_runtime_error(
-                "Internal error: could not lock host in with_host",
-            ))
-        }
+        let mut host = self.host.lock();
+        Ok(block(&mut *host))
     }
 
     pub(crate) fn with_errors<T>(
