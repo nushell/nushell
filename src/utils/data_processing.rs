@@ -4,7 +4,8 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};
-use num_traits::cast::ToPrimitive;
+use num_bigint::BigInt;
+use num_traits::{ToPrimitive, Zero};
 
 pub fn columns_sorted(
     _group_by_name: Option<String>,
@@ -188,29 +189,44 @@ pub fn evaluate(
     Ok(results)
 }
 
-fn sum(data: Vec<Value>) -> i32 {
-    data.into_iter().fold(0, |acc, value| match value {
-        Value {
-            value: UntaggedValue::Primitive(Primitive::Int(n)),
-            ..
-        } => acc + n.to_i32().unwrap(),
-        _ => acc,
-    })
+fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
+    let total = data
+        .into_iter()
+        .fold(Zero::zero(), |acc: BigInt, value| match value {
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Int(n)),
+                ..
+            } => acc + n,
+            _ => acc,
+        });
+
+    Ok(UntaggedValue::int(total).into_untagged_value())
 }
 
 fn formula(
-    acc_begin: i32,
-    calculator: Box<dyn Fn(Vec<Value>) -> i32 + 'static>,
-) -> Box<dyn Fn(i32, Vec<Value>) -> i32 + 'static> {
-    Box::new(move |acc, datax| -> i32 {
-        let result = acc * acc_begin;
-        result + calculator(datax)
+    acc_begin: BigInt,
+    calculator: Box<dyn Fn(Vec<Value>) -> Result<Value, ShellError> + 'static>,
+) -> Box<dyn Fn(BigInt, Vec<Value>) -> Result<Value, ShellError> + 'static> {
+    Box::new(move |acc, datax| -> Result<Value, ShellError> {
+        let result = acc * acc_begin.clone();
+
+        if let Ok(Value {
+            value: UntaggedValue::Primitive(Primitive::Int(computed)),
+            ..
+        }) = calculator(datax)
+        {
+            return Ok(UntaggedValue::int(result + computed).into_untagged_value());
+        }
+
+        Ok(UntaggedValue::int(0).into_untagged_value())
     })
 }
 
-pub fn reducer_for(command: Reduce) -> Box<dyn Fn(i32, Vec<Value>) -> i32 + 'static> {
+pub fn reducer_for(
+    command: Reduce,
+) -> Box<dyn Fn(BigInt, Vec<Value>) -> Result<Value, ShellError> + 'static> {
     match command {
-        Reduce::Sum | Reduce::Default => Box::new(formula(0, Box::new(sum))),
+        Reduce::Sum | Reduce::Default => Box::new(formula(Zero::zero(), Box::new(sum))),
     }
 }
 
@@ -239,7 +255,7 @@ pub fn reduce(
             let datasets: Vec<_> = datasets
                 .iter()
                 .map(|subsets| {
-                    let mut acc = 0;
+                    let acc: BigInt = Zero::zero();
                     match subsets {
                         Value {
                             value: UntaggedValue::Table(data),
@@ -253,8 +269,16 @@ pub fn reduce(
                                         ..
                                     } = d
                                     {
-                                        acc = reduce_with(acc, x.clone());
-                                        UntaggedValue::int(acc).into_value(&tag)
+                                        if let Ok(Value {
+                                            value:
+                                                UntaggedValue::Primitive(Primitive::Int(computed)),
+                                            ..
+                                        }) = reduce_with(acc.clone(), x.clone())
+                                        {
+                                            UntaggedValue::int(computed).into_value(&tag)
+                                        } else {
+                                            UntaggedValue::int(0).into_value(&tag)
+                                        }
                                     } else {
                                         UntaggedValue::int(0).into_value(&tag)
                                     }
@@ -343,6 +367,7 @@ mod tests {
     use nu_protocol::{UntaggedValue, Value};
     use nu_source::*;
     use num_bigint::BigInt;
+    use num_traits::Zero;
 
     fn int(s: impl Into<BigInt>) -> Value {
         UntaggedValue::int(s).into_untagged_value()
@@ -450,8 +475,7 @@ mod tests {
                 None,
                 &nu_releases_grouped_by_date()?,
                 Tag::unknown()
-            )
-            .unwrap(),
+            )?,
             table(&[table(&[
                 table(&[
                     row(
@@ -551,7 +575,7 @@ mod tests {
 
         let action = reducer_for(Reduce::Sum);
 
-        assert_eq!(action(0, subject), 3);
+        assert_eq!(action(Zero::zero(), subject)?, int(3));
 
         Ok(())
     }

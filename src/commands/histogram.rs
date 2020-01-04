@@ -7,8 +7,7 @@ use nu_protocol::{
     Primitive, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tagged;
-use num_traits::cast::ToPrimitive;
-use num_traits::identities::Zero;
+use num_traits::{ToPrimitive, Zero};
 
 pub struct Histogram;
 
@@ -136,7 +135,7 @@ fn percentages(values: &Value, max: Value, tag: impl Into<Tag>) -> Result<Value,
                                             value: UntaggedValue::Primitive(Primitive::Int(maxima)),
                                             ..
                                         } => maxima.clone(),
-                                        _ => BigInt::zero(),
+                                        _ => Zero::zero(),
                                     };
 
                                     let n = (n * 100) / max;
