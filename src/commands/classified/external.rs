@@ -196,7 +196,13 @@ pub(crate) async fn run_external_command(
                 })?;
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
-                let stream = stream.map(move |line| line.unwrap().into_value(&name_tag));
+                let stream = stream.map(move |line| {
+                    if let Ok(line) = line {
+                        line.into_value(&name_tag)
+                    } else {
+                        panic!("Internal error: could not read lines of text from stdin")
+                    }
+                });
                 Ok(ClassifiedInputStream::from_input_stream(
                     stream.boxed() as BoxStream<'static, Value>
                 ))

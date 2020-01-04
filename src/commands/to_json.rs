@@ -98,8 +98,17 @@ pub fn value_to_json_value(v: &Value) -> Result<serde_json::Value, ShellError> {
         UntaggedValue::Primitive(Primitive::Binary(b)) => serde_json::Value::Array(
             b.iter()
                 .map(|x| {
-                    serde_json::Value::Number(serde_json::Number::from_f64(*x as f64).unwrap())
+                    serde_json::Number::from_f64(*x as f64).ok_or_else(|| {
+                        ShellError::labeled_error(
+                            "Can not convert number from floating point",
+                            "can not convert to number",
+                            &v.tag,
+                        )
+                    })
                 })
+                .collect::<Result<Vec<serde_json::Number>, ShellError>>()?
+                .into_iter()
+                .map(serde_json::Value::Number)
                 .collect(),
         ),
         UntaggedValue::Row(o) => {

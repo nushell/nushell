@@ -100,13 +100,7 @@ pub fn autoview(
                                     let first = &input[0];
 
                                     let mut host = context.host.clone();
-                                    let mut host = match host.lock() {
-                                        Err(err) => {
-                                            errln!("Unexpected error acquiring host lock: {:?}", err);
-                                            return;
-                                        }
-                                        Ok(val) => val
-                                    };
+                                    let mut host = host.lock();
 
                                     crate::cli::print_err(first.value.expect_error(), &*host, &context.source);
                                     return;

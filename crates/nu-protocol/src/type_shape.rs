@@ -235,7 +235,7 @@ impl PrettyDebug for Type {
                 (b::kind("table") + b::space() + b::keyword("of")).group()
                     + b::space()
                     + (if group.len() == 1 {
-                        let (doc, _) = group.into_iter().nth(0).unwrap();
+                        let (doc, _) = group.into_iter().collect::<Vec<_>>()[0].clone();
                         DebugDocBuilder::from_doc(doc)
                     } else {
                         b::intersperse(

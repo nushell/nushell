@@ -31,16 +31,34 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v.value {
         UntaggedValue::Primitive(Primitive::Boolean(b)) => serde_yaml::Value::Bool(*b),
         UntaggedValue::Primitive(Primitive::Bytes(b)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().unwrap()))
+            serde_yaml::Value::Number(serde_yaml::Number::from(b.to_f64().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not convert to bytes",
+                    "could not convert to bytes",
+                    &v.tag,
+                )
+            })?))
         }
-        UntaggedValue::Primitive(Primitive::Duration(secs)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(secs.to_f64().unwrap()))
-        }
+        UntaggedValue::Primitive(Primitive::Duration(secs)) => serde_yaml::Value::Number(
+            serde_yaml::Number::from(secs.to_f64().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not convert to duration",
+                    "could not convert to duration",
+                    &v.tag,
+                )
+            })?),
+        ),
         UntaggedValue::Primitive(Primitive::Date(d)) => serde_yaml::Value::String(d.to_string()),
         UntaggedValue::Primitive(Primitive::EndOfStream) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::BeginningOfStream) => serde_yaml::Value::Null,
         UntaggedValue::Primitive(Primitive::Decimal(f)) => {
-            serde_yaml::Value::Number(serde_yaml::Number::from(f.to_f64().unwrap()))
+            serde_yaml::Value::Number(serde_yaml::Number::from(f.to_f64().ok_or_else(|| {
+                ShellError::labeled_error(
+                    "Could not convert to decimal",
+                    "could not convert to decimal",
+                    &v.tag,
+                )
+            })?))
         }
         UntaggedValue::Primitive(Primitive::Int(i)) => {
             serde_yaml::Value::Number(serde_yaml::Number::from(CoerceInto::<i64>::coerce_into(
