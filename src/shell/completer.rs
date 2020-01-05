@@ -108,55 +108,45 @@ impl NuCompleter {
         let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
         line_copy.replace_range(replace_pos..pos, &replace_string);
 
-        match nu_parser::parse(&line_copy) {
-            Ok(val) => {
-                let source = Text::from(line);
-                let pipeline_list = vec![val.clone()];
+        if let Ok(val) = nu_parser::parse(&line_copy) {
+            let source = Text::from(line);
+            let pipeline_list = vec![val.clone()];
 
-                let expand_context = nu_parser::ExpandContext {
-                    homedir: None,
-                    registry: Box::new(self.commands.clone()),
-                    source: &source,
-                };
+            let expand_context = nu_parser::ExpandContext {
+                homedir: None,
+                registry: Box::new(self.commands.clone()),
+                source: &source,
+            };
 
-                let mut iterator =
-                    nu_parser::TokensIterator::new(&pipeline_list, expand_context, val.span());
+            let mut iterator =
+                nu_parser::TokensIterator::new(&pipeline_list, expand_context, val.span());
 
-                let result = iterator.expand_infallible(nu_parser::PipelineShape);
+            let result = iterator.expand_infallible(nu_parser::PipelineShape);
 
-                if let Some(_) = result.failed {
-                    // nothing to do
-                } else {
-                    for command in result.commands.list {
-                        match command {
-                            nu_parser::ClassifiedCommand::Internal(
-                                nu_parser::InternalCommand { args, .. },
-                            ) => {
-                                if replace_pos >= args.span.start()
-                                    && replace_pos <= args.span.end()
-                                {
-                                    if let Some(named) = args.named {
-                                        for (name, _) in named.iter() {
-                                            let full_flag = format!("--{}", name);
+            if result.failed.is_none() {
+                for command in result.commands.list {
+                    if let nu_parser::ClassifiedCommand::Internal(nu_parser::InternalCommand {
+                        args,
+                        ..
+                    }) = command
+                    {
+                        if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
+                            if let Some(named) = args.named {
+                                for (name, _) in named.iter() {
+                                    let full_flag = format!("--{}", name);
 
-                                            if full_flag.starts_with(&substring) {
-                                                matching_arguments.push(
-                                                    rustyline::completion::Pair {
-                                                        display: full_flag.clone(),
-                                                        replacement: full_flag,
-                                                    },
-                                                );
-                                            }
-                                        }
+                                    if full_flag.starts_with(&substring) {
+                                        matching_arguments.push(rustyline::completion::Pair {
+                                            display: full_flag.clone(),
+                                            replacement: full_flag,
+                                        });
                                     }
                                 }
                             }
-                            _ => {}
                         }
                     }
                 }
             }
-            _ => {}
         }
 
         matching_arguments

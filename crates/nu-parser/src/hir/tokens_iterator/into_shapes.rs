@@ -29,10 +29,7 @@ impl IntoShapes for FlatShape {
 impl IntoShapes for Vec<Spanned<FlatShape>> {
     fn into_shapes(self, _span: Span) -> FlatShapes {
         FlatShapes {
-            shapes: self
-                .into_iter()
-                .map(|shape| ShapeResult::Success(shape))
-                .collect(),
+            shapes: self.into_iter().map(ShapeResult::Success).collect(),
         }
     }
 }

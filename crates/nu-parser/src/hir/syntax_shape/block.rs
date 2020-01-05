@@ -111,7 +111,7 @@ impl ExpandSyntax for ShorthandPath {
         let tail = token_nodes.expand_syntax(PathTailShape);
 
         match tail {
-            Err(_) => return Ok(head),
+            Err(_) => Ok(head),
             Ok(PathTailSyntax { tail, span }) => {
                 let span = head.span.until(span);
 

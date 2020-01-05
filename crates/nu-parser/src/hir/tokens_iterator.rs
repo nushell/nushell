@@ -109,7 +109,7 @@ impl<'content> TokensIterator<'content> {
         checkpoint.commit();
         std::mem::swap(&mut self.state.shapes, &mut shapes);
 
-        return (Ok(value), shapes);
+        (Ok(value), shapes)
     }
 
     pub fn extract<T>(&mut self, f: impl Fn(&SpannedToken) -> Option<T>) -> Option<(usize, T)> {
@@ -206,6 +206,10 @@ impl<'content> TokensIterator<'content> {
         self.state.tokens.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.state.tokens.is_empty()
+    }
+
     pub fn source(&self) -> Text {
         self.state.context.source().clone()
     }
@@ -243,7 +247,7 @@ impl<'content> TokensIterator<'content> {
         });
 
         for shape in &shapes {
-            self.state.shapes.push(ShapeResult::Success(shape.clone()));
+            self.state.shapes.push(ShapeResult::Success(*shape));
         }
     }
 

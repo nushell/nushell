@@ -27,21 +27,27 @@ impl HelpShell {
         let mut specs = Vec::new();
 
         for cmd in registry.names() {
-            let mut spec = TaggedDictBuilder::new(Tag::unknown());
-            let value = command_dict(registry.get_command(&cmd).unwrap(), Tag::unknown());
+            if let Some(cmd_value) = registry.get_command(&cmd) {
+                let mut spec = TaggedDictBuilder::new(Tag::unknown());
+                let value = command_dict(cmd_value, Tag::unknown());
 
-            spec.insert_untagged("name", cmd);
-            spec.insert_untagged(
-                "description",
-                value
-                    .get_data_by_key("usage".spanned_unknown())
-                    .unwrap()
-                    .as_string()
-                    .unwrap(),
-            );
-            spec.insert_value("details", value);
+                spec.insert_untagged("name", cmd);
+                spec.insert_untagged(
+                    "description",
+                    value
+                        .get_data_by_key("usage".spanned_unknown())
+                        .ok_or_else(|| {
+                            ShellError::untagged_runtime_error(
+                                "Internal error: expected to find usage",
+                            )
+                        })?
+                        .as_string()?,
+                );
+                spec.insert_value("details", value);
 
-            specs.push(spec.into_value());
+                specs.push(spec.into_value());
+            } else {
+            }
         }
 
         cmds.insert_untagged("help", UntaggedValue::Table(specs));

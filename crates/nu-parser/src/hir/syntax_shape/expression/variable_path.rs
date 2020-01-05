@@ -40,9 +40,8 @@ impl ExpandSyntax for VariablePathShape {
         let mut tail: Vec<PathMember> = vec![];
 
         loop {
-            match token_nodes.expand_syntax(DotShape) {
-                Err(_) => break,
-                Ok(_) => {}
+            if token_nodes.expand_syntax(DotShape).is_err() {
+                break;
             }
 
             let member = token_nodes.expand_syntax(MemberShape)?;
@@ -92,9 +91,8 @@ impl ExpandSyntax for PathTailShape {
         let mut tail: Vec<PathMember> = vec![];
 
         loop {
-            match token_nodes.expand_syntax(DotShape) {
-                Err(_) => break,
-                Ok(_) => {}
+            if token_nodes.expand_syntax(DotShape).is_err() {
+                break;
             }
 
             let member = token_nodes.expand_syntax(MemberShape)?;
@@ -190,38 +188,30 @@ impl ExpandSyntax for ExpressionContinuationShape {
             // Try to expand a `.`
             let dot = token_nodes.expand_syntax(DotShape);
 
-            match dot {
+            if let Ok(dot) = dot {
                 // If a `.` was matched, it's a `Path`, and we expect a `Member` next
-                Ok(dot) => {
-                    let syntax = token_nodes.expand_syntax(MemberShape)?;
-                    let member = syntax.to_path_member(&token_nodes.source());
-                    let member_span = member.span;
+                let syntax = token_nodes.expand_syntax(MemberShape)?;
+                let member = syntax.to_path_member(&token_nodes.source());
+                let member_span = member.span;
 
-                    return Ok(ContinuationSyntax {
-                        kind: ContinuationSyntaxKind::Dot(dot, member),
-                        span: dot.until(member_span),
-                    });
-                }
-
-                Err(_) => {}
+                return Ok(ContinuationSyntax {
+                    kind: ContinuationSyntaxKind::Dot(dot, member),
+                    span: dot.until(member_span),
+                });
             }
 
             // Try to expand a `..`
             let dot = token_nodes.expand_syntax(DotDotShape);
 
-            match dot {
+            if let Ok(dotdot) = dot {
                 // If a `..` was matched, it's a `Range`, and we expect an `Expression` next
-                Ok(dotdot) => {
-                    let expr = token_nodes.expand_syntax(AnyExpressionShape)?;
-                    let expr_span = expr.span;
+                let expr = token_nodes.expand_syntax(AnyExpressionShape)?;
+                let expr_span = expr.span;
 
-                    return Ok(ContinuationSyntax {
-                        kind: ContinuationSyntaxKind::DotDot(dotdot, expr),
-                        span: dotdot.until(expr_span),
-                    });
-                }
-
-                Err(_) => {}
+                return Ok(ContinuationSyntax {
+                    kind: ContinuationSyntaxKind::DotDot(dotdot, expr),
+                    span: dotdot.until(expr_span),
+                });
             }
 
             // Otherwise, we expect an infix operator and an expression next
@@ -229,10 +219,10 @@ impl ExpandSyntax for ExpressionContinuationShape {
             let next = token_nodes.expand_syntax(AnyExpressionShape)?;
             let next_span = next.span;
 
-            return Ok(ContinuationSyntax {
+            Ok(ContinuationSyntax {
                 kind: ContinuationSyntaxKind::Infix(op.operator, next),
                 span: op.operator.span.until(next_span),
-            });
+            })
         })
     }
 }
@@ -288,7 +278,11 @@ impl ShellTypeName for Member {
 
 impl Member {
     pub fn int(span: Span, source: &Text) -> Member {
-        Member::Int(BigInt::from_str(span.slice(source)).unwrap(), span)
+        if let Ok(big_int) = BigInt::from_str(span.slice(source)) {
+            Member::Int(big_int, span)
+        } else {
+            unreachable!("Internal error: could not convert text to BigInt as expected")
+        }
     }
 
     pub fn to_path_member(&self, source: &Text) -> PathMember {

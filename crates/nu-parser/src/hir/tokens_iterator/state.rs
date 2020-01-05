@@ -61,7 +61,7 @@ impl<'content, 'me> Peeked<'content, 'me> {
     }
 
     pub fn type_error(&self, expected: &'static str) -> ParseError {
-        peek_error(&self.node, self.iterator.eof_span(), expected)
+        peek_error(self.node, self.iterator.eof_span(), expected)
     }
 }
 
@@ -89,12 +89,12 @@ impl<'content, 'me> PeekedNode<'content, 'me> {
     pub fn rollback(self) {}
 
     pub fn type_error(&self, expected: &'static str) -> ParseError {
-        peek_error(&Some(self.node), self.iterator.eof_span(), expected)
+        peek_error(Some(self.node), self.iterator.eof_span(), expected)
     }
 }
 
 pub fn peek_error(
-    node: &Option<&SpannedToken>,
+    node: Option<&SpannedToken>,
     eof_span: Span,
     expected: &'static str,
 ) -> ParseError {

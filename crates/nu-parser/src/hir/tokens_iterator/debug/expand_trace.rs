@@ -15,7 +15,7 @@ use std::io;
 pub enum FrameChild<T: SpannedTypeName> {
     Expr(T),
     Shape(Result<TraceShape, TraceShape>),
-    Frame(ExprFrame<T>),
+    Frame(Box<ExprFrame<T>>),
     Result(DebugDoc),
 }
 
@@ -34,7 +34,7 @@ impl<T: SpannedTypeName> FrameChild<T> {
         match self {
             FrameChild::Frame(frame) => {
                 if let Some(error) = &frame.error {
-                    if frame.children.len() == 0 {
+                    if frame.children.is_empty() {
                         Some((frame.description, err_desc(error)))
                     } else {
                         None
@@ -72,7 +72,7 @@ impl<T: SpannedTypeName> FrameChild<T> {
             }
             FrameChild::Frame(frame) => {
                 if let Some(err) = &frame.error {
-                    if frame.children.len() == 0 {
+                    if frame.children.is_empty() {
                         TreeChild::ErrorLeaf(
                             vec![(frame.description, err_desc(err))],
                             frame.token_desc(),
@@ -426,7 +426,9 @@ impl<T: SpannedTypeName + Debug> ExpandTracer<T> {
             }
 
             let frame = self.pop_frame();
-            self.current_frame().children.push(FrameChild::Frame(frame));
+            self.current_frame()
+                .children
+                .push(FrameChild::Frame(Box::new(frame)));
         }
     }
 
@@ -434,7 +436,7 @@ impl<T: SpannedTypeName + Debug> ExpandTracer<T> {
         let current = self.pop_frame();
         self.current_frame()
             .children
-            .push(FrameChild::Frame(current));
+            .push(FrameChild::Frame(Box::new(current)));
     }
 
     pub fn add_result(&mut self, result: impl PrettyDebugWithSource) {
@@ -448,7 +450,7 @@ impl<T: SpannedTypeName + Debug> ExpandTracer<T> {
         let current = self.pop_frame();
         self.current_frame()
             .children
-            .push(FrameChild::Frame(current));
+            .push(FrameChild::Frame(Box::new(current)));
     }
 
     pub fn failed(&mut self, error: &ParseError) {
@@ -456,7 +458,7 @@ impl<T: SpannedTypeName + Debug> ExpandTracer<T> {
         current.error = Some(error.clone());
         self.current_frame()
             .children
-            .push(FrameChild::Frame(current));
+            .push(FrameChild::Frame(Box::new(current)));
     }
 
     fn debug(&self) {

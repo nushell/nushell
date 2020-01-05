@@ -51,9 +51,19 @@ impl RawNumber {
 
     pub(crate) fn to_number(self, source: &Text) -> Number {
         match self {
-            RawNumber::Int(tag) => Number::Int(BigInt::from_str(tag.slice(source)).unwrap()),
+            RawNumber::Int(tag) => {
+                if let Ok(big_int) = BigInt::from_str(tag.slice(source)) {
+                    Number::Int(big_int)
+                } else {
+                    unreachable!("Internal error: could not parse text as BigInt as expected")
+                }
+            }
             RawNumber::Decimal(tag) => {
-                Number::Decimal(BigDecimal::from_str(tag.slice(source)).unwrap())
+                if let Ok(big_decimal) = BigDecimal::from_str(tag.slice(source)) {
+                    Number::Decimal(big_decimal)
+                } else {
+                    unreachable!("Internal error: could not parse text as BigDecimal as expected")
+                }
             }
         }
     }

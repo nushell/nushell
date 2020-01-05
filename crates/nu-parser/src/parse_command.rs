@@ -12,11 +12,13 @@ use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
 use nu_source::{HasFallibleSpan, HasSpan, PrettyDebugWithSource, Span, Spanned, SpannedItem};
 
+type OptionalHeadTail = (Option<Vec<hir::SpannedExpression>>, Option<NamedArguments>);
+
 pub fn parse_command_tail(
     config: &Signature,
     tail: &mut TokensIterator,
     command_span: Span,
-) -> Result<Option<(Option<Vec<hir::SpannedExpression>>, Option<NamedArguments>)>, ParseError> {
+) -> Result<Option<OptionalHeadTail>, ParseError> {
     let mut named = NamedArguments::new();
     let mut found_error: Option<ParseError> = None;
     let mut rest_signature = config.clone();
@@ -112,7 +114,7 @@ pub fn parse_command_tail(
         match result {
             Err(_) => match &arg.0 {
                 PositionalType::Mandatory(..) => {
-                    if let None = found_error {
+                    if found_error.is_none() {
                         found_error = Some(ParseError::argument_error(
                             config.name.clone().spanned(command_span),
                             ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),

@@ -100,11 +100,11 @@ impl Signature {
 
         for (ty, _) in &self.positional {
             let shape = ty.syntax_type();
-            allowed.insert(format!("{}", shape.display()));
+            allowed.insert(shape.display());
         }
 
         if let Some((shape, _)) = &self.rest_positional {
-            allowed.insert(format!("{}", shape.display()));
+            allowed.insert(shape.display());
         }
 
         allowed.into_iter().collect()

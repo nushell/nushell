@@ -124,19 +124,15 @@ impl Context {
         let host = self.host.clone();
         let host = host.lock();
 
-        let result: bool;
-
         if errors.len() > 0 {
             let error = errors[0].clone();
             *errors = vec![];
 
             crate::cli::print_err(error, &*host, &source);
-            result = true;
+            true
         } else {
-            result = false;
+            false
         }
-
-        result
     }
 
     pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {

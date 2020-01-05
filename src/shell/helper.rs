@@ -79,7 +79,7 @@ impl Highlighter for Helper {
                 let text = Text::from(line);
                 let expand_context = self.context.expand_context(&text);
 
-                let tokens = vec![Token::Pipeline(pipeline.clone()).into_spanned(v.span())];
+                let tokens = vec![Token::Pipeline(pipeline).into_spanned(v.span())];
                 let mut tokens = TokensIterator::new(&tokens[..], expand_context, v.span());
 
                 let shapes = {

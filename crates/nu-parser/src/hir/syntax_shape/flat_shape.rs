@@ -136,7 +136,7 @@ impl FlatShape {
         shapes
     }
 
-    fn from(token: &SpannedToken, source: &Text, shapes: &mut Vec<Spanned<FlatShape>>) -> () {
+    fn from(token: &SpannedToken, source: &Text, shapes: &mut Vec<Spanned<FlatShape>>) {
         let span = token.span();
 
         match token.unspanned() {

@@ -206,8 +206,8 @@ impl BarePathState {
     }
 }
 
-pub fn expand_bare<'a, 'b>(
-    token_nodes: &'b mut TokensIterator<'a>,
+pub fn expand_bare(
+    token_nodes: &'_ mut TokensIterator<'_>,
     predicate: impl Fn(&SpannedToken) -> bool,
 ) -> Result<Span, ParseError> {
     let mut state = BarePathState::Initial;

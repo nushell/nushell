@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::parse::{call_node::*, comment::*, flag::*, number::*, operator::*, pipeline::*};
 use derive_new::new;
 use getset::Getters;
