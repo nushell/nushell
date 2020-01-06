@@ -320,6 +320,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromINI),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
+            whole_stream_command(FromODS),
             whole_stream_command(FromDB),
             whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
