@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.7.2"
+version = "0.8.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 description = "A shell for the GitHub era"
 license = "MIT"
@@ -39,25 +39,25 @@ members = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-source = { version = "0.7.0", path = "./crates/nu-source" }
-nu-plugin = { version = "0.7.0", path = "./crates/nu-plugin" }
-nu-protocol = { version = "0.7.0", path = "./crates/nu-protocol" }
-nu-errors = { version = "0.7.0", path = "./crates/nu-errors" }
-nu-parser = { version = "0.7.0", path = "./crates/nu-parser" }
-nu-value-ext = { version = "0.7.0", path = "./crates/nu-value-ext" }
-nu_plugin_average = {version = "0.7.0", path = "./crates/nu_plugin_average", optional=true}
-nu_plugin_binaryview = {version = "0.7.0", path = "./crates/nu_plugin_binaryview", optional=true}
-nu_plugin_fetch = {version = "0.7.0", path = "./crates/nu_plugin_fetch", optional=true}
-nu_plugin_inc = {version = "0.7.0", path = "./crates/nu_plugin_inc", optional=true}
-nu_plugin_match = {version = "0.7.0", path = "./crates/nu_plugin_match", optional=true}
-nu_plugin_post = {version = "0.7.0", path = "./crates/nu_plugin_post", optional=true}
-nu_plugin_ps = {version = "0.7.0", path = "./crates/nu_plugin_ps", optional=true}
-nu_plugin_str = {version = "0.7.0", path = "./crates/nu_plugin_str", optional=true}
-nu_plugin_sum = {version = "0.7.0", path = "./crates/nu_plugin_sum", optional=true}
-nu_plugin_sys = {version = "0.7.0", path = "./crates/nu_plugin_sys", optional=true}
-nu_plugin_textview = {version = "0.7.0", path = "./crates/nu_plugin_textview", optional=true}
-nu_plugin_tree = {version = "0.7.0", path = "./crates/nu_plugin_tree", optional=true}
-nu-macros = { version = "0.7.0", path = "./crates/nu-macros" }
+nu-source = { version = "0.8.0", path = "./crates/nu-source" }
+nu-plugin = { version = "0.8.0", path = "./crates/nu-plugin" }
+nu-protocol = { version = "0.8.0", path = "./crates/nu-protocol" }
+nu-errors = { version = "0.8.0", path = "./crates/nu-errors" }
+nu-parser = { version = "0.8.0", path = "./crates/nu-parser" }
+nu-value-ext = { version = "0.8.0", path = "./crates/nu-value-ext" }
+nu_plugin_average = {version = "0.8.0", path = "./crates/nu_plugin_average", optional=true}
+nu_plugin_binaryview = {version = "0.8.0", path = "./crates/nu_plugin_binaryview", optional=true}
+nu_plugin_fetch = {version = "0.8.0", path = "./crates/nu_plugin_fetch", optional=true}
+nu_plugin_inc = {version = "0.8.0", path = "./crates/nu_plugin_inc", optional=true}
+nu_plugin_match = {version = "0.8.0", path = "./crates/nu_plugin_match", optional=true}
+nu_plugin_post = {version = "0.8.0", path = "./crates/nu_plugin_post", optional=true}
+nu_plugin_ps = {version = "0.8.0", path = "./crates/nu_plugin_ps", optional=true}
+nu_plugin_str = {version = "0.8.0", path = "./crates/nu_plugin_str", optional=true}
+nu_plugin_sum = {version = "0.8.0", path = "./crates/nu_plugin_sum", optional=true}
+nu_plugin_sys = {version = "0.8.0", path = "./crates/nu_plugin_sys", optional=true}
+nu_plugin_textview = {version = "0.8.0", path = "./crates/nu_plugin_textview", optional=true}
+nu_plugin_tree = {version = "0.8.0", path = "./crates/nu_plugin_tree", optional=true}
+nu-macros = { version = "0.8.0", path = "./crates/nu-macros" }
 
 
 query_interface = "0.3.5"
@@ -164,12 +164,12 @@ features = ["bundled", "blob"]
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
-nu-test-support = { version = "0.7.0", path = "./crates/nu-test-support" }
+nu-test-support = { version = "0.8.0", path = "./crates/nu-test-support" }
 
 [build-dependencies]
 toml = "0.5.5"
 serde = { version = "1.0.103", features = ["derive"] }
-nu-build = { version = "0.7.0", path = "./crates/nu-build" }
+nu-build = { version = "0.8.0", path = "./crates/nu-build" }
 
 [lib]
 name = "nu"
