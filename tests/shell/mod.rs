@@ -1,7 +1,7 @@
 mod pipeline {
     use nu_test_support::fs::Stub::EmptyFile;
     use nu_test_support::playground::Playground;
-    use nu_test_support::{nu, pipeline};
+    use nu_test_support::{nu, nu_error, pipeline};
 
     #[test]
     fn can_process_row_as_it_argument_to_an_external_command_given_the_it_data_is_a_string() {
@@ -70,6 +70,36 @@ mod pipeline {
             #[cfg(not(windows))]
             assert_eq!(actual, "andres_likes_arepas.txtjonathan_likes_cake.txt");
         })
+    }
+
+    #[test]
+    fn can_process_stdout_of_external_piped_to_stdin_of_external() {
+        let actual = nu!(
+            cwd: "tests/fixtures",
+            "^echo 1 | ^cat"
+        );
+
+        assert!(actual.contains("1"));
+    }
+
+    #[test]
+    fn can_process_row_from_internal_piped_to_stdin_of_external() {
+        let actual = nu!(
+            cwd: "tests/fixtures",
+            "echo \"1\" | ^cat"
+        );
+
+        assert!(actual.contains("1"));
+    }
+
+    #[test]
+    fn shows_error_for_external_command_that_fails() {
+        let actual = nu_error!(
+            cwd: "tests/fixtures",
+            "echo \"1\" | ^false"
+        );
+
+        assert!(actual.contains("External command failed"));
     }
 
     mod expands_tilde {
