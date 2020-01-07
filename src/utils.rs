@@ -345,6 +345,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("sample_data.ods"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sample_data.xlsx"),
                     at: 0
                 },
