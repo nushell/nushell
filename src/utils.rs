@@ -329,10 +329,6 @@ mod tests {
                     at: 0
                 },
                 Res {
-                    loc: fixtures().join("sample_data.ods"),
-                    at: 0
-                },
-                Res {
                     loc: fixtures().join("sample.bson"),
                     at: 0
                 },
@@ -346,6 +342,10 @@ mod tests {
                 },
                 Res {
                     loc: fixtures().join("sample.url"),
+                    at: 0
+                },
+                Res {
+                    loc: fixtures().join("sample_data.ods"),
                     at: 0
                 },
                 Res {
