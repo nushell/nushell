@@ -52,22 +52,27 @@ fn from_value_to_delimited_string(
 
             let merged_descriptors = merge_descriptors(&list);
 
-            wtr.write_record(merged_descriptors.iter().map(|item| &item.item[..]))
-                .expect("can not write.");
+            if merged_descriptors.is_empty() {
+                wtr.write_record(
+                    list.iter()
+                        .map(|ele| to_string_tagged_value(ele).unwrap_or_else(|_| String::new()))
+                        .collect::<Vec<_>>(),
+                )
+                .expect("can not write");
+            } else {
+                wtr.write_record(merged_descriptors.iter().map(|item| &item.item[..]))
+                    .expect("can not write.");
 
-            for l in list {
-                let mut row = vec![];
-                for desc in &merged_descriptors {
-                    match get_data_by_key(l, desc.borrow_spanned()) {
-                        Some(s) => {
-                            row.push(to_string_tagged_value(&s)?);
-                        }
-                        None => {
-                            row.push(String::new());
-                        }
+                for l in list {
+                    let mut row = vec![];
+                    for desc in &merged_descriptors {
+                        row.push(match get_data_by_key(l, desc.borrow_spanned()) {
+                            Some(s) => to_string_tagged_value(&s)?,
+                            None => String::new(),
+                        });
                     }
+                    wtr.write_record(&row).expect("can not write");
                 }
-                wtr.write_record(&row).expect("can not write");
             }
             let v = String::from_utf8(wtr.into_inner().map_err(|_| {
                 ShellError::labeled_error(
