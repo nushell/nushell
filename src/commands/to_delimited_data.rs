@@ -4,7 +4,7 @@ use indexmap::{indexset, IndexSet};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue, Value};
 use nu_source::Spanned;
-use nu_value_ext::get_data_by_key;
+use nu_value_ext::{as_string, get_data_by_key};
 
 fn from_value_to_delimited_string(
     tagged_value: &Value,
@@ -52,22 +52,27 @@ fn from_value_to_delimited_string(
 
             let merged_descriptors = merge_descriptors(&list);
 
-            wtr.write_record(merged_descriptors.iter().map(|item| &item.item[..]))
-                .expect("can not write.");
+            if merged_descriptors.is_empty() {
+                wtr.write_record(
+                    list.iter()
+                        .map(|ele| to_string_tagged_value(ele).unwrap_or_else(|_| String::new()))
+                        .collect::<Vec<_>>(),
+                )
+                .expect("can not write");
+            } else {
+                wtr.write_record(merged_descriptors.iter().map(|item| &item.item[..]))
+                    .expect("can not write.");
 
-            for l in list {
-                let mut row = vec![];
-                for desc in &merged_descriptors {
-                    match get_data_by_key(l, desc.borrow_spanned()) {
-                        Some(s) => {
-                            row.push(to_string_tagged_value(&s)?);
-                        }
-                        None => {
-                            row.push(String::new());
-                        }
+                for l in list {
+                    let mut row = vec![];
+                    for desc in &merged_descriptors {
+                        row.push(match get_data_by_key(l, desc.borrow_spanned()) {
+                            Some(s) => to_string_tagged_value(&s)?,
+                            None => String::new(),
+                        });
                     }
+                    wtr.write_record(&row).expect("can not write");
                 }
-                wtr.write_record(&row).expect("can not write");
             }
             let v = String::from_utf8(wtr.into_inner().map_err(|_| {
                 ShellError::labeled_error(
@@ -127,19 +132,16 @@ pub fn clone_tagged_value(v: &Value) -> Value {
 // NOTE: could this be useful more widely and implemented on Value ?
 fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
     match &v.value {
+        UntaggedValue::Primitive(Primitive::String(_))
+        | UntaggedValue::Primitive(Primitive::Line(_))
+        | UntaggedValue::Primitive(Primitive::Bytes(_))
+        | UntaggedValue::Primitive(Primitive::Boolean(_))
+        | UntaggedValue::Primitive(Primitive::Decimal(_))
+        | UntaggedValue::Primitive(Primitive::Path(_))
+        | UntaggedValue::Primitive(Primitive::Int(_)) => as_string(v),
         UntaggedValue::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
-        UntaggedValue::Primitive(Primitive::Bytes(b)) => {
-            let tmp = format!("{}", b);
-            Ok(tmp)
-        }
-        UntaggedValue::Primitive(Primitive::Boolean(_)) => Ok(v.as_string()?),
-        UntaggedValue::Primitive(Primitive::Decimal(_)) => Ok(v.as_string()?),
-        UntaggedValue::Primitive(Primitive::Int(_)) => Ok(v.as_string()?),
-        UntaggedValue::Primitive(Primitive::Path(_)) => Ok(v.as_string()?),
         UntaggedValue::Table(_) => Ok(String::from("[Table]")),
         UntaggedValue::Row(_) => Ok(String::from("[Row]")),
-        UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.to_string()),
-        UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.to_string()),
         _ => Err(ShellError::labeled_error(
             "Unexpected value",
             "",
@@ -193,8 +195,8 @@ pub fn to_delimited_data(
                      };
                      yield ReturnSuccess::value(UntaggedValue::Primitive(Primitive::String(converted)).into_value(&name_tag))
                  }
-                 _ => {
-                     let expected = format!("Expected a table with {}-compatible structure.tag() from pipeline", format_name);
+                 Err(x) => {
+                     let expected = format!("Expected a table with {}-compatible structure from pipeline", format_name);
                      let requires = format!("requires {}-compatible input", format_name);
                      yield Err(ShellError::labeled_error_with_secondary(
                          expected,

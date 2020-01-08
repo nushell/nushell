@@ -66,5 +66,6 @@ fn to_csv(
         }
         _ => ',',
     };
+
     to_delimited_data(headerless, sep, "CSV", runnable_context)
 }
