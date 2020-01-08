@@ -151,7 +151,7 @@ fn to_yaml(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             UntaggedValue::Primitive(Primitive::String(x)).into_value(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with YAML-compatible structure.tag() from pipeline",
+                            "Expected a table with YAML-compatible structure from pipeline",
                             "requires YAML-compatible input",
                             name_span,
                             "originates from here".to_string(),

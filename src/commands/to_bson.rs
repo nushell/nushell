@@ -287,7 +287,7 @@ fn to_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                             UntaggedValue::binary(x).into_value(&name_tag),
                         ),
                         _ => yield Err(ShellError::labeled_error_with_secondary(
-                            "Expected a table with BSON-compatible structure.tag() from pipeline",
+                            "Expected a table with BSON-compatible structure from pipeline",
                             "requires BSON-compatible input",
                             name_span,
                             "originates from here".to_string(),
