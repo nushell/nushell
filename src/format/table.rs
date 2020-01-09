@@ -350,9 +350,9 @@ impl RenderView for TableView {
                 table.set_format(
                     FormatBuilder::new()
                         .column_separator('│')
-                        .separator(LinePosition::Top, LineSeparator::new('━', '┯', ' ', ' '))
+                        .separator(LinePosition::Top, LineSeparator::new('─', '┬', ' ', ' '))
                         .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
-                        .separator(LinePosition::Bottom, LineSeparator::new('━', '┷', ' ', ' '))
+                        .separator(LinePosition::Bottom, LineSeparator::new('─', '┴', ' ', ' '))
                         .padding(1, 1)
                         .build(),
                 );
