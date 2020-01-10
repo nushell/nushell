@@ -7,7 +7,7 @@ fn filters_by_unit_size_comparison() {
         "ls | where size > 1kb | sort-by size | get name | first 1 | trim | echo $it"
     );
 
-    assert_eq!(actual, "nested_uniq.json");
+    assert_eq!(actual, "cargo_sample.toml");
 }
 
 #[test]

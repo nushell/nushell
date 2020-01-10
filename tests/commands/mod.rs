@@ -18,6 +18,7 @@ mod mkdir;
 mod mv;
 mod open;
 mod parse;
+mod pick;
 mod prepend;
 mod range;
 mod reverse;
