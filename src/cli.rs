@@ -607,8 +607,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 return LineResult::Error(line.to_string(), err);
             }
 
-            let input = InputStream::empty();
-            match run_pipeline(pipeline, ctx, input, line).await {
+            match run_pipeline(pipeline, ctx, None, line).await {
                 Ok(_) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
             }
