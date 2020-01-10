@@ -75,6 +75,7 @@ mod pipeline {
     mod expands_tilde {
         use super::nu;
 
+        #[cfg(not(windows))]
         #[test]
         fn as_home_directory_when_passed_as_argument_and_begins_with_tilde_to_an_external() {
             let actual = nu!(
