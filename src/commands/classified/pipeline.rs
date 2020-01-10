@@ -11,7 +11,7 @@ use std::sync::atomic::Ordering;
 pub(crate) async fn run_pipeline(
     pipeline: ClassifiedPipeline,
     ctx: &mut Context,
-    mut input: InputStream,
+    mut input: Option<InputStream>,
     line: &str,
 ) -> Result<(), ShellError> {
     let mut iter = pipeline.commands.list.into_iter().peekable();
@@ -46,20 +46,22 @@ pub(crate) async fn run_pipeline(
     }
 
     use futures::stream::TryStreamExt;
-    let mut output_stream: OutputStream = input.into();
-    loop {
-        match output_stream.try_next().await {
-            Ok(Some(ReturnSuccess::Value(Value {
-                value: UntaggedValue::Error(e),
-                ..
-            }))) => return Err(e),
-            Ok(Some(_item)) => {
-                if ctx.ctrl_c.load(Ordering::SeqCst) {
+    if let Some(input) = input {
+        let mut output_stream: OutputStream = input.into();
+        loop {
+            match output_stream.try_next().await {
+                Ok(Some(ReturnSuccess::Value(Value {
+                    value: UntaggedValue::Error(e),
+                    ..
+                }))) => return Err(e),
+                Ok(Some(_item)) => {
+                    if ctx.ctrl_c.load(Ordering::SeqCst) {
+                        break;
+                    }
+                }
+                _ => {
                     break;
                 }
-            }
-            _ => {
-                break;
             }
         }
     }

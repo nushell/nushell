@@ -51,9 +51,9 @@ impl Decoder for LinesCodec {
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
-    input: InputStream,
+    input: Option<InputStream>,
     is_last: bool,
-) -> Result<InputStream, ShellError> {
+) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
     let has_it_arg = command.args.iter().any(|arg| arg.contains("$it"));
@@ -67,13 +67,13 @@ pub(crate) async fn run_external_command(
 async fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
-    input: InputStream,
+    input: Option<InputStream>,
     is_last: bool,
-) -> Result<InputStream, ShellError> {
+) -> Result<Option<InputStream>, ShellError> {
     let name = command.name;
     let args = command.args;
     let name_tag = command.name_tag;
-    let inputs = input.into_vec().await;
+    let inputs = input.unwrap_or_else(InputStream::empty).into_vec().await;
 
     trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
@@ -137,7 +137,7 @@ async fn run_with_iterator_arg(
     if let Ok(mut popen) = popen {
         if is_last {
             let _ = popen.wait();
-            Ok(InputStream::empty())
+            Ok(None)
         } else {
             let stdout = popen.stdout.take().ok_or_else(|| {
                 ShellError::untagged_runtime_error("Can't redirect the stdout for external command")
@@ -148,7 +148,7 @@ async fn run_with_iterator_arg(
                 line.expect("Internal error: could not read lines of text from stdin")
                     .into_value(&name_tag)
             });
-            Ok(stream.boxed().into())
+            Ok(Some(stream.boxed().into()))
         }
     } else {
         Err(ShellError::labeled_error(
@@ -162,9 +162,9 @@ async fn run_with_iterator_arg(
 async fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
-    mut input: InputStream,
+    input: Option<InputStream>,
     is_last: bool,
-) -> Result<InputStream, ShellError> {
+) -> Result<Option<InputStream>, ShellError> {
     let name_tag = command.name_tag;
     let home_dir = dirs::home_dir();
 
@@ -192,61 +192,65 @@ async fn run_with_stdin(
         trace!(target: "nu::run::external", "set up stdout pipe");
     }
 
-    process = process.stdin(subprocess::Redirection::Pipe);
-    trace!(target: "nu::run::external", "set up stdin pipe");
+    if input.is_some() {
+        process = process.stdin(subprocess::Redirection::Pipe);
+        trace!(target: "nu::run::external", "set up stdin pipe");
+    }
 
     trace!(target: "nu::run::external", "built process {:?}", process);
 
     let popen = process.detached().popen();
     if let Ok(mut popen) = popen {
-        let mut stdin_write = popen
-            .stdin
-            .take()
-            .expect("Internal error: could not get stdin pipe for external command");
-
         let stream = async_stream! {
-            while let Some(item) = input.next().await {
-                match item.value {
-                    UntaggedValue::Primitive(Primitive::Nothing) => {
-                        // If first in a pipeline, will receive Nothing. This is not an error.
-                    },
+            if let Some(mut input) = input {
+                let mut stdin_write = popen
+                    .stdin
+                    .take()
+                    .expect("Internal error: could not get stdin pipe for external command");
 
-                    UntaggedValue::Primitive(Primitive::String(s)) |
-                        UntaggedValue::Primitive(Primitive::Line(s)) =>
-                    {
-                        if let Err(e) = stdin_write.write(s.as_bytes()) {
-                            let message = format!("Unable to write to stdin (error = {})", e);
+                while let Some(item) = input.next().await {
+                    match item.value {
+                        UntaggedValue::Primitive(Primitive::Nothing) => {
+                            // If first in a pipeline, will receive Nothing. This is not an error.
+                        },
+
+                        UntaggedValue::Primitive(Primitive::String(s)) |
+                            UntaggedValue::Primitive(Primitive::Line(s)) =>
+                        {
+                            if let Err(e) = stdin_write.write(s.as_bytes()) {
+                                let message = format!("Unable to write to stdin (error = {})", e);
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(ShellError::labeled_error(
+                                        message,
+                                        "unable to write to stdin",
+                                        &name_tag,
+                                    )),
+                                    tag: name_tag,
+                                });
+                                return;
+                            }
+                        },
+
+                        // TODO serialize other primitives? https://github.com/nushell/nushell/issues/778
+
+                        v => {
+                            let message = format!("Received unexpected type from pipeline ({})", v.type_name());
                             yield Ok(Value {
                                 value: UntaggedValue::Error(ShellError::labeled_error(
                                     message,
-                                    "unable to write to stdin",
+                                    "expected a string",
                                     &name_tag,
                                 )),
                                 tag: name_tag,
                             });
                             return;
-                        }
-                    },
-
-                    // TODO serialize other primitives? https://github.com/nushell/nushell/issues/778
-
-                    v => {
-                        let message = format!("Received unexpected type from pipeline ({})", v.type_name());
-                        yield Ok(Value {
-                            value: UntaggedValue::Error(ShellError::labeled_error(
-                                message,
-                                "expected a string",
-                                &name_tag,
-                            )),
-                            tag: name_tag,
-                        });
-                        return;
-                    },
+                        },
+                    }
                 }
-            }
 
-            // Close stdin, which informs the external process that there's no more input
-            drop(stdin_write);
+                // Close stdin, which informs the external process that there's no more input
+                drop(stdin_write);
+            }
 
             if !is_last {
                 let stdout = if let Some(stdout) = popen.stdout.take() {
@@ -302,7 +306,7 @@ async fn run_with_stdin(
             };
         };
 
-        Ok(stream.to_input_stream())
+        Ok(Some(stream.to_input_stream()))
     } else {
         Err(ShellError::labeled_error(
             "Command not found",
