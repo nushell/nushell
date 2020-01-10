@@ -296,23 +296,26 @@ async fn run_with_stdin(
                 }
             }
 
-            let errored = match popen.wait() {
-                Ok(status) => !status.success(),
-                Err(e) => true,
-            };
-
-            if errored {
-                yield Ok(Value {
-                    value: UntaggedValue::Error(
-                        ShellError::labeled_error(
-                            "External command failed",
-                            "command failed",
-                            &name_tag,
-                        )
-                    ),
-                    tag: name_tag,
-                });
-            };
+            loop {
+                match popen.poll() {
+                    None => std::thread::sleep(std::time::Duration::new(0, 100_000_000)),
+                    Some(status) => {
+                        if !status.success() {
+                            yield Ok(Value {
+                                value: UntaggedValue::Error(
+                                    ShellError::labeled_error(
+                                        "External command failed",
+                                        "command failed",
+                                        &name_tag,
+                                    )
+                                ),
+                                tag: name_tag,
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
         };
 
         Ok(Some(stream.to_input_stream()))
