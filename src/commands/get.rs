@@ -2,13 +2,14 @@ use crate::commands::WholeStreamCommand;
 use crate::data::base::shape::Shapes;
 use crate::prelude::*;
 use futures_util::pin_mut;
+use indexmap::set::IndexSet;
 use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{
-    did_you_mean, ColumnPath, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue,
-    Value,
+    did_you_mean, ColumnPath, PathMember, ReturnSuccess, ReturnValue, Signature, SyntaxShape,
+    UnspannedPathMember, UntaggedValue, Value,
 };
-use nu_source::{span_for_spanned_list, PrettyDebug};
+use nu_source::span_for_spanned_list;
 use nu_value_ext::get_data_by_column_path;
 
 pub struct Get;
@@ -50,42 +51,125 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
         obj,
         path,
         Box::new(move |(obj_source, column_path_tried, error)| {
-            if let UntaggedValue::Table(rows) = &obj_source.value {
-                let total = rows.len();
-                let end_tag = match fields
-                    .members()
-                    .iter()
-                    .nth_back(if fields.members().len() > 2 { 1 } else { 0 })
-                {
-                    Some(last_field) => last_field.span,
-                    None => column_path_tried.span,
-                };
+            let path_members_span = span_for_spanned_list(fields.members().iter().map(|p| p.span));
 
-                let primary_label = format!(
-                    "There isn't a row indexed at {}",
-                    column_path_tried.display()
-                );
+            match &obj_source.value {
+                UntaggedValue::Table(rows) => match column_path_tried {
+                    PathMember {
+                        unspanned: UnspannedPathMember::String(column),
+                        ..
+                    } => {
+                        let primary_label = format!("There isn't a column named '{}'", &column);
 
-                let secondary_label = if total == 1 {
-                    "The table only has 1 row".to_owned()
-                } else {
-                    format!("The table only has {} rows (0 to {})", total, total - 1)
-                };
+                        let suggestions: IndexSet<_> = rows
+                            .iter()
+                            .filter_map(|r| did_you_mean(&r, &column_path_tried))
+                            .map(|s| s[0].1.to_owned())
+                            .collect();
+                        let mut existing_columns: IndexSet<_> = IndexSet::default();
+                        let mut names: Vec<String> = vec![];
 
-                return ShellError::labeled_error_with_secondary(
-                    "Row not found",
-                    primary_label,
-                    column_path_tried.span,
-                    secondary_label,
-                    end_tag,
-                );
+                        for row in rows {
+                            for field in row.data_descriptors() {
+                                if !existing_columns.contains(&field[..]) {
+                                    existing_columns.insert(field.clone());
+                                    names.push(field);
+                                }
+                            }
+                        }
+
+                        if names.is_empty() {
+                            return ShellError::labeled_error_with_secondary(
+                                "Unknown column",
+                                primary_label,
+                                column_path_tried.span,
+                                "Appears to contain rows. Try indexing instead.",
+                                column_path_tried.span.since(path_members_span),
+                            );
+                        } else {
+                            return ShellError::labeled_error_with_secondary(
+                                "Unknown column",
+                                primary_label,
+                                column_path_tried.span,
+                                format!(
+                                    "Perhaps you meant '{}'? Columns available: {}",
+                                    suggestions
+                                        .iter()
+                                        .map(|x| x.to_owned())
+                                        .collect::<Vec<String>>()
+                                        .join(","),
+                                    names.join(",")
+                                ),
+                                column_path_tried.span.since(path_members_span),
+                            );
+                        };
+                    }
+                    PathMember {
+                        unspanned: UnspannedPathMember::Int(idx),
+                        ..
+                    } => {
+                        let total = rows.len();
+
+                        let secondary_label = if total == 1 {
+                            "The table only has 1 row".to_owned()
+                        } else {
+                            format!("The table only has {} rows (0 to {})", total, total - 1)
+                        };
+
+                        return ShellError::labeled_error_with_secondary(
+                            "Row not found",
+                            format!("There isn't a row indexed at {}", idx),
+                            column_path_tried.span,
+                            secondary_label,
+                            column_path_tried.span.since(path_members_span),
+                        );
+                    }
+                },
+                UntaggedValue::Row(columns) => match column_path_tried {
+                    PathMember {
+                        unspanned: UnspannedPathMember::String(column),
+                        ..
+                    } => {
+                        let primary_label = format!("There isn't a column named '{}'", &column);
+
+                        if let Some(suggestions) = did_you_mean(&obj_source, column_path_tried) {
+                            return ShellError::labeled_error_with_secondary(
+                                "Unknown column",
+                                primary_label,
+                                column_path_tried.span,
+                                format!(
+                                    "Perhaps you meant '{}'? Columns available: {}",
+                                    suggestions[0].1,
+                                    &obj_source.data_descriptors().join(",")
+                                ),
+                                column_path_tried.span.since(path_members_span),
+                            );
+                        }
+                    }
+                    PathMember {
+                        unspanned: UnspannedPathMember::Int(idx),
+                        ..
+                    } => {
+                        return ShellError::labeled_error_with_secondary(
+                            "No rows available",
+                            format!("A row at '{}' can't be indexed.", &idx),
+                            column_path_tried.span,
+                            format!(
+                                "Appears to contain columns. Columns available: {}",
+                                columns.keys().join(",")
+                            ),
+                            column_path_tried.span.since(path_members_span),
+                        )
+                    }
+                },
+                _ => {}
             }
 
             if let Some(suggestions) = did_you_mean(&obj_source, column_path_tried) {
                 return ShellError::labeled_error(
                     "Unknown column",
                     format!("did you mean '{}'?", suggestions[0].1),
-                    span_for_spanned_list(fields.members().iter().map(|p| p.span)),
+                    column_path_tried.span.since(path_members_span),
                 );
             }
 

@@ -393,7 +393,6 @@ impl Tag {
     }
 }
 
-#[allow(unused)]
 pub fn tag_for_tagged_list(mut iter: impl Iterator<Item = Tag>) -> Tag {
     let first = iter.next();
 
@@ -410,7 +409,6 @@ pub fn tag_for_tagged_list(mut iter: impl Iterator<Item = Tag>) -> Tag {
     }
 }
 
-#[allow(unused)]
 pub fn span_for_spanned_list(mut iter: impl Iterator<Item = Span>) -> Span {
     let first = iter.next();
 
@@ -469,6 +467,12 @@ impl Span {
             start: pos,
             end: pos + 1,
         }
+    }
+
+    pub fn since(&self, other: impl Into<Span>) -> Span {
+        let other = other.into();
+
+        Span::new(other.start, self.end)
     }
 
     pub fn until(&self, other: impl Into<Span>) -> Span {
