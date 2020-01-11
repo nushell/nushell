@@ -50,7 +50,7 @@ fn uniq_values() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.csv
-                | pick get type
+                | pick type
                 | uniq
                 | count
                 | echo $it
