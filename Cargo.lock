@@ -371,15 +371,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chrono-humanize"
-version = "0.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb2ff48a655fe8d2dae9a39e66af7fd8ff32a879e8c4e27422c25596a8b5e90d"
-dependencies = [
- "chrono",
-]
-
-[[package]]
 name = "clap"
 version = "2.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2114,7 +2105,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
@@ -2128,7 +2119,6 @@ dependencies = [
  "calamine",
  "cfg-if",
  "chrono",
- "chrono-humanize",
  "clap",
  "clipboard",
  "crossterm",
@@ -2213,6 +2203,7 @@ dependencies = [
  "umask",
  "unicode-xid",
  "url",
+ "users",
 ]
 
 [[package]]
@@ -2309,7 +2300,6 @@ dependencies = [
  "bigdecimal",
  "byte-unit",
  "chrono",
- "chrono-humanize",
  "derive-new",
  "getset",
  "indexmap",
@@ -3905,6 +3895,15 @@ checksum = "4ef4711d107b21b410a3a974b1204d9accc8b10dad75d8324b5d755de1617d47"
 dependencies = [
  "winapi 0.2.8",
  "winapi-build",
+]
+
+[[package]]
+name = "users"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c72f4267aea0c3ec6d07eaabea6ead7c5ddacfafc5e22bcf8d186706851fb4cf"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

@@ -24,11 +24,11 @@ impl WholeStreamCommand for Version {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        date(args, registry)
+        version(args, registry)
     }
 }
 
-pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+pub fn version(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.call_info.name_tag.clone();
 
