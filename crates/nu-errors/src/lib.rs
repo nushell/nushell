@@ -449,8 +449,8 @@ impl ShellError {
                     format!(
                         "{} requires {}{}",
                         Color::Cyan.paint(&command.item),
-                        Color::Black.bold().paint("--"),
-                        Color::Black.bold().paint(name)
+                        Color::Green.bold().paint("--"),
+                        Color::Green.bold().paint(name)
                     ),
                 )
                 .with_label(Label::new_primary(command.span)),
@@ -470,8 +470,8 @@ impl ShellError {
                     format!(
                         "{} is missing value for flag {}{}",
                         Color::Cyan.paint(&command.item),
-                        Color::Black.bold().paint("--"),
-                        Color::Black.bold().paint(name)
+                        Color::Green.bold().paint("--"),
+                        Color::Green.bold().paint(name)
                     ),
                 )
                 .with_label(Label::new_primary(command.span)),
