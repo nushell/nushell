@@ -122,6 +122,17 @@ impl Shell for FilesystemShell {
                     }
                     Ok(o) => o,
                 };
+                let mut entries = entries.collect::<Vec<Result<std::fs::DirEntry, _>>>();
+                entries.sort_by(|x, y| match (x, y) {
+                    (Ok(entry1), Ok(entry2)) => entry1
+                        .path()
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .cmp(&entry2.path().to_string_lossy().to_lowercase()),
+                    (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+                    (Ok(_), Err(_)) => std::cmp::Ordering::Greater,
+                    _ => std::cmp::Ordering::Equal,
+                });
                 let stream = async_stream! {
                     for entry in entries {
                         if ctrl_c.load(Ordering::SeqCst) {
