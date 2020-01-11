@@ -107,22 +107,22 @@ impl<E: Error> Error for UsernameError<E> {
     }
 }
 
-pub(crate) fn expand_tilde_with_context<'home>(
+pub(crate) fn expand_tilde_with_context(
     path: &str,
     homedir: &dyn Fn() -> Option<PathBuf>,
     username_homedir: &dyn Fn(&str) -> Option<String>,
 ) -> PathBuf {
-    if !path.starts_with("~") {
+    if !path.starts_with('~') {
         path.into()
     } else {
         let home = homedir();
         match (path, home) {
-            ("~", Some(home)) => home.into(),
+            ("~", Some(home)) => home,
             (path, Some(home)) if path.starts_with("~/") => {
                 path.replacen("~", &home.to_string_lossy(), 1).into()
             }
             (path, _) => {
-                let end = path.find("/").unwrap_or(path.len());
+                let end = path.find('/').unwrap_or_else(|| path.len());
                 let name = &path[1..end];
                 if let Some(home) = &username_homedir(name) {
                     path.replacen(&path[0..end], &home, 1).into()
@@ -134,7 +134,7 @@ pub(crate) fn expand_tilde_with_context<'home>(
     }
 }
 
-pub fn expand_tilde<'home>(path: &str, homedir: &dyn Fn() -> Option<PathBuf>) -> PathBuf {
+pub fn expand_tilde(path: &str, homedir: &dyn Fn() -> Option<PathBuf>) -> PathBuf {
     expand_tilde_with_context(path, homedir, &|name| {
         dbg!(username_homedir(name).unwrap_or(None))
     })
