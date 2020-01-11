@@ -108,7 +108,6 @@ hex = "0.4"
 tempfile = "3.1.0"
 ichwh = "0.2"
 textwrap = {version = "0.11.0", features = ["term_size"]}
-shellexpand = "1.0.0"
 pin-utils = "0.1.0-alpha.4"
 num-bigint = { version = "0.2.3", features = ["serde"] }
 bigdecimal = { version = "0.1.0", features = ["serde"] }

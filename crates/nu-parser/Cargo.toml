@@ -30,12 +30,12 @@ derive-new = "0.5.8"
 getset = "0.0.9"
 cfg-if = "0.1"
 itertools = "0.8.1"
-shellexpand = "1.0.0"
 ansi_term = "0.12.1"
 ptree = {version = "0.2" }
 language-reporting = "0.4.0"
 unicode-xid = "0.2.0"
 enumflags2 = "0.6.2"
+libc = "0.2"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"

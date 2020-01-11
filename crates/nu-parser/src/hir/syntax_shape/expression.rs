@@ -9,6 +9,7 @@ pub(crate) mod string;
 pub(crate) mod unit;
 pub(crate) mod variable_path;
 
+use crate::hir::path::expand_tilde;
 use crate::hir::syntax_shape::{
     color_delimited_square, color_fallible_syntax, color_fallible_syntax_with, expand_atom,
     expand_delimited_square, expand_expr, expand_syntax, BareShape, ColorableDotShape, DotShape,
@@ -319,7 +320,7 @@ impl ExpandSyntax for BareTailShape {
 }
 
 pub fn expand_file_path(string: &str, context: &ExpandContext) -> PathBuf {
-    let expanded = shellexpand::tilde_with_context(string, || context.homedir());
-
-    PathBuf::from(expanded.as_ref())
+    dbg!(expand_tilde(string, &|| context
+        .homedir()
+        .map(|p| p.to_owned())))
 }

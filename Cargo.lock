@@ -2188,7 +2188,6 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "serde_yaml",
- "shellexpand",
  "starship",
  "strip-ansi-escapes",
  "subprocess",
@@ -2257,6 +2256,7 @@ dependencies = [
  "indexmap",
  "itertools 0.8.2",
  "language-reporting",
+ "libc",
  "log",
  "nom 5.0.1",
  "nom-tracable",
@@ -2272,7 +2272,6 @@ dependencies = [
  "pretty_env_logger",
  "ptree",
  "serde 1.0.104",
- "shellexpand",
  "termcolor",
  "unicode-xid",
 ]
@@ -3424,15 +3423,6 @@ checksum = "9ee04b46101f57121c9da2b151988283b6beb79b34f5bb29a58ee48cb695122c"
 dependencies = [
  "winapi 0.2.8",
  "winapi-build",
-]
-
-[[package]]
-name = "shellexpand"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a23aed0018ea07316c7826ade41e551772031cf652805f93ebc922215a44d4a"
-dependencies = [
- "dirs 1.0.5",
 ]
 
 [[package]]

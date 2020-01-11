@@ -4,10 +4,10 @@ use futures::stream::StreamExt;
 use futures_codec::{Decoder, Encoder, Framed};
 use log::trace;
 use nu_errors::ShellError;
+use nu_parser::expand_tilde;
 use nu_parser::ExternalCommand;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::io::{Error, ErrorKind, Write};
-use std::ops::Deref;
 use subprocess::Exec;
 
 /// A simple `Codec` implementation that splits up data into lines.
@@ -113,7 +113,8 @@ async fn run_with_iterator_arg(
             if arg.chars().all(|c| c.is_whitespace()) {
                 None
             } else {
-                let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
+                let path = expand_tilde(arg, &|| home_dir.clone());
+                let arg = path.to_string_lossy();
                 Some(arg.replace("$it", &i))
             }
         });
@@ -171,7 +172,8 @@ async fn run_with_stdin(
     let mut process = Exec::cmd(&command.name);
     for arg in command.args.iter() {
         // Let's also replace ~ as we shell out
-        let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
+        let path = expand_tilde(arg, &|| home_dir.clone());
+        let arg = path.to_string_lossy();
 
         // Strip quotes from a quoted string
         if arg.len() > 1
