@@ -1,6 +1,6 @@
 [package]
 name = "nu"
-version = "0.8.0"
+version = "0.8.1"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 description = "A shell for the GitHub era"
 license = "MIT"
@@ -71,7 +71,6 @@ ansi_term = "0.12.1"
 nom = "5.0.1"
 dunce = "1.0.0"
 indexmap = { version = "1.3.0", features = ["serde-1"] }
-chrono-humanize = "0.0.11"
 byte-unit = "3.0.3"
 base64 = "0.11"
 futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
@@ -135,6 +134,9 @@ onig_sys = {version = "=69.1.0", optional = true }
 crossterm = {version = "0.10.2", optional = true}
 futures-timer = {version = "1.0.2", optional = true}
 url = {version = "2.1.0", optional = true}
+
+[target.'cfg(unix)'.dependencies]
+users = "0.9"
 
 [features]
 default = ["sys", "ps", "textview", "inc", "str"]

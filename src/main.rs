@@ -65,6 +65,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     builder.try_init()?;
 
+    println!(
+        "Welcome to Nushell {} (type 'help' for more info)",
+        clap::crate_version!()
+    );
     futures::executor::block_on(nu::cli())?;
     Ok(())
 }
