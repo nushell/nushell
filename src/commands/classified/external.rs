@@ -159,6 +159,17 @@ async fn run_with_iterator_arg(
     }
 }
 
+pub fn argument_is_quoted(argument: &str) -> bool {
+    (argument.starts_with('"') && argument.ends_with('"')
+        || (argument.starts_with('\'') && argument.ends_with('\'')))
+}
+
+pub fn remove_quotes(argument: &str) -> &str {
+    let size = argument.len();
+
+    &argument[1..size - 1]
+}
+
 async fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
@@ -169,19 +180,17 @@ async fn run_with_stdin(
     let home_dir = dirs::home_dir();
 
     let mut process = Exec::cmd(&command.name);
+
     for arg in command.args.iter() {
         // Let's also replace ~ as we shell out
         let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
 
         // Strip quotes from a quoted string
-        if arg.len() > 1
-            && ((arg.starts_with('"') && arg.ends_with('"'))
-                || (arg.starts_with('\'') && arg.ends_with('\'')))
-        {
-            process = process.arg(arg.chars().skip(1).take(arg.len() - 2).collect::<String>());
+        process = if arg.len() > 1 && (argument_is_quoted(&arg)) {
+            process.arg(remove_quotes(&arg))
         } else {
-            process = process.arg(arg.as_ref());
-        }
+            process.arg(arg.as_ref())
+        };
     }
 
     process = process.cwd(context.shell_manager.path()?);
@@ -313,5 +322,105 @@ async fn run_with_stdin(
             "command not found",
             name_tag,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{argument_is_quoted, remove_quotes, run_external_command, Context, OutputStream};
+    use futures::executor::block_on;
+    use futures::stream::TryStreamExt;
+    use nu_errors::ShellError;
+    use nu_parser::commands::classified::external::{ExternalArgs, ExternalCommand};
+    use nu_protocol::{UntaggedValue, Value};
+    use nu_source::{Span, SpannedItem, Tag};
+
+    async fn read(mut stream: OutputStream) -> Option<Value> {
+        match stream.try_next().await {
+            Ok(val) => {
+                if let Some(val) = val {
+                    val.raw_value()
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    }
+
+    fn external(name: &str) -> ExternalCommand {
+        let mut path = nu_test_support::fs::binaries();
+        path.push(name);
+
+        let name = path.to_string_lossy().to_string().spanned(Span::unknown());
+
+        ExternalCommand {
+            name: name.to_string(),
+            name_tag: Tag {
+                anchor: None,
+                span: name.span,
+            },
+            args: ExternalArgs {
+                list: vec![],
+                span: name.span,
+            },
+        }
+    }
+
+    async fn non_existent_run() -> Result<(), ShellError> {
+        let cmd = external("i_dont_exist.exe");
+
+        let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+
+        assert!(run_external_command(cmd, &mut ctx, None, false)
+            .await
+            .is_err());
+
+        Ok(())
+    }
+
+    async fn failure_run() -> Result<(), ShellError> {
+        let cmd = external("fail");
+
+        let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+        let stream = run_external_command(cmd, &mut ctx, None, false)
+            .await?
+            .expect("There was a problem running the external command.");
+
+        match read(stream.into()).await {
+            Some(Value {
+                value: UntaggedValue::Error(_),
+                ..
+            }) => {}
+            None | _ => panic!("Command didn't fail."),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn identifies_command_failed() -> Result<(), ShellError> {
+        block_on(failure_run())
+    }
+
+    #[test]
+    fn identifies_command_not_found() -> Result<(), ShellError> {
+        block_on(non_existent_run())
+    }
+
+    #[test]
+    fn checks_quotes_from_argument_to_be_passed_in() {
+        assert_eq!(argument_is_quoted("'andrés"), false);
+        assert_eq!(argument_is_quoted("andrés'"), false);
+        assert_eq!(argument_is_quoted(r#""andrés"#), false);
+        assert_eq!(argument_is_quoted(r#"andrés""#), false);
+        assert_eq!(argument_is_quoted("'andrés'"), true);
+        assert_eq!(argument_is_quoted(r#""andrés""#), true);
+    }
+
+    #[test]
+    fn strips_quotes_from_argument_to_be_passed_in() {
+        assert_eq!(remove_quotes(r#"'andrés'"#), "andrés");
+        assert_eq!(remove_quotes(r#""andrés""#), "andrés");
     }
 }
