@@ -220,11 +220,16 @@ pub fn delete_directory_at(full_path: &str) {
 }
 
 pub fn executable_path() -> PathBuf {
-    let mut buf = PathBuf::new();
-    buf.push("target");
-    buf.push("debug");
-    buf.push("nu");
-    buf
+    let mut path = binaries();
+    path.push("nu");
+    path
+}
+
+pub fn binaries() -> PathBuf {
+    let mut path = PathBuf::new();
+    path.push("target");
+    path.push("debug");
+    path
 }
 
 pub fn in_directory(str: impl AsRef<Path>) -> String {
