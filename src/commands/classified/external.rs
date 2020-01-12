@@ -218,11 +218,12 @@ async fn run_with_stdin(
                             UntaggedValue::Primitive(Primitive::Line(s)) =>
                         {
                             if let Err(e) = stdin_write.write(s.as_bytes()) {
+                                // The other side closed the connection, so it's time to stop processing
                                 let message = format!("Unable to write to stdin (error = {})", e);
                                 yield Ok(Value {
                                     value: UntaggedValue::Error(ShellError::labeled_error(
                                         message,
-                                        "unable to write to stdin",
+                                        "unable to write to stdin (other side may have closed)",
                                         &name_tag,
                                     )),
                                     tag: name_tag,
