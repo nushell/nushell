@@ -222,7 +222,7 @@ async fn run_with_stdin(
                                 yield Ok(Value {
                                     value: UntaggedValue::Error(ShellError::labeled_error(
                                         message,
-                                        "unable to write to stdin",
+                                        "application may have closed before completing pipeline",
                                         &name_tag,
                                     )),
                                     tag: name_tag,
