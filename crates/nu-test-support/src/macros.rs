@@ -86,6 +86,7 @@ macro_rules! nu_error {
         );
 
         let mut process = Command::new($crate::fs::executable_path())
+            .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -98,7 +99,7 @@ macro_rules! nu_error {
 
         let output = process
             .wait_with_output()
-            .expect("couldn't read from stderr");
+            .expect("couldn't read from stdout/stderr");
 
         let out = String::from_utf8_lossy(&output.stderr);
         out.into_owned()
