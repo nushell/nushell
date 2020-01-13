@@ -6,7 +6,6 @@ use nu_errors::ShellError;
 use nu_protocol::{
     CallInfo, CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
-use std::path::PathBuf;
 
 pub struct Enter;
 
@@ -46,23 +45,26 @@ impl PerItemCommand for Enter {
                 let location_clone = location_string.clone();
                 let tag_clone = tag.clone();
 
-                if location.starts_with("help") {
+                if location_string.starts_with("help") {
                     let spec = location_string.split(':').collect::<Vec<&str>>();
 
-                    let (_, command) = (spec[0], spec[1]);
+                    if spec.len() == 2 {
+                        let (_, command) = (spec[0], spec[1]);
 
-                    if registry.has(command)? {
-                        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            UntaggedValue::string(command).into_value(Tag::unknown()),
-                        )))]
-                        .into())
-                    } else {
-                        Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
-                            UntaggedValue::nothing().into_value(Tag::unknown()),
-                        )))]
-                        .into())
+                        if registry.has(command)? {
+                            return Ok(vec![Ok(ReturnSuccess::Action(
+                                CommandAction::EnterHelpShell(
+                                    UntaggedValue::string(command).into_value(Tag::unknown()),
+                                ),
+                            ))]
+                            .into());
+                        }
                     }
-                } else if PathBuf::from(location).is_dir() {
+                    Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterHelpShell(
+                        UntaggedValue::nothing().into_value(Tag::unknown()),
+                    )))]
+                    .into())
+                } else if location.is_dir() {
                     Ok(vec![Ok(ReturnSuccess::Action(CommandAction::EnterShell(
                         location_clone,
                     )))]
