@@ -22,6 +22,7 @@ impl PerItemCommand for Remove {
 
     fn signature(&self) -> Signature {
         Signature::build("rm")
+            .add_help()
             .required("path", SyntaxShape::Pattern, "the file path to remove")
             .switch(
                 "trash",

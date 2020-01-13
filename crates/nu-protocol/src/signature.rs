@@ -9,6 +9,7 @@ pub enum NamedType {
     Switch,
     Mandatory(SyntaxShape),
     Optional(SyntaxShape),
+    Help,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +179,15 @@ impl Signature {
     pub fn switch(mut self, name: impl Into<String>, desc: impl Into<String>) -> Signature {
         self.named
             .insert(name.into(), (NamedType::Switch, desc.into()));
+
+        self
+    }
+
+    pub fn add_help(mut self) -> Signature {
+        self.named.insert(
+            "help".into(),
+            (NamedType::Help, "Display this help message".into()),
+        );
 
         self
     }
