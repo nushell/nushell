@@ -139,10 +139,11 @@ url = {version = "2.1.0", optional = true}
 users = "0.9"
 
 [features]
-default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["sys", "ps", "textview", "inc", "str", "starship-prompt", "binaryview", "match", "tree", "average", "sum", "post", "fetch", "clipboard"]
-
+# Dummy executables
 nu-dummies = []
+
+default = ["nu-dummies", "sys", "ps", "textview", "inc", "str"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "sum", "post", "fetch", "clipboard"]
 
 # Default
 sys = ["heim", "battery"]
@@ -182,17 +183,17 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "fail"
-path = "crates/nu-test-support/src/bin/fail.rs"
+path = "crates/nu-test-support/src/dummies/fail.rs"
 required-features = ["nu-dummies"]
 
 [[bin]]
 name = "chop"
-path = "crates/nu-test-support/src/bin/chop.rs"
+path = "crates/nu-test-support/src/dummies/chop.rs"
 required-features = ["nu-dummies"]
 
 [[bin]]
 name = "cococo"
-path = "crates/nu-test-support/src/bin/cococo.rs"
+path = "crates/nu-test-support/src/dummies/cococo.rs"
 required-features = ["nu-dummies"]
 
 # Core plugins that ship with `cargo install nu` by default

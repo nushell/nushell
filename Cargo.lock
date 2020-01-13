@@ -2346,6 +2346,7 @@ dependencies = [
  "dunce",
  "getset",
  "glob",
+ "nu-build",
  "tempfile",
 ]
 
