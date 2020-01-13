@@ -88,6 +88,10 @@ async fn run_with_iterator_arg(
                 value: UntaggedValue::Primitive(Primitive::Line(s)),
                 ..
             } => Ok(s.clone()),
+            Value {
+                value: UntaggedValue::Primitive(Primitive::Path(p)),
+                ..
+            } => Ok(p.to_str().unwrap().to_owned()),
             _ => {
                 let arg = args.iter().find(|arg| arg.contains("$it"));
                 if let Some(arg) = arg {
