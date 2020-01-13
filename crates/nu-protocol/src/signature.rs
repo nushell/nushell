@@ -13,6 +13,7 @@ pub enum NamedType {
     Mandatory(SyntaxShape),
     /// An optional flag, with associated argument. eg) `foo --optional abc`
     Optional(SyntaxShape),
+    Help,
 }
 
 /// The type of positional arguments
@@ -213,6 +214,16 @@ impl Signature {
     pub fn switch(mut self, name: impl Into<String>, desc: impl Into<String>) -> Signature {
         self.named
             .insert(name.into(), (NamedType::Switch, desc.into()));
+
+        self
+    }
+
+    /// Add --help switch
+    pub fn add_help(mut self) -> Signature {
+        self.named.insert(
+            "help".into(),
+            (NamedType::Help, "Display this help message".into()),
+        );
 
         self
     }

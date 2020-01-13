@@ -63,6 +63,7 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
             NamedType::Mandatory(_) => sig.push_value(for_spec(name, "flag", true, &tag)),
             NamedType::Optional(_) => sig.push_value(for_spec(name, "flag", false, &tag)),
             NamedType::Switch => sig.push_value(for_spec(name, "switch", false, &tag)),
+            NamedType::Help => sig.push_value(for_spec("help", "switch", false, &tag)),
         }
     }
 

@@ -1,3 +1,4 @@
+use crate::commands::help::get_help;
 use crate::context::CommandRegistry;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
@@ -508,10 +509,18 @@ impl Command {
                     .evaluate(&registry, &Scope::it_value(x.clone()));
 
                 match call_info {
-                    Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
-                        Ok(o) => o,
-                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
-                    },
+                    Ok(call_info) => {
+                        if call_info.args.flag_set("help") == true {
+                            get_help(&command.name(), &command.usage(), command.signature()).into()
+                        } else {
+                            match command.run(&call_info, &registry, &raw_args, x) {
+                                Ok(o) => o,
+                                Err(e) => {
+                                    VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream()
+                                }
+                            }
+                        }
+                    }
                     Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
                 }
             })
