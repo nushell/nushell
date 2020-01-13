@@ -81,6 +81,10 @@ async fn run_with_iterator_arg(
         .iter()
         .map(|i| match i {
             Value {
+                value: UntaggedValue::Primitive(Primitive::Int(i)),
+                ..
+            } => Ok(i.to_string()),
+            Value {
                 value: UntaggedValue::Primitive(Primitive::String(s)),
                 ..
             }
