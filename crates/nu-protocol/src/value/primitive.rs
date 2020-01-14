@@ -11,11 +11,18 @@ use num_traits::cast::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
+/// as the buildig blocks to build up more complex structures.
+///
+/// Primitives also include marker values BeginningOfStream and EndOfStream which denote a change of condition in the stream
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub enum Primitive {
+    /// An empty value
     Nothing,
+    /// A "big int", an integer with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigint")]
     Int(BigInt),
+    /// A "big decimal", an decimal number with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
     Bytes(u64),
