@@ -113,6 +113,15 @@ async fn run_with_iterator_arg(
                 }
             }
         })
+        .map(|result| {
+            result.map(|value| {
+                if value.chars().any(|c| c.is_whitespace()) {
+                    format!("'{}'", value)
+                } else {
+                    value
+                }
+            })
+        })
         .collect::<Result<Vec<String>, ShellError>>()?;
 
     let home_dir = dirs::home_dir();
