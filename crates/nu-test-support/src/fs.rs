@@ -226,10 +226,12 @@ pub fn executable_path() -> PathBuf {
 }
 
 pub fn binaries() -> PathBuf {
-    let mut path = PathBuf::new();
-    path.push("target");
-    path.push("debug");
-    path
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Couldn't find the debug binaries directory")
+        .parent()
+        .expect("Couldn't find the debug binaries directory")
+        .join("target/debug")
 }
 
 pub fn in_directory(str: impl AsRef<Path>) -> String {
