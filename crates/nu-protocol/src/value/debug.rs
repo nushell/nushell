@@ -4,12 +4,14 @@ use crate::value::{UntaggedValue, Value};
 use nu_source::{b, DebugDocBuilder, PrettyDebug};
 
 impl PrettyDebug for &Value {
+    /// Get a borrowed Value ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
         PrettyDebug::pretty(*self)
     }
 }
 
 impl PrettyDebug for Value {
+    /// Get a Value ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
         match &self.value {
             UntaggedValue::Primitive(p) => p.pretty(),
@@ -24,6 +26,7 @@ impl PrettyDebug for Value {
 }
 
 impl PrettyType for Primitive {
+    /// Find the type of the Value and prepare it for pretty-printing
     fn pretty_type(&self) -> DebugDocBuilder {
         match self {
             Primitive::Nothing => ty("nothing"),
@@ -47,6 +50,7 @@ impl PrettyType for Primitive {
 }
 
 impl PrettyDebug for Primitive {
+    /// Get a Primitive value ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
         match self {
             Primitive::Nothing => b::primitive("nothing"),

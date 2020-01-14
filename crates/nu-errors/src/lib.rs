@@ -304,6 +304,7 @@ impl serde::de::Error for ShellError {
 }
 
 impl ShellError {
+    /// An error that describes a mismatch between the given type and the expected type
     pub fn type_error(
         expected: impl Into<String>,
         actual: Spanned<impl Into<String>>,

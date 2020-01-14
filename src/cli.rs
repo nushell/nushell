@@ -226,6 +226,7 @@ impl History {
     }
 }
 
+/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 pub async fn cli() -> Result<(), Box<dyn Error>> {
     let mut context = Context::basic()?;
 
@@ -560,6 +561,7 @@ enum LineResult {
     Break,
 }
 
+/// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
