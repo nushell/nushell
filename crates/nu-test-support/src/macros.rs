@@ -28,7 +28,18 @@ macro_rules! nu {
             $crate::fs::DisplayPath::display_path(&$path)
         );
 
+        let dummies = $crate::fs::binaries();
+        let dummies = dunce::canonicalize(&dummies).unwrap_or_else(|e| {
+            panic!(
+                "Couldn't canonicalize dummy binaries path {}: {:?}",
+                dummies.display(),
+                e
+            )
+        });
+
         let mut process = match Command::new($crate::fs::executable_path())
+            .env_clear()
+            .env("PATH", dummies)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -85,7 +96,18 @@ macro_rules! nu_error {
             $crate::fs::DisplayPath::display_path(&$path)
         );
 
+        let dummies = $crate::fs::binaries();
+        let dummies = dunce::canonicalize(&dummies).unwrap_or_else(|e| {
+            panic!(
+                "Couldn't canonicalize dummy binaries path {}: {:?}",
+                dummies.display(),
+                e
+            )
+        });
+
         let mut process = Command::new($crate::fs::executable_path())
+            .env_clear()
+            .env("PATH", dummies)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
