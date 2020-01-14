@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::{Ord, Ordering, PartialOrd};
 use std::hash::{Hash, Hasher};
 
+/// A dictionary that can hold a mapping from names to Values
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone, Getters, new)]
 pub struct Dictionary {
     #[get = "pub"]
@@ -17,6 +18,7 @@ pub struct Dictionary {
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Dictionary {
+    /// Create the hash function to allow the Hash trait for dictionaries
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut entries = self.entries.clone();
         entries.sort_keys();
@@ -26,6 +28,7 @@ impl Hash for Dictionary {
 }
 
 impl PartialOrd for Dictionary {
+    /// Compare two dictionaries for sort ordering
     fn partial_cmp(&self, other: &Dictionary) -> Option<Ordering> {
         let this: Vec<&String> = self.entries.keys().collect();
         let that: Vec<&String> = other.entries.keys().collect();
@@ -42,6 +45,7 @@ impl PartialOrd for Dictionary {
 }
 
 impl Ord for Dictionary {
+    /// Compare two dictionaries for ordering
     fn cmp(&self, other: &Dictionary) -> Ordering {
         let this: Vec<&String> = self.entries.keys().collect();
         let that: Vec<&String> = other.entries.keys().collect();
@@ -58,6 +62,7 @@ impl Ord for Dictionary {
 }
 
 impl PartialEq<Value> for Dictionary {
+    /// Test a dictionary against a Value for equality
     fn eq(&self, other: &Value) -> bool {
         match &other.value {
             UntaggedValue::Row(d) => self == d,
@@ -66,6 +71,7 @@ impl PartialEq<Value> for Dictionary {
     }
 }
 
+/// A key-value pair specifically meant to be used in debug and pretty-printing
 #[derive(Debug, new)]
 struct DebugEntry<'a> {
     key: &'a str,
@@ -73,12 +79,14 @@ struct DebugEntry<'a> {
 }
 
 impl<'a> PrettyDebug for DebugEntry<'a> {
+    /// Build the the information to pretty-print the DebugEntry
     fn pretty(&self) -> DebugDocBuilder {
         (b::key(self.key.to_string()) + b::equals() + self.value.pretty().into_value()).group()
     }
 }
 
 impl PrettyDebug for Dictionary {
+    /// Get a Dictionary ready to be pretty-printed
     fn pretty(&self) -> DebugDocBuilder {
         b::delimit(
             "(",
@@ -94,6 +102,7 @@ impl PrettyDebug for Dictionary {
 }
 
 impl From<IndexMap<String, Value>> for Dictionary {
+    /// Create a dictionary from a map of strings to Values
     fn from(input: IndexMap<String, Value>) -> Dictionary {
         let mut out = IndexMap::default();
 
@@ -106,6 +115,7 @@ impl From<IndexMap<String, Value>> for Dictionary {
 }
 
 impl Dictionary {
+    /// Find the matching Value for a given key, if possible. If not, return a Primitive::Nothing
     pub fn get_data(&self, desc: &str) -> MaybeOwned<'_, Value> {
         match self.entries.get(desc) {
             Some(v) => MaybeOwned::Borrowed(v),
@@ -115,10 +125,12 @@ impl Dictionary {
         }
     }
 
+    /// Iterate the keys in the Dictionary
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.entries.keys()
     }
 
+    /// Find the matching Value for a key, if possible
     pub fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value> {
         let result = self
             .entries
@@ -134,6 +146,7 @@ impl Dictionary {
         )
     }
 
+    /// Get a mutable entry that matches a key, if possible
     pub fn get_mut_data_by_key(&mut self, name: &str) -> Option<&mut Value> {
         match self
             .entries
@@ -145,11 +158,13 @@ impl Dictionary {
         }
     }
 
+    /// Insert a new key/value pair into the dictionary
     pub fn insert_data_at_key(&mut self, name: &str, value: Value) {
         self.entries.insert(name.to_string(), value);
     }
 }
 
+/// A helper to help create dictionaries for you. It has the ability to insert values into the dictionary while maintaining the tags that need to be applied to the individual members
 #[derive(Debug)]
 pub struct TaggedDictBuilder {
     tag: Tag,
@@ -157,6 +172,7 @@ pub struct TaggedDictBuilder {
 }
 
 impl TaggedDictBuilder {
+    /// Create a new builder
     pub fn new(tag: impl Into<Tag>) -> TaggedDictBuilder {
         TaggedDictBuilder {
             tag: tag.into(),
@@ -164,6 +180,7 @@ impl TaggedDictBuilder {
         }
     }
 
+    /// Build the contents of the builder into a Value
     pub fn build(tag: impl Into<Tag>, block: impl FnOnce(&mut TaggedDictBuilder)) -> Value {
         let mut builder = TaggedDictBuilder::new(tag);
         block(&mut builder);

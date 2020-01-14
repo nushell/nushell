@@ -8,6 +8,7 @@ use nu_source::TaggedItem;
 impl std::convert::TryFrom<&Value> for i64 {
     type Error = ShellError;
 
+    /// Convert to an i64 integer, if possible
     fn try_from(value: &Value) -> Result<i64, ShellError> {
         match &value.value {
             UntaggedValue::Primitive(Primitive::Int(int)) => {
@@ -21,6 +22,7 @@ impl std::convert::TryFrom<&Value> for i64 {
 impl std::convert::TryFrom<&Value> for String {
     type Error = ShellError;
 
+    /// Convert to a string, if possible
     fn try_from(value: &Value) -> Result<String, ShellError> {
         match &value.value {
             UntaggedValue::Primitive(Primitive::String(s)) => Ok(s.clone()),
@@ -32,6 +34,7 @@ impl std::convert::TryFrom<&Value> for String {
 impl std::convert::TryFrom<&Value> for Vec<u8> {
     type Error = ShellError;
 
+    /// Convert to a u8 vec, if possible
     fn try_from(value: &Value) -> Result<Vec<u8>, ShellError> {
         match &value.value {
             UntaggedValue::Primitive(Primitive::Binary(b)) => Ok(b.clone()),
@@ -43,6 +46,7 @@ impl std::convert::TryFrom<&Value> for Vec<u8> {
 impl<'a> std::convert::TryFrom<&'a Value> for &'a Dictionary {
     type Error = ShellError;
 
+    /// Convert to a dictionary, if possible
     fn try_from(value: &'a Value) -> Result<&'a Dictionary, ShellError> {
         match &value.value {
             UntaggedValue::Row(d) => Ok(d),
