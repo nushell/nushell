@@ -25,14 +25,23 @@ pub enum Primitive {
     /// A "big decimal", an decimal number with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
+    /// A count in the number of bytes, used as a filesize
     Bytes(u64),
+    /// A string value
     String(String),
+    /// A string value with an implied carriage return (or cr/lf) ending
     Line(String),
+    /// A path to travel to reach a value in a table
     ColumnPath(ColumnPath),
+    /// A glob pattern, eg foo*
     Pattern(String),
+    /// A boolean value
     Boolean(bool),
+    /// A date value, in UTC
     Date(DateTime<Utc>),
-    Duration(u64), // Duration in seconds
+    /// A count in the number of seconds
+    Duration(u64),
+    /// A range of values
     Range(Box<Range>),
     Path(PathBuf),
     #[serde(with = "serde_bytes")]
