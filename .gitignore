@@ -3,7 +3,7 @@
 **/*.rs.bk
 history.txt
 tests/fixtures/nuplayground
-
+crates/*/target
 # Debian/Ubuntu
 debian/.debhelper/
 debian/debhelper-build-stamp
