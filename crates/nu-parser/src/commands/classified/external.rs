@@ -49,12 +49,8 @@ pub struct ExternalCommand {
 }
 
 impl ExternalCommand {
-    pub fn has(&self, argument: &str) -> bool {
-        self.args.iter().any(|arg| arg.has(argument))
-    }
-
-    pub fn expect_arg(&self, argument: &str) -> Option<&ExternalArg> {
-        self.args.iter().find(|arg| arg.has(argument))
+    pub fn has_it_argument(&self) -> bool {
+        self.args.iter().any(|arg| arg.has("$it"))
     }
 }
 

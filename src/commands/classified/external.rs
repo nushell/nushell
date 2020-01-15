@@ -82,23 +82,11 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
         UntaggedValue::Primitive(Primitive::String(s))
         | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.clone()),
         UntaggedValue::Primitive(Primitive::Path(p)) => Ok(p.to_string_lossy().to_string()),
-        _ => {
-            let arg = command.expect_arg("$it");
-
-            if let Some(arg) = arg {
-                Err(ShellError::labeled_error(
-                    "External $it needs string data",
-                    "given row instead of string data",
-                    &arg.tag,
-                ))
-            } else {
-                Err(ShellError::labeled_error(
-                    "$it needs string data",
-                    "given something else",
-                    &command.name_tag,
-                ))
-            }
-        }
+        unsupported => Err(ShellError::labeled_error(
+            format!("$it needs string data (given: {})", unsupported.type_name()),
+            "expected a string",
+            &command.name_tag,
+        )),
     }
 }
 
@@ -124,7 +112,7 @@ pub fn fold_nu_values_for_stdin(
     }
 
     if !str_input.is_empty() {
-        return Ok(Some(str_input.clone()));
+        return Ok(Some(str_input));
     }
 
     Ok(None)
@@ -157,7 +145,7 @@ pub(crate) async fn run_external_command(
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if command.has("$it") {
+    if command.has_it_argument() {
         run_with_iterator_arg(command, context, input, is_last).await
     } else {
         run_with_stdin(command, context, input, is_last).await
@@ -202,11 +190,11 @@ async fn run_with_iterator_arg(
                     None
                 } else {
                     let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-                    Some(arg.replace("$it", &it_replacement))
+                    Some(it_replacement.to_owned())
                 }
-            }).collect::<Vec<_>>();
+            }).collect::<Vec<String>>();
 
-            match spawn(&command, &path, &process_args, None, is_last).await {
+            match spawn(&command, &path, &process_args[..], None, is_last).await {
                 Ok(res) => {
                     if let Some(mut res) = res {
                         while let Some(item) = res.next().await {
@@ -244,7 +232,7 @@ async fn run_with_stdin(
     trace!(target: "nu::run::external", "inputs = {:?}", inputs);
 
     let stream = async_stream! {
-        let collected_values_for_stdin = match fold_nu_values_for_stdin(&command, &inputs) {
+        let collected_values_for_stdin = match fold_nu_values_for_stdin(&command, &inputs[..]) {
             Ok(folded) => folded,
             Err(reason) => {
                 yield Ok(Value {
@@ -260,11 +248,11 @@ async fn run_with_stdin(
             if let Some(unquoted) = remove_quotes(&arg) {
                 unquoted.to_string()
             } else {
-                arg.to_string()
+                arg.as_ref().to_string()
             }
-        }).collect::<Vec<_>>();
+        }).collect::<Vec<String>>();
 
-        match spawn(&command, &path, &process_args, collected_values_for_stdin, is_last).await {
+        match spawn(&command, &path, &process_args[..], collected_values_for_stdin, is_last).await {
             Ok(res) => {
                 if let Some(mut res) = res {
                     while let Some(item) = res.next().await {
