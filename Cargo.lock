@@ -2347,6 +2347,8 @@ dependencies = [
  "getset",
  "glob",
  "nu-build",
+ "nu-parser",
+ "nu-source",
  "tempfile",
 ]
 

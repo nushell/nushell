@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod fs;
 pub mod macros;
 pub mod playground;

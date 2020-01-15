@@ -48,6 +48,107 @@ impl Decoder for LinesCodec {
     }
 }
 
+fn argument_is_quoted(argument: &str) -> bool {
+    if argument.len() < 2 {
+        return false;
+    }
+
+    (argument.starts_with('"') && argument.ends_with('"')
+        || (argument.starts_with('\'') && argument.ends_with('\'')))
+}
+
+fn remove_quotes(argument: &str) -> Option<&str> {
+    if !argument_is_quoted(argument) {
+        return None;
+    }
+
+    let size = argument.len();
+
+    Some(&argument[1..size - 1])
+}
+
+fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
+where
+    SI: AsRef<str>,
+    P: AsRef<std::path::Path>,
+    HD: FnOnce() -> Option<P>,
+{
+    shellexpand::tilde_with_context(input, home_dir)
+}
+
+pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
+    match &from.value {
+        UntaggedValue::Primitive(Primitive::Int(i)) => Ok(i.to_string()),
+        UntaggedValue::Primitive(Primitive::String(s))
+        | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.clone()),
+        UntaggedValue::Primitive(Primitive::Path(p)) => Ok(p.to_string_lossy().to_string()),
+        _ => {
+            let arg = command.expect_arg("$it");
+
+            if let Some(arg) = arg {
+                Err(ShellError::labeled_error(
+                    "External $it needs string data",
+                    "given row instead of string data",
+                    &arg.tag,
+                ))
+            } else {
+                Err(ShellError::labeled_error(
+                    "$it needs string data",
+                    "given something else",
+                    &command.name_tag,
+                ))
+            }
+        }
+    }
+}
+
+// At the moment, when we pipe to an
+// external that expects data from stdin
+// we currently pipe all the rows to it
+// as a single input for it.
+pub fn fold_nu_values_for_stdin(
+    command: &ExternalCommand,
+    values: &[Value],
+) -> Result<Option<String>, ShellError> {
+    let mut str_input = String::new();
+
+    for item in values {
+        match nu_value_to_string_for_stdin(&command, &item) {
+            Ok(maybe) => {
+                if let Some(converted) = maybe {
+                    str_input.push_str(&converted);
+                }
+            }
+            Err(reason) => return Err(reason),
+        }
+    }
+
+    if !str_input.is_empty() {
+        return Ok(Some(str_input.clone()));
+    }
+
+    Ok(None)
+}
+
+pub fn nu_value_to_string_for_stdin(
+    command: &ExternalCommand,
+    from: &Value,
+) -> Result<Option<String>, ShellError> {
+    match &from.value {
+        UntaggedValue::Primitive(Primitive::Nothing) => Ok(None),
+        UntaggedValue::Primitive(Primitive::String(s))
+        | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(Some(s.clone())),
+        unsupported => Err(ShellError::labeled_error(
+            format!(
+                "Received unexpected type from pipeline ({})",
+                unsupported.type_name()
+            ),
+            "expected a string",
+            &command.name_tag,
+        )),
+    }
+}
+
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
@@ -56,8 +157,7 @@ pub(crate) async fn run_external_command(
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    let has_it_arg = command.args.iter().any(|arg| arg.contains("$it"));
-    if has_it_arg {
+    if command.has("$it") {
         run_with_iterator_arg(command, context, input, is_last).await
     } else {
         run_with_stdin(command, context, input, is_last).await
@@ -70,112 +170,62 @@ async fn run_with_iterator_arg(
     input: Option<InputStream>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
-    let name = command.name;
-    let args = command.args;
-    let name_tag = command.name_tag;
-    let inputs = input.unwrap_or_else(InputStream::empty).into_vec().await;
+    let path = context.shell_manager.path()?;
 
-    trace!(target: "nu::run::external", "inputs = {:?}", inputs);
+    let mut inputs: InputStream = if let Some(input) = input {
+        trace_stream!(target: "nu::trace_stream::external", "input" = input)
+    } else {
+        InputStream::empty()
+    };
 
-    let input_strings = inputs
-        .iter()
-        .map(|i| match i {
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Int(i)),
-                ..
-            } => Ok(i.to_string()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::String(s)),
-                ..
-            }
-            | Value {
-                value: UntaggedValue::Primitive(Primitive::Line(s)),
-                ..
-            } => Ok(s.clone()),
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Path(p)),
-                ..
-            } => Ok(p.to_string_lossy().to_string()),
-            _ => {
-                let arg = args.iter().find(|arg| arg.contains("$it"));
-                if let Some(arg) = arg {
-                    Err(ShellError::labeled_error(
-                        "External $it needs string data",
-                        "given row instead of string data",
-                        &arg.tag,
-                    ))
+    let stream = async_stream! {
+        while let Some(value) = inputs.next().await {
+            let name = command.name.clone();
+            let name_tag = command.name_tag.clone();
+            let home_dir = dirs::home_dir();
+            let path = &path;
+            let args = command.args.clone();
+
+            let it_replacement = match nu_value_to_string(&command, &value) {
+                Ok(value) => value,
+                Err(reason) => {
+                    yield Ok(Value {
+                        value: UntaggedValue::Error(reason),
+                        tag: name_tag
+                    });
+                    return;
+                }
+            };
+
+            let process_args = args.iter().filter_map(|arg| {
+                if arg.chars().all(|c| c.is_whitespace()) {
+                    None
                 } else {
-                    Err(ShellError::labeled_error(
-                        "$it needs string data",
-                        "given something else",
-                        &name_tag,
-                    ))
+                    let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
+                    Some(arg.replace("$it", &it_replacement))
+                }
+            }).collect::<Vec<_>>();
+
+            match spawn(&command, &path, &process_args, None, is_last).await {
+                Ok(res) => {
+                    if let Some(mut res) = res {
+                        while let Some(item) = res.next().await {
+                            yield Ok(item)
+                        }
+                    }
+                }
+                Err(reason) => {
+                    yield Ok(Value {
+                        value: UntaggedValue::Error(reason),
+                        tag: name_tag
+                    });
+                    return;
                 }
             }
-        })
-        .collect::<Result<Vec<String>, ShellError>>()?;
-
-    let home_dir = dirs::home_dir();
-    let commands = input_strings.iter().map(|i| {
-        let args = args.iter().filter_map(|arg| {
-            if arg.chars().all(|c| c.is_whitespace()) {
-                None
-            } else {
-                let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
-                Some(arg.replace("$it", &i))
-            }
-        });
-
-        format!("{} {}", name, itertools::join(args, " "))
-    });
-
-    let mut process = Exec::shell(itertools::join(commands, " && "));
-
-    process = process.cwd(context.shell_manager.path()?);
-    trace!(target: "nu::run::external", "cwd = {:?}", context.shell_manager.path());
-
-    if !is_last {
-        process = process.stdout(subprocess::Redirection::Pipe);
-        trace!(target: "nu::run::external", "set up stdout pipe");
-    }
-
-    trace!(target: "nu::run::external", "built process {:?}", process);
-
-    let popen = process.detached().popen();
-    if let Ok(mut popen) = popen {
-        if is_last {
-            let _ = popen.wait();
-            Ok(None)
-        } else {
-            let stdout = popen.stdout.take().ok_or_else(|| {
-                ShellError::untagged_runtime_error("Can't redirect the stdout for external command")
-            })?;
-            let file = futures::io::AllowStdIo::new(stdout);
-            let stream = Framed::new(file, LinesCodec {});
-            let stream = stream.map(move |line| {
-                line.expect("Internal error: could not read lines of text from stdin")
-                    .into_value(&name_tag)
-            });
-            Ok(Some(stream.boxed().into()))
         }
-    } else {
-        Err(ShellError::labeled_error(
-            "Command not found",
-            "command not found",
-            name_tag,
-        ))
-    }
-}
+    };
 
-pub fn argument_is_quoted(argument: &str) -> bool {
-    (argument.starts_with('"') && argument.ends_with('"')
-        || (argument.starts_with('\'') && argument.ends_with('\'')))
-}
-
-pub fn remove_quotes(argument: &str) -> &str {
-    let size = argument.len();
-
-    &argument[1..size - 1]
+    Ok(Some(stream.to_input_stream()))
 }
 
 async fn run_with_stdin(
@@ -184,32 +234,81 @@ async fn run_with_stdin(
     input: Option<InputStream>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
-    let name_tag = command.name_tag;
     let home_dir = dirs::home_dir();
+    let path = context.shell_manager.path()?;
+    let name_tag = command.name_tag.clone();
+    let args = command.args.clone();
+
+    let inputs = input.unwrap_or_else(InputStream::empty).into_vec().await;
+
+    trace!(target: "nu::run::external", "inputs = {:?}", inputs);
+
+    let stream = async_stream! {
+        let collected_values_for_stdin = match fold_nu_values_for_stdin(&command, &inputs) {
+            Ok(folded) => folded,
+            Err(reason) => {
+                yield Ok(Value {
+                    value: UntaggedValue::Error(reason),
+                    tag: name_tag
+                });
+                return;
+            }
+        };
+
+        let process_args = args.iter().map(|arg| {
+            let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
+            if let Some(unquoted) = remove_quotes(&arg) {
+                unquoted.to_string()
+            } else {
+                arg.to_string()
+            }
+        }).collect::<Vec<_>>();
+
+        match spawn(&command, &path, &process_args, collected_values_for_stdin, is_last).await {
+            Ok(res) => {
+                if let Some(mut res) = res {
+                    while let Some(item) = res.next().await {
+                        yield Ok(item)
+                    }
+                }
+            }
+            Err(reason) => {
+                yield Ok(Value {
+                    value: UntaggedValue::Error(reason),
+                    tag: name_tag
+                });
+                return;
+            }
+        }
+    };
+
+    Ok(Some(stream.to_input_stream()))
+}
+
+async fn spawn(
+    command: &ExternalCommand,
+    path: &str,
+    args: &[String],
+    values: Option<String>,
+    is_last: bool,
+) -> Result<Option<InputStream>, ShellError> {
+    let name_tag = command.name_tag.clone();
 
     let mut process = Exec::cmd(&command.name);
 
-    for arg in command.args.iter() {
-        // Let's also replace ~ as we shell out
-        let arg = shellexpand::tilde_with_context(arg.deref(), || home_dir.as_ref());
-
-        // Strip quotes from a quoted string
-        process = if arg.len() > 1 && (argument_is_quoted(&arg)) {
-            process.arg(remove_quotes(&arg))
-        } else {
-            process.arg(arg.as_ref())
-        };
+    for arg in args {
+        process = process.arg(&arg);
     }
 
-    process = process.cwd(context.shell_manager.path()?);
-    trace!(target: "nu::run::external", "cwd = {:?}", context.shell_manager.path());
+    process = process.cwd(path);
+    trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     if !is_last {
         process = process.stdout(subprocess::Redirection::Pipe);
         trace!(target: "nu::run::external", "set up stdout pipe");
     }
 
-    if input.is_some() {
+    if values.is_some() {
         process = process.stdin(subprocess::Redirection::Pipe);
         trace!(target: "nu::run::external", "set up stdin pipe");
     }
@@ -217,55 +316,27 @@ async fn run_with_stdin(
     trace!(target: "nu::run::external", "built process {:?}", process);
 
     let popen = process.detached().popen();
+
     if let Ok(mut popen) = popen {
         let stream = async_stream! {
-            if let Some(mut input) = input {
-                let mut stdin_write = popen
-                    .stdin
+            if let Some(mut input) = values {
+                let mut stdin_write = popen.stdin
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
 
-                while let Some(item) = input.next().await {
-                    match item.value {
-                        UntaggedValue::Primitive(Primitive::Nothing) => {
-                            // If first in a pipeline, will receive Nothing. This is not an error.
-                        },
+                if let Err(e) = stdin_write.write(input.as_bytes()) {
+                    let message = format!("Unable to write to stdin (error = {})", e);
 
-                        UntaggedValue::Primitive(Primitive::String(s)) |
-                            UntaggedValue::Primitive(Primitive::Line(s)) =>
-                        {
-                            if let Err(e) = stdin_write.write(s.as_bytes()) {
-                                let message = format!("Unable to write to stdin (error = {})", e);
-                                yield Ok(Value {
-                                    value: UntaggedValue::Error(ShellError::labeled_error(
-                                        message,
-                                        "application may have closed before completing pipeline",
-                                        &name_tag,
-                                    )),
-                                    tag: name_tag,
-                                });
-                                return;
-                            }
-                        },
-
-                        // TODO serialize other primitives? https://github.com/nushell/nushell/issues/778
-
-                        v => {
-                            let message = format!("Received unexpected type from pipeline ({})", v.type_name());
-                            yield Ok(Value {
-                                value: UntaggedValue::Error(ShellError::labeled_error(
-                                    message,
-                                    "expected a string",
-                                    &name_tag,
-                                )),
-                                tag: name_tag,
-                            });
-                            return;
-                        },
-                    }
+                    yield Ok(Value {
+                        value: UntaggedValue::Error(ShellError::labeled_error(
+                            message,
+                            "application may have closed before completing pipeline",
+                            &name_tag)),
+                        tag: name_tag
+                    });
+                    return;
                 }
 
-                // Close stdin, which informs the external process that there's no more input
                 drop(stdin_write);
             }
 
@@ -274,20 +345,18 @@ async fn run_with_stdin(
                     stdout
                 } else {
                     yield Ok(Value {
-                        value: UntaggedValue::Error(
-                            ShellError::labeled_error(
-                                "Can't redirect the stdout for external command",
-                                "can't redirect stdout",
-                                &name_tag,
-                            )
-                        ),
-                        tag: name_tag,
+                        value: UntaggedValue::Error(ShellError::labeled_error(
+                            "Can't redirect the stdout for external command",
+                            "can't redirect stdout",
+                            &name_tag)),
+                        tag: name_tag
                     });
                     return;
                 };
 
                 let file = futures::io::AllowStdIo::new(stdout);
                 let stream = Framed::new(file, LinesCodec {});
+
                 let mut stream = stream.map(|line| {
                     if let Ok(line) = line {
                         line.into_value(&name_tag)
@@ -302,6 +371,23 @@ async fn run_with_stdin(
                         None => break,
                     }
                 }
+            }
+
+            if is_last {
+                if let Ok(status) = popen.wait() {
+                    if status.success() {
+                        return;
+                    }
+                }
+
+                yield Ok(Value {
+                    value: UntaggedValue::Error(ShellError::labeled_error(
+                            "External command failed",
+                            "command failed",
+                            &name_tag)),
+                    tag: name_tag
+                });
+                return;
             }
 
             loop {
@@ -325,26 +411,27 @@ async fn run_with_stdin(
                 }
             }
         };
-
         Ok(Some(stream.to_input_stream()))
     } else {
         Err(ShellError::labeled_error(
             "Command not found",
             "command not found",
-            name_tag,
+            &command.name_tag,
         ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{argument_is_quoted, remove_quotes, run_external_command, Context, OutputStream};
+    use super::{
+        argument_is_quoted, expand_tilde, remove_quotes, run_external_command, Context,
+        OutputStream,
+    };
     use futures::executor::block_on;
     use futures::stream::TryStreamExt;
     use nu_errors::ShellError;
-    use nu_parser::commands::classified::external::{ExternalArgs, ExternalCommand};
     use nu_protocol::{UntaggedValue, Value};
-    use nu_source::{Span, SpannedItem, Tag};
+    use nu_test_support::commands::ExternalBuilder;
 
     async fn read(mut stream: OutputStream) -> Option<Value> {
         match stream.try_next().await {
@@ -359,39 +446,28 @@ mod tests {
         }
     }
 
-    fn external(name: &str) -> ExternalCommand {
-        let mut path = nu_test_support::fs::binaries();
-        path.push(name);
-
-        let name = path.to_string_lossy().to_string().spanned(Span::unknown());
-
-        ExternalCommand {
-            name: name.to_string(),
-            name_tag: Tag {
-                anchor: None,
-                span: name.span,
-            },
-            args: ExternalArgs {
-                list: vec![],
-                span: name.span,
-            },
-        }
-    }
-
     async fn non_existent_run() -> Result<(), ShellError> {
-        let cmd = external("i_dont_exist.exe");
+        let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(cmd, &mut ctx, None, false)
-            .await
-            .is_err());
+        let stream = run_external_command(cmd, &mut ctx, None, false)
+            .await?
+            .expect("There was a problem running the external command.");
+
+        match read(stream.into()).await {
+            Some(Value {
+                value: UntaggedValue::Error(_),
+                ..
+            }) => {}
+            None | _ => panic!("Apparently a command was found (It's not supposed to be found)"),
+        }
 
         Ok(())
     }
 
     async fn failure_run() -> Result<(), ShellError> {
-        let cmd = external("fail");
+        let cmd = ExternalBuilder::for_name("fail").build();
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
         let stream = run_external_command(cmd, &mut ctx, None, false)
@@ -421,6 +497,20 @@ mod tests {
 
     #[test]
     fn checks_quotes_from_argument_to_be_passed_in() {
+        assert_eq!(argument_is_quoted(""), false);
+
+        assert_eq!(argument_is_quoted("'"), false);
+        assert_eq!(argument_is_quoted("'a"), false);
+        assert_eq!(argument_is_quoted("a"), false);
+        assert_eq!(argument_is_quoted("a'"), false);
+        assert_eq!(argument_is_quoted("''"), true);
+
+        assert_eq!(argument_is_quoted(r#"""#), false);
+        assert_eq!(argument_is_quoted(r#""a"#), false);
+        assert_eq!(argument_is_quoted(r#"a"#), false);
+        assert_eq!(argument_is_quoted(r#"a""#), false);
+        assert_eq!(argument_is_quoted(r#""""#), true);
+
         assert_eq!(argument_is_quoted("'andrés"), false);
         assert_eq!(argument_is_quoted("andrés'"), false);
         assert_eq!(argument_is_quoted(r#""andrés"#), false);
@@ -431,7 +521,41 @@ mod tests {
 
     #[test]
     fn strips_quotes_from_argument_to_be_passed_in() {
-        assert_eq!(remove_quotes(r#"'andrés'"#), "andrés");
-        assert_eq!(remove_quotes(r#""andrés""#), "andrés");
+        assert_eq!(remove_quotes(""), None);
+
+        assert_eq!(remove_quotes("'"), None);
+        assert_eq!(remove_quotes("'a"), None);
+        assert_eq!(remove_quotes("a"), None);
+        assert_eq!(remove_quotes("a'"), None);
+        assert_eq!(remove_quotes("''"), Some(""));
+
+        assert_eq!(remove_quotes(r#"""#), None);
+        assert_eq!(remove_quotes(r#""a"#), None);
+        assert_eq!(remove_quotes(r#"a"#), None);
+        assert_eq!(remove_quotes(r#"a""#), None);
+        assert_eq!(remove_quotes(r#""""#), Some(""));
+
+        assert_eq!(remove_quotes("'andrés"), None);
+        assert_eq!(remove_quotes("andrés'"), None);
+        assert_eq!(remove_quotes(r#""andrés"#), None);
+        assert_eq!(remove_quotes(r#"andrés""#), None);
+        assert_eq!(remove_quotes("'andrés'"), Some("andrés"));
+        assert_eq!(remove_quotes(r#""andrés""#), Some("andrés"));
+    }
+
+    #[test]
+    fn expands_tilde_if_starts_with_tilde_character() {
+        assert_eq!(
+            expand_tilde("~", || Some(std::path::Path::new("the_path_to_nu_light"))),
+            "the_path_to_nu_light"
+        );
+    }
+
+    #[test]
+    fn does_not_expand_tilde_if_tilde_is_not_first_character() {
+        assert_eq!(
+            expand_tilde("1~1", || Some(std::path::Path::new("the_path_to_nu_light"))),
+            "1~1"
+        );
     }
 }

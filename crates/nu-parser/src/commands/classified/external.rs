@@ -6,6 +6,12 @@ pub struct ExternalArg {
     pub tag: Tag,
 }
 
+impl ExternalArg {
+    pub fn has(&self, name: &str) -> bool {
+        self.arg == name
+    }
+}
+
 impl std::ops::Deref for ExternalArg {
     type Target = str;
 
@@ -40,6 +46,16 @@ pub struct ExternalCommand {
 
     pub name_tag: Tag,
     pub args: ExternalArgs,
+}
+
+impl ExternalCommand {
+    pub fn has(&self, argument: &str) -> bool {
+        self.args.iter().any(|arg| arg.has(argument))
+    }
+
+    pub fn expect_arg(&self, argument: &str) -> Option<&ExternalArg> {
+        self.args.iter().find(|arg| arg.has(argument))
+    }
 }
 
 impl PrettyDebug for ExternalCommand {
