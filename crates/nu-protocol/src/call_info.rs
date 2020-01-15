@@ -98,7 +98,7 @@ impl EvaluatedArgs {
         self.named
             .as_ref()
             .and_then(|n| n.get(flag))
-            .and_then(|h| Some(h.as_bool().expect("Why isn't this a bool!?")))
+            .map(|h| h.as_bool().expect("Why isn't this a bool!?"))
             .unwrap_or(false)
     }
 }
