@@ -1,3 +1,9 @@
+///
+/// This file describes the structural types of the nushell system.
+///
+/// Its primary purpose today is to identify "equivalent" values for the purpose
+/// of merging rows into a single table or identify rows in a table that have the
+/// same shape for reflection.
 use crate::value::dict::Dictionary;
 use crate::value::primitive::Primitive;
 use crate::value::range::RangeInclusion;
@@ -8,14 +14,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
-
-/**
-  This file describes the structural types of the nushell system.
-
-  Its primary purpose today is to identify "equivalent" values for the purpose
-  of merging rows into a single table or identify rows in a table that have the
-  same shape for reflection.
-*/
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize, new)]
 pub struct RangeType {

@@ -8,13 +8,16 @@ use serde::{Deserialize, Serialize};
 /// Associated information for the call of a command, including the args passed to the command and a tag that spans the name of the command being called
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct CallInfo {
+    /// The arguments associated with this call
     pub args: EvaluatedArgs,
+    /// The tag (underline-able position) of the name of the call itself
     pub name_tag: Tag,
 }
 
 /// The set of positional and named arguments, after their values have been evaluated.
-/// Positional arguments are those who are given as values, without any associated flag. For example, in `foo arg1 arg2`, both `arg1` and `arg2` are positional arguments
-/// Named arguments are those associated with a flag. For example, `foo --given bar` the named argument would be name `given` and the value `bar`.
+///
+/// * Positional arguments are those who are given as values, without any associated flag. For example, in `foo arg1 arg2`, both `arg1` and `arg2` are positional arguments.
+/// * Named arguments are those associated with a flag. For example, `foo --given bar` the named argument would be name `given` and the value `bar`.
 #[derive(Debug, Default, new, Serialize, Deserialize, Clone)]
 pub struct EvaluatedArgs {
     pub positional: Option<Vec<Value>>,
