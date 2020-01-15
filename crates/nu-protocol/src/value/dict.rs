@@ -187,6 +187,7 @@ impl TaggedDictBuilder {
         builder.into_value()
     }
 
+    /// Create a new builder with a pre-defined capacity
     pub fn with_capacity(tag: impl Into<Tag>, n: usize) -> TaggedDictBuilder {
         TaggedDictBuilder {
             tag: tag.into(),
@@ -194,30 +195,36 @@ impl TaggedDictBuilder {
         }
     }
 
+    /// Insert an untagged key/value pair into the dictionary, to later be tagged when built
     pub fn insert_untagged(&mut self, key: impl Into<String>, value: impl Into<UntaggedValue>) {
         self.dict
             .insert(key.into(), value.into().into_value(&self.tag));
     }
 
+    ///  Insert a key/value pair into the dictionary
     pub fn insert_value(&mut self, key: impl Into<String>, value: impl Into<Value>) {
         self.dict.insert(key.into(), value.into());
     }
 
+    /// Convert the dictionary into a tagged Value using the original tag
     pub fn into_value(self) -> Value {
         let tag = self.tag.clone();
         self.into_untagged_value().into_value(tag)
     }
 
+    /// Convert the dictionary into an UntaggedValue
     pub fn into_untagged_value(self) -> UntaggedValue {
         UntaggedValue::Row(Dictionary { entries: self.dict })
     }
 
+    /// Returns true if the dictionary is empty, false otherwise
     pub fn is_empty(&self) -> bool {
         self.dict.is_empty()
     }
 }
 
 impl From<TaggedDictBuilder> for Value {
+    /// Convert a builder into a tagged Value
     fn from(input: TaggedDictBuilder) -> Value {
         input.into_value()
     }

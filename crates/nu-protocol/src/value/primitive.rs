@@ -11,32 +11,52 @@ use num_traits::cast::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// The most fundamental of structured values in Nu are the Primitive values. These values represent types like integers, strings, booleans, dates, etc that are then used
+/// as the buildig blocks to build up more complex structures.
+///
+/// Primitives also include marker values BeginningOfStream and EndOfStream which denote a change of condition in the stream
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub enum Primitive {
+    /// An empty value
     Nothing,
+    /// A "big int", an integer with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigint")]
     Int(BigInt),
+    /// A "big decimal", an decimal number with arbitrarily large size (aka not limited to 64-bit)
     #[serde(with = "serde_bigdecimal")]
     Decimal(BigDecimal),
+    /// A count in the number of bytes, used as a filesize
     Bytes(u64),
+    /// A string value
     String(String),
+    /// A string value with an implied carriage return (or cr/lf) ending
     Line(String),
+    /// A path to travel to reach a value in a table
     ColumnPath(ColumnPath),
+    /// A glob pattern, eg foo*
     Pattern(String),
+    /// A boolean value
     Boolean(bool),
+    /// A date value, in UTC
     Date(DateTime<Utc>),
-    Duration(u64), // Duration in seconds
+    /// A count in the number of seconds
+    Duration(u64),
+    /// A range of values
     Range(Box<Range>),
+    /// A file path
     Path(PathBuf),
+    /// A vector of raw binary data
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
 
-    // Stream markers (used as bookend markers rather than actual values)
+    /// Beginning of stream marker, a pseudo-value not intended for tables
     BeginningOfStream,
+    /// End of stream marker, a pseudo-value not intended for tables
     EndOfStream,
 }
 
 impl Primitive {
+    /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
             Primitive::Int(int) => match int.to_u64() {
@@ -56,12 +76,14 @@ impl Primitive {
 }
 
 impl From<BigDecimal> for Primitive {
+    /// Helper to convert from decimals to a Primitive value
     fn from(decimal: BigDecimal) -> Primitive {
         Primitive::Decimal(decimal)
     }
 }
 
 impl From<f64> for Primitive {
+    /// Helper to convert from 64-bit float to a Primitive value
     fn from(float: f64) -> Primitive {
         if let Some(f) = BigDecimal::from_f64(float) {
             Primitive::Decimal(f)
@@ -72,6 +94,7 @@ impl From<f64> for Primitive {
 }
 
 impl ShellTypeName for Primitive {
+    /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
         match self {
             Primitive::Nothing => "nothing",
@@ -94,6 +117,7 @@ impl ShellTypeName for Primitive {
     }
 }
 
+/// Format a Primitive value into a string
 pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> String {
     match primitive {
         Primitive::Nothing => String::new(),
@@ -157,6 +181,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
     }
 }
 
+/// Format a duration in seconds into a string
 pub fn format_duration(sec: u64) -> String {
     let (minutes, seconds) = (sec / 60, sec % 60);
     let (hours, minutes) = (minutes / 60, minutes % 60);
@@ -171,6 +196,7 @@ pub fn format_duration(sec: u64) -> String {
     }
 }
 
+/// Format a UTC date value into a humanized string (eg "1 week ago" instead of a formal date string)
 pub fn format_date(d: &DateTime<Utc>) -> String {
     let utc: DateTime<Utc> = Utc::now();
 
