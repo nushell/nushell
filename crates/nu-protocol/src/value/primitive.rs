@@ -43,16 +43,20 @@ pub enum Primitive {
     Duration(u64),
     /// A range of values
     Range(Box<Range>),
+    /// A file path
     Path(PathBuf),
+    /// A vector of raw binary data
     #[serde(with = "serde_bytes")]
     Binary(Vec<u8>),
 
-    // Stream markers (used as bookend markers rather than actual values)
+    /// Beginning of stream marker, a pseudo-value not intended for tables
     BeginningOfStream,
+    /// End of stream marker, a pseudo-value not intended for tables
     EndOfStream,
 }
 
 impl Primitive {
+    /// Converts a primitive value to a u64, if possible. Uses a span to build an error if the conversion isn't possible.
     pub fn as_u64(&self, span: Span) -> Result<u64, ShellError> {
         match self {
             Primitive::Int(int) => match int.to_u64() {
@@ -72,12 +76,14 @@ impl Primitive {
 }
 
 impl From<BigDecimal> for Primitive {
+    /// Helper to convert from decimals to a Primitive value
     fn from(decimal: BigDecimal) -> Primitive {
         Primitive::Decimal(decimal)
     }
 }
 
 impl From<f64> for Primitive {
+    /// Helper to convert from 64-bit float to a Primitive value
     fn from(float: f64) -> Primitive {
         if let Some(f) = BigDecimal::from_f64(float) {
             Primitive::Decimal(f)
@@ -88,6 +94,7 @@ impl From<f64> for Primitive {
 }
 
 impl ShellTypeName for Primitive {
+    /// Get the name of the type of a Primitive value
     fn type_name(&self) -> &'static str {
         match self {
             Primitive::Nothing => "nothing",
@@ -110,6 +117,7 @@ impl ShellTypeName for Primitive {
     }
 }
 
+/// Format a Primitive value into a string
 pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> String {
     match primitive {
         Primitive::Nothing => String::new(),
@@ -173,6 +181,7 @@ pub fn format_primitive(primitive: &Primitive, field_name: Option<&String>) -> S
     }
 }
 
+/// Format a duration in seconds into a string
 pub fn format_duration(sec: u64) -> String {
     let (minutes, seconds) = (sec / 60, sec % 60);
     let (hours, minutes) = (minutes / 60, minutes % 60);
@@ -187,6 +196,7 @@ pub fn format_duration(sec: u64) -> String {
     }
 }
 
+/// Format a UTC date value into a humanized string (eg "1 week ago" instead of a formal date string)
 pub fn format_date(d: &DateTime<Utc>) -> String {
     let utc: DateTime<Utc> = Utc::now();
 
