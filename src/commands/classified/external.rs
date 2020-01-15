@@ -116,10 +116,14 @@ async fn run_with_iterator_arg(
         .map(|result| {
             result.map(|value| {
                 if argument_contains_whitespace(&value) {
-                    add_quotes(&value)
-                } else {
-                    value
+                    let arg = args.iter().find(|arg| arg.contains("$it"));
+                    if let Some(arg) = arg {
+                        if !argument_is_quoted(&arg) {
+                            return add_quotes(&value);
+                        }
+                    }
                 }
+                value
             })
         })
         .collect::<Result<Vec<String>, ShellError>>()?;
