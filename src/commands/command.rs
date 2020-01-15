@@ -510,7 +510,7 @@ impl Command {
 
                 match call_info {
                     Ok(call_info) => {
-                        if call_info.args.flag_set("help") == true {
+                        if call_info.args.flag_set("help") {
                             get_help(&command.name(), &command.usage(), command.signature()).into()
                         } else {
                             match command.run(&call_info, &registry, &raw_args, x) {
