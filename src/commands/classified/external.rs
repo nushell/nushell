@@ -355,7 +355,10 @@ async fn run_with_stdin(
 
 #[cfg(test)]
 mod tests {
-    use super::{argument_is_quoted, argument_contains_whitespace, add_quotes, remove_quotes, run_external_command, Context, OutputStream};
+    use super::{
+        add_quotes, argument_contains_whitespace, argument_is_quoted, remove_quotes,
+        run_external_command, Context, OutputStream,
+    };
     use futures::executor::block_on;
     use futures::stream::TryStreamExt;
     use nu_errors::ShellError;
