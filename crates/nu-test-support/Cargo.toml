@@ -10,6 +10,9 @@ license = "MIT"
 doctest = false
 
 [dependencies]
+nu-parser = { path = "../nu-parser", version = "0.8.0" }
+nu-source = { path = "../nu-source", version = "0.8.0" }
+
 app_dirs = "1.2.1"
 dunce = "1.0.0"
 getset = "0.0.9"
