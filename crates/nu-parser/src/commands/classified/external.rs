@@ -10,6 +10,10 @@ impl ExternalArg {
     pub fn has(&self, name: &str) -> bool {
         self.arg == name
     }
+
+    pub fn is_it(&self) -> bool {
+        self.has("$it")
+    }
 }
 
 impl std::ops::Deref for ExternalArg {

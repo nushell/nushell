@@ -189,8 +189,15 @@ async fn run_with_iterator_arg(
                 if arg.chars().all(|c| c.is_whitespace()) {
                     None
                 } else {
-                    let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-                    Some(it_replacement.to_owned())
+                    let arg = if arg.is_it() {
+                        it_replacement.to_owned()
+                    } else {
+                        arg.to_string()
+                    };
+
+                    let expanded = expand_tilde(arg.deref(), || home_dir.as_ref());
+
+                    Some(expanded.as_ref().to_string())
                 }
             }).collect::<Vec<String>>();
 
