@@ -42,7 +42,7 @@ mod it_evaluation {
                 | cococo $it
                 | lines
                 | nth 1
-                | cococo $it
+                | echo $it
                 "#
             ));
 
@@ -69,7 +69,7 @@ mod it_evaluation {
                 | chop $it
                 | lines
                 | nth 1
-                | cococo $it
+                | echo $it
                 "#
             ));
 
@@ -82,7 +82,7 @@ mod tilde_expansion {
     use super::nu;
 
     #[test]
-    fn as_home_directory_when_passed_as_argument_and_begins_with_tilde_to_an_external() {
+    fn as_home_directory_when_passed_as_argument_and_begins_with_tilde() {
         let actual = nu!(
             cwd: ".",
             r#"
@@ -97,7 +97,7 @@ mod tilde_expansion {
     }
 
     #[test]
-    fn does_not_expand_when_passed_as_argument_and_does_not_start_with_tilde_to_an_external() {
+    fn does_not_expand_when_passed_as_argument_and_does_not_start_with_tilde() {
         let actual = nu!(
             cwd: ".",
             r#"

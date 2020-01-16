@@ -62,34 +62,6 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
     }
 }
 
-// At the moment, when we pipe to an
-// external that expects data from stdin
-// we currently pipe all the rows to it
-// as a single input for it.
-pub fn fold_nu_values_for_stdin(
-    command: &ExternalCommand,
-    values: &[Value],
-) -> Result<Option<String>, ShellError> {
-    let mut str_input = String::new();
-
-    for item in values {
-        match nu_value_to_string_for_stdin(&command, &item) {
-            Ok(maybe) => {
-                if let Some(converted) = maybe {
-                    str_input.push_str(&converted);
-                }
-            }
-            Err(reason) => return Err(reason),
-        }
-    }
-
-    if !str_input.is_empty() {
-        return Ok(Some(str_input));
-    }
-
-    Ok(None)
-}
-
 pub fn nu_value_to_string_for_stdin(
     command: &ExternalCommand,
     from: &Value,
@@ -124,42 +96,6 @@ pub(crate) async fn run_external_command(
     }
 }
 
-fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
-where
-    SI: AsRef<str>,
-    P: AsRef<std::path::Path>,
-    HD: FnOnce() -> Option<P>,
-{
-    shellexpand::tilde_with_context(input, home_dir)
-}
-
-pub fn argument_contains_whitespace(argument: &str) -> bool {
-    argument.chars().any(|c| c.is_whitespace())
-}
-
-fn argument_is_quoted(argument: &str) -> bool {
-    if argument.len() < 2 {
-        return false;
-    }
-
-    (argument.starts_with('"') && argument.ends_with('"')
-        || (argument.starts_with('\'') && argument.ends_with('\'')))
-}
-
-fn add_quotes(argument: &str) -> String {
-    format!("'{}'", argument)
-}
-
-fn remove_quotes(argument: &str) -> Option<&str> {
-    if !argument_is_quoted(argument) {
-        return None;
-    }
-
-    let size = argument.len();
-
-    Some(&argument[1..size - 1])
-}
-
 async fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
@@ -169,7 +105,7 @@ async fn run_with_iterator_arg(
     let path = context.shell_manager.path()?;
 
     let mut inputs: InputStream = if let Some(input) = input {
-        trace_stream!(target: "nu::trace_stream::external", "input" = input)
+        trace_stream!(target: "nu::trace_stream::external::it", "input" = input)
     } else {
         InputStream::empty()
     };
@@ -201,7 +137,7 @@ async fn run_with_iterator_arg(
                         let value = it_replacement.to_owned();
                         let value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
                         let value = {
-                            if argument_contains_whitespace(&value) && argument_is_quoted(&value) {
+                            if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
                                 add_quotes(&value)
                             } else {
                                 value
@@ -244,50 +180,57 @@ async fn run_with_stdin(
     input: Option<InputStream>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
-    let home_dir = dirs::home_dir();
     let path = context.shell_manager.path()?;
-    let name_tag = command.name_tag.clone();
-    let args = command.args.clone();
 
-    let inputs = input.unwrap_or_else(InputStream::empty).into_vec().await;
-
-    trace!(target: "nu::run::external", "inputs = {:?}", inputs);
+    let mut inputs: InputStream = if let Some(input) = input {
+        trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input)
+    } else {
+        InputStream::empty()
+    };
 
     let stream = async_stream! {
-        let collected_values_for_stdin = match fold_nu_values_for_stdin(&command, &inputs[..]) {
-            Ok(folded) => folded,
-            Err(reason) => {
-                yield Ok(Value {
-                    value: UntaggedValue::Error(reason),
-                    tag: name_tag
-                });
-                return;
-            }
-        };
+        while let Some(value) = inputs.next().await {
+            let name = command.name.clone();
+            let name_tag = command.name_tag.clone();
+            let home_dir = dirs::home_dir();
+            let path = &path;
+            let args = command.args.clone();
 
-        let process_args = args.iter().map(|arg| {
-            let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-            if let Some(unquoted) = remove_quotes(&arg) {
-                unquoted.to_string()
-            } else {
-                arg.as_ref().to_string()
-            }
-        }).collect::<Vec<String>>();
+            let value_for_stdin = match nu_value_to_string_for_stdin(&command, &value) {
+                Ok(value) => value,
+                Err(reason) => {
+                    yield Ok(Value {
+                        value: UntaggedValue::Error(reason),
+                        tag: name_tag
+                    });
+                    return;
+                }
+            };
 
-        match spawn(&command, &path, &process_args[..], collected_values_for_stdin, is_last).await {
-            Ok(res) => {
-                if let Some(mut res) = res {
-                    while let Some(item) = res.next().await {
-                        yield Ok(item)
+            let process_args = args.iter().map(|arg| {
+                let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
+                if let Some(unquoted) = remove_quotes(&arg) {
+                    unquoted.to_string()
+                } else {
+                    arg.as_ref().to_string()
+                }
+            }).collect::<Vec<String>>();
+
+            match spawn(&command, &path, &process_args[..], value_for_stdin, is_last).await {
+                Ok(res) => {
+                    if let Some(mut res) = res {
+                        while let Some(item) = res.next().await {
+                            yield Ok(item)
+                        }
                     }
                 }
-            }
-            Err(reason) => {
-                yield Ok(Value {
-                    value: UntaggedValue::Error(reason),
-                    tag: name_tag
-                });
-                return;
+                Err(reason) => {
+                    yield Ok(Value {
+                        value: UntaggedValue::Error(reason),
+                        tag: name_tag
+                    });
+                    return;
+                }
             }
         }
     };
@@ -429,6 +372,42 @@ async fn spawn(
             &command.name_tag,
         ))
     }
+}
+
+fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
+where
+    SI: AsRef<str>,
+    P: AsRef<std::path::Path>,
+    HD: FnOnce() -> Option<P>,
+{
+    shellexpand::tilde_with_context(input, home_dir)
+}
+
+pub fn argument_contains_whitespace(argument: &str) -> bool {
+    argument.chars().any(|c| c.is_whitespace())
+}
+
+fn argument_is_quoted(argument: &str) -> bool {
+    if argument.len() < 2 {
+        return false;
+    }
+
+    (argument.starts_with('"') && argument.ends_with('"')
+        || (argument.starts_with('\'') && argument.ends_with('\'')))
+}
+
+fn add_quotes(argument: &str) -> String {
+    format!("'{}'", argument)
+}
+
+fn remove_quotes(argument: &str) -> Option<&str> {
+    if !argument_is_quoted(argument) {
+        return None;
+    }
+
+    let size = argument.len();
+
+    Some(&argument[1..size - 1])
 }
 
 #[cfg(test)]
