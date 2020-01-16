@@ -242,9 +242,10 @@ async fn spawn(
     command: &ExternalCommand,
     path: &str,
     args: &[String],
-    values: Option<String>,
+    stdin_contents: Option<String>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
+    let command = command.clone();
     let name_tag = command.name_tag.clone();
 
     let mut process = Exec::cmd(&command.name);
@@ -256,12 +257,15 @@ async fn spawn(
     process = process.cwd(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
+    // We want stdout regardless of what
+    // we are doing ($it case or pipe stdin)
     if !is_last {
         process = process.stdout(subprocess::Redirection::Pipe);
         trace!(target: "nu::run::external", "set up stdout pipe");
     }
 
-    if values.is_some() {
+    // open since we have some contents for stdin
+    if stdin_contents.is_some() {
         process = process.stdin(subprocess::Redirection::Pipe);
         trace!(target: "nu::run::external", "set up stdin pipe");
     }
@@ -272,7 +276,7 @@ async fn spawn(
 
     if let Ok(mut popen) = popen {
         let stream = async_stream! {
-            if let Some(mut input) = values {
+            if let Some(mut input) = stdin_contents.as_ref() {
                 let mut stdin_write = popen.stdin
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
@@ -291,6 +295,23 @@ async fn spawn(
                 }
 
                 drop(stdin_write);
+            }
+
+            if is_last && command.has_it_argument() {
+                if let Ok(status) = popen.wait() {
+                    if status.success() {
+                        return;
+                    }
+                }
+
+                yield Ok(Value {
+                    value: UntaggedValue::Error(ShellError::labeled_error(
+                            "External command failed",
+                            "command failed",
+                            &name_tag)),
+                    tag: name_tag
+                });
+                return;
             }
 
             if !is_last {
@@ -326,23 +347,6 @@ async fn spawn(
                 }
             }
 
-            if is_last {
-                if let Ok(status) = popen.wait() {
-                    if status.success() {
-                        return;
-                    }
-                }
-
-                yield Ok(Value {
-                    value: UntaggedValue::Error(ShellError::labeled_error(
-                            "External command failed",
-                            "command failed",
-                            &name_tag)),
-                    tag: name_tag
-                });
-                return;
-            }
-
             loop {
                 match popen.poll() {
                     None => std::thread::sleep(std::time::Duration::new(0, 100_000_000)),
@@ -364,6 +368,7 @@ async fn spawn(
                 }
             }
         };
+
         Ok(Some(stream.to_input_stream()))
     } else {
         Err(ShellError::labeled_error(
