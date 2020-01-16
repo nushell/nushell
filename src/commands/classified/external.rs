@@ -48,34 +48,6 @@ impl Decoder for LinesCodec {
     }
 }
 
-fn argument_is_quoted(argument: &str) -> bool {
-    if argument.len() < 2 {
-        return false;
-    }
-
-    (argument.starts_with('"') && argument.ends_with('"')
-        || (argument.starts_with('\'') && argument.ends_with('\'')))
-}
-
-fn remove_quotes(argument: &str) -> Option<&str> {
-    if !argument_is_quoted(argument) {
-        return None;
-    }
-
-    let size = argument.len();
-
-    Some(&argument[1..size - 1])
-}
-
-fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
-where
-    SI: AsRef<str>,
-    P: AsRef<std::path::Path>,
-    HD: FnOnce() -> Option<P>,
-{
-    shellexpand::tilde_with_context(input, home_dir)
-}
-
 pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
     match &from.value {
         UntaggedValue::Primitive(Primitive::Int(i)) => Ok(i.to_string()),
@@ -152,6 +124,42 @@ pub(crate) async fn run_external_command(
     }
 }
 
+fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
+where
+    SI: AsRef<str>,
+    P: AsRef<std::path::Path>,
+    HD: FnOnce() -> Option<P>,
+{
+    shellexpand::tilde_with_context(input, home_dir)
+}
+
+pub fn argument_contains_whitespace(argument: &str) -> bool {
+    argument.chars().any(|c| c.is_whitespace())
+}
+
+fn argument_is_quoted(argument: &str) -> bool {
+    if argument.len() < 2 {
+        return false;
+    }
+
+    (argument.starts_with('"') && argument.ends_with('"')
+        || (argument.starts_with('\'') && argument.ends_with('\'')))
+}
+
+fn add_quotes(argument: &str) -> String {
+    format!("'{}'", argument)
+}
+
+fn remove_quotes(argument: &str) -> Option<&str> {
+    if !argument_is_quoted(argument) {
+        return None;
+    }
+
+    let size = argument.len();
+
+    Some(&argument[1..size - 1])
+}
+
 async fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
@@ -190,14 +198,21 @@ async fn run_with_iterator_arg(
                     None
                 } else {
                     let arg = if arg.is_it() {
-                        it_replacement.to_owned()
+                        let value = it_replacement.to_owned();
+                        let value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
+                        let value = {
+                            if argument_contains_whitespace(&value) && argument_is_quoted(&value) {
+                                add_quotes(&value)
+                            } else {
+                                value
+                            }
+                        };
+                        value
                     } else {
                         arg.to_string()
                     };
 
-                    let expanded = expand_tilde(arg.deref(), || home_dir.as_ref());
-
-                    Some(expanded.as_ref().to_string())
+                    Some(arg)
                 }
             }).collect::<Vec<String>>();
 
@@ -419,8 +434,8 @@ async fn spawn(
 #[cfg(test)]
 mod tests {
     use super::{
-        argument_is_quoted, expand_tilde, remove_quotes, run_external_command, Context,
-        OutputStream,
+        add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
+        run_external_command, Context, OutputStream,
     };
     use futures::executor::block_on;
     use futures::stream::TryStreamExt;
@@ -491,6 +506,13 @@ mod tests {
     }
 
     #[test]
+    fn checks_contains_whitespace_from_argument_to_be_passed_in() {
+        assert_eq!(argument_contains_whitespace("andrés"), false);
+        assert_eq!(argument_contains_whitespace("and rés"), true);
+        assert_eq!(argument_contains_whitespace(r#"and\ rés"#), true);
+    }
+
+    #[test]
     fn checks_quotes_from_argument_to_be_passed_in() {
         assert_eq!(argument_is_quoted(""), false);
 
@@ -512,6 +534,12 @@ mod tests {
         assert_eq!(argument_is_quoted(r#"andrés""#), false);
         assert_eq!(argument_is_quoted("'andrés'"), true);
         assert_eq!(argument_is_quoted(r#""andrés""#), true);
+    }
+
+    #[test]
+    fn adds_quotes_to_argument_to_be_passed_in() {
+        assert_eq!(add_quotes("andrés"), "'andrés'");
+        assert_eq!(add_quotes("'andrés'"), "''andrés''");
     }
 
     #[test]
