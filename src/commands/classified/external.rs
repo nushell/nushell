@@ -349,7 +349,7 @@ async fn spawn(
 
             loop {
                 match popen.poll() {
-                    None => std::thread::sleep(std::time::Duration::new(0, 100_000_000)),
+                    None => futures_timer::Delay::new(std::time::Duration::from_millis(10)).await,
                     Some(status) => {
                         if !status.success() {
                             yield Ok(Value {
