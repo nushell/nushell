@@ -32,6 +32,10 @@ impl UnevaluatedCallInfo {
             name_tag: self.name_tag,
         })
     }
+
+    pub fn switch_present(&self, switch: &str) -> bool {
+        self.args.switch_preset(switch)
+    }
 }
 
 pub trait CallInfoExt {
@@ -477,12 +481,18 @@ impl Command {
     }
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
-        match self {
-            Command::WholeStream(command) => match command.run(args, registry) {
-                Ok(stream) => stream,
-                Err(err) => OutputStream::one(Err(err)),
-            },
-            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
+        if args.call_info.switch_present("help") {
+            get_help(self.name(), self.usage(), self.signature()).into()
+        } else {
+            match self {
+                Command::WholeStream(command) => match command.run(args, registry) {
+                    Ok(stream) => stream,
+                    Err(err) => OutputStream::one(Err(err)),
+                },
+                Command::PerItem(command) => {
+                    self.run_helper(command.clone(), args, registry.clone())
+                }
+            }
         }
     }
 
@@ -509,18 +519,10 @@ impl Command {
                     .evaluate(&registry, &Scope::it_value(x.clone()));
 
                 match call_info {
-                    Ok(call_info) => {
-                        if call_info.args.flag_set("help") {
-                            get_help(&command.name(), &command.usage(), command.signature()).into()
-                        } else {
-                            match command.run(&call_info, &registry, &raw_args, x) {
-                                Ok(o) => o,
-                                Err(e) => {
-                                    VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream()
-                                }
-                            }
-                        }
-                    }
+                    Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
+                        Ok(o) => o,
+                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
+                    },
                     Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
                 }
             })

@@ -78,14 +78,6 @@ impl EvaluatedArgs {
             }
         }
     }
-
-    pub fn flag_set(&self, flag: &str) -> bool {
-        self.named
-            .as_ref()
-            .and_then(|n| n.get(flag))
-            .map(|h| h.as_bool().expect("Why isn't this a bool!?"))
-            .unwrap_or(false)
-    }
 }
 
 pub enum PositionalIter<'a> {
