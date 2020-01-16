@@ -113,6 +113,19 @@ async fn run_with_iterator_arg(
                 }
             }
         })
+        .map(|result| {
+            result.map(|value| {
+                if argument_contains_whitespace(&value) {
+                    let arg = args.iter().find(|arg| arg.contains("$it"));
+                    if let Some(arg) = arg {
+                        if !argument_is_quoted(&arg) {
+                            return add_quotes(&value);
+                        }
+                    }
+                }
+                value
+            })
+        })
         .collect::<Result<Vec<String>, ShellError>>()?;
 
     let home_dir = dirs::home_dir();
@@ -167,9 +180,17 @@ async fn run_with_iterator_arg(
     }
 }
 
+pub fn argument_contains_whitespace(argument: &str) -> bool {
+    argument.chars().any(|c| c.is_whitespace())
+}
+
 pub fn argument_is_quoted(argument: &str) -> bool {
     (argument.starts_with('"') && argument.ends_with('"')
         || (argument.starts_with('\'') && argument.ends_with('\'')))
+}
+
+pub fn add_quotes(argument: &str) -> String {
+    format!("'{}'", argument)
 }
 
 pub fn remove_quotes(argument: &str) -> &str {
@@ -338,7 +359,10 @@ async fn run_with_stdin(
 
 #[cfg(test)]
 mod tests {
-    use super::{argument_is_quoted, remove_quotes, run_external_command, Context, OutputStream};
+    use super::{
+        add_quotes, argument_contains_whitespace, argument_is_quoted, remove_quotes,
+        run_external_command, Context, OutputStream,
+    };
     use futures::executor::block_on;
     use futures::stream::TryStreamExt;
     use nu_errors::ShellError;
@@ -420,6 +444,13 @@ mod tests {
     }
 
     #[test]
+    fn checks_contains_whitespace_from_argument_to_be_passed_in() {
+        assert_eq!(argument_contains_whitespace("andrés"), false);
+        assert_eq!(argument_contains_whitespace("and rés"), true);
+        assert_eq!(argument_contains_whitespace(r#"and\ rés"#), true);
+    }
+
+    #[test]
     fn checks_quotes_from_argument_to_be_passed_in() {
         assert_eq!(argument_is_quoted("'andrés"), false);
         assert_eq!(argument_is_quoted("andrés'"), false);
@@ -427,6 +458,12 @@ mod tests {
         assert_eq!(argument_is_quoted(r#"andrés""#), false);
         assert_eq!(argument_is_quoted("'andrés'"), true);
         assert_eq!(argument_is_quoted(r#""andrés""#), true);
+    }
+
+    #[test]
+    fn adds_quotes_to_argument_to_be_passed_in() {
+        assert_eq!(add_quotes("andrés"), "'andrés'");
+        assert_eq!(add_quotes("'andrés'"), "''andrés''");
     }
 
     #[test]
