@@ -71,6 +71,19 @@ pub struct Call {
     pub span: Span,
 }
 
+impl Call {
+    pub fn switch_preset(&self, switch: &str) -> bool {
+        self.named
+            .as_ref()
+            .and_then(|n| n.get(switch))
+            .map(|t| match t {
+                NamedValue::PresentSwitch(_) => true,
+                _ => false,
+            })
+            .unwrap_or(false)
+    }
+}
+
 impl PrettyDebugWithSource for Call {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         b::delimit(

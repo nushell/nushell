@@ -37,6 +37,10 @@ impl NamedArguments {
     pub fn iter(&self) -> impl Iterator<Item = (&String, &NamedValue)> {
         self.named.iter()
     }
+
+    pub fn get(&self, name: &str) -> Option<&NamedValue> {
+        self.named.get(name)
+    }
 }
 
 impl NamedArguments {
