@@ -243,6 +243,13 @@ impl Value {
             _ => Err(ShellError::type_error("integer", self.spanned_type_name())),
         }
     }
+
+    pub fn as_bool(&self) -> Result<bool, ShellError> {
+        match &self.value {
+            UntaggedValue::Primitive(Primitive::Boolean(p)) => Ok(*p),
+            _ => Err(ShellError::type_error("boolean", self.spanned_type_name())),
+        }
+    }
 }
 
 impl Into<UntaggedValue> for &str {

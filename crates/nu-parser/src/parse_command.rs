@@ -31,6 +31,14 @@ pub fn parse_command_tail(
 
                 named.insert_switch(name, flag);
             }
+            NamedType::Help => {
+                let flag = extract_switch(name, tail, context.source());
+
+                named.insert_switch(name, flag);
+                if flag.is_some() {
+                    return Ok(Some((None, Some(named))));
+                }
+            }
             NamedType::Mandatory(syntax_type) => {
                 match extract_mandatory(config, name, tail, context.source(), command_span) {
                     Err(err) => return Err(err), // produce a correct diagnostic
@@ -242,7 +250,7 @@ impl ColorSyntax for CommandTailShape {
             trace!(target: "nu::color_syntax", "looking for {} : {:?}", name, kind);
 
             match &kind.0 {
-                NamedType::Switch => {
+                NamedType::Switch | NamedType::Help => {
                     if let Some((pos, flag)) =
                         token_nodes.extract(|t| t.as_flag(name, context.source()))
                     {

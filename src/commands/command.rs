@@ -1,3 +1,4 @@
+use crate::commands::help::get_help;
 use crate::context::CommandRegistry;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
@@ -30,6 +31,10 @@ impl UnevaluatedCallInfo {
             args,
             name_tag: self.name_tag,
         })
+    }
+
+    pub fn switch_present(&self, switch: &str) -> bool {
+        self.args.switch_preset(switch)
     }
 }
 
@@ -476,12 +481,18 @@ impl Command {
     }
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
-        match self {
-            Command::WholeStream(command) => match command.run(args, registry) {
-                Ok(stream) => stream,
-                Err(err) => OutputStream::one(Err(err)),
-            },
-            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
+        if args.call_info.switch_present("help") {
+            get_help(self.name(), self.usage(), self.signature()).into()
+        } else {
+            match self {
+                Command::WholeStream(command) => match command.run(args, registry) {
+                    Ok(stream) => stream,
+                    Err(err) => OutputStream::one(Err(err)),
+                },
+                Command::PerItem(command) => {
+                    self.run_helper(command.clone(), args, registry.clone())
+                }
+            }
         }
     }
 
