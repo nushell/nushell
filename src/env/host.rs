@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use language_reporting::termcolor;
 use nu_errors::ShellError;
 use std::fmt::Debug;
 

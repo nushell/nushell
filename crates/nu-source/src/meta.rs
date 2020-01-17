@@ -8,10 +8,14 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+/// Anchors represent a location that a value originated from. The value may have been loaded from a file, fetched from a website, or parsed from some text
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnchorLocation {
+    /// The originating site where the value was first found
     Url(String),
+    /// The original file where the value was loaded from
     File(String),
+    /// The text where the value was parsed from
     Source(Text),
 }
 
@@ -236,11 +240,14 @@ impl From<&std::ops::Range<usize>> for Span {
     }
 }
 
+/// The set of metadata that can be associated with a value
 #[derive(
     Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters, new,
 )]
 pub struct Tag {
+    /// The original source for this value
     pub anchor: Option<AnchorLocation>,
+    /// The span in the source text for the command that created this value
     pub span: Span,
 }
 
