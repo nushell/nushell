@@ -72,6 +72,7 @@ fn test_parse_command() {
 
             let mut map = IndexMap::new();
             map.insert("full".to_string(), NamedValue::AbsentSwitch);
+            map.insert("help".to_string(), NamedValue::AbsentSwitch);
 
             ClassifiedCommand::Internal(InternalCommand::new(
                 "ls".to_string(),
