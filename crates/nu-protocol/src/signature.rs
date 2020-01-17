@@ -136,7 +136,7 @@ impl Signature {
             usage: String::new(),
             positional: vec![],
             rest_positional: None,
-            named: IndexMap::new(),
+            named: indexmap::indexmap! {"help".into() => (NamedType::Help, "Display this help message".into())},
             is_filter: false,
             yields: None,
             input: None,
@@ -218,12 +218,9 @@ impl Signature {
         self
     }
 
-    /// Add --help switch
-    pub fn add_help(mut self) -> Signature {
-        self.named.insert(
-            "help".into(),
-            (NamedType::Help, "Display this help message".into()),
-        );
+    /// Remove the default help switch
+    pub fn remove_help(mut self) -> Signature {
+        self.named.remove("help");
 
         self
     }

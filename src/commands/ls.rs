@@ -20,7 +20,6 @@ impl WholeStreamCommand for Ls {
 
     fn signature(&self) -> Signature {
         Signature::build("ls")
-            .add_help()
             .optional(
                 "path",
                 SyntaxShape::Pattern,
