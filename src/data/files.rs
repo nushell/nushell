@@ -48,7 +48,11 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    dict.insert_untagged("size", UntaggedValue::bytes(metadata.len() as u64));
+    if metadata.is_file() {
+        dict.insert_untagged("size", UntaggedValue::bytes(metadata.len() as u64));
+    } else {
+        dict.insert_untagged("size", UntaggedValue::bytes(0u64));
+    }
 
     if full {
         if let Ok(c) = metadata.created() {
