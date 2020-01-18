@@ -42,6 +42,7 @@ pub trait CallInfoExt {
     fn process<'de, T: Deserialize<'de>>(
         &self,
         shell_manager: &ShellManager,
+        ctrl_c: Arc<AtomicBool>,
         callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnablePerItemArgs<T>, ShellError>;
 }
@@ -50,6 +51,7 @@ impl CallInfoExt for CallInfo {
     fn process<'de, T: Deserialize<'de>>(
         &self,
         shell_manager: &ShellManager,
+        ctrl_c: Arc<AtomicBool>,
         callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnablePerItemArgs<T>, ShellError> {
         let mut deserializer = ConfigDeserializer::from_call_info(self.clone());
@@ -59,6 +61,7 @@ impl CallInfoExt for CallInfo {
             context: RunnablePerItemContext {
                 shell_manager: shell_manager.clone(),
                 name: self.name_tag.clone(),
+                ctrl_c,
             },
             callback,
         })
@@ -219,6 +222,7 @@ impl CommandArgs {
 pub struct RunnablePerItemContext {
     pub shell_manager: ShellManager,
     pub name: Tag,
+    pub ctrl_c: Arc<AtomicBool>,
 }
 
 pub struct RunnableContext {

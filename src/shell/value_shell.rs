@@ -1,5 +1,6 @@
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
+use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
@@ -8,7 +9,6 @@ use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
-use nu_source::Tagged;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -90,14 +90,13 @@ impl Shell for ValueShell {
 
     fn ls(
         &self,
-        target: Option<Tagged<PathBuf>>,
-        context: &RunnableContext,
-        _full: bool,
+        LsArgs { path, .. }: LsArgs,
+        context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
         let mut full_path = PathBuf::from(self.path());
         let name_tag = context.name.clone();
 
-        if let Some(value) = &target {
+        if let Some(value) = &path {
             full_path.push(value.as_ref());
         }
 
@@ -105,7 +104,7 @@ impl Shell for ValueShell {
         value_system.walk_decorate(&self.value)?;
 
         if !value_system.exists(&full_path) {
-            if let Some(target) = &target {
+            if let Some(target) = &path {
                 return Err(ShellError::labeled_error(
                     "Can not list entries inside",
                     "No such path exists",
