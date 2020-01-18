@@ -20,9 +20,11 @@ pub enum AnchorLocation {
 }
 
 pub trait HasTag {
+    /// Get the associated metadata
     fn tag(&self) -> Tag;
 }
 
+/// A wrapper type that attaches a Span to a value
 #[derive(new, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Spanned<T> {
     pub span: Span,
@@ -30,6 +32,7 @@ pub struct Spanned<T> {
 }
 
 impl<T> Spanned<T> {
+    /// Allows mapping over a Spanned value
     pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Spanned<U> {
         let span = self.span;
 
@@ -39,6 +42,7 @@ impl<T> Spanned<T> {
 }
 
 impl Spanned<String> {
+    /// Iterates over the contained String
     pub fn items<'a, U>(
         items: impl Iterator<Item = &'a Spanned<String>>,
     ) -> impl Iterator<Item = &'a str> {
@@ -47,6 +51,7 @@ impl Spanned<String> {
 }
 
 impl Spanned<String> {
+    /// Borrows the contained String
     pub fn borrow_spanned(&self) -> Spanned<&str> {
         let span = self.span;
         self.item[..].spanned(span)
@@ -54,6 +59,7 @@ impl Spanned<String> {
 }
 
 pub trait SpannedItem: Sized {
+    /// Converts a value into a Spanned value
     fn spanned(self, span: impl Into<Span>) -> Spanned<Self> {
         Spanned {
             item: self,
@@ -61,6 +67,7 @@ pub trait SpannedItem: Sized {
         }
     }
 
+    /// Converts a value into a Spanned value, using an unknown Span
     fn spanned_unknown(self) -> Spanned<Self> {
         Spanned {
             item: self,
@@ -73,11 +80,13 @@ impl<T> SpannedItem for T {}
 impl<T> std::ops::Deref for Spanned<T> {
     type Target = T;
 
+    /// Shorthand to deref to the contained value
     fn deref(&self) -> &T {
         &self.item
     }
 }
 
+/// A wrapper type that attaches a Tag to a value
 #[derive(new, Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 pub struct Tagged<T> {
     pub tag: Tag,
@@ -85,29 +94,34 @@ pub struct Tagged<T> {
 }
 
 impl Tagged<String> {
+    /// Allows borrowing the contained string slice as a spanned value
     pub fn borrow_spanned(&self) -> Spanned<&str> {
         let span = self.tag.span;
         self.item[..].spanned(span)
     }
 
+    /// Allows borrowing the contained string slice as a tagged value
     pub fn borrow_tagged(&self) -> Tagged<&str> {
         self.item[..].tagged(self.tag.clone())
     }
 }
 
 impl<T> Tagged<Vec<T>> {
+    /// Iterates over the contained value(s)
     pub fn items(&self) -> impl Iterator<Item = &T> {
         self.item.iter()
     }
 }
 
 impl<T> HasTag for Tagged<T> {
+    /// Helper for getting the Tag from the Tagged value
     fn tag(&self) -> Tag {
         self.tag.clone()
     }
 }
 
 impl AsRef<Path> for Tagged<PathBuf> {
+    /// Gets the reference to the contained Path
     fn as_ref(&self) -> &Path {
         self.item.as_ref()
     }
