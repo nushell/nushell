@@ -1,5 +1,6 @@
 use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
 use crate::commands::cp::CopyArgs;
+use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
@@ -8,7 +9,6 @@ use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
 use nu_errors::ShellError;
-use nu_source::Tagged;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -202,12 +202,11 @@ impl ShellManager {
 
     pub fn ls(
         &self,
-        path: Option<Tagged<PathBuf>>,
-        context: &RunnableContext,
-        full: bool,
+        args: LsArgs,
+        context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
         if let Ok(shells) = self.shells.lock() {
-            shells[self.current_shell()].ls(path, context, full)
+            shells[self.current_shell()].ls(args, context)
         } else {
             Err(ShellError::untagged_runtime_error(
                 "Internal error: could not lock shells ring buffer (ls)",

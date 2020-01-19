@@ -72,6 +72,7 @@ pub(crate) use nu_protocol::{errln, outln};
 
 pub(crate) use crate::commands::command::{
     CallInfoExt, CommandArgs, PerItemCommand, RawCommandArgs, RunnableContext,
+    RunnablePerItemContext,
 };
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;

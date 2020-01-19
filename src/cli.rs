@@ -251,7 +251,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         context.add_commands(vec![
             // System/file operations
             whole_stream_command(Pwd),
-            whole_stream_command(Ls),
+            per_item_command(Ls),
             whole_stream_command(Cd),
             whole_stream_command(Env),
             per_item_command(Remove),

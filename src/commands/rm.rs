@@ -41,7 +41,9 @@ impl PerItemCommand for Remove {
         raw_args: &RawCommandArgs,
         _input: Value,
     ) -> Result<OutputStream, ShellError> {
-        call_info.process(&raw_args.shell_manager, rm)?.run()
+        call_info
+            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), rm)?
+            .run()
     }
 }
 
