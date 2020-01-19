@@ -21,3 +21,21 @@ fn by_column() {
 
     assert_eq!(actual, "description");
 }
+
+#[test]
+fn sort_primitive_values() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open cargo_sample.toml --raw
+            | lines
+            | skip 1
+            | first 6
+            | sort-by
+            | first 1
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "authors = [\"Yehuda Katz <wycats@gmail.com>\"]");
+}

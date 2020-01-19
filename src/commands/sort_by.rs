@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape, Value};
+use nu_protocol::{Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use nu_value_ext::get_data_by_key;
 
@@ -41,12 +41,26 @@ fn sort_by(
     Ok(OutputStream::new(async_stream! {
         let mut vec = context.input.drain_vec().await;
 
-        let calc_key = |item: &Value| {
-            rest.iter()
-                .map(|f| get_data_by_key(item, f.borrow_spanned()))
-                .collect::<Vec<Option<Value>>>()
+        if vec.is_empty() {
+            return;
+        }
+
+        match &vec[0] {
+            Value {
+                value: UntaggedValue::Primitive(_),
+                ..
+            } => {
+                vec.sort();
+            },
+            _ => {
+                let calc_key = |item: &Value| {
+                    rest.iter()
+                        .map(|f| get_data_by_key(item, f.borrow_spanned()))
+                        .collect::<Vec<Option<Value>>>()
+                };
+                vec.sort_by_cached_key(calc_key);
+            },
         };
-        vec.sort_by_cached_key(calc_key);
 
         for item in vec {
             yield item.into();
