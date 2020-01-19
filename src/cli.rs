@@ -1,5 +1,4 @@
 use crate::commands::classified::pipeline::run_pipeline;
-use crate::commands::classified::ClassifiedInputStream;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
@@ -321,6 +320,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromINI),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
+            whole_stream_command(FromODS),
             whole_stream_command(FromDB),
             whole_stream_command(FromSQLite),
             whole_stream_command(FromTOML),
@@ -615,9 +615,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 return LineResult::Error(line.to_string(), err);
             }
 
-            let input = ClassifiedInputStream::new();
-
-            match run_pipeline(pipeline, ctx, input, line).await {
+            match run_pipeline(pipeline, ctx, None, line).await {
                 Ok(_) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
             }

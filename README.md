@@ -118,7 +118,7 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 
 ```
 /home/jonathan/Source/nushell(master)> ls | where type == "Directory" | autoview
-━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━┯━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
+────┬───────────┬───────────┬──────────┬────────┬──────────────┬────────────────
  #  │ name      │ type      │ readonly │ size   │ accessed     │ modified
 ────┼───────────┼───────────┼──────────┼────────┼──────────────┼────────────────
   0 │ .azure    │ Directory │          │ 4.1 KB │ 2 months ago │ a day ago
@@ -129,7 +129,7 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
   5 │ src       │ Directory │          │ 4.1 KB │ 2 months ago │ 37 minutes ago
   6 │ assets    │ Directory │          │ 4.1 KB │ a month ago  │ a month ago
   7 │ docs      │ Directory │          │ 4.1 KB │ 2 months ago │ 2 months ago
-━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
+────┴───────────┴───────────┴──────────┴────────┴──────────────┴────────────────
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
@@ -142,15 +142,14 @@ Being able to use the same commands and compose them differently is an important
 
 ```text
 /home/jonathan/Source/nushell(master)> ps | where cpu > 0
-━━━┯━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━
+───┬───────┬─────────────────┬──────────┬──────────
  # │ pid   │ name            │ status   │ cpu
 ───┼───────┼─────────────────┼──────────┼──────────
  0 │   992 │ chrome          │ Sleeping │ 6.988768
  1 │  4240 │ chrome          │ Sleeping │ 5.645982
  2 │ 13973 │ qemu-system-x86 │ Sleeping │ 4.996551
  3 │ 15746 │ nu              │ Sleeping │ 84.59905
-━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━
-
+───┴───────┴─────────────────┴──────────┴──────────
 ```
 
 ## Opening files
@@ -159,29 +158,29 @@ Nu can load file and URL contents as raw text or as structured data (if it recog
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
-━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━
+──────────────────┬────────────────┬──────────────────
  bin              │ dependencies   │ dev-dependencies
 ──────────────────┼────────────────┼──────────────────
  [table: 12 rows] │ [table: 1 row] │ [table: 1 row]
-━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━
+──────────────────┴────────────────┴──────────────────
 ```
 
 We can pipeline this into a command that gets the contents of one of the columns:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package
-━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━┯━━━━━━┯━━━━━━━━━
+─────────────────┬────────────────────────────┬─────────┬─────────┬──────┬─────────
  authors         │ description                │ edition │ license │ name │ version
 ─────────────────┼────────────────────────────┼─────────┼─────────┼──────┼─────────
- [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.6.1
-━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━┷━━━━━━┷━━━━━━━━━
+ [table: 3 rows] │ A shell for the GitHub era │ 2018    │ MIT     │ nu   │ 0.8.0
+─────────────────┴────────────────────────────┴─────────┴─────────┴──────┴─────────
 ```
 
 Finally, we can use commands outside of Nu once we have the data we want:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml | get package.version | echo $it
-0.6.1
+0.8.0
 ```
 
 Here we use the variable `$it` to refer to the value being piped to the external command.

@@ -37,7 +37,7 @@ fn debug_value(
     Ok(input
         .values
         .map(|v| {
-            ReturnSuccess::value(UntaggedValue::string(format!("{:?}", v)).into_untagged_value())
+            ReturnSuccess::value(UntaggedValue::string(format!("{:#?}", v)).into_untagged_value())
         })
         .to_output_stream())
 }

@@ -5,22 +5,23 @@ use nu_errors::ShellError;
 use nu_parser::InternalCommand;
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 
-use super::ClassifiedInputStream;
-
 pub(crate) async fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
-    input: ClassifiedInputStream,
+    input: Option<InputStream>,
     source: Text,
-) -> Result<InputStream, ShellError> {
+) -> Result<Option<InputStream>, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
         trace!(target: "nu::run::internal", "{}", command.args.debug(&source));
     }
 
-    let objects: InputStream =
-        trace_stream!(target: "nu::trace_stream::internal", "input" = input.objects);
+    let objects: InputStream = if let Some(input) = input {
+        trace_stream!(target: "nu::trace_stream::internal", "input" = input)
+    } else {
+        InputStream::empty()
+    };
 
     let internal_command = context.expect_command(&command.name);
 
@@ -166,5 +167,5 @@ pub(crate) async fn run_internal_command(
         }
     };
 
-    Ok(stream.to_input_stream())
+    Ok(Some(stream.to_input_stream()))
 }

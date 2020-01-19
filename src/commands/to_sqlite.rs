@@ -211,7 +211,7 @@ fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             Ok(out) => yield ReturnSuccess::value(out),
             _ => {
                 yield Err(ShellError::labeled_error(
-                    "Expected a table with SQLite-compatible structure.tag() from pipeline",
+                    "Expected a table with SQLite-compatible structure from pipeline",
                     "requires SQLite-compatible input",
                     name_tag,
                 ))

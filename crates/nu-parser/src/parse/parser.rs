@@ -1592,6 +1592,17 @@ mod tests {
                 ]
             ])
         }
+
+        equal_tokens! {
+            "^echo 1 | ^cat" -> b::pipeline(vec![
+                vec![
+                    b::external("echo"), b::sp(), b::number(1)
+                ],
+                vec![
+                    b::sp(), b::external("cat")
+                ]
+            ])
+        }
     }
 
     #[test]

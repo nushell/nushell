@@ -154,13 +154,22 @@ fn errors_fetching_by_column_not_present() {
             "#
         ));
 
-        assert!(actual.contains("Unknown column"));
-        assert!(actual.contains("did you mean 'taconushell'?"));
+        assert!(
+            actual.contains("Unknown column"),
+            format!("actual: {:?}", actual)
+        );
+        assert!(
+            actual.contains("There isn't a column named 'taco'"),
+            format!("actual: {:?}", actual)
+        );
+        assert!(
+            actual.contains("Perhaps you meant 'taconushell'?"),
+            format!("actual: {:?}", actual)
+        )
     })
 }
 
 #[test]
-#[should_panic]
 fn errors_fetching_by_column_using_a_number() {
     Playground::setup("get_test_7", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -175,12 +184,22 @@ fn errors_fetching_by_column_using_a_number() {
             cwd: dirs.test(), pipeline(
             r#"
                 open sample.toml
-                | get spanish_lesson.9
+                | get spanish_lesson.0
             "#
         ));
 
-        assert!(actual.contains("No rows available"));
-        assert!(actual.contains(r#"Not a table. Perhaps you meant to get the column "0" instead?"#))
+        assert!(
+            actual.contains("No rows available"),
+            format!("actual: {:?}", actual)
+        );
+        assert!(
+            actual.contains("A row at '0' can't be indexed."),
+            format!("actual: {:?}", actual)
+        );
+        assert!(
+            actual.contains("Appears to contain columns. Columns available: 0"),
+            format!("actual: {:?}", actual)
+        )
     })
 }
 #[test]
