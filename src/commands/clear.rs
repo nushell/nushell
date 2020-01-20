@@ -26,14 +26,13 @@ impl WholeStreamCommand for Clear {
     }
 }
 pub fn clear(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let shell_manager = args.shell_manager.clone();
-    let args = args.evaluate_once(registry)?;
     if cfg!(windows) {
         Command::new("cmd")
             .args(&["/C", "cls"])
             .output()
-            .expect("failed to execute process")
+            .expect("failed to execute process");
     } else if cfg!(unix) {
-        println!("\x1b[2J")
+        println!("\x1b[2J");
     }
+    return Ok(OutputStream::empty())
 }
