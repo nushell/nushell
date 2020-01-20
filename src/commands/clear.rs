@@ -25,7 +25,7 @@ impl WholeStreamCommand for Clear {
         clear(args, registry)
     }
 }
-pub fn clear(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     if cfg!(windows) {
         Command::new("cmd")
             .args(&["/C", "cls"])
