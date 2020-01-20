@@ -25,15 +25,7 @@ impl WholeStreamCommand for Clear {
     }
 }
 pub fn clear(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+    let shell_manager = args.shell_manager.clone();
     let args = args.evaluate_once(registry)?;
-    let tag = args.call_info.name_tag.clone();
-
-    let mut indexmap = IndexMap::new();
-    indexmap.insert(
-        "clear".to_string(),
-        UntaggedValue::string(clap::crate_version!()).into_value(&tag),
-    );
-
-    let value = UntaggedValue::Row(Dictionary::from(indexmap)).into_value(&tag);
-    Ok(OutputStream::one(value))
+    println!("\x1b[2J")
 }
