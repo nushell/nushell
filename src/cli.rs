@@ -226,6 +226,7 @@ impl History {
     }
 }
 
+#[allow(dead_code)]
 fn create_default_starship_config() -> Option<toml::Value> {
     let mut map = toml::value::Table::new();
     map.insert("add_newline".into(), toml::Value::Boolean(false));

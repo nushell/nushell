@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{Dictionary, Signature, UntaggedValue};
+use nu_protocol::Signature;
 use std::process::Command;
 
 pub struct Clear;
