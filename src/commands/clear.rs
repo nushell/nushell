@@ -28,12 +28,12 @@ fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
     if cfg!(windows) {
         Command::new("cmd")
             .args(&["/C", "cls"])
-            .output()
+            .status()
             .expect("failed to execute process");
     } else if cfg!(unix) {
         Command::new("/bin/sh")
             .args(&["-c", "clear"])
-            .output()
+            .status()
             .expect("failed to execute process");
     }
     Ok(OutputStream::empty())
