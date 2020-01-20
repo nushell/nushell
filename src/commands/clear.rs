@@ -1,4 +1,5 @@
 use crate::commands::WholeStreamCommand;
+use std::process::Command;
 use crate::prelude::*;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
@@ -27,5 +28,12 @@ impl WholeStreamCommand for Clear {
 pub fn clear(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let shell_manager = args.shell_manager.clone();
     let args = args.evaluate_once(registry)?;
-    println!("\x1b[2J")
+    if cfg!(windows) {
+        Command::new("cmd")
+            .args(&["/C", "cls"])
+            .output()
+            .expect("failed to execute process")
+    } else if cfg!(unix) {
+        println!("\x1b[2J")
+    }
 }
