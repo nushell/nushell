@@ -36,5 +36,5 @@ fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
             .output()
             .expect("failed to execute process");
     }
-    Ok(OutputStream::empty());
+    Ok(OutputStream::empty())
 }
