@@ -1,9 +1,9 @@
 use crate::commands::WholeStreamCommand;
-use std::process::Command;
 use crate::prelude::*;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, Signature, UntaggedValue};
+use std::process::Command;
 
 pub struct Clear;
 
@@ -34,5 +34,5 @@ fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
     } else if cfg!(unix) {
         println!("\x1b[2J");
     }
-    return Ok(OutputStream::empty())
+    return Ok(OutputStream::empty());
 }

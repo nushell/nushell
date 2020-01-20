@@ -116,6 +116,7 @@ pub(crate) use default::Default;
 pub(crate) use echo::Echo;
 pub(crate) use edit::Edit;
 pub(crate) mod clear;
+pub(crate) use clear::Clear;
 pub(crate) use enter::Enter;
 pub(crate) use env::Env;
 #[allow(unused_imports)]
@@ -195,4 +196,3 @@ pub(crate) use what::What;
 pub(crate) use where_::Where;
 pub(crate) use which_::Which;
 pub(crate) use wrap::Wrap;
-pub(crate) use clear::Clear;
