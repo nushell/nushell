@@ -115,6 +115,8 @@ pub(crate) use debug::Debug;
 pub(crate) use default::Default;
 pub(crate) use echo::Echo;
 pub(crate) use edit::Edit;
+pub(crate) mod clear;
+pub(crate) use clear::Clear;
 pub(crate) use enter::Enter;
 pub(crate) use env::Env;
 #[allow(unused_imports)]
