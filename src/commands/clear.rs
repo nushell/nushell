@@ -31,7 +31,10 @@ fn clear(_args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
             .output()
             .expect("failed to execute process");
     } else if cfg!(unix) {
-        println!("\x1b[2J");
+        Command::new("/bin/sh")
+            .args(&["-c", "clear"])
+            .output()
+            .expect("failed to execute process");
     }
     return Ok(OutputStream::empty());
 }
