@@ -76,20 +76,17 @@ pub(crate) fn dir_entry_dict(
 
 pub(crate) fn get_dir_size(filename: &std::path::Path) -> u64 {
     let mut size: u64 = 0;
-    match std::fs::read_dir(filename) {
-        Ok(files) => {
-            for file in files {
-                match file {
-                    Ok(f) => match f.metadata() {
-                        Ok(m) if m.is_file() => size += m.len(),
-                        Ok(m) if m.is_dir() => size += get_dir_size(f.path().as_ref()),
-                        _ => continue,
-                    },
+    if let Ok(files) = std::fs::read_dir(filename) {
+        for file in files {
+            match file {
+                Ok(f) => match f.metadata() {
+                    Ok(m) if m.is_file() => size += m.len(),
+                    Ok(m) if m.is_dir() => size += get_dir_size(f.path().as_ref()),
                     _ => continue,
-                }
+                },
+                _ => continue,
             }
         }
-        _ => {}
     };
     size
 }
