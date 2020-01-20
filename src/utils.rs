@@ -131,10 +131,12 @@ impl FileStructure {
         }
     }
 
+    #[allow(dead_code)]
     pub fn contains_more_than_one_file(&self) -> bool {
         self.resources.len() > 1
     }
 
+    #[allow(dead_code)]
     pub fn contains_files(&self) -> bool {
         !self.resources.is_empty()
     }

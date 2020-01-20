@@ -995,7 +995,7 @@ impl Shell for FilesystemShell {
         match glob::glob(&path.to_string_lossy()) {
             Ok(files) => {
                 let files: Vec<_> = files.collect();
-                if files.len() == 0 {
+                if files.is_empty() {
                     Err(ShellError::labeled_error(
                         "Remove aborted. Not a valid path",
                         "Remove aborted. Not a valid path",
