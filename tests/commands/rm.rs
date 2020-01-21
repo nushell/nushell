@@ -132,7 +132,7 @@ fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_fla
         );
 
         assert!(dirs.test().exists());
-        assert!(actual.contains("is a directory"));
+        assert!(actual.contains("Cannot remove non-empty directory"));
     })
 }
 
