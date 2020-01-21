@@ -8,7 +8,6 @@ use crate::prelude::*;
 use crate::stream::OutputStream;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
-use nu_source::Tagged;
 use std::path::PathBuf;
 
 pub trait Shell: std::fmt::Debug {

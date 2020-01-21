@@ -1,6 +1,6 @@
 use crate::hir::syntax_shape::{
     expression::expand_file_path, BarePathShape, DecimalShape, ExpandContext, ExpandSyntax,
-    FlatShape, IntShape, StringShape, VariablePathShape,
+    FlatShape, IntShape, StringShape,
 };
 use crate::hir::{Expression, SpannedExpression, TokensIterator};
 use crate::parse::token_tree::ExternalWordType;
@@ -21,23 +21,23 @@ impl ExpandSyntax for FilePathShape {
         &self,
         token_nodes: &mut TokensIterator<'_>,
     ) -> Result<SpannedExpression, ParseError> {
-            token_nodes
-                .expand_syntax(BarePathShape)
-                .or_else(|_| token_nodes.expand_syntax(ExternalWordShape))
-                .map(|span| file_path(span, token_nodes.context()).into_expr(span))
-                .or_else(|_| {
-                    token_nodes.expand_syntax(StringShape).map(|syntax| {
-                        file_path(syntax.inner, token_nodes.context()).into_expr(syntax.span)
+        token_nodes
+            .expand_syntax(BarePathShape)
+            .or_else(|_| token_nodes.expand_syntax(ExternalWordShape))
+            .map(|span| file_path(span, token_nodes.context()).into_expr(span))
+            .or_else(|_| {
+                token_nodes.expand_syntax(StringShape).map(|syntax| {
+                    file_path(syntax.inner, token_nodes.context()).into_expr(syntax.span)
+                })
+            })
+            .or_else(|_| {
+                token_nodes
+                    .expand_syntax(IntShape)
+                    .or_else(|_| token_nodes.expand_syntax(DecimalShape))
+                    .map(|number| {
+                        file_path(number.span(), token_nodes.context()).into_expr(number.span())
                     })
-                })
-                .or_else(|_| {
-                    token_nodes
-                        .expand_syntax(IntShape)
-                        .or_else(|_| token_nodes.expand_syntax(DecimalShape))
-                        .map(|number| {
-                            file_path(number.span(), token_nodes.context()).into_expr(number.span())
-                        })
-                })
+            })
             .map_err(|_| token_nodes.err_next_token("file path"))
     }
 }

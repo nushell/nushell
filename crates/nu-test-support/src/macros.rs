@@ -70,8 +70,7 @@ pub fn read_std(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().skip(1).collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
-    let out = out.replace("\n", "");
-    out
+    out.replace("\n", "")
 }
 
 #[macro_export]

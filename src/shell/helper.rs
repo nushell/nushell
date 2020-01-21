@@ -3,7 +3,7 @@ use ansi_term::{Color, Style};
 use log::log_enabled;
 use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
 use nu_protocol::{errln, outln};
-use nu_source::{nom_input, HasSpan, Spanned, Tag, Tagged, Text};
+use nu_source::{nom_input, HasSpan, Tag, Tagged, Text};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -134,14 +134,14 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
 
 struct Painter {
     current: Style,
-    buffer: String
+    buffer: String,
 }
 
 impl Painter {
     fn new() -> Painter {
         Painter {
             current: Style::default(),
-            buffer: String::new()
+            buffer: String::new(),
         }
     }
 
@@ -176,9 +176,7 @@ impl Painter {
                 FlatShape::Decimal => Color::Purple.bold(),
                 FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
                 FlatShape::Comment => Color::Green.bold(),
-                FlatShape::Garbage => {
-                    Style::new().fg(Color::White).on(Color::Red)
-                }
+                FlatShape::Garbage => Style::new().fg(Color::White).on(Color::Red),
                 FlatShape::Size { number, unit } => {
                     let number = number.slice(line);
                     let unit = unit.slice(line);
@@ -190,17 +188,18 @@ impl Painter {
             },
             ShapeResult::Fallback { shape, .. } => match shape.item {
                 FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-                _ => Style::new().fg(Color::White).on(Color::Red)
-            }
+                _ => Style::new().fg(Color::White).on(Color::Red),
+            },
         };
-    
+
         self.paint(style, shape.span().slice(line));
     }
 
     fn paint(&mut self, style: Style, body: &str) {
         let infix = self.current.infix(style);
         self.current = style;
-        self.buffer.push_str(&format!("{}{}", infix, style.paint(body)));
+        self.buffer
+            .push_str(&format!("{}{}", infix, style.paint(body)));
     }
 }
 

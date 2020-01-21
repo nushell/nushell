@@ -17,11 +17,16 @@ use std::fmt::Debug;
 
 #[test]
 fn test_parse_external() {
-    parse_tokens(fallible(ExternalTokensShape), "5kb", vec![b::bare("5kb")], |tokens| {
-        ExternalTokensSyntax::new(
-            vec![format!("5kb").spanned(tokens[0].span())].spanned(tokens[0].span()),
-        )
-    });
+    parse_tokens(
+        fallible(ExternalTokensShape),
+        "5kb",
+        vec![b::bare("5kb")],
+        |tokens| {
+            ExternalTokensSyntax::new(
+                vec![format!("5kb").spanned(tokens[0].span())].spanned(tokens[0].span()),
+            )
+        },
+    );
 
     parse_tokens(
         fallible(ExternalTokensShape),

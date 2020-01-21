@@ -224,26 +224,20 @@ pub fn int_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, head) = digit1(input)?;
 
     match input.fragment.chars().next() {
-        None | Some('.') => {
-            return Ok((
-                input,
-                Token::Number(RawNumber::int((start, input.offset)))
-                    .into_spanned((start, input.offset)),
-            ))
-        }
-        other if is_boundary(other) => {
-            return Ok((
-                input,
-                Token::Number(RawNumber::int((start, input.offset)))
-                    .into_spanned((start, input.offset)),
-            ))
-        }
-        _ => {
-            return Err(nom::Err::Error(nom::error::make_error(
-                input,
-                nom::error::ErrorKind::Tag,
-            )))
-        }
+        None | Some('.') => Ok((
+            input,
+            Token::Number(RawNumber::int((start, input.offset)))
+                .into_spanned((start, input.offset)),
+        )),
+        other if is_boundary(other) => Ok((
+            input,
+            Token::Number(RawNumber::int((start, input.offset)))
+                .into_spanned((start, input.offset)),
+        )),
+        _ => Err(nom::Err::Error(nom::error::make_error(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
     }
 }
 

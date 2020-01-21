@@ -71,9 +71,15 @@ impl ExpandSyntax for SyntaxShape {
     ) -> Result<SpannedExpression, ParseError> {
         match self {
             SyntaxShape::Any => token_nodes.expand_syntax(AnyExpressionShape),
-            SyntaxShape::Int => token_nodes.expand_syntax(IntExpressionShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
-            SyntaxShape::Range => token_nodes.expand_syntax(RangeShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
-            SyntaxShape::String => token_nodes.expand_syntax(CoerceStringShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Int => token_nodes
+                .expand_syntax(IntExpressionShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Range => token_nodes
+                .expand_syntax(RangeShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::String => token_nodes
+                .expand_syntax(CoerceStringShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
             SyntaxShape::Member => {
                 let syntax = token_nodes.expand_syntax(MemberShape)?;
                 Ok(syntax.to_expr())
@@ -87,10 +93,18 @@ impl ExpandSyntax for SyntaxShape {
 
                 Ok(Expression::column_path(column_path).into_expr(tag.span))
             }
-            SyntaxShape::Number => token_nodes.expand_syntax(NumberExpressionShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
-            SyntaxShape::Path => token_nodes.expand_syntax(FilePathShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
-            SyntaxShape::Pattern => token_nodes.expand_syntax(PatternShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
-            SyntaxShape::Block => token_nodes.expand_syntax(CoerceBlockShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Number => token_nodes
+                .expand_syntax(NumberExpressionShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Path => token_nodes
+                .expand_syntax(FilePathShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Pattern => token_nodes
+                .expand_syntax(PatternShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Block => token_nodes
+                .expand_syntax(CoerceBlockShape)
+                .or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
         }
     }
 }

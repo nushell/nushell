@@ -1,4 +1,4 @@
-use crate::hir::syntax_shape::{ExpandSyntax, FlatShape, VariableShape};
+use crate::hir::syntax_shape::{ExpandSyntax, FlatShape};
 use crate::hir::{Expression, SpannedExpression};
 use crate::hir::{RawNumber, TokensIterator};
 use crate::parse::token_tree::{DecimalType, IntType};
