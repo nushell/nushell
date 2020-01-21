@@ -39,12 +39,12 @@ members = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-source = { version = "0.8.0", path = "./crates/nu-source" }
-nu-plugin = { version = "0.8.0", path = "./crates/nu-plugin" }
-nu-protocol = { version = "0.8.0", path = "./crates/nu-protocol" }
-nu-errors = { version = "0.8.0", path = "./crates/nu-errors" }
-nu-parser = { version = "0.8.0", path = "./crates/nu-parser" }
-nu-value-ext = { version = "0.8.0", path = "./crates/nu-value-ext" }
+nu-source = {version = "0.8.0", path = "./crates/nu-source"}
+nu-plugin = {version = "0.8.0", path = "./crates/nu-plugin"}
+nu-protocol = {version = "0.8.0", path = "./crates/nu-protocol"}
+nu-errors = {version = "0.8.0", path = "./crates/nu-errors"}
+nu-parser = {version = "0.8.0", path = "./crates/nu-parser"}
+nu-value-ext = {version = "0.8.0", path = "./crates/nu-value-ext"}
 nu_plugin_average = {version = "0.8.0", path = "./crates/nu_plugin_average", optional=true}
 nu_plugin_binaryview = {version = "0.8.0", path = "./crates/nu_plugin_binaryview", optional=true}
 nu_plugin_fetch = {version = "0.8.0", path = "./crates/nu_plugin_fetch", optional=true}
