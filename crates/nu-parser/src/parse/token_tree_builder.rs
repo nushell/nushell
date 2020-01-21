@@ -100,6 +100,21 @@ impl TokenTreeBuilder {
         .into_spanned(span)
     }
 
+    pub fn garbage(input: impl Into<String>) -> CurriedToken {
+        let input = input.into();
+
+        Box::new(move |b| {
+            let (start, end) = b.consume(&input);
+            b.pos = end;
+
+            TokenTreeBuilder::spanned_garbage(Span::new(start, end))
+        })
+    }
+
+    pub fn spanned_garbage(span: impl Into<Span>) -> SpannedToken {
+        Token::Garbage.into_spanned(span)
+    }
+
     pub fn op(input: impl Into<CompareOperator>) -> CurriedToken {
         let input = input.into();
 

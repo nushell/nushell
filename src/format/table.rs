@@ -139,8 +139,8 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
             .collect();
 
         if values_len > 1 {
-            // Indices are black, bold, right-aligned:
-            row.insert(0, ((starting_idx + idx).to_string(), "Fdbr"));
+            // Indices are green, bold, right-aligned:
+            row.insert(0, ((starting_idx + idx).to_string(), "Fgbr"));
         }
 
         entries.push(row);

@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod fs;
 pub mod macros;
 pub mod playground;
@@ -13,7 +14,7 @@ pub fn pipeline(commands: &str) -> String {
         .to_string()
 }
 
-#[cfg(tests)]
+#[cfg(test)]
 mod tests {
     use super::pipeline;
 

@@ -1,5 +1,6 @@
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
+use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
@@ -11,7 +12,6 @@ use crate::utils::FileStructure;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
-use nu_source::Tagged;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::path::{Path, PathBuf};
@@ -88,14 +88,13 @@ impl Shell for FilesystemShell {
 
     fn ls(
         &self,
-        pattern: Option<Tagged<PathBuf>>,
-        context: &RunnableContext,
-        full: bool,
+        LsArgs { path, full }: LsArgs,
+        context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
         let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
 
-        if let Some(value) = &pattern {
+        if let Some(value) = &path {
             full_path.push((*value).as_ref())
         }
 
@@ -110,7 +109,7 @@ impl Shell for FilesystemShell {
                 let entries = std::fs::read_dir(&entry);
                 let entries = match entries {
                     Err(e) => {
-                        if let Some(s) = pattern {
+                        if let Some(s) = path {
                             return Err(ShellError::labeled_error(
                                 e.to_string(),
                                 e.to_string(),
@@ -126,6 +125,17 @@ impl Shell for FilesystemShell {
                     }
                     Ok(o) => o,
                 };
+                let mut entries = entries.collect::<Vec<Result<std::fs::DirEntry, _>>>();
+                entries.sort_by(|x, y| match (x, y) {
+                    (Ok(entry1), Ok(entry2)) => entry1
+                        .path()
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .cmp(&entry2.path().to_string_lossy().to_lowercase()),
+                    (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+                    (Ok(_), Err(_)) => std::cmp::Ordering::Greater,
+                    _ => std::cmp::Ordering::Equal,
+                });
                 let stream = async_stream! {
                     for entry in entries {
                         if ctrl_c.load(Ordering::SeqCst) {
@@ -153,7 +163,7 @@ impl Shell for FilesystemShell {
         let entries = match glob::glob(&full_path.to_string_lossy()) {
             Ok(files) => files,
             Err(_) => {
-                if let Some(source) = pattern {
+                if let Some(source) = path {
                     return Err(ShellError::labeled_error(
                         "Invalid pattern",
                         "Invalid pattern",

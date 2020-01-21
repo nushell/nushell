@@ -3,7 +3,9 @@ use bigdecimal::BigDecimal;
 use derive_new::new;
 use getset::Getters;
 use language_reporting::{Diagnostic, Label, Severity};
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Span, Spanned, SpannedItem, TracableContext};
+use nu_source::{
+    b, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem, TracableContext,
+};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
@@ -309,6 +311,7 @@ impl serde::de::Error for ShellError {
 }
 
 impl ShellError {
+    /// An error that describes a mismatch between the given type and the expected type
     pub fn type_error(
         expected: impl Into<String>,
         actual: Spanned<impl Into<String>>,
@@ -454,8 +457,8 @@ impl ShellError {
                     format!(
                         "{} requires {}{}",
                         Color::Cyan.paint(&command.item),
-                        Color::Black.bold().paint("--"),
-                        Color::Black.bold().paint(name)
+                        Color::Green.bold().paint("--"),
+                        Color::Green.bold().paint(name)
                     ),
                 )
                 .with_label(Label::new_primary(command.span)),
@@ -475,8 +478,8 @@ impl ShellError {
                     format!(
                         "{} is missing value for flag {}{}",
                         Color::Cyan.paint(&command.item),
-                        Color::Black.bold().paint("--"),
-                        Color::Black.bold().paint(name)
+                        Color::Green.bold().paint("--"),
+                        Color::Green.bold().paint(name)
                     ),
                 )
                 .with_label(Label::new_primary(command.span)),
@@ -729,6 +732,30 @@ impl ProximateShellError {
             cause: None,
             error: self,
         }
+    }
+}
+
+impl HasFallibleSpan for ShellError {
+    fn maybe_span(&self) -> Option<Span> {
+        self.error.maybe_span()
+    }
+}
+
+impl HasFallibleSpan for ProximateShellError {
+    fn maybe_span(&self) -> Option<Span> {
+        Some(match self {
+            ProximateShellError::SyntaxError { problem } => problem.span,
+            ProximateShellError::UnexpectedEof { span, .. } => *span,
+            ProximateShellError::TypeError { actual, .. } => actual.span,
+            ProximateShellError::MissingProperty { subpath, .. } => subpath.span,
+            ProximateShellError::InvalidIntegerIndex { subpath, .. } => subpath.span,
+            ProximateShellError::MissingValue { span, .. } => return *span,
+            ProximateShellError::ArgumentError { command, .. } => command.span,
+            ProximateShellError::RangeError { actual_kind, .. } => actual_kind.span,
+            ProximateShellError::Diagnostic(_) => return None,
+            ProximateShellError::CoerceError { left, right } => left.span.until(right.span),
+            ProximateShellError::UntaggedRuntimeError { .. } => return None,
+        })
     }
 }
 

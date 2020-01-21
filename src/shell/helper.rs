@@ -3,7 +3,7 @@ use ansi_term::{Color, Style};
 use log::log_enabled;
 use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
 use nu_protocol::{errln, outln};
-use nu_source::{nom_input, HasSpan, Tag, Tagged, Text};
+use nu_source::{nom_input, HasSpan, Spanned, Tag, Tagged, Text};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -70,7 +70,6 @@ impl Highlighter for Helper {
         match tokens {
             Err(_) => Cow::Borrowed(line),
             Ok((_rest, v)) => {
-                let mut out = String::new();
                 let pipeline = match v.as_pipeline() {
                     Err(_) => return Cow::Borrowed(line),
                     Ok(v) => v,
@@ -105,12 +104,13 @@ impl Highlighter for Helper {
                     outln!("");
                 }
 
+                let mut painter = Painter::new();
+
                 for shape in shapes {
-                    let styled = paint_flat_shape(&shape, line);
-                    out.push_str(&styled);
+                    painter.paint_shape(&shape, line);
                 }
 
-                Cow::Owned(out)
+                Cow::Owned(painter.into_string())
             }
         }
     }
@@ -132,46 +132,76 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
     })
 }
 
-fn paint_flat_shape(flat_shape: &ShapeResult, line: &str) -> String {
-    let style = match &flat_shape {
-        ShapeResult::Success(shape) => match shape.item {
-            FlatShape::OpenDelimiter(_) | FlatShape::CloseDelimiter(_) => Color::White.normal(),
-            FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
-            FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
-            FlatShape::Type => Color::Black.bold(),
-            FlatShape::CompareOperator => Color::Yellow.normal(),
-            FlatShape::DotDot => Color::Yellow.bold(),
-            FlatShape::Dot => Color::White.normal(),
-            FlatShape::InternalCommand => Color::Cyan.bold(),
-            FlatShape::ExternalCommand => Color::Cyan.normal(),
-            FlatShape::ExternalWord => Color::Black.bold(),
-            FlatShape::BareMember | FlatShape::StringMember => Color::Yellow.bold(),
-            FlatShape::String => Color::Green.normal(),
-            FlatShape::Path => Color::Cyan.normal(),
-            FlatShape::GlobPattern => Color::Purple.normal(),
-            FlatShape::Word => Color::Green.normal(),
-            FlatShape::Pipe => Color::Purple.bold(),
-            FlatShape::Flag => Color::Black.bold(),
-            FlatShape::ShorthandFlag => Color::Black.bold(),
-            FlatShape::Int => Color::Purple.bold(),
-            FlatShape::Decimal => Color::Purple.bold(),
-            FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-            FlatShape::Comment => Color::Black.bold(),
-            FlatShape::Size { number, unit } => {
-                let number = number.slice(line);
-                let unit = unit.slice(line);
-                return format!(
-                    "{}{}",
-                    Color::Purple.bold().paint(number),
-                    Color::Cyan.bold().paint(unit)
-                );
-            }
-        },
-        ShapeResult::Fallback { .. } => Style::new().fg(Color::White).on(Color::Red),
-    };
+struct Painter {
+    current: Style,
+    buffer: String
+}
 
-    let body = flat_shape.span().slice(line);
-    style.paint(body).to_string()
+impl Painter {
+    fn new() -> Painter {
+        Painter {
+            current: Style::default(),
+            buffer: String::new()
+        }
+    }
+
+    fn into_string(self) -> String {
+        self.buffer
+    }
+
+    fn paint_shape(&mut self, shape: &ShapeResult, line: &str) {
+        let style = match &shape {
+            ShapeResult::Success(shape) => match shape.item {
+                FlatShape::OpenDelimiter(_) => Color::White.normal(),
+                FlatShape::CloseDelimiter(_) => Color::White.normal(),
+                FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
+                FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
+                FlatShape::Type => Color::Blue.bold(),
+                FlatShape::CompareOperator => Color::Yellow.normal(),
+                FlatShape::DotDot => Color::Yellow.bold(),
+                FlatShape::Dot => Style::new().fg(Color::White).on(Color::Black),
+                FlatShape::InternalCommand => Color::Cyan.bold(),
+                FlatShape::ExternalCommand => Color::Cyan.normal(),
+                FlatShape::ExternalWord => Color::Green.bold(),
+                FlatShape::BareMember => Color::Yellow.bold(),
+                FlatShape::StringMember => Color::Yellow.bold(),
+                FlatShape::String => Color::Green.normal(),
+                FlatShape::Path => Color::Cyan.normal(),
+                FlatShape::GlobPattern => Color::Cyan.bold(),
+                FlatShape::Word => Color::Green.normal(),
+                FlatShape::Pipe => Color::Purple.bold(),
+                FlatShape::Flag => Color::Blue.bold(),
+                FlatShape::ShorthandFlag => Color::Blue.bold(),
+                FlatShape::Int => Color::Purple.bold(),
+                FlatShape::Decimal => Color::Purple.bold(),
+                FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
+                FlatShape::Comment => Color::Green.bold(),
+                FlatShape::Garbage => {
+                    Style::new().fg(Color::White).on(Color::Red)
+                }
+                FlatShape::Size { number, unit } => {
+                    let number = number.slice(line);
+                    let unit = unit.slice(line);
+
+                    self.paint(Color::Purple.bold(), number);
+                    self.paint(Color::Cyan.bold(), unit);
+                    return;
+                }
+            },
+            ShapeResult::Fallback { shape, .. } => match shape.item {
+                FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
+                _ => Style::new().fg(Color::White).on(Color::Red)
+            }
+        };
+    
+        self.paint(style, shape.span().slice(line));
+    }
+
+    fn paint(&mut self, style: Style, body: &str) {
+        let infix = self.current.infix(style);
+        self.current = style;
+        self.buffer.push_str(&format!("{}{}", infix, style.paint(body)));
+    }
 }
 
 impl rustyline::Helper for Helper {}

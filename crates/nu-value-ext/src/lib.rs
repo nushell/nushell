@@ -398,7 +398,19 @@ pub fn as_string(value: &Value) -> Result<String, ShellError> {
         UntaggedValue::Primitive(Primitive::Bytes(x)) => Ok(format!("{}", x)),
         UntaggedValue::Primitive(Primitive::Path(x)) => Ok(format!("{}", x.display())),
         UntaggedValue::Primitive(Primitive::ColumnPath(path)) => {
-            Ok(path.iter().map(|member| member.display()).join("."))
+            let joined = path
+                .iter()
+                .map(|member| match &member.unspanned {
+                    UnspannedPathMember::String(name) => name.to_string(),
+                    UnspannedPathMember::Int(n) => format!("{}", n),
+                })
+                .join(".");
+
+            if joined.contains(' ') {
+                Ok(format!("\"{}\"", joined))
+            } else {
+                Ok(joined)
+            }
         }
 
         // TODO: this should definitely be more general with better errors

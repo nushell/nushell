@@ -22,6 +22,7 @@ pub enum Token {
     ExternalWord,
     GlobPattern,
     Bare,
+    Garbage,
 
     Call(CallNode),
     Delimited(DelimitedNode),
@@ -220,6 +221,7 @@ impl PrettyDebugWithSource for SpannedToken {
             Token::Delimited(delimited) => delimited.pretty_debug(source),
             Token::Pipeline(pipeline) => pipeline.pretty_debug(source),
             Token::Flag(flag) => flag.pretty_debug(source),
+            Token::Garbage => b::error(self.span.slice(source)),
             Token::Whitespace => b::typed(
                 "whitespace",
                 b::description(format!("{:?}", self.span.slice(source))),
@@ -253,6 +255,7 @@ impl ShellTypeName for Token {
             Token::Delimited(d) => d.type_name(),
             Token::Pipeline(_) => "pipeline",
             Token::Flag(_) => "flag",
+            Token::Garbage => "garbage",
             Token::Whitespace => "whitespace",
             Token::Separator => "separator",
             Token::Comment(_) => "comment",

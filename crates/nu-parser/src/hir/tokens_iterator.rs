@@ -487,7 +487,7 @@ impl<'content> TokensIterator<'content> {
         if self.at_end() {
             self.with_tracer(|_, tracer| tracer.start(shape.name(), None));
             self.with_tracer(|_, tracer| tracer.eof_frame());
-            return Err(ParseError::unexpected_eof("coloring", Span::unknown()));
+            return Err(ParseError::unexpected_eof(shape.name(), self.eof_span()));
         }
 
         let (result, added_shapes) = self.expand(shape);

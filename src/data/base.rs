@@ -86,14 +86,15 @@ impl std::convert::TryFrom<Option<&Value>> for Switch {
     }
 }
 
+#[allow(unused)]
 pub(crate) fn select_fields(obj: &Value, fields: &[String], tag: impl Into<Tag>) -> Value {
     let mut out = TaggedDictBuilder::new(tag);
 
     let descs = obj.data_descriptors();
 
-    for field in fields {
-        match descs.iter().find(|d| *d == field) {
-            None => out.insert_untagged(field, UntaggedValue::nothing()),
+    for column_name in fields {
+        match descs.iter().find(|d| *d == column_name) {
+            None => out.insert_untagged(column_name, UntaggedValue::nothing()),
             Some(desc) => out.insert_value(desc.clone(), obj.get_data(desc).borrow().clone()),
         }
     }

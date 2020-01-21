@@ -1,7 +1,7 @@
-use crate::commands::WholeStreamCommand;
+use crate::commands::command::RunnablePerItemContext;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 use std::path::PathBuf;
 
@@ -9,11 +9,11 @@ pub struct Ls;
 
 #[derive(Deserialize)]
 pub struct LsArgs {
-    path: Option<Tagged<PathBuf>>,
-    full: bool,
+    pub path: Option<Tagged<PathBuf>>,
+    pub full: bool,
 }
 
-impl WholeStreamCommand for Ls {
+impl PerItemCommand for Ls {
     fn name(&self) -> &str {
         "ls"
     }
@@ -34,14 +34,17 @@ impl WholeStreamCommand for Ls {
 
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        raw_args: &RawCommandArgs,
+        _input: Value,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, ls)?.run()
-        // ls(args, registry)
+        call_info
+            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), ls)?
+            .run()
     }
 }
 
-fn ls(LsArgs { path, full }: LsArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
-    context.shell_manager.ls(path, &context, full)
+fn ls(args: LsArgs, context: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
+    context.shell_manager.ls(args, context)
 }

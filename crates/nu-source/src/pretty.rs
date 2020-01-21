@@ -30,7 +30,7 @@ impl From<ShellAnnotation> for ColorSpec {
                 .set_intense(false)
                 .clone(),
             ShellStyle::Key => ColorSpec::new()
-                .set_fg(Some(Color::Black))
+                .set_fg(Some(Color::Green))
                 .set_intense(true)
                 .clone(),
             ShellStyle::Value => ColorSpec::new()
@@ -38,7 +38,7 @@ impl From<ShellAnnotation> for ColorSpec {
                 .set_intense(true)
                 .clone(),
             ShellStyle::Equals => ColorSpec::new()
-                .set_fg(Some(Color::Black))
+                .set_fg(Some(Color::Green))
                 .set_intense(true)
                 .clone(),
             ShellStyle::Kind => ColorSpec::new().set_fg(Some(Color::Cyan)).clone(),
@@ -57,7 +57,7 @@ impl From<ShellAnnotation> for ColorSpec {
                 .set_intense(true)
                 .clone(),
             ShellStyle::Description => ColorSpec::new()
-                .set_fg(Some(Color::Black))
+                .set_fg(Some(Color::Green))
                 .set_intense(true)
                 .clone(),
             ShellStyle::Error => ColorSpec::new()

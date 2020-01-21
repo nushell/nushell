@@ -43,13 +43,11 @@ impl ExpandSyntax for IntExpressionShape {
     ) -> Result<SpannedExpression, ParseError> {
         let source = token_nodes.source();
 
-        token_nodes.expand_syntax(VariableShape).or_else(|_| {
-            token_nodes.expand_token(IntType, |number| {
-                Ok((
-                    FlatShape::Int,
-                    Expression::number(number.to_number(&source)),
-                ))
-            })
+        token_nodes.expand_token(IntType, |number| {
+            Ok((
+                FlatShape::Int,
+                Expression::number(number.to_number(&source)),
+            ))
         })
     }
 }

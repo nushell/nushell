@@ -227,6 +227,22 @@ impl History {
     }
 }
 
+fn create_default_starship_config() -> Option<toml::Value> {
+    let mut map = toml::value::Table::new();
+    map.insert("add_newline".into(), toml::Value::Boolean(false));
+
+    let mut git_branch = toml::value::Table::new();
+    git_branch.insert("symbol".into(), toml::Value::String("📙 ".into()));
+    map.insert("git_branch".into(), toml::Value::Table(git_branch));
+
+    let mut git_status = toml::value::Table::new();
+    git_status.insert("disabled".into(), toml::Value::Boolean(true));
+    map.insert("git_status".into(), toml::Value::Table(git_status));
+
+    Some(toml::Value::Table(map))
+}
+
+/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 pub async fn cli() -> Result<(), Box<dyn Error>> {
     let mut context = Context::basic()?;
 
@@ -236,7 +252,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         context.add_commands(vec![
             // System/file operations
             whole_stream_command(Pwd),
-            whole_stream_command(Ls),
+            per_item_command(Ls),
             whole_stream_command(Cd),
             whole_stream_command(Env),
             per_item_command(Remove),
@@ -404,10 +420,19 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             #[cfg(feature = "starship-prompt")]
             {
                 std::env::set_var("STARSHIP_SHELL", "");
-                starship::print::get_prompt(starship::context::Context::new_with_dir(
-                    clap::ArgMatches::default(),
-                    cwd,
-                ))
+                let mut starship_context =
+                    starship::context::Context::new_with_dir(clap::ArgMatches::default(), cwd);
+
+                match starship_context.config.config {
+                    None => {
+                        starship_context.config.config = create_default_starship_config();
+                    }
+                    Some(toml::Value::Table(t)) if t.is_empty() => {
+                        starship_context.config.config = create_default_starship_config();
+                    }
+                    _ => {}
+                };
+                starship::print::get_prompt(starship_context)
             }
             #[cfg(not(feature = "starship-prompt"))]
             {
@@ -561,6 +586,7 @@ enum LineResult {
     Break,
 }
 
+/// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
 async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),

@@ -1,5 +1,6 @@
 use crate::commands::PerItemCommand;
 use crate::data::command_dict;
+
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
@@ -72,94 +73,10 @@ impl PerItemCommand for Help {
                         help.push_back(ReturnSuccess::value(short_desc.into_value()));
                     }
                 } else if let Some(command) = registry.get_command(document) {
-                    let mut long_desc = String::new();
-
-                    long_desc.push_str(&command.usage());
-                    long_desc.push_str("\n");
-
-                    let signature = command.signature();
-
-                    let mut one_liner = String::new();
-                    one_liner.push_str(&signature.name);
-                    one_liner.push_str(" ");
-
-                    for positional in &signature.positional {
-                        match &positional.0 {
-                            PositionalType::Mandatory(name, _m) => {
-                                one_liner.push_str(&format!("<{}> ", name));
-                            }
-                            PositionalType::Optional(name, _o) => {
-                                one_liner.push_str(&format!("({}) ", name));
-                            }
-                        }
-                    }
-
-                    if signature.rest_positional.is_some() {
-                        one_liner.push_str(" ...args");
-                    }
-
-                    if !signature.named.is_empty() {
-                        one_liner.push_str("{flags} ");
-                    }
-
-                    long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
-
-                    if !signature.positional.is_empty() || signature.rest_positional.is_some() {
-                        long_desc.push_str("\nparameters:\n");
-                        for positional in signature.positional {
-                            match positional.0 {
-                                PositionalType::Mandatory(name, _m) => {
-                                    long_desc.push_str(&format!("  <{}> {}\n", name, positional.1));
-                                }
-                                PositionalType::Optional(name, _o) => {
-                                    long_desc.push_str(&format!("  ({}) {}\n", name, positional.1));
-                                }
-                            }
-                        }
-
-                        if let Some(rest_positional) = signature.rest_positional {
-                            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
-                        }
-                    }
-                    if !signature.named.is_empty() {
-                        long_desc.push_str("\nflags:\n");
-                        for (flag, ty) in signature.named {
-                            match ty.0 {
-                                NamedType::Switch => {
-                                    long_desc.push_str(&format!(
-                                        "  --{}{} {}\n",
-                                        flag,
-                                        if !ty.1.is_empty() { ":" } else { "" },
-                                        ty.1
-                                    ));
-                                }
-                                NamedType::Mandatory(m) => {
-                                    long_desc.push_str(&format!(
-                                        "  --{} <{}> (required parameter){} {}\n",
-                                        flag,
-                                        m.display(),
-                                        if !ty.1.is_empty() { ":" } else { "" },
-                                        ty.1
-                                    ));
-                                }
-                                NamedType::Optional(o) => {
-                                    long_desc.push_str(&format!(
-                                        "  --{} <{}>{} {}\n",
-                                        flag,
-                                        o.display(),
-                                        if !ty.1.is_empty() { ":" } else { "" },
-                                        ty.1
-                                    ));
-                                }
-                            }
-                        }
-                    }
-
-                    help.push_back(ReturnSuccess::value(
-                        UntaggedValue::string(long_desc).into_value(tag.clone()),
-                    ));
+                    return Ok(
+                        get_help(&command.name(), &command.usage(), command.signature()).into(),
+                    );
                 }
-
                 Ok(help.to_output_stream())
             }
             _ => {
@@ -181,4 +98,99 @@ You can also learn more at https://www.nushell.sh/book/"#;
             }
         }
     }
+}
+
+pub(crate) fn get_help(
+    cmd_name: &str,
+    cmd_usage: &str,
+    cmd_sig: Signature,
+) -> impl Into<OutputStream> {
+    let mut help = VecDeque::new();
+    let mut long_desc = String::new();
+
+    long_desc.push_str(&cmd_usage);
+    long_desc.push_str("\n");
+
+    let signature = cmd_sig;
+
+    let mut one_liner = String::new();
+    one_liner.push_str(&signature.name);
+    one_liner.push_str(" ");
+
+    for positional in &signature.positional {
+        match &positional.0 {
+            PositionalType::Mandatory(name, _m) => {
+                one_liner.push_str(&format!("<{}> ", name));
+            }
+            PositionalType::Optional(name, _o) => {
+                one_liner.push_str(&format!("({}) ", name));
+            }
+        }
+    }
+
+    if signature.rest_positional.is_some() {
+        one_liner.push_str(" ...args");
+    }
+
+    if !signature.named.is_empty() {
+        one_liner.push_str("{flags} ");
+    }
+
+    long_desc.push_str(&format!("\nUsage:\n  > {}\n", one_liner));
+
+    if !signature.positional.is_empty() || signature.rest_positional.is_some() {
+        long_desc.push_str("\nparameters:\n");
+        for positional in signature.positional {
+            match positional.0 {
+                PositionalType::Mandatory(name, _m) => {
+                    long_desc.push_str(&format!("  <{}> {}\n", name, positional.1));
+                }
+                PositionalType::Optional(name, _o) => {
+                    long_desc.push_str(&format!("  ({}) {}\n", name, positional.1));
+                }
+            }
+        }
+
+        if let Some(rest_positional) = signature.rest_positional {
+            long_desc.push_str(&format!("  ...args: {}\n", rest_positional.1));
+        }
+    }
+    if !signature.named.is_empty() {
+        long_desc.push_str("\nflags:\n");
+        for (flag, ty) in signature.named {
+            match ty.0 {
+                NamedType::Switch | NamedType::Help => {
+                    long_desc.push_str(&format!(
+                        "  --{}{} {}\n",
+                        flag,
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    ));
+                }
+                NamedType::Mandatory(m) => {
+                    long_desc.push_str(&format!(
+                        "  --{} <{}> (required parameter){} {}\n",
+                        flag,
+                        m.display(),
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    ));
+                }
+                NamedType::Optional(o) => {
+                    long_desc.push_str(&format!(
+                        "  --{} <{}>{} {}\n",
+                        flag,
+                        o.display(),
+                        if !ty.1.is_empty() { ":" } else { "" },
+                        ty.1
+                    ));
+                }
+            }
+        }
+    }
+
+    help.push_back(ReturnSuccess::value(
+        UntaggedValue::string(long_desc).into_value(Tag::from((0, cmd_name.len(), None))),
+    ));
+    help
 }

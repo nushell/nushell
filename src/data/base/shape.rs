@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use chrono::{DateTime, Utc};
-use chrono_humanize::Humanize;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::RangeInclusion;
@@ -188,7 +187,7 @@ impl PrettyDebug for FormatInlineShape {
                 }
                 .to_owned(),
             ),
-            InlineShape::Date(date) => b::primitive(date.humanize()),
+            InlineShape::Date(date) => b::primitive(nu_protocol::format_date(date)),
             InlineShape::Duration(duration) => {
                 b::description(format_primitive(&Primitive::Duration(*duration), None))
             }

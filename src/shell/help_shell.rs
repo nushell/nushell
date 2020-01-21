@@ -1,5 +1,6 @@
 use crate::commands::command::EvaluatedWholeStreamCommandArgs;
 use crate::commands::cp::CopyArgs;
+use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
@@ -11,7 +12,6 @@ use nu_parser::ExpandContext;
 use nu_protocol::{
     Primitive, ReturnSuccess, ShellTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
-use nu_source::Tagged;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -139,9 +139,8 @@ impl Shell for HelpShell {
 
     fn ls(
         &self,
-        _pattern: Option<Tagged<PathBuf>>,
-        _context: &RunnableContext,
-        _full: bool,
+        _args: LsArgs,
+        _context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
         Ok(self.commands().map(ReturnSuccess::value).to_output_stream())
     }

@@ -31,6 +31,7 @@ pub enum FlatShape {
     ShorthandFlag,
     Int,
     Decimal,
+    Garbage,
     Whitespace,
     Separator,
     Comment,
@@ -116,6 +117,7 @@ impl ShellTypeName for FlatShape {
             FlatShape::ShorthandFlag => "shorthand flag",
             FlatShape::Int => "int",
             FlatShape::Decimal => "decimal",
+            FlatShape::Garbage => "garbage",
             FlatShape::Whitespace => "whitespace",
             FlatShape::Separator => "separator",
             FlatShape::Comment => "comment",
@@ -182,6 +184,7 @@ impl FlatShape {
                 kind: FlagKind::Shorthand,
                 ..
             }) => shapes.push(FlatShape::ShorthandFlag.spanned(span)),
+            Token::Garbage => shapes.push(FlatShape::Garbage.spanned(span)),
             Token::Whitespace => shapes.push(FlatShape::Whitespace.spanned(span)),
             Token::Separator => shapes.push(FlatShape::Separator.spanned(span)),
             Token::Comment(_) => shapes.push(FlatShape::Comment.spanned(span)),

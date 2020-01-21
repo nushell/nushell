@@ -69,9 +69,11 @@ macro_rules! trace_out_stream {
 }
 
 pub(crate) use nu_protocol::{errln, outln};
+use nu_source::HasFallibleSpan;
 
 pub(crate) use crate::commands::command::{
     CallInfoExt, CommandArgs, PerItemCommand, RawCommandArgs, RunnableContext,
+    RunnablePerItemContext,
 };
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
@@ -130,12 +132,12 @@ where
     fn to_input_stream(self) -> InputStream {
         InputStream {
             values: self
-                .map(|item| {
-                    if let Ok(result) = item.into() {
-                        result
-                    } else {
-                        unreachable!("Internal errors: to_input_stream in inconsistent state")
-                    }
+                .map(|item| match item.into() {
+                    Ok(result) => result,
+                    Err(err) => match HasFallibleSpan::maybe_span(&err) {
+                        Some(span) => nu_protocol::UntaggedValue::Error(err).into_value(span),
+                        None => nu_protocol::UntaggedValue::Error(err).into_untagged_value(),
+                    },
                 })
                 .boxed(),
         }

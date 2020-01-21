@@ -14,7 +14,8 @@ pub(crate) fn external_command(
     tokens: &mut TokensIterator,
     name: Tagged<&str>,
 ) -> Result<ClassifiedCommand, ParseError> {
-    let Spanned { item, span } = tokens.expand_syntax(ExternalTokensShape)?.tokens;
+    let Spanned { item, span } = tokens.expand_infallible(ExternalTokensShape).tokens;
+    let full_span = name.span().until(span);
 
     Ok(ClassifiedCommand::External(ExternalCommand {
         name: name.to_string(),
@@ -27,7 +28,7 @@ pub(crate) fn external_command(
                     arg: x.item.clone(),
                 })
                 .collect(),
-            span,
+            span: full_span,
         },
     }))
 }

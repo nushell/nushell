@@ -139,7 +139,8 @@ fn parses_sqlite() {
             | get table_values
             | nth 2
             | get x
-            | echo $it"#
+            | echo $it
+        "#
     ));
 
     assert_eq!(actual, "hello");

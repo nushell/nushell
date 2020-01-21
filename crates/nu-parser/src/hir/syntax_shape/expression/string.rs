@@ -19,15 +19,11 @@ impl ExpandSyntax for CoerceStringShape {
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
     ) -> Result<SpannedExpression, ParseError> {
-        token_nodes
-            .expand_syntax(VariableShape)
-            .or_else(|_| {
-                token_nodes.expand_token(StringType, |(inner, outer)| {
-                    Ok((
-                        FlatShape::String,
-                        Expression::string(inner).into_expr(outer),
-                    ))
-                })
+            token_nodes.expand_token(StringType, |(inner, outer)| {
+                Ok((
+                    FlatShape::String,
+                    Expression::string(inner).into_expr(outer),
+                ))
             })
             .or_else(|_| {
                 token_nodes.expand_token(BareType, |span| {

@@ -45,6 +45,17 @@ pub fn parse_command_tail(
                     }
                 }
             }
+            NamedType::Help => {
+                let switch = extract_switch(name, tail);
+
+                match switch {
+                    None => named.insert_switch(name, None),
+                    Some((_, flag)) => {
+                        named.insert_switch(name, Some(*flag));
+                        return Ok(Some((None, Some(named))));
+                    }
+                }
+            }
             NamedType::Mandatory(syntax_type) => {
                 match extract_mandatory(config, name, tail, command_span) {
                     Err(err) => {

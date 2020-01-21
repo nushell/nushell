@@ -17,14 +17,14 @@ use std::fmt::Debug;
 
 #[test]
 fn test_parse_external() {
-    parse_tokens(ExternalTokensShape, "5kb", vec![b::bare("5kb")], |tokens| {
+    parse_tokens(fallible(ExternalTokensShape), "5kb", vec![b::bare("5kb")], |tokens| {
         ExternalTokensSyntax::new(
             vec![format!("5kb").spanned(tokens[0].span())].spanned(tokens[0].span()),
         )
     });
 
     parse_tokens(
-        ExternalTokensShape,
+        fallible(ExternalTokensShape),
         "cargo +nightly run -- --features all",
         vec![
             b::bare("cargo"),
@@ -125,6 +125,7 @@ fn test_parse_command() {
 
             let mut map = IndexMap::new();
             map.insert("full".to_string(), NamedValue::AbsentSwitch);
+            map.insert("help".to_string(), NamedValue::AbsentSwitch);
 
             ClassifiedCommand::Internal(InternalCommand::new(
                 "ls".to_string(),

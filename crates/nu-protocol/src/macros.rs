@@ -1,11 +1,16 @@
-// These macros exist to differentiate between intentional writing to stdout
-// and stray printlns left by accident
-
+/// Outputs to standard out
+///
+/// Note: this exists to differentiate between intentional writing to stdout
+/// and stray printlns left by accident
 #[macro_export]
 macro_rules! outln {
     ($($tokens:tt)*) => { println!($($tokens)*) }
 }
 
+/// Outputs to standard error
+///
+/// Note: this exists to differentiate between intentional writing to stdout
+/// and stray printlns left by accident
 #[macro_export]
 macro_rules! errln {
     ($($tokens:tt)*) => { eprintln!($($tokens)*) }

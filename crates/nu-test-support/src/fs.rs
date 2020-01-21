@@ -220,11 +220,18 @@ pub fn delete_directory_at(full_path: &str) {
 }
 
 pub fn executable_path() -> PathBuf {
-    let mut buf = PathBuf::new();
-    buf.push("target");
-    buf.push("debug");
-    buf.push("nu");
-    buf
+    let mut path = binaries();
+    path.push("nu");
+    path
+}
+
+pub fn binaries() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Couldn't find the debug binaries directory")
+        .parent()
+        .expect("Couldn't find the debug binaries directory")
+        .join("target/debug")
 }
 
 pub fn in_directory(str: impl AsRef<Path>) -> String {

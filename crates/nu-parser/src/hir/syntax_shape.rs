@@ -71,9 +71,9 @@ impl ExpandSyntax for SyntaxShape {
     ) -> Result<SpannedExpression, ParseError> {
         match self {
             SyntaxShape::Any => token_nodes.expand_syntax(AnyExpressionShape),
-            SyntaxShape::Int => token_nodes.expand_syntax(IntExpressionShape),
-            SyntaxShape::Range => token_nodes.expand_syntax(RangeShape),
-            SyntaxShape::String => token_nodes.expand_syntax(CoerceStringShape),
+            SyntaxShape::Int => token_nodes.expand_syntax(IntExpressionShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Range => token_nodes.expand_syntax(RangeShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::String => token_nodes.expand_syntax(CoerceStringShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
             SyntaxShape::Member => {
                 let syntax = token_nodes.expand_syntax(MemberShape)?;
                 Ok(syntax.to_expr())
@@ -87,10 +87,10 @@ impl ExpandSyntax for SyntaxShape {
 
                 Ok(Expression::column_path(column_path).into_expr(tag.span))
             }
-            SyntaxShape::Number => token_nodes.expand_syntax(NumberExpressionShape),
-            SyntaxShape::Path => token_nodes.expand_syntax(FilePathShape),
-            SyntaxShape::Pattern => token_nodes.expand_syntax(PatternShape),
-            SyntaxShape::Block => token_nodes.expand_syntax(CoerceBlockShape),
+            SyntaxShape::Number => token_nodes.expand_syntax(NumberExpressionShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Path => token_nodes.expand_syntax(FilePathShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Pattern => token_nodes.expand_syntax(PatternShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
+            SyntaxShape::Block => token_nodes.expand_syntax(CoerceBlockShape).or_else(|_| token_nodes.expand_syntax(VariablePathShape)),
         }
     }
 }
@@ -526,7 +526,6 @@ impl ExpandSyntax for ClassifiedCommandShape {
                 expr.type_name().spanned(expr.span),
             )),
 
-            // If the command starts with `^`, treat it as an external command no matter what
             CommandSignature::External(name) => {
                 let name_str = name.slice(&source);
 
@@ -536,6 +535,7 @@ impl ExpandSyntax for ClassifiedCommandShape {
                 }
             }
 
+            // If the command starts with `^`, treat it as an external command no matter what
             CommandSignature::LiteralExternal { outer, inner } => {
                 let name_str = inner.slice(&source);
 

@@ -34,16 +34,13 @@ impl PrettyDebug for ExternalTokensSyntax {
 pub struct ExternalTokensShape;
 
 impl ExpandSyntax for ExternalTokensShape {
-    type Output = Result<ExternalTokensSyntax, ParseError>;
+    type Output = ExternalTokensSyntax;
 
     fn name(&self) -> &'static str {
-        "external command"
+        "external tokens"
     }
 
-    fn expand<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-    ) -> Result<ExternalTokensSyntax, ParseError> {
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> ExternalTokensSyntax {
         let mut out: Vec<Spanned<String>> = vec![];
 
         let start = token_nodes.span_at_cursor();
@@ -57,9 +54,9 @@ impl ExpandSyntax for ExternalTokensShape {
 
         let end = token_nodes.span_at_cursor();
 
-        Ok(ExternalTokensSyntax {
+        ExternalTokensSyntax {
             tokens: out.spanned(start.until(end)),
-        })
+        }
     }
 }
 

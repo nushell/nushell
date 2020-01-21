@@ -1,3 +1,9 @@
+///
+/// This file describes the structural types of the nushell system.
+///
+/// Its primary purpose today is to identify "equivalent" values for the purpose
+/// of merging rows into a single table or identify rows in a table that have the
+/// same shape for reflection.
 use crate::value::dict::Dictionary;
 use crate::value::primitive::Primitive;
 use crate::value::range::RangeInclusion;
@@ -9,50 +15,62 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-/**
-  This file describes the structural types of the nushell system.
-
-  Its primary purpose today is to identify "equivalent" values for the purpose
-  of merging rows into a single table or identify rows in a table that have the
-  same shape for reflection.
-*/
-
+/// Representation of the type of ranges
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize, new)]
 pub struct RangeType {
     from: (Type, RangeInclusion),
     to: (Type, RangeInclusion),
 }
 
+/// Representation of for the type of a value in Nu
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Type {
+    /// A value which has no value
     Nothing,
+    /// An integer-based value
     Int,
+    /// A range between two values
     Range(Box<RangeType>),
+    /// A decimal (floating point) value
     Decimal,
+    /// A filesize in bytes
     Bytesize,
+    /// A string of text
     String,
+    /// A line of text (a string with trailing line ending)
     Line,
+    /// A path through a table
     ColumnPath,
+    /// A glob pattern (like foo*)
     Pattern,
+    /// A boolean value
     Boolean,
+    /// A date value (in UTC)
     Date,
+    /// A data duration value
     Duration,
+    /// A filepath value
     Path,
+    /// A binary (non-text) buffer value
     Binary,
 
+    /// A row of data
     Row(Row),
+    /// A full table of data
     Table(Vec<Type>),
 
-    // TODO: Block arguments
+    /// A block of script (TODO)
     Block,
-    // TODO: Error type
+    /// An error value (TODO)
     Error,
 
-    // Stream markers (used as bookend markers rather than actual values)
+    /// Beginning of stream marker (used as bookend markers rather than actual values)
     BeginningOfStream,
+    /// End of stream marker (used as bookend markers rather than actual values)
     EndOfStream,
 }
 
+/// A shape representation of the type of a row
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, new)]
 pub struct Row {
     #[new(default)]
@@ -104,6 +122,7 @@ impl<'de> Deserialize<'de> for Row {
 }
 
 impl Type {
+    /// Convert a Primitive into its corresponding Type
     pub fn from_primitive(primitive: &Primitive) -> Type {
         match primitive {
             Primitive::Nothing => Type::Nothing,
@@ -134,6 +153,7 @@ impl Type {
         }
     }
 
+    /// Convert a dictionary into its corresponding row Type
     pub fn from_dictionary(dictionary: &Dictionary) -> Type {
         let mut map = BTreeMap::new();
 
@@ -145,6 +165,7 @@ impl Type {
         Type::Row(Row { map })
     }
 
+    /// Convert a table into its corresponding Type
     pub fn from_table<'a>(table: impl IntoIterator<Item = &'a Value>) -> Type {
         let mut vec = vec![];
 
@@ -155,6 +176,7 @@ impl Type {
         Type::Table(vec)
     }
 
+    /// Convert a value into its corresponding Type
     pub fn from_value<'a>(value: impl Into<&'a UntaggedValue>) -> Type {
         match value.into() {
             UntaggedValue::Primitive(p) => Type::from_primitive(p),
@@ -167,6 +189,7 @@ impl Type {
 }
 
 impl PrettyDebug for Type {
+    /// Prepare Type for pretty-printing
     fn pretty(&self) -> DebugDocBuilder {
         match self {
             Type::Nothing => ty("nothing"),
@@ -268,6 +291,7 @@ impl PrettyDebug for Type {
     }
 }
 
+/// A view into dictionaries for debug purposes
 #[derive(Debug, new)]
 struct DebugEntry<'a> {
     key: &'a Column,
@@ -275,6 +299,7 @@ struct DebugEntry<'a> {
 }
 
 impl<'a> PrettyDebug for DebugEntry<'a> {
+    /// Prepare debug entries for pretty-printing
     fn pretty(&self) -> DebugDocBuilder {
         (b::key(match self.key {
             Column::String(string) => string.clone(),
@@ -283,6 +308,7 @@ impl<'a> PrettyDebug for DebugEntry<'a> {
     }
 }
 
+/// Helper to create a pretty-print for the type
 fn ty(name: impl std::fmt::Display) -> DebugDocBuilder {
     b::kind(format!("{}", name))
 }

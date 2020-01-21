@@ -1,3 +1,4 @@
+use crate::commands::help::get_help;
 use crate::context::CommandRegistry;
 use crate::deserializer::ConfigDeserializer;
 use crate::evaluate::evaluate_args::evaluate_args;
@@ -31,12 +32,17 @@ impl UnevaluatedCallInfo {
             name_tag: self.name_tag,
         })
     }
+
+    pub fn switch_present(&self, switch: &str) -> bool {
+        self.args.switch_preset(switch)
+    }
 }
 
 pub trait CallInfoExt {
     fn process<'de, T: Deserialize<'de>>(
         &self,
         shell_manager: &ShellManager,
+        ctrl_c: Arc<AtomicBool>,
         callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnablePerItemArgs<T>, ShellError>;
 }
@@ -45,6 +51,7 @@ impl CallInfoExt for CallInfo {
     fn process<'de, T: Deserialize<'de>>(
         &self,
         shell_manager: &ShellManager,
+        ctrl_c: Arc<AtomicBool>,
         callback: fn(T, &RunnablePerItemContext) -> Result<OutputStream, ShellError>,
     ) -> Result<RunnablePerItemArgs<T>, ShellError> {
         let mut deserializer = ConfigDeserializer::from_call_info(self.clone());
@@ -54,6 +61,7 @@ impl CallInfoExt for CallInfo {
             context: RunnablePerItemContext {
                 shell_manager: shell_manager.clone(),
                 name: self.name_tag.clone(),
+                ctrl_c,
             },
             callback,
         })
@@ -214,6 +222,7 @@ impl CommandArgs {
 pub struct RunnablePerItemContext {
     pub shell_manager: ShellManager,
     pub name: Tag,
+    pub ctrl_c: Arc<AtomicBool>,
 }
 
 pub struct RunnableContext {
@@ -476,12 +485,18 @@ impl Command {
     }
 
     pub fn run(&self, args: CommandArgs, registry: &CommandRegistry) -> OutputStream {
-        match self {
-            Command::WholeStream(command) => match command.run(args, registry) {
-                Ok(stream) => stream,
-                Err(err) => OutputStream::one(Err(err)),
-            },
-            Command::PerItem(command) => self.run_helper(command.clone(), args, registry.clone()),
+        if args.call_info.switch_present("help") {
+            get_help(self.name(), self.usage(), self.signature()).into()
+        } else {
+            match self {
+                Command::WholeStream(command) => match command.run(args, registry) {
+                    Ok(stream) => stream,
+                    Err(err) => OutputStream::one(Err(err)),
+                },
+                Command::PerItem(command) => {
+                    self.run_helper(command.clone(), args, registry.clone())
+                }
+            }
         }
     }
 

@@ -67,6 +67,7 @@ impl ExpandSyntax for ShorthandBlockShape {
         token_nodes: &'b mut TokensIterator<'a>,
     ) -> Result<SpannedExpression, ParseError> {
         let mut current = token_nodes.expand_syntax(ShorthandPath)?;
+
         loop {
             match token_nodes.expand_syntax(ExpressionContinuationShape) {
                 Result::Err(_) => break,

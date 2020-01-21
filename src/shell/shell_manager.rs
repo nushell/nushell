@@ -1,5 +1,6 @@
 use crate::commands::command::{EvaluatedWholeStreamCommandArgs, RunnablePerItemContext};
 use crate::commands::cp::CopyArgs;
+use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
@@ -134,13 +135,12 @@ impl ShellManager {
 
     pub fn ls(
         &self,
-        path: Option<Tagged<PathBuf>>,
-        context: &RunnableContext,
-        full: bool,
+        args: LsArgs,
+        context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
         let env = self.shells.lock();
 
-        env[self.current_shell()].ls(path, context, full)
+        env[self.current_shell()].ls(args, context)
     }
 
     pub fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {

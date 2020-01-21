@@ -223,10 +223,28 @@ pub fn int_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, head) = digit1(input)?;
 
-    Ok((
-        input,
-        Token::Number(RawNumber::int((start, input.offset))).into_spanned((start, input.offset)),
-    ))
+    match input.fragment.chars().next() {
+        None | Some('.') => {
+            return Ok((
+                input,
+                Token::Number(RawNumber::int((start, input.offset)))
+                    .into_spanned((start, input.offset)),
+            ))
+        }
+        other if is_boundary(other) => {
+            return Ok((
+                input,
+                Token::Number(RawNumber::int((start, input.offset)))
+                    .into_spanned((start, input.offset)),
+            ))
+        }
+        _ => {
+            return Err(nom::Err::Error(nom::error::make_error(
+                input,
+                nom::error::ErrorKind::Tag,
+            )))
+        }
+    }
 }
 
 #[tracable_parser]
@@ -517,11 +535,20 @@ pub fn start_filename(input: NomSpan) -> IResult<NomSpan, NomSpan> {
 }
 
 #[tracable_parser]
-pub fn member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+pub fn bare_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     word(
         matches(is_start_member_char),
         matches(is_member_char),
         TokenTreeBuilder::spanned_bare,
+    )(input)
+}
+
+#[tracable_parser]
+pub fn garbage_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+    word(
+        matches(is_garbage_member_char),
+        matches(is_garbage_member_char),
+        TokenTreeBuilder::spanned_garbage,
     )(input)
 }
 
@@ -881,7 +908,7 @@ pub fn dot_member(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
 
 #[tracable_parser]
 pub fn any_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
-    alt((int_member, string, member))(input)
+    alt((int_member, string, bare_member, garbage_member))(input)
 }
 
 #[tracable_parser]
@@ -1048,9 +1075,17 @@ fn is_file_char(c: char) -> bool {
     }
 }
 
+fn is_garbage_member_char(c: char) -> bool {
+    match c {
+        c if c.is_whitespace() => false,
+        '.' => false,
+        _ => true,
+    }
+}
+
 fn is_start_member_char(c: char) -> bool {
     match c {
-        _ if c.is_alphanumeric() => true,
+        _ if c.is_alphabetic() => true,
         '_' => true,
         '-' => true,
         _ => false,
@@ -1408,6 +1443,17 @@ mod tests {
 
         equal_tokens! {
             <nodes>
+            r#"nu.0xATYKARNU.baz"# -> b::token_list(vec![
+                b::bare("nu"),
+                b::dot(),
+                b::garbage("0xATYKARNU"),
+                b::dot(),
+                b::bare("baz")
+            ])
+        }
+
+        equal_tokens! {
+            <nodes>
             "1.b" -> b::token_list(vec![b::int(1), b::dot(), b::bare("b")])
         }
 
@@ -1596,10 +1642,10 @@ mod tests {
         equal_tokens! {
             "^echo 1 | ^cat" -> b::pipeline(vec![
                 vec![
-                    b::external("echo"), b::sp(), b::number(1)
+                    b::external_command("echo"), b::sp(), b::int(1), b::sp()
                 ],
                 vec![
-                    b::sp(), b::external("cat")
+                    b::sp(), b::external_command("cat")
                 ]
             ])
         }
