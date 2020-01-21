@@ -5,7 +5,6 @@ use futures::StreamExt;
 use futures_util::pin_mut;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, ReturnValue, Signature, UntaggedValue};
-use nu_source::PrettyDebug;
 
 pub struct What;
 
@@ -14,11 +13,11 @@ pub struct WhatArgs {}
 
 impl WholeStreamCommand for What {
     fn name(&self) -> &str {
-        "what?"
+        "describe"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("what?")
+        Signature::build("describe")
     }
 
     fn usage(&self) -> &str {
@@ -43,7 +42,7 @@ pub fn what(
         pin_mut!(values);
 
         while let Some(row) = values.next().await {
-            let name = value::format_leaf(&row).plain_string(100000);
+            let name = value::format_type(&row, 100);
             yield ReturnSuccess::value(UntaggedValue::string(name).into_value(Tag::unknown_anchor(row.tag.span)));
         }
     };

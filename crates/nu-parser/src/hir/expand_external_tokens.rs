@@ -1,17 +1,14 @@
+use crate::parse::token_tree::Token;
 use crate::{
-    hir::syntax_shape::{
-        color_syntax, expand_atom, expand_expr, expand_syntax, AtomicToken, ColorSyntax,
-        ExpandContext, ExpandExpression, ExpandSyntax, ExpansionRule, MaybeSpaceShape,
-        UnspannedAtomicToken,
-    },
-    hir::Expression,
+    hir::syntax_shape::{ExpandSyntax, FlatShape, MaybeSpaceShape},
     TokensIterator,
 };
+use derive_new::new;
 use nu_errors::ParseError;
 use nu_protocol::SpannedTypeName;
 use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebug, Span, Spanned, SpannedItem};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, new)]
 pub struct ExternalTokensSyntax {
     pub tokens: Spanned<Vec<Spanned<String>>>,
 }
@@ -40,57 +37,25 @@ impl ExpandSyntax for ExternalTokensShape {
     type Output = ExternalTokensSyntax;
 
     fn name(&self) -> &'static str {
-        "external command"
+        "external tokens"
     }
 
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> ExternalTokensSyntax {
         let mut out: Vec<Spanned<String>> = vec![];
 
         let start = token_nodes.span_at_cursor();
 
         loop {
-            match expand_syntax(&ExternalExpressionShape, token_nodes, context) {
-                Err(_) | Ok(None) => break,
-                Ok(Some(span)) => out.push(span.spanned_string(context.source())),
+            match token_nodes.expand_syntax(ExternalExpressionShape) {
+                Err(_) => break,
+                Ok(span) => out.push(span.spanned_string(&token_nodes.source())),
             }
         }
 
         let end = token_nodes.span_at_cursor();
 
-        Ok(ExternalTokensSyntax {
+        ExternalTokensSyntax {
             tokens: out.spanned(start.until(end)),
-        })
-    }
-}
-
-impl ColorSyntax for ExternalTokensShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "ExternalTokensShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Self::Info {
-        loop {
-            // Allow a space
-            color_syntax(&MaybeSpaceShape, token_nodes, context);
-
-            // Process an external expression. External expressions are mostly words, with a
-            // few exceptions (like $variables and path expansion rules)
-            match color_syntax(&ExternalExpressionShape, token_nodes, context).1 {
-                ExternalExpressionResult::Eof => break,
-                ExternalExpressionResult::Processed => continue,
-            }
         }
     }
 }
@@ -99,208 +64,112 @@ impl ColorSyntax for ExternalTokensShape {
 pub struct ExternalExpressionShape;
 
 impl ExpandSyntax for ExternalExpressionShape {
-    type Output = Option<Span>;
+    type Output = Result<Span, ParseError>;
 
     fn name(&self) -> &'static str {
         "external expression"
     }
 
-    fn expand_syntax<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Self::Output, ParseError> {
-        expand_syntax(&MaybeSpaceShape, token_nodes, context)?;
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        token_nodes.expand_infallible(MaybeSpaceShape);
 
-        let first = expand_atom(
-            token_nodes,
-            "external command",
-            context,
-            ExpansionRule::new().allow_external_word(),
-        )?
-        .span;
-
+        let first = token_nodes.expand_syntax(ExternalStartToken)?;
         let mut last = first;
 
         loop {
-            let continuation = expand_expr(&ExternalContinuationShape, token_nodes, context);
+            let continuation = token_nodes.expand_syntax(ExternalStartToken);
 
             if let Ok(continuation) = continuation {
-                last = continuation.span;
+                last = continuation;
             } else {
                 break;
             }
         }
 
-        Ok(Some(first.until(last)))
+        Ok(first.until(last))
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-struct ExternalHeadShape;
+struct ExternalStartToken;
 
-impl ExpandExpression for ExternalHeadShape {
+impl ExpandSyntax for ExternalStartToken {
+    type Output = Result<Span, ParseError>;
+
     fn name(&self) -> &'static str {
-        "external argument"
+        "external start token"
     }
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        token_nodes.atomic_parse(|token_nodes| {
+            let mut span: Option<Span> = None;
 
-    fn expand_expr<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Expression, ParseError> {
-        let atom = expand_atom(
-            token_nodes,
-            "external argument",
-            context,
-            ExpansionRule::new()
-                .allow_external_word()
-                .treat_size_as_word(),
-        )?;
+            loop {
+                let boundary = token_nodes.expand_infallible(PeekExternalBoundary);
 
-        let span = atom.span;
+                if boundary {
+                    break;
+                }
 
-        Ok(match &atom.unspanned {
-            UnspannedAtomicToken::Eof { .. } => unreachable!("ExpansionRule doesn't allow EOF"),
-            UnspannedAtomicToken::Error { .. } => unreachable!("ExpansionRule doesn't allow Error"),
-            UnspannedAtomicToken::Size { .. } => unreachable!("ExpansionRule treats size as word"),
-            UnspannedAtomicToken::Whitespace { .. } => {
-                unreachable!("ExpansionRule doesn't allow Whitespace")
+                let peeked = token_nodes.peek().not_eof("external start token")?;
+                let node = peeked.node;
+
+                let new_span = match node.unspanned() {
+                    Token::Comment(_)
+                    | Token::Separator
+                    | Token::Whitespace
+                    | Token::Pipeline(_) => {
+                        return Err(ParseError::mismatch(
+                            "external start token",
+                            node.spanned_type_name(),
+                        ))
+                    }
+
+                    _ => {
+                        let node = peeked.commit();
+                        node.span()
+                    }
+                };
+
+                span = match span {
+                    None => Some(new_span),
+                    Some(before) => Some(before.until(new_span)),
+                };
             }
-            UnspannedAtomicToken::Separator { .. } => {
-                unreachable!("ExpansionRule doesn't allow Separator")
-            }
-            UnspannedAtomicToken::Comment { .. } => {
-                unreachable!("ExpansionRule doesn't allow Comment")
-            }
-            UnspannedAtomicToken::ShorthandFlag { .. }
-            | UnspannedAtomicToken::SquareDelimited { .. }
-            | UnspannedAtomicToken::RoundDelimited { .. } => {
-                return Err(ParseError::mismatch(
-                    "external command name",
-                    atom.spanned_type_name(),
-                ))
-            }
-            UnspannedAtomicToken::ExternalCommand { command } => {
-                Expression::external_command(*command, span)
-            }
-            UnspannedAtomicToken::Number { number } => {
-                Expression::number(number.to_number(context.source()), span)
-            }
-            UnspannedAtomicToken::String { body } => Expression::string(*body, span),
-            UnspannedAtomicToken::ItVariable { name } => Expression::it_variable(*name, span),
-            UnspannedAtomicToken::Variable { name } => Expression::variable(*name, span),
-            UnspannedAtomicToken::ExternalWord { .. }
-            | UnspannedAtomicToken::GlobPattern { .. }
-            | UnspannedAtomicToken::Word { .. }
-            | UnspannedAtomicToken::Dot { .. }
-            | UnspannedAtomicToken::DotDot { .. }
-            | UnspannedAtomicToken::CompareOperator { .. } => {
-                Expression::external_command(span, span)
+
+            match span {
+                None => Err(token_nodes.err_next_token("external start token")),
+                Some(span) => {
+                    token_nodes.color_shape(FlatShape::ExternalWord.spanned(span));
+                    Ok(span)
+                }
             }
         })
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-struct ExternalContinuationShape;
+struct PeekExternalBoundary;
 
-impl ExpandExpression for ExternalContinuationShape {
-    fn name(&self) -> &'static str {
-        "external argument"
-    }
-
-    fn expand_expr<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<Expression, ParseError> {
-        let atom = expand_atom(
-            token_nodes,
-            "external argument",
-            context,
-            ExpansionRule::new()
-                .allow_external_word()
-                .treat_size_as_word(),
-        )?;
-
-        let span = atom.span;
-
-        Ok(match &atom.unspanned {
-            UnspannedAtomicToken::Eof { .. } => unreachable!("ExpansionRule doesn't allow EOF"),
-            UnspannedAtomicToken::Error { .. } => unreachable!("ExpansionRule doesn't allow Error"),
-            UnspannedAtomicToken::Number { number } => {
-                Expression::number(number.to_number(context.source()), span)
-            }
-            UnspannedAtomicToken::Size { .. } => unreachable!("ExpansionRule treats size as word"),
-            UnspannedAtomicToken::ExternalCommand { .. } => {
-                unreachable!("ExpansionRule doesn't allow ExternalCommand")
-            }
-            UnspannedAtomicToken::Whitespace { .. } => {
-                unreachable!("ExpansionRule doesn't allow Whitespace")
-            }
-            UnspannedAtomicToken::Separator { .. } => {
-                unreachable!("ExpansionRule doesn't allow Separator")
-            }
-            UnspannedAtomicToken::Comment { .. } => {
-                unreachable!("ExpansionRule doesn't allow Comment")
-            }
-            UnspannedAtomicToken::String { body } => Expression::string(*body, span),
-            UnspannedAtomicToken::ItVariable { name } => Expression::it_variable(*name, span),
-            UnspannedAtomicToken::Variable { name } => Expression::variable(*name, span),
-            UnspannedAtomicToken::ExternalWord { .. }
-            | UnspannedAtomicToken::GlobPattern { .. }
-            | UnspannedAtomicToken::Word { .. }
-            | UnspannedAtomicToken::ShorthandFlag { .. }
-            | UnspannedAtomicToken::Dot { .. }
-            | UnspannedAtomicToken::DotDot { .. }
-            | UnspannedAtomicToken::CompareOperator { .. } => Expression::bare(span),
-            UnspannedAtomicToken::SquareDelimited { .. }
-            | UnspannedAtomicToken::RoundDelimited { .. } => {
-                return Err(ParseError::mismatch(
-                    "external argument",
-                    atom.spanned_type_name(),
-                ))
-            }
-        })
-    }
-}
-
-impl ColorSyntax for ExternalExpressionShape {
-    type Info = ExternalExpressionResult;
-    type Input = ();
+impl ExpandSyntax for PeekExternalBoundary {
+    type Output = bool;
 
     fn name(&self) -> &'static str {
-        "ExternalExpressionShape"
+        "external boundary"
     }
 
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> ExternalExpressionResult {
-        let atom = match expand_atom(
-            token_nodes,
-            "external word",
-            context,
-            ExpansionRule::permissive(),
-        ) {
-            Err(_) => unreachable!("TODO: separate infallible expand_atom"),
-            Ok(AtomicToken {
-                unspanned: UnspannedAtomicToken::Eof { .. },
-                ..
-            }) => return ExternalExpressionResult::Eof,
-            Ok(atom) => atom,
-        };
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Self::Output {
+        let next = token_nodes.peek();
 
-        token_nodes.mutate_shapes(|shapes| atom.color_tokens(shapes));
-        ExternalExpressionResult::Processed
+        match next.node {
+            None => true,
+            Some(node) => match node.unspanned() {
+                Token::Delimited(_) => true,
+                Token::Whitespace => true,
+                Token::Comment(_) => true,
+                Token::Separator => true,
+                Token::Call(_) => true,
+                _ => false,
+            },
+        }
     }
-}
-
-#[must_use]
-pub enum ExternalExpressionResult {
-    Eof,
-    Processed,
 }

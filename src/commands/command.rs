@@ -236,7 +236,7 @@ pub struct RunnableContext {
 }
 
 impl RunnableContext {
-    pub fn get_command(&self, name: &str) -> Result<Option<Arc<Command>>, ShellError> {
+    pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         self.commands.get_command(name)
     }
 }

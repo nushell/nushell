@@ -1,4 +1,4 @@
-use crate::hir::Expression;
+use crate::hir::SpannedExpression;
 
 use derive_new::new;
 use getset::Getters;
@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct Range {
     #[get = "pub"]
-    left: Expression,
+    left: SpannedExpression,
     #[get = "pub"]
     dotdot: Span,
     #[get = "pub"]
-    right: Expression,
+    right: SpannedExpression,
 }
 
 impl PrettyDebugWithSource for Range {

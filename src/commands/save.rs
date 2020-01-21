@@ -130,7 +130,7 @@ fn save(
     }: RunnableContext,
     raw_args: RawCommandArgs,
 ) -> Result<OutputStream, ShellError> {
-    let mut full_path = PathBuf::from(shell_manager.path()?);
+    let mut full_path = PathBuf::from(shell_manager.path());
     let name_tag = name.clone();
 
     let stream = async_stream! {
@@ -179,7 +179,7 @@ fn save(
             break if !save_raw {
                 if let Some(extension) = full_path.extension() {
                     let command_name = format!("to-{}", extension.to_string_lossy());
-                    if let Some(converter) = registry.get_command(&command_name)? {
+                    if let Some(converter) = registry.get_command(&command_name) {
                         let new_args = RawCommandArgs {
                             host,
                             ctrl_c,

@@ -102,7 +102,7 @@ async fn run_with_iterator_arg(
     input: Option<InputStream>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
-    let path = context.shell_manager.path()?;
+    let path = context.shell_manager.path();
 
     let mut inputs: InputStream = if let Some(input) = input {
         trace_stream!(target: "nu::trace_stream::external::it", "input" = input)
@@ -180,7 +180,7 @@ async fn run_with_stdin(
     input: Option<InputStream>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
-    let path = context.shell_manager.path()?;
+    let path = context.shell_manager.path();
 
     let mut inputs: InputStream = if let Some(input) = input {
         trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input)

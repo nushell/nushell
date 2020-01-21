@@ -8,9 +8,10 @@ use crate::data::config;
 use crate::git::current_branch;
 use crate::prelude::*;
 use nu_errors::ShellError;
+use nu_parser::hir::Expression;
 use nu_parser::{
-    expand_syntax, hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape,
-    TokenNode, TokensIterator,
+    hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape, SpannedToken,
+    TokensIterator,
 };
 use nu_protocol::{Signature, UntaggedValue, Value};
 
@@ -60,16 +61,16 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
                         let name = params.name.clone();
                         let fname = fname.to_string();
 
-                        if context.get_command(&name)?.is_some() {
+                        if context.get_command(&name).is_some() {
                             trace!("plugin {:?} already loaded.", &name);
                         } else if params.is_filter {
-                            context.add_commands(vec![whole_stream_command(
-                                PluginCommand::new(name, fname, params),
-                            )])?;
+                            context.add_commands(vec![whole_stream_command(PluginCommand::new(
+                                name, fname, params,
+                            ))]);
                         } else {
                             context.add_commands(vec![whole_stream_command(PluginSink::new(
                                 name, fname, params,
-                            ))])?;
+                            ))]);
                         }
                         Ok(())
                     }
@@ -346,7 +347,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),
-        ])?;
+        ]);
 
         cfg_if::cfg_if! {
             if #[cfg(data_processing_primitives)] {
@@ -355,7 +356,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 whole_stream_command(EvaluateBy),
                 whole_stream_command(TSortBy),
                 whole_stream_command(MapMaxBy),
-                ])?;
+                ]);
             }
         }
 
@@ -363,7 +364,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         {
             context.add_commands(vec![whole_stream_command(
                 crate::commands::clip::clipboard::Clip,
-            )])?;
+            )]);
         }
     }
 
@@ -402,7 +403,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        let cwd = context.shell_manager.path()?;
+        let cwd = context.shell_manager.path();
 
         rl.set_helper(Some(crate::shell::Helper::new(context.clone())));
 
@@ -479,7 +480,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
                 context.with_host(|host| {
                     print_err(err, host, &Text::from(line.clone()));
-                })?;
+                });
 
                 context.maybe_print_errors(Text::from(line.clone()));
             }
@@ -501,7 +502,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                     let _ = rl.save_history(&History::path());
                     std::process::exit(0);
                 } else {
-                    context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"))?;
+                    context.with_host(|host| host.stdout("CTRL-C pressed (again to quit)"));
                     ctrlcbreak = true;
                     continue;
                 }
@@ -606,26 +607,33 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = match classify_pipeline(&result, ctx, &Text::from(line)) {
-                Ok(pipeline) => pipeline,
-                Err(err) => return LineResult::Error(line.to_string(), err),
+            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line));
+
+            if let Some(failure) = pipeline.failed {
+                return LineResult::Error(line.to_string(), failure.into());
+            }
+
+            let should_push = match pipeline.commands.list.last() {
+                Some(ClassifiedCommand::External(_)) => false,
+                _ => true,
             };
 
-            match pipeline.commands.list.last() {
-                Some(ClassifiedCommand::External(_)) => {}
-                _ => pipeline
+            if should_push {
+                pipeline
                     .commands
                     .list
                     .push(ClassifiedCommand::Internal(InternalCommand {
                         name: "autoview".to_string(),
                         name_tag: Tag::unknown(),
                         args: hir::Call::new(
-                            Box::new(hir::Expression::synthetic_string("autoview")),
+                            Box::new(
+                                Expression::synthetic_string("autoview").into_expr(Span::unknown()),
+                            ),
                             None,
                             None,
                             Span::unknown(),
                         ),
-                    })),
+                    }));
             }
 
             // Check the config to see if we need to update the path
@@ -650,19 +658,15 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
 }
 
 pub fn classify_pipeline(
-    pipeline: &TokenNode,
+    pipeline: &SpannedToken,
     context: &Context,
     source: &Text,
-) -> Result<ClassifiedPipeline, ShellError> {
+) -> ClassifiedPipeline {
     let pipeline_list = vec![pipeline.clone()];
-    let mut iterator = TokensIterator::all(&pipeline_list, source.clone(), pipeline.span());
+    let expand_context = context.expand_context(source);
+    let mut iterator = TokensIterator::new(&pipeline_list, expand_context, pipeline.span());
 
-    let result = expand_syntax(
-        &PipelineShape,
-        &mut iterator,
-        &context.expand_context(source)?,
-    )
-    .map_err(|err| err.into());
+    let result = iterator.expand_infallible(PipelineShape);
 
     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
         outln!("");

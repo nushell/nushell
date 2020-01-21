@@ -8,6 +8,7 @@ use crate::data::command_dict;
 use crate::prelude::*;
 use crate::shell::shell::Shell;
 use nu_errors::ShellError;
+use nu_parser::ExpandContext;
 use nu_protocol::{
     Primitive, ReturnSuccess, ShellTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
@@ -25,25 +26,28 @@ impl HelpShell {
         let mut cmds = TaggedDictBuilder::new(Tag::unknown());
         let mut specs = Vec::new();
 
-        let snapshot = registry.snapshot()?;
+        for cmd in registry.names() {
+            if let Some(cmd_value) = registry.get_command(&cmd) {
+                let mut spec = TaggedDictBuilder::new(Tag::unknown());
+                let value = command_dict(cmd_value, Tag::unknown());
 
-        for (name, cmd) in snapshot.iter() {
-            let mut spec = TaggedDictBuilder::new(Tag::unknown());
-            let value = command_dict(cmd.clone(), Tag::unknown());
+                spec.insert_untagged("name", cmd);
+                spec.insert_untagged(
+                    "description",
+                    value
+                        .get_data_by_key("usage".spanned_unknown())
+                        .ok_or_else(|| {
+                            ShellError::untagged_runtime_error(
+                                "Internal error: expected to find usage",
+                            )
+                        })?
+                        .as_string()?,
+                );
+                spec.insert_value("details", value);
 
-            spec.insert_untagged("name", name.to_string());
-            spec.insert_untagged(
-                "description",
-                value
-                    .get_data_by_key("usage".spanned_unknown())
-                    .ok_or_else(|| {
-                        ShellError::untagged_runtime_error("Internal error: expected to find usage")
-                    })?
-                    .as_string()?,
-            );
-            spec.insert_value("details", value);
-
-            specs.push(spec.into_value());
+                specs.push(spec.into_value());
+            } else {
+            }
         }
 
         cmds.insert_untagged("help", UntaggedValue::Table(specs));
@@ -240,7 +244,13 @@ impl Shell for HelpShell {
         Ok((replace_pos, completions))
     }
 
-    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String> {
+    fn hint(
+        &self,
+        _line: &str,
+        _pos: usize,
+        _ctx: &rustyline::Context<'_>,
+        _context: ExpandContext,
+    ) -> Option<String> {
         None
     }
 }

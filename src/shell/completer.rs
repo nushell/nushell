@@ -1,13 +1,16 @@
 use crate::context::CommandRegistry;
 
 use derive_new::new;
+use nu_parser::ExpandContext;
 use nu_source::{HasSpan, Text};
 use rustyline::completion::{Completer, FilenameCompleter};
+use std::path::PathBuf;
 
 #[derive(new)]
 pub(crate) struct NuCompleter {
     pub file_completer: FilenameCompleter,
     pub commands: CommandRegistry,
+    pub homedir: Option<PathBuf>,
 }
 
 impl NuCompleter {
@@ -17,7 +20,15 @@ impl NuCompleter {
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<rustyline::completion::Pair>)> {
-        let commands: Vec<String> = self.commands.names().unwrap_or_else(|_| vec![]);
+        let text = Text::from(line);
+        let expand_context =
+            ExpandContext::new(Box::new(self.commands.clone()), &text, self.homedir.clone());
+
+        #[allow(unused)]
+        // smarter completions
+        let shapes = nu_parser::pipeline_shapes(line, expand_context);
+
+        let commands: Vec<String> = self.commands.names();
 
         let line_chars: Vec<_> = line[..pos].chars().collect();
 
@@ -100,8 +111,6 @@ impl NuCompleter {
         if let Ok(val) = nu_parser::parse(&line_copy) {
             let source = Text::from(line);
             let pipeline_list = vec![val.clone()];
-            let mut iterator =
-                nu_parser::TokensIterator::all(&pipeline_list, source.clone(), val.span());
 
             let expand_context = nu_parser::ExpandContext {
                 homedir: None,
@@ -109,10 +118,12 @@ impl NuCompleter {
                 source: &source,
             };
 
-            let result =
-                nu_parser::expand_syntax(&nu_parser::PipelineShape, &mut iterator, &expand_context);
+            let mut iterator =
+                nu_parser::TokensIterator::new(&pipeline_list, expand_context, val.span());
 
-            if let Ok(result) = result {
+            let result = iterator.expand_infallible(nu_parser::PipelineShape);
+
+            if result.failed.is_none() {
                 for command in result.commands.list {
                     if let nu_parser::ClassifiedCommand::Internal(nu_parser::InternalCommand {
                         args,

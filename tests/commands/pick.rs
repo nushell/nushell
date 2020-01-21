@@ -62,8 +62,8 @@ fn complex_nested_columns() {
             cwd: dirs.test(), pipeline(
             r#"
                 open los_tres_caballeros.json
-                | pick nu.0xATYKARNU nu.committers.name nu.releases.version
-                | where $it."nu.releases.version" > "0.8"
+                | pick nu."0xATYKARNU" nu.committers.name nu.releases.version
+                | where "nu.releases.version" > "0.8"
                 | get "nu.releases.version"
                 | echo $it
             "#

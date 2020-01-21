@@ -38,7 +38,7 @@ macro_rules! nu {
         });
 
         let mut process = match Command::new($crate::fs::executable_path())
-            .env_clear()
+            // .env_clear()
             .env("PATH", dummies)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -53,17 +53,24 @@ macro_rules! nu {
             .write_all(commands.as_bytes())
             .expect("couldn't write to stdin");
 
-
         let output = process
             .wait_with_output()
             .expect("couldn't read from stdout");
 
-        let out = String::from_utf8_lossy(&output.stdout);
-        let out = out.lines().skip(1).collect::<Vec<_>>().join("\n");
-        let out = out.replace("\r\n", "");
-        let out = out.replace("\n", "");
+        let out = $crate::macros::read_std(&output.stdout);
+        let err = $crate::macros::read_std(&output.stderr);
+
+        println!("=== stderr\n{}", err);
+
         out
     }};
+}
+
+pub fn read_std(std: &[u8]) -> String {
+    let out = String::from_utf8_lossy(std);
+    let out = out.lines().skip(1).collect::<Vec<_>>().join("\n");
+    let out = out.replace("\r\n", "");
+    out.replace("\n", "")
 }
 
 #[macro_export]
@@ -106,7 +113,7 @@ macro_rules! nu_error {
         });
 
         let mut process = Command::new($crate::fs::executable_path())
-            .env_clear()
+            // .env_clear()
             .env("PATH", dummies)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())

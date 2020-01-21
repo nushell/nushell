@@ -70,7 +70,7 @@ pub fn autoview(
                                 }
                             }
                         };
-                        if let Some(table) = table? {
+                        if let Some(table) = table {
                             let mut new_output_stream: OutputStream = stream.to_output_stream();
                             let mut finished = false;
                             let mut current_idx = 0;
@@ -100,7 +100,7 @@ pub fn autoview(
                                     let first = &input[0];
 
                                     let mut host = context.host.clone();
-                                    let mut host = host.lock();
+                                    let host = host.lock();
 
                                     crate::cli::print_err(first.value.expect_error(), &*host, &context.source);
                                     return;
@@ -108,12 +108,11 @@ pub fn autoview(
 
                                 let mut command_args = raw.with_input(input);
                                 let mut named_args = NamedArguments::new();
-                                named_args.insert_optional("start_number", Some(Expression::number(current_idx, Tag::unknown())));
+                                named_args.insert_optional("start_number", Some(Expression::number(current_idx).into_expr(Span::unknown())));
                                 command_args.call_info.args.named = Some(named_args);
 
                                 let result = table.run(command_args, &context.commands);
                                 result.collect::<Vec<_>>().await;
-
 
                                 if finished {
                                     break;
@@ -130,7 +129,7 @@ pub fn autoview(
                                     value: UntaggedValue::Primitive(Primitive::String(ref s)),
                                     tag: Tag { anchor, span },
                                 } if anchor.is_some() => {
-                                    if let Some(text) = text? {
+                                    if let Some(text) = text {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
@@ -149,7 +148,7 @@ pub fn autoview(
                                     value: UntaggedValue::Primitive(Primitive::Line(ref s)),
                                     tag: Tag { anchor, span },
                                 } if anchor.is_some() => {
-                                    if let Some(text) = text? {
+                                    if let Some(text) = text {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                         let result = text.run(raw.with_input(stream.into()), &context.commands);
@@ -184,7 +183,7 @@ pub fn autoview(
                                 }
 
                                 Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {
-                                    if let Some(binary) = binary? {
+                                    if let Some(binary) = binary {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x);
                                         let result = binary.run(raw.with_input(stream.into()), &context.commands);
@@ -199,7 +198,7 @@ pub fn autoview(
                                     yield Err(e);
                                 }
                                 Value { value: ref item, .. } => {
-                                    if let Some(table) = table? {
+                                    if let Some(table) = table {
                                         let mut stream = VecDeque::new();
                                         stream.push_back(x);
                                         let result = table.run(raw.with_input(stream.into()), &context.commands);

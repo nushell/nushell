@@ -5,37 +5,29 @@ use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::{hir, hir::syntax_shape::ExpandContext, hir::syntax_shape::SignatureRegistry};
-use nu_protocol::{errln, Signature};
+use nu_protocol::Signature;
 use nu_source::{Tag, Text};
+use parking_lot::Mutex;
 use std::error::Error;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct CommandRegistry {
     registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
 }
 
 impl SignatureRegistry for CommandRegistry {
-    fn has(&self, name: &str) -> Result<bool, ShellError> {
-        if let Ok(registry) = self.registry.lock() {
-            Ok(registry.contains_key(name))
-        } else {
-            Err(ShellError::untagged_runtime_error(format!(
-                "Could not load from registry: {}",
-                name
-            )))
-        }
+    fn has(&self, name: &str) -> bool {
+        let registry = self.registry.lock();
+        registry.contains_key(name)
     }
-    fn get(&self, name: &str) -> Result<Option<Signature>, ShellError> {
-        if let Ok(registry) = self.registry.lock() {
-            Ok(registry.get(name).map(|command| command.signature()))
-        } else {
-            Err(ShellError::untagged_runtime_error(format!(
-                "Could not get from registry: {}",
-                name
-            )))
-        }
+    fn get(&self, name: &str) -> Option<Signature> {
+        let registry = self.registry.lock();
+        registry.get(name).map(|command| command.signature())
+    }
+    fn clone_box(&self) -> Box<dyn SignatureRegistry> {
+        Box::new(self.clone())
     }
 }
 
@@ -54,53 +46,32 @@ impl CommandRegistry {
         }
     }
 
-    pub(crate) fn get_command(&self, name: &str) -> Result<Option<Arc<Command>>, ShellError> {
-        let registry = self.registry.lock().map_err(|_| {
-            ShellError::untagged_runtime_error("Internal error: get_command could not get mutex")
-        })?;
+    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
+        let registry = self.registry.lock();
 
-        Ok(registry.get(name).cloned())
+        registry.get(name).cloned()
     }
 
     pub(crate) fn expect_command(&self, name: &str) -> Result<Arc<Command>, ShellError> {
-        self.get_command(name)?.ok_or_else(|| {
+        self.get_command(name).ok_or_else(|| {
             ShellError::untagged_runtime_error(format!("Could not load command: {}", name))
         })
     }
 
-    pub(crate) fn has(&self, name: &str) -> Result<bool, ShellError> {
-        let registry = self.registry.lock().map_err(|_| {
-            ShellError::untagged_runtime_error("Internal error: has could not get mutex")
-        })?;
+    pub(crate) fn has(&self, name: &str) -> bool {
+        let registry = self.registry.lock();
 
-        Ok(registry.contains_key(name))
+        registry.contains_key(name)
     }
 
-    pub(crate) fn insert(
-        &mut self,
-        name: impl Into<String>,
-        command: Arc<Command>,
-    ) -> Result<(), ShellError> {
-        let mut registry = self.registry.lock().map_err(|_| {
-            ShellError::untagged_runtime_error("Internal error: insert could not get mutex")
-        })?;
-
+    pub(crate) fn insert(&mut self, name: impl Into<String>, command: Arc<Command>) {
+        let mut registry = self.registry.lock();
         registry.insert(name.into(), command);
-        Ok(())
     }
 
-    pub(crate) fn names(&self) -> Result<Vec<String>, ShellError> {
-        let registry = self.registry.lock().map_err(|_| {
-            ShellError::untagged_runtime_error("Internal error: names could not get mutex")
-        })?;
-        Ok(registry.keys().cloned().collect())
-    }
-
-    pub(crate) fn snapshot(&self) -> Result<IndexMap<String, Arc<Command>>, ShellError> {
-        let registry = self.registry.lock().map_err(|_| {
-            ShellError::untagged_runtime_error("Internal error: names could not get mutex")
-        })?;
-        Ok(registry.clone())
+    pub(crate) fn names(&self) -> Vec<String> {
+        let registry = self.registry.lock();
+        registry.keys().cloned().collect()
     }
 }
 
@@ -121,12 +92,12 @@ impl Context {
     pub(crate) fn expand_context<'context>(
         &'context self,
         source: &'context Text,
-    ) -> Result<ExpandContext<'context>, ShellError> {
-        Ok(ExpandContext::new(
+    ) -> ExpandContext {
+        ExpandContext::new(
             Box::new(self.registry.clone()),
             source,
-            self.shell_manager.homedir()?,
-        ))
+            self.shell_manager.homedir(),
+        )
     }
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
@@ -142,73 +113,47 @@ impl Context {
         })
     }
 
-    pub(crate) fn error(&mut self, error: ShellError) -> Result<(), ShellError> {
+    pub(crate) fn error(&mut self, error: ShellError) {
         self.with_errors(|errors| errors.push(error))
     }
 
     pub(crate) fn maybe_print_errors(&mut self, source: Text) -> bool {
         let errors = self.current_errors.clone();
-        let errors = errors.lock();
+        let mut errors = errors.lock();
 
         let host = self.host.clone();
         let host = host.lock();
 
-        let result: bool;
+        if errors.len() > 0 {
+            let error = errors[0].clone();
+            *errors = vec![];
 
-        match (errors, host) {
-            (Err(err), _) => {
-                errln!(
-                    "Unexpected error attempting to acquire the lock of the current errors: {:?}",
-                    err
-                );
-                result = false;
-            }
-            (Ok(mut errors), host) => {
-                if errors.len() > 0 {
-                    let error = errors[0].clone();
-                    *errors = vec![];
-
-                    crate::cli::print_err(error, &*host, &source);
-                    result = true;
-                } else {
-                    result = false;
-                }
-            }
-        };
-
-        result
-    }
-
-    pub(crate) fn with_host<T>(
-        &mut self,
-        block: impl FnOnce(&mut dyn Host) -> T,
-    ) -> Result<T, ShellError> {
-        let mut host = self.host.lock();
-        Ok(block(&mut *host))
-    }
-
-    pub(crate) fn with_errors<T>(
-        &mut self,
-        block: impl FnOnce(&mut Vec<ShellError>) -> T,
-    ) -> Result<T, ShellError> {
-        if let Ok(mut errors) = self.current_errors.lock() {
-            Ok(block(&mut *errors))
+            crate::cli::print_err(error, &*host, &source);
+            true
         } else {
-            Err(ShellError::untagged_runtime_error(
-                "Internal error: could not lock host in with_errors",
-            ))
+            false
         }
     }
 
-    pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) -> Result<(), ShellError> {
+    pub(crate) fn with_host<T>(&mut self, block: impl FnOnce(&mut dyn Host) -> T) -> T {
+        let mut host = self.host.lock();
+
+        block(&mut *host)
+    }
+
+    pub(crate) fn with_errors<T>(&mut self, block: impl FnOnce(&mut Vec<ShellError>) -> T) -> T {
+        let mut errors = self.current_errors.lock();
+
+        block(&mut *errors)
+    }
+
+    pub fn add_commands(&mut self, commands: Vec<Arc<Command>>) {
         for command in commands {
-            self.registry.insert(command.name().to_string(), command)?;
+            self.registry.insert(command.name().to_string(), command);
         }
-
-        Ok(())
     }
 
-    pub(crate) fn get_command(&self, name: &str) -> Result<Option<Arc<Command>>, ShellError> {
+    pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         self.registry.get_command(name)
     }
 

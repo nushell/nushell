@@ -1,103 +1,47 @@
-use crate::hir::syntax_shape::expression::UnspannedAtomicToken;
-use crate::hir::syntax_shape::{
-    color_fallible_syntax, expand_atom, expand_expr, AnyExpressionShape, ExpandContext,
-    ExpandExpression, ExpansionRule, FallibleColorSyntax, FlatShape,
-};
-use crate::parse::operator::EvaluationOperator;
-use crate::parse::token_tree::TokenNode;
-use crate::parse::tokens::{Token, UnspannedToken};
-use crate::{hir, hir::TokensIterator};
-use nu_errors::{ParseError, ShellError};
-use nu_protocol::SpannedTypeName;
-use nu_source::SpannedItem;
+use crate::hir::syntax_shape::{AnyExpressionStartShape, ExpandSyntax, FlatShape};
+use crate::hir::TokensIterator;
+use crate::hir::{Expression, SpannedExpression};
+use crate::parse::token_tree::DotDotType;
+use nu_errors::ParseError;
+use nu_source::{HasSpan, Span};
 
 #[derive(Debug, Copy, Clone)]
 pub struct RangeShape;
 
-impl ExpandExpression for RangeShape {
+impl ExpandSyntax for RangeShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
     fn name(&self) -> &'static str {
         "range"
     }
 
-    fn expand_expr<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<hir::Expression, ParseError> {
+    ) -> Result<SpannedExpression, ParseError> {
         token_nodes.atomic_parse(|token_nodes| {
-            let left = expand_expr(&AnyExpressionShape, token_nodes, context)?;
+            let left = token_nodes.expand_syntax(AnyExpressionStartShape)?;
+            let dotdot = token_nodes.expand_syntax(DotDotShape)?;
+            let right = token_nodes.expand_syntax(AnyExpressionStartShape)?;
 
-            let atom = expand_atom(
-                token_nodes,
-                "..",
-                context,
-                ExpansionRule::new().allow_eval_operator(),
-            )?;
+            let span = left.span.until(right.span);
 
-            let span = match atom.unspanned {
-                UnspannedAtomicToken::DotDot { text } => text,
-                _ => return Err(ParseError::mismatch("..", atom.spanned_type_name())),
-            };
-
-            let right = expand_expr(&AnyExpressionShape, token_nodes, context)?;
-
-            Ok(hir::Expression::range(left, span, right))
+            Ok(Expression::range(left, dotdot, right).into_expr(span))
         })
-    }
-}
-
-impl FallibleColorSyntax for RangeShape {
-    type Info = ();
-    type Input = ();
-
-    fn name(&self) -> &'static str {
-        "RangeShape"
-    }
-
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &(),
-        token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
-    ) -> Result<(), ShellError> {
-        token_nodes.atomic_parse(|token_nodes| {
-            color_fallible_syntax(&AnyExpressionShape, token_nodes, context)?;
-            color_fallible_syntax(&DotDotShape, token_nodes, context)?;
-            color_fallible_syntax(&AnyExpressionShape, token_nodes, context)
-        })?;
-
-        Ok(())
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 struct DotDotShape;
 
-impl FallibleColorSyntax for DotDotShape {
-    type Info = ();
-    type Input = ();
+impl ExpandSyntax for DotDotShape {
+    type Output = Result<Span, ParseError>;
 
     fn name(&self) -> &'static str {
-        ".."
+        "dotdot"
     }
 
-    fn color_syntax<'a, 'b>(
-        &self,
-        _input: &Self::Input,
-        token_nodes: &'b mut TokensIterator<'a>,
-        _context: &ExpandContext,
-    ) -> Result<Self::Info, ShellError> {
-        let peeked = token_nodes.peek_any().not_eof("..")?;
-        match &peeked.node {
-            TokenNode::Token(Token {
-                unspanned: UnspannedToken::EvaluationOperator(EvaluationOperator::DotDot),
-                span,
-            }) => {
-                peeked.commit();
-                token_nodes.color_shape(FlatShape::DotDot.spanned(span));
-                Ok(())
-            }
-            token => Err(ShellError::type_error("..", token.spanned_type_name())),
-        }
+    fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
+        token_nodes.expand_token(DotDotType, |token| Ok((FlatShape::DotDot, token.span())))
     }
 }

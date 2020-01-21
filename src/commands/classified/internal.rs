@@ -47,18 +47,18 @@ pub(crate) async fn run_internal_command(
             match item {
                 Ok(ReturnSuccess::Action(action)) => match action {
                     CommandAction::ChangePath(path) => {
-                        context.shell_manager.set_path(path)?;
+                        context.shell_manager.set_path(path);
                     }
                     CommandAction::Exit => std::process::exit(0), // TODO: save history.txt
                     CommandAction::Error(err) => {
-                        context.error(err)?;
+                        context.error(err);
                         break;
                     }
                     CommandAction::AutoConvert(tagged_contents, extension) => {
                         let contents_tag = tagged_contents.tag.clone();
                         let command_name = format!("from-{}", extension);
                         let command = command.clone();
-                        if let Some(converter) = context.registry.get_command(&command_name)? {
+                        if let Some(converter) = context.registry.get_command(&command_name) {
                             let new_args = RawCommandArgs {
                                 host: context.host.clone(),
                                 ctrl_c: context.ctrl_c.clone(),
@@ -100,43 +100,39 @@ pub(crate) async fn run_internal_command(
                                 value: UntaggedValue::Primitive(Primitive::String(cmd)),
                                 tag,
                             } => {
-                                let result = context.shell_manager.insert_at_current(Box::new(
+                                context.shell_manager.insert_at_current(Box::new(
                                     HelpShell::for_command(
                                         UntaggedValue::string(cmd).into_value(tag),
                                         &context.registry(),
                                     )?,
                                 ));
-
-                                result?
                             }
                             _ => {
-                                let result = context.shell_manager.insert_at_current(Box::new(
+                                context.shell_manager.insert_at_current(Box::new(
                                     HelpShell::index(&context.registry())?,
                                 ));
-
-                                result?
                             }
                         }
                     }
                     CommandAction::EnterValueShell(value) => {
                         context
                             .shell_manager
-                            .insert_at_current(Box::new(ValueShell::new(value)))?;
+                            .insert_at_current(Box::new(ValueShell::new(value)));
                     }
                     CommandAction::EnterShell(location) => {
                         context.shell_manager.insert_at_current(Box::new(
                             FilesystemShell::with_location(location, context.registry().clone()),
-                        ))?;
+                        ));
                     }
                     CommandAction::PreviousShell => {
-                        context.shell_manager.prev()?;
+                        context.shell_manager.prev();
                     }
                     CommandAction::NextShell => {
-                        context.shell_manager.next()?;
+                        context.shell_manager.next();
                     }
                     CommandAction::LeaveShell => {
-                        context.shell_manager.remove_at_current()?;
-                        if context.shell_manager.is_empty()? {
+                        context.shell_manager.remove_at_current();
+                        if context.shell_manager.is_empty() {
                             std::process::exit(0); // TODO: save history.txt
                         }
                     }
@@ -154,7 +150,7 @@ pub(crate) async fn run_internal_command(
                     let mut buffer = termcolor::Buffer::ansi();
 
                     let _ = doc.render_raw(
-                        context.with_host(|host| host.width() - 5)?,
+                        context.with_host(|host| host.width() - 5),
                         &mut nu_source::TermColored::new(&mut buffer),
                     );
 
@@ -164,7 +160,7 @@ pub(crate) async fn run_internal_command(
                 }
 
                 Err(err) => {
-                    context.error(err)?;
+                    context.error(err);
                     break;
                 }
             }

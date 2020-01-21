@@ -10,6 +10,7 @@ use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 use nu_errors::ShellError;
+use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
@@ -38,6 +39,7 @@ impl Clone for FilesystemShell {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands: self.completer.commands.clone(),
+                homedir: self.homedir(),
             },
             hinter: HistoryHinter {},
         }
@@ -54,6 +56,7 @@ impl FilesystemShell {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands,
+                homedir: dirs::home_dir(),
             },
             hinter: HistoryHinter {},
         })
@@ -67,6 +70,7 @@ impl FilesystemShell {
             completer: NuCompleter {
                 file_completer: FilenameCompleter::new(),
                 commands,
+                homedir: dirs::home_dir(),
             },
             hinter: HistoryHinter {},
         }
@@ -1131,7 +1135,13 @@ impl Shell for FilesystemShell {
         self.completer.complete(line, pos, ctx)
     }
 
-    fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
+    fn hint(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+        _expand_context: ExpandContext,
+    ) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
     }
 }

@@ -1,21 +1,35 @@
-use crate::hir::syntax_shape::{ExpandContext, ExpandSyntax};
-use crate::parse::tokens::RawNumber;
-use crate::parse::tokens::Token;
-use crate::parse::tokens::UnspannedToken;
+use crate::hir::syntax_shape::flat_shape::FlatShape;
+use crate::hir::syntax_shape::ExpandSyntax;
+use crate::hir::TokensIterator;
+use crate::hir::{Expression, SpannedExpression};
+use crate::parse::number::RawNumber;
+use crate::parse::token_tree::BareType;
 use crate::parse::unit::Unit;
-use crate::{hir::TokensIterator, TokenNode};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::digit1;
 use nom::combinator::{all_consuming, opt, value};
 use nom::IResult;
 use nu_errors::ParseError;
-use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span, Spanned, SpannedItem};
+use nu_source::{
+    b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span, Spanned, SpannedItem, Text,
+};
 
 #[derive(Debug, Clone)]
 pub struct UnitSyntax {
     pub unit: (RawNumber, Spanned<Unit>),
     pub span: Span,
+}
+
+impl UnitSyntax {
+    pub fn into_expr(self, source: &Text) -> SpannedExpression {
+        let UnitSyntax {
+            unit: (number, unit),
+            span,
+        } = self;
+
+        Expression::size(number.to_number(source), *unit).into_expr(span)
+    }
 }
 
 impl PrettyDebugWithSource for UnitSyntax {
@@ -34,41 +48,59 @@ impl HasSpan for UnitSyntax {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub struct UnitExpressionShape;
+
+impl ExpandSyntax for UnitExpressionShape {
+    type Output = Result<SpannedExpression, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "unit expression"
+    }
+
+    fn expand<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+    ) -> Result<SpannedExpression, ParseError> {
+        token_nodes
+            .expand_syntax(UnitShape)
+            .map(|unit| unit.into_expr(&token_nodes.source()))
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct UnitShape;
 
 impl ExpandSyntax for UnitShape {
-    type Output = UnitSyntax;
+    type Output = Result<UnitSyntax, ParseError>;
 
     fn name(&self) -> &'static str {
         "unit"
     }
 
-    fn expand_syntax<'a, 'b>(
+    fn expand<'a, 'b>(
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
-        context: &ExpandContext,
     ) -> Result<UnitSyntax, ParseError> {
-        let peeked = token_nodes.peek_any().not_eof("unit")?;
+        let source = token_nodes.source();
 
-        let span = match peeked.node {
-            TokenNode::Token(Token {
-                unspanned: UnspannedToken::Bare,
-                span,
-            }) => *span,
-            _ => return Err(peeked.type_error("unit")),
-        };
+        token_nodes.expand_token(BareType, |span| {
+            let unit = unit_size(span.slice(&source), span);
 
-        let unit = unit_size(span.slice(context.source), span);
+            let (_, (number, unit)) = match unit {
+                Err(_) => return Err(ParseError::mismatch("unit", "word".spanned(span))),
+                Ok((number, unit)) => (number, unit),
+            };
 
-        let (_, (number, unit)) = match unit {
-            Err(_) => return Err(ParseError::mismatch("unit", "word".spanned(span))),
-            Ok((number, unit)) => (number, unit),
-        };
-
-        peeked.commit();
-        Ok(UnitSyntax {
-            unit: (number, unit),
-            span,
+            Ok((
+                FlatShape::Size {
+                    number: number.span(),
+                    unit: unit.span,
+                },
+                UnitSyntax {
+                    unit: (number, unit),
+                    span,
+                },
+            ))
         })
     }
 }

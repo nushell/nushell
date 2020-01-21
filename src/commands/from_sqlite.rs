@@ -153,7 +153,8 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
                             }
                             _ => yield ReturnSuccess::value(x),
                         }
-                        Err(_) => {
+                        Err(err) => {
+                            println!("{:?}", err);
                             yield Err(ShellError::labeled_error_with_secondary(
                                 "Could not parse as SQLite",
                                 "input cannot be parsed as SQLite",

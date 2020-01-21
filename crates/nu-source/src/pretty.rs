@@ -1,3 +1,4 @@
+use crate::meta::Spanned;
 use crate::term_colored::TermColored;
 use crate::text::Text;
 use derive_new::new;
@@ -98,6 +99,21 @@ pub struct DebugDocBuilder {
     pub inner: PrettyDebugDocBuilder,
 }
 
+impl PrettyDebug for bool {
+    fn pretty(&self) -> DebugDocBuilder {
+        match self {
+            true => b::primitive("true"),
+            false => b::primitive("false"),
+        }
+    }
+}
+
+impl PrettyDebug for () {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::primitive("nothing")
+    }
+}
+
 impl PrettyDebug for DebugDocBuilder {
     fn pretty(&self) -> DebugDocBuilder {
         self.clone()
@@ -156,7 +172,7 @@ impl DebugDocBuilder {
     }
 
     pub fn typed(kind: &str, value: DebugDocBuilder) -> DebugDocBuilder {
-        b::delimit("(", b::kind(kind) + b::space() + value.group(), ")").group()
+        b::kind(kind) + b::delimit("[", value.group(), "]")
     }
 
     pub fn subtyped(
@@ -340,8 +356,22 @@ pub struct DebugDoc {
     pub inner: PrettyDebugDoc,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum PrettyDebugRefineKind {
+    ContextFree,
+    WithContext,
+}
+
 pub trait PrettyDebugWithSource: Sized {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder;
+
+    fn refined_pretty_debug(
+        &self,
+        _refine: PrettyDebugRefineKind,
+        source: &str,
+    ) -> DebugDocBuilder {
+        self.pretty_debug(source)
+    }
 
     // This is a transitional convenience method
     fn debug(&self, source: impl Into<Text>) -> String
@@ -359,9 +389,24 @@ pub trait PrettyDebugWithSource: Sized {
     }
 }
 
+impl<T: PrettyDebug> PrettyDebug for Spanned<T> {
+    fn pretty(&self) -> DebugDocBuilder {
+        self.item.pretty()
+    }
+}
+
 impl<T: PrettyDebug> PrettyDebugWithSource for T {
     fn pretty_debug(&self, _source: &str) -> DebugDocBuilder {
         self.pretty()
+    }
+}
+
+impl<T: PrettyDebugWithSource, E> PrettyDebugWithSource for Result<T, E> {
+    fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
+        match self {
+            Err(_) => b::error("error"),
+            Ok(val) => val.pretty_debug(source),
+        }
     }
 }
 

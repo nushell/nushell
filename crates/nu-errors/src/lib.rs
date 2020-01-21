@@ -1,8 +1,11 @@
 use ansi_term::Color;
 use bigdecimal::BigDecimal;
 use derive_new::new;
+use getset::Getters;
 use language_reporting::{Diagnostic, Label, Severity};
-use nu_source::{b, DebugDocBuilder, PrettyDebug, Span, Spanned, SpannedItem, TracableContext};
+use nu_source::{
+    b, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem, TracableContext,
+};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
@@ -12,16 +15,16 @@ use std::ops::Range;
 /// A structured reason for a ParseError. Note that parsing in nu is more like macro expansion in
 /// other languages, so the kinds of errors that can occur during parsing are more contextual than
 /// you might expect.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ParseErrorReason {
     /// The parser encountered an EOF rather than what it was expecting
-    Eof { expected: &'static str, span: Span },
+    Eof { expected: String, span: Span },
     /// The parser expected to see the end of a token stream (possibly the token
     /// stream from inside a delimited token node), but found something else.
     ExtraTokens { actual: Spanned<String> },
     /// The parser encountered something other than what it was expecting
     Mismatch {
-        expected: &'static str,
+        expected: String,
         actual: Spanned<String>,
     },
 
@@ -37,16 +40,20 @@ pub enum ParseErrorReason {
 }
 
 /// A newtype for `ParseErrorReason`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Getters)]
 pub struct ParseError {
+    #[get = "pub"]
     reason: ParseErrorReason,
 }
 
 impl ParseError {
     /// Construct a [ParseErrorReason::Eof](ParseErrorReason::Eof)
-    pub fn unexpected_eof(expected: &'static str, span: Span) -> ParseError {
+    pub fn unexpected_eof(expected: impl Into<String>, span: Span) -> ParseError {
         ParseError {
-            reason: ParseErrorReason::Eof { expected, span },
+            reason: ParseErrorReason::Eof {
+                expected: expected.into(),
+                span,
+            },
         }
     }
 
@@ -62,12 +69,12 @@ impl ParseError {
     }
 
     /// Construct a [ParseErrorReason::Mismatch](ParseErrorReason::Mismatch)
-    pub fn mismatch(expected: &'static str, actual: Spanned<impl Into<String>>) -> ParseError {
+    pub fn mismatch(expected: impl Into<String>, actual: Spanned<impl Into<String>>) -> ParseError {
         let Spanned { span, item } = actual;
 
         ParseError {
             reason: ParseErrorReason::Mismatch {
-                expected,
+                expected: expected.into(),
                 actual: item.into().spanned(span),
             },
         }
@@ -725,6 +732,30 @@ impl ProximateShellError {
             cause: None,
             error: self,
         }
+    }
+}
+
+impl HasFallibleSpan for ShellError {
+    fn maybe_span(&self) -> Option<Span> {
+        self.error.maybe_span()
+    }
+}
+
+impl HasFallibleSpan for ProximateShellError {
+    fn maybe_span(&self) -> Option<Span> {
+        Some(match self {
+            ProximateShellError::SyntaxError { problem } => problem.span,
+            ProximateShellError::UnexpectedEof { span, .. } => *span,
+            ProximateShellError::TypeError { actual, .. } => actual.span,
+            ProximateShellError::MissingProperty { subpath, .. } => subpath.span,
+            ProximateShellError::InvalidIntegerIndex { subpath, .. } => subpath.span,
+            ProximateShellError::MissingValue { span, .. } => return *span,
+            ProximateShellError::ArgumentError { command, .. } => command.span,
+            ProximateShellError::RangeError { actual_kind, .. } => actual_kind.span,
+            ProximateShellError::Diagnostic(_) => return None,
+            ProximateShellError::CoerceError { left, right } => left.span.until(right.span),
+            ProximateShellError::UntaggedRuntimeError { .. } => return None,
+        })
     }
 }
 

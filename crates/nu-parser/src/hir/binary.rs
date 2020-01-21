@@ -1,4 +1,4 @@
-use crate::{hir::Expression, CompareOperator};
+use crate::{hir::SpannedExpression, CompareOperator};
 
 use derive_new::new;
 use getset::Getters;
@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 )]
 #[get = "pub"]
 pub struct Binary {
-    left: Expression,
+    left: SpannedExpression,
     op: Spanned<CompareOperator>,
-    right: Expression,
+    right: SpannedExpression,
 }
 
 impl PrettyDebugWithSource for Binary {

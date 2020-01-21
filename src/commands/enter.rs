@@ -51,7 +51,7 @@ impl PerItemCommand for Enter {
                     if spec.len() == 2 {
                         let (_, command) = (spec[0], spec[1]);
 
-                        if registry.has(command)? {
+                        if registry.has(command) {
                             return Ok(vec![Ok(ReturnSuccess::Action(
                                 CommandAction::EnterHelpShell(
                                     UntaggedValue::string(command).into_value(Tag::unknown()),
@@ -74,7 +74,7 @@ impl PerItemCommand for Enter {
                         // If it's a file, attempt to open the file as a value and enter it
                         let cwd = raw_args.shell_manager.path();
 
-                        let full_path = std::path::PathBuf::from(cwd?);
+                        let full_path = std::path::PathBuf::from(cwd);
 
                         let (file_extension, contents, contents_tag) =
                             crate::commands::open::fetch(
@@ -90,7 +90,7 @@ impl PerItemCommand for Enter {
                                 if let Some(extension) = file_extension {
                                     let command_name = format!("from-{}", extension);
                                     if let Some(converter) =
-                                        registry.get_command(&command_name)?
+                                        registry.get_command(&command_name)
                                     {
                                         let new_args = RawCommandArgs {
                                             host: raw_args.host,
