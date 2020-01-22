@@ -254,7 +254,7 @@ async fn spawn(
         process = process.arg(&arg);
     }
 
-    process = process.cwd(path);
+    process = process.shell(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     // We want stdout regardless of what
