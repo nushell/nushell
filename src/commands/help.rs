@@ -159,7 +159,7 @@ pub(crate) fn get_help(
         long_desc.push_str("\nflags:\n");
         for (flag, ty) in signature.named {
             match ty.0 {
-                NamedType::Switch | NamedType::Help => {
+                NamedType::Switch => {
                     long_desc.push_str(&format!(
                         "  --{}{} {}\n",
                         flag,

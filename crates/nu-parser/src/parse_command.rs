@@ -45,22 +45,13 @@ pub fn parse_command_tail(
                     }
                 }
             }
-            NamedType::Help => {
-                let switch = extract_switch(name, tail);
-
-                match switch {
-                    None => named.insert_switch(name, None),
-                    Some((_, flag)) => {
-                        named.insert_switch(name, Some(*flag));
-                        return Ok(Some((None, Some(named))));
-                    }
-                }
-            }
             NamedType::Mandatory(syntax_type) => {
                 match extract_mandatory(config, name, tail, command_span) {
                     Err(err) => {
-                        // remember this error, but continue coloring
-                        found_error = Some(err);
+                        if !config.named.contains_key("help") {
+                            // remember this error, but continue coloring
+                            found_error = Some(err);
+                        }
                     }
                     Ok((pos, flag)) => {
                         let result = expand_flag(tail, *syntax_type, flag, pos);
@@ -83,8 +74,10 @@ pub fn parse_command_tail(
             NamedType::Optional(syntax_type) => {
                 match extract_optional(name, tail) {
                     Err(err) => {
-                        // remember this error, but continue coloring
-                        found_error = Some(err);
+                        if !config.named.contains_key("help") {
+                            // remember this error, but continue coloring
+                            found_error = Some(err);
+                        }
                     }
                     Ok(Some((pos, flag))) => {
                         let result = expand_flag(tail, *syntax_type, flag, pos);
@@ -125,7 +118,7 @@ pub fn parse_command_tail(
         match result {
             Err(_) => match &arg.0 {
                 PositionalType::Mandatory(..) => {
-                    if found_error.is_none() {
+                    if found_error.is_none() && !config.named.contains_key("help") {
                         found_error = Some(ParseError::argument_error(
                             config.name.clone().spanned(command_span),
                             ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
