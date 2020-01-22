@@ -248,13 +248,13 @@ async fn spawn(
     let command = command.clone();
     let name_tag = command.name_tag.clone();
 
-    let mut process = Exec::cmd(&command.name);
+    let mut process = Exec::shell(&command.name);
 
     for arg in args {
         process = process.arg(&arg);
     }
 
-    process = process.shell(path);
+    process = process.cwd(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     // We want stdout regardless of what
