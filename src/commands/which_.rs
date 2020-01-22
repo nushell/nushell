@@ -90,7 +90,7 @@ fn which(
     if all {
         let stream = async_stream! {
             if external {
-                if let Ok(path) = ichwh::which(&item).await {
+                if let Ok(Some(path)) = ichwh::which(&item).await {
                     yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
                 }
             }
@@ -125,19 +125,25 @@ fn which(
     } else {
         let stream = async_stream! {
             if external {
-                if let Ok(path) = ichwh::which(&item).await {
+                if let Ok(Some(path)) = ichwh::which(&item).await {
                     yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
                 }
             } else if commands.has(&item) {
                 yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
-            } else if let Ok(path) = ichwh::which(&item).await {
-                yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
             } else {
-                yield Err(ShellError::labeled_error(
-                    "Binary not found for argument, and argument is not a builtin",
-                    "not found",
-                    &application.tag,
-                ));
+                match ichwh::which(&item).await {
+                    Ok(Some(path)) => yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone())),
+                    Ok(None) => yield Err(ShellError::labeled_error(
+                            "Binary not found for argument, and argument is not a builtin",
+                            "not found",
+                            &application.tag,
+                    )),
+                    Err(_) => yield Err(ShellError::labeled_error(
+                            "Error trying to find binary for argument",
+                            "error",
+                            &application.tag,
+                    )),
+                }
             }
         };
 
