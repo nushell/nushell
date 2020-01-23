@@ -45,17 +45,6 @@ pub fn parse_command_tail(
                     }
                 }
             }
-            NamedType::Help => {
-                let switch = extract_switch(name, tail);
-
-                match switch {
-                    None => named.insert_switch(name, None),
-                    Some((_, flag)) => {
-                        named.insert_switch(name, Some(*flag));
-                        return Ok(Some((None, Some(named))));
-                    }
-                }
-            }
             NamedType::Mandatory(syntax_type) => {
                 match extract_mandatory(config, name, tail, command_span) {
                     Err(err) => {
@@ -115,35 +104,13 @@ pub fn parse_command_tail(
 
     let mut positional = vec![];
 
-    for arg in &config.positional {
-        trace!(target: "nu::parse::trace_remaining", "Processing positional {:?}", arg);
-
-        tail.move_to(0);
-
-        let result = expand_spaced_expr(arg.0.syntax_type(), tail);
-
-        match result {
-            Err(_) => match &arg.0 {
-                PositionalType::Mandatory(..) => {
-                    if found_error.is_none() {
-                        found_error = Some(ParseError::argument_error(
-                            config.name.clone().spanned(command_span),
-                            ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
-                        ));
-                    }
-
-                    break;
-                }
-
-                PositionalType::Optional(..) => {
-                    if tail.expand_syntax(MaybeWhitespaceEof).is_ok() {
-                        break;
-                    }
-                }
-            },
-            Ok(result) => {
-                rest_signature.shift_positional();
-                positional.push(result);
+    match continue_parsing_positionals(&config, tail, &mut rest_signature, command_span) {
+        Ok(positionals) => {
+            positional = positionals;
+        }
+        Err(reason) => {
+            if found_error.is_none() && !tail.source().contains("help") {
+                found_error = Some(reason);
             }
         }
     }
@@ -211,6 +178,45 @@ pub fn parse_command_tail(
     trace!(target: "nu::parse::trace_remaining", "Normalized positional={:?} named={:?}", positional, named);
 
     Ok(Some((positional, named)))
+}
+
+pub fn continue_parsing_positionals(
+    config: &Signature,
+    tail: &mut TokensIterator,
+    rest_signature: &mut Signature,
+    command_span: Span,
+) -> Result<Vec<SpannedExpression>, ParseError> {
+    let mut positional = vec![];
+
+    for arg in &config.positional {
+        trace!(target: "nu::parse::trace_remaining", "Processing positional {:?}", arg);
+
+        tail.move_to(0);
+
+        let result = expand_spaced_expr(arg.0.syntax_type(), tail);
+
+        match result {
+            Err(_) => match &arg.0 {
+                PositionalType::Mandatory(..) => {
+                    return Err(ParseError::argument_error(
+                        config.name.clone().spanned(command_span),
+                        ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
+                    ))
+                }
+                PositionalType::Optional(..) => {
+                    if tail.expand_syntax(MaybeWhitespaceEof).is_ok() {
+                        break;
+                    }
+                }
+            },
+            Ok(result) => {
+                rest_signature.shift_positional();
+                positional.push(result);
+            }
+        }
+    }
+
+    Ok(positional)
 }
 
 fn eat_any_whitespace(tail: &mut TokensIterator) {

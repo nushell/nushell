@@ -13,7 +13,6 @@ pub enum NamedType {
     Mandatory(SyntaxShape),
     /// An optional flag, with associated argument. eg) `foo --optional abc`
     Optional(SyntaxShape),
-    Help,
 }
 
 /// The type of positional arguments
@@ -165,7 +164,7 @@ impl Signature {
             usage: String::new(),
             positional: vec![],
             rest_positional: None,
-            named: indexmap::indexmap! {"help".into() => (NamedType::Help, "Display this help message".into())},
+            named: indexmap::indexmap! {"help".into() => (NamedType::Switch, "Display this help message".into())},
             is_filter: false,
             yields: None,
             input: None,
@@ -243,14 +242,6 @@ impl Signature {
     pub fn switch(mut self, name: impl Into<String>, desc: impl Into<String>) -> Signature {
         self.named
             .insert(name.into(), (NamedType::Switch, desc.into()));
-
-        self
-    }
-
-    /// Remove the default help switch
-    pub fn remove_help(mut self) -> Signature {
-        self.named.remove("help");
-
         self
     }
 
