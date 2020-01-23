@@ -101,7 +101,7 @@ mod tilde_expansion {
         let actual = nu!(
             cwd: ".",
             r#"
-                    cococo "1~1"
+                    cococo 1~1
                 "#
         );
 

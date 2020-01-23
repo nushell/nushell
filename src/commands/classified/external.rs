@@ -264,23 +264,6 @@ async fn spawn(
 
     let mut process = Exec::shell(&cmd_with_args);
 
-    let paths = shell_os_paths();
-
-    let paths_joined = match std::env::join_paths(paths.iter()) {
-        Ok(all) => all,
-        Err(reason) => {
-            let message = format!("Unable to join paths (error = {})", reason);
-
-            return Err(ShellError::labeled_error(
-                message,
-                "Internal error: Couldn't join paths for PATH var.",
-                &name_tag,
-            ));
-        }
-    };
-
-    process = process.env("PATH", paths_joined);
-
     process = process.cwd(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
@@ -453,6 +436,7 @@ fn remove_quotes(argument: &str) -> Option<&str> {
     Some(&argument[1..size - 1])
 }
 
+#[allow(unused)]
 fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 
