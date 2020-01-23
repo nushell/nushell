@@ -449,7 +449,7 @@ fn did_find_command(name: &str) -> bool {
                 "start", "time", "title", "ver", "copy", "mkdir", "rename", "rd", "rmdir", "type",
             ];
 
-            cmd_builtins.contains(name)
+            cmd_builtins.contains(&name)
         }
     }
 }
