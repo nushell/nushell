@@ -48,10 +48,8 @@ pub fn parse_command_tail(
             NamedType::Mandatory(syntax_type) => {
                 match extract_mandatory(config, name, tail, command_span) {
                     Err(err) => {
-                        if !config.named.contains_key("help") {
-                            // remember this error, but continue coloring
-                            found_error = Some(err);
-                        }
+                        // remember this error, but continue coloring
+                        found_error = Some(err);
                     }
                     Ok((pos, flag)) => {
                         let result = expand_flag(tail, *syntax_type, flag, pos);
@@ -74,10 +72,8 @@ pub fn parse_command_tail(
             NamedType::Optional(syntax_type) => {
                 match extract_optional(name, tail) {
                     Err(err) => {
-                        if !config.named.contains_key("help") {
-                            // remember this error, but continue coloring
-                            found_error = Some(err);
-                        }
+                        // remember this error, but continue coloring
+                        found_error = Some(err);
                     }
                     Ok(Some((pos, flag))) => {
                         let result = expand_flag(tail, *syntax_type, flag, pos);
@@ -108,10 +104,12 @@ pub fn parse_command_tail(
 
     let mut positional = vec![];
 
-    match continue_parsing_positionals(&config, tail, command_span) {
-        Ok(positionals) => positional = positionals,
+    match continue_parsing_positionals(&config, tail, &mut rest_signature, command_span) {
+        Ok(positionals) => {
+            positional = positionals;
+        }
         Err(reason) => {
-            if found_error.is_none() {
+            if found_error.is_none() && !tail.source().contains("help") {
                 found_error = Some(reason);
             }
         }
@@ -185,10 +183,10 @@ pub fn parse_command_tail(
 pub fn continue_parsing_positionals(
     config: &Signature,
     tail: &mut TokensIterator,
+    rest_signature: &mut Signature,
     command_span: Span,
 ) -> Result<Vec<SpannedExpression>, ParseError> {
     let mut positional = vec![];
-    let mut rest_signature = config.clone();
 
     for arg in &config.positional {
         trace!(target: "nu::parse::trace_remaining", "Processing positional {:?}", arg);
@@ -200,17 +198,14 @@ pub fn continue_parsing_positionals(
         match result {
             Err(_) => match &arg.0 {
                 PositionalType::Mandatory(..) => {
-                    if !config.named.contains_key("help") {
-                        return Err(ParseError::argument_error(
-                            config.name.clone().spanned(command_span),
-                            ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
-                        ))
-                    }
+                    return Err(ParseError::argument_error(
+                        config.name.clone().spanned(command_span),
+                        ArgumentError::MissingMandatoryPositional(arg.0.name().to_string()),
+                    ))
                 }
-
                 PositionalType::Optional(..) => {
                     if tail.expand_syntax(MaybeWhitespaceEof).is_ok() {
-                        return Ok(positional)
+                        break;
                     }
                 }
             },
