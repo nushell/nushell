@@ -504,26 +504,24 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 mod tests {
     use super::{
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
-        run_external_command, Context, OutputStream,
+        run_external_command, Context,
     };
     use futures::executor::block_on;
-    use futures::stream::TryStreamExt;
     use nu_errors::ShellError;
-    use nu_protocol::{UntaggedValue, Value};
     use nu_test_support::commands::ExternalBuilder;
 
-    async fn read(mut stream: OutputStream) -> Option<Value> {
-        match stream.try_next().await {
-            Ok(val) => {
-                if let Some(val) = val {
-                    val.raw_value()
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        }
-    }
+    // async fn read(mut stream: OutputStream) -> Option<Value> {
+    //     match stream.try_next().await {
+    //         Ok(val) => {
+    //             if let Some(val) = val {
+    //                 val.raw_value()
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //         Err(_) => None,
+    //     }
+    // }
 
     async fn non_existent_run() -> Result<(), ShellError> {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
@@ -537,29 +535,29 @@ mod tests {
         Ok(())
     }
 
-    async fn failure_run() -> Result<(), ShellError> {
-        let cmd = ExternalBuilder::for_name("fail").build();
+    // async fn failure_run() -> Result<(), ShellError> {
+    //     let cmd = ExternalBuilder::for_name("fail").build();
 
-        let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
-        let stream = run_external_command(cmd, &mut ctx, None, false)
-            .await?
-            .expect("There was a problem running the external command.");
+    //     let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+    //     let stream = run_external_command(cmd, &mut ctx, None, false)
+    //         .await?
+    //         .expect("There was a problem running the external command.");
 
-        match read(stream.into()).await {
-            Some(Value {
-                value: UntaggedValue::Error(_),
-                ..
-            }) => {}
-            None | _ => panic!("Command didn't fail."),
-        }
+    //     match read(stream.into()).await {
+    //         Some(Value {
+    //             value: UntaggedValue::Error(_),
+    //             ..
+    //         }) => {}
+    //         None | _ => panic!("Command didn't fail."),
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    fn identifies_command_failed() -> Result<(), ShellError> {
-        block_on(failure_run())
-    }
+    // #[test]
+    // fn identifies_command_failed() -> Result<(), ShellError> {
+    //     block_on(failure_run())
+    // }
 
     #[test]
     fn identifies_command_not_found() -> Result<(), ShellError> {
