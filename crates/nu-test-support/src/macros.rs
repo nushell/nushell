@@ -28,18 +28,25 @@ macro_rules! nu {
             $crate::fs::DisplayPath::display_path(&$path)
         );
 
-        let dummies = $crate::fs::binaries();
-        let dummies = dunce::canonicalize(&dummies).unwrap_or_else(|e| {
+        let test_bins = $crate::fs::binaries();
+        let test_bins = dunce::canonicalize(&test_bins).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
-                dummies.display(),
+                test_bins.display(),
                 e
             )
         });
 
+        let mut paths = $crate::shell_os_paths();
+        paths.push(test_bins);
+
+        let paths_joined = match std::env::join_paths(paths.iter()) {
+            Ok(all) => all,
+            Err(_) => panic!("Couldn't join paths for PATH var."),
+        };
+
         let mut process = match Command::new($crate::fs::executable_path())
-            // .env_clear()
-            .env("PATH", dummies)
+            .env("PATH", paths_joined)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -103,18 +110,25 @@ macro_rules! nu_error {
             $crate::fs::DisplayPath::display_path(&$path)
         );
 
-        let dummies = $crate::fs::binaries();
-        let dummies = dunce::canonicalize(&dummies).unwrap_or_else(|e| {
+        let test_bins = $crate::fs::binaries();
+        let test_bins = dunce::canonicalize(&test_bins).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize dummy binaries path {}: {:?}",
-                dummies.display(),
+                test_bins.display(),
                 e
             )
         });
 
+        let mut paths = $crate::shell_os_paths();
+        paths.push(test_bins);
+
+        let paths_joined = match std::env::join_paths(paths.iter()) {
+            Ok(all) => all,
+            Err(_) => panic!("Couldn't join paths for PATH var."),
+        };
+
         let mut process = Command::new($crate::fs::executable_path())
-            // .env_clear()
-            .env("PATH", dummies)
+            .env("PATH", paths_joined)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())

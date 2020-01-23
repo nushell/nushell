@@ -209,8 +209,12 @@ async fn run_with_stdin(
 
             let process_args = args.iter().map(|arg| {
                 let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-                if let Some(unquoted) = remove_quotes(&arg) {
-                    unquoted.to_string()
+                if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
+                    if let Some(unquoted) = remove_quotes(&arg) {
+                        format!("'{}'", unquoted)
+                    } else {
+                        arg.as_ref().to_string()
+                    }
                 } else {
                     arg.as_ref().to_string()
                 }
@@ -248,11 +252,18 @@ async fn spawn(
     let command = command.clone();
     let name_tag = command.name_tag.clone();
 
-    let mut process = Exec::shell(&command.name);
+    let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
 
-    for arg in args {
-        process = process.arg(&arg);
-    }
+    let mut process = Exec::shell(&cmd_with_args);
+
+    let paths = shell_os_paths();
+
+    let paths_joined = match std::env::join_paths(paths.iter()) {
+        Ok(all) => all,
+        Err(_) => panic!("Internal error: Couldn't join paths for PATH var."),
+    };
+
+    process = process.env("PATH", paths_joined);
 
     process = process.cwd(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
@@ -413,6 +424,16 @@ fn remove_quotes(argument: &str) -> Option<&str> {
     let size = argument.len();
 
     Some(&argument[1..size - 1])
+}
+
+fn shell_os_paths() -> Vec<std::path::PathBuf> {
+    let mut original_paths = vec![];
+
+    if let Some(paths) = std::env::var_os("PATH") {
+        original_paths = std::env::split_paths(&paths).collect::<Vec<_>>();
+    }
+
+    original_paths
 }
 
 #[cfg(test)]
