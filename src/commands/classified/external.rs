@@ -217,14 +217,26 @@ async fn run_with_stdin(
 
             let process_args = args.iter().map(|arg| {
                 let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-                if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
+                
+                #[cfg(not(windows))]
+                {
+                    if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
+                        if let Some(unquoted) = remove_quotes(&arg) {
+                            format!(r#""{}""#, unquoted)
+                        } else {
+                            arg.as_ref().to_string()
+                        }
+                    } else {
+                        arg.as_ref().to_string()
+                    }    
+                }
+                #[cfg(windows)]
+                {
                     if let Some(unquoted) = remove_quotes(&arg) {
-                        format!(r#""{}""#, unquoted)
+                        unquoted.to_string()
                     } else {
                         arg.as_ref().to_string()
                     }
-                } else {
-                    arg.as_ref().to_string()
                 }
             }).collect::<Vec<String>>();
 
@@ -260,9 +272,24 @@ async fn spawn(
     let command = command.clone();
     let name_tag = command.name_tag.clone();
 
-    let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
+    let mut process = {
+        #[cfg(windows)]
+        {
+            let mut process = Exec::cmd("cmd");
+            process = process.arg("/c");
+            process = process.arg(&command.name);
+            for arg in args {
+                process = process.arg(&arg);
+            }
+            process
+        }
 
-    let mut process = Exec::shell(&cmd_with_args);
+        #[cfg(not(windows))]
+        {
+            let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
+            Exec::shell(&cmd_with_args)
+        }
+    };
 
     process = process.cwd(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
@@ -390,7 +417,7 @@ async fn spawn(
 }
 
 fn did_find_command(name: &str) -> bool {
-    let test = Exec::cmd(&name).detached().popen();
+    let test = Exec::shell(&name).detached().popen();
 
     if let Ok(mut popen) = test {
         let _ = popen.terminate();
