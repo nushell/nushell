@@ -14,6 +14,16 @@ pub fn pipeline(commands: &str) -> String {
         .to_string()
 }
 
+pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
+    let mut original_paths = vec![];
+
+    if let Some(paths) = std::env::var_os("PATH") {
+        original_paths = std::env::split_paths(&paths).collect::<Vec<_>>();
+    }
+
+    original_paths
+}
+
 #[cfg(test)]
 mod tests {
     use super::pipeline;
