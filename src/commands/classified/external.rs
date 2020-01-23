@@ -89,14 +89,6 @@ pub(crate) async fn run_external_command(
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if !did_find_command(&command.name) {
-        return Err(ShellError::labeled_error(
-            "Command not found",
-            "command not found",
-            &command.name_tag,
-        ));
-    }
-
     if command.has_it_argument() {
         run_with_iterator_arg(command, context, input, is_last).await
     } else {
@@ -416,17 +408,6 @@ async fn spawn(
     }
 }
 
-fn did_find_command(name: &str) -> bool {
-    let test = Exec::shell(&name).detached().popen();
-
-    if let Ok(mut popen) = test {
-        let _ = popen.terminate();
-        return true;
-    }
-
-    false
-}
-
 fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
 where
     SI: AsRef<str>,
@@ -504,9 +485,18 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(cmd, &mut ctx, None, false)
-            .await
-            .is_err());
+        let stream = run_external_command(cmd, &mut ctx, None, false)
+            .await?
+            .expect("There was a problem running the external command.");
+
+        match read(stream.into()).await {
+            Some(Value {
+                value: UntaggedValue::Error(_),
+                ..
+            }) => {}
+            None | _ => panic!("Apparently a command was found (It's not supposed to be found)"),
+        }
+
         Ok(())
     }
 

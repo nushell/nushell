@@ -17,7 +17,7 @@ fn shows_error_for_command_not_found() {
         "ferris_is_not_here.exe"
     );
 
-    assert!(actual.contains("Command not found"));
+    assert!(actual.contains("External command failed"));
 }
 
 mod it_evaluation {
