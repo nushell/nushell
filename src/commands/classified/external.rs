@@ -343,14 +343,21 @@ async fn spawn(
 
                 // We can give an error when we see a non-zero exit code, but this is different
                 // than what other shells will do.
-                //
-                // yield Ok(Value {
-                //     value: UntaggedValue::Error(ShellError::labeled_error(
-                //             "External command failed",
-                //             "command failed",
-                //             &name_tag)),
-                //     tag: name_tag
-                // });
+                let cfg = crate::data::config::config(Tag::unknown());
+                if let Ok(cfg) = cfg {
+                    if cfg.contains_key("nonzero_exit_errors") {
+                        yield Ok(Value {
+                            value: UntaggedValue::Error(
+                                ShellError::labeled_error(
+                                    "External command failed",
+                                    "command failed",
+                                    &name_tag,
+                                )
+                            ),
+                            tag: name_tag,
+                        });
+                    }
+                }
                 return;
             }
 
@@ -394,17 +401,21 @@ async fn spawn(
                         if !status.success() {
                             // We can give an error when we see a non-zero exit code, but this is different
                             // than what other shells will do.
-                            //
-                            // yield Ok(Value {
-                            //     value: UntaggedValue::Error(
-                            //         ShellError::labeled_error(
-                            //             "External command failed",
-                            //             "command failed",
-                            //             &name_tag,
-                            //         )
-                            //     ),
-                            //     tag: name_tag,
-                            // });
+                            let cfg = crate::data::config::config(Tag::unknown());
+                            if let Ok(cfg) = cfg {
+                                if cfg.contains_key("nonzero_exit_errors") {
+                                    yield Ok(Value {
+                                        value: UntaggedValue::Error(
+                                            ShellError::labeled_error(
+                                                "External command failed",
+                                                "command failed",
+                                                &name_tag,
+                                            )
+                                        ),
+                                        tag: name_tag,
+                                    });
+                                }
+                            }
                         }
                         break;
                     }
