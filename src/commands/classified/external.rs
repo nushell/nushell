@@ -434,21 +434,22 @@ async fn spawn(
 }
 
 fn did_find_command(name: &str) -> bool {
-    if which::which(name).is_ok() {
-        true
-    } else {
-        #[cfg(windows)]
-        {
+    #[cfg(not(windows))]
+    {
+        which::which(name).is_ok()
+    }
+
+    #[cfg(windows)]
+    {
+        if which::which(name).is_ok() {
+            true
+        } else {
             let cmd_builtins = [
                 "call", "cls", "color", "date", "dir", "echo", "find", "hostname", "pause",
                 "start", "time", "title", "ver", "copy", "mkdir", "rename", "rd", "rmdir", "type",
             ];
 
             cmd_builtins.contains(name)
-        }
-        #[cfg(not(windows))]
-        {
-            false
         }
     }
 }
