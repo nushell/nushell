@@ -434,7 +434,7 @@ async fn spawn(
 }
 
 fn did_find_command(name: &str) -> bool {
-    if let Ok(_) = which::which(name) {
+    if which::which(name).is_ok() {
         true
     } else {
         #[cfg(windows)]
