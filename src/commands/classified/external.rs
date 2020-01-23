@@ -89,6 +89,14 @@ pub(crate) async fn run_external_command(
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
+    if !did_find_command(&command.name) {
+        return Err(ShellError::labeled_error(
+            "Command not found",
+            "command not found",
+            &command.name_tag,
+        ));
+    }
+
     if command.has_it_argument() {
         run_with_iterator_arg(command, context, input, is_last).await
     } else {
@@ -333,13 +341,23 @@ async fn spawn(
                     }
                 }
 
-                yield Ok(Value {
-                    value: UntaggedValue::Error(ShellError::labeled_error(
-                            "External command failed",
-                            "command failed",
-                            &name_tag)),
-                    tag: name_tag
-                });
+                // We can give an error when we see a non-zero exit code, but this is different
+                // than what other shells will do.
+                let cfg = crate::data::config::config(Tag::unknown());
+                if let Ok(cfg) = cfg {
+                    if cfg.contains_key("nonzero_exit_errors") {
+                        yield Ok(Value {
+                            value: UntaggedValue::Error(
+                                ShellError::labeled_error(
+                                    "External command failed",
+                                    "command failed",
+                                    &name_tag,
+                                )
+                            ),
+                            tag: name_tag,
+                        });
+                    }
+                }
                 return;
             }
 
@@ -381,16 +399,23 @@ async fn spawn(
                     None => futures_timer::Delay::new(std::time::Duration::from_millis(10)).await,
                     Some(status) => {
                         if !status.success() {
-                            yield Ok(Value {
-                                value: UntaggedValue::Error(
-                                    ShellError::labeled_error(
-                                        "External command failed",
-                                        "command failed",
-                                        &name_tag,
-                                    )
-                                ),
-                                tag: name_tag,
-                            });
+                            // We can give an error when we see a non-zero exit code, but this is different
+                            // than what other shells will do.
+                            let cfg = crate::data::config::config(Tag::unknown());
+                            if let Ok(cfg) = cfg {
+                                if cfg.contains_key("nonzero_exit_errors") {
+                                    yield Ok(Value {
+                                        value: UntaggedValue::Error(
+                                            ShellError::labeled_error(
+                                                "External command failed",
+                                                "command failed",
+                                                &name_tag,
+                                            )
+                                        ),
+                                        tag: name_tag,
+                                    });
+                                }
+                            }
                         }
                         break;
                     }
@@ -405,6 +430,27 @@ async fn spawn(
             "command not found",
             &command.name_tag,
         ))
+    }
+}
+
+fn did_find_command(name: &str) -> bool {
+    #[cfg(not(windows))]
+    {
+        which::which(name).is_ok()
+    }
+
+    #[cfg(windows)]
+    {
+        if which::which(name).is_ok() {
+            true
+        } else {
+            let cmd_builtins = [
+                "call", "cls", "color", "date", "dir", "echo", "find", "hostname", "pause",
+                "start", "time", "title", "ver", "copy", "mkdir", "rename", "rd", "rmdir", "type",
+            ];
+
+            cmd_builtins.contains(&name)
+        }
     }
 }
 
@@ -459,70 +505,60 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 mod tests {
     use super::{
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
-        run_external_command, Context, OutputStream,
+        run_external_command, Context,
     };
     use futures::executor::block_on;
-    use futures::stream::TryStreamExt;
     use nu_errors::ShellError;
-    use nu_protocol::{UntaggedValue, Value};
     use nu_test_support::commands::ExternalBuilder;
 
-    async fn read(mut stream: OutputStream) -> Option<Value> {
-        match stream.try_next().await {
-            Ok(val) => {
-                if let Some(val) = val {
-                    val.raw_value()
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        }
-    }
+    // async fn read(mut stream: OutputStream) -> Option<Value> {
+    //     match stream.try_next().await {
+    //         Ok(val) => {
+    //             if let Some(val) = val {
+    //                 val.raw_value()
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //         Err(_) => None,
+    //     }
+    // }
 
     async fn non_existent_run() -> Result<(), ShellError> {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        let stream = run_external_command(cmd, &mut ctx, None, false)
-            .await?
-            .expect("There was a problem running the external command.");
-
-        match read(stream.into()).await {
-            Some(Value {
-                value: UntaggedValue::Error(_),
-                ..
-            }) => {}
-            None | _ => panic!("Apparently a command was found (It's not supposed to be found)"),
-        }
+        assert!(run_external_command(cmd, &mut ctx, None, false)
+            .await
+            .is_err());
 
         Ok(())
     }
 
-    async fn failure_run() -> Result<(), ShellError> {
-        let cmd = ExternalBuilder::for_name("fail").build();
+    // async fn failure_run() -> Result<(), ShellError> {
+    //     let cmd = ExternalBuilder::for_name("fail").build();
 
-        let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
-        let stream = run_external_command(cmd, &mut ctx, None, false)
-            .await?
-            .expect("There was a problem running the external command.");
+    //     let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
+    //     let stream = run_external_command(cmd, &mut ctx, None, false)
+    //         .await?
+    //         .expect("There was a problem running the external command.");
 
-        match read(stream.into()).await {
-            Some(Value {
-                value: UntaggedValue::Error(_),
-                ..
-            }) => {}
-            None | _ => panic!("Command didn't fail."),
-        }
+    //     match read(stream.into()).await {
+    //         Some(Value {
+    //             value: UntaggedValue::Error(_),
+    //             ..
+    //         }) => {}
+    //         None | _ => panic!("Command didn't fail."),
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    fn identifies_command_failed() -> Result<(), ShellError> {
-        block_on(failure_run())
-    }
+    // #[test]
+    // fn identifies_command_failed() -> Result<(), ShellError> {
+    //     block_on(failure_run())
+    // }
 
     #[test]
     fn identifies_command_not_found() -> Result<(), ShellError> {

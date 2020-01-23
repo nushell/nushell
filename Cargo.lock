@@ -554,12 +554,6 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "677d453a17e8bd2b913fa38e8b9cf04bcdbb5be790aa294f2389661d72036015"
-
-[[package]]
-name = "crossbeam-utils"
 version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04973fa96e96579258a5091af6003abde64af786b860f18622b82e026cca60e6"
@@ -2301,6 +2295,7 @@ dependencies = [
  "unicode-xid",
  "url",
  "users",
+ "which",
 ]
 
 [[package]]
@@ -3802,11 +3797,11 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "subprocess"
-version = "0.1.18"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28fc0f40f0c0da73339d347aa7d6d2b90341a95683a47722bc4eebed71ff3c00"
+checksum = "68713fc0f9d941642c1e020d622e6421dfe09e8891ddd4bfa2109fda9a40431d"
 dependencies = [
- "crossbeam-utils 0.5.0",
+ "crossbeam-utils 0.7.0",
  "libc",
  "winapi 0.3.8",
 ]
@@ -4450,6 +4445,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bb43f70885151e629e2a19ce9e50bd730fd436cfd4b666894c9ce4de9141164"
 dependencies = [
  "nom 4.2.3",
+]
+
+[[package]]
+name = "which"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5475d47078209a02e60614f7ba5e645ef3ed60f771920ac1906d7c1cc65024c8"
+dependencies = [
+ "failure",
+ "libc",
 ]
 
 [[package]]
