@@ -217,7 +217,7 @@ async fn run_with_stdin(
 
             let process_args = args.iter().map(|arg| {
                 let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-                
+
                 #[cfg(not(windows))]
                 {
                     if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
@@ -228,7 +228,7 @@ async fn run_with_stdin(
                         }
                     } else {
                         arg.as_ref().to_string()
-                    }    
+                    }
                 }
                 #[cfg(windows)]
                 {
