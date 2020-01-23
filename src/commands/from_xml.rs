@@ -54,6 +54,10 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
         let mut collected = TaggedDictBuilder::new(tag);
         collected.insert_untagged(name, UntaggedValue::Table(children_values));
 
+        for a in n.attributes() {
+            collected.insert_untagged(a.name(), UntaggedValue::string(a.value()));
+        }
+
         collected.into_value()
     } else if n.is_comment() {
         UntaggedValue::string("<comment>").into_value(tag)
@@ -201,6 +205,61 @@ mod tests {
                     row(indexmap! {"dev".into() => table(&[string("Jonathan")])}),
                     row(indexmap! {"dev".into() => table(&[string("Yehuda")])})
                 ])
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parses_element_with_attribute() -> Result<(), roxmltree::Error> {
+        let source = "\
+<nu version=\"2.0\">
+</nu>";
+
+        assert_eq!(
+            parse(source)?,
+            row(indexmap! {
+                "nu".into() => table(&[]),
+                "version".into() => string("2.0")
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parses_element_with_attribute_and_element() -> Result<(), roxmltree::Error> {
+        let source = "\
+<nu version=\"2.0\">
+    <version>2.0</version>
+</nu>";
+
+        assert_eq!(
+            parse(source)?,
+            row(indexmap! {
+                "nu".into() => table(&[
+                    row(indexmap! {"version".into() => table(&[string("2.0")])})
+                ]),
+                "version".into() => string("2.0")
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parses_element_with_multiple_attributes() -> Result<(), roxmltree::Error> {
+        let source = "\
+<nu version=\"2.0\" age=\"25\">
+</nu>";
+
+        assert_eq!(
+            parse(source)?,
+            row(indexmap! {
+                "nu".into() => table(&[]),
+                "version".into() => string("2.0"),
+                "age".into() => string("25")
             })
         );
 
