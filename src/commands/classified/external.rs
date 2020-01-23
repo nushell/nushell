@@ -530,17 +530,9 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        let stream = run_external_command(cmd, &mut ctx, None, false)
-            .await?
-            .expect("There was a problem running the external command.");
-
-        match read(stream.into()).await {
-            Some(Value {
-                value: UntaggedValue::Error(_),
-                ..
-            }) => {}
-            None | _ => panic!("Apparently a command was found (It's not supposed to be found)"),
-        }
+        assert!(run_external_command(cmd, &mut ctx, None, false)
+            .await
+            .is_err());
 
         Ok(())
     }
