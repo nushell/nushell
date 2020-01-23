@@ -89,6 +89,14 @@ pub(crate) async fn run_external_command(
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
+    if !did_find_command(&command.name) {
+        return Err(ShellError::labeled_error(
+            "Command not found",
+            "command not found",
+            &command.name_tag,
+        ));
+    }
+
     if command.has_it_argument() {
         run_with_iterator_arg(command, context, input, is_last).await
     } else {
@@ -211,7 +219,7 @@ async fn run_with_stdin(
                 let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
                 if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
                     if let Some(unquoted) = remove_quotes(&arg) {
-                        format!("'{}'", unquoted)
+                        format!(r#""{}""#, unquoted)
                     } else {
                         arg.as_ref().to_string()
                     }
@@ -260,7 +268,15 @@ async fn spawn(
 
     let paths_joined = match std::env::join_paths(paths.iter()) {
         Ok(all) => all,
-        Err(_) => panic!("Internal error: Couldn't join paths for PATH var."),
+        Err(reason) => {
+            let message = format!("Unable to join paths (error = {})", reason);
+
+            return Err(ShellError::labeled_error(
+                message,
+                "Internal error: Couldn't join paths for PATH var.",
+                &name_tag,
+            ));
+        }
     };
 
     process = process.env("PATH", paths_joined);
@@ -390,6 +406,17 @@ async fn spawn(
     }
 }
 
+fn did_find_command(name: &str) -> bool {
+    let test = Exec::cmd(&name).detached().popen();
+
+    if let Ok(mut popen) = test {
+        let _ = popen.terminate();
+        return true;
+    }
+
+    false
+}
+
 fn expand_tilde<SI: ?Sized, P, HD>(input: &SI, home_dir: HD) -> std::borrow::Cow<str>
 where
     SI: AsRef<str>,
@@ -466,18 +493,9 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        let stream = run_external_command(cmd, &mut ctx, None, false)
-            .await?
-            .expect("There was a problem running the external command.");
-
-        match read(stream.into()).await {
-            Some(Value {
-                value: UntaggedValue::Error(_),
-                ..
-            }) => {}
-            None | _ => panic!("Apparently a command was found (It's not supposed to be found)"),
-        }
-
+        assert!(run_external_command(cmd, &mut ctx, None, false)
+            .await
+            .is_err());
         Ok(())
     }
 
