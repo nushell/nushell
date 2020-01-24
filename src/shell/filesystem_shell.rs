@@ -145,9 +145,9 @@ impl Shell for FilesystemShell {
                             let filepath = entry.path();
                             if let Ok(metadata) = std::fs::symlink_metadata(&filepath) {
                                 let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                                    fname
+                                    Path::new(fname.file_name().unwrap())
                                 } else {
-                                    Path::new(&filepath)
+                                    Path::new(Path::new(&filepath).file_name().unwrap())
                                 };
 
                                 let value = dir_entry_dict(filename, &metadata, &name_tag, full)?;
@@ -184,9 +184,9 @@ impl Shell for FilesystemShell {
                 if let Ok(entry) = entry {
                     if let Ok(metadata) = std::fs::symlink_metadata(&entry) {
                         let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
-                            fname
+                            Path::new(fname.file_name().unwrap())
                         } else {
-                            Path::new(&entry)
+                            Path::new(Path::new(&entry).file_name().unwrap())
                         };
 
                         if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full) {
