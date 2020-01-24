@@ -91,7 +91,6 @@ impl Shell for FilesystemShell {
         LsArgs { path, full }: LsArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
 
         if let Some(value) = &path {
@@ -144,10 +143,14 @@ impl Shell for FilesystemShell {
                         if let Ok(entry) = entry {
                             let filepath = entry.path();
                             if let Ok(metadata) = std::fs::symlink_metadata(&filepath) {
-                                let filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                                    Path::new(fname.file_name().unwrap())
+                                let filename = if let Some(fname) = filepath.file_name() {
+                                    Path::new(fname)
                                 } else {
-                                    Path::new(Path::new(&filepath).file_name().unwrap())
+                                    let fname = filepath
+                                      .file_name()
+                                      .or_else(|| Path::new(&filepath).file_name())
+                                      .unwrap_or(filepath.as_os_str());
+                                    Path::new(fname)
                                 };
 
                                 let value = dir_entry_dict(filename, &metadata, &name_tag, full)?;
@@ -183,10 +186,14 @@ impl Shell for FilesystemShell {
                 }
                 if let Ok(entry) = entry {
                     if let Ok(metadata) = std::fs::symlink_metadata(&entry) {
-                        let filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
-                            Path::new(fname.file_name().unwrap())
+                        let filename = if let Some(fname) = entry.file_name() {
+                            Path::new(fname)
                         } else {
-                            Path::new(Path::new(&entry).file_name().unwrap())
+                            let fname = entry
+                                .file_name()
+                                .or_else(|| Path::new(&entry).file_name())
+                                .unwrap_or(entry.as_os_str());
+                            Path::new(fname)
                         };
 
                         if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full) {
