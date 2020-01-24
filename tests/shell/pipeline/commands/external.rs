@@ -78,6 +78,19 @@ mod it_evaluation {
     }
 }
 
+mod external_words {
+    use super::nu;
+
+    #[test]
+    fn relaxed_external_words() {
+        let actual = nu!(cwd: ".", r#"
+        cococo joturner@foo.bar.baz
+        "#);
+
+        assert_eq!(actual, "joturner@foo.bar.baz");
+    }
+}
+
 mod tilde_expansion {
     use super::nu;
 
