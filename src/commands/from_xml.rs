@@ -62,12 +62,14 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             })
             .collect();
 
+        let mut collected = TaggedDictBuilder::new(&tag);
+
         let attribute_value: Value = from_attributes_to_value(&n.attributes(), &tag);
 
-        let mut collected = TaggedDictBuilder::new(tag);
-        collected.insert_untagged(name, UntaggedValue::Table(children_values));
-
-        collected.insert_untagged("attributes", attribute_value);
+        let mut row = TaggedDictBuilder::new(&tag);
+        row.insert_untagged(String::from("children"), UntaggedValue::Table(children_values));
+        row.insert_untagged(String::from("attributes"), attribute_value);
+        collected.insert_untagged(name, row.into_value());
 
         collected.into_value()
     } else if n.is_comment() {
@@ -178,8 +180,10 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[]),
-                "attributes".into() => row(indexmap! {})
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[]),
+                    "attributes".into() => row(indexmap! {})
+                })
             })
         );
 
@@ -193,8 +197,10 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[string("La era de los tres caballeros")]),
-                "attributes".into() => row(indexmap! {})
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[string("La era de los tres caballeros")]),
+                    "attributes".into() => row(indexmap! {})
+                })
             })
         );
 
@@ -213,21 +219,29 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[
-                    row(indexmap! {
-                        "dev".into() => table(&[string("Andrés")]),
-                        "attributes".into() => row(indexmap! {})
-                    }),
-                    row(indexmap! {
-                        "dev".into() => table(&[string("Jonathan")]),
-                        "attributes".into() => row(indexmap! {})
-                    }),
-                    row(indexmap! {
-                        "dev".into() => table(&[string("Yehuda")]),
-                        "attributes".into() => row(indexmap! {})
-                    })
-                ]),
-                "attributes".into() => row(indexmap! {})
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[
+                        row(indexmap! {
+                            "dev".into() => row(indexmap! {
+                                "children".into() => table(&[string("Andrés")]),
+                                "attributes".into() => row(indexmap! {})
+                            })
+                        }),
+                        row(indexmap! {
+                            "dev".into() => row(indexmap! {
+                                "children".into() => table(&[string("Jonathan")]),
+                                "attributes".into() => row(indexmap! {})
+                            })
+                        }),
+                        row(indexmap! {
+                            "dev".into() => row(indexmap! {
+                                "children".into() => table(&[string("Yehuda")]),
+                                "attributes".into() => row(indexmap! {})
+                            })
+                        })
+                    ]),
+                    "attributes".into() => row(indexmap! {})
+                })
             })
         );
 
@@ -243,10 +257,12 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[]),
-                "attributes".into() => row(indexmap! {
-                    "version".into() => string("2.0")
-                 })
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[]),
+                    "attributes".into() => row(indexmap! {
+                        "version".into() => string("2.0")
+                    })
+                })
             })
         );
 
@@ -263,14 +279,18 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[
-                    row(indexmap! {
-                        "version".into() => table(&[string("2.0")]),
-                        "attributes".into() => row(indexmap! {})
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[
+                           row(indexmap! {
+                                "version".into() => row(indexmap! {
+                                    "children".into() => table(&[string("2.0")]),
+                                    "attributes".into() => row(indexmap! {})
+                                })
+                          })
+                    ]),
+                    "attributes".into() => row(indexmap! {
+                        "version".into() => string("2.0")
                     })
-                ]),
-                "attributes".into() => row(indexmap! {
-                    "version".into() => string("2.0")
                 })
             })
         );
@@ -287,10 +307,12 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[]),
-                "attributes".into() => row(indexmap! {
-                    "version".into() => string("2.0"),
-                    "age".into() => string("25")
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[]),
+                    "attributes".into() => row(indexmap! {
+                        "version".into() => string("2.0"),
+                        "age".into() => string("25")
+                    })
                 })
             })
         );
