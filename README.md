@@ -25,6 +25,8 @@ If you're a developer who would like to contribute to Nu, we're also working on 
 
 We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come and chat with us.
 
+You can also find more learning resources in our [documentation](https://www.nushell.sh/documentation.html) site.
+
 Try it in Gitpod.
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/nushell/nushell)
@@ -236,106 +238,8 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 * Finally, Nu views data functionally. Rather than using mutation, pipelines act as a means to load, change, and save data without mutable state.
 
 # Commands
-## Initial commands
-| command | description |
-| ------------- | ------------- |
-| cd path | Change to a new path |
-| cp source path | Copy files |
-| date (--utc) | Get the current datetime |
-| fetch url | Fetch contents from a url and retrieve data as a table if possible |
-| help | Display help information about commands |
-| ls (path) | View the contents of the current or given path |
-| mkdir path | Make directories, creates intermediary directories as required. |
-| mv source target | Move files or directories. |
-| open filename | Load a file into a cell, convert to table if possible (avoid by appending '--raw') |
-| post url body (--user <user>) (--password <password>) | Post content to a url and retrieve data as a table if possible |
-| ps | View current processes |
-| sys | View information about the current system |
-| which filename | Finds a program file. |
-| rm   {file or directory} | Remove a file, (for removing directory append '--recursive') |
-| version | Display Nu version |
 
-## Shell commands
-| command | description |
-| ------- | ----------- |
-| exit (--now) | Exit the current shell (or all shells) |
-| enter (path) | Create a new shell and begin at this path |
-| p | Go to previous shell |
-| n | Go to next shell |
-| shells | Display the list of current shells |
-
-## Filters on tables (structured data)
-| command | description |
-| ------------- | ------------- |
-| append row-data | Append a row to the end of the table |
-| compact ...columns | Remove rows where given columns are empty |
-| count | Show the total number of rows |
-| default column row-data | Sets a default row's column if missing |
-| edit column-or-column-path value | Edit an existing column to have a new value |
-| embed column | Creates a new table of one column with the given name, and places the current table inside of it |
-| first amount | Show only the first number of rows |
-| format pattern | Format table row data as a string following the given pattern |
-| get column-or-column-path | Open column and get data from the corresponding cells |
-| group-by column | Creates a new table with the data from the table rows grouped by the column given |
-| histogram column ...column-names | Creates a new table with a histogram based on the column name passed in, optionally give the frequency column name
-| inc (column-or-column-path) | Increment a value or version. Optionally use the column of a table |
-| insert column-or-column-path value | Insert a new column to the table |
-| last amount | Show only the last number of rows |
-| nth ...row-numbers | Return only the selected rows |
-| pick ...columns | Down-select table to only these columns |
-| pivot --header-row <headers> | Pivot the tables, making columns into rows and vice versa |
-| prepend row-data | Prepend a row to the beginning of the table |
-| reject ...columns | Remove the given columns from the table |
-| reverse | Reverses the table. |
-| skip amount | Skip a number of rows |
-| skip-while condition | Skips rows while the condition matches |
-| split-by column | Creates a new table with the data from the inner tables splitted by the column given |
-| sort-by ...columns | Sort by the given columns |
-| str (column) | Apply string function. Optionally use the column of a table |
-| sum | Sum a column of values |
-| tags | Read the tags (metadata) for values |
-| to-bson | Convert table into .bson binary data |
-| to-csv | Convert table into .csv text |
-| to-json | Convert table into .json text |
-| to-sqlite | Convert table to sqlite .db binary data |
-| to-toml | Convert table into .toml text |
-| to-tsv | Convert table into .tsv text |
-| to-url | Convert table to a urlencoded string |
-| to-yaml | Convert table into .yaml text |
-| where condition | Filter table to match the condition |
-
-## Filters on text (unstructured data)
-| command | description |
-| ------------- | ------------- |
-| from-bson | Parse binary data as .bson and create table |
-| from-csv | Parse text as .csv and create table |
-| from-ini | Parse text as .ini and create table |
-| from-json | Parse text as .json and create table |
-| from-sqlite | Parse binary data as sqlite .db and create table |
-| from-ssv --minimum-spaces <minimum number of spaces to count as a separator> | Parse text as space-separated values and create table |
-| from-toml | Parse text as .toml and create table |
-| from-tsv  | Parse text as .tsv and create table  |
-| from-url | Parse urlencoded string and create a table |
-| from-xml | Parse text as .xml and create a table |
-| from-yaml | Parse text as a .yaml/.yml and create a table |
-| lines | Split single string into rows, one per line |
-| parse pattern | Convert text to a table by matching the given pattern |
-| size | Gather word count statistics on the text |
-| split-column sep ...column-names | Split row contents across multiple columns via the separator, optionally give the columns names |
-| split-row sep | Split row contents over multiple rows via the separator |
-| trim | Trim leading and following whitespace from text data |
-| {external-command} $it | Run external command with given arguments, replacing $it with each row text |
-
-## Consuming commands
-| command | description |
-| ------------- | ------------- |
-| autoview | View the contents of the pipeline as a table or list |
-| binaryview | Autoview of binary data (optional feature) |
-| clip | Copy the contents of the pipeline to the copy/paste buffer (optional feature) |
-| save filename | Save the contents of the pipeline to a file |
-| table | View the contents of the pipeline as a table |
-| textview | Autoview of text data |
-| tree | View the contents of the pipeline as a tree (optional feature) |
+You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/documentation.html#quick-command-references). 
 
 # License
 
