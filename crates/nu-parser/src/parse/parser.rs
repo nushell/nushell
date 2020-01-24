@@ -1008,8 +1008,7 @@ fn is_boundary(c: Option<char>) -> bool {
 
 fn is_external_word_char(c: char) -> bool {
     match c {
-        ';' | '|' | '#' | '-' | '"' | '\'' | '$' | '(' | ')' | '[' | ']' | '{' | '}' | '`'
-        | '.' => false,
+        ';' | '|' | '"' | '\'' | '$' | '(' | ')' | '[' | ']' | '{' | '}' | '`' => false,
         other if other.is_whitespace() => false,
         _ => true,
     }
