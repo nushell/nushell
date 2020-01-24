@@ -48,14 +48,11 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    let size = if full && metadata.is_dir() {
-        get_dir_size(&filename)
-    } else if metadata.is_dir() {
-        0
+    if metadata.is_file() {
+        dict.insert_untagged("size", UntaggedValue::bytes(metadata.len() as u64));
     } else {
-        metadata.len()
-    };
-    dict.insert_untagged("size", UntaggedValue::bytes(size));
+        dict.insert_untagged("size", UntaggedValue::bytes(0u64));
+    }
 
     if full {
         if let Ok(c) = metadata.created() {
@@ -72,24 +69,4 @@ pub(crate) fn dir_entry_dict(
     }
 
     Ok(dict.into_value())
-}
-
-pub(crate) fn get_dir_size(filename: &std::path::Path) -> u64 {
-    let mut size: u64 = 0;
-    match std::fs::read_dir(filename) {
-        Ok(files) => {
-            for file in files {
-                match file {
-                    Ok(f) => match f.metadata() {
-                        Ok(m) if m.is_file() => size += m.len(),
-                        Ok(m) if m.is_dir() => size += get_dir_size(f.path().as_ref()),
-                        _ => continue,
-                    },
-                    _ => continue,
-                }
-            }
-        }
-        _ => {}
-    };
-    size
 }
