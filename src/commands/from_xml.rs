@@ -27,7 +27,7 @@ impl WholeStreamCommand for FromXML {
     }
 }
 
-fn from_attributes_to_value<'a, 'd>(attributes: &'a [roxmltree::Attribute<'d>], tag: impl Into<Tag>) -> Value {
+fn from_attributes_to_value(attributes: &[roxmltree::Attribute], tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
     let mut collected = TaggedDictBuilder::new(tag);
