@@ -294,6 +294,19 @@ impl Value {
     }
 }
 
+impl Into<Value> for String {
+    fn into(self) -> Value {
+        let end = self.len();
+        Value {
+            value: self.into(),
+            tag: Tag {
+                anchor: None,
+                span: Span::new(0, end),
+            },
+        }
+    }
+}
+
 impl Into<UntaggedValue> for &str {
     /// Convert a string slice into an UntaggedValue
     fn into(self) -> UntaggedValue {
