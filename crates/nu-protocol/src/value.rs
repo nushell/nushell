@@ -368,3 +368,9 @@ impl From<String> for UntaggedValue {
         UntaggedValue::Primitive(Primitive::String(input))
     }
 }
+
+impl From<ShellError> for UntaggedValue {
+    fn from(e: ShellError) -> Self {
+        UntaggedValue::Error(e)
+    }
+}
