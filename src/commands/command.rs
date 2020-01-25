@@ -88,7 +88,7 @@ pub struct RawCommandArgs {
 }
 
 impl RawCommandArgs {
-    pub fn with_input(self, input: Vec<Value>) -> CommandArgs {
+    pub fn with_input(self, input: impl Into<InputStream>) -> CommandArgs {
         CommandArgs {
             host: self.host,
             ctrl_c: self.ctrl_c,

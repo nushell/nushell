@@ -106,10 +106,14 @@ fn from_json(
                 match from_json_string_to_value(json_str.to_string(), &name_tag) {
                     Ok(x) =>
                         yield ReturnSuccess::value(x),
-                    Err(_) => {
+                    Err(e) => {
                         if let Some(ref last_tag) = latest_tag {
+                            let mut message = "Could not parse as JSON (".to_string();
+                            message.push_str(&e.to_string());
+                            message.push_str(")");
+
                             yield Err(ShellError::labeled_error_with_secondary(
-                                "Could nnot parse as JSON",
+                                message,
                                 "input cannot be parsed as JSON",
                                 &name_tag,
                                 "value originates from here",
@@ -129,10 +133,14 @@ fn from_json(
                         }
                         x => yield ReturnSuccess::value(x),
                     }
-                Err(_) => {
+                Err(e) => {
                     if let Some(last_tag) = latest_tag {
+                        let mut message = "Could not parse as JSON (".to_string();
+                        message.push_str(&e.to_string());
+                        message.push_str(")");
+
                         yield Err(ShellError::labeled_error_with_secondary(
-                            "Could not parse as JSON",
+                            message,
                             "input cannot be parsed as JSON",
                             name_tag,
                             "value originates from here",
