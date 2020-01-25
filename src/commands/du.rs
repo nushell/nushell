@@ -182,14 +182,15 @@ fn get_info<'a>(
             Err(e) => Err(ShellError::from(e)),
         }
     } else {
-        if exclude.as_ref().map_or(false, |x| {
+        let ex = exclude.as_ref().map_or(false, |x| {
             x.matches(
                 path.file_name()
                     .expect("How would this even happen?")
                     .to_str()
                     .expect("Very invalid filename apparently?"),
             )
-        }) {
+        });
+        if ex {
             Ok(None)
         } else {
             match fs::metadata(&path) {
@@ -277,7 +278,7 @@ impl From<Info> for Value {
         if !i.errors.is_empty() {
             row.insert(
                 "errors".to_string(),
-                UntaggedValue::Table(i.errors.into()).into_untagged_value(),
+                UntaggedValue::Table(i.errors).into_untagged_value(),
             );
         }
 
