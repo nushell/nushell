@@ -73,10 +73,9 @@ impl PrettyDebug for ReturnSuccess {
 /// The core Result type for pipelines
 pub type ReturnValue = Result<ReturnSuccess, ShellError>;
 
-impl Into<ReturnValue> for Value {
-    /// Lift a Value into a ReturnValue
-    fn into(self) -> ReturnValue {
-        Ok(ReturnSuccess::Value(self))
+impl From<Value> for ReturnValue {
+    fn from(v: Value) -> Self {
+        Ok(ReturnSuccess::Value(v))
     }
 }
 

@@ -3,12 +3,11 @@ use crate::prelude::*;
 use glob::*;
 use indexmap::map::IndexMap;
 use nu_errors::ShellError;
-use nu_protocol::{
-    CallInfo, ReturnSuccess, ReturnValue, Signature, SyntaxShape, UntaggedValue, Value,
-};
+use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
 const NAME: &str = "du";
 const GLOB_PARAMS: MatchOptions = MatchOptions {
@@ -66,13 +65,12 @@ impl PerItemCommand for Du {
 }
 
 fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
-    let all = args.all;
-    let deref = args.deref;
+    let tag = ctx.name.clone();
 
     let exclude = args
         .exclude
-        .as_ref()
-        .map_or(Ok(None), |x| match Pattern::new(&x.item) {
+        .clone()
+        .map_or(Ok(None), move |x| match Pattern::new(&x.item) {
             Ok(p) => Ok(Some(p)),
             Err(e) => Err(ShellError::labeled_error(
                 e.msg,
@@ -80,10 +78,9 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
                 x.tag.clone(),
             )),
         })?;
-    let max_depth = args.max_depth;
-    let min_size = args.min_size;
-
-    let paths = match args.path.as_ref() {
+    let path = args.path.clone();
+    let filter_files = path.is_none();
+    let paths = match path {
         Some(p) => match glob::glob_with(
             p.item.to_str().expect("Why isn't this encoded properly?"),
             GLOB_PARAMS,
@@ -97,15 +94,11 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
         },
         None => match glob::glob_with("*", GLOB_PARAMS) {
             Ok(g) => Ok(g),
-            Err(e) => Err(ShellError::labeled_error(
-                e.msg,
-                "Glob error",
-                ctx.name.clone(),
-            )),
+            Err(e) => Err(ShellError::labeled_error(e.msg, "Glob error", tag.clone())),
         },
     }?
-    .filter(|p| {
-        if args.path.is_none() {
+    .filter(move |p| {
+        if filter_files {
             match p {
                 Ok(f) if f.is_dir() => true,
                 Err(e) if e.path().is_dir() => true,
@@ -115,32 +108,45 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
             true
         }
     })
-    .map(|p| match p {
+    .map(move |p| match p {
         Err(e) => Err(glob_err_into(e)),
         Ok(s) => Ok(s),
     });
 
-    let paths = paths.filter_map(|p| match p {
-        Ok(p) => match get_info(p, deref, &min_size, &exclude, max_depth, all) {
-            Ok(Some(mut d)) => {
-                d.set_tag(ctx.name.clone());
-                Some(Ok(ReturnSuccess::Value(d.into())))
-            }
-            Err(e) => Some(Err(e)),
-            _ => None,
-        },
-        Err(e) => Some(Err(e)),
-    });
+    let ctrl_c = ctx.ctrl_c.clone();
+    let all = args.all;
+    let deref = args.deref;
+    let max_depth = args.max_depth;
+    let min_size = args.min_size;
 
-    Ok(paths.collect::<Vec<ReturnValue>>().into())
+    let stream = async_stream! {
+        for path in paths {
+            if ctrl_c.load(Ordering::SeqCst) {
+                break;
+            }
+            match path {
+                Ok(p) => match get_info(p, deref, &min_size, &exclude, &max_depth, all) {
+                    Ok(Some(mut d)) => {
+                        d.set_tag(tag.clone());
+                        yield ReturnSuccess::value(d);
+                    }
+                    Err(e) => yield Err(e),
+                    _ => continue,
+                },
+                Err(e) => yield Err(e),
+            }
+        }
+    };
+
+    Ok(stream.to_output_stream())
 }
 
-fn get_info(
+fn get_info<'a>(
     path: PathBuf,
     deref: bool,
-    min_size: &Option<u64>,
-    exclude: &Option<Pattern>,
-    depth: Option<u64>,
+    min_size: &'a Option<u64>,
+    exclude: &'a Option<Pattern>,
+    depth: &'a Option<u64>,
     all: bool,
 ) -> Result<Option<Info>, ShellError> {
     if depth.as_ref().map_or(false, |d| *d == 0) {
@@ -157,7 +163,7 @@ fn get_info(
                                 deref,
                                 min_size,
                                 exclude,
-                                depth.map(|d| d - 1),
+                                &depth.map(|d| d - 1),
                                 all,
                             ) {
                                 Ok(Some(i)) => {
