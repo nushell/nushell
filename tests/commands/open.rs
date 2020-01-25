@@ -189,7 +189,7 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        "open jonathan.xml | get rss.channel | get item | get link | echo $it"
+        "open jonathan.xml | get rss.children.channel.children | get item.children | get link.children | echo $it"
     );
 
     assert_eq!(

@@ -27,6 +27,17 @@ impl WholeStreamCommand for FromXML {
     }
 }
 
+fn from_attributes_to_value(attributes: &[roxmltree::Attribute], tag: impl Into<Tag>) -> Value {
+    let tag = tag.into();
+
+    let mut collected = TaggedDictBuilder::new(tag);
+    for a in attributes {
+        collected.insert_untagged(String::from(a.name()), UntaggedValue::string(a.value()));
+    }
+
+    collected.into_value()
+}
+
 fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) -> Value {
     let tag = tag.into();
 
@@ -51,8 +62,17 @@ fn from_node_to_value<'a, 'd>(n: &roxmltree::Node<'a, 'd>, tag: impl Into<Tag>) 
             })
             .collect();
 
-        let mut collected = TaggedDictBuilder::new(tag);
-        collected.insert_untagged(name, UntaggedValue::Table(children_values));
+        let mut collected = TaggedDictBuilder::new(&tag);
+
+        let attribute_value: Value = from_attributes_to_value(&n.attributes(), &tag);
+
+        let mut row = TaggedDictBuilder::new(&tag);
+        row.insert_untagged(
+            String::from("children"),
+            UntaggedValue::Table(children_values),
+        );
+        row.insert_untagged(String::from("attributes"), attribute_value);
+        collected.insert_untagged(name, row.into_value());
 
         collected.into_value()
     } else if n.is_comment() {
@@ -163,7 +183,10 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[])
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[]),
+                    "attributes".into() => row(indexmap! {})
+                })
             })
         );
 
@@ -177,7 +200,10 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[string("La era de los tres caballeros")])
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[string("La era de los tres caballeros")]),
+                    "attributes".into() => row(indexmap! {})
+                })
             })
         );
 
@@ -196,11 +222,101 @@ mod tests {
         assert_eq!(
             parse(source)?,
             row(indexmap! {
-                "nu".into() => table(&[
-                    row(indexmap! {"dev".into() => table(&[string("Andrés")])}),
-                    row(indexmap! {"dev".into() => table(&[string("Jonathan")])}),
-                    row(indexmap! {"dev".into() => table(&[string("Yehuda")])})
-                ])
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[
+                        row(indexmap! {
+                            "dev".into() => row(indexmap! {
+                                "children".into() => table(&[string("Andrés")]),
+                                "attributes".into() => row(indexmap! {})
+                            })
+                        }),
+                        row(indexmap! {
+                            "dev".into() => row(indexmap! {
+                                "children".into() => table(&[string("Jonathan")]),
+                                "attributes".into() => row(indexmap! {})
+                            })
+                        }),
+                        row(indexmap! {
+                            "dev".into() => row(indexmap! {
+                                "children".into() => table(&[string("Yehuda")]),
+                                "attributes".into() => row(indexmap! {})
+                            })
+                        })
+                    ]),
+                    "attributes".into() => row(indexmap! {})
+                })
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parses_element_with_attribute() -> Result<(), roxmltree::Error> {
+        let source = "\
+<nu version=\"2.0\">
+</nu>";
+
+        assert_eq!(
+            parse(source)?,
+            row(indexmap! {
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[]),
+                    "attributes".into() => row(indexmap! {
+                        "version".into() => string("2.0")
+                    })
+                })
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parses_element_with_attribute_and_element() -> Result<(), roxmltree::Error> {
+        let source = "\
+<nu version=\"2.0\">
+    <version>2.0</version>
+</nu>";
+
+        assert_eq!(
+            parse(source)?,
+            row(indexmap! {
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[
+                           row(indexmap! {
+                                "version".into() => row(indexmap! {
+                                    "children".into() => table(&[string("2.0")]),
+                                    "attributes".into() => row(indexmap! {})
+                                })
+                          })
+                    ]),
+                    "attributes".into() => row(indexmap! {
+                        "version".into() => string("2.0")
+                    })
+                })
+            })
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parses_element_with_multiple_attributes() -> Result<(), roxmltree::Error> {
+        let source = "\
+<nu version=\"2.0\" age=\"25\">
+</nu>";
+
+        assert_eq!(
+            parse(source)?,
+            row(indexmap! {
+                "nu".into() => row(indexmap! {
+                    "children".into() => table(&[]),
+                    "attributes".into() => row(indexmap! {
+                        "version".into() => string("2.0"),
+                        "age".into() => string("25")
+                    })
+                })
             })
         );
 
