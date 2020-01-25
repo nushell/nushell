@@ -4,6 +4,8 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
+const STREAM_PAGE_SIZE: usize = 100;
+
 pub struct Table;
 
 impl WholeStreamCommand for Table {
@@ -33,11 +35,12 @@ impl WholeStreamCommand for Table {
 }
 
 fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
+    let mut args = args.evaluate_once(registry)?;
+    let mut finished = false;
 
     let stream = async_stream! {
         let host = args.host.clone();
-        let start_number = match args.get("start_number") {
+        let mut start_number = match args.get("start_number") {
             Some(Value { value: UntaggedValue::Primitive(Primitive::Int(i)), .. }) => {
                 if let Some(num) = i.to_usize() {
                     num
@@ -51,15 +54,35 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
             }
         };
 
-        let input: Vec<Value> = args.input.into_vec().await;
-        if input.len() > 0 {
-            let mut host = host.lock();
-            let view = TableView::from_list(&input, start_number);
+        while !finished {
+            let mut new_input = VecDeque::new();
 
-            if let Some(view) = view {
-                handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
+            for _ in 0..STREAM_PAGE_SIZE {
+                match args.input.next().await {
+                    Some(a) => {
+                        new_input.push_back(a);
+                    }
+                    _ => {
+                        finished = true;
+                        break;
+                    }
+                }
             }
+
+            let input: Vec<Value> = new_input.into();
+
+            if input.len() > 0 {
+                let mut host = host.lock();
+                let view = TableView::from_list(&input, start_number);
+
+                if let Some(view) = view {
+                    handle_unexpected(&mut *host, |host| crate::format::print_view(&view, host));
+                }
+            }
+
+            start_number += STREAM_PAGE_SIZE;
         }
+
         // Needed for async_stream to type check
         if false {
             yield ReturnSuccess::value(UntaggedValue::nothing().into_value(Tag::unknown()));
