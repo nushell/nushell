@@ -3,8 +3,10 @@ use crate::format::TableView;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use std::time::Instant;
 
-const STREAM_PAGE_SIZE: usize = 100;
+const STREAM_PAGE_SIZE: usize = 1000;
+const STREAM_TIMEOUT_CHECK_INTERVAL: usize = 100;
 
 pub struct Table;
 
@@ -59,7 +61,8 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
         while !finished {
             let mut new_input: VecDeque<Value> = VecDeque::new();
 
-            for _ in 0..STREAM_PAGE_SIZE {
+            let start_time = Instant::now();
+            for idx in 0..STREAM_PAGE_SIZE {
                 if let Some(val) = delay_slot {
                     new_input.push_back(val);
                     delay_slot = None;
@@ -89,6 +92,15 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                         }
                     }
 
+                    // Check if we've gone over our buffering threshold
+                    if (idx + 1) % STREAM_TIMEOUT_CHECK_INTERVAL == 0 {
+                        let end_time = Instant::now();
+
+                        // If we've been buffering over a second, go ahead and send out what we have so far
+                        if (end_time - start_time).as_secs() >= 1 {
+                            break;
+                        }
+                    }
                 }
             }
 
