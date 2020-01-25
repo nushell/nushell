@@ -11,6 +11,8 @@ pub struct Ls;
 pub struct LsArgs {
     pub path: Option<Tagged<PathBuf>>,
     pub full: bool,
+    #[serde(rename = "short-names")]
+    pub short_names: bool,
 }
 
 impl PerItemCommand for Ls {
@@ -26,6 +28,7 @@ impl PerItemCommand for Ls {
                 "a path to get the directory contents from",
             )
             .switch("full", "list all available columns for each entry")
+            .switch("short-names", "only print the file names and not the path")
     }
 
     fn usage(&self) -> &str {
