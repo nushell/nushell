@@ -88,9 +88,14 @@ impl Shell for FilesystemShell {
 
     fn ls(
         &self,
-        LsArgs { path, full }: LsArgs,
+        LsArgs {
+            path,
+            full,
+            short_names,
+        }: LsArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
+        let cwd = self.path();
         let mut full_path = PathBuf::from(self.path());
 
         if let Some(value) = &path {
@@ -143,15 +148,23 @@ impl Shell for FilesystemShell {
                         if let Ok(entry) = entry {
                             let filepath = entry.path();
                             if let Ok(metadata) = std::fs::symlink_metadata(&filepath) {
-                                let filename = if let Some(fname) = filepath.file_name() {
-                                    Path::new(fname)
+                                let mut filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
+                                    fname
                                 } else {
-                                    let fname = filepath
-                                      .file_name()
-                                      .or_else(|| Path::new(&filepath).file_name())
-                                      .unwrap_or(filepath.as_os_str());
-                                    Path::new(fname)
+                                    Path::new(&filepath)
                                 };
+
+                                if short_names {
+                                    filename = if let Some(fname) = filename.file_name() {
+                                        Path::new(fname)
+                                    } else {
+                                        let fname = filename
+                                            .file_name()
+                                            .or_else(|| Path::new(filename).file_name())
+                                            .unwrap_or(filename.as_os_str());
+                                        Path::new(fname)
+                                    }
+                                }
 
                                 let value = dir_entry_dict(filename, &metadata, &name_tag, full)?;
                                 yield ReturnSuccess::value(value);
@@ -186,15 +199,23 @@ impl Shell for FilesystemShell {
                 }
                 if let Ok(entry) = entry {
                     if let Ok(metadata) = std::fs::symlink_metadata(&entry) {
-                        let filename = if let Some(fname) = entry.file_name() {
-                            Path::new(fname)
+                        let mut filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
+                            fname
                         } else {
-                            let fname = entry
-                                .file_name()
-                                .or_else(|| Path::new(&entry).file_name())
-                                .unwrap_or(entry.as_os_str());
-                            Path::new(fname)
+                             Path::new(&entry)
                         };
+
+                        if short_names {
+                            filename = if let Some(fname) = filename.file_name() {
+                                Path::new(fname)
+                            } else {
+                                let fname = filename
+                                            .file_name()
+                                            .or_else(|| Path::new(filename).file_name())
+                                            .unwrap_or(filename.as_os_str());
+                                Path::new(fname)
+                            }
+                        }
 
                         if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full) {
                             yield ReturnSuccess::value(value);
