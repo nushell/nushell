@@ -2,28 +2,7 @@
 
 ## Overview
 
-Inside this crate, you will find the types and behaviors responsible for metadata inside `Nushell` with additional debugging features.
-
-Important Types
-
-### Text
-Represent the value of an input file. 
-Similar to a `String` in rust, but cheaply cloneable.
-
-### AnchorLocation
-An enum that represents the location where a value originated from. 
-ex. Url, File, or Source `Text`
-
-### Span
-A start point and end point
-
-### Spanned
-A _spanned_ value. This combines a `Span` with some value.
-
-### Tag
-Metadata that can be associated with some value.
-A tag is made from an `AnchorLocation` and `Span`.
-Tags can be made with unknown locations or spans.
-
-### Tagged
-A _tagged_ value. This combines a `Tag` with some value.
+Inside this crate you will find the types and traits responsible for keeping track
+The `nu-source` crate contains types and traits that nu uses to keep track of the values it is processing. This type of data is referred to as "metadata" and there are several types of information that is tracked. Inside Nu, values are `Tagged`, which is a data structure that keeps track of the item and its metadata, which is also known as a `Tag`. A `Tag` is made up of location based information such as an `AnchorLocation` as well as a `Span`. An `AchorLocation` represents the location where a value originated from. This can be a `Url`, `File`, or `Source` text that a value was parsed from.
+The source `Text` is special in that it is a type similar to a `String` with the ability to be cheaply cloned.
+A `Span` is used to keep track of the position of a value with a `start` and `end`.
