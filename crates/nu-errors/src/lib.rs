@@ -821,12 +821,6 @@ impl std::convert::From<std::io::Error> for ShellError {
     }
 }
 
-impl std::convert::From<subprocess::PopenError> for ShellError {
-    fn from(input: subprocess::PopenError) -> ShellError {
-        ShellError::untagged_runtime_error(format!("{}", input))
-    }
-}
-
 impl std::convert::From<serde_yaml::Error> for ShellError {
     fn from(input: serde_yaml::Error) -> ShellError {
         ShellError::untagged_runtime_error(format!("{:?}", input))
