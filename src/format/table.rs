@@ -96,7 +96,6 @@ impl TableView {
 
 fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: usize) -> Entries {
     let mut entries = vec![];
-    let values_len = values.len();
 
     if headers.is_empty() {
         headers.push("<value>".to_string());
@@ -138,17 +137,13 @@ fn values_to_entries(values: &[Value], headers: &mut Vec<String>, starting_idx: 
             })
             .collect();
 
-        if values_len > 1 {
-            // Indices are green, bold, right-aligned:
-            row.insert(0, ((starting_idx + idx).to_string(), "Fgbr"));
-        }
+        // Indices are green, bold, right-aligned:
+        row.insert(0, ((starting_idx + idx).to_string(), "Fgbr"));
 
         entries.push(row);
     }
 
-    if values_len > 1 {
-        headers.insert(0, "#".to_owned());
-    }
+    headers.insert(0, "#".to_owned());
 
     entries
 }

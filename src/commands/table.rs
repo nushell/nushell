@@ -54,18 +54,41 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
             }
         };
 
+        let mut delay_slot = None;
+
         while !finished {
-            let mut new_input = VecDeque::new();
+            let mut new_input: VecDeque<Value> = VecDeque::new();
 
             for _ in 0..STREAM_PAGE_SIZE {
-                match args.input.next().await {
-                    Some(a) => {
-                        new_input.push_back(a);
+                if let Some(val) = delay_slot {
+                    new_input.push_back(val);
+                    delay_slot = None;
+                } else {
+                    match args.input.next().await {
+                        Some(a) => {
+                            if !new_input.is_empty() {
+                                if let Some(descs) = new_input.get(0) {
+                                    let descs = descs.data_descriptors();
+                                    let compare = a.data_descriptors();
+                                    if descs != compare {
+                                        delay_slot = Some(a);
+                                        break;
+                                    } else {
+                                        new_input.push_back(a);
+                                    }
+                                } else {
+                                    new_input.push_back(a);
+                                }
+                            } else {
+                                new_input.push_back(a);
+                            }
+                        }
+                        _ => {
+                            finished = true;
+                            break;
+                        }
                     }
-                    _ => {
-                        finished = true;
-                        break;
-                    }
+
                 }
             }
 
@@ -80,7 +103,7 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                 }
             }
 
-            start_number += STREAM_PAGE_SIZE;
+            start_number += input.len();
         }
 
         // Needed for async_stream to type check

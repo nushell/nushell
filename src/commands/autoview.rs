@@ -41,9 +41,6 @@ pub fn autoview(
     let table = context.get_command("table");
 
     Ok(OutputStream::new(async_stream! {
-        //let mut output_stream: OutputStream = context.input.into();
-        //let next = output_stream.try_next().await;
-
         let mut input_stream = context.input;
 
         match input_stream.next().await {
