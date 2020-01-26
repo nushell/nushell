@@ -21,7 +21,6 @@ mod stream;
 mod utils;
 
 pub use crate::cli::cli;
-pub use crate::data::config::{config_path, APP_INFO};
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;

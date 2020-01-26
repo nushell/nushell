@@ -3,7 +3,6 @@ use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
 use crate::commands::whole_stream_command;
 use crate::context::Context;
-use crate::data::config;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::prelude::*;
@@ -13,7 +12,7 @@ use nu_parser::{
     hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape, SpannedToken,
     TokensIterator,
 };
-use nu_protocol::{Signature, UntaggedValue, Value};
+use nu_protocol::{Signature, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
@@ -145,8 +144,6 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
         require_literal_leading_dot: false,
     };
 
-    set_env_from_config()?;
-
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
@@ -245,7 +242,13 @@ fn create_default_starship_config() -> Option<toml::Value> {
 
 /// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
 pub async fn cli() -> Result<(), Box<dyn Error>> {
+    let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
+
+    syncer.load_environment();
+
     let mut context = Context::basic()?;
+    syncer.sync_env_vars(&mut context);
+    syncer.sync_path_vars(&mut context);
 
     {
         use crate::commands::*;
@@ -468,6 +471,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
 
         let line = process_line(readline, &mut context).await;
 
+        // Check the config to see if we need to update the path
+        // TODO: make sure config is cached so we don't path this load every call
+        // FIXME: we probably want to be a bit more graceful if we can't set the environment
+        syncer.reload();
+        syncer.sync_env_vars(&mut context);
+        syncer.sync_path_vars(&mut context);
+
         match line {
             LineResult::Success(line) => {
                 rl.add_history_entry(line.clone());
@@ -530,58 +540,6 @@ fn chomp_newline(s: &str) -> &str {
     }
 }
 
-fn set_env_from_config() -> Result<(), ShellError> {
-    let config = crate::data::config::read(Tag::unknown(), &None)?;
-
-    if config.contains_key("env") {
-        // Clear the existing vars, we're about to replace them
-        for (key, _value) in std::env::vars() {
-            std::env::remove_var(key);
-        }
-
-        let value = config.get("env");
-
-        if let Some(Value {
-            value: UntaggedValue::Row(r),
-            ..
-        }) = value
-        {
-            for (k, v) in &r.entries {
-                if let Ok(value_string) = v.as_string() {
-                    std::env::set_var(k, value_string);
-                }
-            }
-        }
-    }
-
-    if config.contains_key("path") {
-        // Override the path with what they give us from config
-        let value = config.get("path");
-
-        if let Some(Value {
-            value: UntaggedValue::Table(table),
-            ..
-        }) = value
-        {
-            let mut paths = vec![];
-
-            for val in table {
-                let path_str = val.as_string();
-
-                if let Ok(path_str) = path_str {
-                    paths.push(PathBuf::from(path_str));
-                }
-            }
-
-            let path_os_string = std::env::join_paths(&paths);
-            if let Ok(path_os_string) = path_os_string {
-                std::env::set_var("PATH", path_os_string);
-            }
-        }
-    }
-    Ok(())
-}
-
 enum LineResult {
     Success(String),
     Error(String, ShellError),
@@ -635,13 +593,6 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                             Span::unknown(),
                         ),
                     }));
-            }
-
-            // Check the config to see if we need to update the path
-            // TODO: make sure config is cached so we don't path this load every call
-            // FIXME: we probably want to be a bit more graceful if we can't set the environment
-            if let Err(err) = set_env_from_config() {
-                return LineResult::Error(line.to_string(), err);
             }
 
             match run_pipeline(pipeline, ctx, None, line).await {

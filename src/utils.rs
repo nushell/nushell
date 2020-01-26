@@ -4,36 +4,10 @@ use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::path::{Component, Path, PathBuf};
 
-pub enum TaggedValueIter<'a> {
-    Empty,
-    List(indexmap::map::Iter<'a, String, Value>),
-}
-
-impl<'a> Iterator for TaggedValueIter<'a> {
-    type Item = (&'a String, &'a Value);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            TaggedValueIter::Empty => None,
-            TaggedValueIter::List(iter) => iter.next(),
-        }
-    }
-}
-
 fn is_value_tagged_dir(value: &Value) -> bool {
     match &value.value {
         UntaggedValue::Row(_) | UntaggedValue::Table(_) => true,
         _ => false,
-    }
-}
-
-fn tagged_entries_for(value: &Value) -> TaggedValueIter<'_> {
-    match &value.value {
-        UntaggedValue::Row(o) => {
-            let iter = o.entries.iter();
-            TaggedValueIter::List(iter)
-        }
-        _ => TaggedValueIter::Empty,
     }
 }
 
@@ -94,7 +68,7 @@ impl ValueStructure {
     }
 
     fn build(&mut self, src: &Value, lvl: usize) -> Result<(), ShellError> {
-        for entry in tagged_entries_for(src) {
+        for entry in nu_value_ext::row_entries(src) {
             let value = entry.1;
             let path = entry.0;
 

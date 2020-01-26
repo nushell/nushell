@@ -1,3 +1,12 @@
+mod conf;
+mod nuconfig;
+
+#[cfg(test)]
+pub mod tests;
+
+pub(crate) use conf::Conf;
+pub(crate) use nuconfig::NuConfig;
+
 use crate::commands::from_toml::convert_toml_value_to_nu_value;
 use crate::commands::to_toml::value_to_toml_value;
 use crate::prelude::*;
@@ -6,16 +15,10 @@ use indexmap::IndexMap;
 use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{Dictionary, ShellTypeName, UntaggedValue, Value};
-use serde::{Deserialize, Serialize};
+use nu_source::Tag;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
-
-#[derive(Deserialize, Serialize)]
-struct Config {
-    #[serde(flatten)]
-    extra: IndexMap<String, Value>,
-}
 
 pub const APP_INFO: AppInfo = AppInfo {
     name: "nu",

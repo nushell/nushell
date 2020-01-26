@@ -2436,8 +2436,11 @@ dependencies = [
  "dunce",
  "getset",
  "glob",
+ "indexmap",
+ "nu",
  "nu-build",
  "nu-parser",
+ "nu-protocol",
  "nu-source",
  "tempfile",
 ]
@@ -2446,6 +2449,7 @@ dependencies = [
 name = "nu-value-ext"
 version = "0.8.0"
 dependencies = [
+ "indexmap",
  "itertools 0.8.2",
  "nu-build",
  "nu-errors",

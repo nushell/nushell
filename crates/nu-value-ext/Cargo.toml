@@ -17,6 +17,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.8.0" }
 
 num-traits = "0.2.10"
 itertools = "0.8.2"
+indexmap = { version = "1.3.0", features = ["serde-1"] }
 
 [build-dependencies]
 nu-build = { version = "0.8.0", path = "../nu-build" }
