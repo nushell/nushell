@@ -24,8 +24,10 @@ pub struct DuArgs {
     all: bool,
     deref: bool,
     exclude: Option<Tagged<String>>,
-    max_depth: Option<u64>,
-    min_size: Option<u64>,
+    #[serde(rename = "max-depth")]
+    max_depth: Option<Tagged<u64>>,
+    #[serde(rename = "min-size")]
+    min_size: Option<Tagged<u64>>,
 }
 
 impl PerItemCommand for Du {
@@ -116,8 +118,8 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
     let ctrl_c = ctx.ctrl_c.clone();
     let all = args.all;
     let deref = args.deref;
-    let max_depth = args.max_depth;
-    let min_size = args.min_size;
+    let max_depth = args.max_depth.map(|f| f.item);
+    let min_size = args.min_size.map(|f| f.item);
 
     let stream = async_stream! {
         for path in paths {
@@ -131,7 +133,7 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
                         yield ReturnSuccess::value(d);
                     }
                     Err(e) => yield Err(e),
-                    _ => continue,
+                    _ => yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value()),
                 },
                 Err(e) => yield Err(e),
             }
@@ -168,7 +170,9 @@ fn get_info<'a>(
                             ) {
                                 Ok(Some(i)) => {
                                     info.size += &i.size;
-                                    info.add_sub(e.file_name().to_string_lossy().into(), i);
+                                    if i.f_type == Type::Dir || all {
+                                        info.add_sub(e.file_name().to_string_lossy().into(), i);
+                                    }
                                 }
                                 Ok(None) => continue,
                                 Err(e) => info.add_err(e),
@@ -203,12 +207,22 @@ fn get_info<'a>(
                     } else {
                         Ok(m.len())
                     }?;
-                    Ok(Some(Info::new_file(path.to_string_lossy(), size)))
+                    if min_size.map_or(true, |s| size > s) {
+                        Ok(Some(Info::new_file(path.to_string_lossy(), size)))
+                    } else {
+                        Ok(None)
+                    }
                 }
                 Err(e) => Err(ShellError::from(e)),
             }
         }
     }
+}
+
+#[derive(PartialEq)]
+enum Type {
+    File,
+    Dir,
 }
 
 struct Info {
@@ -217,6 +231,7 @@ struct Info {
     size: u64,
     name: String,
     tag: Tag,
+    f_type: Type,
 }
 
 impl Info {
@@ -227,11 +242,13 @@ impl Info {
             size: 0,
             name: name.into(),
             tag: Tag::unknown(),
+            f_type: Type::Dir,
         }
     }
 
     fn new_file(name: impl Into<String>, size: u64) -> Info {
         let mut new = Info::new(name);
+        new.f_type = Type::File;
         new.size = size;
         new
     }
@@ -271,10 +288,17 @@ impl From<Info> for Value {
         for (_k, v) in i.sub {
             subs.push(v.into());
         }
-        row.insert(
-            "contents".to_string(),
-            UntaggedValue::Table(subs).into_untagged_value(),
-        );
+        if !subs.is_empty() {
+            row.insert(
+                "contents".to_string(),
+                UntaggedValue::Table(subs).into_untagged_value(),
+            );
+        } else {
+            row.insert(
+                "contents".to_string(),
+                UntaggedValue::nothing().into_untagged_value(),
+            );
+        }
         if !i.errors.is_empty() {
             row.insert(
                 "errors".to_string(),
