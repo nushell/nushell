@@ -1,7 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, Signature, SyntaxShape, UntaggedValue};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct Calc;
 
@@ -31,18 +31,44 @@ impl WholeStreamCommand for Calc {
     }
 }
 
-pub fn calc(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn calc(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let arg = &args.parts().1.positional.unwrap_or_else(|| {
-        vec![UntaggedValue::from(Primitive::String("0".to_string())).into_untagged_value()]
-    })[0];
+    let tag = &args.call_info.name_tag;
+    let name_span = tag.span;
+    let input = match args.args.nth(0) {
+        Some(s) => Ok(s),
+        None => Err(ShellError::labeled_error(
+            "Expected a string argument",
+            "requires string input",
+            name_span,
+        )),
+    };
+    let input = input?;
 
-    let math_expression = arg.as_string().unwrap_or_else(|_| "0".to_string());
-    let value = UntaggedValue::from(Primitive::from(
-        meval::eval_str(&math_expression).unwrap_or_default(),
-    ))
-    .into_untagged_value();
-    let output = vec![value];
+    let output = if let Ok(string) = input.as_string() {
+        match parse(&string, &input.tag) {
+            Ok(value) => ReturnSuccess::value(value),
+            Err(err) => Err(ShellError::labeled_error(
+                format!("Cannot calculate expression: {}", err),
+                format!("error while calculating: {}", err),
+                name_span,
+            )),
+        }
+    } else {
+        Err(ShellError::labeled_error(
+            "Expected a string argument",
+            "requires string input",
+            name_span,
+        ))
+    };
 
-    Ok(OutputStream::from(output))
+    Ok(vec![output].into())
+}
+
+pub fn parse(math_expression: &str, tag: impl Into<Tag>) -> Result<Value, String> {
+    let num = meval::eval_str(math_expression);
+    match num {
+        Ok(num) => Ok(UntaggedValue::from(Primitive::from(num)).into_value(tag)),
+        Err(error) => Err(error.to_string()),
+    }
 }
