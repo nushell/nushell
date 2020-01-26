@@ -49,9 +49,9 @@ fn calc(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
         match parse(&string, &input.tag) {
             Ok(value) => ReturnSuccess::value(value),
             Err(err) => Err(ShellError::labeled_error(
-                format!("Cannot calculate expression: {}", err),
-                format!("error while calculating: {}", err),
-                name_span,
+                "Calulation error",
+                err,
+                &input.tag.span,
             )),
         }
     } else {
