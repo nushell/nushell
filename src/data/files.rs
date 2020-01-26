@@ -1,20 +1,42 @@
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
+use std::path::PathBuf;
 
 pub(crate) fn dir_entry_dict(
-    filename: &std::path::Path,
-    metadata: &std::fs::Metadata,
+    path: &PathBuf,
     tag: impl Into<Tag>,
     full: bool,
     with_symlink_targets: bool,
+    short_name: bool,
 ) -> Result<Value, ShellError> {
-    let mut dict = TaggedDictBuilder::new(tag);
-    dict.insert_untagged("name", UntaggedValue::string(filename.to_string_lossy()));
+    let tag = tag.into();
+    let metadata = match std::fs::metadata(path) {
+        Ok(m) => Ok(m),
+        Err(e) => Err(ShellError::from(e)),
+    }?;
+    let file_type = metadata.file_type();
 
-    if metadata.is_dir() {
+    let mut dict = TaggedDictBuilder::new(&tag);
+
+    let name = if short_name {
+        match path.file_name() {
+            Some(n) => Ok(n.to_str().expect("This path was not properly encoded.")),
+            None => Err(ShellError::labeled_error(
+                format!("Invalid File name: {:}", path.to_string_lossy()),
+                "Invalid File Name",
+                tag,
+            )),
+        }
+    } else {
+        Ok(path.to_str().expect("This path was not properly encoded."))
+    }?;
+
+    dict.insert_untagged("name", UntaggedValue::string(name));
+
+    if file_type.is_dir() {
         dict.insert_untagged("type", UntaggedValue::string("Dir"));
-    } else if metadata.is_file() {
+    } else if file_type.is_file() {
         dict.insert_untagged("type", UntaggedValue::string("File"));
     } else {
         dict.insert_untagged("type", UntaggedValue::string("Symlink"));
@@ -23,7 +45,7 @@ pub(crate) fn dir_entry_dict(
     if full || with_symlink_targets {
         if metadata.is_dir() || metadata.is_file() {
             dict.insert_untagged("target", UntaggedValue::bytes(0u64));
-        } else if let Ok(path_to_link) = filename.read_link() {
+        } else if let Ok(path_to_link) = path.read_link() {
             dict.insert_untagged(
                 "target",
                 UntaggedValue::string(path_to_link.to_string_lossy()),
@@ -65,7 +87,7 @@ pub(crate) fn dir_entry_dict(
         }
     }
 
-    if metadata.is_file() {
+    if file_type.is_file() {
         dict.insert_untagged("size", UntaggedValue::bytes(metadata.len() as u64));
     } else {
         dict.insert_untagged("size", UntaggedValue::bytes(0u64));

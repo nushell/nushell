@@ -9,12 +9,13 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
+use glob::GlobResult;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use trash as SendToTrash;
 
@@ -96,132 +97,46 @@ impl Shell for FilesystemShell {
         }: LsArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let cwd = self.path();
-        let mut full_path = PathBuf::from(self.path());
-
-        if let Some(value) = &path {
-            full_path.push((*value).as_ref())
-        }
+        let (path, p_tag) = match path {
+            Some(p) => {
+                let p_tag = p.tag;
+                let mut p = p.item;
+                if p.is_dir() {
+                    p.push("*");
+                }
+                (p, p_tag)
+            }
+            None => (PathBuf::from("./*"), context.name.clone()),
+        };
 
         let ctrl_c = context.ctrl_c.clone();
         let name_tag = context.name.clone();
 
-        //If it's not a glob, try to display the contents of the entry if it's a directory
-        let lossy_path = full_path.to_string_lossy();
-        if !lossy_path.contains('*') && !lossy_path.contains('?') {
-            let entry = Path::new(&full_path);
-            if entry.is_dir() {
-                let entries = std::fs::read_dir(&entry);
-                let entries = match entries {
-                    Err(e) => {
-                        if let Some(s) = path {
-                            return Err(ShellError::labeled_error(
-                                e.to_string(),
-                                e.to_string(),
-                                s.tag(),
-                            ));
-                        } else {
-                            return Err(ShellError::labeled_error(
-                                e.to_string(),
-                                e.to_string(),
-                                name_tag,
-                            ));
-                        }
-                    }
-                    Ok(o) => o,
-                };
-                let mut entries = entries.collect::<Vec<Result<std::fs::DirEntry, _>>>();
-                entries.sort_by(|x, y| match (x, y) {
-                    (Ok(entry1), Ok(entry2)) => entry1
-                        .path()
-                        .to_string_lossy()
-                        .to_lowercase()
-                        .cmp(&entry2.path().to_string_lossy().to_lowercase()),
-                    (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
-                    (Ok(_), Err(_)) => std::cmp::Ordering::Greater,
-                    _ => std::cmp::Ordering::Equal,
-                });
-                let stream = async_stream! {
-                    for entry in entries {
-                        if ctrl_c.load(Ordering::SeqCst) {
-                            break;
-                        }
-                        if let Ok(entry) = entry {
-                            let filepath = entry.path();
-                            if let Ok(metadata) = std::fs::symlink_metadata(&filepath) {
-                                let mut filename = if let Ok(fname) = filepath.strip_prefix(&cwd) {
-                                    fname
-                                } else {
-                                    Path::new(&filepath)
-                                };
+        let paths: Vec<GlobResult> = match glob::glob(&path.to_string_lossy()) {
+            Ok(g) => Ok(g),
+            Err(e) => Err(ShellError::labeled_error("Glob error", e.msg, &p_tag)),
+        }?
+        .collect();
 
-                                if short_names {
-                                    filename = if let Some(fname) = filename.file_name() {
-                                        Path::new(fname)
-                                    } else {
-                                        let fname = filename
-                                            .file_name()
-                                            .or_else(|| Path::new(filename).file_name())
-                                            .unwrap_or(filename.as_os_str());
-                                        Path::new(fname)
-                                    }
-                                }
-
-                                let value = dir_entry_dict(filename, &metadata, &name_tag, full, with_symlink_targets)?;
-                                yield ReturnSuccess::value(value);
-                            }
-                        }
-                    }
-                };
-                return Ok(stream.to_output_stream());
-            }
+        if paths.is_empty() {
+            return Err(ShellError::labeled_error(
+                "Invalid File or Pattern",
+                "Invalid File or Pattern",
+                &p_tag,
+            ));
         }
 
-        let entries = match glob::glob(&full_path.to_string_lossy()) {
-            Ok(files) => files,
-            Err(_) => {
-                if let Some(source) = path {
-                    return Err(ShellError::labeled_error(
-                        "Invalid pattern",
-                        "Invalid pattern",
-                        source.tag(),
-                    ));
-                } else {
-                    return Err(ShellError::untagged_runtime_error("Invalid pattern."));
-                }
-            }
-        };
-
-        // Enumerate the entries from the glob and add each
         let stream = async_stream! {
-            for entry in entries {
+            for path in paths {
                 if ctrl_c.load(Ordering::SeqCst) {
                     break;
                 }
-                if let Ok(entry) = entry {
-                    if let Ok(metadata) = std::fs::symlink_metadata(&entry) {
-                        let mut filename = if let Ok(fname) = entry.strip_prefix(&cwd) {
-                            fname
-                        } else {
-                             Path::new(&entry)
-                        };
-
-                        if short_names {
-                            filename = if let Some(fname) = filename.file_name() {
-                                Path::new(fname)
-                            } else {
-                                let fname = filename
-                                            .file_name()
-                                            .or_else(|| Path::new(filename).file_name())
-                                            .unwrap_or(filename.as_os_str());
-                                Path::new(fname)
-                            }
-                        }
-
-                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full, with_symlink_targets) {
-                            yield ReturnSuccess::value(value);
-                        }
-                    }
+                match path {
+                    Ok(p) => match dir_entry_dict(&p, name_tag.clone(), full, short_names, with_symlink_targets) {
+                        Ok(d) => yield ReturnSuccess::value(d),
+                        Err(e) => yield Err(e),
+                    },
+                    Err(e) => yield Err(e.into_error().into()),
                 }
             }
         };
