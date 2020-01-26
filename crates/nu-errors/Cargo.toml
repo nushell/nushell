@@ -24,7 +24,6 @@ nom_locate = "1.0.0"
 getset = "0.0.9"
 
 # implement conversions
-subprocess = "0.1.18"
 serde_yaml = "0.8"
 toml = "0.5.5"
 serde_json = "1.0.44"

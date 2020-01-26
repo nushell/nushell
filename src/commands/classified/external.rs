@@ -1,14 +1,14 @@
 use crate::prelude::*;
 use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
-use futures_codec::{Decoder, Encoder, Framed};
+use futures_codec::{Decoder, Encoder, FramedRead};
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::ExternalCommand;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::io::{Error, ErrorKind, Write};
 use std::ops::Deref;
-use subprocess::Exec;
+use std::process::{Command, Stdio};
 
 /// A simple `Codec` implementation that splits up data into lines.
 pub struct LinesCodec {}
@@ -275,11 +275,11 @@ async fn spawn(
     let mut process = {
         #[cfg(windows)]
         {
-            let mut process = Exec::cmd("cmd");
-            process = process.arg("/c");
-            process = process.arg(&command.name);
+            let mut process = Command::new("cmd");
+            process.arg("/c");
+            process.arg(&command.name);
             for arg in args {
-                process = process.arg(&arg);
+                process.arg(&arg);
             }
             process
         }
@@ -287,34 +287,34 @@ async fn spawn(
         #[cfg(not(windows))]
         {
             let cmd_with_args = vec![command.name.clone(), args.join(" ")].join(" ");
-            Exec::shell(&cmd_with_args)
+            let mut process = Command::new("sh");
+            process.arg("-c").arg(cmd_with_args);
+            process
         }
     };
 
-    process = process.cwd(path);
+    process.current_dir(path);
     trace!(target: "nu::run::external", "cwd = {:?}", &path);
 
     // We want stdout regardless of what
     // we are doing ($it case or pipe stdin)
     if !is_last {
-        process = process.stdout(subprocess::Redirection::Pipe);
+        process.stdout(Stdio::piped());
         trace!(target: "nu::run::external", "set up stdout pipe");
     }
 
     // open since we have some contents for stdin
     if stdin_contents.is_some() {
-        process = process.stdin(subprocess::Redirection::Pipe);
+        process.stdin(Stdio::piped());
         trace!(target: "nu::run::external", "set up stdin pipe");
     }
 
-    trace!(target: "nu::run::external", "built process {:?}", process);
+    trace!(target: "nu::run::external", "built command {:?}", process);
 
-    let popen = process.detached().popen();
-
-    if let Ok(mut popen) = popen {
+    if let Ok(mut child) = process.spawn() {
         let stream = async_stream! {
             if let Some(mut input) = stdin_contents.as_ref() {
-                let mut stdin_write = popen.stdin
+                let mut stdin_write = child.stdin
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
 
@@ -335,7 +335,7 @@ async fn spawn(
             }
 
             if is_last && command.has_it_argument() {
-                if let Ok(status) = popen.wait() {
+                if let Ok(status) = child.wait() {
                     if status.success() {
                         return;
                     }
@@ -362,7 +362,7 @@ async fn spawn(
             }
 
             if !is_last {
-                let stdout = if let Some(stdout) = popen.stdout.take() {
+                let stdout = if let Some(stdout) = child.stdout.take() {
                     stdout
                 } else {
                     yield Ok(Value {
@@ -376,7 +376,7 @@ async fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(stdout);
-                let stream = Framed::new(file, LinesCodec {});
+                let stream = FramedRead::new(file, LinesCodec {});
 
                 let mut stream = stream.map(|line| {
                     if let Ok(line) = line {
@@ -394,30 +394,20 @@ async fn spawn(
                 }
             }
 
-            loop {
-                match popen.poll() {
-                    None => futures_timer::Delay::new(std::time::Duration::from_millis(10)).await,
-                    Some(status) => {
-                        if !status.success() {
-                            // We can give an error when we see a non-zero exit code, but this is different
-                            // than what other shells will do.
-                            let cfg = crate::data::config::config(Tag::unknown());
-                            if let Ok(cfg) = cfg {
-                                if cfg.contains_key("nonzero_exit_errors") {
-                                    yield Ok(Value {
-                                        value: UntaggedValue::Error(
-                                            ShellError::labeled_error(
-                                                "External command failed",
-                                                "command failed",
-                                                &name_tag,
-                                            )
-                                        ),
-                                        tag: name_tag,
-                                    });
-                                }
-                            }
-                        }
-                        break;
+            if child.wait().is_err() {
+                let cfg = crate::data::config::config(Tag::unknown());
+                if let Ok(cfg) = cfg {
+                    if cfg.contains_key("nonzero_exit_errors") {
+                        yield Ok(Value {
+                            value: UntaggedValue::Error(
+                                ShellError::labeled_error(
+                                    "External command failed",
+                                    "command failed",
+                                    &name_tag,
+                                )
+                            ),
+                            tag: name_tag,
+                        });
                     }
                 }
             }

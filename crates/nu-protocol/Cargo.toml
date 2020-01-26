@@ -33,7 +33,6 @@ byte-unit = "3.0.3"
 natural = "0.3.0"
 
 # implement conversions
-subprocess = "0.1.18"
 serde_yaml = "0.8"
 toml = "0.5.5"
 serde_json = "1.0.44"

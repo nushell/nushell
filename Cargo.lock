@@ -2282,7 +2282,6 @@ dependencies = [
  "shellexpand",
  "starship",
  "strip-ansi-escapes",
- "subprocess",
  "syntect",
  "tempfile",
  "term",
@@ -2326,7 +2325,6 @@ dependencies = [
  "serde 1.0.104",
  "serde_json",
  "serde_yaml",
- "subprocess",
  "toml 0.5.6",
 ]
 
@@ -2411,7 +2409,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "serde_yaml",
- "subprocess",
  "toml 0.5.6",
  "typetag",
 ]
@@ -3794,17 +3791,6 @@ name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
-
-[[package]]
-name = "subprocess"
-version = "0.1.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68713fc0f9d941642c1e020d622e6421dfe09e8891ddd4bfa2109fda9a40431d"
-dependencies = [
- "crossbeam-utils 0.7.0",
- "libc",
- "winapi 0.3.8",
-]
 
 [[package]]
 name = "surf"
