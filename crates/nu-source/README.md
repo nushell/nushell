@@ -21,3 +21,10 @@ In the following example Nu is able to report to the user where the typo of a co
 ```
 
 In addition to metadata tracking, `nu-source` also contains types and traits related to debugging, tracing, and formatting the metadata and values it processes.
+
+## Other Resources
+- [Nushell Github Project](https://github.com/nushell): Contains all projects in the Nushell ecosystem such as the source code to Nushell as well as website and books.
+- [Nushell Git Repository](https://github.com/nushell/nushell): A direct link to the source git repository for Nushell
+- [Nushell Contributor Book](https://github.com/nushell/contributor-book): An overview of topics about Nushell to help you get started contributing to the project.
+- [Discord Channel](https://discordapp.com/invite/NtAbbGn)
+- [Twitter](https://twitter.com/nu_shell)
