@@ -275,7 +275,8 @@ async fn spawn(
     let mut process = {
         #[cfg(windows)]
         {
-            let mut process = Command::new("cmd").arg("/c");
+            let mut process = Command::cmd("cmd");
+            process = process.arg("/c");
             process = process.arg(&command.name);
             for arg in args {
                 process = process.arg(&arg);
