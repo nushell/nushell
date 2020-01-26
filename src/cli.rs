@@ -254,6 +254,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             // System/file operations
             whole_stream_command(Pwd),
             per_item_command(Ls),
+            per_item_command(Du),
             whole_stream_command(Cd),
             whole_stream_command(Env),
             per_item_command(Remove),
