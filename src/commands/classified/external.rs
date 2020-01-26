@@ -276,10 +276,10 @@ async fn spawn(
         #[cfg(windows)]
         {
             let mut process = Command::new("cmd");
-            process = process.arg("/c");
-            process = process.arg(&command.name);
+            process.arg("/c");
+            process.arg(&command.name);
             for arg in args {
-                process = process.arg(&arg);
+                process.arg(&arg);
             }
             process
         }
