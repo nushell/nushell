@@ -7,7 +7,7 @@
 
 # Nu Shell
 
-A modern shell for the GitHub era.
+A new type of shell.
 
 ![Example of nushell](images/nushell-autocomplete.gif "Example of nushell")
 
