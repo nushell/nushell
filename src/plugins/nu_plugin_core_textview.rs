@@ -213,7 +213,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                         ));
                         max_bottom_line =
                             paint_textview(&draw_commands, starting_row, use_color_buffer);
-                    }    
+                    }
                 }
             }
             let _ = std::io::stdout().execute(crossterm::cursor::Show);
