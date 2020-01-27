@@ -61,7 +61,7 @@ nu-macros = { version = "0.8.0", path = "./crates/nu-macros" }
 
 query_interface = "0.3.5"
 typetag = "0.1.4"
-rustyline = "5.0.6"
+rustyline = "6.0.0"
 chrono = { version = "0.4.10", features = ["serde"] }
 derive-new = "0.5.8"
 prettytable-rs = "0.8.0"

@@ -18,7 +18,7 @@ use nu_protocol::{Signature, UntaggedValue, Value};
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{
-    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, Config, Editor, KeyPress,
+    self, config::Configurer, config::EditMode, At, Cmd, ColorMode, CompletionType, Config, Editor, KeyPress,
     Movement, Word,
 };
 use std::error::Error;
@@ -418,6 +418,17 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             .unwrap_or(EditMode::Emacs);
 
         rl.set_edit_mode(edit_mode);
+        
+        let completion_mode = config::config(Tag::unknown())?
+        .get("completion_mode")
+        .map(|s| match s.value.expect_string() {
+            "list" => CompletionType::List,
+            "circular" => CompletionType::Circular,
+            _ => CompletionType::Circular,
+        })
+        .unwrap_or(CompletionType::Circular);
+
+        rl.set_completion_type(completion_mode);
 
         let colored_prompt = {
             #[cfg(feature = "starship-prompt")]
