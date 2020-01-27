@@ -204,3 +204,7 @@ impl Painter {
 }
 
 impl rustyline::Helper for Helper {}
+
+// Use default validator for normal single line behaviour
+// In the future we can implement this for custom multi-line support
+impl rustyline::validate::Validator for Helper {}
