@@ -44,7 +44,7 @@ fn paint_textview(
     starting_row: usize,
     use_color_buffer: bool,
 ) -> usize {
-    let size = crossterm::terminal::size().unwrap();
+    let size = crossterm::terminal::size().unwrap_or_else(|_| (80, 24));
 
     // render
     let mut pos = 0;
@@ -131,7 +131,7 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
     let mut starting_row = 0;
 
     if let Ok(_raw) = crossterm::terminal::enable_raw_mode() {
-        let mut size = crossterm::terminal::size().unwrap();
+        let mut size = crossterm::terminal::size().unwrap_or_else(|_| (80, 24));
         let height = size.1 as usize - 1;
 
         let mut max_bottom_line = paint_textview(&draw_commands, starting_row, use_color_buffer);
@@ -205,14 +205,15 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                     }
                 }
 
-                let new_size = crossterm::terminal::size().unwrap();
-                if size != new_size {
-                    size = new_size;
-                    let _ = std::io::stdout().execute(crossterm::terminal::Clear(
-                        crossterm::terminal::ClearType::All,
-                    ));
-                    max_bottom_line =
-                        paint_textview(&draw_commands, starting_row, use_color_buffer);
+                if let Ok(new_size) = crossterm::terminal::size() {
+                    if size != new_size {
+                        size = new_size;
+                        let _ = std::io::stdout().execute(crossterm::terminal::Clear(
+                            crossterm::terminal::ClearType::All,
+                        ));
+                        max_bottom_line =
+                            paint_textview(&draw_commands, starting_row, use_color_buffer);
+                    }
                 }
             }
             let _ = std::io::stdout().execute(crossterm::cursor::Show);
