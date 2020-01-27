@@ -9,7 +9,6 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
-use glob::GlobResult;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
@@ -97,28 +96,37 @@ impl Shell for FilesystemShell {
         }: LsArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
+        let ctrl_c = context.ctrl_c.clone();
+        let name_tag = context.name.clone();
+
         let (path, p_tag) = match path {
             Some(p) => {
                 let p_tag = p.tag;
                 let mut p = p.item;
                 if p.is_dir() {
+                    if std::fs::read_dir(&p).map_or(false, |mut s| s.next().is_none()) {
+                        return Ok(OutputStream::empty());
+                    }
                     p.push("*");
                 }
                 (p, p_tag)
             }
-            None => (PathBuf::from("./*"), context.name.clone()),
+            None => {
+                if std::fs::read_dir(self.path()).map_or(false, |mut s| s.next().is_none()) {
+                    return Ok(OutputStream::empty());
+                } else {
+                    (PathBuf::from("./*"), context.name.clone())
+                }
+            }
         };
 
-        let ctrl_c = context.ctrl_c.clone();
-        let name_tag = context.name.clone();
-
-        let paths: Vec<GlobResult> = match glob::glob(&path.to_string_lossy()) {
+        let mut paths = match glob::glob(&path.to_string_lossy()) {
             Ok(g) => Ok(g),
             Err(e) => Err(ShellError::labeled_error("Glob error", e.msg, &p_tag)),
         }?
-        .collect();
+        .peekable();
 
-        if paths.is_empty() {
+        if paths.peek().is_none() {
             return Err(ShellError::labeled_error(
                 "Invalid File or Pattern",
                 "Invalid File or Pattern",
@@ -136,6 +144,15 @@ impl Shell for FilesystemShell {
                         Ok(d) => yield ReturnSuccess::value(d),
                         Err(e) => yield Err(e),
                     },
+                    Ok(p) => match std::fs::metadata(&p) {
+                        Ok(m) => {
+                            match dir_entry_dict(&p, &m, name_tag.clone(), full, short_names) {
+                                Ok(d) => yield ReturnSuccess::value(d),
+                                Err(e) => yield Err(e)
+                            }
+                        }
+                        Err(e) => yield Err(ShellError::from(e))
+                    }
                     Err(e) => yield Err(e.into_error().into()),
                 }
             }
