@@ -1,4 +1,4 @@
-use crossterm::{cursor, terminal, Attribute, RawScreen};
+use crossterm::{style::Attribute, ExecutableCommand};
 use nu_errors::ShellError;
 use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{outln, CallInfo, Primitive, Signature, UntaggedValue, Value};
@@ -71,8 +71,7 @@ impl RenderContext {
         let mut prev_color: Option<(u8, u8, u8)> = None;
         let mut prev_count = 1;
 
-        let cursor = cursor();
-        cursor.goto(0, 0)?;
+        let _ = std::io::stdout().execute(crossterm::cursor::MoveTo(0, 0));
 
         for pixel in &self.frame_buffer {
             match prev_color {
@@ -115,8 +114,7 @@ impl RenderContext {
         let mut pos = 0;
         let fb_len = self.frame_buffer.len();
 
-        let cursor = cursor();
-        cursor.goto(0, 0)?;
+        let _ = std::io::stdout().execute(crossterm::cursor::MoveTo(0, 0));
 
         while pos < (fb_len - self.width) {
             let top_pixel = self.frame_buffer[pos];
@@ -169,12 +167,10 @@ impl RenderContext {
         }
     }
     pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let terminal = terminal();
-        let terminal_size = terminal.terminal_size();
+        let terminal_size = crossterm::terminal::size().unwrap_or_else(|_| (80, 24));
 
         if (self.width != terminal_size.0 as usize) || (self.height != terminal_size.1 as usize) {
-            let cursor = cursor();
-            cursor.hide()?;
+            let _ = std::io::stdout().execute(crossterm::cursor::Hide);
 
             self.width = terminal_size.0 as usize;
             self.height = if self.lores_mode {
@@ -305,10 +301,9 @@ pub fn view_contents(
 
     render_context.flush()?;
 
-    let cursor = cursor();
-    let _ = cursor.show();
+    let _ = std::io::stdout().execute(crossterm::cursor::Show);
 
-    let _ = RawScreen::disable_raw_mode();
+    let _ = crossterm::terminal::disable_raw_mode();
 
     Ok(())
 }
@@ -340,11 +335,8 @@ pub fn view_contents_interactive(
 
     nes.reset();
 
-    if let Ok(_raw) = RawScreen::into_raw_mode() {
+    if let Ok(_raw) = crossterm::terminal::enable_raw_mode() {
         let mut render_context: RenderContext = RenderContext::blank(lores_mode);
-        let input = crossterm::input();
-        let _ = input.read_async();
-        let cursor = cursor();
 
         let buttons = vec![
             KeyCode::Alt,
@@ -357,7 +349,7 @@ pub fn view_contents_interactive(
             KeyCode::RightArrow,
         ];
 
-        cursor.hide()?;
+        let _ = std::io::stdout().execute(crossterm::cursor::Hide);
 
         'gameloop: loop {
             let _ = render_context.update();
@@ -397,6 +389,18 @@ pub fn view_contents_interactive(
                         nes.release_button(0, idx as u8);
                     }
                 }
+                loop {
+                    let x = crossterm::event::poll(std::time::Duration::from_secs(0));
+                    match x {
+                        Ok(true) => {
+                            // Swallow the events so we don't queue them into the line editor
+                            let _ = crossterm::event::read();
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -408,10 +412,9 @@ pub fn view_contents_interactive(
         }
     }
 
-    let cursor = cursor();
-    let _ = cursor.show();
+    let _ = std::io::stdout().execute(crossterm::cursor::Show);
 
-    let _screen = RawScreen::disable_raw_mode();
+    let _screen = crossterm::terminal::disable_raw_mode();
 
     Ok(())
 }

@@ -1,5 +1,7 @@
-use crossterm::{cursor, terminal, RawScreen};
-use crossterm::{InputEvent, KeyEvent};
+use crossterm::{
+    event::{KeyCode, KeyEvent},
+    ExecutableCommand,
+};
 use nu_errors::ShellError;
 use nu_plugin::{serve_plugin, Plugin};
 use nu_protocol::{outln, CallInfo, Primitive, Signature, UntaggedValue, Value};
@@ -42,10 +44,7 @@ fn paint_textview(
     starting_row: usize,
     use_color_buffer: bool,
 ) -> usize {
-    let terminal = terminal();
-    let cursor = cursor();
-
-    let size = terminal.terminal_size();
+    let size = crossterm::terminal::size().unwrap_or_else(|_| (80, 24));
 
     // render
     let mut pos = 0;
@@ -105,7 +104,7 @@ fn paint_textview(
     }
 
     if buffer_needs_scrolling {
-        let _ = cursor.goto(0, 0);
+        let _ = std::io::stdout().execute(crossterm::cursor::MoveTo(0, 0));
     }
 
     if use_color_buffer {
@@ -116,7 +115,7 @@ fn paint_textview(
     }
 
     if buffer_needs_scrolling {
-        let _ = cursor.goto(0, size.1);
+        let _ = std::io::stdout().execute(crossterm::cursor::MoveTo(0, size.1));
         print!(
             "{}",
             ansi_term::Colour::Blue.paint("[ESC to quit, arrow keys to move]")
@@ -131,29 +130,24 @@ fn paint_textview(
 fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer: bool) {
     let mut starting_row = 0;
 
-    if let Ok(_raw) = RawScreen::into_raw_mode() {
-        let terminal = terminal();
-        let mut size = terminal.terminal_size();
+    if let Ok(_raw) = crossterm::terminal::enable_raw_mode() {
+        let mut size = crossterm::terminal::size().unwrap_or_else(|_| (80, 24));
         let height = size.1 as usize - 1;
 
         let mut max_bottom_line = paint_textview(&draw_commands, starting_row, use_color_buffer);
 
         // Only scroll if needed
         if max_bottom_line > height as usize {
-            let cursor = cursor();
-            let _ = cursor.hide();
-
-            let input = crossterm::input();
-            let mut sync_stdin = input.read_sync();
+            let _ = std::io::stdout().execute(crossterm::cursor::Hide);
 
             loop {
-                if let Some(ev) = sync_stdin.next() {
-                    if let InputEvent::Keyboard(k) = ev {
-                        match k {
-                            KeyEvent::Esc => {
+                if let Ok(ev) = crossterm::event::read() {
+                    if let crossterm::event::Event::Key(KeyEvent { code, modifiers }) = ev {
+                        match code {
+                            KeyCode::Esc => {
                                 break;
                             }
-                            KeyEvent::Up | KeyEvent::Char('k') => {
+                            KeyCode::Up | KeyCode::Char('k') => {
                                 if starting_row > 0 {
                                     starting_row -= 1;
                                     max_bottom_line = paint_textview(
@@ -163,19 +157,39 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                                     );
                                 }
                             }
-                            KeyEvent::Down | KeyEvent::Char('j') => {
+                            KeyCode::Down | KeyCode::Char('j') => {
                                 if starting_row < (max_bottom_line - height) {
                                     starting_row += 1;
                                 }
                                 max_bottom_line =
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
-                            KeyEvent::PageUp | KeyEvent::Ctrl('b') => {
+                            KeyCode::Char('b')
+                                if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) =>
+                            {
                                 starting_row -= std::cmp::min(height, starting_row);
                                 max_bottom_line =
                                     paint_textview(&draw_commands, starting_row, use_color_buffer);
                             }
-                            KeyEvent::PageDown | KeyEvent::Ctrl('f') | KeyEvent::Char(' ') => {
+                            KeyCode::PageUp => {
+                                starting_row -= std::cmp::min(height, starting_row);
+                                max_bottom_line =
+                                    paint_textview(&draw_commands, starting_row, use_color_buffer);
+                            }
+                            KeyCode::Char('f')
+                                if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) =>
+                            {
+                                if starting_row < (max_bottom_line - height) {
+                                    starting_row += height;
+
+                                    if starting_row > (max_bottom_line - height) {
+                                        starting_row = max_bottom_line - height;
+                                    }
+                                }
+                                max_bottom_line =
+                                    paint_textview(&draw_commands, starting_row, use_color_buffer);
+                            }
+                            KeyCode::PageDown | KeyCode::Char(' ') => {
                                 if starting_row < (max_bottom_line - height) {
                                     starting_row += height;
 
@@ -191,17 +205,20 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                     }
                 }
 
-                let new_size = terminal.terminal_size();
-                if size != new_size {
-                    size = new_size;
-                    let _ = terminal.clear(crossterm::ClearType::All);
-                    max_bottom_line =
-                        paint_textview(&draw_commands, starting_row, use_color_buffer);
+                if let Ok(new_size) = crossterm::terminal::size() {
+                    if size != new_size {
+                        size = new_size;
+                        let _ = std::io::stdout().execute(crossterm::terminal::Clear(
+                            crossterm::terminal::ClearType::All,
+                        ));
+                        max_bottom_line =
+                            paint_textview(&draw_commands, starting_row, use_color_buffer);
+                    }
                 }
             }
-            let _ = cursor.show();
+            let _ = std::io::stdout().execute(crossterm::cursor::Show);
 
-            let _ = RawScreen::disable_raw_mode();
+            let _ = crossterm::terminal::disable_raw_mode();
         }
     }
 

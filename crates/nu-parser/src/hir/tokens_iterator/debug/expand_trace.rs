@@ -171,7 +171,7 @@ impl TreeFrame {
             write!(
                 f,
                 "{}",
-                Color::Black.bold().paint(&format!("({})", self.token_desc))
+                Color::White.bold().paint(&format!("({})", self.token_desc))
             )?;
 
             write!(f, " -> ")?;
@@ -196,7 +196,7 @@ impl TreeFrame {
             write!(
                 f,
                 "{}",
-                Color::Black.bold().paint(&format!("({})", self.token_desc))
+                Color::White.bold().paint(&format!("({})", self.token_desc))
             )
         }
     }
@@ -305,7 +305,7 @@ impl TreeChild {
                 for (i, (desc, err_desc)) in desc.iter().enumerate() {
                     write!(f, "{}", Color::White.bold().on(Color::Red).paint(*desc))?;
 
-                    write!(f, " {}", Color::Black.bold().paint(*err_desc))?;
+                    write!(f, " {}", Color::White.bold().paint(*err_desc))?;
 
                     if i != last {
                         write!(f, "{}", Color::White.normal().paint(", "))?;
