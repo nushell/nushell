@@ -159,7 +159,7 @@ impl Painter {
                 FlatShape::Type => Color::Blue.bold(),
                 FlatShape::CompareOperator => Color::Yellow.normal(),
                 FlatShape::DotDot => Color::Yellow.bold(),
-                FlatShape::Dot => Style::new().fg(Color::White).on(Color::Black),
+                FlatShape::Dot => Style::new().fg(Color::White),
                 FlatShape::InternalCommand => Color::Cyan.bold(),
                 FlatShape::ExternalCommand => Color::Cyan.normal(),
                 FlatShape::ExternalWord => Color::Green.bold(),
