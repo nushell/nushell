@@ -140,13 +140,9 @@ impl Shell for FilesystemShell {
                     break;
                 }
                 match path {
-                    Ok(p) => match dir_entry_dict(&p, name_tag.clone(), full, short_names, with_symlink_targets) {
-                        Ok(d) => yield ReturnSuccess::value(d),
-                        Err(e) => yield Err(e),
-                    },
                     Ok(p) => match std::fs::symlink_metadata(&p) {
                         Ok(m) => {
-                            match dir_entry_dict(&p, &m, name_tag.clone(), full, short_names) {
+                            match dir_entry_dict(&p, &m, name_tag.clone(), full, short_names, with_symlink_targets) {
                                 Ok(d) => yield ReturnSuccess::value(d),
                                 Err(e) => yield Err(e)
                             }

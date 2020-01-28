@@ -37,7 +37,7 @@ pub(crate) fn dir_entry_dict(
     if full || with_symlink_targets {
         if metadata.is_dir() || metadata.is_file() {
             dict.insert_untagged("target", UntaggedValue::bytes(0u64));
-        } else if let Ok(path_to_link) = path.read_link() {
+        } else if let Ok(path_to_link) = filename.read_link() {
             dict.insert_untagged(
                 "target",
                 UntaggedValue::string(path_to_link.to_string_lossy()),
