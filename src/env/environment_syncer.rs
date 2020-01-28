@@ -97,17 +97,17 @@ impl EnvironmentSyncer {
     }
 
     #[cfg(test)]
-    pub fn clear_env_vars(&mut self) {
-        for (key, _value) in std::env::vars() {
+    pub fn clear_env_vars(&mut self, ctx: &mut Context) {
+        for (key, _value) in ctx.with_host(|host| host.vars()) {
             if key != "path" && key != "PATH" {
-                std::env::remove_var(key);
+                ctx.with_host(|host| host.env_rm(std::ffi::OsString::from(key)));
             }
         }
     }
 
     #[cfg(test)]
-    pub fn clear_path_var(&mut self) {
-        std::env::remove_var("PATH")
+    pub fn clear_path_var(&mut self, ctx: &mut Context) {
+        ctx.with_host(|host| host.env_rm(std::ffi::OsString::from("PATH")));
     }
 }
 
@@ -120,13 +120,15 @@ mod tests {
     use nu_errors::ShellError;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
+    use parking_lot::Mutex;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
-    //#[test]
-    #[allow(unused)]
+    #[test]
     fn syncs_env_if_new_env_entry_in_session_is_not_in_configuration_file() -> Result<(), ShellError>
     {
         let mut ctx = Context::basic()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = vec![
             (
@@ -155,14 +157,16 @@ mod tests {
             // Here, the environment variables from the current session
             // are cleared since we will load and set them from the
             // configuration file (if any)
-            actual.clear_env_vars();
+            actual.clear_env_vars(&mut ctx);
 
             // We explicitly simulate and add the USER variable to the current
             // session's environment variables with the value "NUNO".
-            std::env::set_var(
-                std::ffi::OsString::from("USER"),
-                std::ffi::OsString::from("NUNO"),
-            );
+            ctx.with_host(|test_host| {
+                test_host.env_set(
+                    std::ffi::OsString::from("USER"),
+                    std::ffi::OsString::from("NUNO"),
+                )
+            });
 
             // Nu loads the environment variables from the configuration file (if any)
             actual.load_environment();
@@ -219,10 +223,10 @@ mod tests {
         Ok(())
     }
 
-    //#[test]
-    #[allow(unused)]
+    #[test]
     fn nu_envs_have_higher_priority_and_does_not_get_overwritten() -> Result<(), ShellError> {
         let mut ctx = Context::basic()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = vec![(
             "SHELL".to_string(),
@@ -245,12 +249,14 @@ mod tests {
             let mut actual = EnvironmentSyncer::new();
             actual.set_config(Box::new(fake_config));
 
-            actual.clear_env_vars();
+            actual.clear_env_vars(&mut ctx);
 
-            std::env::set_var(
-                std::ffi::OsString::from("SHELL"),
-                std::ffi::OsString::from("/usr/bin/sh"),
-            );
+            ctx.with_host(|test_host| {
+                test_host.env_set(
+                    std::ffi::OsString::from("SHELL"),
+                    std::ffi::OsString::from("/usr/bin/sh"),
+                )
+            });
 
             actual.load_environment();
             actual.sync_env_vars(&mut ctx);
@@ -286,11 +292,11 @@ mod tests {
         Ok(())
     }
 
-    //#[test]
-    #[allow(unused)]
+    #[test]
     fn syncs_path_if_new_path_entry_in_session_is_not_in_configuration_file(
     ) -> Result<(), ShellError> {
         let mut ctx = Context::basic()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![
             PathBuf::from("/path/to/be/added"),
@@ -319,15 +325,17 @@ mod tests {
             // Here, the environment variables from the current session
             // are cleared since we will load and set them from the
             // configuration file (if any)
-            actual.clear_path_var();
+            actual.clear_path_var(&mut ctx);
 
             // We explicitly simulate and add the PATH variable to the current
             // session with the path "/path/to/be/added".
-            std::env::set_var(
-                std::ffi::OsString::from("PATH"),
-                std::env::join_paths(vec![PathBuf::from("/path/to/be/added")])
-                    .expect("Couldn't join paths."),
-            );
+            ctx.with_host(|test_host| {
+                test_host.env_set(
+                    std::ffi::OsString::from("PATH"),
+                    std::env::join_paths(vec![PathBuf::from("/path/to/be/added")])
+                        .expect("Couldn't join paths."),
+                )
+            });
 
             // Nu loads the path variables from the configuration file (if any)
             actual.load_environment();
