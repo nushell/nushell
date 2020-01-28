@@ -54,6 +54,8 @@ pub fn parse_command_tail(
                     Ok((pos, flag)) => {
                         let result = expand_flag(tail, *syntax_type, flag, pos);
 
+                        tail.move_to(0);
+
                         match result {
                             Ok(expr) => {
                                 named.insert_mandatory(name, expr);
@@ -77,6 +79,8 @@ pub fn parse_command_tail(
                     }
                     Ok(Some((pos, flag))) => {
                         let result = expand_flag(tail, *syntax_type, flag, pos);
+
+                        tail.move_to(0);
 
                         match result {
                             Ok(expr) => {
