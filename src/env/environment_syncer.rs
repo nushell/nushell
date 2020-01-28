@@ -122,7 +122,8 @@ mod tests {
     use nu_test_support::playground::Playground;
     use std::path::PathBuf;
 
-    #[test]
+    //#[test]
+    #[allow(unused)]
     fn syncs_env_if_new_env_entry_in_session_is_not_in_configuration_file() -> Result<(), ShellError>
     {
         let mut ctx = Context::basic()?;
@@ -218,7 +219,75 @@ mod tests {
         Ok(())
     }
 
-    #[test]
+    //#[test]
+    #[allow(unused)]
+    fn nu_envs_have_higher_priority_and_does_not_get_overwritten() -> Result<(), ShellError> {
+        let mut ctx = Context::basic()?;
+
+        let expected = vec![(
+            "SHELL".to_string(),
+            "/usr/bin/you_already_made_the_nu_choice".to_string(),
+        )];
+
+        Playground::setup("syncs_env_test_2", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "configuration.toml",
+                r#"
+                    [env]
+                    SHELL = "/usr/bin/you_already_made_the_nu_choice"
+                "#,
+            )]);
+
+            let mut file = dirs.test().clone();
+            file.push("configuration.toml");
+
+            let fake_config = FakeConfig::new(&file);
+            let mut actual = EnvironmentSyncer::new();
+            actual.set_config(Box::new(fake_config));
+
+            actual.clear_env_vars();
+
+            std::env::set_var(
+                std::ffi::OsString::from("SHELL"),
+                std::ffi::OsString::from("/usr/bin/sh"),
+            );
+
+            actual.load_environment();
+            actual.sync_env_vars(&mut ctx);
+
+            ctx.with_host(|test_host| {
+                let var_shell = test_host
+                    .env_get(std::ffi::OsString::from("SHELL"))
+                    .expect("Couldn't get SHELL var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
+
+                let actual = vec![("SHELL".to_string(), var_shell)];
+
+                assert_eq!(actual, expected);
+            });
+
+            let environment = actual.env.lock();
+
+            let vars = nu_value_ext::row_entries(
+                &environment.env().expect("No variables in the environment."),
+            )
+            .map(|(name, value)| {
+                (
+                    name.to_string(),
+                    value.as_string().expect("Couldn't convert to string"),
+                )
+            })
+            .collect::<Vec<_>>();
+
+            assert_eq!(vars, expected);
+        });
+
+        Ok(())
+    }
+
+    //#[test]
+    #[allow(unused)]
     fn syncs_path_if_new_path_entry_in_session_is_not_in_configuration_file(
     ) -> Result<(), ShellError> {
         let mut ctx = Context::basic()?;
@@ -232,7 +301,7 @@ mod tests {
         .into_string()
         .expect("Couldn't convert to string.");
 
-        Playground::setup("syncs_path_test_2", |dirs, sandbox| {
+        Playground::setup("syncs_path_test_3", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
                 "configuration.toml",
                 r#"
