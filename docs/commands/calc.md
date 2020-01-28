@@ -1,6 +1,6 @@
 # calc
 
-calc is a command that takes a math expression as an argument and calculates that into a number.
+calc is a command that takes a math expression from the pipeline and calculates that into a number.
 
 This command supports the following operations - 
 
@@ -24,35 +24,35 @@ constants:
 ## Examples - 
 
 ```
-> calc "1+2+3"
+> echo "1+2+3" | calc
 6.000000000000000
-> calc "1-2+3"
+> echo "1-2+3" | calc
 2.000000000000000
-> calc "-(-23)"
+> echo "-(-23)" | calc
 23.00000000000000
-> calc "5^2"
+> echo "5^2" | calc
 25.00000000000000
-> calc "5^3"
+> echo "5^3" | calc
 125.0000000000000
-> calc "min(5,4,3,2,1,0,-100,45)"
+> echo "min(5,4,3,2,1,0,-100,45)" | calc
 -100.0000000000000
-> calc "max(5,4,3,2,1,0,-100,45)"
+> echo "max(5,4,3,2,1,0,-100,45)" | calc
 45.00000000000000
-> calc "sqrt(2)"
+> echo "sqrt(2) | calc"
 1.414213562373095
-> calc pi
+> echo pi | calc
 3.141592653589793
-> calc e
+> echo e | calc
 2.718281828459045
-> calc "sin(pi / 2)"
+> echo "sin(pi / 2)" | calc
 1.000000000000000
-> calc "floor(5999/1000)"
+> echo "floor(5999/1000)" | calc
 5.000000000000000
 ```
 
 Note that since `calc` uses floating-point numbers, the result may not always be precise. 
 
 ```
-> calc "floor(5999999999999999999/1000000000000000000)"
+> echo "floor(5999999999999999999/1000000000000000000)" | calc
 6.000000000000000
 ```
