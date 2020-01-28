@@ -8,9 +8,25 @@ pub(crate) fn dir_entry_dict(
     tag: impl Into<Tag>,
     full: bool,
     with_symlink_targets: bool,
+    name_only: bool,
 ) -> Result<Value, ShellError> {
-    let mut dict = TaggedDictBuilder::new(tag);
-    dict.insert_untagged("name", UntaggedValue::string(filename.to_string_lossy()));
+    let tag = tag.into();
+    let mut dict = TaggedDictBuilder::new(&tag);
+
+    let name = if name_only {
+        filename.file_name().and_then(|s| s.to_str())
+    } else {
+        filename.to_str()
+    }
+    .ok_or_else(|| {
+        ShellError::labeled_error(
+            format!("Invalid file name: {:}", filename.to_string_lossy()),
+            "invalid file name",
+            tag,
+        )
+    })?;
+
+    dict.insert_untagged("name", UntaggedValue::string(name));
 
     if metadata.is_dir() {
         dict.insert_untagged("type", UntaggedValue::string("Dir"));
