@@ -104,7 +104,7 @@ impl Shell for FilesystemShell {
                 let p_tag = p.tag;
                 let mut p = p.item;
                 if p.is_dir() {
-                    if std::fs::read_dir(&p).map_or(false, |mut s| s.next().is_none()) {
+                    if is_dir_empty(&p) {
                         return Ok(OutputStream::empty());
                     }
                     p.push("*");
@@ -112,7 +112,7 @@ impl Shell for FilesystemShell {
                 (p, p_tag)
             }
             None => {
-                if std::fs::read_dir(self.path()).map_or(false, |mut s| s.next().is_none()) {
+                if is_dir_empty(&self.path().into()) {
                     return Ok(OutputStream::empty());
                 } else {
                     (PathBuf::from("./*"), context.name.clone())
@@ -144,7 +144,7 @@ impl Shell for FilesystemShell {
                         Ok(d) => yield ReturnSuccess::value(d),
                         Err(e) => yield Err(e),
                     },
-                    Ok(p) => match std::fs::metadata(&p) {
+                    Ok(p) => match std::fs::symlink_metadata(&p) {
                         Ok(m) => {
                             match dir_entry_dict(&p, &m, name_tag.clone(), full, short_names) {
                                 Ok(d) => yield ReturnSuccess::value(d),
@@ -1126,5 +1126,12 @@ impl Shell for FilesystemShell {
         _expand_context: ExpandContext,
     ) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
+    }
+}
+
+fn is_dir_empty(d: &PathBuf) -> bool {
+    match d.read_dir() {
+        Err(_e) => true,
+        Ok(mut s) => s.next().is_none(),
     }
 }

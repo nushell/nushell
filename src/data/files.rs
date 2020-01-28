@@ -19,8 +19,8 @@ pub(crate) fn dir_entry_dict(
         filename.to_str()
     }
     .ok_or(ShellError::labeled_error(
-        format!("Invalid File name: {:}", filename.to_string_lossy()),
-        "Invalid File Name",
+        format!("Invalid file name: {:}", filename.to_string_lossy()),
+        "invalid file name",
         tag,
     ))?;
 
