@@ -87,7 +87,11 @@ impl Env for Environment {
             }) = self.environment_vars
             {
                 let mut new_envs = envs.clone();
-                new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
+
+                if !new_envs.contains_key(key) {
+                    new_envs.insert_data_at_key(key, value.into_value(tag.clone()));
+                }
+
                 Value {
                     value: UntaggedValue::Row(new_envs),
                     tag: tag.clone(),
@@ -221,8 +225,40 @@ mod tests {
     }
 
     #[test]
-    fn updates_path_variable() {
+    fn does_not_update_env_variable_if_it_exists() {
         Playground::setup("environment_test_4", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "configuration.toml",
+                r#"
+                    [env]
+                    SHELL = "/usr/bin/you_already_made_the_nu_choice"
+                "#,
+            )]);
+
+            let mut file = dirs.test().clone();
+            file.push("configuration.toml");
+
+            let fake_config = FakeConfig::new(&file);
+            let mut actual = Environment::from_config(&fake_config);
+
+            actual.add_env("SHELL", "/usr/bin/sh");
+
+            assert_eq!(
+                actual.env(),
+                Some(
+                    UntaggedValue::row(
+                        indexmap! {
+                            "SHELL".into() => UntaggedValue::string("/usr/bin/you_already_made_the_nu_choice").into_untagged_value(),
+                        }
+                    ).into_untagged_value()
+                )
+            );
+        });
+    }
+
+    #[test]
+    fn updates_path_variable() {
+        Playground::setup("environment_test_5", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
                 "configuration.toml",
                 r#"

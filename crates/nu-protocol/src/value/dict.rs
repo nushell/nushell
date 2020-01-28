@@ -130,6 +130,11 @@ impl Dictionary {
         self.entries.keys()
     }
 
+    /// Checks if given key exists
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.entries.contains_key(key)
+    }
+
     /// Find the matching Value for a key, if possible
     pub fn get_data_by_key(&self, name: Spanned<&str>) -> Option<Value> {
         let result = self
