@@ -122,7 +122,6 @@ impl UntaggedValue {
     }
 
     /// Helper for creating row values
-    #[allow(unused)]
     pub fn row(entries: IndexMap<String, Value>) -> UntaggedValue {
         UntaggedValue::Row(entries.into())
     }

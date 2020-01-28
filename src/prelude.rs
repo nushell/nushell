@@ -77,6 +77,7 @@ pub(crate) use crate::commands::command::{
 };
 pub(crate) use crate::context::CommandRegistry;
 pub(crate) use crate::context::Context;
+pub(crate) use crate::data::config;
 pub(crate) use crate::data::types::ExtractType;
 pub(crate) use crate::data::value;
 pub(crate) use crate::env::host::handle_unexpected;
