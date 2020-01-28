@@ -1,21 +1,13 @@
-use crate::commands::WholeStreamCommand;
+use crate::commands::PerItemCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{CallInfo, Primitive, ReturnSuccess, UntaggedValue, Value};
 
 pub struct Calc;
 
-impl WholeStreamCommand for Calc {
+impl PerItemCommand for Calc {
     fn name(&self) -> &str {
         "calc"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("calc").required(
-            "math-expression",
-            SyntaxShape::String,
-            "the expression to parse into a number",
-        )
     }
 
     fn usage(&self) -> &str {
@@ -24,26 +16,17 @@ impl WholeStreamCommand for Calc {
 
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
+        _call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        raw_args: &RawCommandArgs,
+        input: Value,
     ) -> Result<OutputStream, ShellError> {
-        calc(args, registry)
+        calc(input, raw_args)
     }
 }
 
-fn calc(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let args = args.evaluate_once(registry)?;
-    let tag = &args.call_info.name_tag;
-    let name_span = tag.span;
-    let input = match args.args.nth(0) {
-        Some(s) => Ok(s),
-        None => Err(ShellError::labeled_error(
-            "Expected a string argument",
-            "requires string input",
-            name_span,
-        )),
-    };
-    let input = input?;
+fn calc(input: Value, args: &RawCommandArgs) -> Result<OutputStream, ShellError> {
+    let name_span = &args.call_info.name_tag.span;
 
     let output = if let Ok(string) = input.as_string() {
         match parse(&string, &input.tag) {
@@ -56,7 +39,7 @@ fn calc(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, S
         }
     } else {
         Err(ShellError::labeled_error(
-            "Expected a string argument",
+            "Expected a string from pipeline",
             "requires string input",
             name_span,
         ))
