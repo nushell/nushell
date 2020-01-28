@@ -13,6 +13,8 @@ pub struct LsArgs {
     pub full: bool,
     #[serde(rename = "short-names")]
     pub short_names: bool,
+    #[serde(rename = "with-symlink-targets")]
+    pub with_symlink_targets: bool,
 }
 
 impl PerItemCommand for Ls {
@@ -29,6 +31,10 @@ impl PerItemCommand for Ls {
             )
             .switch("full", "list all available columns for each entry")
             .switch("short-names", "only print the file names and not the path")
+            .switch(
+                "with-symlink-targets",
+                "display the paths to the target files that symlinks point to",
+            )
     }
 
     fn usage(&self) -> &str {

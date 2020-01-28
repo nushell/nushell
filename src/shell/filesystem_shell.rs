@@ -92,6 +92,7 @@ impl Shell for FilesystemShell {
             path,
             full,
             short_names,
+            with_symlink_targets,
         }: LsArgs,
         context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
@@ -166,7 +167,7 @@ impl Shell for FilesystemShell {
                                     }
                                 }
 
-                                let value = dir_entry_dict(filename, &metadata, &name_tag, full)?;
+                                let value = dir_entry_dict(filename, &metadata, &name_tag, full, with_symlink_targets)?;
                                 yield ReturnSuccess::value(value);
                             }
                         }
@@ -217,7 +218,7 @@ impl Shell for FilesystemShell {
                             }
                         }
 
-                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full) {
+                        if let Ok(value) = dir_entry_dict(filename, &metadata, &name_tag, full, with_symlink_targets) {
                             yield ReturnSuccess::value(value);
                         }
                     }
