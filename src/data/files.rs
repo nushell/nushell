@@ -18,11 +18,13 @@ pub(crate) fn dir_entry_dict(
     } else {
         filename.to_str()
     }
-    .ok_or(ShellError::labeled_error(
-        format!("Invalid file name: {:}", filename.to_string_lossy()),
-        "invalid file name",
-        tag,
-    ))?;
+    .ok_or_else(|| {
+        ShellError::labeled_error(
+            format!("Invalid file name: {:}", filename.to_string_lossy()),
+            "invalid file name",
+            tag,
+        )
+    })?;
 
     dict.insert_untagged("name", UntaggedValue::string(name));
 
