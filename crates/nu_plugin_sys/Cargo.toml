@@ -1,20 +1,20 @@
 [package]
 name = "nu_plugin_sys"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "A system info plugin for Nushell"
 license = "MIT"
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version="0.8.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.8.0" }
-nu-source = { path = "../nu-source", version = "0.8.0" }
-nu-errors = { path = "../nu-errors", version = "0.8.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.9.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.9.0" }
+nu-source = { path = "../nu-source", version = "0.9.0" }
+nu-errors = { path = "../nu-errors", version = "0.9.0" }
 heim = "0.0.9"
 futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
 battery = "0.7.5"
 futures-util = "0.3.1"
 
 [build-dependencies]
-nu-build = { version = "0.8.0", path = "../nu-build" }
+nu-build = { version = "0.9.0", path = "../nu-build" }
