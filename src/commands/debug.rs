@@ -6,7 +6,9 @@ use nu_protocol::{ReturnSuccess, Signature, UntaggedValue};
 pub struct Debug;
 
 #[derive(Deserialize)]
-pub struct DebugArgs {}
+pub struct DebugArgs {
+    raw: bool,
+}
 
 impl WholeStreamCommand for Debug {
     fn name(&self) -> &str {
@@ -14,7 +16,7 @@ impl WholeStreamCommand for Debug {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("debug")
+        Signature::build("debug").switch("raw", "Prints the raw value representation.")
     }
 
     fn usage(&self) -> &str {
@@ -31,13 +33,19 @@ impl WholeStreamCommand for Debug {
 }
 
 fn debug_value(
-    _args: DebugArgs,
+    DebugArgs { raw }: DebugArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<impl ToOutputStream, ShellError> {
     Ok(input
         .values
-        .map(|v| {
-            ReturnSuccess::value(UntaggedValue::string(format!("{:#?}", v)).into_untagged_value())
+        .map(move |v| {
+            if raw {
+                ReturnSuccess::value(
+                    UntaggedValue::string(format!("{:#?}", v)).into_untagged_value(),
+                )
+            } else {
+                ReturnSuccess::debug_value(v)
+            }
         })
         .to_output_stream())
 }
