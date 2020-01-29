@@ -2376,7 +2376,6 @@ dependencies = [
  "getset",
  "glob",
  "indexmap",
- "nu",
  "nu-build",
  "nu-parser",
  "nu-protocol",
