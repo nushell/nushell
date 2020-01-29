@@ -7,6 +7,7 @@ mod to_delimited_data;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
+pub(crate) mod calc;
 pub(crate) mod cd;
 pub(crate) mod classified;
 pub(crate) mod clip;
@@ -107,6 +108,7 @@ pub(crate) use command::{
 };
 
 pub(crate) use append::Append;
+pub(crate) use calc::Calc;
 pub(crate) use compact::Compact;
 pub(crate) use config::Config;
 pub(crate) use count::Count;

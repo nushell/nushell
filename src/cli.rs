@@ -268,6 +268,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             whole_stream_command(Save),
             per_item_command(Cpy),
             whole_stream_command(Date),
+            per_item_command(Calc),
             per_item_command(Mkdir),
             per_item_command(Move),
             whole_stream_command(Version),
