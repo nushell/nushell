@@ -7,8 +7,8 @@ pub(crate) fn dir_entry_dict(
     metadata: &std::fs::Metadata,
     tag: impl Into<Tag>,
     full: bool,
-    with_symlink_targets: bool,
     name_only: bool,
+    with_symlink_targets: bool,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
