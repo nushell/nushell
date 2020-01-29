@@ -1,4 +1,5 @@
 mod append;
+mod calc;
 mod cd;
 mod compact;
 mod cp;
