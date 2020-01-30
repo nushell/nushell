@@ -129,7 +129,7 @@ impl Shell for FilesystemShell {
         if paths.peek().is_none() {
             return Err(ShellError::labeled_error(
                 "Invalid File or Pattern",
-                "Invalid File or Pattern",
+                "invalid file or pattern",
                 &p_tag,
             ));
         }

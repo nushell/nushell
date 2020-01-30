@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, nu_error, pipeline};
 
 #[test]
 fn lists_regular_files() {
@@ -97,5 +97,37 @@ fn lists_all_files_in_directories_from_stream() {
         ));
 
         assert_eq!(actual, "4");
+    })
+}
+
+#[test]
+fn does_not_fail_if_glob_matches_empty_directory() {
+    Playground::setup("ls_test_5", |dirs, sandbox| {
+        sandbox.within("dir_a");
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ls dir_a
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "0");
+    })
+}
+
+#[test]
+fn fails_when_glob_doesnt_match() {
+    Playground::setup("ls_test_5", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("root1.txt"), EmptyFile("root2.txt")]);
+
+        let actual = nu_error!(
+            cwd: dirs.test(),
+            "ls root3*"
+        );
+
+        assert!(actual.contains("invalid file or pattern"));
     })
 }
