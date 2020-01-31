@@ -147,7 +147,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
-        pattern.push(std::path::Path::new("nu_plugin_[a-z]*"));
+        pattern.push(std::path::Path::new("nu_plugin_[a-z]?[a-z0-9]*"));
 
         match glob::glob_with(&pattern.to_string_lossy(), opts) {
             Err(_) => {}
@@ -173,14 +173,14 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
                         {
                             bin_name
                                 .chars()
-                                .all(|c| c.is_ascii_alphabetic() || c == '_' || c == '.')
+                                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
                         }
 
                         #[cfg(not(windows))]
                         {
                             bin_name
                                 .chars()
-                                .all(|c| c.is_ascii_alphabetic() || c == '_')
+                                .all(|c| c.is_ascii_alphanumeric() || c == '_')
                         }
                     };
 
