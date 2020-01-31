@@ -74,11 +74,11 @@ impl EnvironmentSyncer {
 
             if let Some(native_paths) = native_paths {
                 environment.add_path(native_paths);
-            }
 
-            ctx.with_host(|host| {
-                host.env_rm(std::ffi::OsString::from("PATH"));
-            });
+                ctx.with_host(|host| {
+                    host.env_rm(std::ffi::OsString::from("PATH"));
+                });
+            }
 
             if let Some(new_paths) = environment.path() {
                 let prepared = std::env::join_paths(
@@ -299,15 +299,15 @@ mod tests {
         ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
 
         let expected = std::env::join_paths(vec![
-            PathBuf::from("/path/to/be/added"),
             PathBuf::from("/Users/andresrobalino/.volta/bin"),
             PathBuf::from("/Users/mosqueteros/bin"),
+            PathBuf::from("/path/to/be/added"),
         ])
         .expect("Couldn't join paths.")
         .into_string()
         .expect("Couldn't convert to string.");
 
-        Playground::setup("syncs_path_test_3", |dirs, sandbox| {
+        Playground::setup("syncs_path_test_1", |dirs, sandbox| {
             sandbox.with_files(vec![FileWithContent(
                 "configuration.toml",
                 r#"
@@ -346,6 +346,81 @@ mod tests {
             // configuration file.
             //
             // Nu sees the missing "/path/to/be/added" and accounts for it.
+            actual.sync_path_vars(&mut ctx);
+
+            ctx.with_host(|test_host| {
+                let actual = test_host
+                    .env_get(std::ffi::OsString::from("PATH"))
+                    .expect("Couldn't get PATH var from host.")
+                    .into_string()
+                    .expect("Couldn't convert to string.");
+
+                assert_eq!(actual, expected);
+            });
+
+            let environment = actual.env.lock();
+
+            let paths = std::env::join_paths(
+                &nu_value_ext::table_entries(
+                    &environment
+                        .path()
+                        .expect("No path variable in the environment."),
+                )
+                .map(|value| value.as_string().expect("Couldn't convert to string"))
+                .map(PathBuf::from)
+                .collect::<Vec<_>>(),
+            )
+            .expect("Couldn't join paths.")
+            .into_string()
+            .expect("Couldn't convert to string.");
+
+            assert_eq!(paths, expected);
+        });
+
+        Ok(())
+    }
+
+    #[test]
+    fn nu_paths_have_higher_priority_and_new_paths_get_appended_to_the_end(
+    ) -> Result<(), ShellError> {
+        let mut ctx = Context::basic()?;
+        ctx.host = Arc::new(Mutex::new(Box::new(crate::env::host::FakeHost::new())));
+
+        let expected = std::env::join_paths(vec![
+            PathBuf::from("/Users/andresrobalino/.volta/bin"),
+            PathBuf::from("/Users/mosqueteros/bin"),
+            PathBuf::from("/path/to/be/added"),
+        ])
+        .expect("Couldn't join paths.")
+        .into_string()
+        .expect("Couldn't convert to string.");
+
+        Playground::setup("syncs_path_test_2", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "configuration.toml",
+                r#"
+                    path = ["/Users/andresrobalino/.volta/bin", "/Users/mosqueteros/bin"]
+                "#,
+            )]);
+
+            let mut file = dirs.test().clone();
+            file.push("configuration.toml");
+
+            let fake_config = FakeConfig::new(&file);
+            let mut actual = EnvironmentSyncer::new();
+            actual.set_config(Box::new(fake_config));
+
+            actual.clear_path_var(&mut ctx);
+
+            ctx.with_host(|test_host| {
+                test_host.env_set(
+                    std::ffi::OsString::from("PATH"),
+                    std::env::join_paths(vec![PathBuf::from("/path/to/be/added")])
+                        .expect("Couldn't join paths."),
+                )
+            });
+
+            actual.load_environment();
             actual.sync_path_vars(&mut ctx);
 
             ctx.with_host(|test_host| {

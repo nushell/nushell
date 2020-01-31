@@ -112,15 +112,13 @@ impl Env for Environment {
                 ref tag,
             }) = self.path_vars
             {
-                let mut new_paths = vec![];
+                let mut new_paths = current_paths.clone();
 
-                for path in std::env::split_paths(&paths) {
-                    new_paths.push(
-                        UntaggedValue::string(path.to_string_lossy()).into_value(tag.clone()),
-                    );
-                }
+                let new_path_candidates = std::env::split_paths(&paths).map(|path| {
+                    UntaggedValue::string(path.to_string_lossy()).into_value(tag.clone())
+                });
 
-                new_paths.extend(current_paths.iter().cloned());
+                new_paths.extend(new_path_candidates);
 
                 let paths: IndexSet<Value> = new_paths.into_iter().collect();
 
@@ -278,10 +276,10 @@ mod tests {
                 actual.path(),
                 Some(
                     UntaggedValue::table(&vec![
-                        UntaggedValue::string("/path/to/be/added").into_untagged_value(),
                         UntaggedValue::string("/Users/andresrobalino/.volta/bin")
                             .into_untagged_value(),
-                        UntaggedValue::string("/users/mosqueteros/bin").into_untagged_value()
+                        UntaggedValue::string("/users/mosqueteros/bin").into_untagged_value(),
+                        UntaggedValue::string("/path/to/be/added").into_untagged_value(),
                     ])
                     .into_untagged_value()
                 )
