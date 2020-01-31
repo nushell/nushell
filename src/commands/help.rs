@@ -86,6 +86,20 @@ Here are some tips to help you get started.
   * help commands - list all available commands
   * help <command name> - display help about a particular command
 
+Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character. Each stage 
+in the pipeline works together to load, parse, and display information to you.
+
+[Examples]
+
+List the files in the current directory, sorted by size:
+    ls | sort-by size
+
+Get information about the current system:
+    sys | get host
+
+Get the processes on your system actively using CPU:
+    ps | where cpu > 0
+
 You can also learn more at https://www.nushell.sh/book/"#;
 
                 let mut output_stream = VecDeque::new();
