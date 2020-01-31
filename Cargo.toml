@@ -10,6 +10,7 @@ default-run = "nu"
 repository = "https://github.com/nushell/nushell"
 homepage = "https://www.nushell.sh"
 documentation = "https://www.nushell.sh/book/"
+exclude = ["images"]
 
 [workspace]
 
