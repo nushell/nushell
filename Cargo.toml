@@ -40,24 +40,24 @@ members = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-source = {version = "0.9.0", path = "./crates/nu-source"}
-nu-plugin = {version = "0.9.0", path = "./crates/nu-plugin"}
-nu-protocol = {version = "0.9.0", path = "./crates/nu-protocol"}
-nu-errors = {version = "0.9.0", path = "./crates/nu-errors"}
-nu-parser = {version = "0.9.0", path = "./crates/nu-parser"}
-nu-value-ext = {version = "0.9.0", path = "./crates/nu-value-ext"}
-nu_plugin_average = {version = "0.9.0", path = "./crates/nu_plugin_average", optional=true}
-nu_plugin_binaryview = {version = "0.9.0", path = "./crates/nu_plugin_binaryview", optional=true}
-nu_plugin_fetch = {version = "0.9.0", path = "./crates/nu_plugin_fetch", optional=true}
-nu_plugin_inc = {version = "0.9.0", path = "./crates/nu_plugin_inc", optional=true}
-nu_plugin_match = {version = "0.9.0", path = "./crates/nu_plugin_match", optional=true}
-nu_plugin_post = {version = "0.9.0", path = "./crates/nu_plugin_post", optional=true}
-nu_plugin_ps = {version = "0.9.0", path = "./crates/nu_plugin_ps", optional=true}
-nu_plugin_str = {version = "0.9.0", path = "./crates/nu_plugin_str", optional=true}
-nu_plugin_sum = {version = "0.9.0", path = "./crates/nu_plugin_sum", optional=true}
-nu_plugin_sys = {version = "0.9.0", path = "./crates/nu_plugin_sys", optional=true}
-nu_plugin_textview = {version = "0.9.0", path = "./crates/nu_plugin_textview", optional=true}
-nu_plugin_tree = {version = "0.9.0", path = "./crates/nu_plugin_tree", optional=true}
+nu-source = { version = "0.9.0", path = "./crates/nu-source" }
+nu-plugin = { version = "0.9.0", path = "./crates/nu-plugin" }
+nu-protocol = { version = "0.9.0", path = "./crates/nu-protocol" }
+nu-errors = { version = "0.9.0", path = "./crates/nu-errors" }
+nu-parser = { version = "0.9.0", path = "./crates/nu-parser" }
+nu-value-ext = { version = "0.9.0", path = "./crates/nu-value-ext" }
+nu_plugin_average = { version = "0.9.0", path = "./crates/nu_plugin_average", optional=true }
+nu_plugin_binaryview = { version = "0.9.0", path = "./crates/nu_plugin_binaryview", optional=true }
+nu_plugin_fetch = { version = "0.9.0", path = "./crates/nu_plugin_fetch", optional=true }
+nu_plugin_inc = { version = "0.9.0", path = "./crates/nu_plugin_inc", optional=true }
+nu_plugin_match = { version = "0.9.0", path = "./crates/nu_plugin_match", optional=true }
+nu_plugin_post = { version = "0.9.0", path = "./crates/nu_plugin_post", optional=true }
+nu_plugin_ps = { version = "0.9.0", path = "./crates/nu_plugin_ps", optional=true }
+nu_plugin_str = { version = "0.9.0", path = "./crates/nu_plugin_str", optional=true }
+nu_plugin_sum = { version = "0.9.0", path = "./crates/nu_plugin_sum", optional=true }
+nu_plugin_sys = { version = "0.9.0", path = "./crates/nu_plugin_sys", optional=true }
+nu_plugin_textview = { version = "0.9.0", path = "./crates/nu_plugin_textview", optional=true }
+nu_plugin_tree = { version = "0.9.0", path = "./crates/nu_plugin_tree", optional=true }
 nu-macros = { version = "0.9.0", path = "./crates/nu-macros" }
 
 query_interface = "0.3.5"
@@ -123,9 +123,9 @@ futures-util = "0.3.1"
 termcolor = "1.1.0"
 natural = "0.3.0"
 parking_lot = "0.10.0"
-futures-timer = "1.0.2"
 meval = "0.2"
 
+futures-timer = { version = "1.0.2", optional = true }
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
 starship = { version = "0.33.1", optional = true}
@@ -148,10 +148,10 @@ default = ["sys", "ps", "textview", "inc", "str"]
 stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "sum", "post", "fetch", "clipboard"]
 
 # Default
-sys = ["heim", "battery"]
-ps = ["heim"]
-textview = ["crossterm", "syntect", "onig_sys", "url"]
-inc = ["nu_plugin_inc"]
+textview = ["crossterm", "syntect", "onig_sys", "url", "nu_plugin_textview"]
+sys = ["heim", "battery", "nu_plugin_sys"]
+ps = ["heim", "futures-timer", "nu_plugin_ps"]
+inc = ["semver", "nu_plugin_inc"]
 str = ["nu_plugin_str"]
 
 # Stable

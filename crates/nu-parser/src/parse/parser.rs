@@ -862,7 +862,7 @@ pub fn delimited_brace(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_square(tokens.item, (left, right), tokens.span),
+        TokenTreeBuilder::spanned_brace(tokens.item, (left, right), tokens.span),
     ))
 }
 

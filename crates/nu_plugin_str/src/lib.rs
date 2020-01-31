@@ -1,4 +1,4 @@
-mod nu_plugin_str;
+mod nu;
 mod strutils;
 
 pub use strutils::Str;
