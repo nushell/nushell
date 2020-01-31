@@ -147,7 +147,7 @@ fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     for path in search_paths() {
         let mut pattern = path.to_path_buf();
 
-        pattern.push(std::path::Path::new("nu_plugin_[a-z]?[a-z0-9]*"));
+        pattern.push(std::path::Path::new("nu_plugin_[a-z0-9]*"));
 
         match glob::glob_with(&pattern.to_string_lossy(), opts) {
             Err(_) => {}
