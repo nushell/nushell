@@ -1,5 +1,5 @@
 mod inc;
-mod nu_plugin_inc;
+mod nu;
 
 pub use inc::Inc;
 
