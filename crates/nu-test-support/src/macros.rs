@@ -21,7 +21,7 @@ macro_rules! nu {
 
         let commands = &*format!(
             "
-                            cd {}
+                            cd \"{}\"
                             {}
                             exit",
             $crate::fs::in_directory($cwd),
@@ -103,7 +103,7 @@ macro_rules! nu_error {
 
         let commands = &*format!(
             "
-                            cd {}
+                            cd \"{}\"
                             {}
                             exit",
             $crate::fs::in_directory($cwd),
