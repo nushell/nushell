@@ -119,6 +119,8 @@ pub(crate) use default::Default;
 pub(crate) use du::Du;
 pub(crate) use echo::Echo;
 pub(crate) use edit::Edit;
+pub(crate) mod kill;
+pub(crate) use kill::Kill;
 pub(crate) mod clear;
 pub(crate) use clear::Clear;
 pub(crate) use enter::Enter;

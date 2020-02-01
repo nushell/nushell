@@ -271,6 +271,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             per_item_command(Calc),
             per_item_command(Mkdir),
             per_item_command(Move),
+            per_item_command(Kill),
             whole_stream_command(Version),
             whole_stream_command(Clear),
             whole_stream_command(What),
