@@ -1,7 +1,8 @@
-use crate::commands::WholeStreamCommand;
+use crate::commands::command::RunnablePerItemContext;
+use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Signature, SyntaxShape};
+use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
 use std::process::{Command, Stdio};
 
@@ -15,7 +16,7 @@ pub struct KillArgs {
     pub quiet: Tagged<bool>,
 }
 
-impl WholeStreamCommand for Kill {
+impl PerItemCommand for Kill {
     fn name(&self) -> &str {
         "kill"
     }
@@ -38,10 +39,14 @@ impl WholeStreamCommand for Kill {
 
     fn run(
         &self,
-        args: CommandArgs,
-        registry: &CommandRegistry,
+        call_info: &CallInfo,
+        _registry: &CommandRegistry,
+        raw_args: &RawCommandArgs,
+        _input: Value,
     ) -> Result<OutputStream, ShellError> {
-        args.process(registry, kill)?.run()
+        call_info
+            .process(&raw_args.shell_manager, raw_args.ctrl_c.clone(), kill)?
+            .run()
     }
 }
 
@@ -52,13 +57,10 @@ fn kill(
         force,
         quiet,
     }: KillArgs,
-    _context: RunnableContext,
+    _context: &RunnablePerItemContext,
 ) -> Result<OutputStream, ShellError> {
     let mut cmd = if cfg!(windows) {
-        let mut cmd = Command::new("cmd");
-
-        cmd.arg("/C");
-        cmd.arg("taskkill");
+        let mut cmd = Command::new("taskkill");
 
         if *force {
             cmd.arg("/F");
@@ -75,11 +77,8 @@ fn kill(
         }
 
         cmd
-    } else if cfg!(unix) {
-        let mut cmd = Command::new("/bin/sh");
-
-        cmd.arg("-c");
-        cmd.arg("kill");
+    } else {
+        let mut cmd = Command::new("kill");
 
         if *force {
             cmd.arg("-9");
@@ -90,9 +89,6 @@ fn kill(
         cmd.args(rest.iter().map(move |id| id.item().to_string()));
 
         cmd
-    } else {
-        // rust complains if else branch doesn't exist
-        unreachable!("unsupported platform");
     };
 
     // pipe everything to null
