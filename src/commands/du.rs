@@ -5,7 +5,6 @@ use indexmap::map::IndexMap;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
-use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
@@ -122,147 +121,159 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
     let min_size = args.min_size.map(|f| f.item);
 
     let stream = async_stream! {
+        let params = DirBuilder {
+            tag: tag.clone(),
+            min: min_size,
+            deref,
+            ex: exclude,
+            all,
+        };
         for path in paths {
             if ctrl_c.load(Ordering::SeqCst) {
                 break;
             }
             match path {
-                Ok(p) => match get_info(p, deref, &min_size, &exclude, &max_depth, all) {
-                    Ok(Some(mut d)) => {
-                        d.set_tag(tag.clone());
-                        yield ReturnSuccess::value(d);
+                Ok(p) => {
+                    if p.is_dir() {
+                        yield Ok(ReturnSuccess::Value(
+                            DirInfo::new(p, &params, max_depth).into(),
+                        ));
+                    } else {
+                        match FileInfo::new(p, deref, tag.clone()) {
+                            Ok(f) => yield Ok(ReturnSuccess::Value(f.into())),
+                            Err(e) => yield Err(e)
+                        }
                     }
-                    Err(e) => yield Err(e),
-                    _ => yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value()),
-                },
+                }
                 Err(e) => yield Err(e),
             }
         }
     };
-
     Ok(stream.to_output_stream())
 }
 
-fn get_info<'a>(
-    path: PathBuf,
+struct DirBuilder {
+    tag: Tag,
+    min: Option<u64>,
     deref: bool,
-    min_size: &'a Option<u64>,
-    exclude: &'a Option<Pattern>,
-    depth: &'a Option<u64>,
+    ex: Option<Pattern>,
     all: bool,
-) -> Result<Option<Info>, ShellError> {
-    if depth.as_ref().map_or(false, |d| *d == 0) {
-        Ok(None)
-    } else if path.is_dir() {
-        match fs::read_dir(&path) {
-            Ok(d) => {
-                let mut info = Info::new(path.to_str().expect("This should be encoded properly"));
-                for file in d {
-                    match file {
-                        Ok(e) => {
-                            match get_info(
-                                e.path(),
-                                deref,
-                                min_size,
-                                exclude,
-                                &depth.map(|d| d - 1),
-                                all,
-                            ) {
-                                Ok(Some(i)) => {
-                                    info.size += &i.size;
-                                    if i.f_type == Type::Dir || all {
-                                        info.add_sub(e.file_name().to_string_lossy().into(), i);
-                                    }
-                                }
-                                Ok(None) => continue,
-                                Err(e) => info.add_err(e),
-                            }
-                        }
-                        Err(e) => info.add_err(ShellError::from(e)),
-                    }
-                }
-                Ok(Some(info))
-            }
-            Err(e) => Err(ShellError::from(e)),
-        }
-    } else {
-        let ex = exclude.as_ref().map_or(false, |x| {
-            x.matches(
-                path.file_name()
-                    .expect("How would this even happen?")
-                    .to_str()
-                    .expect("Very invalid filename apparently?"),
-            )
-        });
-        if ex {
-            Ok(None)
-        } else {
-            match fs::metadata(&path) {
-                Ok(m) => {
-                    let size = if !deref {
-                        match fs::symlink_metadata(&path) {
-                            Ok(s) => Ok(s.len()),
-                            Err(e) => Err(ShellError::from(e)),
-                        }
-                    } else {
-                        Ok(m.len())
-                    }?;
-                    if min_size.map_or(true, |s| size > s) {
-                        Ok(Some(Info::new_file(path.to_string_lossy(), size)))
-                    } else {
-                        Ok(None)
-                    }
-                }
-                Err(e) => Err(ShellError::from(e)),
-            }
-        }
-    }
 }
 
-#[derive(PartialEq)]
-enum Type {
-    File,
-    Dir,
-}
-
-struct Info {
-    sub: IndexMap<String, Info>,
-    errors: Vec<Value>,
+struct DirInfo {
+    dirs: Vec<DirInfo>,
+    files: Vec<FileInfo>,
+    errors: Vec<ShellError>,
     size: u64,
     name: String,
     tag: Tag,
-    f_type: Type,
 }
 
-impl Info {
-    fn new(name: impl Into<String>) -> Self {
-        Info {
-            sub: IndexMap::new(),
-            errors: Vec::new(),
-            size: 0,
-            name: name.into(),
-            tag: Tag::unknown(),
-            f_type: Type::Dir,
+struct FileInfo {
+    name: String,
+    size: u64,
+    tag: Tag,
+}
+
+impl FileInfo {
+    fn new(path: impl Into<PathBuf>, deref: bool, tag: Tag) -> Result<Self, ShellError> {
+        let path = path.into();
+        let name = path.to_string_lossy().to_string();
+        let m = if deref {
+            std::fs::metadata(path)
+        } else {
+            std::fs::symlink_metadata(path)
+        };
+
+        match m {
+            Ok(d) => Ok(FileInfo {
+                name,
+                size: d.len(),
+                tag,
+            }),
+            Err(e) => Err(e.into()),
         }
     }
+}
 
-    fn new_file(name: impl Into<String>, size: u64) -> Info {
-        let mut new = Info::new(name);
-        new.f_type = Type::File;
-        new.size = size;
-        new
-    }
-    fn add_sub(&mut self, s: String, i: Info) {
-        self.sub.insert(s, i);
+impl DirInfo {
+    fn new(path: impl Into<PathBuf>, params: &DirBuilder, depth: Option<u64>) -> Self {
+        let path = path.into();
+
+        let mut s = Self {
+            dirs: Vec::new(),
+            errors: Vec::new(),
+            files: Vec::new(),
+            size: 0,
+            tag: params.tag.clone(),
+            name: path.to_string_lossy().to_string(),
+        };
+
+        match std::fs::read_dir(path) {
+            Ok(d) => {
+                for f in d {
+                    match f {
+                        Ok(i) => match i.file_type() {
+                            Ok(t) if t.is_dir() => {
+                                s = s.add_dir(i.path(), depth, &params);
+                            }
+                            Ok(_t) => {
+                                s = s.add_file(i.path(), &params);
+                            }
+                            Err(e) => s = s.add_error(ShellError::from(e)),
+                        },
+                        Err(e) => s = s.add_error(ShellError::from(e)),
+                    }
+                }
+            }
+            Err(e) => s = s.add_error(e.into()),
+        }
+        s
     }
 
-    fn add_err(&mut self, e: impl Into<UntaggedValue>) {
-        let v = e.into().into_untagged_value();
-        self.errors.push(v);
+    fn add_dir(
+        mut self,
+        path: impl Into<PathBuf>,
+        mut depth: Option<u64>,
+        params: &DirBuilder,
+    ) -> Self {
+        if let Some(current) = depth {
+            if let Some(new) = current.checked_sub(1) {
+                depth = Some(new);
+            } else {
+                return self;
+            }
+        }
+
+        let d = DirInfo::new(path, &params, depth);
+        self.size += d.size;
+        self.dirs.push(d);
+        self
     }
 
-    fn set_tag(&mut self, t: Tag) {
-        self.tag = t;
+    fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder) -> Self {
+        let f = f.into();
+        let ex = params.ex.as_ref().map_or(false, |x| x.matches_path(&f));
+        if !ex {
+            match FileInfo::new(f, params.deref, self.tag.clone()) {
+                Ok(file) => {
+                    let inc = params.min.map_or(true, |s| file.size >= s);
+                    if inc {
+                        self.size += file.size;
+                        if params.all {
+                            self.files.push(file);
+                        }
+                    }
+                }
+                Err(e) => self = self.add_error(e),
+            }
+        }
+        self
+    }
+
+    fn add_error(mut self, e: ShellError) -> Self {
+        self.errors.push(e);
+        self
     }
 }
 
@@ -271,41 +282,75 @@ fn glob_err_into(e: GlobError) -> ShellError {
     ShellError::from(e)
 }
 
-impl From<Info> for Value {
-    fn from(i: Info) -> Self {
-        let n = i.name;
-        let s = i.size;
-        let mut subs: Vec<Value> = Vec::new();
-        let mut row: IndexMap<String, Value> = IndexMap::new();
-        row.insert(
-            "name".to_string(),
-            UntaggedValue::string(n).into_untagged_value(),
-        );
-        row.insert(
+impl From<DirInfo> for Value {
+    fn from(d: DirInfo) -> Self {
+        let mut r: IndexMap<String, Value> = IndexMap::new();
+        r.insert(
             "size".to_string(),
-            UntaggedValue::bytes(s).into_untagged_value(),
+            UntaggedValue::bytes(d.size).into_untagged_value(),
         );
-        for (_k, v) in i.sub {
-            subs.push(v.into());
+        r.insert(
+            "name".to_string(),
+            UntaggedValue::string(d.name).into_untagged_value(),
+        );
+        if !d.files.is_empty() {
+            let v = Value {
+                value: UntaggedValue::Table(
+                    d.files
+                        .into_iter()
+                        .map(move |f| f.into())
+                        .collect::<Vec<Value>>(),
+                ),
+                tag: d.tag.clone(),
+            };
+            r.insert("files".to_string(), v);
         }
-        if !subs.is_empty() {
-            row.insert(
-                "contents".to_string(),
-                UntaggedValue::Table(subs).into_untagged_value(),
-            );
-        } else {
-            row.insert(
-                "contents".to_string(),
-                UntaggedValue::nothing().into_untagged_value(),
-            );
+        if !d.dirs.is_empty() {
+            let v = Value {
+                value: UntaggedValue::Table(
+                    d.dirs
+                        .into_iter()
+                        .map(move |d| d.into())
+                        .collect::<Vec<Value>>(),
+                ),
+                tag: d.tag.clone(),
+            };
+            r.insert("directories".to_string(), v);
         }
-        if !i.errors.is_empty() {
-            row.insert(
-                "errors".to_string(),
-                UntaggedValue::Table(i.errors).into_untagged_value(),
-            );
+        if !d.errors.is_empty() {
+            let v = Value {
+                value: UntaggedValue::Table(
+                    d.errors
+                        .into_iter()
+                        .map(move |e| UntaggedValue::Error(e).into_untagged_value())
+                        .collect::<Vec<Value>>(),
+                ),
+                tag: d.tag.clone(),
+            };
+            r.insert("errors".to_string(), v);
         }
 
-        UntaggedValue::row(row).into_untagged_value()
+        Value {
+            value: UntaggedValue::row(r),
+            tag: d.tag,
+        }
+    }
+}
+
+impl From<FileInfo> for Value {
+    fn from(f: FileInfo) -> Self {
+        let mut r: IndexMap<String, Value> = IndexMap::new();
+        r.insert(
+            "size".to_string(),
+            UntaggedValue::bytes(f.size).into_untagged_value(),
+        );
+        r.insert(
+            "name".to_string(),
+            UntaggedValue::string(f.name).into_untagged_value(),
+        );
+        Value {
+            value: UntaggedValue::row(r),
+            tag: f.tag,
+        }
     }
 }
