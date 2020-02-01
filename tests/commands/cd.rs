@@ -24,7 +24,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
-                cd {}
+                cd "{}"
                 pwd | echo $it
             "#,
             dirs.formats()
