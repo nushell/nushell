@@ -9,7 +9,7 @@ pub struct Kill;
 
 #[derive(Deserialize)]
 pub struct KillArgs {
-    pub pid: Tagged<i64>, // TODO: try to reduce to i16 or i32 later
+    pub pid: Tagged<i64>,
     pub force: Tagged<bool>,
 }
 
@@ -71,18 +71,6 @@ fn kill(
             .status()
             .expect("failed to execute process");
     }
-
-    // let cmd = Command::new("cmd");
-    //     .args(ARGS)
-    //     .status()
-    //     .expect("failed to execute process");
-
-    // let cmd = Command::new("cmd").arg("/C").arg("taskkill");
-
-    // .args(&["echo".to_owned(), args.pid.item().to_string()])
-    // cmd.arg(args.pid.item().to_string())
-    //     .status()
-    //     .expect("failed to execute process");
 
     Ok(OutputStream::empty())
 }
