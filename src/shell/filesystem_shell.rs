@@ -129,7 +129,7 @@ impl Shell for FilesystemShell {
         if paths.peek().is_none() {
             return Err(ShellError::labeled_error(
                 "Invalid File or Pattern",
-                "Invalid File or Pattern",
+                "invalid file or pattern",
                 &p_tag,
             ));
         }
@@ -180,7 +180,7 @@ impl Shell for FilesystemShell {
                         return Err(ShellError::labeled_error(
                             "Can not change to directory",
                             "is not a directory",
-                            v.tag(),
+                            &v.tag,
                         ));
                     }
 
@@ -188,9 +188,9 @@ impl Shell for FilesystemShell {
                         Ok(p) => p,
                         Err(_) => {
                             return Err(ShellError::labeled_error(
-                                "Can not change to directory",
+                                "Cannot change to directory",
                                 "directory not found",
-                                v.tag(),
+                                &v.tag,
                             ))
                         }
                     }
@@ -229,8 +229,8 @@ impl Shell for FilesystemShell {
             Ok(files) => files.collect(),
             Err(_) => {
                 return Err(ShellError::labeled_error(
-                    "Invalid pattern.",
-                    "Invalid pattern.",
+                    "Invalid pattern",
+                    "invalid pattern",
                     src.tag,
                 ))
             }
@@ -288,7 +288,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    name_tag,
+                                    dst.tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -316,6 +316,7 @@ impl Shell for FilesystemShell {
 
                         let sources = sources.paths_applying_with(strategy)?;
 
+                        let dst_tag = dst.tag;
                         for (ref src, ref dst) in sources {
                             if src.is_dir() && !dst.exists() {
                                 match std::fs::create_dir_all(dst) {
@@ -323,7 +324,7 @@ impl Shell for FilesystemShell {
                                         return Err(ShellError::labeled_error(
                                             e.to_string(),
                                             e.to_string(),
-                                            name_tag,
+                                            dst_tag,
                                         ));
                                     }
                                     Ok(o) => o,
@@ -349,8 +350,8 @@ impl Shell for FilesystemShell {
                             None => {
                                 return Err(ShellError::labeled_error(
                                     "Copy aborted. Not a valid path",
-                                    "Copy aborted. Not a valid path",
-                                    name_tag,
+                                    "not a valid path",
+                                    dst.tag,
                                 ))
                             }
                         }
@@ -360,7 +361,7 @@ impl Shell for FilesystemShell {
                                 return Err(ShellError::labeled_error(
                                     e.to_string(),
                                     e.to_string(),
-                                    name_tag,
+                                    dst.tag,
                                 ));
                             }
                             Ok(o) => o,
@@ -388,6 +389,7 @@ impl Shell for FilesystemShell {
 
                         let sources = sources.paths_applying_with(strategy)?;
 
+                        let dst_tag = dst.tag;
                         for (ref src, ref dst) in sources {
                             if src.is_dir() && !dst.exists() {
                                 match std::fs::create_dir_all(dst) {
@@ -395,7 +397,7 @@ impl Shell for FilesystemShell {
                                         return Err(ShellError::labeled_error(
                                             e.to_string(),
                                             e.to_string(),
-                                            name_tag,
+                                            dst_tag,
                                         ));
                                     }
                                     Ok(o) => o,
@@ -425,7 +427,7 @@ impl Shell for FilesystemShell {
             }) {
                 return Err(ShellError::labeled_error(
                     "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
-                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
+                    "recursive copying in patterns not supported",
                     src.tag,
                 ));
             }
@@ -439,8 +441,8 @@ impl Shell for FilesystemShell {
                         None => {
                             return Err(ShellError::labeled_error(
                                 "Copy aborted. Not a valid path",
-                                "Copy aborted. Not a valid path",
-                                name_tag,
+                                "not a valid path",
+                                dst.tag,
                             ))
                         }
                     }
@@ -466,8 +468,8 @@ impl Shell for FilesystemShell {
                     None => {
                         return Err(ShellError::labeled_error(
                             "Copy aborted. Not a valid destination",
-                            "Copy aborted. Not a valid destination",
-                            name_tag,
+                            "not a valid destination",
+                            dst.tag,
                         ))
                     }
                 }
@@ -475,8 +477,8 @@ impl Shell for FilesystemShell {
 
             return Err(ShellError::labeled_error(
                 format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
-                format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
-                dst.tag(),
+                format!("copy aborted (does {:?} exist?)", destination_file_name),
+                dst.tag,
             ));
         }
 
@@ -538,7 +540,7 @@ impl Shell for FilesystemShell {
             Err(_) => {
                 return Err(ShellError::labeled_error(
                     "Invalid pattern.",
-                    "Invalid pattern.",
+                    "invalid pattern",
                     src.tag,
                 ))
             }
@@ -550,8 +552,8 @@ impl Shell for FilesystemShell {
                 None => {
                     return Err(ShellError::labeled_error(
                         "Rename aborted. Not a valid destination",
-                        "Rename aborted. Not a valid destination",
-                        dst.tag(),
+                        "not a valid destination",
+                        dst.tag,
                     ))
                 }
             }
@@ -564,8 +566,8 @@ impl Shell for FilesystemShell {
                     None => {
                         return Err(ShellError::labeled_error(
                             "Rename aborted. Not a valid entry name",
-                            "Rename aborted. Not a valid entry name",
-                            name_tag,
+                            "not a valid entry name",
+                            src.tag,
                         ))
                     }
                 };
@@ -576,8 +578,8 @@ impl Shell for FilesystemShell {
                         Err(e) => {
                             return Err(ShellError::labeled_error(
                                 format!("Rename aborted. {:}", e.to_string()),
-                                format!("Rename aborted. {:}", e.to_string()),
-                                name_tag,
+                                e.to_string(),
+                                dst.tag,
                             ))
                         }
                     };
@@ -597,12 +599,7 @@ impl Shell for FilesystemShell {
                                         destination_file_name,
                                         e.to_string(),
                                     ),
-                                    format!(
-                                        "Rename {:?} to {:?} aborted. {:}",
-                                        entry_file_name,
-                                        destination_file_name,
-                                        e.to_string(),
-                                    ),
+                                    e.to_string(),
                                     name_tag,
                                 ));
                             }
@@ -620,12 +617,7 @@ impl Shell for FilesystemShell {
                                         destination_file_name,
                                         e.to_string(),
                                     ),
-                                    format!(
-                                        "Rename {:?} to {:?} aborted. {:}",
-                                        entry_file_name,
-                                        destination_file_name,
-                                        e.to_string(),
-                                    ),
+                                    e.to_string(),
                                     name_tag,
                                 ));
                             }
@@ -638,12 +630,7 @@ impl Shell for FilesystemShell {
                                             destination_file_name,
                                             e.to_string(),
                                         ),
-                                        format!(
-                                            "Rename {:?} to {:?} aborted. {:}",
-                                            entry_file_name,
-                                            destination_file_name,
-                                            e.to_string(),
-                                        ),
+                                        e.to_string(),
                                         name_tag,
                                     ));
                                 }
@@ -663,12 +650,7 @@ impl Shell for FilesystemShell {
                                     destination_file_name,
                                     e.to_string(),
                                 ),
-                                format!(
-                                    "Rename {:?} to {:?} aborted. {:}",
-                                    entry_file_name,
-                                    destination_file_name,
-                                    e.to_string(),
-                                ),
+                                e.to_string(),
                                 name_tag,
                             ));
                         }
@@ -685,12 +667,7 @@ impl Shell for FilesystemShell {
                                         destination_file_name,
                                         e.to_string(),
                                     ),
-                                    format!(
-                                        "Rename {:?} to {:?} aborted. {:}",
-                                        entry_file_name,
-                                        destination_file_name,
-                                        e.to_string(),
-                                    ),
+                                    e.to_string(),
                                     name_tag,
                                 ));
                             }
@@ -737,12 +714,7 @@ impl Shell for FilesystemShell {
                                                 destination_file_name,
                                                 e.to_string(),
                                             ),
-                                            format!(
-                                                "Rename {:?} to {:?} aborted. {:}",
-                                                entry_file_name,
-                                                destination_file_name,
-                                                e.to_string(),
-                                            ),
+                                            e.to_string(),
                                             name_tag,
                                         ));
                                     }
@@ -761,12 +733,7 @@ impl Shell for FilesystemShell {
                                             destination_file_name,
                                             e.to_string(),
                                         ),
-                                        format!(
-                                            "Rename {:?} to {:?} aborted. {:}",
-                                            src,
-                                            destination_file_name,
-                                            e.to_string(),
-                                        ),
+                                        e.to_string(),
                                         name_tag,
                                     ));
                                 }
@@ -779,12 +746,7 @@ impl Shell for FilesystemShell {
                                                 destination_file_name,
                                                 e.to_string(),
                                             ),
-                                            format!(
-                                                "Rename {:?} to {:?} aborted. {:}",
-                                                entry_file_name,
-                                                destination_file_name,
-                                                e.to_string(),
-                                            ),
+                                            e.to_string(),
                                             name_tag,
                                         ));
                                     }
@@ -802,12 +764,7 @@ impl Shell for FilesystemShell {
                                         destination_file_name,
                                         e.to_string(),
                                     ),
-                                    format!(
-                                        "Rename {:?} to {:?} aborted. {:}",
-                                        entry_file_name,
-                                        destination_file_name,
-                                        e.to_string(),
-                                    ),
+                                    e.to_string(),
                                     name_tag,
                                 ));
                             }
@@ -824,7 +781,7 @@ impl Shell for FilesystemShell {
             if !sources.iter().all(is_file) {
                 return Err(ShellError::labeled_error(
                     "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
-                    "Rename aborted (directories found). Renaming in patterns not supported yet (try moving the directory directly)",
+                    "renaming in patterns not supported yet (try moving the directory directly)",
                     src.tag,
                 ));
             }
@@ -836,8 +793,8 @@ impl Shell for FilesystemShell {
                         None => {
                             return Err(ShellError::labeled_error(
                                 "Rename aborted. Not a valid entry name",
-                                "Rename aborted. Not a valid entry name",
-                                name_tag,
+                                "not a valid entry name",
+                                src.tag,
                             ))
                         }
                     };
@@ -857,12 +814,7 @@ impl Shell for FilesystemShell {
                                             destination_file_name,
                                             e.to_string(),
                                         ),
-                                        format!(
-                                            "Rename {:?} to {:?} aborted. {:}",
-                                            entry_file_name,
-                                            destination_file_name,
-                                            e.to_string(),
-                                        ),
+                                        e.to_string(),
                                         name_tag,
                                     ));
                                 }
@@ -880,12 +832,7 @@ impl Shell for FilesystemShell {
                                             destination_file_name,
                                             e.to_string(),
                                         ),
-                                        format!(
-                                            "Rename {:?} to {:?} aborted. {:}",
-                                            entry_file_name,
-                                            destination_file_name,
-                                            e.to_string(),
-                                        ),
+                                        e.to_string(),
                                         name_tag,
                                     ));
                                 }
@@ -898,12 +845,7 @@ impl Shell for FilesystemShell {
                                                 destination_file_name,
                                                 e.to_string(),
                                             ),
-                                            format!(
-                                                "Remove {:?} to {:?} aborted. {:}",
-                                                entry_file_name,
-                                                destination_file_name,
-                                                e.to_string(),
-                                            ),
+                                            e.to_string(),
                                             name_tag,
                                         ));
                                     }
@@ -917,8 +859,8 @@ impl Shell for FilesystemShell {
         } else {
             return Err(ShellError::labeled_error(
                 format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
-                format!("Rename aborted. (Does {:?} exist?)", destination_file_name),
-                dst.tag(),
+                format!("rename aborted (does {:?} exist?)", destination_file_name),
+                dst.tag,
             ));
         }
 
@@ -940,8 +882,8 @@ impl Shell for FilesystemShell {
         if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
             return Err(ShellError::labeled_error(
                 "Remove aborted. \".\" or \"..\" may not be removed.",
-                "Remove aborted. \".\" or \"..\" may not be removed.",
-                target.tag(),
+                "\".\" or \"..\" may not be removed",
+                target.tag,
             ));
         }
 
@@ -955,8 +897,8 @@ impl Shell for FilesystemShell {
                 if files.is_empty() {
                     Err(ShellError::labeled_error(
                         "Remove aborted. Not a valid path",
-                        "Remove aborted. Not a valid path",
-                        &name_tag,
+                        "not a valid path",
+                        target.tag,
                     ))
                 } else {
                     let stream = async_stream! {
@@ -978,11 +920,11 @@ impl Shell for FilesystemShell {
                                                         "Could not delete {:}",
                                                         f.to_string_lossy()
                                                     );
-                                                    let label = format!("Error {:?}", e);
+                                                    let label = format!("{:?}", e);
                                                     yield Err(ShellError::labeled_error(
                                                         msg,
                                                         label,
-                                                        &name_tag,
+                                                        &target.tag,
                                                     ))
                                                 },
                                                 Ok(()) => {
@@ -999,14 +941,13 @@ impl Shell for FilesystemShell {
                                             match success {
                                                 Err(e) => {
                                                     let msg = format!(
-                                                            "Could not delete {:}",
-                                                            f.to_string_lossy()
+                                                        "Could not delete {:}",
+                                                        f.to_string_lossy()
                                                     );
-                                                    let label = format!("Error {:}", e.to_string());
                                                     yield Err(ShellError::labeled_error(
                                                         msg,
-                                                        label,
-                                                        &name_tag,
+                                                        e.to_string(),
+                                                        &target.tag,
                                                     ))
                                                 },
                                                 Ok(()) => {
@@ -1023,30 +964,27 @@ impl Shell for FilesystemShell {
                                                 "Cannot remove {:}. try --recursive",
                                                 f.to_string_lossy()
                                             );
-                                            let label = format!("Cannot remove non-empty directory");
                                             yield Err(ShellError::labeled_error(
                                                 msg,
-                                                label,
-                                                &name_tag,
+                                                "cannot remove non-empty directory",
+                                                &target.tag,
                                             ))
                                         } else {
                                             let msg = format!("Invalid file: {:}", f.to_string_lossy());
-                                            let label = format!("Invalid file");
                                             yield Err(ShellError::labeled_error(
                                                 msg,
-                                                label,
-                                                &name_tag,
+                                                "invalid file",
+                                                &target.tag,
                                             ))
                                         }
                                     }
                                 }
                                 Err(e) => {
                                     let msg = format!("Could not remove {:}", path.to_string_lossy());
-                                    let label = format!("Error {:}", e.to_string());
                                     yield Err(ShellError::labeled_error(
                                         msg,
-                                        label,
-                                        &name_tag,
+                                        e.to_string(),
+                                        &target.tag,
                                     ))
                                 },
                             }
@@ -1057,7 +995,7 @@ impl Shell for FilesystemShell {
             }
             Err(e) => Err(ShellError::labeled_error(
                 format!("Remove aborted. {:}", e.to_string()),
-                format!("Remove aborted. {:}", e.to_string()),
+                e.to_string(),
                 &name_tag,
             )),
         }
