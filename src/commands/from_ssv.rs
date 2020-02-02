@@ -197,15 +197,17 @@ fn string_to_table(
     headerless: bool,
     aligned_columns: bool,
     split_at: usize,
-) -> Option<Vec<Vec<(String, String)>>> {
+) -> Vec<Vec<(String, String)>> {
     let mut lines = s.lines().filter(|l| !l.trim().is_empty());
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
     let (ls, header_options) = if headerless {
         (lines, HeaderOptions::WithoutHeaders)
     } else {
-        let headers = lines.next()?;
-        (lines, HeaderOptions::WithHeaders(headers))
+        match lines.next() {
+            Some(header) => (lines, HeaderOptions::WithHeaders(header)),
+            None => return vec![],
+        }
     };
 
     let f = if aligned_columns {
@@ -214,11 +216,7 @@ fn string_to_table(
         parse_separated_columns
     };
 
-    let parsed = f(ls, header_options, &separator);
-    match parsed.len() {
-        0 => None,
-        _ => Some(parsed),
-    }
+    f(ls, header_options, &separator)
 }
 
 fn from_ssv_string_to_value(
@@ -229,7 +227,7 @@ fn from_ssv_string_to_value(
     tag: impl Into<Tag>,
 ) -> Option<Value> {
     let tag = tag.into();
-    let rows = string_to_table(s, headerless, aligned_columns, split_at)?
+    let rows = string_to_table(s, headerless, aligned_columns, split_at)
         .iter()
         .map(|row| {
             let mut tagged_dict = TaggedDictBuilder::new(&tag);
@@ -323,10 +321,10 @@ mod tests {
         let result = string_to_table(input, false, true, 1);
         assert_eq!(
             result,
-            Some(vec![
+            vec![
                 vec![owned("a", "1"), owned("b", "2")],
                 vec![owned("a", "3"), owned("b", "4")]
-            ])
+            ]
         );
     }
 
@@ -338,10 +336,7 @@ mod tests {
             2
         "#;
         let result = string_to_table(input, false, true, 1);
-        assert_eq!(
-            result,
-            Some(vec![vec![owned("a", "1")], vec![owned("a", "2")]])
-        );
+        assert_eq!(result, vec![vec![owned("a", "1")], vec![owned("a", "2")]]);
     }
 
     #[test]
@@ -354,19 +349,12 @@ mod tests {
         let result = string_to_table(input, true, true, 1);
         assert_eq!(
             result,
-            Some(vec![
+            vec![
                 vec![owned("Column1", "a"), owned("Column2", "b")],
                 vec![owned("Column1", "1"), owned("Column2", "2")],
                 vec![owned("Column1", "3"), owned("Column2", "4")]
-            ])
+            ]
         );
-    }
-
-    #[test]
-    fn it_returns_none_given_an_empty_string() {
-        let input = "";
-        let result = string_to_table(input, true, true, 1);
-        assert!(result.is_none());
     }
 
     #[test]
@@ -380,18 +368,18 @@ mod tests {
         let result = string_to_table(input, false, true, 3);
         assert_eq!(
             result,
-            Some(vec![
+            vec![
                 vec![
                     owned("column a", "entry 1"),
                     owned("column b", "entry number  2")
                 ],
                 vec![owned("column a", "3"), owned("column b", "four")]
-            ])
+            ]
         );
     }
 
     #[test]
-    fn it_trims_remaining_separator_space() -> Result<(), ShellError> {
+    fn it_trims_remaining_separator_space() {
         let input = r#"
             colA   colB     colC
             val1   val2     val3
@@ -399,17 +387,14 @@ mod tests {
 
         let trimmed = |s: &str| s.trim() == s;
 
-        let result = string_to_table(input, false, true, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let result = string_to_table(input, false, true, 2);
         assert!(result
             .iter()
             .all(|row| row.iter().all(|(a, b)| trimmed(a) && trimmed(b))));
-
-        Ok(())
     }
 
     #[test]
-    fn it_keeps_empty_columns() -> Result<(), ShellError> {
+    fn it_keeps_empty_columns() {
         let input = r#"
             colA   col B     col C
                    val2      val3
@@ -417,8 +402,7 @@ mod tests {
             val7             val8
         "#;
 
-        let result = string_to_table(input, false, true, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let result = string_to_table(input, false, true, 2);
         assert_eq!(
             result,
             vec![
@@ -439,38 +423,43 @@ mod tests {
                 ],
             ]
         );
-        Ok(())
     }
 
     #[test]
-    fn it_uses_the_full_final_column() -> Result<(), ShellError> {
+    fn it_can_produce_an_empty_stream_for_header_only_input() {
+        let input = "colA   col B";
+
+        let result = string_to_table(input, false, true, 2);
+        let expected: Vec<Vec<(String, String)>> = vec![];
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn it_uses_the_full_final_column() {
         let input = r#"
             colA   col B
             val1   val2   trailing value that should be included
         "#;
 
-        let result = string_to_table(input, false, true, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let result = string_to_table(input, false, true, 2);
         assert_eq!(
             result,
             vec![vec![
                 owned("colA", "val1"),
                 owned("col B", "val2   trailing value that should be included"),
-            ],]
+            ]]
         );
-        Ok(())
     }
 
     #[test]
-    fn it_handles_empty_values_when_headerless_and_aligned_columns() -> Result<(), ShellError> {
+    fn it_handles_empty_values_when_headerless_and_aligned_columns() {
         let input = r#"
             a multi-word value  b           d
             1                        3-3    4
                                                        last
         "#;
 
-        let result = string_to_table(input, true, true, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let result = string_to_table(input, true, true, 2);
         assert_eq!(
             result,
             vec![
@@ -497,27 +486,21 @@ mod tests {
                 ],
             ]
         );
-        Ok(())
     }
 
     #[test]
-    fn input_is_parsed_correctly_if_either_option_works() -> Result<(), ShellError> {
+    fn input_is_parsed_correctly_if_either_option_works() {
         let input = r#"
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
                 kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
                 kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
             "#;
 
-        let aligned_columns_headerless = string_to_table(input, true, true, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
-        let separator_headerless = string_to_table(input, true, false, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
-        let aligned_columns_with_headers = string_to_table(input, false, true, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
-        let separator_with_headers = string_to_table(input, false, false, 2)
-            .ok_or_else(|| ShellError::unexpected("table couldn't be parsed"))?;
+        let aligned_columns_headerless = string_to_table(input, true, true, 2);
+        let separator_headerless = string_to_table(input, true, false, 2);
+        let aligned_columns_with_headers = string_to_table(input, false, true, 2);
+        let separator_with_headers = string_to_table(input, false, false, 2);
         assert_eq!(aligned_columns_headerless, separator_headerless);
         assert_eq!(aligned_columns_with_headers, separator_with_headers);
-        Ok(())
     }
 }
