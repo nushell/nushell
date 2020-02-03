@@ -16,10 +16,15 @@ nu-source = { path = "../nu-source", version = "0.9.0" }
 nu-errors = { path = "../nu-errors", version = "0.9.0" }
 
 futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
-heim = "0.0.9"
 futures-timer = "1.0.3"
 pin-utils = "0.1.0-alpha.4"
 futures-util = "0.3.1"
+
+[dependencies.heim]
+version = "0.0.9"
+default-features = false
+
+features = ["process", "runtime-polyfill"]
 
 [build-dependencies]
 nu-build = { version = "0.9.0", path = "../nu-build" }
