@@ -253,10 +253,7 @@ impl Shell for FilesystemShell {
                 if entry.is_file() {
                     let strategy = |(source_file, _depth_level)| {
                         if destination.exists() {
-                            let mut new_dst = dunce::canonicalize(destination.clone())?;
-                            if let Some(name) = entry.file_name() {
-                                new_dst.push(name);
-                            }
+                            let new_dst = dunce::canonicalize(destination.clone())?;
                             Ok((source_file, new_dst))
                         } else {
                             Ok((source_file, destination.clone()))
