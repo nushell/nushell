@@ -1,5 +1,8 @@
+extern crate filesize;
+
 use crate::commands::command::RunnablePerItemContext;
 use crate::prelude::*;
+use filesize::file_real_size_fast;
 use glob::*;
 use indexmap::map::IndexMap;
 use nu_errors::ShellError;
@@ -165,6 +168,7 @@ struct DirInfo {
     files: Vec<FileInfo>,
     errors: Vec<ShellError>,
     size: u64,
+    blocks: u64,
     name: String,
     tag: Tag,
 }
@@ -172,6 +176,7 @@ struct DirInfo {
 struct FileInfo {
     name: String,
     size: u64,
+    blocks: Option<u64>,
     tag: Tag,
 }
 
@@ -180,17 +185,22 @@ impl FileInfo {
         let path = path.into();
         let name = path.to_string_lossy().to_string();
         let m = if deref {
-            std::fs::metadata(path)
+            std::fs::metadata(&path)
         } else {
-            std::fs::symlink_metadata(path)
+            std::fs::symlink_metadata(&path)
         };
 
         match m {
-            Ok(d) => Ok(FileInfo {
-                name,
-                size: d.len(),
-                tag,
-            }),
+            Ok(d) => {
+                let block_size = file_real_size_fast(path, &d).ok();
+
+                Ok(FileInfo {
+                    name,
+                    blocks: block_size,
+                    size: d.len(),
+                    tag,
+                })
+            }
             Err(e) => Err(e.into()),
         }
     }
@@ -205,6 +215,7 @@ impl DirInfo {
             errors: Vec::new(),
             files: Vec::new(),
             size: 0,
+            blocks: 0,
             tag: params.tag.clone(),
             name: path.to_string_lossy().to_string(),
         };
@@ -247,6 +258,7 @@ impl DirInfo {
 
         let d = DirInfo::new(path, &params, depth);
         self.size += d.size;
+        self.blocks += d.blocks;
         self.dirs.push(d);
         self
     }
@@ -260,6 +272,7 @@ impl DirInfo {
                     let inc = params.min.map_or(true, |s| file.size >= s);
                     if inc {
                         self.size += file.size;
+                        self.blocks += file.blocks.unwrap_or(0);
                         if params.all {
                             self.files.push(file);
                         }
@@ -286,12 +299,16 @@ impl From<DirInfo> for Value {
     fn from(d: DirInfo) -> Self {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
+            "name".to_string(),
+            UntaggedValue::string(d.name).into_untagged_value(),
+        );
+        r.insert(
             "size".to_string(),
             UntaggedValue::bytes(d.size).into_untagged_value(),
         );
         r.insert(
-            "name".to_string(),
-            UntaggedValue::string(d.name).into_untagged_value(),
+            "blocks".to_string(),
+            UntaggedValue::int(d.blocks).into_untagged_value(),
         );
         if !d.files.is_empty() {
             let v = Value {
@@ -341,13 +358,18 @@ impl From<FileInfo> for Value {
     fn from(f: FileInfo) -> Self {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
-            "size".to_string(),
-            UntaggedValue::bytes(f.size).into_untagged_value(),
-        );
-        r.insert(
             "name".to_string(),
             UntaggedValue::string(f.name).into_untagged_value(),
         );
+        r.insert(
+            "size".to_string(),
+            UntaggedValue::bytes(f.size).into_untagged_value(),
+        );
+        let b = match f.blocks {
+            Some(k) => UntaggedValue::int(k).into_untagged_value(),
+            None => UntaggedValue::string("?").into_untagged_value(),
+        };
+        r.insert("blocks".to_string(), b);
         Value {
             value: UntaggedValue::row(r),
             tag: f.tag,
