@@ -720,6 +720,22 @@ impl Shell for FilesystemShell {
                                     }
                                     Ok(o) => o,
                                 }
+                            } else if src.is_file() {
+                                match std::fs::copy(src, dst) {
+                                    Err(e) => {
+                                        return Err(ShellError::labeled_error(
+                                            format!(
+                                                "Moving file {:?} to {:?} aborted. {:}",
+                                                src,
+                                                dst,
+                                                e.to_string(),
+                                            ),
+                                            e.to_string(),
+                                            name_tag,
+                                        ));
+                                    }
+                                    Ok(o) => (),
+                                }
                             }
                         }
 
