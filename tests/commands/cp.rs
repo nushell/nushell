@@ -165,3 +165,22 @@ fn copies_using_a_glob() {
         ));
     });
 }
+
+#[test]
+fn copies_same_file_twice() {
+    Playground::setup("cp_test_8", |dirs, _| {
+        nu!(
+            cwd: dirs.root(),
+            "cp \"{}\" cp_test_8/sample.ini",
+            dirs.formats().join("sample.ini")
+        );
+
+        nu!(
+            cwd: dirs.root(),
+            "cp \"{}\" cp_test_8/sample.ini",
+            dirs.formats().join("sample.ini")
+        );
+
+        assert!(dirs.test().join("sample.ini").exists());
+    });
+}
