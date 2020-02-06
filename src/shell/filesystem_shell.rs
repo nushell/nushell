@@ -564,7 +564,7 @@ impl Shell for FilesystemShell {
                 "Move aborted. Not a valid destination",
                 "not a valid destination",
                 src.tag
-            ))
+            ));
         }
 
         if sources.len() == 1 {
