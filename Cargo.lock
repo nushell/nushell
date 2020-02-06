@@ -1066,16 +1066,6 @@ checksum = "0bae52d6b29cf440e298856fec3965ee6fa71b06aa7495178615953fd669e5f9"
 
 [[package]]
 name = "futures-timer"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7946248e9429ff093345d3e8fdf4eb0f9b2d79091611c9c14f744971a6f8be45"
-dependencies = [
- "futures-core-preview",
- "pin-utils",
-]
-
-[[package]]
-name = "futures-timer"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1de7508b218029b0f01662ed8f61b1c964b3ae99d6f25462d0f55a595109df6"
@@ -2174,7 +2164,6 @@ dependencies = [
  "dirs 2.0.2",
  "dunce",
  "futures 0.3.1",
- "futures-timer 1.0.3",
  "futures-util",
  "futures_codec",
  "getset",
