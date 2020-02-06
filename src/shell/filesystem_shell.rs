@@ -559,6 +559,14 @@ impl Shell for FilesystemShell {
             }
         };
 
+        if sources.is_empty() {
+            return Err(ShellError::labeled_error(
+                "Move aborted. Not a valid destination",
+                "not a valid destination",
+                src.tag
+            ))
+        }
+
         if sources.len() == 1 {
             if let Ok(entry) = &sources[0] {
                 let entry_file_name = match entry.file_name() {
