@@ -563,7 +563,7 @@ impl Shell for FilesystemShell {
             return Err(ShellError::labeled_error(
                 "Move aborted. Not a valid destination",
                 "not a valid destination",
-                src.tag
+                src.tag,
             ));
         }
 
