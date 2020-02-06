@@ -142,7 +142,11 @@ impl Shell for HelpShell {
         _args: LsArgs,
         _context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        let output = self.commands().into_iter().map(ReturnSuccess::value).collect::<VecDeque<_>>();
+        let output = self
+            .commands()
+            .into_iter()
+            .map(ReturnSuccess::value)
+            .collect::<VecDeque<_>>();
         Ok(output.into())
     }
 

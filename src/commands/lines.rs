@@ -44,9 +44,15 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
 
                 trace!("split result = {:?}", split_result);
 
-                let result = split_result.into_iter().map(|s| ReturnSuccess::value(
-                        UntaggedValue::Primitive(Primitive::Line(s.into())).into_untagged_value(),
-                )).collect::<Vec<_>>();
+                let result = split_result
+                    .into_iter()
+                    .map(|s| {
+                        ReturnSuccess::value(
+                            UntaggedValue::Primitive(Primitive::Line(s.into()))
+                                .into_untagged_value(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
 
                 futures::stream::iter(result)
             } else {

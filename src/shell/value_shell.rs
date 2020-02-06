@@ -120,7 +120,11 @@ impl Shell for ValueShell {
             ));
         }
 
-        let output = self.members_under(full_path.as_path()).into_iter().map(ReturnSuccess::value).collect::<VecDeque<_>>();
+        let output = self
+            .members_under(full_path.as_path())
+            .into_iter()
+            .map(ReturnSuccess::value)
+            .collect::<VecDeque<_>>();
         Ok(output.into())
     }
 

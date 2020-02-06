@@ -143,7 +143,7 @@ impl From<VecDeque<Value>> for OutputStream {
     fn from(input: VecDeque<Value>) -> OutputStream {
         let stream = input.into_iter().map(ReturnSuccess::value);
         OutputStream {
-            values: futures::stream::iter(stream).boxed()
+            values: futures::stream::iter(stream).boxed(),
         }
     }
 }
@@ -151,7 +151,7 @@ impl From<VecDeque<Value>> for OutputStream {
 impl From<Vec<ReturnValue>> for OutputStream {
     fn from(input: Vec<ReturnValue>) -> OutputStream {
         OutputStream {
-            values: futures::stream::iter(input).boxed()
+            values: futures::stream::iter(input).boxed(),
         }
     }
 }
@@ -160,7 +160,7 @@ impl From<Vec<Value>> for OutputStream {
     fn from(input: Vec<Value>) -> OutputStream {
         let stream = input.into_iter().map(ReturnSuccess::value);
         OutputStream {
-            values: futures::stream::iter(stream).boxed()
+            values: futures::stream::iter(stream).boxed(),
         }
     }
 }
