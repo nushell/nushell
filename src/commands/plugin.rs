@@ -296,7 +296,7 @@ pub fn filter_plugin(
                 }
             }
         })
-        .map(|vec| futures::stream::iter(vec))
+        .map(futures::stream::iter) // convert to a stream
         .flatten();
 
     Ok(stream.to_output_stream())
