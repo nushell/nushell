@@ -76,7 +76,7 @@ impl PerItemCommand for Format {
             String::new()
         };
 
-        Ok(VecDeque::from(vec![ReturnSuccess::value(
+        Ok(futures::stream::iter(vec![ReturnSuccess::value(
             UntaggedValue::string(output).into_untagged_value(),
         )])
         .to_output_stream())

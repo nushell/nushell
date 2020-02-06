@@ -68,7 +68,7 @@ fn nth(
                 result.push_back(ReturnSuccess::value(item));
             }
 
-            result
+            futures::stream::iter(result)
         })
         .flatten();
 

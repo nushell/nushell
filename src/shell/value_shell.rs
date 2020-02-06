@@ -120,10 +120,12 @@ impl Shell for ValueShell {
             ));
         }
 
-        Ok(self
+        let output = self
             .members_under(full_path.as_path())
+            .into_iter()
             .map(ReturnSuccess::value)
-            .to_output_stream())
+            .collect::<VecDeque<_>>();
+        Ok(output.into())
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {

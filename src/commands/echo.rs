@@ -60,7 +60,8 @@ fn run(
         }
     }
 
-    let stream = VecDeque::from(output);
+    // TODO: This whole block can probably be replaced with `.map()`
+    let stream = futures::stream::iter(output);
 
     Ok(stream.to_output_stream())
 }

@@ -77,6 +77,7 @@ impl PerItemCommand for Help {
                         get_help(&command.name(), &command.usage(), command.signature()).into(),
                     );
                 }
+                let help = futures::stream::iter(help);
                 Ok(help.to_output_stream())
             }
             _ => {
@@ -102,11 +103,9 @@ Get the processes on your system actively using CPU:
 
 You can also learn more at https://www.nushell.sh/book/"#;
 
-                let mut output_stream = VecDeque::new();
-
-                output_stream.push_back(ReturnSuccess::value(
+                let output_stream = futures::stream::iter(vec![ReturnSuccess::value(
                     UntaggedValue::string(msg).into_value(tag),
-                ));
+                )]);
 
                 Ok(output_stream.to_output_stream())
             }

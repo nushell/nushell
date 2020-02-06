@@ -57,6 +57,6 @@ impl PerItemCommand for Where {
             }
         };
 
-        Ok(stream.to_output_stream())
+        Ok(stream.into())
     }
 }

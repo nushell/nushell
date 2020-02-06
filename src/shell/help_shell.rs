@@ -142,7 +142,12 @@ impl Shell for HelpShell {
         _args: LsArgs,
         _context: &RunnablePerItemContext,
     ) -> Result<OutputStream, ShellError> {
-        Ok(self.commands().map(ReturnSuccess::value).to_output_stream())
+        let output = self
+            .commands()
+            .into_iter()
+            .map(ReturnSuccess::value)
+            .collect::<VecDeque<_>>();
+        Ok(output.into())
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {

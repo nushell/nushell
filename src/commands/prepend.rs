@@ -41,8 +41,7 @@ fn prepend(
     PrependArgs { row }: PrependArgs,
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let mut prepend: VecDeque<Value> = VecDeque::new();
-    prepend.push_back(row);
+    let prepend = futures::stream::iter(vec![row]);
 
     Ok(OutputStream::from_input(prepend.chain(input.values)))
 }
