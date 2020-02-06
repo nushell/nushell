@@ -9,7 +9,7 @@ pub struct First;
 
 #[derive(Deserialize)]
 pub struct FirstArgs {
-    rows: Option<Tagged<u64>>,
+    rows: Option<Tagged<usize>>,
 }
 
 impl WholeStreamCommand for First {

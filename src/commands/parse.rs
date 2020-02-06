@@ -136,6 +136,6 @@ impl PerItemCommand for Parse {
         } else {
             VecDeque::new()
         };
-        Ok(output.to_output_stream())
+        Ok(output.into())
     }
 }

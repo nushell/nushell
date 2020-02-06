@@ -116,19 +116,19 @@ dependencies = [
 
 [[package]]
 name = "async-stream"
-version = "0.1.2"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb6fa015ebe961e9908ca4c1854e7dc7aabd4417da77b6a0466e4dfb4c8f6f69"
+checksum = "22068c0c19514942eefcfd4daf8976ef1aad84e61539f95cd200c35202f80af5"
 dependencies = [
  "async-stream-impl",
- "futures-core-preview",
+ "futures-core",
 ]
 
 [[package]]
 name = "async-stream-impl"
-version = "0.1.1"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f0d8c5b411e36dcfb04388bacfec54795726b1f0148adcb0f377a96d6747e0e"
+checksum = "25f9db3b38af870bf7e5cc649167533b493928e50744e2c30ae350230b414670"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -947,6 +947,7 @@ checksum = "b6f16056ecbb57525ff698bb955162d0cd03bee84e6241c27ff75c08d8ca5987"
 dependencies = [
  "futures-channel",
  "futures-core",
+ "futures-executor",
  "futures-io",
  "futures-sink",
  "futures-task",
@@ -984,6 +985,17 @@ name = "futures-core-preview"
 version = "0.3.0-alpha.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b35b6263fb1ef523c3056565fa67b1d16f0a8604ff12b11b08c25f28a734c60a"
+
+[[package]]
+name = "futures-executor"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e274736563f686a837a0568b478bdabfeaec2dca794b5649b04e2fe1627c231"
+dependencies = [
+ "futures-core",
+ "futures-task",
+ "futures-util",
+]
 
 [[package]]
 name = "futures-executor-preview"
@@ -1074,6 +1086,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0d66274fb76985d3c62c886d1da7ac4c0903a8c9f754e8fe0f35a6a6cc39e76"
 dependencies = [
+ "futures 0.1.29",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -1085,6 +1098,7 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro-nested",
  "slab",
+ "tokio-io",
 ]
 
 [[package]]
@@ -1106,12 +1120,14 @@ dependencies = [
 
 [[package]]
 name = "futures_codec"
-version = "0.2.5"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36552cd31353fd135114510d53b8d120758120c36aa636a9341970f9efb1e4a0"
+checksum = "fe8859feb7140742ed1a2a85a07941100ad2b5f98a421b353931d718a34144d1"
 dependencies = [
- "bytes 0.4.12",
- "futures-preview",
+ "bytes 0.5.4",
+ "futures 0.3.1",
+ "memchr",
+ "pin-project",
 ]
 
 [[package]]
@@ -2151,7 +2167,7 @@ dependencies = [
  "derive-new",
  "dirs 2.0.2",
  "dunce",
- "futures-preview",
+ "futures 0.3.1",
  "futures-timer 1.0.3",
  "futures-util",
  "futures_codec",

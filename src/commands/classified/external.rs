@@ -1,52 +1,13 @@
 use crate::prelude::*;
-use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
-use futures_codec::{Decoder, Encoder, FramedRead};
+use futures_codec::{FramedRead, LinesCodec};
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::ExternalCommand;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
-use std::io::{Error, ErrorKind, Write};
+use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
-
-/// A simple `Codec` implementation that splits up data into lines.
-pub struct LinesCodec {}
-
-impl Encoder for LinesCodec {
-    type Item = String;
-    type Error = Error;
-
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        dst.put(item);
-        Ok(())
-    }
-}
-
-impl Decoder for LinesCodec {
-    type Item = nu_protocol::UntaggedValue;
-    type Error = Error;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        match src.iter().position(|b| b == &b'\n') {
-            Some(pos) if !src.is_empty() => {
-                let buf = src.split_to(pos + 1);
-                String::from_utf8(buf.to_vec())
-                    .map(UntaggedValue::line)
-                    .map(Some)
-                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))
-            }
-            _ if !src.is_empty() => {
-                let drained = src.take();
-                String::from_utf8(drained.to_vec())
-                    .map(UntaggedValue::string)
-                    .map(Some)
-                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))
-            }
-            _ => Ok(None),
-        }
-    }
-}
 
 pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
     match &from.value {
@@ -376,21 +337,19 @@ async fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(stdout);
-                let stream = FramedRead::new(file, LinesCodec {});
-
-                let mut stream = stream.map(|line| {
+                let mut stream = FramedRead::new(file, LinesCodec).map(|line| {
                     if let Ok(line) = line {
-                        line.into_value(&name_tag)
+                        Value {
+                            value: UntaggedValue::Primitive(Primitive::String(line)),
+                            tag: name_tag.clone(),
+                        }
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }
                 });
 
-                loop {
-                    match stream.next().await {
-                        Some(item) => yield Ok(item),
-                        None => break,
-                    }
+                while let Some(item) = stream.next().await {
+                    yield Ok(item)
                 }
             }
 

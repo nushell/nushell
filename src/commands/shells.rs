@@ -46,5 +46,6 @@ fn shells(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream
         shells_out.push_back(dict.into_value());
     }
 
-    Ok(shells_out.to_output_stream())
+
+    Ok(shells_out.into())
 }

@@ -84,9 +84,11 @@ pub fn filter_plugin(
 
     let mut bos: VecDeque<Value> = VecDeque::new();
     bos.push_back(UntaggedValue::Primitive(Primitive::BeginningOfStream).into_untagged_value());
+    let bos = futures::stream::iter(bos);
 
     let mut eos: VecDeque<Value> = VecDeque::new();
     eos.push_back(UntaggedValue::Primitive(Primitive::EndOfStream).into_untagged_value());
+    let eos = futures::stream::iter(eos);
 
     let call_info = args.call_info.clone();
 
@@ -294,6 +296,7 @@ pub fn filter_plugin(
                 }
             }
         })
+        .map(|vec| futures::stream::iter(vec))
         .flatten();
 
     Ok(stream.to_output_stream())

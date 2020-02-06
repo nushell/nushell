@@ -46,7 +46,7 @@ impl PerItemCommand for Insert {
                 value: UntaggedValue::Row(_),
                 ..
             } => match obj.insert_data_at_column_path(&field, replacement.item.clone()) {
-                Ok(v) => VecDeque::from(vec![Ok(ReturnSuccess::Value(v))]),
+                Ok(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
                 Err(err) => return Err(err),
             },
 

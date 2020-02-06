@@ -525,9 +525,9 @@ impl Command {
                 match call_info {
                     Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
                         Ok(o) => o,
-                        Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
+                        Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)]).to_output_stream(),
                     },
-                    Err(e) => VecDeque::from(vec![ReturnValue::Err(e)]).to_output_stream(),
+                    Err(e) => futures::stream::iter(vec![ReturnValue::Err(e)]).to_output_stream(),
                 }
             })
             .flatten();

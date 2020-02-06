@@ -91,5 +91,5 @@ pub fn date(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
     date_out.push_back(value);
 
-    Ok(date_out.to_output_stream())
+    Ok(futures::stream::iter(date_out).to_output_stream())
 }

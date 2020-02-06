@@ -44,25 +44,21 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
 
                 trace!("split result = {:?}", split_result);
 
-                let mut result = VecDeque::new();
-                for s in split_result {
-                    result.push_back(ReturnSuccess::value(
+                let result = split_result.into_iter().map(|s| ReturnSuccess::value(
                         UntaggedValue::Primitive(Primitive::Line(s.into())).into_untagged_value(),
-                    ));
-                }
-                result
+                )).collect::<Vec<_>>();
+
+                futures::stream::iter(result)
             } else {
-                let mut result = VecDeque::new();
                 let value_span = v.tag.span;
 
-                result.push_back(Err(ShellError::labeled_error_with_secondary(
+                futures::stream::iter(vec![Err(ShellError::labeled_error_with_secondary(
                     "Expected a string from pipeline",
                     "requires string input",
                     name_span,
                     "value originates from here",
                     value_span,
-                )));
-                result
+                ))])
             }
         })
         .flatten();

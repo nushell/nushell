@@ -47,7 +47,10 @@ fn range(
     let (from, _) = range.from;
     let (to, _) = range.to;
 
+    let from = *from as usize;
+    let to = *to as usize;
+
     Ok(OutputStream::from_input(
-        input.values.skip(*from).take(*to - *from + 1),
+        input.values.skip(from).take(to - from + 1),
     ))
 }

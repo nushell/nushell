@@ -9,7 +9,7 @@ pub struct Skip;
 
 #[derive(Deserialize)]
 pub struct SkipArgs {
-    rows: Option<Tagged<u64>>,
+    rows: Option<Tagged<usize>>,
 }
 
 impl WholeStreamCommand for Skip {

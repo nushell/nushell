@@ -85,5 +85,7 @@ pub fn env(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
     let value = get_environment(tag)?;
     env_out.push_back(value);
 
+    let env_out = futures::stream::iter(env_out);
+
     Ok(env_out.to_output_stream())
 }

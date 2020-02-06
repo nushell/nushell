@@ -239,7 +239,7 @@ pub fn get(
                     }
                 }
 
-                result
+                futures::stream::iter(result)
             })
             .flatten();
 

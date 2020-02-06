@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use futures::stream::iter;
 use nu_protocol::{ReturnSuccess, ReturnValue, UntaggedValue, Value};
 
 pub struct InputStream {
@@ -15,7 +16,7 @@ impl InputStream {
     }
 
     pub fn drain_vec(&mut self) -> impl Future<Output = Vec<Value>> {
-        let mut values: BoxStream<'static, Value> = VecDeque::new().boxed();
+        let mut values: BoxStream<'static, Value> = iter(VecDeque::new()).boxed();
         std::mem::swap(&mut values, &mut self.values);
 
         values.collect()
@@ -48,18 +49,15 @@ impl From<BoxStream<'static, Value>> for InputStream {
 impl From<VecDeque<Value>> for InputStream {
     fn from(input: VecDeque<Value>) -> InputStream {
         InputStream {
-            values: input.boxed(),
+            values: futures::stream::iter(input).boxed(),
         }
     }
 }
 
 impl From<Vec<Value>> for InputStream {
     fn from(input: Vec<Value>) -> InputStream {
-        let mut list = VecDeque::default();
-        list.extend(input);
-
         InputStream {
-            values: list.boxed(),
+            values: futures::stream::iter(input).boxed(),
         }
     }
 }
@@ -93,7 +91,7 @@ impl OutputStream {
     }
 
     pub fn drain_vec(&mut self) -> impl Future<Output = Vec<ReturnValue>> {
-        let mut values: BoxStream<'static, ReturnValue> = VecDeque::new().boxed();
+        let mut values: BoxStream<'static, ReturnValue> = iter(VecDeque::new()).boxed();
         std::mem::swap(&mut values, &mut self.values);
 
         values.collect()
@@ -136,41 +134,33 @@ impl From<BoxStream<'static, ReturnValue>> for OutputStream {
 impl From<VecDeque<ReturnValue>> for OutputStream {
     fn from(input: VecDeque<ReturnValue>) -> OutputStream {
         OutputStream {
-            values: input.boxed(),
+            values: futures::stream::iter(input).boxed(),
         }
     }
 }
 
 impl From<VecDeque<Value>> for OutputStream {
     fn from(input: VecDeque<Value>) -> OutputStream {
+        let stream = input.into_iter().map(ReturnSuccess::value);
         OutputStream {
-            values: input
-                .into_iter()
-                .map(ReturnSuccess::value)
-                .collect::<VecDeque<ReturnValue>>()
-                .boxed(),
+            values: futures::stream::iter(stream).boxed()
         }
     }
 }
 
 impl From<Vec<ReturnValue>> for OutputStream {
     fn from(input: Vec<ReturnValue>) -> OutputStream {
-        let mut list = VecDeque::default();
-        list.extend(input);
-
         OutputStream {
-            values: list.boxed(),
+            values: futures::stream::iter(input).boxed()
         }
     }
 }
 
 impl From<Vec<Value>> for OutputStream {
     fn from(input: Vec<Value>) -> OutputStream {
-        let mut list = VecDeque::default();
-        list.extend(input.into_iter().map(ReturnSuccess::value));
-
+        let stream = input.into_iter().map(ReturnSuccess::value);
         OutputStream {
-            values: list.boxed(),
+            values: futures::stream::iter(stream).boxed()
         }
     }
 }

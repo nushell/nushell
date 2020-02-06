@@ -43,6 +43,7 @@ fn append(
 ) -> Result<OutputStream, ShellError> {
     let mut after: VecDeque<Value> = VecDeque::new();
     after.push_back(row);
+    let after = futures::stream::iter(after);
 
     Ok(OutputStream::from_input(input.values.chain(after)))
 }
