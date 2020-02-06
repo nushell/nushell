@@ -1081,6 +1081,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1de7508b218029b0f01662ed8f61b1c964b3ae99d6f25462d0f55a595109df6"
 
 [[package]]
+name = "futures-timer"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3de1a2b2a2a33d9e60e17980b60ee061eeaae96a5abe9121db0fdb9af167a1c5"
+
+[[package]]
 name = "futures-util"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2497,9 +2503,8 @@ dependencies = [
 name = "nu_plugin_ps"
 version = "0.9.0"
 dependencies = [
- "futures-preview",
- "futures-timer 1.0.3",
- "futures-util",
+ "futures 0.3.1",
+ "futures-timer 3.0.1",
  "heim",
  "nu-build",
  "nu-errors",
@@ -2539,7 +2544,7 @@ name = "nu_plugin_sys"
 version = "0.9.0"
 dependencies = [
  "battery",
- "futures-preview",
+ "futures 0.3.1",
  "futures-util",
  "heim",
  "nu-build",
