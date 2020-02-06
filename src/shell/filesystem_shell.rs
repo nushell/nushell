@@ -734,7 +734,7 @@ impl Shell for FilesystemShell {
                                             name_tag,
                                         ));
                                     }
-                                    Ok(o) => (),
+                                    Ok(_o) => (),
                                 }
                             }
                         }
