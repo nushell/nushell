@@ -1,5 +1,5 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
-use nu_test_support::nu;
+use nu_test_support::{nu, nu_error};
 use nu_test_support::playground::Playground;
 
 #[test]
@@ -216,5 +216,17 @@ fn moves_a_directory_with_files() {
             ],
             expected_dir
         ));
+    })
+}
+
+#[test]
+fn errors_if_source_doesnt_exist() {
+    Playground::setup("mv_test_10", |dirs, sandbox| {
+        sandbox.mkdir("test_folder");
+        let actual = nu_error!(
+            cwd: dirs.root(),
+            "mv non-existing-file test_folder/"
+        );
+        assert!(actual.contains("not a valid destination"));
     })
 }
