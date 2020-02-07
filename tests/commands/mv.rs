@@ -96,6 +96,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
+        assert!(files_exist_at(vec!["jonathan.txt"], expected))
     })
 }
 
@@ -177,6 +178,43 @@ fn moves_using_a_glob() {
         assert!(files_exist_at(
             vec!["arepa.txt", "empanada.txt", "taquiza.txt",],
             expected
+        ));
+    })
+}
+
+#[test]
+fn moves_a_directory_with_files() {
+    Playground::setup("mv_test_9", |dirs, sandbox| {
+        sandbox
+            .mkdir("vehicles/car")
+            .mkdir("vehicles/bicycle")
+            .with_files(vec![
+                EmptyFile("vehicles/car/car1.txt"),
+                EmptyFile("vehicles/car/car2.txt"),
+            ])
+            .with_files(vec![
+                EmptyFile("vehicles/bicycle/bicycle1.txt"),
+                EmptyFile("vehicles/bicycle/bicycle2.txt"),
+            ]);
+
+        let original_dir = dirs.test().join("vehicles");
+        let expected_dir = dirs.test().join("expected");
+
+        nu!(
+            cwd: dirs.test(),
+            "mv vehicles expected"
+        );
+
+        assert!(!original_dir.exists());
+        assert!(expected_dir.exists());
+        assert!(files_exist_at(
+            vec![
+                "car/car1.txt",
+                "car/car2.txt",
+                "bicycle/bicycle1.txt",
+                "bicycle/bicycle2.txt"
+            ],
+            expected_dir
         ));
     })
 }
