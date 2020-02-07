@@ -546,6 +546,13 @@ impl Shell for FilesystemShell {
             }
         };
 
+        if sources.is_empty() {
+            return Err(ShellError::labeled_error(
+                "Invalid File or Pattern.",
+                "invalid File or Pattern",
+                src.tag,
+            ));
+        }
         let destination_file_name = {
             match destination.file_name() {
                 Some(name) => PathBuf::from(name),
@@ -558,14 +565,6 @@ impl Shell for FilesystemShell {
                 }
             }
         };
-
-        if sources.is_empty() {
-            return Err(ShellError::labeled_error(
-                "Move aborted. Not a valid destination",
-                "not a valid destination",
-                src.tag,
-            ));
-        }
 
         if sources.len() == 1 {
             if let Ok(entry) = &sources[0] {
