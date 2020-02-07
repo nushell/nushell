@@ -188,8 +188,14 @@ fn moves_a_directory_with_files() {
         sandbox
             .mkdir("vehicles/car")
             .mkdir("vehicles/bicycle")
-            .with_files(vec![EmptyFile("vehicles/car/car1.txt"), EmptyFile("vehicles/car/car2.txt")])
-            .with_files(vec![EmptyFile("vehicles/bicycle/bicycle1.txt"), EmptyFile("vehicles/bicycle/bicycle2.txt")]);
+            .with_files(vec![
+                EmptyFile("vehicles/car/car1.txt"),
+                EmptyFile("vehicles/car/car2.txt"),
+            ])
+            .with_files(vec![
+                EmptyFile("vehicles/bicycle/bicycle1.txt"),
+                EmptyFile("vehicles/bicycle/bicycle2.txt"),
+            ]);
 
         let original_dir = dirs.test().join("vehicles");
         let expected_dir = dirs.test().join("expected");
@@ -201,6 +207,14 @@ fn moves_a_directory_with_files() {
 
         assert!(!original_dir.exists());
         assert!(expected_dir.exists());
-        assert!(files_exist_at(vec!["car/car1.txt", "car/car2.txt", "bicycle/bicycle1.txt", "bicycle/bicycle2.txt"], expected_dir))
+        assert!(files_exist_at(
+            vec![
+                "car/car1.txt",
+                "car/car2.txt",
+                "bicycle/bicycle1.txt",
+                "bicycle/bicycle2.txt"
+            ],
+            expected_dir
+        ));
     })
 }
