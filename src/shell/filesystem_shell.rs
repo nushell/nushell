@@ -549,7 +549,7 @@ impl Shell for FilesystemShell {
         if sources.is_empty() {
             return Err(ShellError::labeled_error(
                 "Invalid File or Pattern.",
-                "invalid File or Pattern",
+                "Invalid File or Pattern",
                 src.tag,
             ));
         }

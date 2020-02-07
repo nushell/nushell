@@ -227,6 +227,6 @@ fn errors_if_source_doesnt_exist() {
             cwd: dirs.root(),
             "mv non-existing-file test_folder/"
         );
-        assert!(actual.contains("not a valid destination"));
+        assert!(actual.contains("Invalid File or Pattern"));
     })
 }
