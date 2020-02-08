@@ -8,12 +8,9 @@ fn main() {
 
     // if no arguments given, chop from standard input and exit.
     let stdin = io::stdin();
-    let mut input = stdin.lock().lines();
-
-    if let Some(Ok(given)) = input.next() {
-        if !given.is_empty() {
+    for line in stdin.lock().lines() {
+        if let Ok(given) = line {
             println!("{}", chop(&given));
-            std::process::exit(0);
         }
     }
 
@@ -21,9 +18,12 @@ fn main() {
 }
 
 fn chop(word: &str) -> &str {
-    let to = word.len() - 1;
-
-    &word[..to]
+    if word.is_empty() {
+        word
+    } else {
+        let to = word.len() - 1;
+        &word[..to]
+    }
 }
 
 fn did_chop_arguments() -> bool {
