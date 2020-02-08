@@ -103,7 +103,7 @@ pub(crate) mod wrap;
 pub(crate) use autoview::Autoview;
 pub(crate) use cd::Cd;
 pub(crate) use command::{
-    per_item_command, whole_stream_command, Command, PerItemCommand, RawCommandArgs,
+    per_item_command, whole_stream_command, Command, PerItemCommand,
     UnevaluatedCallInfo, WholeStreamCommand,
 };
 
