@@ -21,8 +21,8 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         r#"
             open nu_times.csv
             | get name
+            | ^echo $it
             | chop
-            | lines
             | nth 3
             | echo $it
             "#
