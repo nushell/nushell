@@ -394,7 +394,19 @@ pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Err
 
     match line {
         LineResult::Success(line) => {
+            let error_code = {
+                let errors = context.current_errors.clone();
+                let errors = errors.lock();
+
+                if errors.len() > 0 {
+                    1
+                } else {
+                    0
+                }
+            };
+
             context.maybe_print_errors(Text::from(line));
+            std::process::exit(error_code);
         }
 
         LineResult::Error(line, err) => {
@@ -403,6 +415,7 @@ pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Err
             });
 
             context.maybe_print_errors(Text::from(line));
+            std::process::exit(1);
         }
 
         _ => {}
