@@ -2147,6 +2147,7 @@ dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
  "async-stream",
+ "atty",
  "base64 0.11.0",
  "bigdecimal",
  "bson",

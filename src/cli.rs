@@ -6,9 +6,10 @@ use crate::context::Context;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::prelude::*;
+use futures_codec::{FramedRead, LinesCodec};
 use nu_errors::ShellError;
 use nu_parser::{ClassifiedPipeline, PipelineShape, SpannedToken, TokensIterator};
-use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
@@ -626,7 +627,24 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 return LineResult::Error(line.to_string(), failure.into());
             }
 
-            match run_pipeline(pipeline, ctx, None, line).await {
+            let input_stream = if !atty::is(atty::Stream::Stdin) {
+                let file = futures::io::AllowStdIo::new(std::io::stdin());
+                let stream = FramedRead::new(file, LinesCodec).map(|line| {
+                    if let Ok(line) = line {
+                        Ok(Value {
+                            value: UntaggedValue::Primitive(Primitive::String(line)),
+                            tag: Tag::unknown(),
+                        })
+                    } else {
+                        panic!("Internal error: could not read lines of text from stdin")
+                    }
+                });
+                Some(stream.to_input_stream())
+            } else {
+                None
+            };
+
+            match run_pipeline(pipeline, ctx, input_stream, line).await {
                 Ok(Some(input)) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
