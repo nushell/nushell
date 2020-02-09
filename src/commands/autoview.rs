@@ -64,7 +64,7 @@ impl RunnableContextWithoutInput {
 
 pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let binary = context.get_command("binaryview");
-    let text = context.get_command("textview");
+    //let text = context.get_command("textview");
     let table = context.get_command("table");
 
     Ok(OutputStream::new(async_stream! {
@@ -101,38 +101,10 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                     _ => {
                         match x {
                             Value {
-                                value: UntaggedValue::Primitive(Primitive::String(ref s)),
-                                tag: Tag { anchor, span },
-                            } if anchor.is_some() => {
-                                if let Some(text) = text {
-                                    let mut stream = VecDeque::new();
-                                    stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
-                                    let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = text.run(command_args, &context.commands);
-                                    result.collect::<Vec<_>>().await;
-                                } else {
-                                    outln!("{}", s);
-                                }
-                            }
-                            Value {
                                 value: UntaggedValue::Primitive(Primitive::String(s)),
                                 ..
                             } => {
                                 outln!("{}", s);
-                            }
-                            Value {
-                                value: UntaggedValue::Primitive(Primitive::Line(ref s)),
-                                tag: Tag { anchor, span },
-                            } if anchor.is_some() => {
-                                if let Some(text) = text {
-                                    let mut stream = VecDeque::new();
-                                    stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
-                                    let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = text.run(command_args, &context.commands);
-                                    result.collect::<Vec<_>>().await;
-                                } else {
-                                    outln!("{}\n", s);
-                                }
                             }
                             Value {
                                 value: UntaggedValue::Primitive(Primitive::Line(s)),
