@@ -1,6 +1,8 @@
 use clap::{App, Arg};
 use log::LevelFilter;
 use std::error::Error;
+use std::fs::File;
+use std::io::{prelude::*, BufReader};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("nushell")
@@ -31,6 +33,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .long("debug")
                 .multiple(true)
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("script")
+                .help("the nu script to run")
+                .index(1),
         )
         .get_matches();
 
@@ -70,6 +77,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    builder.try_init()?;
+
     match matches.values_of("commands") {
         None => {}
         Some(values) => {
@@ -80,12 +89,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    builder.try_init()?;
+    match matches.value_of("script") {
+        Some(script) => {
+            let file = File::open(script)?;
+            let reader = BufReader::new(file);
+            for line in reader.lines() {
+                let line = line?;
+                if !line.starts_with('#') {
+                    futures::executor::block_on(nu::run_pipeline_standalone(line))?;
+                }
+            }
+            return Ok(());
+        }
 
-    println!(
-        "Welcome to Nushell {} (type 'help' for more info)",
-        clap::crate_version!()
-    );
-    futures::executor::block_on(nu::cli())?;
+        None => {
+            println!(
+                "Welcome to Nushell {} (type 'help' for more info)",
+                clap::crate_version!()
+            );
+            futures::executor::block_on(nu::cli())?;
+        }
+    }
+
     Ok(())
 }
