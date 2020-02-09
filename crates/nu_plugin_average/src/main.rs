@@ -102,7 +102,7 @@ impl Plugin for Average {
                 }
                 UntaggedValue::Primitive(Primitive::Bytes(bytes)) => {
                     let avg = *bytes as f64 / self.count as f64;
-                    let primitive_value: UntaggedValue = Primitive::from(avg).into();
+                    let primitive_value: UntaggedValue = UntaggedValue::bytes(avg as u64);
                     let tagged_value = primitive_value.into_value(inner.tag.clone());
                     Ok(vec![ReturnSuccess::value(tagged_value)])
                 }

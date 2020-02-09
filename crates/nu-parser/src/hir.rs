@@ -204,6 +204,12 @@ pub struct SpannedExpression {
     pub span: Span,
 }
 
+impl SpannedExpression {
+    pub fn new(expr: Expression, span: Span) -> SpannedExpression {
+        SpannedExpression { expr, span }
+    }
+}
+
 impl std::ops::Deref for SpannedExpression {
     type Target = Expression;
 

@@ -138,6 +138,14 @@ pub(crate) async fn run_internal_command(
                     }
                 },
 
+                Ok(ReturnSuccess::Value(Value {
+                    value: UntaggedValue::Error(err),
+                    ..
+                })) => {
+                    context.error(err);
+                    break;
+                }
+
                 Ok(ReturnSuccess::Value(v)) => {
                     yielded = true;
                     yield Ok(v);

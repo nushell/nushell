@@ -6,13 +6,10 @@ use crate::context::Context;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::prelude::*;
+use futures_codec::{FramedRead, LinesCodec};
 use nu_errors::ShellError;
-use nu_parser::hir::Expression;
-use nu_parser::{
-    hir, ClassifiedCommand, ClassifiedPipeline, InternalCommand, PipelineShape, SpannedToken,
-    TokensIterator,
-};
-use nu_protocol::{Signature, Value};
+use nu_parser::{ClassifiedPipeline, PipelineShape, SpannedToken, TokensIterator};
+use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
 use rustyline::error::ReadlineError;
@@ -240,10 +237,9 @@ fn create_default_starship_config() -> Option<toml::Value> {
     Some(toml::Value::Table(map))
 }
 
-/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
-pub async fn cli() -> Result<(), Box<dyn Error>> {
-    let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
-
+pub fn create_default_context(
+    syncer: &mut crate::env::environment_syncer::EnvironmentSyncer,
+) -> Result<Context, Box<dyn Error>> {
     syncer.load_environment();
 
     let mut context = Context::basic()?;
@@ -374,6 +370,52 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
         }
     }
 
+    Ok(context)
+}
+
+pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Error>> {
+    let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
+    let mut context = create_default_context(&mut syncer)?;
+
+    let _ = load_plugins(&mut context);
+
+    let cc = context.ctrl_c.clone();
+
+    ctrlc::set_handler(move || {
+        cc.store(true, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    if context.ctrl_c.load(Ordering::SeqCst) {
+        context.ctrl_c.store(false, Ordering::SeqCst);
+    }
+
+    let line = process_line(Ok(pipeline), &mut context, true).await;
+
+    match line {
+        LineResult::Success(line) => {
+            context.maybe_print_errors(Text::from(line));
+        }
+
+        LineResult::Error(line, err) => {
+            context.with_host(|host| {
+                print_err(err, host, &Text::from(line.clone()));
+            });
+
+            context.maybe_print_errors(Text::from(line));
+        }
+
+        _ => {}
+    }
+
+    Ok(())
+}
+
+/// The entry point for the CLI. Will register all known internal commands, load experimental commands, load plugins, then prepare the prompt and line reader for input.
+pub async fn cli() -> Result<(), Box<dyn Error>> {
+    let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
+    let mut context = create_default_context(&mut syncer)?;
+
     let _ = load_plugins(&mut context);
 
     let config = Config::builder().color_mode(ColorMode::Forced).build();
@@ -482,7 +524,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             initial_command = None;
         }
 
-        let line = process_line(readline, &mut context).await;
+        let line = process_line(readline, &mut context, false).await;
 
         // Check the config to see if we need to update the path
         // TODO: make sure config is cached so we don't path this load every call
@@ -561,7 +603,11 @@ enum LineResult {
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
+async fn process_line(
+    readline: Result<String, ReadlineError>,
+    ctx: &mut Context,
+    redirect_stdin: bool,
+) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
@@ -579,37 +625,68 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let mut pipeline = classify_pipeline(&result, ctx, &Text::from(line));
+            let pipeline = classify_pipeline(&result, ctx, &Text::from(line));
 
             if let Some(failure) = pipeline.failed {
                 return LineResult::Error(line.to_string(), failure.into());
             }
 
-            let should_push = match pipeline.commands.list.last() {
-                Some(ClassifiedCommand::External(_)) => false,
-                _ => true,
+            let input_stream = if redirect_stdin && !atty::is(atty::Stream::Stdin) {
+                let file = futures::io::AllowStdIo::new(std::io::stdin());
+                let stream = FramedRead::new(file, LinesCodec).map(|line| {
+                    if let Ok(line) = line {
+                        Ok(Value {
+                            value: UntaggedValue::Primitive(Primitive::String(line)),
+                            tag: Tag::unknown(),
+                        })
+                    } else {
+                        panic!("Internal error: could not read lines of text from stdin")
+                    }
+                });
+                Some(stream.to_input_stream())
+            } else {
+                None
             };
 
-            if should_push {
-                pipeline
-                    .commands
-                    .list
-                    .push(ClassifiedCommand::Internal(InternalCommand {
-                        name: "autoview".to_string(),
-                        name_tag: Tag::unknown(),
-                        args: hir::Call::new(
-                            Box::new(
-                                Expression::synthetic_string("autoview").into_expr(Span::unknown()),
-                            ),
-                            None,
-                            None,
-                            Span::unknown(),
-                        ),
-                    }));
-            }
+            match run_pipeline(pipeline, ctx, input_stream, line).await {
+                Ok(Some(input)) => {
+                    // Running a pipeline gives us back a stream that we can then
+                    // work through. At the top level, we just want to pull on the
+                    // values to compute them.
+                    use futures::stream::TryStreamExt;
 
-            match run_pipeline(pipeline, ctx, None, line).await {
-                Ok(_) => LineResult::Success(line.to_string()),
+                    let context = RunnableContext {
+                        input,
+                        shell_manager: ctx.shell_manager.clone(),
+                        host: ctx.host.clone(),
+                        ctrl_c: ctx.ctrl_c.clone(),
+                        commands: ctx.registry.clone(),
+                        name: Tag::unknown(),
+                        source: Text::from(String::new()),
+                    };
+
+                    if let Ok(mut output_stream) = crate::commands::autoview::autoview(context) {
+                        loop {
+                            match output_stream.try_next().await {
+                                Ok(Some(ReturnSuccess::Value(Value {
+                                    value: UntaggedValue::Error(e),
+                                    ..
+                                }))) => return LineResult::Error(line.to_string(), e),
+                                Ok(Some(_item)) => {
+                                    if ctx.ctrl_c.load(Ordering::SeqCst) {
+                                        break;
+                                    }
+                                }
+                                _ => {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    LineResult::Success(line.to_string())
+                }
+                Ok(None) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
             }
         }

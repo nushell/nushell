@@ -124,6 +124,7 @@ termcolor = "1.1.0"
 natural = "0.3.0"
 parking_lot = "0.10.0"
 meval = "0.2"
+atty = "0.2"
 
 clipboard = {version = "0.5", optional = true }
 ptree = {version = "0.2" }
