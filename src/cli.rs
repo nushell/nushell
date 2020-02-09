@@ -401,7 +401,7 @@ pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Err
                 print_err(err, host, &Text::from(line.clone()));
             });
 
-            context.maybe_print_errors(Text::from(line.clone()));
+            context.maybe_print_errors(Text::from(line));
         }
 
         _ => {}
@@ -643,8 +643,8 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                         source: Text::from(String::new()),
                     };
 
-                    match crate::commands::autoview::autoview(context) {
-                        Ok(mut output_stream) => loop {
+                    if let Ok(mut output_stream) = crate::commands::autoview::autoview(context) {
+                        loop {
                             match output_stream.try_next().await {
                                 Ok(Some(ReturnSuccess::Value(Value {
                                     value: UntaggedValue::Error(e),
@@ -659,8 +659,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                                     break;
                                 }
                             }
-                        },
-                        _ => {}
+                        }
                     }
 
                     LineResult::Success(line.to_string())
