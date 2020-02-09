@@ -390,7 +390,7 @@ pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Err
         context.ctrl_c.store(false, Ordering::SeqCst);
     }
 
-    let line = process_line(Ok(pipeline), &mut context).await;
+    let line = process_line(Ok(pipeline), &mut context, true).await;
 
     match line {
         LineResult::Success(line) => {
@@ -524,7 +524,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             initial_command = None;
         }
 
-        let line = process_line(readline, &mut context).await;
+        let line = process_line(readline, &mut context, false).await;
 
         // Check the config to see if we need to update the path
         // TODO: make sure config is cached so we don't path this load every call
@@ -603,7 +603,11 @@ enum LineResult {
 }
 
 /// Process the line by parsing the text to turn it into commands, classify those commands so that we understand what is being called in the pipeline, and then run this pipeline
-async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context) -> LineResult {
+async fn process_line(
+    readline: Result<String, ReadlineError>,
+    ctx: &mut Context,
+    redirect_stdin: bool,
+) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
 
@@ -627,7 +631,7 @@ async fn process_line(readline: Result<String, ReadlineError>, ctx: &mut Context
                 return LineResult::Error(line.to_string(), failure.into());
             }
 
-            let input_stream = if !atty::is(atty::Stream::Stdin) {
+            let input_stream = if redirect_stdin && !atty::is(atty::Stream::Stdin) {
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, LinesCodec).map(|line| {
                     if let Ok(line) = line {
