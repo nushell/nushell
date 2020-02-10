@@ -373,7 +373,10 @@ pub fn create_default_context(
     Ok(context)
 }
 
-pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Error>> {
+pub async fn run_pipeline_standalone(
+    pipeline: String,
+    redirect_stdin: bool,
+) -> Result<(), Box<dyn Error>> {
     let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
     let mut context = create_default_context(&mut syncer)?;
 
@@ -390,7 +393,7 @@ pub async fn run_pipeline_standalone(pipeline: String) -> Result<(), Box<dyn Err
         context.ctrl_c.store(false, Ordering::SeqCst);
     }
 
-    let line = process_line(Ok(pipeline), &mut context, true).await;
+    let line = process_line(Ok(pipeline), &mut context, redirect_stdin).await;
 
     match line {
         LineResult::Success(line) => {
@@ -644,7 +647,7 @@ async fn process_line(
                 return LineResult::Error(line.to_string(), failure.into());
             }
 
-            let input_stream = if redirect_stdin && !atty::is(atty::Stream::Stdin) {
+            let input_stream = if redirect_stdin {
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, LinesCodec).map(|line| {
                     if let Ok(line) = line {
