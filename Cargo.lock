@@ -932,6 +932,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
+name = "filesize"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a941e39ae509cebcd46c6734c20553a9a209b92cea5fc54618fe778fea61701"
+dependencies = [
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2201,6 +2210,7 @@ dependencies = [
  "derive-new",
  "dirs 2.0.2",
  "dunce",
+ "filesize",
  "futures 0.3.3",
  "futures-util",
  "futures_codec",
