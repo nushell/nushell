@@ -35,6 +35,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("stdin")
+                .long("stdin")
+                .multiple(false)
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("script")
                 .help("the nu script to run")
                 .index(1),
@@ -83,7 +89,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         None => {}
         Some(values) => {
             for item in values {
-                futures::executor::block_on(nu::run_pipeline_standalone(item.into()))?;
+                futures::executor::block_on(nu::run_pipeline_standalone(
+                    item.into(),
+                    matches.is_present("stdin"),
+                ))?;
             }
             return Ok(());
         }
@@ -96,7 +105,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             for line in reader.lines() {
                 let line = line?;
                 if !line.starts_with('#') {
-                    futures::executor::block_on(nu::run_pipeline_standalone(line))?;
+                    futures::executor::block_on(nu::run_pipeline_standalone(
+                        line,
+                        matches.is_present("stdin"),
+                    ))?;
                 }
             }
             return Ok(());
