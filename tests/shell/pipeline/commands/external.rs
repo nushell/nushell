@@ -78,6 +78,24 @@ mod it_evaluation {
     }
 }
 
+mod stdin_evaluation {
+    use super::nu_error;
+    use nu_test_support::pipeline;
+
+    #[test]
+    fn does_not_panic_with_no_newline_in_stream() {
+        let stderr = nu_error!(
+            cwd: ".",
+            pipeline(r#"
+                nonu "where's the nuline?"
+                | count
+            "#
+        ));
+
+        assert_eq!(stderr, "");
+    }
+}
+
 mod external_words {
     use super::nu;
 

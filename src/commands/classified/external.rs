@@ -285,19 +285,27 @@ fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(stdout);
-                let mut stream = FramedRead::new(file, LinesCodec).map(|line| {
+                let mut stream = FramedRead::new(file, LinesCodec);
+
+                while let Some(line) = stream.next().await {
                     if let Ok(line) = line {
-                        Value {
+                        yield Ok(Value {
                             value: UntaggedValue::Primitive(Primitive::Line(line)),
                             tag: name_tag.clone(),
-                        }
+                        });
                     } else {
-                        panic!("Internal error: could not read lines of text from stdin")
+                        yield Ok(Value {
+                            value: UntaggedValue::Error(
+                                ShellError::labeled_error(
+                                    "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
+                                    "unable to read from stdout",
+                                    &name_tag,
+                                )
+                            ),
+                            tag: name_tag.clone(),
+                        });
+                        return;
                     }
-                });
-
-                while let Some(item) = stream.next().await {
-                    yield Ok(item)
                 }
             }
 
