@@ -302,11 +302,11 @@ impl From<DirInfo> for Value {
             UntaggedValue::path(d.path).retag(d.tag.clone()),
         );
         r.insert(
-            "apparent size".to_string(),
+            "apparent".to_string(),
             UntaggedValue::bytes(d.size).retag(d.tag.clone()),
         );
         r.insert(
-            "physical size".to_string(),
+            "physical".to_string(),
             UntaggedValue::bytes(d.blocks).retag(d.tag.clone()),
         );
         if !d.files.is_empty() {
@@ -361,14 +361,14 @@ impl From<FileInfo> for Value {
             UntaggedValue::path(f.path).retag(f.tag.clone()),
         );
         r.insert(
-            "apparent size".to_string(),
+            "apparent".to_string(),
             UntaggedValue::bytes(f.size).retag(f.tag.clone()),
         );
         let b = match f.blocks {
             Some(k) => UntaggedValue::bytes(k).retag(f.tag.clone()),
             None => UntaggedValue::nothing().retag(f.tag.clone()),
         };
-        r.insert("physical size".to_string(), b);
+        r.insert("physical".to_string(), b);
         Value {
             value: UntaggedValue::row(r),
             tag: f.tag,
