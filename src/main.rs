@@ -32,6 +32,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .multiple(true)
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("stdin")
+                .long("stdin")
+                .multiple(false)
+                .takes_value(false),
+        )
         .get_matches();
 
     let loglevel = match matches.value_of("loglevel") {
@@ -74,7 +80,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         None => {}
         Some(values) => {
             for item in values {
-                futures::executor::block_on(nu::run_pipeline_standalone(item.into()))?;
+                futures::executor::block_on(nu::run_pipeline_standalone(
+                    item.into(),
+                    matches.is_present("stdin"),
+                ))?;
             }
             return Ok(());
         }
