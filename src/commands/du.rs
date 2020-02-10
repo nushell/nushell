@@ -300,15 +300,15 @@ impl From<DirInfo> for Value {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
             "name".to_string(),
-            UntaggedValue::string(d.name).into_untagged_value(),
+            UntaggedValue::string(d.name).retag(d.tag.clone()),
         );
         r.insert(
-            "size".to_string(),
-            UntaggedValue::bytes(d.size).into_untagged_value(),
+            "apparent size".to_string(),
+            UntaggedValue::bytes(d.size).retag(d.tag.clone()),
         );
         r.insert(
-            "blocks".to_string(),
-            UntaggedValue::int(d.blocks).into_untagged_value(),
+            "physical size".to_string(),
+            UntaggedValue::bytes(d.blocks).retag(d.tag.clone()),
         );
         if !d.files.is_empty() {
             let v = Value {
@@ -359,17 +359,17 @@ impl From<FileInfo> for Value {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
             "name".to_string(),
-            UntaggedValue::string(f.name).into_untagged_value(),
+            UntaggedValue::string(f.name).retag(f.tag.clone()),
         );
         r.insert(
-            "size".to_string(),
-            UntaggedValue::bytes(f.size).into_untagged_value(),
+            "apparent size".to_string(),
+            UntaggedValue::bytes(f.size).retag(f.tag.clone()),
         );
         let b = match f.blocks {
-            Some(k) => UntaggedValue::int(k).into_untagged_value(),
-            None => UntaggedValue::string("?").into_untagged_value(),
+            Some(k) => UntaggedValue::bytes(k).retag(f.tag.clone()),
+            None => UntaggedValue::nothing().retag(f.tag.clone()),
         };
-        r.insert("blocks".to_string(), b);
+        r.insert("physical size".to_string(), b);
         Value {
             value: UntaggedValue::row(r),
             tag: f.tag,
