@@ -135,9 +135,9 @@ pub trait TaggedItem: Sized {
         }
     }
 
-    /// For now, this is a temporary facility. In many cases, there are other useful spans that we
-    /// could be using, such as the original source spans of JSON or Toml files, but we don't yet
-    /// have the infrastructure to make that work.
+    // For now, this is a temporary facility. In many cases, there are other useful spans that we
+    // could be using, such as the original source spans of JSON or Toml files, but we don't yet
+    // have the infrastructure to make that work.
     fn tagged_unknown(self) -> Tagged<Self> {
         Tagged {
             item: self,
