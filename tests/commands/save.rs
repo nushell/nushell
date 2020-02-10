@@ -37,7 +37,7 @@ fn writes_out_csv() {
 
         nu!(
             cwd: dirs.root(),
-            "open \"{}/cargo_sample.toml\" | get package | save save_test_2/cargo_sample.csv",
+            "open {}/cargo_sample.toml | get package | save save_test_2/cargo_sample.csv",
             dirs.formats()
         );
 

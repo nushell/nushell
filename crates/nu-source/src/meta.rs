@@ -262,7 +262,18 @@ impl From<&std::ops::Range<usize>> for Span {
 
 /// The set of metadata that can be associated with a value
 #[derive(
-    Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash, Getters, new,
+    Debug,
+    Default,
+    Clone,
+    PartialEq,
+    Eq,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    Hash,
+    Getters,
+    new,
 )]
 pub struct Tag {
     /// The original source for this value
@@ -335,6 +346,14 @@ impl From<&Tag> for Span {
 }
 
 impl Tag {
+    /// Creates a default `Tag' with unknown `Span` position and no `AnchorLocation`
+    pub fn default() -> Self {
+        Tag {
+            anchor: None,
+            span: Span::unknown(),
+        }
+    }
+
     /// Creates a `Tag` from the given `Span` with no `AnchorLocation`
     pub fn unknown_anchor(span: Span) -> Tag {
         Tag { anchor: None, span }
@@ -470,7 +489,9 @@ pub fn span_for_spanned_list(mut iter: impl Iterator<Item = Span>) -> Span {
 ///
 /// `Span`s are combined with `AnchorLocation`s to form another type of metadata, a `Tag`.
 /// A `Span`'s end position must be greater than or equal to its start position.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash,
+)]
 pub struct Span {
     start: usize,
     end: usize,
@@ -492,6 +513,11 @@ impl From<Option<Span>> for Span {
 }
 
 impl Span {
+    /// Creates a default new `Span` that has 0 start and 0 end.
+    pub fn default() -> Self {
+        Span::unknown()
+    }
+
     /// Creates a new `Span` that has 0 start and 0 end.
     pub fn unknown() -> Span {
         Span::new(0, 0)

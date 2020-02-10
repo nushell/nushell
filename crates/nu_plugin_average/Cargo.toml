@@ -6,6 +6,9 @@ edition = "2018"
 description = "An average value plugin for Nushell"
 license = "MIT"
 
+[lib]
+doctest = false
+
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.9.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.9.0" }

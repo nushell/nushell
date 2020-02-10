@@ -6,6 +6,9 @@ edition = "2018"
 description = "A binary viewer plugin for Nushell"
 license = "MIT"
 
+[lib]
+doctest = false
+
 [dependencies]
 ansi_term = "0.12.1"
 crossterm = { version = "0.14.2" }

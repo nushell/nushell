@@ -228,6 +228,42 @@ name = "nu_plugin_core_sys"
 path = "src/plugins/nu_plugin_core_sys.rs"
 required-features = ["sys"]
 
+# Stable plugins
+[[bin]]
+name = "nu_plugin_stable_average"
+path = "src/plugins/nu_plugin_stable_average.rs"
+required-features = ["average"]
+
+[[bin]]
+name = "nu_plugin_stable_fetch"
+path = "src/plugins/nu_plugin_stable_fetch.rs"
+required-features = ["fetch"]
+
+[[bin]]
+name = "nu_plugin_stable_binaryview"
+path = "src/plugins/nu_plugin_stable_binaryview.rs"
+required-features = ["binaryview"]
+
+[[bin]]
+name = "nu_plugin_stable_match"
+path = "src/plugins/nu_plugin_stable_match.rs"
+required-features = ["match"]
+
+[[bin]]
+name = "nu_plugin_stable_post"
+path = "src/plugins/nu_plugin_stable_post.rs"
+required-features = ["post"]
+
+[[bin]]
+name = "nu_plugin_stable_sum"
+path = "src/plugins/nu_plugin_stable_sum.rs"
+required-features = ["sum"]
+
+[[bin]]
+name = "nu_plugin_stable_tree"
+path = "src/plugins/nu_plugin_stable_tree.rs"
+required-features = ["tree"]
+
 # Main nu binary
 [[bin]]
 name = "nu"
