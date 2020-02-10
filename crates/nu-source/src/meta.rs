@@ -608,17 +608,27 @@ impl Span {
         self.slice(source).to_string().spanned(*self)
     }
 
-    /// Returns the start value of the current Span.
+    /// Returns the start position of the current Span.
     pub fn start(&self) -> usize {
         self.start
     }
 
-    /// Returns the end value of the current Span.
+    /// Returns the end position of the current Span.
     pub fn end(&self) -> usize {
         self.end
     }
 
     /// Returns a bool if the current Span indicates an "unknown"  position.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let unknown_span = Span::unknown();
+    /// let known_span = Span::new(4, 6);
+    ///
+    /// assert_eq!(unknown_span.is_unknown(), true);
+    /// assert_eq!(known_span.is_unknown(), false);
+    /// ```
     pub fn is_unknown(&self) -> bool {
         self.start == 0 && self.end == 0
     }
