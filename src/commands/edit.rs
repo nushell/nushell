@@ -42,11 +42,13 @@ impl PerItemCommand for Edit {
         let replacement = call_info.args.expect_nth(1)?.tagged_unknown();
 
         let stream = match value {
-            obj @ Value {
+            obj
+            @
+            Value {
                 value: UntaggedValue::Row(_),
                 ..
             } => match obj.replace_data_at_column_path(&field, replacement.item.clone()) {
-                Some(v) => VecDeque::from(vec![Ok(ReturnSuccess::Value(v))]),
+                Some(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
                 None => {
                     return Err(ShellError::labeled_error(
                         "edit could not find place to insert column",

@@ -12,10 +12,15 @@ nu-protocol = { path = "../nu-protocol", version = "0.9.0" }
 nu-source = { path = "../nu-source", version = "0.9.0" }
 nu-errors = { path = "../nu-errors", version = "0.9.0" }
 
-heim = "0.0.9"
-futures-preview = { version = "=0.3.0-alpha.19", features = ["compat", "io-compat"] }
+futures = { version = "0.3", features = ["compat", "io-compat"] }
 battery = "0.7.5"
 futures-util = "0.3.1"
+
+[dependencies.heim]
+version = "0.0.9"
+default-features = false
+
+features = ["host", "cpu", "memory", "disk", "net", "sensors", "runtime-polyfill"]
 
 [build-dependencies]
 nu-build = { version = "0.9.0", path = "../nu-build" }

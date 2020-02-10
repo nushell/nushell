@@ -58,7 +58,7 @@ fn split_row(
                         UntaggedValue::Primitive(Primitive::String(s.into())).into_value(&v.tag),
                     ));
                 }
-                result
+                futures::stream::iter(result)
             } else {
                 let mut result = VecDeque::new();
                 result.push_back(Err(ShellError::labeled_error_with_secondary(
@@ -68,7 +68,7 @@ fn split_row(
                     "value originates from here",
                     v.tag.span,
                 )));
-                result
+                futures::stream::iter(result)
             }
         })
         .flatten();

@@ -1,4 +1,4 @@
-use futures_util::{StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use heim::process::{self as process, Process, ProcessResult};
 use heim::units::{information, ratio, Ratio};
 use std::usize;

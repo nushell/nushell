@@ -42,11 +42,13 @@ impl PerItemCommand for Insert {
         let replacement = call_info.args.expect_nth(1)?.tagged_unknown();
 
         let stream = match value {
-            obj @ Value {
+            obj
+            @
+            Value {
                 value: UntaggedValue::Row(_),
                 ..
             } => match obj.insert_data_at_column_path(&field, replacement.item.clone()) {
-                Ok(v) => VecDeque::from(vec![Ok(ReturnSuccess::Value(v))]),
+                Ok(v) => futures::stream::iter(vec![Ok(ReturnSuccess::Value(v))]),
                 Err(err) => return Err(err),
             },
 

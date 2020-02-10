@@ -91,6 +91,19 @@ mod external_words {
     }
 }
 
+mod nu_commands {
+    use super::nu;
+
+    #[test]
+    fn echo_internally_externally() {
+        let actual = nu!(cwd: ".", r#"
+        nu -c "echo 'foo'"
+        "#);
+
+        assert_eq!(actual, "foo");
+    }
+}
+
 mod tilde_expansion {
     use super::nu;
 

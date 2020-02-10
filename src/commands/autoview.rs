@@ -1,13 +1,13 @@
-use crate::commands::{RawCommandArgs, WholeStreamCommand};
+use crate::commands::UnevaluatedCallInfo;
+use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
+use nu_parser::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 pub struct Autoview;
-
-#[derive(Deserialize)]
-pub struct AutoviewArgs {}
 
 impl WholeStreamCommand for Autoview {
     fn name(&self) -> &str {
@@ -27,21 +27,48 @@ impl WholeStreamCommand for Autoview {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        Ok(args.process_raw(registry, autoview)?.run())
+        autoview(RunnableContext {
+            input: args.input,
+            commands: registry.clone(),
+            shell_manager: args.shell_manager,
+            host: args.host,
+            source: args.call_info.source,
+            ctrl_c: args.ctrl_c,
+            name: args.call_info.name_tag,
+        })
     }
 }
 
-pub fn autoview(
-    AutoviewArgs {}: AutoviewArgs,
-    context: RunnableContext,
-    raw: RawCommandArgs,
-) -> Result<OutputStream, ShellError> {
+pub struct RunnableContextWithoutInput {
+    pub shell_manager: ShellManager,
+    pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
+    pub source: Text,
+    pub ctrl_c: Arc<AtomicBool>,
+    pub commands: CommandRegistry,
+    pub name: Tag,
+}
+
+impl RunnableContextWithoutInput {
+    pub fn convert(context: RunnableContext) -> (InputStream, RunnableContextWithoutInput) {
+        let new_context = RunnableContextWithoutInput {
+            shell_manager: context.shell_manager,
+            host: context.host,
+            source: context.source,
+            ctrl_c: context.ctrl_c,
+            commands: context.commands,
+            name: context.name,
+        };
+        (context.input, new_context)
+    }
+}
+
+pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
     let binary = context.get_command("binaryview");
     let text = context.get_command("textview");
     let table = context.get_command("table");
 
     Ok(OutputStream::new(async_stream! {
-        let mut input_stream = context.input;
+        let (mut input_stream, context) = RunnableContextWithoutInput::convert(context);
 
         match input_stream.next().await {
             Some(x) => {
@@ -66,7 +93,7 @@ pub fn autoview(
                         };
                         let stream = stream.to_input_stream();
                         if let Some(table) = table {
-                            let mut command_args = raw.with_input(stream);
+                            let command_args = create_default_command_args(&context).with_input(stream);
                             let result = table.run(command_args, &context.commands);
                             result.collect::<Vec<_>>().await;
                         }
@@ -80,7 +107,8 @@ pub fn autoview(
                                 if let Some(text) = text {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
-                                    let result = text.run(raw.with_input(stream), &context.commands);
+                                    let command_args = create_default_command_args(&context).with_input(stream);
+                                    let result = text.run(command_args, &context.commands);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     outln!("{}", s);
@@ -99,7 +127,8 @@ pub fn autoview(
                                 if let Some(text) = text {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
-                                    let result = text.run(raw.with_input(stream), &context.commands);
+                                    let command_args = create_default_command_args(&context).with_input(stream);
+                                    let result = text.run(command_args, &context.commands);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     outln!("{}\n", s);
@@ -134,7 +163,8 @@ pub fn autoview(
                                 if let Some(binary) = binary {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(x);
-                                    let result = binary.run(raw.with_input(stream), &context.commands);
+                                    let command_args = create_default_command_args(&context).with_input(stream);
+                                    let result = binary.run(command_args, &context.commands);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     use pretty_hex::*;
@@ -149,7 +179,8 @@ pub fn autoview(
                                 if let Some(table) = table {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(x);
-                                    let result = table.run(raw.with_input(stream), &context.commands);
+                                    let command_args = create_default_command_args(&context).with_input(stream);
+                                    let result = table.run(command_args, &context.commands);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     outln!("{:?}", item);
@@ -169,4 +200,26 @@ pub fn autoview(
             yield ReturnSuccess::value(UntaggedValue::nothing().into_untagged_value());
         }
     }))
+}
+
+fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawCommandArgs {
+    let span = context.name.span;
+    RawCommandArgs {
+        host: context.host.clone(),
+        ctrl_c: context.ctrl_c.clone(),
+        shell_manager: context.shell_manager.clone(),
+        call_info: UnevaluatedCallInfo {
+            args: hir::Call {
+                head: Box::new(SpannedExpression::new(
+                    Expression::Literal(Literal::String(span)),
+                    span,
+                )),
+                positional: None,
+                named: None,
+                span,
+            },
+            source: context.source.clone(),
+            name_tag: context.name.clone(),
+        },
+    }
 }

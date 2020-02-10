@@ -20,7 +20,7 @@ mod shell;
 mod stream;
 mod utils;
 
-pub use crate::cli::cli;
+pub use crate::cli::{cli, run_pipeline_standalone};
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;

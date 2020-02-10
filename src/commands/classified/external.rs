@@ -1,52 +1,13 @@
 use crate::prelude::*;
-use bytes::{BufMut, BytesMut};
 use futures::stream::StreamExt;
-use futures_codec::{Decoder, Encoder, FramedRead};
+use futures_codec::{FramedRead, LinesCodec};
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::ExternalCommand;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
-use std::io::{Error, ErrorKind, Write};
+use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
-
-/// A simple `Codec` implementation that splits up data into lines.
-pub struct LinesCodec {}
-
-impl Encoder for LinesCodec {
-    type Item = String;
-    type Error = Error;
-
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        dst.put(item);
-        Ok(())
-    }
-}
-
-impl Decoder for LinesCodec {
-    type Item = nu_protocol::UntaggedValue;
-    type Error = Error;
-
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        match src.iter().position(|b| b == &b'\n') {
-            Some(pos) if !src.is_empty() => {
-                let buf = src.split_to(pos + 1);
-                String::from_utf8(buf.to_vec())
-                    .map(UntaggedValue::line)
-                    .map(Some)
-                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))
-            }
-            _ if !src.is_empty() => {
-                let drained = src.take();
-                String::from_utf8(drained.to_vec())
-                    .map(UntaggedValue::string)
-                    .map(Some)
-                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))
-            }
-            _ => Ok(None),
-        }
-    }
-}
 
 pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
     match &from.value {
@@ -160,7 +121,7 @@ async fn run_with_iterator_arg(
                 }
             }).collect::<Vec<String>>();
 
-            match spawn(&command, &path, &process_args[..], None, is_last).await {
+            match spawn(&command, &path, &process_args[..], None, is_last) {
                 Ok(res) => {
                     if let Some(mut res) = res {
                         while let Some(item) = res.next().await {
@@ -190,83 +151,46 @@ async fn run_with_stdin(
 ) -> Result<Option<InputStream>, ShellError> {
     let path = context.shell_manager.path();
 
-    let mut inputs: InputStream = if let Some(input) = input {
-        trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input)
-    } else {
-        InputStream::empty()
-    };
+    let input = input
+        .map(|input| trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input));
 
-    let stream = async_stream! {
-        while let Some(value) = inputs.next().await {
-            let name = command.name.clone();
-            let name_tag = command.name_tag.clone();
-            let home_dir = dirs::home_dir();
-            let path = &path;
-            let args = command.args.clone();
+    let process_args = command
+        .args
+        .iter()
+        .map(|arg| {
+            let arg = expand_tilde(arg.deref(), dirs::home_dir);
 
-            let value_for_stdin = match nu_value_to_string_for_stdin(&command, &value) {
-                Ok(value) => value,
-                Err(reason) => {
-                    yield Ok(Value {
-                        value: UntaggedValue::Error(reason),
-                        tag: name_tag
-                    });
-                    return;
-                }
-            };
-
-            let process_args = args.iter().map(|arg| {
-                let arg = expand_tilde(arg.deref(), || home_dir.as_ref());
-
-                #[cfg(not(windows))]
-                {
-                    if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
-                        if let Some(unquoted) = remove_quotes(&arg) {
-                            format!(r#""{}""#, unquoted)
-                        } else {
-                            arg.as_ref().to_string()
-                        }
-                    } else {
-                        arg.as_ref().to_string()
-                    }
-                }
-                #[cfg(windows)]
-                {
+            #[cfg(not(windows))]
+            {
+                if argument_contains_whitespace(&arg) && argument_is_quoted(&arg) {
                     if let Some(unquoted) = remove_quotes(&arg) {
-                        unquoted.to_string()
+                        format!(r#""{}""#, unquoted)
                     } else {
                         arg.as_ref().to_string()
                     }
-                }
-            }).collect::<Vec<String>>();
-
-            match spawn(&command, &path, &process_args[..], value_for_stdin, is_last).await {
-                Ok(res) => {
-                    if let Some(mut res) = res {
-                        while let Some(item) = res.next().await {
-                            yield Ok(item)
-                        }
-                    }
-                }
-                Err(reason) => {
-                    yield Ok(Value {
-                        value: UntaggedValue::Error(reason),
-                        tag: name_tag
-                    });
-                    return;
+                } else {
+                    arg.as_ref().to_string()
                 }
             }
-        }
-    };
+            #[cfg(windows)]
+            {
+                if let Some(unquoted) = remove_quotes(&arg) {
+                    unquoted.to_string()
+                } else {
+                    arg.as_ref().to_string()
+                }
+            }
+        })
+        .collect::<Vec<String>>();
 
-    Ok(Some(stream.to_input_stream()))
+    spawn(&command, &path, &process_args[..], input, is_last)
 }
 
-async fn spawn(
+fn spawn(
     command: &ExternalCommand,
     path: &str,
     args: &[String],
-    stdin_contents: Option<String>,
+    input: Option<InputStream>,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
     let command = command.clone();
@@ -304,7 +228,7 @@ async fn spawn(
     }
 
     // open since we have some contents for stdin
-    if stdin_contents.is_some() {
+    if input.is_some() {
         process.stdin(Stdio::piped());
         trace!(target: "nu::run::external", "set up stdin pipe");
     }
@@ -313,52 +237,37 @@ async fn spawn(
 
     if let Ok(mut child) = process.spawn() {
         let stream = async_stream! {
-            if let Some(mut input) = stdin_contents.as_ref() {
+            if let Some(mut input) = input {
                 let mut stdin_write = child.stdin
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
 
-                if let Err(e) = stdin_write.write(input.as_bytes()) {
-                    let message = format!("Unable to write to stdin (error = {})", e);
+                while let Some(value) = input.next().await {
+                    let input_string = match nu_value_to_string_for_stdin(&command, &value) {
+                        Ok(None) => continue,
+                        Ok(Some(v)) => v,
+                        Err(e) => {
+                            yield Ok(Value {
+                                value: UntaggedValue::Error(e),
+                                tag: name_tag
+                            });
+                            return;
+                        }
+                    };
 
-                    yield Ok(Value {
-                        value: UntaggedValue::Error(ShellError::labeled_error(
-                            message,
-                            "application may have closed before completing pipeline",
-                            &name_tag)),
-                        tag: name_tag
-                    });
-                    return;
-                }
+                    if let Err(e) = stdin_write.write(input_string.as_bytes()) {
+                        let message = format!("Unable to write to stdin (error = {})", e);
 
-                drop(stdin_write);
-            }
-
-            if is_last && command.has_it_argument() {
-                if let Ok(status) = child.wait() {
-                    if status.success() {
+                        yield Ok(Value {
+                            value: UntaggedValue::Error(ShellError::labeled_error(
+                                message,
+                                "application may have closed before completing pipeline",
+                                &name_tag)),
+                            tag: name_tag
+                        });
                         return;
                     }
                 }
-
-                // We can give an error when we see a non-zero exit code, but this is different
-                // than what other shells will do.
-                let cfg = crate::data::config::config(Tag::unknown());
-                if let Ok(cfg) = cfg {
-                    if cfg.contains_key("nonzero_exit_errors") {
-                        yield Ok(Value {
-                            value: UntaggedValue::Error(
-                                ShellError::labeled_error(
-                                    "External command failed",
-                                    "command failed",
-                                    &name_tag,
-                                )
-                            ),
-                            tag: name_tag,
-                        });
-                    }
-                }
-                return;
             }
 
             if !is_last {
@@ -376,24 +285,24 @@ async fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(stdout);
-                let stream = FramedRead::new(file, LinesCodec {});
-
-                let mut stream = stream.map(|line| {
+                let mut stream = FramedRead::new(file, LinesCodec).map(|line| {
                     if let Ok(line) = line {
-                        line.into_value(&name_tag)
+                        Value {
+                            value: UntaggedValue::Primitive(Primitive::Line(line)),
+                            tag: name_tag.clone(),
+                        }
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }
                 });
 
-                loop {
-                    match stream.next().await {
-                        Some(item) => yield Ok(item),
-                        None => break,
-                    }
+                while let Some(item) = stream.next().await {
+                    yield Ok(item)
                 }
             }
 
+            // We can give an error when we see a non-zero exit code, but this is different
+            // than what other shells will do.
             if child.wait().is_err() {
                 let cfg = crate::data::config::config(Tag::unknown());
                 if let Ok(cfg) = cfg {

@@ -14,6 +14,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("commands")
+                .short("c")
+                .long("commands")
+                .multiple(false)
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("develop")
                 .long("develop")
                 .multiple(true)
@@ -24,6 +31,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .long("debug")
                 .multiple(true)
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("stdin")
+                .long("stdin")
+                .multiple(false)
+                .takes_value(false),
         )
         .get_matches();
 
@@ -60,6 +73,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             for item in values {
                 builder.filter_module(&format!("nu::{}", item), LevelFilter::Debug);
             }
+        }
+    }
+
+    match matches.values_of("commands") {
+        None => {}
+        Some(values) => {
+            for item in values {
+                futures::executor::block_on(nu::run_pipeline_standalone(
+                    item.into(),
+                    matches.is_present("stdin"),
+                ))?;
+            }
+            return Ok(());
         }
     }
 
