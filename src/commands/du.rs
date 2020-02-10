@@ -300,7 +300,7 @@ impl From<DirInfo> for Value {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
             "name".to_string(),
-            UntaggedValue::string(d.name).retag(d.tag.clone()),
+            UntaggedValue::path(d.name).retag(d.tag.clone()),
         );
         r.insert(
             "apparent size".to_string(),
@@ -359,7 +359,7 @@ impl From<FileInfo> for Value {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
             "name".to_string(),
-            UntaggedValue::string(f.name).retag(f.tag.clone()),
+            UntaggedValue::path(f.name).retag(f.tag.clone()),
         );
         r.insert(
             "apparent size".to_string(),
