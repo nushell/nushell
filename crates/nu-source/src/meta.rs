@@ -519,6 +519,7 @@ impl Span {
     }
 
     // Returns a new Span by merging an earlier Span with the current Span.
+    // The resulting Span will have the same start position as the given Span and same end as the current Span.
     pub fn since(&self, other: impl Into<Span>) -> Span {
         let other = other.into();
 
@@ -526,6 +527,7 @@ impl Span {
     }
 
     // Returns a new Span by merging a later Span with the current Span.
+    // The resulting Span will have the same start position as the current Span and same end as the given Span.
     pub fn until(&self, other: impl Into<Span>) -> Span {
         let other = other.into();
 
