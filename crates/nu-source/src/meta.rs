@@ -160,7 +160,6 @@ impl<T> std::ops::Deref for Tagged<T> {
 }
 
 impl<T> Tagged<T> {
-
     pub fn map<U>(self, input: impl FnOnce(T) -> U) -> Tagged<U> {
         let tag = self.tag();
 
@@ -370,7 +369,7 @@ impl Tag {
         self.anchor.clone()
     }
 
-    // Merges the current `Tag` with the given `Tag`. 
+    // Merges the current `Tag` with the given `Tag`.
     ///
     /// Both Tags must share the same `AnchorLocation`.
     // The resulting `Tag` will have a `Span` that starts from the current `Tag` and ends at `Span` of the given `Tag`.
@@ -387,7 +386,7 @@ impl Tag {
         }
     }
 
-    /// Merges the current `Tag` with the given optional `Tag`. 
+    /// Merges the current `Tag` with the given optional `Tag`.
     ///
     /// Both `Tag`s must share the same `AnchorLocation`.
     /// The resulting `Tag` will have a `Span` that starts from the current `Tag` and ends at `Span` of the given `Tag`.
@@ -581,7 +580,7 @@ impl Span {
         Span::new(self.start, other.end)
     }
 
-    /// Returns a new Span by merging a later Span with the current Span. 
+    /// Returns a new Span by merging a later Span with the current Span.
     ///
     /// If the given Span is of the None variant,
     /// A Span with the same values as the current Span is returned.
