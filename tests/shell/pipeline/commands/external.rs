@@ -122,6 +122,19 @@ mod nu_commands {
     }
 }
 
+mod nu_script {
+    use super::nu;
+
+    #[test]
+    fn run_nu_script() {
+        let actual = nu!(cwd: "tests/fixtures/formats", r#"
+        nu script.nu
+        "#);
+
+        assert_eq!(actual, "done");
+    }
+}
+
 mod tilde_expansion {
     use super::nu;
 
