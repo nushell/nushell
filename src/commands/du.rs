@@ -169,12 +169,12 @@ struct DirInfo {
     errors: Vec<ShellError>,
     size: u64,
     blocks: u64,
-    name: String,
+    path: PathBuf,
     tag: Tag,
 }
 
 struct FileInfo {
-    name: String,
+    path: PathBuf,
     size: u64,
     blocks: Option<u64>,
     tag: Tag,
@@ -183,7 +183,6 @@ struct FileInfo {
 impl FileInfo {
     fn new(path: impl Into<PathBuf>, deref: bool, tag: Tag) -> Result<Self, ShellError> {
         let path = path.into();
-        let name = path.to_string_lossy().to_string();
         let m = if deref {
             std::fs::metadata(&path)
         } else {
@@ -192,10 +191,10 @@ impl FileInfo {
 
         match m {
             Ok(d) => {
-                let block_size = file_real_size_fast(path, &d).ok();
+                let block_size = file_real_size_fast(&path, &d).ok();
 
                 Ok(FileInfo {
-                    name,
+                    path,
                     blocks: block_size,
                     size: d.len(),
                     tag,
@@ -217,10 +216,10 @@ impl DirInfo {
             size: 0,
             blocks: 0,
             tag: params.tag.clone(),
-            name: path.to_string_lossy().to_string(),
+            path,
         };
 
-        match std::fs::read_dir(path) {
+        match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
                     match f {
@@ -299,8 +298,8 @@ impl From<DirInfo> for Value {
     fn from(d: DirInfo) -> Self {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
-            "name".to_string(),
-            UntaggedValue::path(d.name).retag(d.tag.clone()),
+            "path".to_string(),
+            UntaggedValue::path(d.path).retag(d.tag.clone()),
         );
         r.insert(
             "apparent size".to_string(),
@@ -358,8 +357,8 @@ impl From<FileInfo> for Value {
     fn from(f: FileInfo) -> Self {
         let mut r: IndexMap<String, Value> = IndexMap::new();
         r.insert(
-            "name".to_string(),
-            UntaggedValue::path(f.name).retag(f.tag.clone()),
+            "path".to_string(),
+            UntaggedValue::path(f.path).retag(f.tag.clone()),
         );
         r.insert(
             "apparent size".to_string(),
