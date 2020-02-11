@@ -18,8 +18,8 @@ impl WholeStreamCommand for Date {
 
     fn signature(&self) -> Signature {
         Signature::build("date")
-            .switch("utc", "use universal time (UTC)")
-            .switch("local", "use the local time")
+            .switch("utc", "use universal time (UTC)", Some('u'))
+            .switch("local", "use the local time", Some('l'))
     }
 
     fn usage(&self) -> &str {

@@ -40,14 +40,33 @@ impl PerItemCommand for Du {
     fn signature(&self) -> Signature {
         Signature::build(NAME)
             .optional("path", SyntaxShape::Pattern, "starting directory")
-            .switch("all", "Output File sizes as well as directory sizes")
-            .switch("deref", "Dereference symlinks to their targets for size")
-            .named("exclude", SyntaxShape::Pattern, "Exclude these file names")
-            .named("max-depth", SyntaxShape::Int, "Directory recursion limit")
+            .switch(
+                "all",
+                "Output File sizes as well as directory sizes",
+                Some('a'),
+            )
+            .switch(
+                "deref",
+                "Dereference symlinks to their targets for size",
+                Some('r'),
+            )
+            .named(
+                "exclude",
+                SyntaxShape::Pattern,
+                "Exclude these file names",
+                Some('x'),
+            )
+            .named(
+                "max-depth",
+                SyntaxShape::Int,
+                "Directory recursion limit",
+                Some('d'),
+            )
             .named(
                 "min-size",
                 SyntaxShape::Int,
                 "Exclude files below this size",
+                Some('m'),
             )
     }
 

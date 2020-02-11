@@ -12,7 +12,7 @@ impl WholeStreamCommand for Exit {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("exit").switch("now", "exit out of the shell immediately")
+        Signature::build("exit").switch("now", "exit out of the shell immediately", Some('n'))
     }
 
     fn usage(&self) -> &str {

@@ -29,11 +29,20 @@ impl PerItemCommand for Ls {
                 SyntaxShape::Pattern,
                 "a path to get the directory contents from",
             )
-            .switch("full", "list all available columns for each entry")
-            .switch("short-names", "only print the file names and not the path")
+            .switch(
+                "full",
+                "list all available columns for each entry",
+                Some('f'),
+            )
+            .switch(
+                "short-names",
+                "only print the file names and not the path",
+                Some('s'),
+            )
             .switch(
                 "with-symlink-targets",
                 "display the paths to the target files that symlinks point to",
+                Some('w'),
             )
     }
 

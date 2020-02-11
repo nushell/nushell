@@ -23,6 +23,7 @@ impl WholeStreamCommand for EvaluateBy {
             "evaluate_with",
             SyntaxShape::String,
             "the name of the column to evaluate by",
+            Some('w'),
         )
     }
 

@@ -24,7 +24,11 @@ impl PerItemCommand for Cpy {
         Signature::build("cp")
             .required("src", SyntaxShape::Pattern, "the place to copy from")
             .required("dst", SyntaxShape::Path, "the place to copy to")
-            .switch("recursive", "copy recursively through subdirectories")
+            .switch(
+                "recursive",
+                "copy recursively through subdirectories",
+                Some('r'),
+            )
     }
 
     fn usage(&self) -> &str {

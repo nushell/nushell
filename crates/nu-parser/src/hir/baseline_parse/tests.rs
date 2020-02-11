@@ -183,7 +183,11 @@ fn with_empty_context(source: &Text, callback: impl FnOnce(ExpandContext)) {
                 SyntaxShape::Pattern,
                 "a path to get the directory contents from",
             )
-            .switch("full", "list all available columns for each entry"),
+            .switch(
+                "full",
+                "list all available columns for each entry",
+                Some('f'),
+            ),
     );
 
     callback(ExpandContext::new(Box::new(registry), source, None))

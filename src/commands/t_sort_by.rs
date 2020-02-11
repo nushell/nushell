@@ -28,16 +28,22 @@ impl WholeStreamCommand for TSortBy {
 
     fn signature(&self) -> Signature {
         Signature::build("t-sort-by")
-            .switch("show-columns", "Displays the column names sorted")
+            .switch(
+                "show-columns",
+                "Displays the column names sorted",
+                Some('c'),
+            )
             .named(
                 "group_by",
                 SyntaxShape::String,
                 "the name of the column to group by",
+                Some('g'),
             )
             .named(
                 "split_by",
                 SyntaxShape::String,
                 "the name of the column within the grouped by table to split by",
+                Some('s'),
             )
     }
 

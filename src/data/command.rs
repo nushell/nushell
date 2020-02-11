@@ -60,9 +60,9 @@ fn signature_dict(signature: Signature, tag: impl Into<Tag>) -> Value {
 
     for (name, ty) in signature.named.iter() {
         match ty.0 {
-            NamedType::Mandatory(_) => sig.push_value(for_spec(name, "flag", true, &tag)),
-            NamedType::Optional(_) => sig.push_value(for_spec(name, "flag", false, &tag)),
-            NamedType::Switch => sig.push_value(for_spec(name, "switch", false, &tag)),
+            NamedType::Mandatory(_, _) => sig.push_value(for_spec(name, "flag", true, &tag)),
+            NamedType::Optional(_, _) => sig.push_value(for_spec(name, "flag", false, &tag)),
+            NamedType::Switch(_) => sig.push_value(for_spec(name, "switch", false, &tag)),
         }
     }
 

@@ -31,7 +31,7 @@ pub fn parse_command_tail(
         trace!(target: "nu::parse::trace_remaining", "looking for {} : {:?}", name, kind);
 
         match &kind.0 {
-            NamedType::Switch => {
+            NamedType::Switch(s) => {
                 let switch = extract_switch(name, tail);
 
                 match switch {
@@ -45,7 +45,7 @@ pub fn parse_command_tail(
                     }
                 }
             }
-            NamedType::Mandatory(syntax_type) => {
+            NamedType::Mandatory(s, syntax_type) => {
                 match extract_mandatory(config, name, tail, command_span) {
                     Err(err) => {
                         // remember this error, but continue coloring
@@ -71,7 +71,7 @@ pub fn parse_command_tail(
                     }
                 }
             }
-            NamedType::Optional(syntax_type) => {
+            NamedType::Optional(s, syntax_type) => {
                 match extract_optional(name, tail) {
                     Err(err) => {
                         // remember this error, but continue coloring

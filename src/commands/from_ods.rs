@@ -19,8 +19,11 @@ impl WholeStreamCommand for FromODS {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-ods")
-            .switch("headerless", "don't treat the first row as column names")
+        Signature::build("from-ods").switch(
+            "headerless",
+            "don't treat the first row as column names",
+            None,
+        )
     }
 
     fn usage(&self) -> &str {

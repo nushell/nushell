@@ -172,7 +172,7 @@ pub(crate) fn get_help(
         long_desc.push_str("\nflags:\n");
         for (flag, ty) in signature.named {
             match ty.0 {
-                NamedType::Switch => {
+                NamedType::Switch(s) => {
                     long_desc.push_str(&format!(
                         "  --{}{} {}\n",
                         flag,
@@ -180,7 +180,7 @@ pub(crate) fn get_help(
                         ty.1
                     ));
                 }
-                NamedType::Mandatory(m) => {
+                NamedType::Mandatory(s, m) => {
                     long_desc.push_str(&format!(
                         "  --{} <{}> (required parameter){} {}\n",
                         flag,
@@ -189,7 +189,7 @@ pub(crate) fn get_help(
                         ty.1
                     ));
                 }
-                NamedType::Optional(o) => {
+                NamedType::Optional(s, o) => {
                     long_desc.push_str(&format!(
                         "  --{} <{}>{} {}\n",
                         flag,

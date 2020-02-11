@@ -98,6 +98,7 @@ impl WholeStreamCommand for Save {
             .switch(
                 "raw",
                 "treat values as-is rather than auto-converting based on file extension",
+                Some('r'),
             )
     }
 
