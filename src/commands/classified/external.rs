@@ -104,14 +104,17 @@ async fn run_with_iterator_arg(
                 } else {
                     let arg = if arg.is_it() {
                         let value = it_replacement.to_owned();
-                        let value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
-                        let value = {
-                            if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
-                                add_quotes(&value)
-                            } else {
-                                value
-                            }
-                        };
+                        let mut value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
+                        #[cfg(not(windows))]
+                        {
+                            value = {
+                                if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
+                                    add_quotes(&value)
+                                } else {
+                                    value
+                                }
+                            };
+                        }
                         value
                     } else {
                         arg.to_string()
@@ -370,6 +373,7 @@ where
     shellexpand::tilde_with_context(input, home_dir)
 }
 
+#[allow(unused)]
 pub fn argument_contains_whitespace(argument: &str) -> bool {
     argument.chars().any(|c| c.is_whitespace())
 }
@@ -379,12 +383,13 @@ fn argument_is_quoted(argument: &str) -> bool {
         return false;
     }
 
-    (argument.starts_with('"') && argument.ends_with('"')
+    ((argument.starts_with('"') && argument.ends_with('"'))
         || (argument.starts_with('\'') && argument.ends_with('\'')))
 }
 
+#[allow(unused)]
 fn add_quotes(argument: &str) -> String {
-    format!("'{}'", argument)
+    format!("\"{}\"", argument)
 }
 
 fn remove_quotes(argument: &str) -> Option<&str> {
@@ -505,8 +510,8 @@ mod tests {
 
     #[test]
     fn adds_quotes_to_argument_to_be_passed_in() {
-        assert_eq!(add_quotes("andrés"), "'andrés'");
-        assert_eq!(add_quotes("'andrés'"), "''andrés''");
+        assert_eq!(add_quotes("andrés"), "\"andrés\"");
+        //assert_eq!(add_quotes("\"andrés\""), "\"andrés\"");
     }
 
     #[test]
