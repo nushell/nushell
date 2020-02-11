@@ -18,7 +18,7 @@ pub enum NamedType {
 /// The type of positional arguments
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
-    /// A mandatory postional argument with the expected shape of the value
+    /// A mandatory positional argument with the expected shape of the value
     Mandatory(String, SyntaxShape),
     /// An optional positional argument with the expected shape of the value
     Optional(String, SyntaxShape),
@@ -157,7 +157,7 @@ impl PrettyDebugWithSource for Signature {
 }
 
 impl Signature {
-    /// Create a new command signagure with the given name
+    /// Create a new command signature with the given name
     pub fn new(name: impl Into<String>) -> Signature {
         Signature {
             name: name.into(),

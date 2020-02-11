@@ -20,7 +20,7 @@ impl PerItemCommand for Open {
                 SyntaxShape::Path,
                 "the file path to load values from",
             )
-            .switch("raw", "load content as a string insead of a table")
+            .switch("raw", "load content as a string instead of a table")
     }
 
     fn usage(&self) -> &str {
