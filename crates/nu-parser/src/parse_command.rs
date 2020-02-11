@@ -30,18 +30,18 @@ pub fn parse_command_tail(
     for (name, kind) in &config.named {
         trace!(target: "nu::parse::trace_remaining", "looking for {} : {:?}", name, kind);
 
-        tail.move_to(0);
-
         match &kind.0 {
             NamedType::Switch => {
                 let switch = extract_switch(name, tail);
 
                 match switch {
                     None => named.insert_switch(name, None),
-                    Some((_, flag)) => {
+                    Some((pos, flag)) => {
                         named.insert_switch(name, Some(*flag));
                         rest_signature.remove_named(name);
                         tail.color_shape(flag.color(flag.span));
+                        tail.move_to(pos);
+                        tail.expand_infallible(MaybeSpaceShape);
                     }
                 }
             }
@@ -273,7 +273,15 @@ fn extract_switch(
     tokens: &mut hir::TokensIterator<'_>,
 ) -> Option<(usize, Spanned<Flag>)> {
     let source = tokens.source();
-    tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())))
+    let switch = tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())));
+
+    match switch {
+        None => None,
+        Some((pos, flag)) => {
+            tokens.remove(pos);
+            Some((pos, flag))
+        }
+    }
 }
 
 fn extract_mandatory(
