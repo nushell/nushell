@@ -14,6 +14,18 @@ impl ExternalArg {
     pub fn is_it(&self) -> bool {
         self.has("$it")
     }
+
+    pub fn is_nu(&self) -> bool {
+        self.has("$nu")
+    }
+
+    pub fn looks_like_it(&self) -> bool {
+        self.arg.starts_with("$it") && (self.arg.starts_with("$it.") || self.is_it())
+    }
+
+    pub fn looks_like_nu(&self) -> bool {
+        self.arg.starts_with("$nu") && (self.arg.starts_with("$nu.") || self.is_nu())
+    }
 }
 
 impl std::ops::Deref for ExternalArg {
@@ -54,7 +66,11 @@ pub struct ExternalCommand {
 
 impl ExternalCommand {
     pub fn has_it_argument(&self) -> bool {
-        self.args.iter().any(|arg| arg.has("$it"))
+        self.args.iter().any(|arg| arg.looks_like_it())
+    }
+
+    pub fn has_nu_argument(&self) -> bool {
+        self.args.iter().any(|arg| arg.looks_like_nu())
     }
 }
 
