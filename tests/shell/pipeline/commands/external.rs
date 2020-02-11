@@ -22,7 +22,7 @@ fn shows_error_for_command_not_found() {
 
 mod it_evaluation {
     use super::nu;
-    use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
+    use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
     use nu_test_support::{pipeline, playground::Playground};
 
     #[test]
@@ -74,6 +74,29 @@ mod it_evaluation {
             ));
 
             assert_eq!(actual, "AndrásWithKitKat");
+        })
+    }
+
+    #[test]
+    fn supports_fetching_given_a_column_path_to_it() {
+        Playground::setup("it_argument_test_3", |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContent(
+                "sample.toml",
+                r#"
+                    nu_party_venue = "zion"
+                "#,
+            )]);
+
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                    open sample.toml
+                    | cococo $it.nu_party_venue
+                    | echo $it
+                "#
+            ));
+
+            assert_eq!(actual, "zion");
         })
     }
 }

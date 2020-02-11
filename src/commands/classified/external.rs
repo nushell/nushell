@@ -3,8 +3,11 @@ use futures::stream::StreamExt;
 use futures_codec::{FramedRead, LinesCodec};
 use log::trace;
 use nu_errors::ShellError;
+use nu_parser::commands::classified::external::ExternalArg;
 use nu_parser::ExternalCommand;
-use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
+use nu_source::{Tag, Tagged};
+use nu_value_ext::as_column_path;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
@@ -16,7 +19,7 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
         | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(s.clone()),
         UntaggedValue::Primitive(Primitive::Path(p)) => Ok(p.to_string_lossy().to_string()),
         unsupported => Err(ShellError::labeled_error(
-            format!("$it needs string data (given: {})", unsupported.type_name()),
+            format!("needs string data (given: {})", unsupported.type_name()),
             "expected a string",
             &command.name_tag,
         )),
@@ -58,11 +61,57 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    if command.has_it_argument() {
+    if command.has_it_argument() || command.has_nu_argument() {
         run_with_iterator_arg(command, context, input, is_last).await
     } else {
         run_with_stdin(command, context, input, is_last).await
     }
+}
+
+fn prepare_column_path_for_fetching_it_variable(
+    argument: &ExternalArg,
+) -> Result<Tagged<ColumnPath>, ShellError> {
+    // We have "$it.[contents of interest]"
+    // and start slicing from "$it.[member+]"
+    //                             ^ here.
+    let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
+
+    to_column_path(&key, &argument.tag)
+}
+
+fn prepare_column_path_for_fetching_nu_variable(
+    argument: &ExternalArg,
+) -> Result<Tagged<ColumnPath>, ShellError> {
+    // We have "$nu.[contents of interest]"
+    // and start slicing from "$nu.[member+]"
+    //                             ^ here.
+    let key = nu_source::Text::from(argument.deref()).slice(4..argument.len());
+
+    to_column_path(&key, &argument.tag)
+}
+
+fn to_column_path(
+    path_members: &str,
+    tag: impl Into<Tag>,
+) -> Result<Tagged<ColumnPath>, ShellError> {
+    let tag = tag.into();
+
+    as_column_path(
+        &UntaggedValue::Table(
+            path_members
+                .split('.')
+                .map(|x| {
+                    let member = match x.parse::<u64>() {
+                        Ok(v) => UntaggedValue::int(v),
+                        Err(_) => UntaggedValue::string(x),
+                    };
+
+                    member.into_value(&tag)
+                })
+                .collect(),
+        )
+        .into_value(&tag),
+    )
 }
 
 async fn run_with_iterator_arg(
@@ -87,14 +136,136 @@ async fn run_with_iterator_arg(
             let path = &path;
             let args = command.args.clone();
 
-            let it_replacement = match nu_value_to_string(&command, &value) {
-                Ok(value) => value,
-                Err(reason) => {
-                    yield Ok(Value {
-                        value: UntaggedValue::Error(reason),
-                        tag: name_tag
-                    });
-                    return;
+            let it_replacement = {
+                if command.has_it_argument() {
+                    let empty_arg = ExternalArg {
+                        arg: "".to_string(),
+                        tag: name_tag.clone()
+                    };
+
+                    let key = args.iter()
+                        .find(|arg| arg.looks_like_it())
+                        .unwrap_or_else(|| &empty_arg);
+
+                    if args.iter().all(|arg| !arg.is_it()) {
+                        let key = match prepare_column_path_for_fetching_it_variable(&key) {
+                            Ok(keypath) => keypath,
+                            Err(reason) => {
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(reason),
+                                    tag: name_tag
+                                });
+                                return;
+                            }
+                        };
+
+                        match crate::commands::get::get_column_path(&key, &value) {
+                            Ok(field) => {
+                                match nu_value_to_string(&command, &field) {
+                                    Ok(val) => Some(val),
+                                    Err(reason) => {
+                                        yield Ok(Value {
+                                            value: UntaggedValue::Error(reason),
+                                            tag: name_tag
+                                        });
+                                        return;
+                                    },
+                                }
+                            },
+                            Err(reason) => {
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(reason),
+                                    tag: name_tag
+                                });
+                                return;
+                            }
+                        }
+                    } else {
+                        match nu_value_to_string(&command, &value) {
+                            Ok(val) => Some(val),
+                            Err(reason) => {
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(reason),
+                                    tag: name_tag
+                                });
+                                return;
+                            },
+                        }
+                    }
+                } else {
+                    None
+                }
+            };
+
+            let nu_replacement = {
+                if command.has_nu_argument() {
+                    let empty_arg = ExternalArg {
+                        arg: "".to_string(),
+                        tag: name_tag.clone()
+                    };
+
+                    let key = args.iter()
+                        .find(|arg| arg.looks_like_nu())
+                        .unwrap_or_else(|| &empty_arg);
+
+                    let nu_var = match crate::evaluate::variables::nu(&name_tag) {
+                        Ok(variables) => variables,
+                        Err(reason) => {
+                            yield Ok(Value {
+                                value: UntaggedValue::Error(reason),
+                                tag: name_tag
+                            });
+                            return;
+                        }
+                    };
+
+                    if args.iter().all(|arg| !arg.is_nu()) {
+                        let key = match prepare_column_path_for_fetching_nu_variable(&key) {
+                            Ok(keypath) => keypath,
+                            Err(reason) => {
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(reason),
+                                    tag: name_tag
+                                });
+                                return;
+                            }
+                        };
+
+                        match crate::commands::get::get_column_path(&key, &nu_var) {
+                            Ok(field) => {
+                                match nu_value_to_string(&command, &field) {
+                                    Ok(val) => Some(val),
+                                    Err(reason) => {
+                                        yield Ok(Value {
+                                            value: UntaggedValue::Error(reason),
+                                            tag: name_tag
+                                        });
+                                        return;
+                                    },
+                                }
+                            },
+                            Err(reason) => {
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(reason),
+                                    tag: name_tag
+                                });
+                                return;
+                            }
+                        }
+                    } else {
+                        match nu_value_to_string(&command, &nu_var) {
+                            Ok(val) => Some(val),
+                            Err(reason) => {
+                                yield Ok(Value {
+                                    value: UntaggedValue::Error(reason),
+                                    tag: name_tag
+                                });
+                                return;
+                            },
+                        }
+                    }
+                } else {
+                    None
                 }
             };
 
@@ -102,25 +273,44 @@ async fn run_with_iterator_arg(
                 if arg.chars().all(|c| c.is_whitespace()) {
                     None
                 } else {
-                    let arg = if arg.is_it() {
-                        let value = it_replacement.to_owned();
-                        let mut value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
-                        #[cfg(not(windows))]
-                        {
-                            value = {
-                                if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
-                                    add_quotes(&value)
-                                } else {
-                                    value
-                                }
-                            };
+                    let arg = if arg.looks_like_it() {
+                        if let Some(mut value) = it_replacement.to_owned() {
+                            let mut value = expand_tilde(&value, || home_dir.as_ref()).as_ref().to_string();
+                            #[cfg(not(windows))]
+                            {
+                                value = {
+                                    if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
+                                        add_quotes(&value)
+                                    } else {
+                                        value
+                                    }
+                                };
+                            }
+                            Some(value)
+                        } else {
+                            None
                         }
-                        value
+                    } else if arg.looks_like_nu() {
+                        if let Some(mut value) = nu_replacement.to_owned() {
+                            #[cfg(not(windows))]
+                            {
+                                value = {
+                                    if argument_contains_whitespace(&value) && !argument_is_quoted(&value) {
+                                        add_quotes(&value)
+                                    } else {
+                                        value
+                                    }
+                                };
+                            }
+                            Some(value)
+                        } else {
+                            None
+                        }
                     } else {
-                        arg.to_string()
+                        Some(arg.to_string())
                     };
 
-                    Some(arg)
+                    arg
                 }
             }).collect::<Vec<String>>();
 
