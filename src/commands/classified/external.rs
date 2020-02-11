@@ -373,6 +373,7 @@ where
     shellexpand::tilde_with_context(input, home_dir)
 }
 
+#[allow(unused)]
 pub fn argument_contains_whitespace(argument: &str) -> bool {
     argument.chars().any(|c| c.is_whitespace())
 }
