@@ -233,7 +233,7 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.map_or(None, |c| {
+        let s = short.and_then(|c| {
             debug_assert!(!self.get_shorts().contains(&c));
             Some(c)
         });
@@ -253,7 +253,7 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.map_or(None, |c| {
+        let s = short.and_then(|c| {
             debug_assert!(!self.get_shorts().contains(&c));
             Some(c)
         });
@@ -273,7 +273,7 @@ impl Signature {
         desc: impl Into<String>,
         short: Option<char>,
     ) -> Signature {
-        let s = short.map_or(None, |c| {
+        let s = short.and_then(|c| {
             debug_assert!(!self.get_shorts().contains(&c));
             Some(c)
         });

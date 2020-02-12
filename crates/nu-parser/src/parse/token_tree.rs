@@ -365,12 +365,11 @@ impl SpannedToken {
         match self.unspanned() {
             Token::Flag(flag @ Flag { .. }) => {
                 let name = flag.name().slice(source);
-                if value == name {
-                    Some(*flag)
-                } else if flag.kind == FlagKind::Shorthand
+                let is_long = flag.kind == FlagKind::Longhand && value == name;
+                let is_short = flag.kind == FlagKind::Shorthand
                     && short.is_some()
-                    && short == name.chars().nth(0)
-                {
+                    && short == name.chars().nth(0);
+                if is_long || is_short {
                     Some(*flag)
                 } else {
                     None
