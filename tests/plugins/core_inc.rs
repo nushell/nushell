@@ -65,7 +65,7 @@ fn semversion_major_inc() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | inc package.version --major | get package.version | echo $it"
+            "open sample.toml | inc package.version -M | get package.version | echo $it"
         );
 
         assert_eq!(actual, "1.0.0");

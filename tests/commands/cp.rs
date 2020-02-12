@@ -60,7 +60,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
 
         nu!(
             cwd: dirs.test(),
-            "cp originals expected --recursive"
+            "cp originals expected -r"
         );
 
         assert!(expected_dir.exists());

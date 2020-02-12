@@ -5,7 +5,7 @@ fn lines() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open cargo_sample.toml --raw
+            open cargo_sample.toml -r
             | lines
             | skip-while $it != "[dependencies]"
             | skip 1

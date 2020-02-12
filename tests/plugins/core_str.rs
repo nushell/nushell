@@ -46,7 +46,7 @@ fn downcases() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "open sample.toml | str dependency.name --downcase | get dependency.name | echo $it"
+            "open sample.toml | str dependency.name -d | get dependency.name | echo $it"
         );
 
         assert_eq!(actual, "light");
