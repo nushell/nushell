@@ -15,6 +15,7 @@ use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
 use crate::{ColumnPath, PathMember};
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_source::{AnchorLocation, HasSpan, Span, Spanned, Tag};
@@ -199,6 +200,10 @@ impl UntaggedValue {
     /// Helper for creating datatime values
     pub fn system_date(s: SystemTime) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Date(s.into()))
+    }
+
+    pub fn date(d: impl Into<DateTime<Utc>>) -> UntaggedValue {
+        UntaggedValue::Primitive(Primitive::Date(d.into()))
     }
 
     /// Helper for creating the Nothing value
