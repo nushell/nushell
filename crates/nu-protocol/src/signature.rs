@@ -7,18 +7,28 @@ use serde::{Deserialize, Serialize};
 /// The types of named parameter that a command can have
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NamedType {
-    /// A flag without any associated argument. eg) `foo --bar`
-    Switch,
-    /// A mandatory flag, with associated argument. eg) `foo --required xyz`
-    Mandatory(SyntaxShape),
-    /// An optional flag, with associated argument. eg) `foo --optional abc`
-    Optional(SyntaxShape),
+    /// A flag without any associated argument. eg) `foo --bar, foo -b`
+    Switch(Option<char>),
+    /// A mandatory flag, with associated argument. eg) `foo --required xyz, foo -r xyz`
+    Mandatory(Option<char>, SyntaxShape),
+    /// An optional flag, with associated argument. eg) `foo --optional abc, foo -o abc`
+    Optional(Option<char>, SyntaxShape),
+}
+
+impl NamedType {
+    pub fn get_short(&self) -> Option<char> {
+        match self {
+            NamedType::Switch(s) => *s,
+            NamedType::Mandatory(s, _) => *s,
+            NamedType::Optional(s, _) => *s,
+        }
+    }
 }
 
 /// The type of positional arguments
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PositionalType {
-    /// A mandatory postional argument with the expected shape of the value
+    /// A mandatory positional argument with the expected shape of the value
     Mandatory(String, SyntaxShape),
     /// An optional positional argument with the expected shape of the value
     Optional(String, SyntaxShape),
@@ -120,7 +130,10 @@ impl Signature {
     pub fn allowed(&self) -> Vec<String> {
         let mut allowed = indexmap::IndexSet::new();
 
-        for (name, _) in &self.named {
+        for (name, (t, _)) in &self.named {
+            if let Some(c) = t.get_short() {
+                allowed.insert(format!("-{}", c));
+            }
             allowed.insert(format!("--{}", name));
         }
 
@@ -157,14 +170,14 @@ impl PrettyDebugWithSource for Signature {
 }
 
 impl Signature {
-    /// Create a new command signagure with the given name
+    /// Create a new command signature with the given name
     pub fn new(name: impl Into<String>) -> Signature {
         Signature {
             name: name.into(),
             usage: String::new(),
             positional: vec![],
             rest_positional: None,
-            named: indexmap::indexmap! {"help".into() => (NamedType::Switch, "Display this help message".into())},
+            named: indexmap::indexmap! {"help".into() => (NamedType::Switch(Some('h')), "Display this help message".into())},
             is_filter: false,
             yields: None,
             input: None,
@@ -218,9 +231,16 @@ impl Signature {
         name: impl Into<String>,
         ty: impl Into<SyntaxShape>,
         desc: impl Into<String>,
+        short: Option<char>,
     ) -> Signature {
-        self.named
-            .insert(name.into(), (NamedType::Optional(ty.into()), desc.into()));
+        let s = short.and_then(|c| {
+            debug_assert!(!self.get_shorts().contains(&c));
+            Some(c)
+        });
+        self.named.insert(
+            name.into(),
+            (NamedType::Optional(s, ty.into()), desc.into()),
+        );
 
         self
     }
@@ -231,17 +251,35 @@ impl Signature {
         name: impl Into<String>,
         ty: impl Into<SyntaxShape>,
         desc: impl Into<String>,
+        short: Option<char>,
     ) -> Signature {
-        self.named
-            .insert(name.into(), (NamedType::Mandatory(ty.into()), desc.into()));
+        let s = short.and_then(|c| {
+            debug_assert!(!self.get_shorts().contains(&c));
+            Some(c)
+        });
+
+        self.named.insert(
+            name.into(),
+            (NamedType::Mandatory(s, ty.into()), desc.into()),
+        );
 
         self
     }
 
     /// Add a switch to the signature
-    pub fn switch(mut self, name: impl Into<String>, desc: impl Into<String>) -> Signature {
+    pub fn switch(
+        mut self,
+        name: impl Into<String>,
+        desc: impl Into<String>,
+        short: Option<char>,
+    ) -> Signature {
+        let s = short.and_then(|c| {
+            debug_assert!(!self.get_shorts().contains(&c));
+            Some(c)
+        });
+
         self.named
-            .insert(name.into(), (NamedType::Switch, desc.into()));
+            .insert(name.into(), (NamedType::Switch(s), desc.into()));
         self
     }
 
@@ -267,5 +305,16 @@ impl Signature {
     pub fn input(mut self, ty: Type) -> Signature {
         self.input = Some(ty);
         self
+    }
+
+    /// Get list of the short-hand flags
+    pub fn get_shorts(&self) -> Vec<char> {
+        let mut shorts = Vec::new();
+        for (_, (t, _)) in &self.named {
+            if let Some(c) = t.get_short() {
+                shorts.push(c);
+            }
+        }
+        shorts
     }
 }

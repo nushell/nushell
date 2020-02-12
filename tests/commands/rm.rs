@@ -81,7 +81,7 @@ fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
 
         nu!(
             cwd: dirs.test(),
-            "rm --recursive src/*"
+            "rm -r src/*"
         );
 
         assert!(!files_exist_at(

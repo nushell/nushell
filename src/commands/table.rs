@@ -20,6 +20,7 @@ impl WholeStreamCommand for Table {
             "start_number",
             SyntaxShape::Number,
             "row number to start viewing from",
+            Some('n'),
         )
     }
 

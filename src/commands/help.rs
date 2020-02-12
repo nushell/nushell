@@ -171,34 +171,67 @@ pub(crate) fn get_help(
     if !signature.named.is_empty() {
         long_desc.push_str("\nflags:\n");
         for (flag, ty) in signature.named {
-            match ty.0 {
-                NamedType::Switch => {
-                    long_desc.push_str(&format!(
-                        "  --{}{} {}\n",
-                        flag,
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    ));
+            let msg = match ty.0 {
+                NamedType::Switch(s) => {
+                    if let Some(c) = s {
+                        format!(
+                            "  -{}, --{}{} {}\n",
+                            c,
+                            flag,
+                            if !ty.1.is_empty() { ":" } else { "" },
+                            ty.1
+                        )
+                    } else {
+                        format!(
+                            "  --{}{} {}\n",
+                            flag,
+                            if !ty.1.is_empty() { ":" } else { "" },
+                            ty.1
+                        )
+                    }
                 }
-                NamedType::Mandatory(m) => {
-                    long_desc.push_str(&format!(
-                        "  --{} <{}> (required parameter){} {}\n",
-                        flag,
-                        m.display(),
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    ));
+                NamedType::Mandatory(s, m) => {
+                    if let Some(c) = s {
+                        format!(
+                            "  -{}, --{} <{}> (required parameter){} {}\n",
+                            c,
+                            flag,
+                            m.display(),
+                            if !ty.1.is_empty() { ":" } else { "" },
+                            ty.1
+                        )
+                    } else {
+                        format!(
+                            "  --{} <{}> (required parameter){} {}\n",
+                            flag,
+                            m.display(),
+                            if !ty.1.is_empty() { ":" } else { "" },
+                            ty.1
+                        )
+                    }
                 }
-                NamedType::Optional(o) => {
-                    long_desc.push_str(&format!(
-                        "  --{} <{}>{} {}\n",
-                        flag,
-                        o.display(),
-                        if !ty.1.is_empty() { ":" } else { "" },
-                        ty.1
-                    ));
+                NamedType::Optional(s, o) => {
+                    if let Some(c) = s {
+                        format!(
+                            "  -{}, --{} <{}>{} {}\n",
+                            c,
+                            flag,
+                            o.display(),
+                            if !ty.1.is_empty() { ":" } else { "" },
+                            ty.1
+                        )
+                    } else {
+                        format!(
+                            "  --{} <{}>{} {}\n",
+                            flag,
+                            o.display(),
+                            if !ty.1.is_empty() { ":" } else { "" },
+                            ty.1
+                        )
+                    }
                 }
-            }
+            };
+            long_desc.push_str(&msg);
         }
     }
 

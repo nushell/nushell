@@ -23,8 +23,13 @@ impl WholeStreamCommand for FromCSV {
                 "separator",
                 SyntaxShape::String,
                 "a character to separate columns, defaults to ','",
+                Some('s'),
             )
-            .switch("headerless", "don't treat the first row as column names")
+            .switch(
+                "headerless",
+                "don't treat the first row as column names",
+                None,
+            )
     }
 
     fn usage(&self) -> &str {

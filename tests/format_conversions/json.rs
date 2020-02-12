@@ -61,7 +61,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
             cwd: dirs.test(), pipeline(
             r#"
                 open katz.txt
-                | from-json --objects
+                | from-json -o
                 | where name == "GorbyPuff"
                 | get rusty_luck
                 | echo $it

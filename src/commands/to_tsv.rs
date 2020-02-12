@@ -20,6 +20,7 @@ impl WholeStreamCommand for ToTSV {
         Signature::build("to-tsv").switch(
             "headerless",
             "do not output the column names as the first row",
+            None,
         )
     }
 

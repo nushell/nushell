@@ -29,8 +29,8 @@ impl PerItemCommand for Kill {
                 "process id of process that is to be killed",
             )
             .rest(SyntaxShape::Int, "rest of processes to kill")
-            .switch("force", "forcefully kill the process")
-            .switch("quiet", "won't print anything to the console")
+            .switch("force", "forcefully kill the process", Some('f'))
+            .switch("quiet", "won't print anything to the console", Some('q'))
     }
 
     fn usage(&self) -> &str {

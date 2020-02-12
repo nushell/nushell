@@ -74,7 +74,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
         cwd: dirs.test(), pipeline(
             r#"
                 open oc_get_svc.txt
-                | from-ssv --headerless --aligned-columns
+                | from-ssv --headerless -a
                 | first
                 | get Column1
                 | echo $it

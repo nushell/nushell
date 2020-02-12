@@ -15,19 +15,26 @@ impl Plugin for Str {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("str")
             .desc("Apply string function. Optional use the column of a table")
-            .switch("downcase", "convert string to lowercase")
-            .switch("upcase", "convert string to uppercase")
-            .switch("to-int", "convert string to integer")
-            .named("replace", SyntaxShape::String, "replaces the string")
+            .switch("downcase", "convert string to lowercase", Some('d'))
+            .switch("upcase", "convert string to uppercase", Some('U'))
+            .switch("to-int", "convert string to integer", Some('i'))
+            .named(
+                "replace",
+                SyntaxShape::String,
+                "replaces the string",
+                Some('r'),
+            )
             .named(
                 "find-replace",
                 SyntaxShape::Any,
                 "finds and replaces [pattern replacement]",
+                Some('f'),
             )
             .named(
                 "substring",
                 SyntaxShape::String,
                 "convert string to portion of original, requires \"start,end\"",
+                Some('s'),
             )
             .rest(SyntaxShape::ColumnPath, "the column(s) to convert")
             .filter())

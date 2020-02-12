@@ -16,7 +16,11 @@ impl WholeStreamCommand for FromJSON {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-json").switch("objects", "treat each line as a separate value")
+        Signature::build("from-json").switch(
+            "objects",
+            "treat each line as a separate value",
+            Some('o'),
+        )
     }
 
     fn usage(&self) -> &str {

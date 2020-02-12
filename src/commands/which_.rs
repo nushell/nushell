@@ -15,7 +15,7 @@ impl WholeStreamCommand for Which {
     fn signature(&self) -> Signature {
         Signature::build("which")
             .required("application", SyntaxShape::String, "application")
-            .switch("all", "list all executables")
+            .switch("all", "list all executables", Some('a'))
     }
 
     fn usage(&self) -> &str {

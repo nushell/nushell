@@ -16,7 +16,7 @@ impl WholeStreamCommand for Debug {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("debug").switch("raw", "Prints the raw value representation.")
+        Signature::build("debug").switch("raw", "Prints the raw value representation.", Some('r'))
     }
 
     fn usage(&self) -> &str {

@@ -31,8 +31,8 @@ pub fn parse_command_tail(
         trace!(target: "nu::parse::trace_remaining", "looking for {} : {:?}", name, kind);
 
         match &kind.0 {
-            NamedType::Switch => {
-                let switch = extract_switch(name, tail);
+            NamedType::Switch(s) => {
+                let switch = extract_switch(name, *s, tail);
 
                 match switch {
                     None => named.insert_switch(name, None),
@@ -45,8 +45,8 @@ pub fn parse_command_tail(
                     }
                 }
             }
-            NamedType::Mandatory(syntax_type) => {
-                match extract_mandatory(config, name, tail, command_span) {
+            NamedType::Mandatory(s, syntax_type) => {
+                match extract_mandatory(config, name, *s, tail, command_span) {
                     Err(err) => {
                         // remember this error, but continue coloring
                         found_error = Some(err);
@@ -71,8 +71,8 @@ pub fn parse_command_tail(
                     }
                 }
             }
-            NamedType::Optional(syntax_type) => {
-                match extract_optional(name, tail) {
+            NamedType::Optional(s, syntax_type) => {
+                match extract_optional(name, *s, tail) {
                     Err(err) => {
                         // remember this error, but continue coloring
                         found_error = Some(err);
@@ -270,10 +270,14 @@ fn expand_spaced_expr<
 
 fn extract_switch(
     name: &str,
+    short: Option<char>,
     tokens: &mut hir::TokensIterator<'_>,
 ) -> Option<(usize, Spanned<Flag>)> {
     let source = tokens.source();
-    let switch = tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())));
+    let switch = tokens.extract(|t| {
+        t.as_flag(name, short, &source)
+            .map(|flag| flag.spanned(t.span()))
+    });
 
     match switch {
         None => None,
@@ -287,11 +291,15 @@ fn extract_switch(
 fn extract_mandatory(
     config: &Signature,
     name: &str,
+    short: Option<char>,
     tokens: &mut hir::TokensIterator<'_>,
     span: Span,
 ) -> Result<(usize, Spanned<Flag>), ParseError> {
     let source = tokens.source();
-    let flag = tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())));
+    let flag = tokens.extract(|t| {
+        t.as_flag(name, short, &source)
+            .map(|flag| flag.spanned(t.span()))
+    });
 
     match flag {
         None => Err(ParseError::argument_error(
@@ -308,10 +316,14 @@ fn extract_mandatory(
 
 fn extract_optional(
     name: &str,
+    short: Option<char>,
     tokens: &mut hir::TokensIterator<'_>,
 ) -> Result<Option<(usize, Spanned<Flag>)>, ParseError> {
     let source = tokens.source();
-    let flag = tokens.extract(|t| t.as_flag(name, &source).map(|flag| flag.spanned(t.span())));
+    let flag = tokens.extract(|t| {
+        t.as_flag(name, short, &source)
+            .map(|flag| flag.spanned(t.span()))
+    });
 
     match flag {
         None => Ok(None),

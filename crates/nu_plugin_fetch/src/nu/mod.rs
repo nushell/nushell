@@ -15,7 +15,7 @@ impl Plugin for Fetch {
                 SyntaxShape::Path,
                 "the URL to fetch the contents from",
             )
-            .switch("raw", "fetch contents as text rather than a table")
+            .switch("raw", "fetch contents as text rather than a table", Some('r'))
             .filter())
     }
 

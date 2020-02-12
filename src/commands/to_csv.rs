@@ -21,6 +21,7 @@ impl WholeStreamCommand for ToCSV {
         Signature::build("to-csv").switch(
             "headerless",
             "do not output the columns names as the first row",
+            None,
         )
     }
 

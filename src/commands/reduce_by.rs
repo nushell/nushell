@@ -23,6 +23,7 @@ impl WholeStreamCommand for ReduceBy {
             "reduce_with",
             SyntaxShape::String,
             "the command to reduce by with",
+            Some('w'),
         )
     }
 

@@ -17,8 +17,11 @@ impl WholeStreamCommand for FromTSV {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-tsv")
-            .switch("headerless", "don't treat the first row as column names")
+        Signature::build("from-tsv").switch(
+            "headerless",
+            "don't treat the first row as column names",
+            None,
+        )
     }
 
     fn usage(&self) -> &str {

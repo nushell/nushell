@@ -27,7 +27,7 @@ impl WholeStreamCommand for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Creates a new table with the data from the inner tables splitted by the column given."
+        "Creates a new table with the data from the inner tables split by the column given."
     }
 
     fn run(

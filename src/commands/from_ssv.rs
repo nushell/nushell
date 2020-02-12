@@ -27,12 +27,17 @@ impl WholeStreamCommand for FromSSV {
 
     fn signature(&self) -> Signature {
         Signature::build(STRING_REPRESENTATION)
-            .switch("headerless", "don't treat the first row as column names")
-            .switch("aligned-columns", "assume columns are aligned")
+            .switch(
+                "headerless",
+                "don't treat the first row as column names",
+                None,
+            )
+            .switch("aligned-columns", "assume columns are aligned", Some('a'))
             .named(
                 "minimum-spaces",
                 SyntaxShape::Int,
-                "the mininum spaces to separate columns",
+                "the minimum spaces to separate columns",
+                Some('m'),
             )
     }
 

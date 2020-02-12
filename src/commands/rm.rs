@@ -26,8 +26,9 @@ impl PerItemCommand for Remove {
             .switch(
                 "trash",
                 "use the platform's recycle bin instead of permanently deleting",
+                Some('t'),
             )
-            .switch("recursive", "delete subdirectories recursively")
+            .switch("recursive", "delete subdirectories recursively", Some('r'))
     }
 
     fn usage(&self) -> &str {

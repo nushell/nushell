@@ -24,6 +24,7 @@ impl WholeStreamCommand for MapMaxBy {
             "column_name",
             SyntaxShape::String,
             "the name of the column to map-max the table's rows",
+            Some('c'),
         )
     }
 
