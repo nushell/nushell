@@ -26,7 +26,7 @@ impl WholeStreamCommand for Pivot {
             .switch(
                 "header-row",
                 "treat the first row as column names",
-                Some('h'),
+                Some('r'),
             )
             .switch(
                 "ignore-titles",
