@@ -42,6 +42,47 @@ fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
     assert_eq!(actual, "nushell");
 }
 
+mod parse {
+    use nu_test_support::nu_error;
+
+    /*
+        The debug command's signature is:
+
+        Usage:
+        > debug {flags}
+
+        flags:
+        -h, --help: Display this help message
+        -r, --raw: Prints the raw value representation.
+    */
+
+    #[test]
+    fn errors_if_flag_is_not_supported() {
+        let actual = nu_error!(cwd: ".", "debug --ferris");
+
+        assert!(
+            actual.contains("unexpected flag"),
+            format!(
+                "error message '{}' should contain 'unexpected flag'",
+                actual
+            )
+        );
+    }
+
+    #[test]
+    fn errors_if_passed_an_unexpected_argument() {
+        let actual = nu_error!(cwd: ".", "debug ferris");
+
+        assert!(
+            actual.contains("unexpected argument"),
+            format!(
+                "error message '{}' should contain 'unexpected argument'",
+                actual
+            )
+        );
+    }
+}
+
 mod tilde_expansion {
     use super::nu;
 
