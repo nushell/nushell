@@ -87,6 +87,7 @@ async fn host(tag: Tag) -> Value {
     if let Ok(platform) = platform_result {
         dict.insert_untagged("name", UntaggedValue::string(platform.system()));
         dict.insert_untagged("release", UntaggedValue::string(platform.release()));
+        dict.insert_untagged("version", UntaggedValue::string(platform.version()));
         dict.insert_untagged("hostname", UntaggedValue::string(platform.hostname()));
         dict.insert_untagged(
             "arch",
