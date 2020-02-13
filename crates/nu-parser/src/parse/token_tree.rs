@@ -363,16 +363,15 @@ impl SpannedToken {
 
     pub(crate) fn as_flag(&self, value: &str, short: Option<char>, source: &Text) -> Option<Flag> {
         match self.unspanned() {
-            Token::Flag(flag @ Flag { .. }) => {
+            Token::Flag(flag) => {
                 let name = flag.name().slice(source);
-                let is_long = flag.kind == FlagKind::Longhand && value == name;
-                let is_short = flag.kind == FlagKind::Shorthand
-                    && short.is_some()
-                    && short == name.chars().nth(0);
-                if is_long || is_short {
-                    Some(*flag)
-                } else {
-                    None
+
+                match flag.kind {
+                    FlagKind::Longhand if value == name => Some(*flag),
+                    FlagKind::Shorthand if short.is_some() && short == name.chars().next() => {
+                        Some(*flag)
+                    }
+                    _ => None,
                 }
             }
             _ => None,

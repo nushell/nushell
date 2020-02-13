@@ -42,6 +42,7 @@ pub fn parse_command_tail(
                         tail.color_shape(flag.color(flag.span));
                         tail.move_to(pos);
                         tail.expand_infallible(MaybeSpaceShape);
+                        tail.move_to(0);
                     }
                 }
             }
@@ -86,6 +87,7 @@ pub fn parse_command_tail(
                             Ok(expr) => {
                                 named.insert_optional(name, Some(expr));
                                 rest_signature.remove_named(name);
+                                tail.move_to(pos);
                             }
                             Err(_) => {
                                 found_error = Some(ParseError::argument_error(
@@ -191,6 +193,8 @@ pub fn continue_parsing_positionals(
     command_span: Span,
 ) -> Result<Vec<SpannedExpression>, ParseError> {
     let mut positional = vec![];
+
+    eat_any_whitespace(tail);
 
     for arg in &config.positional {
         trace!(target: "nu::parse::trace_remaining", "Processing positional {:?}", arg);
