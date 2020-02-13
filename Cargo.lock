@@ -2555,6 +2555,7 @@ dependencies = [
 name = "nu_plugin_str"
 version = "0.9.0"
 dependencies = [
+ "chrono",
  "nu-build",
  "nu-errors",
  "nu-plugin",

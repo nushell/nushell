@@ -1,3 +1,6 @@
+extern crate chrono;
+
+use chrono::DateTime;
 use nu_errors::ShellError;
 use nu_protocol::{did_you_mean, ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::{span_for_spanned_list, Tagged};
@@ -12,6 +15,7 @@ pub enum Action {
     ToInteger,
     Substring(usize, usize),
     Replace(ReplaceAction),
+    ToDateTime(String),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -70,6 +74,10 @@ impl Str {
                     Err(_) => UntaggedValue::string(input),
                 },
             },
+            Some(Action::ToDateTime(dt)) => match DateTime::parse_from_str(input, dt) {
+                Ok(d) => UntaggedValue::date(d),
+                Err(_) => UntaggedValue::string(input),
+            },
             None => UntaggedValue::string(input),
         };
 
@@ -89,27 +97,15 @@ impl Str {
     }
 
     pub fn for_to_int(&mut self) {
-        if self.permit() {
-            self.action = Some(Action::ToInteger);
-        } else {
-            self.log_error("can only apply one");
-        }
+        self.add_action(Action::ToInteger);
     }
 
     pub fn for_downcase(&mut self) {
-        if self.permit() {
-            self.action = Some(Action::Downcase);
-        } else {
-            self.log_error("can only apply one");
-        }
+        self.add_action(Action::Downcase);
     }
 
     pub fn for_upcase(&mut self) {
-        if self.permit() {
-            self.action = Some(Action::Upcase);
-        } else {
-            self.log_error("can only apply one");
-        }
+        self.add_action(Action::Upcase);
     }
 
     pub fn for_substring(&mut self, s: String) -> Result<(), ShellError> {
@@ -130,18 +126,24 @@ impl Str {
         };
         if start > end {
             self.log_error("End must be greater than or equal to Start");
-        } else if self.permit() {
-            self.action = Some(Action::Substring(start, end));
         } else {
-            self.log_error("can only apply one");
+            self.add_action(Action::Substring(start, end));
         }
 
         Ok(())
     }
 
     pub fn for_replace(&mut self, mode: ReplaceAction) {
+        self.add_action(Action::Replace(mode));
+    }
+
+    pub fn for_date_time(&mut self, dt: String) {
+        self.add_action(Action::ToDateTime(dt));
+    }
+
+    fn add_action(&mut self, act: Action) {
         if self.permit() {
-            self.action = Some(Action::Replace(mode));
+            self.action = Some(act);
         } else {
             self.log_error("can only apply one");
         }

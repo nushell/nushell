@@ -36,6 +36,12 @@ impl Plugin for Str {
                 "convert string to portion of original, requires \"start,end\"",
                 Some('s'),
             )
+            .named(
+                "to-date-time",
+                SyntaxShape::String,
+                "Convert string to Date/Time",
+                Some('D'),
+            )
             .rest(SyntaxShape::ColumnPath, "the column(s) to convert")
             .filter())
     }
@@ -115,6 +121,11 @@ impl Plugin for Str {
         if let Some(possible_field) = args.nth(0) {
             let possible_field = possible_field.as_column_path()?;
             self.for_field(possible_field);
+        }
+
+        if let Some(dt) = args.get("to-date-time") {
+            let dt = dt.as_string()?;
+            self.for_date_time(dt);
         }
 
         match &self.error {

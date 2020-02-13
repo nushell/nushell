@@ -7,7 +7,37 @@ mod integration {
         unstructured_sample_record,
     };
     use nu_plugin::test_helpers::{expect_return_value_at, plugin, CallStub};
-    use nu_protocol::UntaggedValue;
+    use nu_protocol::{Primitive, UntaggedValue};
+
+    #[test]
+    fn picks_up_date_time() {
+        let run = plugin(&mut Str::new())
+            .args(
+                CallStub::new()
+                    .with_named_parameter("to-date-time", string("%d.%m.%Y %H:%M %P %z"))
+                    .create(),
+            )
+            .input(string("5.8.1994 8:00 am +0000"))
+            .input(string("6.9.1995 10:00 am +0000"))
+            .input(string("5.8.1994 20:00 pm +0000"))
+            .input(string("20.4.2020 8:00 am +0000"))
+            .setup(|_, _| {})
+            .test();
+        let ret_vals = run.unwrap();
+        for r in ret_vals {
+            let r = r
+                .as_ref()
+                .unwrap()
+                .raw_value()
+                .unwrap()
+                .as_primitive()
+                .unwrap();
+            match r {
+                Primitive::Date(_) => (),
+                _ => assert!(false, "failed to convert string to date"),
+            }
+        }
+    }
 
     #[test]
     fn picks_up_one_action_flag_only() {
