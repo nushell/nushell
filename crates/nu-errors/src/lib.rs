@@ -133,6 +133,10 @@ pub enum ArgumentError {
     MissingMandatoryPositional(String),
     /// A flag was found, and it should have been followed by a value, but no value was found
     MissingValueForName(String),
+    /// An argument was found, but the command does not recognize it
+    UnexpectedArgument(Spanned<String>),
+    /// An flag was found, but the command does not recognize it
+    UnexpectedFlag(Spanned<String>),
     /// A sequence of characters was found that was not syntactically valid (but would have
     /// been valid if the command was an external command)
     InvalidExternalWord,
@@ -145,6 +149,16 @@ impl PrettyDebug for ArgumentError {
                 b::description("missing `")
                     + b::description(flag)
                     + b::description("` as mandatory flag")
+            }
+            ArgumentError::UnexpectedArgument(name) => {
+                b::description("unexpected `")
+                    + b::description(&name.item)
+                    + b::description("` is not supported")
+            }
+            ArgumentError::UnexpectedFlag(name) => {
+                b::description("unexpected `")
+                    + b::description(&name.item)
+                    + b::description("` is not supported")
             }
             ArgumentError::MissingMandatoryPositional(pos) => {
                 b::description("missing `")
@@ -452,6 +466,30 @@ impl ShellError {
                     Severity::Error,
                     "Invalid bare word for Nu command (did you intend to invoke an external command?)".to_string())
                 .with_label(Label::new_primary(command.span)),
+                ArgumentError::UnexpectedArgument(argument) => Diagnostic::new(
+                    Severity::Error,
+                    format!(
+                        "{} unexpected {}",
+                        Color::Cyan.paint(&command.item),
+                        Color::Green.bold().paint(&argument.item)
+                    ),
+                )
+                .with_label(
+                    Label::new_primary(argument.span).with_message(
+                        format!("unexpected argument (try {} -h)", &command.item))
+                ),
+                ArgumentError::UnexpectedFlag(flag) => Diagnostic::new(
+                    Severity::Error,
+                    format!(
+                        "{} unexpected {}",
+                        Color::Cyan.paint(&command.item),
+                        Color::Green.bold().paint(&flag.item)
+                    ),
+                )
+                .with_label(
+                    Label::new_primary(flag.span).with_message(
+                    format!("unexpected flag (try {} -h)", &command.item))
+                    ),
                 ArgumentError::MissingMandatoryFlag(name) => Diagnostic::new(
                     Severity::Error,
                     format!(

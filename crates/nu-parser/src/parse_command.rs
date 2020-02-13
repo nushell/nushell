@@ -2,11 +2,11 @@ use crate::hir::syntax_shape::{
     BackoffColoringMode, ExpandSyntax, MaybeSpaceShape, MaybeWhitespaceEof,
 };
 use crate::hir::SpannedExpression;
-use crate::TokensIterator;
 use crate::{
     hir::{self, NamedArguments},
     Flag,
 };
+use crate::{Token, TokensIterator};
 use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
@@ -150,6 +150,15 @@ pub fn parse_command_tail(
         positional.extend(out);
     }
 
+    trace_remaining("after rest", &tail);
+
+    if found_error.is_none() {
+        if let Some(unexpected_argument_error) = find_unexpected_tokens(config, tail, command_span)
+        {
+            found_error = Some(unexpected_argument_error);
+        }
+    }
+
     eat_any_whitespace(tail);
 
     // Consume any remaining tokens with backoff coloring mode
@@ -159,12 +168,6 @@ pub fn parse_command_tail(
     // this solution.
     tail.sort_shapes();
 
-    if let Some(err) = found_error {
-        return Err(err);
-    }
-
-    trace_remaining("after rest", &tail);
-
     trace!(target: "nu::parse::trace_remaining", "Constructed positional={:?} named={:?}", positional, named);
 
     let positional = if positional.is_empty() {
@@ -173,8 +176,6 @@ pub fn parse_command_tail(
         Some(positional)
     };
 
-    // TODO: Error if extra unconsumed positional arguments
-
     let named = if named.named.is_empty() {
         None
     } else {
@@ -182,6 +183,10 @@ pub fn parse_command_tail(
     };
 
     trace!(target: "nu::parse::trace_remaining", "Normalized positional={:?} named={:?}", positional, named);
+
+    if let Some(err) = found_error {
+        return Err(err);
+    }
 
     Ok(Some((positional, named)))
 }
@@ -336,6 +341,48 @@ fn extract_optional(
             Ok(Some((pos, flag)))
         }
     }
+}
+
+fn find_unexpected_tokens(
+    config: &Signature,
+    tail: &hir::TokensIterator,
+    command_span: Span,
+) -> Option<ParseError> {
+    let mut tokens = tail.clone();
+    let source = tail.source();
+
+    loop {
+        tokens.move_to(0);
+
+        if let Some(node) = tokens.peek().commit() {
+            match &node.unspanned() {
+                Token::Whitespace => {}
+                Token::Flag { .. } => {
+                    return Some(ParseError::argument_error(
+                        config.name.clone().spanned(command_span),
+                        ArgumentError::UnexpectedFlag(Spanned {
+                            item: node.span().slice(&source).to_string(),
+                            span: node.span(),
+                        }),
+                    ));
+                }
+                _ => {
+                    return Some(ParseError::argument_error(
+                        config.name.clone().spanned(command_span),
+                        ArgumentError::UnexpectedArgument(Spanned {
+                            item: node.span().slice(&source).to_string(),
+                            span: node.span(),
+                        }),
+                    ));
+                }
+            }
+        }
+
+        if tokens.at_end() {
+            break;
+        }
+    }
+    None
 }
 
 pub fn trace_remaining(desc: &'static str, tail: &hir::TokensIterator<'_>) {
