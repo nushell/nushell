@@ -204,10 +204,10 @@ fn scroll_view_lines_if_needed(draw_commands: Vec<DrawCommand>, use_color_buffer
                     }
                 }
             }
-            let _ = std::io::stdout().execute(crossterm::cursor::Show);
-
-            let _ = crossterm::terminal::disable_raw_mode();
         }
+
+        let _ = std::io::stdout().execute(crossterm::cursor::Show);
+        let _ = crossterm::terminal::disable_raw_mode();
     }
 
     println!()
