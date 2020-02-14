@@ -156,6 +156,15 @@ mod nu_script {
 
         assert_eq!(actual, "done");
     }
+
+    #[test]
+    fn run_nu_script_multiline() {
+        let actual = nu!(cwd: "tests/fixtures/formats", r#"
+        nu script_multiline.nu
+        "#);
+
+        assert_eq!(actual, "23");
+    }
 }
 
 mod tilde_expansion {

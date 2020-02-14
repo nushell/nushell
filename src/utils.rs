@@ -325,6 +325,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("script_multiline.nu"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("sgml_description.json"),
                     at: 0
                 },
