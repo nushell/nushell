@@ -30,7 +30,7 @@ impl Env for Box<dyn Env> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Environment {
     environment_vars: Option<Value>,
     path_vars: Option<Value>,

@@ -12,7 +12,7 @@ use std::error::Error;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CommandRegistry {
     registry: Arc<Mutex<IndexMap<String, Arc<Command>>>>,
 }

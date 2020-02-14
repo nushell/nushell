@@ -9,6 +9,12 @@ pub struct EnvironmentSyncer {
     pub config: Arc<Box<dyn Conf>>,
 }
 
+impl Default for EnvironmentSyncer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnvironmentSyncer {
     pub fn new() -> EnvironmentSyncer {
         EnvironmentSyncer {
