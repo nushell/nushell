@@ -20,10 +20,11 @@ mod shell;
 mod stream;
 mod utils;
 
-pub use crate::cli::{cli, run_pipeline_standalone};
+pub use crate::cli::{cli, create_default_context, load_plugins, run_pipeline_standalone};
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;
+pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
 pub use nu_parser::TokenTreeBuilder;
 pub use nu_value_ext::ValueExt;

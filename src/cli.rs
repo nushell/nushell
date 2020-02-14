@@ -134,7 +134,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
     search_paths
 }
 
-fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
+pub fn load_plugins(context: &mut Context) -> Result<(), ShellError> {
     let opts = glob::MatchOptions {
         case_sensitive: false,
         require_literal_separator: false,
@@ -376,24 +376,9 @@ pub fn create_default_context(
 pub async fn run_pipeline_standalone(
     pipeline: String,
     redirect_stdin: bool,
+    context: &mut Context,
 ) -> Result<(), Box<dyn Error>> {
-    let mut syncer = crate::env::environment_syncer::EnvironmentSyncer::new();
-    let mut context = create_default_context(&mut syncer)?;
-
-    let _ = load_plugins(&mut context);
-
-    let cc = context.ctrl_c.clone();
-
-    ctrlc::set_handler(move || {
-        cc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    if context.ctrl_c.load(Ordering::SeqCst) {
-        context.ctrl_c.store(false, Ordering::SeqCst);
-    }
-
-    let line = process_line(Ok(pipeline), &mut context, redirect_stdin).await;
+    let line = process_line(Ok(pipeline), context, redirect_stdin).await;
 
     match line {
         LineResult::Success(line) => {
@@ -409,7 +394,9 @@ pub async fn run_pipeline_standalone(
             };
 
             context.maybe_print_errors(Text::from(line));
-            std::process::exit(error_code);
+            if error_code != 0 {
+                std::process::exit(error_code);
+            }
         }
 
         LineResult::Error(line, err) => {
