@@ -379,6 +379,45 @@ async fn run_with_stdin(
     spawn(&command, &path, &process_args[..], input, is_last)
 }
 
+/// This is a wrapper for stdout-like readers that ensure a carriage return ends the stream
+pub struct StdoutWithNewline<T: std::io::Read> {
+    stdout: T,
+    ended_in_newline: bool,
+}
+
+impl<T: std::io::Read> StdoutWithNewline<T> {
+    pub fn new(stdout: T) -> StdoutWithNewline<T> {
+        StdoutWithNewline {
+            stdout,
+            ended_in_newline: false,
+        }
+    }
+}
+impl<T: std::io::Read> std::io::Read for StdoutWithNewline<T> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self.stdout.read(buf) {
+            Err(e) => Err(e),
+            Ok(0) => {
+                if !self.ended_in_newline && buf.len() > 0 {
+                    self.ended_in_newline = true;
+                    buf[0] = b'\n';
+                    Ok(1)
+                } else {
+                    Ok(0)
+                }
+            }
+            Ok(len) => {
+                if buf[len - 1] == b'\n' {
+                    self.ended_in_newline = true;
+                } else {
+                    self.ended_in_newline = false;
+                }
+                Ok(len)
+            }
+        }
+    }
+}
+
 fn spawn(
     command: &ExternalCommand,
     path: &str,
@@ -477,7 +516,7 @@ fn spawn(
                     return;
                 };
 
-                let file = futures::io::AllowStdIo::new(stdout);
+                let file = futures::io::AllowStdIo::new(StdoutWithNewline::new(stdout));
                 let mut stream = FramedRead::new(file, LinesCodec);
 
                 while let Some(line) = stream.next().await {
