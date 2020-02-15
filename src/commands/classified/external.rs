@@ -398,7 +398,7 @@ impl<T: std::io::Read> std::io::Read for StdoutWithNewline<T> {
         match self.stdout.read(buf) {
             Err(e) => Err(e),
             Ok(0) => {
-                if !self.ended_in_newline && buf.len() > 0 {
+                if !self.ended_in_newline && !buf.is_empty() {
                     self.ended_in_newline = true;
                     buf[0] = b'\n';
                     Ok(1)
