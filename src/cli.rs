@@ -635,7 +635,9 @@ async fn process_line(
             }
 
             let input_stream = if redirect_stdin {
-                let file = futures::io::AllowStdIo::new(std::io::stdin());
+                let file = futures::io::AllowStdIo::new(
+                    crate::commands::classified::external::StdoutWithNewline::new(std::io::stdin()),
+                );
                 let stream = FramedRead::new(file, LinesCodec).map(|line| {
                     if let Ok(line) = line {
                         Ok(Value {
