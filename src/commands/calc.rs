@@ -32,7 +32,7 @@ fn calc(input: Value, args: &RawCommandArgs) -> Result<OutputStream, ShellError>
         match parse(&string, &input.tag) {
             Ok(value) => ReturnSuccess::value(value),
             Err(err) => Err(ShellError::labeled_error(
-                "Calulation error",
+                "Calculation error",
                 err,
                 &input.tag.span,
             )),
