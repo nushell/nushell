@@ -72,13 +72,21 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                         Some(a) => {
                             if !new_input.is_empty() {
                                 if let Some(descs) = new_input.get(0) {
+
                                     let descs = descs.data_descriptors();
-                                    let compare = a.data_descriptors();
-                                    if descs != compare {
+                                    let descs_size = descs.len();
+
+                                    let a_descs = a.data_descriptors();
+
+                                    let mut compare = a_descs;
+                                    compare.extend(descs.into_iter());
+                                    compare.dedup();
+
+                                    if !compare.is_empty() {
+                                        new_input.push_back(a);
+                                    } else {
                                         delay_slot = Some(a);
                                         break;
-                                    } else {
-                                        new_input.push_back(a);
                                     }
                                 } else {
                                     new_input.push_back(a);
