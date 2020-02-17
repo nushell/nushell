@@ -72,21 +72,26 @@ fn table(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                         Some(a) => {
                             if !new_input.is_empty() {
                                 if let Some(descs) = new_input.get(0) {
+                                    let are_equal = {
+                                        let descs = descs.data_descriptors();
+                                        let descs_len = descs.len();
 
-                                    let descs = descs.data_descriptors();
-                                    let descs_size = descs.len();
+                                        let a_descs = a.data_descriptors();
+                                        let a_descs_len = a_descs.len();
 
-                                    let a_descs = a.data_descriptors();
+                                        let mut comparison = a_descs;
+                                        comparison.extend(descs.into_iter());
+                                        comparison.sort();
+                                        comparison.dedup();
 
-                                    let mut compare = a_descs;
-                                    compare.extend(descs.into_iter());
-                                    compare.dedup();
+                                        a_descs_len == descs_len && comparison.is_empty()
+                                    };
 
-                                    if !compare.is_empty() {
-                                        new_input.push_back(a);
-                                    } else {
+                                    if are_equal && descs.is_row() && a.is_row() {
                                         delay_slot = Some(a);
                                         break;
+                                    } else {
+                                        new_input.push_back(a);
                                     }
                                 } else {
                                     new_input.push_back(a);

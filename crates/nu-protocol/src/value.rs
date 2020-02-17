@@ -98,6 +98,14 @@ impl UntaggedValue {
         }
     }
 
+    /// Returns true if the value represents a Row
+    pub fn is_row(&self) -> bool {
+        match self {
+            UntaggedValue::Row(_) => true,
+            _ => false,
+        }
+    }
+
     /// Returns true if the value represents an error
     pub fn is_error(&self) -> bool {
         match self {
