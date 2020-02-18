@@ -57,6 +57,29 @@ mod parse {
     */
 
     #[test]
+    fn errors_if_flag_passed_is_not_exact() {
+        let actual = nu_error!(cwd: ".", "debug -ra");
+
+        assert!(
+            actual.contains("unexpected flag"),
+            format!(
+                "error message '{}' should contain 'unexpected flag'",
+                actual
+            )
+        );
+
+        let actual = nu_error!(cwd: ".", "debug --rawx");
+
+        assert!(
+            actual.contains("unexpected flag"),
+            format!(
+                "error message '{}' should contain 'unexpected flag'",
+                actual
+            )
+        );
+    }
+
+    #[test]
     fn errors_if_flag_is_not_supported() {
         let actual = nu_error!(cwd: ".", "debug --ferris");
 
