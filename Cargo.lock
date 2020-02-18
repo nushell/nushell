@@ -2189,7 +2189,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
@@ -2292,7 +2292,7 @@ dependencies = [
 
 [[package]]
 name = "nu-build"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "lazy_static 1.4.0",
  "serde 1.0.104",
@@ -2302,7 +2302,7 @@ dependencies = [
 
 [[package]]
 name = "nu-errors"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2323,14 +2323,14 @@ dependencies = [
 
 [[package]]
 name = "nu-macros"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "nu-protocol",
 ]
 
 [[package]]
 name = "nu-parser"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2363,7 +2363,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "indexmap",
  "nu-build",
@@ -2378,7 +2378,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "ansi_term 0.12.1",
  "bigdecimal",
@@ -2408,7 +2408,7 @@ dependencies = [
 
 [[package]]
 name = "nu-source"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "derive-new",
  "getset",
@@ -2423,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "app_dirs",
  "dunce",
@@ -2439,7 +2439,7 @@ dependencies = [
 
 [[package]]
 name = "nu-value-ext"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "indexmap",
  "itertools 0.8.2",
@@ -2453,7 +2453,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_average"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "nu-build",
  "nu-errors",
@@ -2464,7 +2464,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_binaryview"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm 0.14.2",
@@ -2481,7 +2481,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_fetch"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "futures 0.3.3",
  "nu-build",
@@ -2495,7 +2495,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "nu-build",
  "nu-errors",
@@ -2508,7 +2508,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_match"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "futures 0.3.3",
  "nu-build",
@@ -2521,7 +2521,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_post"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "base64 0.11.0",
  "futures 0.3.3",
@@ -2538,7 +2538,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_ps"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "futures 0.3.3",
  "futures-timer 3.0.1",
@@ -2553,7 +2553,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_str"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "chrono",
  "nu-build",
@@ -2568,7 +2568,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sum"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "nu-build",
  "nu-errors",
@@ -2579,7 +2579,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_sys"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "battery",
  "futures 0.3.3",
@@ -2594,7 +2594,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_textview"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "ansi_term 0.12.1",
  "crossterm 0.14.2",
@@ -2610,7 +2610,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_tree"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "derive-new",
  "nu-build",
