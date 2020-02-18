@@ -19,18 +19,18 @@ Yehuda,Katz,10/11/2013,A
 ━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━━┯━━━━━━
  # │ first_name │ last_name │ rusty_at   │ type
 ───┼────────────┼───────────┼────────────┼──────
-0 │ Andrés     │ Robalino  │ 10/11/2013 │ A
-1 │ Jonathan   │ Turner    │ 10/12/2013 │ B
-2 │ Yehuda     │ Katz      │ 10/11/2013 │ A
+ 0 │ Andrés     │ Robalino  │ 10/11/2013 │ A
+ 1 │ Jonathan   │ Turner    │ 10/12/2013 │ B
+ 2 │ Yehuda     │ Katz      │ 10/11/2013 │ A
 ━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━
 ```
 
 ```
 > `open test.csv | get type | uniq`
 ━━━┯━━━━━━━━━
-# │ <value>
+ # │ <value>
 ───┼─────────
-0 │ A
-1 │ B
+ 0 │ A
+ 1 │ B
 ━━━┷━━━━━━━━━
 ```
