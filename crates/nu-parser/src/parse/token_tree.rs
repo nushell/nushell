@@ -368,8 +368,13 @@ impl SpannedToken {
 
                 match flag.kind {
                     FlagKind::Longhand if value == name => Some(*flag),
-                    FlagKind::Shorthand if short.is_some() && short == name.chars().next() => {
-                        Some(*flag)
+                    FlagKind::Shorthand => {
+                        if let Some(short_hand) = short {
+                            if short_hand.to_string() == name {
+                                return Some(*flag);
+                            }
+                        }
+                        None
                     }
                     _ => None,
                 }
