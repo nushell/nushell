@@ -262,6 +262,7 @@ pub fn create_default_context(
             per_item_command(Help),
             per_item_command(History),
             whole_stream_command(Save),
+            per_item_command(Touch),
             per_item_command(Cpy),
             whole_stream_command(Date),
             per_item_command(Calc),

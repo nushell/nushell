@@ -123,6 +123,7 @@ pub(crate) mod kill;
 pub(crate) use kill::Kill;
 pub(crate) mod clear;
 pub(crate) use clear::Clear;
+pub(crate) mod touch;
 pub(crate) use enter::Enter;
 pub(crate) use env::Env;
 #[allow(unused_imports)]
@@ -195,6 +196,7 @@ pub(crate) use to_toml::ToTOML;
 pub(crate) use to_tsv::ToTSV;
 pub(crate) use to_url::ToURL;
 pub(crate) use to_yaml::ToYAML;
+pub(crate) use touch::Touch;
 pub(crate) use trim::Trim;
 pub(crate) use uniq::Uniq;
 pub(crate) use version::Version;
