@@ -156,10 +156,6 @@ impl PrettyDebug for FormatInlineShape {
             InlineShape::Bytesize(bytesize) => {
                 let byte = byte_unit::Byte::from_bytes(*bytesize as u128);
 
-                if byte.get_bytes() == 0u128 {
-                    return b::description("—".to_string());
-                }
-
                 let byte = byte.get_appropriate_unit(false);
 
                 match byte.get_unit() {

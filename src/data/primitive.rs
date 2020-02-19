@@ -12,7 +12,6 @@ pub fn number(number: impl Into<Number>) -> Primitive {
 
 pub fn style_primitive(primitive: &Primitive) -> &'static str {
     match primitive {
-        Primitive::Bytes(0) => "c", // centre 'missing' indicator
         Primitive::Int(_) | Primitive::Bytes(_) | Primitive::Decimal(_) => "r",
         _ => "",
     }
