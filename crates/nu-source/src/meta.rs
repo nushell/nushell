@@ -6,6 +6,7 @@ use derive_new::new;
 use getset::Getters;
 use serde::Deserialize;
 use serde::Serialize;
+use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
 /// Anchors represent a location that a value originated from. The value may have been loaded from a file, fetched from a website, or parsed from some text
@@ -661,6 +662,18 @@ impl Span {
     /// Returns a slice of the input that covers the start and end of the current Span.
     pub fn slice<'a>(&self, source: &'a str) -> &'a str {
         &source[self.start..self.end]
+    }
+}
+
+impl PartialOrd<usize> for Span {
+    fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
+        (self.end - self.start).partial_cmp(other)
+    }
+}
+
+impl PartialEq<usize> for Span {
+    fn eq(&self, other: &usize) -> bool {
+        (self.end - self.start) == *other
     }
 }
 
