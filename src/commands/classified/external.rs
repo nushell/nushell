@@ -1,3 +1,4 @@
+use crate::futures::ThreadedFuture;
 use crate::prelude::*;
 use futures::stream::StreamExt;
 use futures_codec::{FramedRead, LinesCodec};
@@ -45,7 +46,7 @@ pub fn nu_value_to_string_for_stdin(
     }
 }
 
-pub(crate) async fn run_external_command(
+pub(crate) fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -62,9 +63,9 @@ pub(crate) async fn run_external_command(
     }
 
     if command.has_it_argument() || command.has_nu_argument() {
-        run_with_iterator_arg(command, context, input, is_last).await
+        run_with_iterator_arg(command, context, input, is_last)
     } else {
-        run_with_stdin(command, context, input, is_last).await
+        run_with_stdin(command, context, input, is_last)
     }
 }
 
@@ -114,7 +115,7 @@ fn to_column_path(
     )
 }
 
-async fn run_with_iterator_arg(
+fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -336,7 +337,7 @@ async fn run_with_iterator_arg(
     Ok(Some(stream.to_input_stream()))
 }
 
-async fn run_with_stdin(
+fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -541,24 +542,32 @@ fn spawn(
                 }
             }
 
-            // We can give an error when we see a non-zero exit code, but this is different
-            // than what other shells will do.
-            if child.wait().is_err() {
-                let cfg = crate::data::config::config(Tag::unknown());
-                if let Ok(cfg) = cfg {
-                    if cfg.contains_key("nonzero_exit_errors") {
-                        yield Ok(Value {
-                            value: UntaggedValue::Error(
-                                ShellError::labeled_error(
-                                    "External command failed",
-                                    "command failed",
-                                    &name_tag,
-                                )
-                            ),
-                            tag: name_tag,
-                        });
+            // TODO Switch to async_std::process once it's stabilized
+            let result = ThreadedFuture::new(move || {
+                // We can give an error when we see a non-zero exit code, but this is different
+                // than what other shells will do.
+                if child.wait().is_err() {
+                    let cfg = crate::data::config::config(Tag::unknown());
+                    if let Ok(cfg) = cfg {
+                        if cfg.contains_key("nonzero_exit_errors") {
+                            return Some(Value {
+                                value: UntaggedValue::Error(
+                                    ShellError::labeled_error(
+                                        "External command failed",
+                                        "command failed",
+                                        &name_tag,
+                                    )
+                                ),
+                                tag: name_tag,
+                            });
+                        }
                     }
                 }
+                None
+            }).await;
+
+            if let Some(v) = result {
+                yield Ok(v);
             }
         };
 
@@ -670,9 +679,7 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(cmd, &mut ctx, None, false)
-            .await
-            .is_err());
+        assert!(run_external_command(cmd, &mut ctx, None, false).is_err());
 
         Ok(())
     }

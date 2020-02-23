@@ -117,6 +117,23 @@ mod stdin_evaluation {
 
         assert_eq!(stderr, "");
     }
+
+    /* Currently runs forever, but should not be the case
+    #[test]
+    fn does_not_block_indefinitely() {
+        let stdout = nu!(
+            cwd: ".",
+            pipeline(r#"
+                iecho yes
+                | chop
+                | chop
+                | first 1
+            "#
+        ));
+
+        assert_eq!(stdout, "ye");
+    }
+    */
 }
 
 mod external_words {

@@ -201,6 +201,11 @@ name = "nonu"
 path = "crates/nu-test-support/src/bins/nonu.rs"
 required-features = ["test-bins"]
 
+[[bin]]
+name = "iecho"
+path = "crates/nu-test-support/src/bins/iecho.rs"
+required-features = ["test-bins"]
+
 # Core plugins that ship with `cargo install nu` by default
 # Currently, Cargo limits us to installing only one binary
 # unless we use [[bin]], so we use this as a workaround

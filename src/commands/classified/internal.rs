@@ -5,7 +5,7 @@ use nu_errors::ShellError;
 use nu_parser::InternalCommand;
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 
-pub(crate) async fn run_internal_command(
+pub(crate) fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
