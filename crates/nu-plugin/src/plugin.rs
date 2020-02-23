@@ -3,7 +3,12 @@ use nu_protocol::{outln, CallInfo, ReturnValue, Signature, Value};
 use serde::{Deserialize, Serialize};
 use std::io;
 
+/// The `Plugin` trait defines the API which plugins may use to "hook" into nushell.
 pub trait Plugin {
+    /// The `config` method is used to configure a plguin's user interface / signature.
+    ///
+    /// This is where the "name" of the plugin (ex `fetch`), description, any required/optional fields, and flags
+    /// can be defined. This information will displayed in nushell when running help <plugin name> 
     fn config(&mut self) -> Result<Signature, ShellError>;
 
     fn begin_filter(&mut self, _call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
@@ -23,6 +28,7 @@ pub trait Plugin {
     fn quit(&mut self) {}
 }
 
+/// 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
     let mut args = std::env::args();
     if args.len() > 1 {
