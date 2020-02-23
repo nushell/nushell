@@ -11,24 +11,32 @@ pub trait Plugin {
     /// can be defined. This information will displayed in nushell when running help <plugin name> 
     fn config(&mut self) -> Result<Signature, ShellError>;
 
+    /// `begin_filter` is the first method to be called if the `Signature` of the plugin is configured to be filterable.
+    /// Any setup required for the plugin such as parsing arguments from `CallInfo` or initializing data structures
+    /// can be done here. The `CallInfo` parameter will contain data configured in the `config` method of the Plugin trait.
     fn begin_filter(&mut self, _call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 
+    /// `filter` is called for every `Value` that is processed by the plugin.
+    /// This method requires the plugin `Signature` to be configured as filterable.
     fn filter(&mut self, _input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 
+    /// `end_filter` is the last method to be called by the plugin after all `Value`s are processed by the plugin.
+    /// This method requires the plugin `Signature` to be configured as filterable.
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         Ok(vec![])
     }
 
+    /// `sink` consumes the `Value`s that are passed in, preventing further processing.
+    /// This method requires the plugin `Signature` to be configured without filtering.
     fn sink(&mut self, _call_info: CallInfo, _input: Vec<Value>) {}
 
     fn quit(&mut self) {}
 }
 
-/// 
 pub fn serve_plugin(plugin: &mut dyn Plugin) {
     let mut args = std::env::args();
     if args.len() > 1 {
