@@ -1,4 +1,4 @@
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 
 fn main() {
     if did_chop_arguments() {
@@ -8,9 +8,12 @@ fn main() {
 
     // if no arguments given, chop from standard input and exit.
     let stdin = io::stdin();
+    let mut stdout = io::stdout();
     for line in stdin.lock().lines() {
         if let Ok(given) = line {
-            println!("{}", chop(&given));
+            if let Err(_e) = writeln!(stdout, "{}", chop(&given)) {
+                break;
+            }
         }
     }
 
