@@ -4,7 +4,7 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::data::dir_entry_dict;
+use crate::data::{dir_entry_dict, empty_dir_entry_dict};
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
@@ -147,7 +147,17 @@ impl Shell for FilesystemShell {
                                 Err(e) => yield Err(e)
                             }
                         }
-                        Err(e) => yield Err(ShellError::from(e))
+                        Err(e) => {
+                            match e.kind() {
+                                PermissionDenied => {
+                                    match empty_dir_entry_dict(&p, name_tag.clone(), full, short_names, with_symlink_targets) {
+                                        Ok(d) => yield ReturnSuccess::value(d),
+                                        Err(e) => yield Err(e)
+                                    }
+                                },
+                                _ => yield Err(ShellError::from(e))
+                            }
+                        }
                     }
                     Err(e) => yield Err(e.into_error().into()),
                 }
