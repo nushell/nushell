@@ -32,7 +32,7 @@ pub(crate) fn empty_dir_entry_dict(
         dict.insert_untagged("target", UntaggedValue::nothing());
     }
 
-    if full {   
+    if full {
         dict.insert_untagged("readonly", UntaggedValue::nothing());
 
         #[cfg(unix)]
@@ -51,7 +51,7 @@ pub(crate) fn empty_dir_entry_dict(
     }
 
     dict.insert_untagged("modified", UntaggedValue::nothing());
-    
+
     Ok(dict.into_value())
 }
 
