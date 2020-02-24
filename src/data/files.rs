@@ -2,6 +2,59 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 
+pub(crate) fn empty_dir_entry_dict(
+    filename: &std::path::Path,
+    tag: impl Into<Tag>,
+    full: bool,
+    name_only: bool,
+    with_symlink_targets: bool,
+) -> Result<Value, ShellError> {
+    let tag = tag.into();
+    let mut dict = TaggedDictBuilder::new(&tag);
+
+    let name = if name_only {
+        filename.file_name().and_then(|s| s.to_str())
+    } else {
+        filename.to_str()
+    }
+    .ok_or_else(|| {
+        ShellError::labeled_error(
+            format!("Invalid file name: {:}", filename.to_string_lossy()),
+            "invalid file name",
+            tag,
+        )
+    })?;
+
+    dict.insert_untagged("name", UntaggedValue::string(name));
+    dict.insert_untagged("type", UntaggedValue::nothing());
+
+    if full || with_symlink_targets {
+        dict.insert_untagged("target", UntaggedValue::nothing());
+    }
+
+    if full {   
+        dict.insert_untagged("readonly", UntaggedValue::nothing());
+
+        #[cfg(unix)]
+        {
+            dict.insert_untagged("mode", UntaggedValue::nothing());
+            dict.insert_untagged("uid", UntaggedValue::nothing());
+            dict.insert_untagged("group", UntaggedValue::nothing());
+        }
+    }
+
+    dict.insert_untagged("size", UntaggedValue::nothing());
+
+    if full {
+        dict.insert_untagged("created", UntaggedValue::nothing());
+        dict.insert_untagged("accessed", UntaggedValue::nothing());
+    }
+
+    dict.insert_untagged("modified", UntaggedValue::nothing());
+    
+    Ok(dict.into_value())
+}
+
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: &std::fs::Metadata,
