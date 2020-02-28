@@ -10,4 +10,3 @@ pub mod value;
 pub(crate) use command::command_dict;
 pub(crate) use dict::TaggedListBuilder;
 pub(crate) use files::dir_entry_dict;
-pub(crate) use files::empty_dir_entry_dict;

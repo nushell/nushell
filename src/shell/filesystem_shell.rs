@@ -4,7 +4,7 @@ use crate::commands::ls::LsArgs;
 use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
-use crate::data::{dir_entry_dict, empty_dir_entry_dict};
+use crate::data::dir_entry_dict;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
@@ -142,7 +142,7 @@ impl Shell for FilesystemShell {
                 match path {
                     Ok(p) => match std::fs::symlink_metadata(&p) {
                         Ok(m) => {
-                            match dir_entry_dict(&p, &m, name_tag.clone(), full, short_names, with_symlink_targets) {
+                            match dir_entry_dict(&p, Some(&m), name_tag.clone(), full, short_names, with_symlink_targets) {
                                 Ok(d) => yield ReturnSuccess::value(d),
                                 Err(e) => yield Err(e)
                             }
@@ -150,7 +150,7 @@ impl Shell for FilesystemShell {
                         Err(e) => {
                             match e.kind() {
                                 PermissionDenied => {
-                                    match empty_dir_entry_dict(&p, name_tag.clone(), full, short_names, with_symlink_targets) {
+                                    match dir_entry_dict(&p, None, name_tag.clone(), full, short_names, with_symlink_targets) {
                                         Ok(d) => yield ReturnSuccess::value(d),
                                         Err(e) => yield Err(e)
                                     }
