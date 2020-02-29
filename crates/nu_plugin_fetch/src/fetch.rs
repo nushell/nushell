@@ -53,7 +53,7 @@ pub async fn fetch_helper(path: &Value, has_raw: bool, row: Value) -> ReturnValu
 
     let path_span = path.tag.span;
 
-    let result = fetch(&path_str, path_span).await;
+    let result = fetch(&path_str, path_span, has_raw).await;
 
     if let Err(e) = result {
         return Err(e);
@@ -83,6 +83,7 @@ pub async fn fetch_helper(path: &Value, has_raw: bool, row: Value) -> ReturnValu
 pub async fn fetch(
     location: &str,
     span: Span,
+    has_raw: bool,
 ) -> Result<(Option<String>, UntaggedValue, Tag), ShellError> {
     if url::Url::parse(location).is_err() {
         return Err(ShellError::labeled_error(
@@ -226,6 +227,30 @@ pub async fn fetch(
                                 anchor: Some(AnchorLocation::Url(location.to_string())),
                             },
                         ))
+                    }
+                    (_ty, _sub_ty) if has_raw => {
+                        let raw_bytes = r.body_bytes().await?;
+
+                        // For unsupported MIME types, we do not know if the data is UTF-8,
+                        // so we get the raw body bytes and try to convert to UTF-8 if possible.
+                        match std::str::from_utf8(&raw_bytes) {
+                            Ok(response_str) => Ok((
+                                None,
+                                UntaggedValue::string(response_str),
+                                Tag {
+                                    span,
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                },
+                            )),
+                            Err(_) => Ok((
+                                None,
+                                UntaggedValue::binary(raw_bytes),
+                                Tag {
+                                    span,
+                                    anchor: Some(AnchorLocation::Url(location.to_string())),
+                                },
+                            )),
+                        }
                     }
                     (ty, sub_ty) => Ok((
                         None,
