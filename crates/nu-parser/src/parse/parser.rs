@@ -1349,14 +1349,6 @@ mod tests {
     }
 
     #[test]
-    fn test_shorthand_flag() {
-        equal_tokens! {
-            <nodes>
-            "-katz" -> b::token_list(vec![b::shorthand("katz")])
-        }
-    }
-
-    #[test]
     fn test_variable() {
         equal_tokens! {
             <nodes>
