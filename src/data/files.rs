@@ -4,7 +4,7 @@ use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
-    metadata: &std::fs::Metadata,
+    metadata: Option<&std::fs::Metadata>,
     tag: impl Into<Tag>,
     full: bool,
     name_only: bool,
@@ -28,77 +28,110 @@ pub(crate) fn dir_entry_dict(
 
     dict.insert_untagged("name", UntaggedValue::string(name));
 
-    if metadata.is_dir() {
-        dict.insert_untagged("type", UntaggedValue::string("Dir"));
-    } else if metadata.is_file() {
-        dict.insert_untagged("type", UntaggedValue::string("File"));
+    if let Some(md) = metadata {
+        if md.is_dir() {
+            dict.insert_untagged("type", UntaggedValue::string("Dir"));
+        } else if md.is_file() {
+            dict.insert_untagged("type", UntaggedValue::string("File"));
+        } else {
+            dict.insert_untagged("type", UntaggedValue::string("Symlink"));
+        }
     } else {
-        dict.insert_untagged("type", UntaggedValue::string("Symlink"));
-    };
+        dict.insert_untagged("type", UntaggedValue::nothing());
+    }
 
     if full || with_symlink_targets {
-        if metadata.is_dir() || metadata.is_file() {
-            dict.insert_untagged("target", UntaggedValue::nothing());
-        } else if let Ok(path_to_link) = filename.read_link() {
-            dict.insert_untagged(
-                "target",
-                UntaggedValue::string(path_to_link.to_string_lossy()),
-            );
+        if let Some(md) = metadata {
+            if md.is_dir() || md.is_file() {
+                dict.insert_untagged("target", UntaggedValue::nothing());
+            } else if let Ok(path_to_link) = filename.read_link() {
+                dict.insert_untagged(
+                    "target",
+                    UntaggedValue::string(path_to_link.to_string_lossy()),
+                );
+            } else {
+                dict.insert_untagged(
+                    "target",
+                    UntaggedValue::string("Could not obtain target file's path"),
+                );
+            }
         } else {
-            dict.insert_untagged(
-                "target",
-                UntaggedValue::string("Could not obtain target file's path"),
-            );
+            dict.insert_untagged("target", UntaggedValue::nothing());
         }
     }
 
     if full {
-        dict.insert_untagged(
-            "readonly",
-            UntaggedValue::boolean(metadata.permissions().readonly()),
-        );
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            use std::os::unix::fs::PermissionsExt;
-            let mode = metadata.permissions().mode();
+        if let Some(md) = metadata {
             dict.insert_untagged(
-                "mode",
-                UntaggedValue::string(umask::Mode::from(mode).to_string()),
+                "readonly",
+                UntaggedValue::boolean(md.permissions().readonly()),
             );
 
-            if let Some(user) = users::get_user_by_uid(metadata.uid()) {
-                dict.insert_untagged("uid", UntaggedValue::string(user.name().to_string_lossy()));
-            }
-
-            if let Some(group) = users::get_group_by_gid(metadata.gid()) {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                use std::os::unix::fs::PermissionsExt;
+                let mode = md.permissions().mode();
                 dict.insert_untagged(
-                    "group",
-                    UntaggedValue::string(group.name().to_string_lossy()),
+                    "mode",
+                    UntaggedValue::string(umask::Mode::from(mode).to_string()),
                 );
+
+                if let Some(user) = users::get_user_by_uid(md.uid()) {
+                    dict.insert_untagged(
+                        "uid",
+                        UntaggedValue::string(user.name().to_string_lossy()),
+                    );
+                }
+
+                if let Some(group) = users::get_group_by_gid(md.gid()) {
+                    dict.insert_untagged(
+                        "group",
+                        UntaggedValue::string(group.name().to_string_lossy()),
+                    );
+                }
+            }
+        } else {
+            dict.insert_untagged("readonly", UntaggedValue::nothing());
+
+            #[cfg(unix)]
+            {
+                dict.insert_untagged("mode", UntaggedValue::nothing());
             }
         }
     }
 
-    if metadata.is_file() {
-        dict.insert_untagged("size", UntaggedValue::bytes(metadata.len() as u64));
+    if let Some(md) = metadata {
+        if md.is_file() {
+            dict.insert_untagged("size", UntaggedValue::bytes(md.len() as u64));
+        } else {
+            dict.insert_untagged("size", UntaggedValue::nothing());
+        }
     } else {
         dict.insert_untagged("size", UntaggedValue::nothing());
     }
 
-    if full {
-        if let Ok(c) = metadata.created() {
-            dict.insert_untagged("created", UntaggedValue::system_date(c));
+    if let Some(md) = metadata {
+        if full {
+            if let Ok(c) = md.created() {
+                dict.insert_untagged("created", UntaggedValue::system_date(c));
+            }
+
+            if let Ok(a) = md.accessed() {
+                dict.insert_untagged("accessed", UntaggedValue::system_date(a));
+            }
         }
 
-        if let Ok(a) = metadata.accessed() {
-            dict.insert_untagged("accessed", UntaggedValue::system_date(a));
+        if let Ok(m) = md.modified() {
+            dict.insert_untagged("modified", UntaggedValue::system_date(m));
         }
-    }
+    } else {
+        if full {
+            dict.insert_untagged("created", UntaggedValue::nothing());
+            dict.insert_untagged("accessed", UntaggedValue::nothing());
+        }
 
-    if let Ok(m) = metadata.modified() {
-        dict.insert_untagged("modified", UntaggedValue::system_date(m));
+        dict.insert_untagged("modified", UntaggedValue::nothing());
     }
 
     Ok(dict.into_value())
