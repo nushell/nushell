@@ -15,6 +15,7 @@ mod deserializer;
 mod env;
 mod evaluate;
 mod format;
+mod futures;
 mod git;
 mod shell;
 mod stream;
