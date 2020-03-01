@@ -1,0 +1,22 @@
+[package]
+name = "nu_plugin_shuffle"
+description = "Nushell plugin to shuffle input"
+version = "0.10.0"
+license = "MIT"
+authors = ["Falco Hirschenberger <falco.hirschenberger@gmail.com>"]
+edition = "2018"
+
+[lib]
+doctest = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-plugin = "~0"
+nu-protocol = "~0"
+nu-source = "~0"
+nu-errors = "~0"
+rand = "0.7"
+
+[build-dependencies]
+nu-build = { version = "0.10.0", path = "../nu-build" }
