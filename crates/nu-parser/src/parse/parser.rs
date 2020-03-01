@@ -685,7 +685,27 @@ pub fn token_list(input: NomSpan) -> IResult<NomSpan, Spanned<Vec<SpannedToken>>
 
                 break;
             }
-            Ok((after_node_input, next_node)) => (after_node_input, next_node),
+            Ok((after_node_input, next_node)) => {
+                let mut new_nodes = Vec::new();
+                for n in next_node {
+                    match n.unspanned() {
+                        Token::Flag(f) if f.kind == FlagKind::Shorthand && f.name > 1 => {
+                            new_nodes.push(TokenTreeBuilder::spanned_shorthand(
+                                Span::new(f.name.start(), f.name.start() + 1),
+                                Span::new(n.span().start(), f.name.start() + 1),
+                            ));
+                            for t in f.name.start() + 1..f.name.end() {
+                                new_nodes.push(TokenTreeBuilder::spanned_shorthand(
+                                    Span::for_char(t),
+                                    Span::for_char(t),
+                                ))
+                            }
+                        }
+                        _ => new_nodes.push(n),
+                    }
+                }
+                (after_node_input, new_nodes)
+            }
         };
 
         node_list.extend(next_nodes);
@@ -1325,14 +1345,6 @@ mod tests {
         equal_tokens! {
             <nodes>
             "--all-amigos" -> b::token_list(vec![b::flag("all-amigos")])
-        }
-    }
-
-    #[test]
-    fn test_shorthand_flag() {
-        equal_tokens! {
-            <nodes>
-            "-katz" -> b::token_list(vec![b::shorthand("katz")])
         }
     }
 
