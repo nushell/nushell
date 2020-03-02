@@ -25,6 +25,7 @@ members = [
     "crates/nu_plugin_match",
     "crates/nu_plugin_post",
     "crates/nu_plugin_ps",
+    "crates/nu_plugin_shuffle",
     "crates/nu_plugin_str",
     "crates/nu_plugin_sum",
     "crates/nu_plugin_sys",
@@ -53,6 +54,7 @@ nu_plugin_inc = { version = "0.10.0", path = "./crates/nu_plugin_inc", optional=
 nu_plugin_match = { version = "0.10.0", path = "./crates/nu_plugin_match", optional=true }
 nu_plugin_post = { version = "0.10.0", path = "./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.10.0", path = "./crates/nu_plugin_ps", optional=true }
+nu_plugin_shuffle = { version = "0.10.0", path = "./crates/nu_plugin_shuffle", optional=true }
 nu_plugin_str = { version = "0.10.0", path = "./crates/nu_plugin_str", optional=true }
 nu_plugin_sum = { version = "0.10.0", path = "./crates/nu_plugin_sum", optional=true }
 nu_plugin_sys = { version = "0.10.0", path = "./crates/nu_plugin_sys", optional=true }
@@ -143,7 +145,7 @@ users = "0.9"
 test-bins = []
 
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "sum", "post", "fetch", "clipboard"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "shuffle", "sum", "post", "fetch", "clipboard"]
 
 # Default
 textview = ["crossterm", "syntect", "onig_sys", "url", "nu_plugin_textview"]
@@ -159,6 +161,7 @@ fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
 starship-prompt = ["starship"]
+shuffle = ["nu_plugin_shuffle"]
 sum = ["nu_plugin_sum"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
@@ -259,6 +262,11 @@ required-features = ["match"]
 name = "nu_plugin_stable_post"
 path = "src/plugins/nu_plugin_stable_post.rs"
 required-features = ["post"]
+
+[[bin]]
+name = "nu_plugin_stable_shuffle"
+path = "src/plugins/nu_plugin_stable_shuffle.rs"
+required-features = ["shuffle"]
 
 [[bin]]
 name = "nu_plugin_stable_sum"
