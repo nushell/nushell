@@ -145,7 +145,7 @@ users = "0.9"
 test-bins = []
 
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "sum", "post", "fetch", "clipboard"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "shuffle", "sum", "post", "fetch", "clipboard"]
 
 # Default
 textview = ["crossterm", "syntect", "onig_sys", "url", "nu_plugin_textview"]
@@ -161,6 +161,7 @@ fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
 starship-prompt = ["starship"]
+shuffle = ["nu_plugin_shuffle"]
 sum = ["nu_plugin_sum"]
 trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
@@ -256,6 +257,11 @@ required-features = ["match"]
 name = "nu_plugin_stable_post"
 path = "src/plugins/nu_plugin_stable_post.rs"
 required-features = ["post"]
+
+[[bin]]
+name = "nu_plugin_stable_shuffle"
+path = "src/plugins/nu_plugin_stable_shuffle.rs"
+required-features = ["shuffle"]
 
 [[bin]]
 name = "nu_plugin_stable_sum"

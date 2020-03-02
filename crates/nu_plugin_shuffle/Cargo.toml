@@ -12,10 +12,10 @@ doctest = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-plugin = "~0"
-nu-protocol = "~0"
-nu-source = "~0"
-nu-errors = "~0"
+nu-plugin = { path = "../nu-plugin", version = "0.10.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.10.0" }
+nu-source = { path = "../nu-source", version = "0.10.0" }
+nu-errors = { path = "../nu-errors", version = "0.10.0" }
 rand = "0.7"
 
 [build-dependencies]
