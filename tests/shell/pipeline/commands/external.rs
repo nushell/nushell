@@ -102,7 +102,7 @@ mod it_evaluation {
 }
 
 mod stdin_evaluation {
-    use super::nu_error;
+    use super::{nu, nu_error};
     use nu_test_support::pipeline;
 
     #[test]
@@ -116,6 +116,21 @@ mod stdin_evaluation {
         ));
 
         assert_eq!(stderr, "");
+    }
+
+    #[test]
+    fn does_not_block_indefinitely() {
+        let stdout = nu!(
+            cwd: ".",
+            pipeline(r#"
+                iecho yes
+                | chop
+                | chop
+                | first 1
+            "#
+        ));
+
+        assert_eq!(stdout, "y");
     }
 }
 

@@ -1,4 +1,6 @@
+use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
+use futures::executor::block_on_stream;
 use futures::stream::StreamExt;
 use futures_codec::{FramedRead, LinesCodec};
 use log::trace;
@@ -11,6 +13,7 @@ use nu_value_ext::as_column_path;
 use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
 
 pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
     match &from.value {
@@ -27,7 +30,7 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
 }
 
 pub fn nu_value_to_string_for_stdin(
-    command: &ExternalCommand,
+    name_tag: &Tag,
     from: &Value,
 ) -> Result<Option<String>, ShellError> {
     match &from.value {
@@ -40,12 +43,12 @@ pub fn nu_value_to_string_for_stdin(
                 unsupported.type_name()
             ),
             "expected a string",
-            &command.name_tag,
+            name_tag,
         )),
     }
 }
 
-pub(crate) async fn run_external_command(
+pub(crate) fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -62,9 +65,9 @@ pub(crate) async fn run_external_command(
     }
 
     if command.has_it_argument() || command.has_nu_argument() {
-        run_with_iterator_arg(command, context, input, is_last).await
+        run_with_iterator_arg(command, context, input, is_last)
     } else {
-        run_with_stdin(command, context, input, is_last).await
+        run_with_stdin(command, context, input, is_last)
     }
 }
 
@@ -114,7 +117,7 @@ fn to_column_path(
     )
 }
 
-async fn run_with_iterator_arg(
+fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -336,7 +339,7 @@ async fn run_with_iterator_arg(
     Ok(Some(stream.to_input_stream()))
 }
 
-async fn run_with_stdin(
+fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -426,7 +429,6 @@ fn spawn(
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
     let command = command.clone();
-    let name_tag = command.name_tag.clone();
 
     let mut process = {
         #[cfg(windows)]
@@ -467,76 +469,94 @@ fn spawn(
 
     trace!(target: "nu::run::external", "built command {:?}", process);
 
+    // TODO Switch to async_std::process once it's stabilized
     if let Ok(mut child) = process.spawn() {
-        let stream = async_stream! {
-            if let Some(mut input) = input {
-                let mut stdin_write = child.stdin
+        let (tx, rx) = mpsc::sync_channel(0);
+
+        let mut stdin = child.stdin.take();
+
+        let stdin_write_tx = tx.clone();
+        let stdout_read_tx = tx;
+        let stdin_name_tag = command.name_tag.clone();
+        let stdout_name_tag = command.name_tag;
+
+        std::thread::spawn(move || {
+            if let Some(input) = input {
+                let mut stdin_write = stdin
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
 
-                while let Some(value) = input.next().await {
-                    let input_string = match nu_value_to_string_for_stdin(&command, &value) {
+                for value in block_on_stream(input) {
+                    let input_string = match nu_value_to_string_for_stdin(&stdin_name_tag, &value) {
                         Ok(None) => continue,
                         Ok(Some(v)) => v,
                         Err(e) => {
-                            yield Ok(Value {
+                            let _ = stdin_write_tx.send(Ok(Value {
                                 value: UntaggedValue::Error(e),
-                                tag: name_tag
-                            });
-                            return;
+                                tag: stdin_name_tag,
+                            }));
+                            return Err(());
                         }
                     };
 
                     if let Err(e) = stdin_write.write(input_string.as_bytes()) {
                         let message = format!("Unable to write to stdin (error = {})", e);
 
-                        yield Ok(Value {
+                        let _ = stdin_write_tx.send(Ok(Value {
                             value: UntaggedValue::Error(ShellError::labeled_error(
                                 message,
                                 "application may have closed before completing pipeline",
-                                &name_tag)),
-                            tag: name_tag
-                        });
-                        return;
+                                &stdin_name_tag,
+                            )),
+                            tag: stdin_name_tag,
+                        }));
+                        return Err(());
                     }
                 }
             }
 
+            Ok(())
+        });
+
+        std::thread::spawn(move || {
             if !is_last {
                 let stdout = if let Some(stdout) = child.stdout.take() {
                     stdout
                 } else {
-                    yield Ok(Value {
+                    let _ = stdout_read_tx.send(Ok(Value {
                         value: UntaggedValue::Error(ShellError::labeled_error(
                             "Can't redirect the stdout for external command",
                             "can't redirect stdout",
-                            &name_tag)),
-                        tag: name_tag
-                    });
-                    return;
+                            &stdout_name_tag,
+                        )),
+                        tag: stdout_name_tag,
+                    }));
+                    return Err(());
                 };
 
                 let file = futures::io::AllowStdIo::new(StdoutWithNewline::new(stdout));
-                let mut stream = FramedRead::new(file, LinesCodec);
+                let stream = FramedRead::new(file, LinesCodec);
 
-                while let Some(line) = stream.next().await {
+                for line in block_on_stream(stream) {
                     if let Ok(line) = line {
-                        yield Ok(Value {
+                        let result = stdout_read_tx.send(Ok(Value {
                             value: UntaggedValue::Primitive(Primitive::Line(line)),
-                            tag: name_tag.clone(),
-                        });
+                            tag: stdout_name_tag.clone(),
+                        }));
+
+                        if result.is_err() {
+                            break;
+                        }
                     } else {
-                        yield Ok(Value {
-                            value: UntaggedValue::Error(
-                                ShellError::labeled_error(
-                                    "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
-                                    "unable to read from stdout",
-                                    &name_tag,
-                                )
-                            ),
-                            tag: name_tag.clone(),
-                        });
-                        return;
+                        let _ = stdout_read_tx.send(Ok(Value {
+                            value: UntaggedValue::Error(ShellError::labeled_error(
+                                "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
+                                "unable to read from stdout",
+                                &stdout_name_tag,
+                            )),
+                            tag: stdout_name_tag.clone(),
+                        }));
+                        break;
                     }
                 }
             }
@@ -547,21 +567,22 @@ fn spawn(
                 let cfg = crate::data::config::config(Tag::unknown());
                 if let Ok(cfg) = cfg {
                     if cfg.contains_key("nonzero_exit_errors") {
-                        yield Ok(Value {
-                            value: UntaggedValue::Error(
-                                ShellError::labeled_error(
-                                    "External command failed",
-                                    "command failed",
-                                    &name_tag,
-                                )
-                            ),
-                            tag: name_tag,
-                        });
+                        let _ = stdout_read_tx.send(Ok(Value {
+                            value: UntaggedValue::Error(ShellError::labeled_error(
+                                "External command failed",
+                                "command failed",
+                                &stdout_name_tag,
+                            )),
+                            tag: stdout_name_tag,
+                        }));
                     }
                 }
             }
-        };
 
+            Ok(())
+        });
+
+        let stream = ThreadedReceiver::new(rx);
         Ok(Some(stream.to_input_stream()))
     } else {
         Err(ShellError::labeled_error(
@@ -670,9 +691,7 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(cmd, &mut ctx, None, false)
-            .await
-            .is_err());
+        assert!(run_external_command(cmd, &mut ctx, None, false).is_err());
 
         Ok(())
     }

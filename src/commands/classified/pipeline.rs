@@ -31,15 +31,15 @@ pub(crate) async fn run_pipeline(
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
             (Some(ClassifiedCommand::Internal(left)), _) => {
-                run_internal_command(left, ctx, input, Text::from(line)).await?
+                run_internal_command(left, ctx, input, Text::from(line))?
             }
 
             (Some(ClassifiedCommand::External(left)), None) => {
-                run_external_command(left, ctx, input, true).await?
+                run_external_command(left, ctx, input, true)?
             }
 
             (Some(ClassifiedCommand::External(left)), _) => {
-                run_external_command(left, ctx, input, false).await?
+                run_external_command(left, ctx, input, false)?
             }
 
             (None, _) => break,
