@@ -22,6 +22,7 @@ mod parse;
 mod pick;
 mod prepend;
 mod range;
+mod rename;
 mod reverse;
 mod rm;
 mod save;
