@@ -2244,6 +2244,7 @@ dependencies = [
  "nu_plugin_match",
  "nu_plugin_post",
  "nu_plugin_ps",
+ "nu_plugin_shuffle",
  "nu_plugin_str",
  "nu_plugin_sum",
  "nu_plugin_sys",
@@ -2549,6 +2550,18 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "pin-utils",
+]
+
+[[package]]
+name = "nu_plugin_shuffle"
+version = "0.10.0"
+dependencies = [
+ "nu-build",
+ "nu-errors",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "rand",
 ]
 
 [[package]]
