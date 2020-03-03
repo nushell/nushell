@@ -318,6 +318,7 @@ pub fn create_default_context(
             whole_stream_command(Default),
             whole_stream_command(SkipWhile),
             whole_stream_command(Range),
+            whole_stream_command(Rename),
             whole_stream_command(Uniq),
             // Table manipulation
             whole_stream_command(Wrap),
