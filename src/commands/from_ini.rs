@@ -66,32 +66,12 @@ pub fn from_ini_string_to_value(
 fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
-    let span = tag.span;
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
+        let concat_string = input.collect_string(tag.clone()).await?;
 
-        let mut concat_string = String::new();
-        let mut latest_tag: Option<Tag> = None;
-
-        for value in values {
-            latest_tag = Some(value.tag.clone());
-            let value_span = value.tag.span;
-            if let Ok(s) = value.as_string() {
-                concat_string.push_str(&s);
-            } else {
-                yield Err(ShellError::labeled_error_with_secondary(
-                    "Expected a string from pipeline",
-                    "requires string input",
-                    span,
-                    "value originates from here",
-                    value_span,
-                ))
-            }
-        }
-
-        match from_ini_string_to_value(concat_string, tag.clone()) {
+        match from_ini_string_to_value(concat_string.item, tag.clone()) {
             Ok(x) => match x {
                 Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
@@ -100,15 +80,15 @@ fn from_ini(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
                 }
                 x => yield ReturnSuccess::value(x),
             },
-            Err(_) => if let Some(last_tag) = latest_tag {
+            Err(_) => {
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as INI",
                     "input cannot be parsed as INI",
                     &tag,
                     "value originates from here",
-                    last_tag,
+                    concat_string.tag,
                 ))
-            } ,
+            }
         }
     };
 
