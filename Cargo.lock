@@ -2192,7 +2192,6 @@ name = "nu"
 version = "0.10.1"
 dependencies = [
  "clap",
- "clipboard",
  "crossterm 0.16.0",
  "ctrlc",
  "dunce",
@@ -2226,7 +2225,6 @@ dependencies = [
  "pretty_env_logger 0.4.0",
  "semver",
  "serde 1.0.104",
- "starship",
  "syntect",
  "toml 0.5.6",
  "url",
@@ -2258,6 +2256,7 @@ dependencies = [
  "cfg-if",
  "chrono",
  "clap",
+ "clipboard",
  "csv",
  "ctrlc",
  "derive-new",
@@ -2312,6 +2311,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "shellexpand",
+ "starship",
  "strip-ansi-escapes",
  "tempfile",
  "term",
