@@ -85,6 +85,9 @@ umask = "0.1"
 unicode-xid = "0.2.0"
 which = "3.1.0"
 
+clipboard = { version = "0.5", optional = true }
+starship = { version = "0.35.1", optional = true }
+
 [target.'cfg(unix)'.dependencies]
 users = "0.9"
 
@@ -97,3 +100,8 @@ pretty_assertions = "0.6.1"
 
 [build-dependencies]
 nu-build = { version = "0.10.0", path = "../nu-build" }
+
+[features]
+stable = []
+starship-prompt = ["starship"]
+clipboard-cli = ["clipboard"]
