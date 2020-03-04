@@ -32,7 +32,7 @@ impl WholeStreamCommand for Lines {
 
 fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    let tag = args.name_tag();
+    //let tag = args.name_tag();
     //let name_span = tag.span;
     let mut input = args.input;
 

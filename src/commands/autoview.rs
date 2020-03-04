@@ -92,6 +92,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             }
                         };
                         let stream = stream.to_input_stream();
+
                         if let Some(table) = table {
                             let command_args = create_default_command_args(&context).with_input(stream);
                             let result = table.run(command_args, &context.commands);
