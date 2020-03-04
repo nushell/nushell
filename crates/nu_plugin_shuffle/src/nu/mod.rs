@@ -41,6 +41,11 @@ impl Plugin for Shuffle {
             .filter())
     }
 
+    fn begin_filter(&mut self, call_info: CallInfo) -> Result<Vec<ReturnValue>, ShellError> {
+        self.setup(call_info)?;
+        Ok(vec![])
+    }
+
     fn filter(&mut self, input: Value) -> Result<Vec<ReturnValue>, ShellError> {
         self.values.push(input.into());
         Ok(vec![])
@@ -49,7 +54,6 @@ impl Plugin for Shuffle {
     fn end_filter(&mut self) -> Result<Vec<ReturnValue>, ShellError> {
         let mut rng = thread_rng();
         if let Some(n) = self.limit {
-            println!("Limited");
             let (shuffled, _) = self.values.partial_shuffle(&mut rng, n as usize);
             Ok(shuffled.to_vec())
         } else {
