@@ -6,7 +6,7 @@ use crate::context::Context;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::prelude::*;
-use futures_codec::{FramedRead, LinesCodec};
+use futures_codec::{BytesCodec, FramedRead};
 use nu_errors::ShellError;
 use nu_parser::{ClassifiedPipeline, PipelineShape, SpannedToken, TokensIterator};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
@@ -640,10 +640,12 @@ async fn process_line(
                 let file = futures::io::AllowStdIo::new(
                     crate::commands::classified::external::StdoutWithNewline::new(std::io::stdin()),
                 );
-                let stream = FramedRead::new(file, LinesCodec).map(|line| {
+                let stream = FramedRead::new(file, BytesCodec).map(|line| {
                     if let Ok(line) = line {
                         Ok(Value {
-                            value: UntaggedValue::Primitive(Primitive::String(line)),
+                            value: UntaggedValue::Primitive(Primitive::Binary(
+                                line.into_iter().collect(),
+                            )),
                             tag: Tag::unknown(),
                         })
                     } else {

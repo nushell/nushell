@@ -2,7 +2,7 @@ use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
 use futures::executor::block_on_stream;
 use futures::stream::StreamExt;
-use futures_codec::{FramedRead, LinesCodec};
+use futures_codec::{BytesCodec, FramedRead};
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::commands::classified::external::ExternalArg;
@@ -29,24 +29,24 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
     }
 }
 
-pub fn nu_value_to_string_for_stdin(
-    name_tag: &Tag,
-    from: &Value,
-) -> Result<Option<String>, ShellError> {
-    match &from.value {
-        UntaggedValue::Primitive(Primitive::Nothing) => Ok(None),
-        UntaggedValue::Primitive(Primitive::String(s))
-        | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(Some(s.clone())),
-        unsupported => Err(ShellError::labeled_error(
-            format!(
-                "Received unexpected type from pipeline ({})",
-                unsupported.type_name()
-            ),
-            "expected a string",
-            name_tag,
-        )),
-    }
-}
+// pub fn nu_value_to_string_for_stdin(
+//     name_tag: &Tag,
+//     from: &Value,
+// ) -> Result<Option<String>, ShellError> {
+//     match &from.value {
+//         UntaggedValue::Primitive(Primitive::Nothing) => Ok(None),
+//         UntaggedValue::Primitive(Primitive::String(s))
+//         | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(Some(s.clone())),
+//         unsupported => Err(ShellError::labeled_error(
+//             format!(
+//                 "Received unexpected type from pipeline ({})",
+//                 unsupported.type_name()
+//             ),
+//             "expected a string",
+//             name_tag,
+//         )),
+//     }
+// }
 
 pub(crate) fn run_external_command(
     command: ExternalCommand,
@@ -487,31 +487,54 @@ fn spawn(
                     .expect("Internal error: could not get stdin pipe for external command");
 
                 for value in block_on_stream(input) {
-                    let input_string = match nu_value_to_string_for_stdin(&stdin_name_tag, &value) {
-                        Ok(None) => continue,
-                        Ok(Some(v)) => v,
-                        Err(e) => {
+                    match &value.value {
+                        UntaggedValue::Primitive(Primitive::Nothing) => continue,
+                        UntaggedValue::Primitive(Primitive::String(s))
+                        | UntaggedValue::Primitive(Primitive::Line(s)) => {
+                            if let Err(e) = stdin_write.write(s.as_bytes()) {
+                                let message = format!("Unable to write to stdin (error = {})", e);
+
+                                let _ = stdin_write_tx.send(Ok(Value {
+                                    value: UntaggedValue::Error(ShellError::labeled_error(
+                                        message,
+                                        "application may have closed before completing pipeline",
+                                        &stdin_name_tag,
+                                    )),
+                                    tag: stdin_name_tag,
+                                }));
+                                return Err(());
+                            }
+                        }
+                        UntaggedValue::Primitive(Primitive::Binary(b)) => {
+                            if let Err(e) = stdin_write.write(b) {
+                                let message = format!("Unable to write to stdin (error = {})", e);
+
+                                let _ = stdin_write_tx.send(Ok(Value {
+                                    value: UntaggedValue::Error(ShellError::labeled_error(
+                                        message,
+                                        "application may have closed before completing pipeline",
+                                        &stdin_name_tag,
+                                    )),
+                                    tag: stdin_name_tag,
+                                }));
+                                return Err(());
+                            }
+                        }
+                        unsupported => {
                             let _ = stdin_write_tx.send(Ok(Value {
-                                value: UntaggedValue::Error(e),
+                                value: UntaggedValue::Error(ShellError::labeled_error(
+                                    format!(
+                                        "Received unexpected type from pipeline ({})",
+                                        unsupported.type_name()
+                                    ),
+                                    "expected a string",
+                                    stdin_name_tag.clone(),
+                                )),
                                 tag: stdin_name_tag,
                             }));
                             return Err(());
                         }
                     };
-
-                    if let Err(e) = stdin_write.write(input_string.as_bytes()) {
-                        let message = format!("Unable to write to stdin (error = {})", e);
-
-                        let _ = stdin_write_tx.send(Ok(Value {
-                            value: UntaggedValue::Error(ShellError::labeled_error(
-                                message,
-                                "application may have closed before completing pipeline",
-                                &stdin_name_tag,
-                            )),
-                            tag: stdin_name_tag,
-                        }));
-                        return Err(());
-                    }
                 }
             }
 
@@ -535,12 +558,14 @@ fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(StdoutWithNewline::new(stdout));
-                let stream = FramedRead::new(file, LinesCodec);
+                let stream = FramedRead::new(file, BytesCodec);
 
                 for line in block_on_stream(stream) {
                     if let Ok(line) = line {
                         let result = stdout_read_tx.send(Ok(Value {
-                            value: UntaggedValue::Primitive(Primitive::Line(line)),
+                            value: UntaggedValue::Primitive(Primitive::Binary(
+                                line.into_iter().collect(),
+                            )),
                             tag: stdout_name_tag.clone(),
                         }));
 
