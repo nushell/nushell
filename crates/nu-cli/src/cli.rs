@@ -93,44 +93,27 @@ fn load_plugin(path: &std::path::Path, context: &mut Context) -> Result<(), Shel
 }
 
 fn search_paths() -> Vec<std::path::PathBuf> {
+    use std::env;
+
     let mut search_paths = Vec::new();
 
-    #[cfg(debug_assertions)]
-    {
-        // Use our debug plugins in debug mode
-        let mut path = std::path::PathBuf::from(".");
-        path.push("target");
-        path.push("debug");
-
-        if path.exists() {
-            search_paths.push(path);
+    // Automatically add path `nu` is in as a search path
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            search_paths.push(exe_dir.to_path_buf());
         }
     }
 
     #[cfg(not(debug_assertions))]
     {
-        use std::env;
-
         match env::var_os("PATH") {
             Some(paths) => {
-                search_paths = env::split_paths(&paths).collect::<Vec<_>>();
+                search_paths.extend(env::split_paths(&paths).collect::<Vec<_>>());
             }
             None => println!("PATH is not defined in the environment."),
         }
-
-        // Use our release plugins in release mode
-        let mut path = std::path::PathBuf::from(".");
-        path.push("target");
-        path.push("release");
-
-        if path.exists() {
-            search_paths.push(path);
-        }
     }
 
-    // permit Nu finding and picking up development plugins
-    // if there are any first.
-    search_paths.reverse();
     search_paths
 }
 

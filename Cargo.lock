@@ -2191,6 +2191,61 @@ dependencies = [
 name = "nu"
 version = "0.10.1"
 dependencies = [
+ "clap",
+ "clipboard",
+ "crossterm 0.16.0",
+ "ctrlc",
+ "dunce",
+ "futures 0.3.3",
+ "log",
+ "nu-build",
+ "nu-cli",
+ "nu-errors",
+ "nu-macros",
+ "nu-parser",
+ "nu-plugin",
+ "nu-protocol",
+ "nu-source",
+ "nu-test-support",
+ "nu-value-ext",
+ "nu_plugin_average",
+ "nu_plugin_binaryview",
+ "nu_plugin_fetch",
+ "nu_plugin_inc",
+ "nu_plugin_match",
+ "nu_plugin_post",
+ "nu_plugin_ps",
+ "nu_plugin_shuffle",
+ "nu_plugin_str",
+ "nu_plugin_sum",
+ "nu_plugin_sys",
+ "nu_plugin_textview",
+ "nu_plugin_tree",
+ "onig_sys",
+ "pretty_assertions",
+ "pretty_env_logger 0.4.0",
+ "semver",
+ "serde 1.0.104",
+ "starship",
+ "syntect",
+ "toml 0.5.6",
+ "url",
+]
+
+[[package]]
+name = "nu-build"
+version = "0.10.0"
+dependencies = [
+ "lazy_static 1.4.0",
+ "serde 1.0.104",
+ "serde_json",
+ "toml 0.5.6",
+]
+
+[[package]]
+name = "nu-cli"
+version = "0.10.0"
+dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
  "async-stream",
@@ -2203,8 +2258,6 @@ dependencies = [
  "cfg-if",
  "chrono",
  "clap",
- "clipboard",
- "crossterm 0.16.0",
  "csv",
  "ctrlc",
  "derive-new",
@@ -2237,22 +2290,8 @@ dependencies = [
  "nu-source",
  "nu-test-support",
  "nu-value-ext",
- "nu_plugin_average",
- "nu_plugin_binaryview",
- "nu_plugin_fetch",
- "nu_plugin_inc",
- "nu_plugin_match",
- "nu_plugin_post",
- "nu_plugin_ps",
- "nu_plugin_shuffle",
- "nu_plugin_str",
- "nu_plugin_sum",
- "nu_plugin_sys",
- "nu_plugin_textview",
- "nu_plugin_tree",
  "num-bigint",
  "num-traits 0.2.11",
- "onig_sys",
  "parking_lot",
  "pin-utils",
  "pretty-hex",
@@ -2265,7 +2304,6 @@ dependencies = [
  "roxmltree",
  "rusqlite",
  "rustyline",
- "semver",
  "serde 1.0.104",
  "serde-hjson 0.9.1",
  "serde_bytes",
@@ -2274,9 +2312,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "shellexpand",
- "starship",
  "strip-ansi-escapes",
- "syntect",
  "tempfile",
  "term",
  "termcolor",
@@ -2286,19 +2322,8 @@ dependencies = [
  "typetag",
  "umask",
  "unicode-xid",
- "url",
  "users",
  "which",
-]
-
-[[package]]
-name = "nu-build"
-version = "0.10.0"
-dependencies = [
- "lazy_static 1.4.0",
- "serde 1.0.104",
- "serde_json",
- "toml 0.5.6",
 ]
 
 [[package]]
