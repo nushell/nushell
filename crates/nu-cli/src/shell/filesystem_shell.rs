@@ -204,7 +204,8 @@ impl Shell for FilesystemShell {
                         ));
                     }
 
-                    if cfg!(unix) {
+                    #[cfg(unix)]
+                    {
                         let has_exec = path
                             .metadata()
                             .map(|m| {
