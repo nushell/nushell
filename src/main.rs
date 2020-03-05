@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         None => {}
         Some(values) => {
             for item in values {
-                builder.filter_module(&format!("nu_cli::{}", item), LevelFilter::Trace);
+                builder.filter_module(&format!("nu::{}", item), LevelFilter::Trace);
             }
         }
     }
@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         None => {}
         Some(values) => {
             for item in values {
-                builder.filter_module(&format!("nu_cli::{}", item), LevelFilter::Debug);
+                builder.filter_module(&format!("nu::{}", item), LevelFilter::Debug);
             }
         }
     }
