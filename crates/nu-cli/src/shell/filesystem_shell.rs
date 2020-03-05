@@ -18,6 +18,8 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use trash as SendToTrash;
 
+use std::os::unix::fs::PermissionsExt;
+
 pub struct FilesystemShell {
     pub(crate) path: String,
     pub(crate) last_path: String,
@@ -172,8 +174,8 @@ impl Shell for FilesystemShell {
                 Some(o) => o,
                 _ => {
                     return Err(ShellError::labeled_error(
-                        "Can not change to home directory",
-                        "can not go to home",
+                        "Cannot change to home directory",
+                        "cannot go to home",
                         &args.call_info.name_tag,
                     ))
                 }
@@ -185,25 +187,47 @@ impl Shell for FilesystemShell {
                     PathBuf::from(&self.last_path)
                 } else {
                     let path = PathBuf::from(self.path());
+                    let path = dunce::canonicalize(path.join(&target)).map_err(|_| {
+                        ShellError::labeled_error(
+                            "Cannot change to directory",
+                            "directory not found",
+                            &v.tag,
+                        )
+                    })?;
 
-                    if target.exists() && !target.is_dir() {
+                    if !path.is_dir() {
                         return Err(ShellError::labeled_error(
-                            "Can not change to directory",
+                            "Cannot change to directory",
                             "is not a directory",
                             &v.tag,
                         ));
                     }
 
-                    match dunce::canonicalize(path.join(&target)) {
-                        Ok(p) => p,
-                        Err(_) => {
+                    if cfg!(unix) {
+                        let has_exec = path
+                            .metadata()
+                            .map(|m| {
+                                let mode = umask::Mode::from(m.permissions().mode());
+                                mode.has(umask::ALL_EXEC)
+                            })
+                            .map_err(|e| {
+                                ShellError::labeled_error(
+                                    "Cannot change to directory",
+                                    format!("cannot stat ({})", e),
+                                    &v.tag,
+                                )
+                            })?;
+
+                        if !has_exec {
                             return Err(ShellError::labeled_error(
                                 "Cannot change to directory",
-                                "directory not found",
+                                "permission denied",
                                 &v.tag,
-                            ))
+                            ));
                         }
                     }
+
+                    path
                 }
             }
         };
