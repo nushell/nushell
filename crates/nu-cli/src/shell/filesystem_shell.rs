@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use trash as SendToTrash;
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 pub struct FilesystemShell {
