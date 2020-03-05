@@ -130,6 +130,11 @@ impl Dictionary {
         self.entries.keys()
     }
 
+    /// Iterate the values in the Dictionary
+    pub fn values(&self) -> impl Iterator<Item = &Value> {
+        self.entries.values()
+    }
+
     /// Checks if given key exists
     pub fn contains_key(&self, key: &str) -> bool {
         self.entries.contains_key(key)

@@ -69,6 +69,7 @@ pub(crate) mod range;
 #[allow(unused)]
 pub(crate) mod reduce_by;
 pub(crate) mod reject;
+pub(crate) mod rename;
 pub(crate) mod reverse;
 pub(crate) mod rm;
 pub(crate) mod save;
@@ -172,6 +173,7 @@ pub(crate) use range::Range;
 #[allow(unused_imports)]
 pub(crate) use reduce_by::ReduceBy;
 pub(crate) use reject::Reject;
+pub(crate) use rename::Rename;
 pub(crate) use reverse::Reverse;
 pub(crate) use rm::Remove;
 pub(crate) use save::Save;
