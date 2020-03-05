@@ -69,7 +69,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                                 leftover_string.clear();
                             }
 
-                            let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())).collect();
+                            let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
                             yield futures::stream::iter(success_lines)                        
                         }
                         Err(err) => {
@@ -91,7 +91,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                                     leftover_string.clear();
                                 }
     
-                                let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())).collect();
+                                let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
                                 yield futures::stream::iter(success_lines)                        
                             }
                         }
@@ -112,7 +112,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                         leftover_string.clear();
                     }
 
-                    let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())).collect();
+                    let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
                     yield futures::stream::iter(success_lines)                        
                 }
                 Some( Value { tag: value_span, ..}) => {
@@ -126,7 +126,10 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                 }
                 None => {
                     if !leftover.is_empty() {
-                        let st = String::from_utf8(leftover).unwrap();
+                        let mut st = leftover_string.clone();
+                        if let Ok(extra) = String::from_utf8(leftover) {
+                            st.push_str(&extra);
+                        }
                         yield futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::string(st).into_untagged_value())])
                     }
                     break;
