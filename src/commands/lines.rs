@@ -28,15 +28,24 @@ impl WholeStreamCommand for Lines {
     }
 }
 
-// TODO: "Amount remaining" wrapper
+fn ends_with_line_ending(st: &str) -> bool {
+    let mut temp = st.to_string();
+    let last = temp.pop();
+    if let Some(c) = last {
+        c == '\n'
+    } else {
+        false
+    }
+}
 
 fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
-    //let tag = args.name_tag();
-    //let name_span = tag.span;
+    let tag = args.name_tag();
+    let name_span = tag.span;
     let mut input = args.input;
 
     let mut leftover = vec![];
+    let mut leftover_string = String::new();
     let stream = async_stream! {
         loop {
             match input.values.next().await {
@@ -46,21 +55,74 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                     leftover.append(&mut binary);
                     match String::from_utf8(leftover.clone()) {
                         Ok(st) => {
+                            let mut st = leftover_string.clone() + &st;
                             leftover.clear();
-                            yield futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::string(st).into_untagged_value())])                        
+
+                            let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                            if !ends_with_line_ending(&st) {
+                                if let Some(last) = lines.pop() {
+                                    leftover_string = last;
+                                } else {
+                                    leftover_string.clear();
+                                }
+                            } else {
+                                leftover_string.clear();
+                            }
+
+                            let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())).collect();
+                            yield futures::stream::iter(success_lines)                        
                         }
                         Err(err) => {
                             let mut partial = Vec::new();
                             partial.clone_from_slice(&leftover[0..err.utf8_error().valid_up_to()]);
-                            let st = String::from_utf8(partial).unwrap();
-                            leftover.drain(0..err.utf8_error().valid_up_to());
-                            yield futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::string(st).into_untagged_value())])
+                            // This is expected not to fail because of the check above
+                            if let Ok(st) = String::from_utf8(partial) {
+                                leftover.drain(0..err.utf8_error().valid_up_to());
+                                let mut st = leftover_string.clone() + &st;
+
+                                let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                                if !ends_with_line_ending(&st) {
+                                    if let Some(last) = lines.pop() {
+                                        leftover_string = last;
+                                    } else {
+                                        leftover_string.clear();
+                                    }
+                                } else {
+                                    leftover_string.clear();
+                                }
+    
+                                let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())).collect();
+                                yield futures::stream::iter(success_lines)                        
+                            }
                         }
                     }
                 }
-                Some(v) => {
+                Some(Value { value: UntaggedValue::Primitive(Primitive::String(st)), ..}) => {
+                    let mut st = leftover_string.clone() + &st;
                     leftover.clear();
-                    yield futures::stream::iter(vec![ReturnSuccess::value(v)])
+
+                    let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                    if !ends_with_line_ending(&st) {
+                        if let Some(last) = lines.pop() {
+                            leftover_string = last;
+                        } else {
+                            leftover_string.clear();
+                        }
+                    } else {
+                        leftover_string.clear();
+                    }
+
+                    let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::string(x).into_untagged_value())).collect();
+                    yield futures::stream::iter(success_lines)                        
+                }
+                Some( Value { tag: value_span, ..}) => {
+                    yield futures::stream::iter(vec![Err(ShellError::labeled_error_with_secondary(
+                        "Expected a string from pipeline",
+                        "requires string input",
+                        name_span,
+                        "value originates from here",
+                        value_span,
+                    ))]);
                 }
                 None => {
                     if !leftover.is_empty() {
@@ -71,6 +133,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                 }
             }
         }
+        yield futures::stream::iter(vec![ReturnSuccess::value(UntaggedValue::string(leftover_string).into_untagged_value())]);
     }
     .flatten();
 
