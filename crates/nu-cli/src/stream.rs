@@ -95,14 +95,18 @@ impl InputStream {
                     value_tag = value_t;
                     bytes.extend_from_slice(&b);
                 }
-                Some(Value { tag: value_tag, .. }) => {
+                Some(Value {
+                    tag: value_tag,
+                    value: v,
+                }) => {
+                    println!("{:?}", v);
                     return Err(ShellError::labeled_error_with_secondary(
                         "Expected binary from pipeline",
                         "requires binary input",
                         tag,
                         "value originates from here",
                         value_tag,
-                    ))
+                    ));
                 }
                 None => break,
             }
