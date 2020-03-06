@@ -126,6 +126,7 @@ mod stdin_evaluation {
                 iecho yes
                 | chop
                 | chop
+                | lines
                 | first 1
             "#
         ));
