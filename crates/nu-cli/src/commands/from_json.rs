@@ -74,35 +74,13 @@ fn from_json(
     FromJSONArgs { objects }: FromJSONArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-    let name_span = name.span;
     let name_tag = name;
 
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
-
-        let mut concat_string = String::new();
-        let mut latest_tag: Option<Tag> = None;
-
-        for value in values {
-            latest_tag = Some(value.tag.clone());
-            let value_span = value.tag.span;
-
-            if let Ok(s) = value.as_string() {
-                concat_string.push_str(&s);
-            } else {
-                yield Err(ShellError::labeled_error_with_secondary(
-                    "Expected a string from pipeline",
-                    "requires string input",
-                    name_span,
-                    "value originates from here",
-                    value_span,
-                ))
-            }
-        }
-
+        let concat_string = input.collect_string(name_tag.clone()).await?;
 
         if objects {
-            for json_str in concat_string.lines() {
+            for json_str in concat_string.item.lines() {
                 if json_str.is_empty() {
                     continue;
                 }
@@ -111,23 +89,21 @@ fn from_json(
                     Ok(x) =>
                         yield ReturnSuccess::value(x),
                     Err(e) => {
-                        if let Some(ref last_tag) = latest_tag {
-                            let mut message = "Could not parse as JSON (".to_string();
-                            message.push_str(&e.to_string());
-                            message.push_str(")");
+                        let mut message = "Could not parse as JSON (".to_string();
+                        message.push_str(&e.to_string());
+                        message.push_str(")");
 
-                            yield Err(ShellError::labeled_error_with_secondary(
-                                message,
-                                "input cannot be parsed as JSON",
-                                &name_tag,
-                                "value originates from here",
-                                last_tag))
-                        }
+                        yield Err(ShellError::labeled_error_with_secondary(
+                            message,
+                            "input cannot be parsed as JSON",
+                            &name_tag,
+                            "value originates from here",
+                            concat_string.tag.clone()))
                     }
                 }
             }
         } else {
-            match from_json_string_to_value(concat_string, name_tag.clone()) {
+            match from_json_string_to_value(concat_string.item, name_tag.clone()) {
                 Ok(x) =>
                     match x {
                         Value { value: UntaggedValue::Table(list), .. } => {
@@ -138,18 +114,16 @@ fn from_json(
                         x => yield ReturnSuccess::value(x),
                     }
                 Err(e) => {
-                    if let Some(last_tag) = latest_tag {
-                        let mut message = "Could not parse as JSON (".to_string();
-                        message.push_str(&e.to_string());
-                        message.push_str(")");
+                    let mut message = "Could not parse as JSON (".to_string();
+                    message.push_str(&e.to_string());
+                    message.push_str(")");
 
-                        yield Err(ShellError::labeled_error_with_secondary(
-                            message,
-                            "input cannot be parsed as JSON",
-                            name_tag,
-                            "value originates from here",
-                            last_tag))
-                    }
+                    yield Err(ShellError::labeled_error_with_secondary(
+                        message,
+                        "input cannot be parsed as JSON",
+                        name_tag,
+                        "value originates from here",
+                        concat_string.tag))
                 }
             }
         }

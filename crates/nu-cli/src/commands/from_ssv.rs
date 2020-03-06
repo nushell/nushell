@@ -259,45 +259,26 @@ fn from_ssv(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
-        let mut concat_string = String::new();
-        let mut latest_tag: Option<Tag> = None;
+        let concat_string = input.collect_string(name.clone()).await?;
         let split_at = match minimum_spaces {
             Some(number) => number.item,
             None => DEFAULT_MINIMUM_SPACES
         };
 
-        for value in values {
-            let value_tag = value.tag.clone();
-            latest_tag = Some(value_tag.clone());
-            if let Ok(s) = value.as_string() {
-                concat_string.push_str(&s);
-            }
-            else {
-                yield Err(ShellError::labeled_error_with_secondary (
-                    "Expected a string from pipeline",
-                    "requires string input",
-                    &name,
-                    "value originates from here",
-                    &value_tag
-                ))
-            }
-        }
-
-        match from_ssv_string_to_value(&concat_string, headerless, aligned_columns, split_at, name.clone()) {
+        match from_ssv_string_to_value(&concat_string.item, headerless, aligned_columns, split_at, name.clone()) {
             Some(x) => match x {
                 Value { value: UntaggedValue::Table(list), ..} => {
                     for l in list { yield ReturnSuccess::value(l) }
                 }
                 x => yield ReturnSuccess::value(x)
             },
-            None => if let Some(tag) = latest_tag {
+            None => {
                 yield Err(ShellError::labeled_error_with_secondary(
                     "Could not parse as SSV",
                     "input cannot be parsed ssv",
                     &name,
                     "value originates from here",
-                    &tag,
+                    &concat_string.tag,
                 ))
             },
         }

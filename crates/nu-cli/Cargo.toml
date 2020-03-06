@@ -25,7 +25,7 @@ base64 = "0.11"
 bigdecimal = { version = "0.1.0", features = ["serde"] }
 bson = { version = "0.14.0", features = ["decimal128"] }
 byte-unit = "3.0.3"
-bytes = "0.4.12"
+bytes = "0.5.4"
 calamine = "0.16"
 cfg-if = "0.1"
 chrono = { version = "0.4.10", features = ["serde"] }

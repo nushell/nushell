@@ -1,6 +1,8 @@
 use crate::prelude::*;
 use futures::stream::iter;
-use nu_protocol::{ReturnSuccess, ReturnValue, UntaggedValue, Value};
+use nu_errors::ShellError;
+use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, UntaggedValue, Value};
+use nu_source::{Tagged, TaggedItem};
 
 pub struct InputStream {
     pub(crate) values: BoxStream<'static, Value>,
@@ -26,6 +28,91 @@ impl InputStream {
         InputStream {
             values: input.boxed(),
         }
+    }
+
+    pub async fn collect_string(mut self, tag: Tag) -> Result<Tagged<String>, ShellError> {
+        let mut bytes = vec![];
+        let mut value_tag = tag.clone();
+
+        loop {
+            match self.values.next().await {
+                Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::String(s)),
+                    tag: value_t,
+                }) => {
+                    value_tag = value_t;
+                    bytes.extend_from_slice(&s.into_bytes());
+                }
+                Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::Line(s)),
+                    tag: value_t,
+                }) => {
+                    value_tag = value_t;
+                    bytes.extend_from_slice(&s.into_bytes());
+                }
+                Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::Binary(b)),
+                    tag: value_t,
+                }) => {
+                    value_tag = value_t;
+                    bytes.extend_from_slice(&b);
+                }
+                Some(Value { tag: value_tag, .. }) => {
+                    return Err(ShellError::labeled_error_with_secondary(
+                        "Expected a string from pipeline",
+                        "requires string input",
+                        tag,
+                        "value originates from here",
+                        value_tag,
+                    ))
+                }
+                None => break,
+            }
+        }
+
+        match String::from_utf8(bytes) {
+            Ok(s) => Ok(s.tagged(value_tag.clone())),
+            Err(_) => Err(ShellError::labeled_error_with_secondary(
+                "Expected a string from pipeline",
+                "requires string input",
+                tag,
+                "value originates from here",
+                value_tag,
+            )),
+        }
+    }
+
+    pub async fn collect_binary(mut self, tag: Tag) -> Result<Tagged<Vec<u8>>, ShellError> {
+        let mut bytes = vec![];
+        let mut value_tag = tag.clone();
+
+        loop {
+            match self.values.next().await {
+                Some(Value {
+                    value: UntaggedValue::Primitive(Primitive::Binary(b)),
+                    tag: value_t,
+                }) => {
+                    value_tag = value_t;
+                    bytes.extend_from_slice(&b);
+                }
+                Some(Value {
+                    tag: value_tag,
+                    value: v,
+                }) => {
+                    println!("{:?}", v);
+                    return Err(ShellError::labeled_error_with_secondary(
+                        "Expected binary from pipeline",
+                        "requires binary input",
+                        tag,
+                        "value originates from here",
+                        value_tag,
+                    ));
+                }
+                None => break,
+            }
+        }
+
+        Ok(bytes.tagged(value_tag))
     }
 }
 

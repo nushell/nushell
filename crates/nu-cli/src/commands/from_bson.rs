@@ -205,32 +205,18 @@ fn from_bson(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
+        let bytes = input.collect_binary(tag.clone()).await?;
 
-        for value in values {
-            let value_tag = &value.tag;
-            match value.value {
-                UntaggedValue::Primitive(Primitive::Binary(vb)) =>
-                    match from_bson_bytes_to_value(vb, tag.clone()) {
-                        Ok(x) => yield ReturnSuccess::value(x),
-                        Err(_) => {
-                            yield Err(ShellError::labeled_error_with_secondary(
-                                "Could not parse as BSON",
-                                "input cannot be parsed as BSON",
-                                tag.clone(),
-                                "value originates from here",
-                                value_tag,
-                            ))
-                        }
-                    }
-                _ => yield Err(ShellError::labeled_error_with_secondary(
-                    "Expected a string from pipeline",
-                    "requires string input",
+        match from_bson_bytes_to_value(bytes.item, tag.clone()) {
+            Ok(x) => yield ReturnSuccess::value(x),
+            Err(_) => {
+                yield Err(ShellError::labeled_error_with_secondary(
+                    "Could not parse as BSON",
+                    "input cannot be parsed as BSON",
                     tag.clone(),
                     "value originates from here",
-                    value_tag,
-                )),
-
+                    bytes.tag,
+                ))
             }
         }
     };

@@ -47,28 +47,9 @@ pub fn from_delimited_data(
     let name_tag = name;
 
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
+        let concat_string = input.collect_string(name_tag.clone()).await?;
 
-        let mut concat_string = String::new();
-        let mut latest_tag: Option<Tag> = None;
-
-        for value in values {
-            let value_tag = &value.tag;
-            latest_tag = Some(value_tag.clone());
-            if let Ok(s) = value.as_string() {
-                concat_string.push_str(&s);
-            } else {
-                yield Err(ShellError::labeled_error_with_secondary(
-                    "Expected a string from pipeline",
-                    "requires string input",
-                    name_tag.clone(),
-                    "value originates from here",
-                    value_tag.clone(),
-                ))
-            }
-        }
-
-        match from_delimited_string_to_value(concat_string, headerless, sep, name_tag.clone()) {
+        match from_delimited_string_to_value(concat_string.item, headerless, sep, name_tag.clone()) {
             Ok(x) => match x {
                 Value { value: UntaggedValue::Table(list), .. } => {
                     for l in list {
@@ -77,7 +58,7 @@ pub fn from_delimited_data(
                 }
                 x => yield ReturnSuccess::value(x),
             },
-            Err(_) => if let Some(last_tag) = latest_tag {
+            Err(_) => {
                 let line_one = format!("Could not parse as {}", format_name);
                 let line_two = format!("input cannot be parsed as {}", format_name);
                 yield Err(ShellError::labeled_error_with_secondary(
@@ -85,7 +66,7 @@ pub fn from_delimited_data(
                     line_two,
                     name_tag.clone(),
                     "value originates from here",
-                    last_tag.clone(),
+                    concat_string.tag,
                 ))
             } ,
         }

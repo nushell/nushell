@@ -1,8 +1,9 @@
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
+use bytes::{BufMut, Bytes, BytesMut};
 use futures::executor::block_on_stream;
 use futures::stream::StreamExt;
-use futures_codec::{FramedRead, LinesCodec};
+use futures_codec::FramedRead;
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::commands::classified::external::ExternalArg;
@@ -15,6 +16,70 @@ use std::ops::Deref;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 
+pub enum StringOrBinary {
+    String(String),
+    Binary(Vec<u8>),
+}
+pub struct MaybeTextCodec;
+
+impl futures_codec::Encoder for MaybeTextCodec {
+    type Item = StringOrBinary;
+    type Error = std::io::Error;
+
+    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        match item {
+            StringOrBinary::String(s) => {
+                dst.reserve(s.len());
+                dst.put(s.as_bytes());
+                Ok(())
+            }
+            StringOrBinary::Binary(b) => {
+                dst.reserve(b.len());
+                dst.put(Bytes::from(b));
+                Ok(())
+            }
+        }
+    }
+}
+
+impl futures_codec::Decoder for MaybeTextCodec {
+    type Item = StringOrBinary;
+    type Error = std::io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let v: Vec<u8> = src.to_vec();
+        match String::from_utf8(v) {
+            Ok(s) => {
+                src.clear();
+                if s.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(StringOrBinary::String(s)))
+                }
+            }
+            Err(err) => {
+                // Note: the longest UTF-8 character per Unicode spec is currently 6 bytes. If we fail somewhere earlier than the last 6 bytes,
+                // we know that we're failing to understand the string encoding and not just seeing a partial character. When this happens, let's
+                // fall back to assuming it's a binary buffer.
+                if src.is_empty() {
+                    Ok(None)
+                } else if src.len() > 6 && (src.len() - err.utf8_error().valid_up_to() > 6) {
+                    // Fall back to assuming binary
+                    let buf = src.to_vec();
+                    src.clear();
+                    Ok(Some(StringOrBinary::Binary(buf)))
+                } else {
+                    // Looks like a utf-8 string, so let's assume that
+                    let buf = src.split_to(err.utf8_error().valid_up_to() + 1);
+                    String::from_utf8(buf.to_vec())
+                        .map(|x| Some(StringOrBinary::String(x)))
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+                }
+            }
+        }
+    }
+}
+
 pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
     match &from.value {
         UntaggedValue::Primitive(Primitive::Int(i)) => Ok(i.to_string()),
@@ -25,25 +90,6 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
             format!("needs string data (given: {})", unsupported.type_name()),
             "expected a string",
             &command.name_tag,
-        )),
-    }
-}
-
-pub fn nu_value_to_string_for_stdin(
-    name_tag: &Tag,
-    from: &Value,
-) -> Result<Option<String>, ShellError> {
-    match &from.value {
-        UntaggedValue::Primitive(Primitive::Nothing) => Ok(None),
-        UntaggedValue::Primitive(Primitive::String(s))
-        | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(Some(s.clone())),
-        unsupported => Err(ShellError::labeled_error(
-            format!(
-                "Received unexpected type from pipeline ({})",
-                unsupported.type_name()
-            ),
-            "expected a string",
-            name_tag,
         )),
     }
 }
@@ -382,45 +428,6 @@ fn run_with_stdin(
     spawn(&command, &path, &process_args[..], input, is_last)
 }
 
-/// This is a wrapper for stdout-like readers that ensure a carriage return ends the stream
-pub struct StdoutWithNewline<T: std::io::Read> {
-    stdout: T,
-    ended_in_newline: bool,
-}
-
-impl<T: std::io::Read> StdoutWithNewline<T> {
-    pub fn new(stdout: T) -> StdoutWithNewline<T> {
-        StdoutWithNewline {
-            stdout,
-            ended_in_newline: false,
-        }
-    }
-}
-impl<T: std::io::Read> std::io::Read for StdoutWithNewline<T> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self.stdout.read(buf) {
-            Err(e) => Err(e),
-            Ok(0) => {
-                if !self.ended_in_newline && !buf.is_empty() {
-                    self.ended_in_newline = true;
-                    buf[0] = b'\n';
-                    Ok(1)
-                } else {
-                    Ok(0)
-                }
-            }
-            Ok(len) => {
-                if buf[len - 1] == b'\n' {
-                    self.ended_in_newline = true;
-                } else {
-                    self.ended_in_newline = false;
-                }
-                Ok(len)
-            }
-        }
-    }
-}
-
 fn spawn(
     command: &ExternalCommand,
     path: &str,
@@ -487,31 +494,54 @@ fn spawn(
                     .expect("Internal error: could not get stdin pipe for external command");
 
                 for value in block_on_stream(input) {
-                    let input_string = match nu_value_to_string_for_stdin(&stdin_name_tag, &value) {
-                        Ok(None) => continue,
-                        Ok(Some(v)) => v,
-                        Err(e) => {
+                    match &value.value {
+                        UntaggedValue::Primitive(Primitive::Nothing) => continue,
+                        UntaggedValue::Primitive(Primitive::String(s))
+                        | UntaggedValue::Primitive(Primitive::Line(s)) => {
+                            if let Err(e) = stdin_write.write(s.as_bytes()) {
+                                let message = format!("Unable to write to stdin (error = {})", e);
+
+                                let _ = stdin_write_tx.send(Ok(Value {
+                                    value: UntaggedValue::Error(ShellError::labeled_error(
+                                        message,
+                                        "application may have closed before completing pipeline",
+                                        &stdin_name_tag,
+                                    )),
+                                    tag: stdin_name_tag,
+                                }));
+                                return Err(());
+                            }
+                        }
+                        UntaggedValue::Primitive(Primitive::Binary(b)) => {
+                            if let Err(e) = stdin_write.write(b) {
+                                let message = format!("Unable to write to stdin (error = {})", e);
+
+                                let _ = stdin_write_tx.send(Ok(Value {
+                                    value: UntaggedValue::Error(ShellError::labeled_error(
+                                        message,
+                                        "application may have closed before completing pipeline",
+                                        &stdin_name_tag,
+                                    )),
+                                    tag: stdin_name_tag,
+                                }));
+                                return Err(());
+                            }
+                        }
+                        unsupported => {
                             let _ = stdin_write_tx.send(Ok(Value {
-                                value: UntaggedValue::Error(e),
+                                value: UntaggedValue::Error(ShellError::labeled_error(
+                                    format!(
+                                        "Received unexpected type from pipeline ({})",
+                                        unsupported.type_name()
+                                    ),
+                                    "expected a string",
+                                    stdin_name_tag.clone(),
+                                )),
                                 tag: stdin_name_tag,
                             }));
                             return Err(());
                         }
                     };
-
-                    if let Err(e) = stdin_write.write(input_string.as_bytes()) {
-                        let message = format!("Unable to write to stdin (error = {})", e);
-
-                        let _ = stdin_write_tx.send(Ok(Value {
-                            value: UntaggedValue::Error(ShellError::labeled_error(
-                                message,
-                                "application may have closed before completing pipeline",
-                                &stdin_name_tag,
-                            )),
-                            tag: stdin_name_tag,
-                        }));
-                        return Err(());
-                    }
                 }
             }
 
@@ -534,29 +564,46 @@ fn spawn(
                     return Err(());
                 };
 
-                let file = futures::io::AllowStdIo::new(StdoutWithNewline::new(stdout));
-                let stream = FramedRead::new(file, LinesCodec);
+                let file = futures::io::AllowStdIo::new(stdout);
+                let stream = FramedRead::new(file, MaybeTextCodec);
 
                 for line in block_on_stream(stream) {
-                    if let Ok(line) = line {
-                        let result = stdout_read_tx.send(Ok(Value {
-                            value: UntaggedValue::Primitive(Primitive::Line(line)),
-                            tag: stdout_name_tag.clone(),
-                        }));
+                    match line {
+                        Ok(line) => match line {
+                            StringOrBinary::String(s) => {
+                                let result = stdout_read_tx.send(Ok(Value {
+                                    value: UntaggedValue::Primitive(Primitive::String(s.clone())),
+                                    tag: stdout_name_tag.clone(),
+                                }));
 
-                        if result.is_err() {
+                                if result.is_err() {
+                                    break;
+                                }
+                            }
+                            StringOrBinary::Binary(b) => {
+                                let result = stdout_read_tx.send(Ok(Value {
+                                    value: UntaggedValue::Primitive(Primitive::Binary(
+                                        b.into_iter().collect(),
+                                    )),
+                                    tag: stdout_name_tag.clone(),
+                                }));
+
+                                if result.is_err() {
+                                    break;
+                                }
+                            }
+                        },
+                        Err(_) => {
+                            let _ = stdout_read_tx.send(Ok(Value {
+                                value: UntaggedValue::Error(ShellError::labeled_error(
+                                    "Unable to read from stdout.",
+                                    "unable to read from stdout",
+                                    &stdout_name_tag,
+                                )),
+                                tag: stdout_name_tag.clone(),
+                            }));
                             break;
                         }
-                    } else {
-                        let _ = stdout_read_tx.send(Ok(Value {
-                            value: UntaggedValue::Error(ShellError::labeled_error(
-                                "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
-                                "unable to read from stdout",
-                                &stdout_name_tag,
-                            )),
-                            tag: stdout_name_tag.clone(),
-                        }));
-                        break;
                     }
                 }
             }

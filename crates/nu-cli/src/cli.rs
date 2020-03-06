@@ -1,3 +1,4 @@
+use crate::commands::classified::external::{MaybeTextCodec, StringOrBinary};
 use crate::commands::classified::pipeline::run_pipeline;
 use crate::commands::plugin::JsonRpc;
 use crate::commands::plugin::{PluginCommand, PluginSink};
@@ -6,7 +7,8 @@ use crate::context::Context;
 #[cfg(not(feature = "starship-prompt"))]
 use crate::git::current_branch;
 use crate::prelude::*;
-use futures_codec::{FramedRead, LinesCodec};
+use futures_codec::FramedRead;
+
 use nu_errors::ShellError;
 use nu_parser::{ClassifiedPipeline, PipelineShape, SpannedToken, TokensIterator};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
@@ -620,15 +622,21 @@ async fn process_line(
             }
 
             let input_stream = if redirect_stdin {
-                let file = futures::io::AllowStdIo::new(
-                    crate::commands::classified::external::StdoutWithNewline::new(std::io::stdin()),
-                );
-                let stream = FramedRead::new(file, LinesCodec).map(|line| {
+                let file = futures::io::AllowStdIo::new(std::io::stdin());
+                let stream = FramedRead::new(file, MaybeTextCodec).map(|line| {
                     if let Ok(line) = line {
-                        Ok(Value {
-                            value: UntaggedValue::Primitive(Primitive::String(line)),
-                            tag: Tag::unknown(),
-                        })
+                        match line {
+                            StringOrBinary::String(s) => Ok(Value {
+                                value: UntaggedValue::Primitive(Primitive::String(s)),
+                                tag: Tag::unknown(),
+                            }),
+                            StringOrBinary::Binary(b) => Ok(Value {
+                                value: UntaggedValue::Primitive(Primitive::Binary(
+                                    b.into_iter().collect(),
+                                )),
+                                tag: Tag::unknown(),
+                            }),
+                        }
                     } else {
                         panic!("Internal error: could not read lines of text from stdin")
                     }
