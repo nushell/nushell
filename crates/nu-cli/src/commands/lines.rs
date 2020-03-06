@@ -66,7 +66,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                     }
 
                     let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
-                    yield futures::stream::iter(success_lines)                        
+                    yield futures::stream::iter(success_lines)
                 }
                 Some(Value { value: UntaggedValue::Primitive(Primitive::Line(st)), ..}) => {
                     let mut st = leftover_string.clone() + &st;
@@ -84,7 +84,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                     }
 
                     let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
-                    yield futures::stream::iter(success_lines)                        
+                    yield futures::stream::iter(success_lines)
                 }
                 Some( Value { tag: value_span, ..}) => {
                     yield futures::stream::iter(vec![Err(ShellError::labeled_error_with_secondary(
