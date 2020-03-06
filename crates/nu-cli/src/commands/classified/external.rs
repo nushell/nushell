@@ -94,25 +94,6 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
     }
 }
 
-// pub fn nu_value_to_string_for_stdin(
-//     name_tag: &Tag,
-//     from: &Value,
-// ) -> Result<Option<String>, ShellError> {
-//     match &from.value {
-//         UntaggedValue::Primitive(Primitive::Nothing) => Ok(None),
-//         UntaggedValue::Primitive(Primitive::String(s))
-//         | UntaggedValue::Primitive(Primitive::Line(s)) => Ok(Some(s.clone())),
-//         unsupported => Err(ShellError::labeled_error(
-//             format!(
-//                 "Received unexpected type from pipeline ({})",
-//                 unsupported.type_name()
-//             ),
-//             "expected a string",
-//             name_tag,
-//         )),
-//     }
-// }
-
 pub(crate) fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
