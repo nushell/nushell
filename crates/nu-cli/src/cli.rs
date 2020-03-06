@@ -629,7 +629,7 @@ async fn process_line(
                     if let Ok(line) = line {
                         match line {
                             StringOrBinary::String(s) => Ok(Value {
-                                value: UntaggedValue::Primitive(Primitive::String(s.clone())),
+                                value: UntaggedValue::Primitive(Primitive::String(s)),
                                 tag: Tag::unknown(),
                             }),
                             StringOrBinary::Binary(b) => Ok(Value {

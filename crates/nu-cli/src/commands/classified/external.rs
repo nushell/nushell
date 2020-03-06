@@ -61,7 +61,7 @@ impl futures_codec::Decoder for MaybeTextCodec {
                 // Note: the longest UTF-8 character per Unicode spec is currently 6 bytes. If we fail somewhere earlier than the last 6 bytes,
                 // we know that we're failing to understand the string encoding and not just seeing a partial character. When this happens, let's
                 // fall back to assuming it's a binary buffer.
-                if src.len() == 0 {
+                if src.is_empty() {
                     Ok(None)
                 } else if src.len() > 6 && (src.len() - err.utf8_error().valid_up_to() > 6) {
                     // Fall back to assuming binary
