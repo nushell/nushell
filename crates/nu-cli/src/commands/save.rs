@@ -15,7 +15,7 @@ macro_rules! process_unknown {
                     value: UntaggedValue::Primitive(Primitive::Binary(_)),
                     ..
                 } => process_binary!($scope, $input, $name_tag),
-                _ => process_string!($scope, $input, $name_tag)
+                _ => process_string!($scope, $input, $name_tag),
             }
         } else {
             process_string!($scope, $input, $name_tag)
