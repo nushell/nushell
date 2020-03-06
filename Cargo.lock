@@ -2198,7 +2198,7 @@ dependencies = [
  "bigdecimal",
  "bson",
  "byte-unit",
- "bytes 0.4.12",
+ "bytes 0.5.4",
  "calamine",
  "cfg-if",
  "chrono",

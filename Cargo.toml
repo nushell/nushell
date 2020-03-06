@@ -80,7 +80,7 @@ async-stream = "0.2"
 futures_codec = "0.4"
 num-traits = "0.2.11"
 term = "0.5.2"
-bytes = "0.4.12"
+bytes = "0.5.4"
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
 serde = { version = "1.0.104", features = ["derive"] }

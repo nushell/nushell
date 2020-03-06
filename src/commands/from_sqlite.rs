@@ -138,40 +138,25 @@ fn from_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputSt
     let input = args.input;
 
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
-
-        for value in values {
-            let value_tag = &value.tag;
-            match value.value {
-                UntaggedValue::Primitive(Primitive::Binary(vb)) =>
-                    match from_sqlite_bytes_to_value(vb, tag.clone()) {
-                        Ok(x) => match x {
-                            Value { value: UntaggedValue::Table(list), .. } => {
-                                for l in list {
-                                    yield ReturnSuccess::value(l);
-                                }
-                            }
-                            _ => yield ReturnSuccess::value(x),
-                        }
-                        Err(err) => {
-                            println!("{:?}", err);
-                            yield Err(ShellError::labeled_error_with_secondary(
-                                "Could not parse as SQLite",
-                                "input cannot be parsed as SQLite",
-                                &tag,
-                                "value originates from here",
-                                value_tag,
-                            ))
-                        }
+        let bytes = input.collect_binary(tag.clone()).await?;
+        match from_sqlite_bytes_to_value(bytes.item, tag.clone()) {
+            Ok(x) => match x {
+                Value { value: UntaggedValue::Table(list), .. } => {
+                    for l in list {
+                        yield ReturnSuccess::value(l);
                     }
-                _ => yield Err(ShellError::labeled_error_with_secondary(
-                    "Expected binary data from pipeline",
-                    "requires binary data input",
+                }
+                _ => yield ReturnSuccess::value(x),
+            }
+            Err(err) => {
+                println!("{:?}", err);
+                yield Err(ShellError::labeled_error_with_secondary(
+                    "Could not parse as SQLite",
+                    "input cannot be parsed as SQLite",
                     &tag,
                     "value originates from here",
-                    value_tag,
-                )),
-
+                    bytes.tag,
+                ))
             }
         }
     };

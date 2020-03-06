@@ -1,8 +1,9 @@
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
+use bytes::{BufMut, Bytes, BytesMut};
 use futures::executor::block_on_stream;
 use futures::stream::StreamExt;
-use futures_codec::{BytesCodec, FramedRead};
+use futures_codec::FramedRead;
 use log::trace;
 use nu_errors::ShellError;
 use nu_parser::commands::classified::external::ExternalArg;
@@ -14,6 +15,70 @@ use std::io::Write;
 use std::ops::Deref;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
+
+pub enum StringOrBinary {
+    String(String),
+    Binary(Vec<u8>),
+}
+pub struct MaybeTextCodec;
+
+impl futures_codec::Encoder for MaybeTextCodec {
+    type Item = StringOrBinary;
+    type Error = std::io::Error;
+
+    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        match item {
+            StringOrBinary::String(s) => {
+                dst.reserve(s.len());
+                dst.put(s.as_bytes());
+                Ok(())
+            }
+            StringOrBinary::Binary(b) => {
+                dst.reserve(b.len());
+                dst.put(Bytes::from(b));
+                Ok(())
+            }
+        }
+    }
+}
+
+impl futures_codec::Decoder for MaybeTextCodec {
+    type Item = StringOrBinary;
+    type Error = std::io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let v: Vec<u8> = src.to_vec();
+        match String::from_utf8(v) {
+            Ok(s) => {
+                src.clear();
+                if s.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(StringOrBinary::String(s)))
+                }
+            }
+            Err(err) => {
+                // Note: the longest UTF-8 character per Unicode spec is currently 6 bytes. If we fail somewhere earlier than the last 6 bytes,
+                // we know that we're failing to understand the string encoding and not just seeing a partial character. When this happens, let's
+                // fall back to assuming it's a binary buffer.
+                if src.len() == 0 {
+                    Ok(None)
+                } else if src.len() > 6 && (src.len() - err.utf8_error().valid_up_to() > 6) {
+                    // Fall back to assuming binary
+                    let buf = src.to_vec();
+                    src.clear();
+                    Ok(Some(StringOrBinary::Binary(buf)))
+                } else {
+                    // Looks like a utf-8 string, so let's assume that
+                    let buf = src.split_to(err.utf8_error().valid_up_to() + 1);
+                    String::from_utf8(buf.to_vec())
+                        .map(|x| Some(StringOrBinary::String(x)))
+                        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+                }
+            }
+        }
+    }
+}
 
 pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<String, ShellError> {
     match &from.value {
@@ -558,30 +623,46 @@ fn spawn(
                 };
 
                 let file = futures::io::AllowStdIo::new(StdoutWithNewline::new(stdout));
-                let stream = FramedRead::new(file, BytesCodec);
+                let stream = FramedRead::new(file, MaybeTextCodec);
 
                 for line in block_on_stream(stream) {
-                    if let Ok(line) = line {
-                        let result = stdout_read_tx.send(Ok(Value {
-                            value: UntaggedValue::Primitive(Primitive::Binary(
-                                line.into_iter().collect(),
-                            )),
-                            tag: stdout_name_tag.clone(),
-                        }));
+                    match line {
+                        Ok(line) => match line {
+                            StringOrBinary::String(s) => {
+                                let result = stdout_read_tx.send(Ok(Value {
+                                    value: UntaggedValue::Primitive(Primitive::String(s.clone())),
+                                    tag: stdout_name_tag.clone(),
+                                }));
 
-                        if result.is_err() {
+                                if result.is_err() {
+                                    break;
+                                }
+                            }
+                            StringOrBinary::Binary(b) => {
+                                let result = stdout_read_tx.send(Ok(Value {
+                                    value: UntaggedValue::Primitive(Primitive::Binary(
+                                        b.into_iter().collect(),
+                                    )),
+                                    tag: stdout_name_tag.clone(),
+                                }));
+
+                                if result.is_err() {
+                                    break;
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            println!("{:?}", e);
+                            let _ = stdout_read_tx.send(Ok(Value {
+                                value: UntaggedValue::Error(ShellError::labeled_error(
+                                    "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
+                                    "unable to read from stdout",
+                                    &stdout_name_tag,
+                                )),
+                                tag: stdout_name_tag.clone(),
+                            }));
                             break;
                         }
-                    } else {
-                        let _ = stdout_read_tx.send(Ok(Value {
-                            value: UntaggedValue::Error(ShellError::labeled_error(
-                                "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
-                                "unable to read from stdout",
-                                &stdout_name_tag,
-                            )),
-                            tag: stdout_name_tag.clone(),
-                        }));
-                        break;
                     }
                 }
             }

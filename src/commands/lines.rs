@@ -49,55 +49,25 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     let stream = async_stream! {
         loop {
             match input.values.next().await {
-                Some(Value { value: UntaggedValue::Primitive(Primitive::Binary(mut binary)), ..}) => {
-                    // Let's try to convert the block of u8 to a string. If we're not the first buffer, there may be leftover bytes
-                    // that weren't successfully converted to utf-8 before. Let's start with those and then add the new buffer to it.
-                    leftover.append(&mut binary);
-                    match String::from_utf8(leftover.clone()) {
-                        Ok(st) => {
-                            let mut st = leftover_string.clone() + &st;
-                            leftover.clear();
-
-                            let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
-                            if !ends_with_line_ending(&st) {
-                                if let Some(last) = lines.pop() {
-                                    leftover_string = last;
-                                } else {
-                                    leftover_string.clear();
-                                }
-                            } else {
-                                leftover_string.clear();
-                            }
-
-                            let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
-                            yield futures::stream::iter(success_lines)                        
-                        }
-                        Err(err) => {
-                            let mut partial = Vec::new();
-                            partial.clone_from_slice(&leftover[0..err.utf8_error().valid_up_to()]);
-                            // This is expected not to fail because of the check above
-                            if let Ok(st) = String::from_utf8(partial) {
-                                leftover.drain(0..err.utf8_error().valid_up_to());
-                                let mut st = leftover_string.clone() + &st;
-
-                                let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
-                                if !ends_with_line_ending(&st) {
-                                    if let Some(last) = lines.pop() {
-                                        leftover_string = last;
-                                    } else {
-                                        leftover_string.clear();
-                                    }
-                                } else {
-                                    leftover_string.clear();
-                                }
-    
-                                let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
-                                yield futures::stream::iter(success_lines)                        
-                            }
-                        }
-                    }
-                }
                 Some(Value { value: UntaggedValue::Primitive(Primitive::String(st)), ..}) => {
+                    let mut st = leftover_string.clone() + &st;
+                    leftover.clear();
+
+                    let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                    if !ends_with_line_ending(&st) {
+                        if let Some(last) = lines.pop() {
+                            leftover_string = last;
+                        } else {
+                            leftover_string.clear();
+                        }
+                    } else {
+                        leftover_string.clear();
+                    }
+
+                    let success_lines: Vec<_> = lines.iter().map(|x| ReturnSuccess::value(UntaggedValue::line(x).into_untagged_value())).collect();
+                    yield futures::stream::iter(success_lines)                        
+                }
+                Some(Value { value: UntaggedValue::Primitive(Primitive::Line(st)), ..}) => {
                     let mut st = leftover_string.clone() + &st;
                     leftover.clear();
 
