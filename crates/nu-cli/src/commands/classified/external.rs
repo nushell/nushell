@@ -632,11 +632,10 @@ fn spawn(
                                 }
                             }
                         },
-                        Err(e) => {
-                            println!("{:?}", e);
+                        Err(_) => {
                             let _ = stdout_read_tx.send(Ok(Value {
                                 value: UntaggedValue::Error(ShellError::labeled_error(
-                                    "Unable to read lines from stdout. This usually happens when the output does not end with a newline.",
+                                    "Unable to read from stdout.",
                                     "unable to read from stdout",
                                     &stdout_name_tag,
                                 )),
