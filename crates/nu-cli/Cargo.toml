@@ -1,0 +1,107 @@
+[package]
+name = "nu-cli"
+version = "0.10.0"
+authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+description = "CLI for nushell"
+edition = "2018"
+
+[lib]
+doctest = false
+
+[dependencies]
+nu-source = { version = "0.10.0", path = "../nu-source" }
+nu-plugin = { version = "0.10.0", path = "../nu-plugin" }
+nu-protocol = { version = "0.10.0", path = "../nu-protocol" }
+nu-errors = { version = "0.10.0", path = "../nu-errors" }
+nu-parser = { version = "0.10.0", path = "../nu-parser" }
+nu-value-ext = { version = "0.10.0", path = "../nu-value-ext" }
+nu-macros = { version = "0.10.0", path = "../nu-macros" }
+nu-test-support = { version = "0.10.0", path = "../nu-test-support" }
+
+ansi_term = "0.12.1"
+app_dirs = "1.2.1"
+async-stream = "0.2"
+base64 = "0.11"
+bigdecimal = { version = "0.1.0", features = ["serde"] }
+bson = { version = "0.14.0", features = ["decimal128"] }
+byte-unit = "3.0.3"
+bytes = "0.5.4"
+calamine = "0.16"
+cfg-if = "0.1"
+chrono = { version = "0.4.10", features = ["serde"] }
+clap = "2.33.0"
+csv = "1.1"
+ctrlc = "3.1.3"
+derive-new = "0.5.8"
+dirs = "2.0.2"
+dunce = "1.0.0"
+filesize = "0.1.0"
+futures = { version = "0.3", features = ["compat", "io-compat"] }
+futures-util = "0.3.4"
+futures_codec = "0.4"
+getset = "0.0.9"
+git2 = { version = "0.11.0", default_features = false }
+glob = "0.3.0"
+hex = "0.4"
+ichwh = "0.3"
+indexmap = { version = "1.3.2", features = ["serde-1"] }
+itertools = "0.8.2"
+language-reporting = "0.4.0"
+log = "0.4.8"
+meval = "0.2"
+natural = "0.3.0"
+nom = "5.0.1"
+nom-tracable = "0.4.1"
+nom_locate = "1.0.0"
+num-bigint = { version = "0.2.6", features = ["serde"] }
+num-traits = "0.2.11"
+parking_lot = "0.10.0"
+pin-utils = "0.1.0-alpha.4"
+pretty-hex = "0.1.1"
+pretty_env_logger = "0.4.0"
+prettytable-rs = "0.8.0"
+ptree = {version = "0.2" }
+query_interface = "0.3.5"
+regex = "1"
+roxmltree = "0.9.1"
+rustyline = "6.0.0"
+serde = { version = "1.0.104", features = ["derive"] }
+serde-hjson = "0.9.1"
+serde_bytes = "0.11.3"
+serde_ini = "0.2.0"
+serde_json = "1.0.47"
+serde_urlencoded = "0.6.1"
+serde_yaml = "0.8"
+shellexpand = "1.1.1"
+strip-ansi-escapes = "0.1.0"
+tempfile = "3.1.0"
+term = "0.5.2"
+termcolor = "1.1.0"
+textwrap = {version = "0.11.0", features = ["term_size"]}
+toml = "0.5.6"
+trash = "1.0.0"
+typetag = "0.1.4"
+umask = "0.1"
+unicode-xid = "0.2.0"
+which = "3.1.0"
+
+clipboard = { version = "0.5", optional = true }
+starship = { version = "0.35.1", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+users = "0.9"
+
+[dependencies.rusqlite]
+version = "0.20.0"
+features = ["bundled", "blob"]
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"
+
+[build-dependencies]
+nu-build = { version = "0.10.0", path = "../nu-build" }
+
+[features]
+stable = []
+starship-prompt = ["starship"]
+clipboard-cli = ["clipboard"]

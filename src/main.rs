@@ -89,10 +89,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     match matches.values_of("commands") {
         None => {}
         Some(values) => {
-            let mut syncer = nu::EnvironmentSyncer::new();
-            let mut context = nu::create_default_context(&mut syncer)?;
+            let mut syncer = nu_cli::EnvironmentSyncer::new();
+            let mut context = nu_cli::create_default_context(&mut syncer)?;
 
-            let _ = nu::load_plugins(&mut context);
+            let _ = nu_cli::load_plugins(&mut context);
 
             let cc = context.ctrl_c.clone();
 
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 context.ctrl_c.store(false, Ordering::SeqCst);
             }
             for item in values {
-                futures::executor::block_on(nu::run_pipeline_standalone(
+                futures::executor::block_on(nu_cli::run_pipeline_standalone(
                     item.into(),
                     matches.is_present("stdin"),
                     &mut context,
@@ -119,10 +119,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(script) => {
             let file = File::open(script)?;
             let reader = BufReader::new(file);
-            let mut syncer = nu::EnvironmentSyncer::new();
-            let mut context = nu::create_default_context(&mut syncer)?;
+            let mut syncer = nu_cli::EnvironmentSyncer::new();
+            let mut context = nu_cli::create_default_context(&mut syncer)?;
 
-            let _ = nu::load_plugins(&mut context);
+            let _ = nu_cli::load_plugins(&mut context);
 
             let cc = context.ctrl_c.clone();
 
@@ -137,7 +137,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             for line in reader.lines() {
                 let line = line?;
                 if !line.starts_with('#') {
-                    futures::executor::block_on(nu::run_pipeline_standalone(
+                    futures::executor::block_on(nu_cli::run_pipeline_standalone(
                         line,
                         matches.is_present("stdin"),
                         &mut context,
@@ -152,7 +152,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "Welcome to Nushell {} (type 'help' for more info)",
                 clap::crate_version!()
             );
-            futures::executor::block_on(nu::cli())?;
+            futures::executor::block_on(nu_cli::cli())?;
         }
     }
 

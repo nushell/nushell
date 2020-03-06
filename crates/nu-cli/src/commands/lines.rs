@@ -53,7 +53,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                     let mut st = leftover_string.clone() + &st;
                     leftover.clear();
 
-                    let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                    let mut lines: Vec<String> = st.lines().filter(|s| s.trim() != "").map(|x| x.to_string()).collect();
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
                             leftover_string = last;
@@ -71,7 +71,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
                     let mut st = leftover_string.clone() + &st;
                     leftover.clear();
 
-                    let mut lines: Vec<String> = st.lines().map(|x| x.to_string()).collect();
+                    let mut lines: Vec<String> = st.lines().filter(|s| s.trim() != "").map(|x| x.to_string()).collect();
                     if !ends_with_line_ending(&st) {
                         if let Some(last) = lines.pop() {
                             leftover_string = last;

@@ -87,7 +87,6 @@ pub fn parse_command_tail(
                             Ok(expr) => {
                                 named.insert_optional(name, Some(expr));
                                 rest_signature.remove_named(name);
-                                tail.move_to(pos);
                             }
                             Err(_) => {
                                 found_error = Some(ParseError::argument_error(

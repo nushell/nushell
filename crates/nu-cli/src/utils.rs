@@ -170,16 +170,13 @@ mod tests {
     use super::{FileStructure, Res, ValueResource, ValueStructure};
     use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
     use nu_source::Tag;
+    use nu_test_support::fs;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
     fn fixtures() -> PathBuf {
-        let mut sdx = PathBuf::new();
-        sdx.push("tests");
-        sdx.push("fixtures");
-        sdx.push("formats");
-
-        dunce::canonicalize(sdx).expect("Wrong path")
+        let fixtures = fs::fixtures().join("formats");
+        dunce::canonicalize(fixtures).expect("Wrong path")
     }
 
     fn structured_sample_record(key: &str, value: &str) -> Value {

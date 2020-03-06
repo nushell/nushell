@@ -1,4 +1,4 @@
-use crate::fs::line_ending;
+use crate::fs;
 use crate::fs::Stub;
 
 use getset::Getters;
@@ -52,17 +52,9 @@ impl Playground {
             cwd: nuplay_dir,
         };
 
-        let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let playground_root = playground.root.path();
 
-        let fixtures = project_root;
-        let fixtures = fixtures
-            .parent()
-            .expect("Couldn't find the fixtures directory")
-            .parent()
-            .expect("Couldn't find the fixtures directory")
-            .join("tests/fixtures");
-
+        let fixtures = fs::fixtures();
         let fixtures = dunce::canonicalize(fixtures.clone()).unwrap_or_else(|e| {
             panic!(
                 "Couldn't canonicalize fixtures path {}: {:?}",
@@ -104,7 +96,7 @@ impl Playground {
     }
 
     pub fn with_files(&mut self, files: Vec<Stub>) -> &mut Self {
-        let endl = line_ending();
+        let endl = fs::line_ending();
 
         files
             .iter()

@@ -225,15 +225,41 @@ pub fn executable_path() -> PathBuf {
     path
 }
 
+pub fn root() -> PathBuf {
+    let manifest_dir = if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        PathBuf::from(manifest_dir)
+    } else {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    };
+
+    let test_path = manifest_dir.join("Cargo.lock");
+    if test_path.exists() {
+        manifest_dir
+    } else {
+        manifest_dir
+            .parent()
+            .expect("Couldn't find the debug binaries directory")
+            .parent()
+            .expect("Couldn't find the debug binaries directory")
+            .to_path_buf()
+    }
+}
+
 pub fn binaries() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("Couldn't find the debug binaries directory")
-        .parent()
-        .expect("Couldn't find the debug binaries directory")
-        .join("target/debug")
+    root().join("target/debug")
+}
+
+pub fn fixtures() -> PathBuf {
+    root().join("tests/fixtures")
 }
 
 pub fn in_directory(str: impl AsRef<Path>) -> String {
-    str.as_ref().display().to_string()
+    let path = str.as_ref();
+    let path = if path.is_relative() {
+        root().join(path)
+    } else {
+        path.to_path_buf()
+    };
+
+    path.display().to_string()
 }
