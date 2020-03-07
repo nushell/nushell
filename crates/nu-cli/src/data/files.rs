@@ -29,12 +29,15 @@ pub(crate) fn dir_entry_dict(
     dict.insert_untagged("name", UntaggedValue::string(name));
 
     if let Some(md) = metadata {
-        if md.is_dir() {
+        let ft = md.file_type();
+        if ft.is_dir() {
             dict.insert_untagged("type", UntaggedValue::string("Dir"));
-        } else if md.is_file() {
+        } else if ft.is_file() {
             dict.insert_untagged("type", UntaggedValue::string("File"));
-        } else {
+        } else if ft.is_symlink() {
             dict.insert_untagged("type", UntaggedValue::string("Symlink"));
+        } else {
+            dict.insert_untagged("type", UntaggedValue::string("Unknown"));
         }
     } else {
         dict.insert_untagged("type", UntaggedValue::nothing());
@@ -42,18 +45,22 @@ pub(crate) fn dir_entry_dict(
 
     if full || with_symlink_targets {
         if let Some(md) = metadata {
-            if md.is_dir() || md.is_file() {
+            let ft = md.file_type();
+            if ft.is_symlink() {
+                if let Ok(path_to_link) = filename.read_link() {
+                    dict.insert_untagged(
+                        "target",
+                        UntaggedValue::string(path_to_link.to_string_lossy()),
+                    );
+                } else {
+                    dict.insert_untagged(
+                        "target",
+                        UntaggedValue::string("Could not obtain target file's path"),
+                    );
+                }
+            }
+            else {
                 dict.insert_untagged("target", UntaggedValue::nothing());
-            } else if let Ok(path_to_link) = filename.read_link() {
-                dict.insert_untagged(
-                    "target",
-                    UntaggedValue::string(path_to_link.to_string_lossy()),
-                );
-            } else {
-                dict.insert_untagged(
-                    "target",
-                    UntaggedValue::string("Could not obtain target file's path"),
-                );
             }
         } else {
             dict.insert_untagged("target", UntaggedValue::nothing());
