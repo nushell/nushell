@@ -7,6 +7,22 @@ use std::path::{Path, PathBuf};
 
 pub struct Save;
 
+macro_rules! process_unknown {
+    ($scope:tt, $input:ident, $name_tag:ident) => {{
+        if $input.len() > 0 {
+            match $input[0] {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::Binary(_)),
+                    ..
+                } => process_binary!($scope, $input, $name_tag),
+                _ => process_string!($scope, $input, $name_tag),
+            }
+        } else {
+            process_string!($scope, $input, $name_tag)
+        }
+    }};
+}
+
 macro_rules! process_string {
     ($scope:tt, $input:ident, $name_tag:ident) => {{
         let mut result_string = String::new();
@@ -28,6 +44,32 @@ macro_rules! process_string {
             }
         }
         Ok(result_string.into_bytes())
+    }};
+}
+
+macro_rules! process_binary {
+    ($scope:tt, $input:ident, $name_tag:ident) => {{
+        let mut result_binary: Vec<u8> = Vec::new();
+        for res in $input {
+            match res {
+                Value {
+                    value: UntaggedValue::Primitive(Primitive::Binary(b)),
+                    ..
+                } => {
+                    for u in b.into_iter() {
+                        result_binary.push(u);
+                    }
+                }
+                _ => {
+                    break $scope Err(ShellError::labeled_error(
+                        "Save could not successfully save",
+                        "unexpected data during binary save",
+                        $name_tag,
+                    ));
+                }
+            }
+        }
+        Ok(result_binary)
     }};
 }
 
@@ -204,10 +246,10 @@ fn save(
                             process_string_return_success!('scope, result_vec, name_tag)
                         }
                     } else {
-                        process_string!('scope, input, name_tag)
+                        process_unknown!('scope, input, name_tag)
                     }
                 } else {
-                    process_string!('scope, input, name_tag)
+                    process_unknown!('scope, input, name_tag)
                 }
             } else {
                 Ok(string_from(&input).into_bytes())
