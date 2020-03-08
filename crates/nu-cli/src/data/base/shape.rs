@@ -1,17 +1,11 @@
 use crate::prelude::*;
 use chrono::{DateTime, Utc};
-use indexmap::IndexMap;
-use nu_errors::ShellError;
 use nu_protocol::RangeInclusion;
-use nu_protocol::{
-    format_primitive, ColumnPath, Dictionary, Evaluate, Primitive, ShellTypeName,
-    TaggedDictBuilder, UntaggedValue, Value,
-};
+use nu_protocol::{format_primitive, ColumnPath, Dictionary, Primitive, UntaggedValue, Value};
 use nu_source::{b, PrettyDebug};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::io::Write;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -193,13 +187,17 @@ impl PrettyDebug for FormatInlineShape {
                 "[",
                 b::kind("row")
                     + b::space()
-                    + b::intersperse(
-                        row.keys().map(|key| match key {
-                            Column::String(string) => b::description(string),
-                            Column::Value => b::blank(),
-                        }),
-                        b::space(),
-                    ),
+                    + if row.keys().len() <= 6 {
+                        b::intersperse(
+                            row.keys().map(|key| match key {
+                                Column::String(string) => b::description(string),
+                                Column::Value => b::blank(),
+                            }),
+                            b::space(),
+                        )
+                    } else {
+                        b::description(format!("{} columns", row.keys().len()))
+                    },
                 "]",
             )
             .group(),
@@ -267,115 +265,5 @@ impl Into<Column> for &String {
 impl Into<Column> for &str {
     fn into(self) -> Column {
         Column::String(self.to_string())
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum Shape {
-    Primitive(&'static str),
-    Row(Vec<Column>),
-    Table { from: usize, to: usize },
-    Error(ShellError),
-    Block(Evaluate),
-}
-
-impl Shape {
-    pub fn for_value(value: &Value) -> Shape {
-        match &value.value {
-            UntaggedValue::Primitive(p) => Shape::Primitive(p.type_name()),
-            UntaggedValue::Row(row) => Shape::for_dict(row),
-            UntaggedValue::Table(table) => Shape::Table {
-                from: 0,
-                to: table.len(),
-            },
-            UntaggedValue::Error(error) => Shape::Error(error.clone()),
-            UntaggedValue::Block(block) => Shape::Block(block.clone()),
-        }
-    }
-
-    fn for_dict(dict: &Dictionary) -> Shape {
-        Shape::Row(dict.keys().map(|key| Column::String(key.clone())).collect())
-    }
-
-    pub fn describe(&self, w: &mut impl Write) -> Result<(), std::io::Error> {
-        match self {
-            Shape::Primitive(desc) => write!(w, "[{}]", desc),
-            Shape::Row(d) => write!(
-                w,
-                "[row: {}]",
-                d.iter()
-                    .map(|c| match c {
-                        Column::String(s) => s.clone(),
-                        Column::Value => "<value>".to_owned(),
-                    })
-                    .join(", ")
-            ),
-            Shape::Table { to, .. } => {
-                if *to == 1 {
-                    write!(w, "[table: {} row]", to)
-                } else {
-                    write!(w, "[table: {} rows]", to)
-                }
-            }
-            Shape::Error(_) => write!(w, "[error]"),
-            Shape::Block(_) => write!(w, "[block]"),
-        }
-    }
-
-    fn to_value(&self) -> Value {
-        let mut out = vec![];
-        self.describe(&mut out)
-            .expect("Writing into a Vec can't fail");
-        let string = String::from_utf8_lossy(&out);
-
-        UntaggedValue::string(string).into_untagged_value()
-    }
-}
-
-pub struct Shapes {
-    shapes: IndexMap<Shape, Vec<usize>>,
-}
-
-impl Shapes {
-    pub fn new() -> Shapes {
-        Shapes {
-            shapes: IndexMap::default(),
-        }
-    }
-
-    pub fn add(&mut self, value: &Value, row: usize) {
-        let shape = Shape::for_value(value);
-
-        self.shapes
-            .entry(shape)
-            .and_modify(|indexes| indexes.push(row))
-            .or_insert_with(|| vec![row]);
-    }
-
-    pub fn to_values(&self) -> Vec<Value> {
-        if self.shapes.len() == 1 {
-            if let Some(shape) = self.shapes.keys().nth(0) {
-                let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
-                tagged_dict.insert_untagged("type", shape.to_value());
-                tagged_dict.insert_untagged("rows", UntaggedValue::string("all"));
-                vec![tagged_dict.into_value()]
-            } else {
-                unreachable!("Internal error: impossible state in to_values")
-            }
-        } else {
-            self.shapes
-                .iter()
-                .map(|(shape, rows)| {
-                    let rows = rows.iter().map(|i| i.to_string()).join(", ");
-
-                    let mut tagged_dict = TaggedDictBuilder::new(Tag::unknown());
-                    tagged_dict.insert_untagged("type", shape.to_value());
-                    tagged_dict
-                        .insert_untagged("rows", UntaggedValue::string(format!("[ {} ]", rows)));
-
-                    tagged_dict.into_value()
-                })
-                .collect()
-        }
     }
 }

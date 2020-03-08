@@ -1,7 +1,5 @@
 use crate::commands::WholeStreamCommand;
-use crate::data::base::shape::Shapes;
 use crate::prelude::*;
-use futures_util::pin_mut;
 use indexmap::set::IndexSet;
 use log::trace;
 use nu_errors::ShellError;
@@ -180,23 +178,15 @@ pub fn get_column_path(path: &ColumnPath, obj: &Value) -> Result<Value, ShellErr
 
 pub fn get(
     GetArgs { rest: mut fields }: GetArgs,
-    RunnableContext { input, .. }: RunnableContext,
+    RunnableContext { mut input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     if fields.is_empty() {
         let stream = async_stream! {
-            let values = input.values;
-            pin_mut!(values);
+            let mut vec = input.drain_vec().await;
 
-            let mut shapes = Shapes::new();
-            let mut index = 0;
-
-            while let Some(row) = values.next().await {
-                shapes.add(&row, index);
-                index += 1;
-            }
-
-            for row in shapes.to_values() {
-                yield ReturnSuccess::value(row);
+            let descs = nu_protocol::merge_descriptors(&vec);
+            for desc in descs {
+                yield ReturnSuccess::value(desc);
             }
         };
 

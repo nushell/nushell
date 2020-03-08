@@ -26,27 +26,6 @@ enum TableMode {
 }
 
 impl TableView {
-    fn merge_descriptors(values: &[Value]) -> Vec<String> {
-        let mut ret: Vec<String> = vec![];
-        let value_column = "<value>".to_string();
-        for value in values {
-            let descs = value.data_descriptors();
-
-            if descs.is_empty() {
-                if !ret.contains(&value_column) {
-                    ret.push("<value>".to_string());
-                }
-            } else {
-                for desc in value.data_descriptors() {
-                    if !ret.contains(&desc) {
-                        ret.push(desc);
-                    }
-                }
-            }
-        }
-        ret
-    }
-
     pub fn from_list(values: &[Value], starting_idx: usize) -> Option<TableView> {
         if values.is_empty() {
             return None;
@@ -55,7 +34,7 @@ impl TableView {
         // Different platforms want different amounts of buffer, not sure why
         let termwidth = std::cmp::max(textwrap::termwidth(), 20);
 
-        let mut headers = TableView::merge_descriptors(values);
+        let mut headers = nu_protocol::merge_descriptors(values);
         let mut entries = values_to_entries(values, &mut headers, starting_idx);
         let max_per_column = max_per_column(&headers, &entries, values.len());
 

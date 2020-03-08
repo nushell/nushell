@@ -23,7 +23,6 @@ pub(crate) mod du;
 pub(crate) mod echo;
 pub(crate) mod edit;
 pub(crate) mod enter;
-pub(crate) mod env;
 #[allow(unused)]
 pub(crate) mod evaluate_by;
 pub(crate) mod exit;
@@ -126,7 +125,6 @@ pub(crate) mod clear;
 pub(crate) use clear::Clear;
 pub(crate) mod touch;
 pub(crate) use enter::Enter;
-pub(crate) use env::Env;
 #[allow(unused_imports)]
 pub(crate) use evaluate_by::EvaluateBy;
 pub(crate) use exit::Exit;
