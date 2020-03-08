@@ -2,7 +2,6 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{CallInfo, Signature, SyntaxShape, Value};
 use nu_source::Tagged;
-use std::error::Error;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 
@@ -48,7 +47,7 @@ fn touch(args: TouchArgs, _context: &RunnablePerItemContext) -> Result<OutputStr
         Ok(_) => Ok(OutputStream::empty()),
         Err(err) => Err(ShellError::labeled_error(
             "File Error",
-            err.description(),
+            err.to_string(),
             &args.target.tag,
         )),
     }

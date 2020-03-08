@@ -301,10 +301,10 @@ struct DebugEntry<'a> {
 impl<'a> PrettyDebug for DebugEntry<'a> {
     /// Prepare debug entries for pretty-printing
     fn pretty(&self) -> DebugDocBuilder {
-        (b::key(match self.key {
+        b::key(match self.key {
             Column::String(string) => string.clone(),
             Column::Value => "<value>".to_string(),
-        }) + b::delimit("(", self.value.pretty(), ")").into_kind())
+        }) + b::delimit("(", self.value.pretty(), ")").into_kind()
     }
 }
 

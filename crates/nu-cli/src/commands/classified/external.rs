@@ -680,8 +680,8 @@ fn argument_is_quoted(argument: &str) -> bool {
         return false;
     }
 
-    ((argument.starts_with('"') && argument.ends_with('"'))
-        || (argument.starts_with('\'') && argument.ends_with('\'')))
+    (argument.starts_with('"') && argument.ends_with('"'))
+        || (argument.starts_with('\'') && argument.ends_with('\''))
 }
 
 #[allow(unused)]
