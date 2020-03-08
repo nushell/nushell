@@ -1,3 +1,4 @@
+use crate::cli::History;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::Tag;
@@ -26,6 +27,25 @@ pub fn nu(tag: impl Into<Tag>) -> Result<Value, ShellError> {
         }
     }
     nu_dict.insert_value("path", UntaggedValue::table(&table).into_value(&tag));
+
+    let path = std::env::current_dir()?;
+    nu_dict.insert_value("cwd", UntaggedValue::path(path).into_value(&tag));
+
+    if let Some(home) = dirs::home_dir() {
+        nu_dict.insert_value("home-dir", UntaggedValue::path(home).into_value(&tag));
+    }
+
+    let temp = std::env::temp_dir();
+    nu_dict.insert_value("temp-dir", UntaggedValue::path(temp).into_value(&tag));
+
+    let config = crate::data::config::default_path()?;
+    nu_dict.insert_value("config-path", UntaggedValue::path(config).into_value(&tag));
+
+    let history = History::path();
+    nu_dict.insert_value(
+        "history-path",
+        UntaggedValue::path(history).into_value(&tag),
+    );
 
     Ok(nu_dict.into_value())
 }

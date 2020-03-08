@@ -1,7 +1,9 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{
+    merge_descriptors, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue,
+};
 use nu_source::{SpannedItem, Tagged};
 use nu_value_ext::get_data_by_key;
 
@@ -50,18 +52,6 @@ impl WholeStreamCommand for Pivot {
     ) -> Result<OutputStream, ShellError> {
         args.process(registry, pivot)?.run()
     }
-}
-
-fn merge_descriptors(values: &[Value]) -> Vec<String> {
-    let mut ret = vec![];
-    for value in values {
-        for desc in value.data_descriptors() {
-            if !ret.contains(&desc) {
-                ret.push(desc);
-            }
-        }
-    }
-    ret
 }
 
 pub fn pivot(args: PivotArgs, context: RunnableContext) -> Result<OutputStream, ShellError> {
