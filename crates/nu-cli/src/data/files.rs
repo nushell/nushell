@@ -2,6 +2,35 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 
+#[cfg(unix)]
+use std::os::unix::fs::FileTypeExt;
+
+fn get_file_type(md: &std::fs::Metadata) -> &str {
+    let ft = md.file_type();
+    let mut file_type = "Unknown";
+    if ft.is_dir() {
+        file_type = "Dir";
+    } else if ft.is_file() {
+        file_type = "File";
+    } else if ft.is_symlink() {
+        file_type = "Symlink";
+    } else {
+        #[cfg(unix)]
+        {
+            if ft.is_block_device() {
+                file_type = "Block device";
+            } else if ft.is_char_device() {
+                file_type = "Char device";
+            } else if ft.is_fifo() {
+                file_type = "Pipe";
+            } else if ft.is_socket() {
+                file_type = "Socket";
+            }
+        }
+    }
+    file_type
+}
+
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: Option<&std::fs::Metadata>,
@@ -29,31 +58,28 @@ pub(crate) fn dir_entry_dict(
     dict.insert_untagged("name", UntaggedValue::string(name));
 
     if let Some(md) = metadata {
-        if md.is_dir() {
-            dict.insert_untagged("type", UntaggedValue::string("Dir"));
-        } else if md.is_file() {
-            dict.insert_untagged("type", UntaggedValue::string("File"));
-        } else {
-            dict.insert_untagged("type", UntaggedValue::string("Symlink"));
-        }
+        dict.insert_untagged("type", get_file_type(md));
     } else {
         dict.insert_untagged("type", UntaggedValue::nothing());
     }
 
     if full || with_symlink_targets {
         if let Some(md) = metadata {
-            if md.is_dir() || md.is_file() {
-                dict.insert_untagged("target", UntaggedValue::nothing());
-            } else if let Ok(path_to_link) = filename.read_link() {
-                dict.insert_untagged(
-                    "target",
-                    UntaggedValue::string(path_to_link.to_string_lossy()),
-                );
+            let ft = md.file_type();
+            if ft.is_symlink() {
+                if let Ok(path_to_link) = filename.read_link() {
+                    dict.insert_untagged(
+                        "target",
+                        UntaggedValue::string(path_to_link.to_string_lossy()),
+                    );
+                } else {
+                    dict.insert_untagged(
+                        "target",
+                        UntaggedValue::string("Could not obtain target file's path"),
+                    );
+                }
             } else {
-                dict.insert_untagged(
-                    "target",
-                    UntaggedValue::string("Could not obtain target file's path"),
-                );
+                dict.insert_untagged("target", UntaggedValue::nothing());
             }
         } else {
             dict.insert_untagged("target", UntaggedValue::nothing());

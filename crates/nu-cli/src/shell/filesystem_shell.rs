@@ -978,7 +978,7 @@ impl Shell for FilesystemShell {
                                     };
 
                                     let valid_target =
-                                        f.is_file() || (f.is_dir() && (is_empty || recursive.item));
+                                        f.exists() && (!f.is_dir() || (is_empty || recursive.item));
                                     if valid_target {
                                         if trash.item {
                                             match SendToTrash::remove(f) {
