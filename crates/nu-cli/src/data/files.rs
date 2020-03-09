@@ -5,6 +5,32 @@ use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 
+fn get_file_type(md: &std::fs::Metadata) -> &str {
+    let ft = md.file_type();
+    let mut file_type = "Unknown";
+    if ft.is_dir() {
+        file_type = "Dir";
+    } else if ft.is_file() {
+        file_type = "File";
+    } else if ft.is_symlink() {
+        file_type = "Symlink";
+    } else {
+        #[cfg(unix)]
+        {
+            if ft.is_block_device() {
+                file_type = "Block device";
+            } else if ft.is_char_device() {
+                file_type = "Char device";
+            } else if ft.is_fifo() {
+                file_type = "Pipe";
+            } else if ft.is_socket() {
+                file_type = "Socket";
+            }
+        }
+    }
+    return file_type;
+}
+
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: Option<&std::fs::Metadata>,
@@ -32,31 +58,7 @@ pub(crate) fn dir_entry_dict(
     dict.insert_untagged("name", UntaggedValue::string(name));
 
     if let Some(md) = metadata {
-        let ft = md.file_type();
-        if ft.is_dir() {
-            dict.insert_untagged("type", UntaggedValue::string("Dir"));
-        } else if ft.is_file() {
-            dict.insert_untagged("type", UntaggedValue::string("File"));
-        } else if ft.is_symlink() {
-            dict.insert_untagged("type", UntaggedValue::string("Symlink"));
-        } else {
-            #[cfg(unix)]
-            {
-                if ft.is_block_device() {
-                    dict.insert_untagged("type", UntaggedValue::string("Block device"));
-                } else if ft.is_char_device() {
-                    dict.insert_untagged("type", UntaggedValue::string("Char device"));
-                } else if ft.is_fifo() {
-                    dict.insert_untagged("type", UntaggedValue::string("Pipe"));
-                } else if ft.is_socket() {
-                    dict.insert_untagged("type", UntaggedValue::string("Socket"));
-                } else {
-                    dict.insert_untagged("type", UntaggedValue::string("Unknown"));
-                }
-            }
-            #[cfg(not(unix))]
-            dict.insert_untagged("type", UntaggedValue::string("Unknown"));
-        }
+        dict.insert_untagged("type", get_file_type(md));
     } else {
         dict.insert_untagged("type", UntaggedValue::nothing());
     }
