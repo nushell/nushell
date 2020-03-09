@@ -2,6 +2,9 @@ use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
 
+#[cfg(unix)]
+use std::os::unix::fs::FileTypeExt;
+
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path,
     metadata: Option<&std::fs::Metadata>,
@@ -37,6 +40,21 @@ pub(crate) fn dir_entry_dict(
         } else if ft.is_symlink() {
             dict.insert_untagged("type", UntaggedValue::string("Symlink"));
         } else {
+            #[cfg(unix)]
+            {
+                if ft.is_block_device() {
+                    dict.insert_untagged("type", UntaggedValue::string("Block device"));
+                } else if ft.is_char_device() {
+                    dict.insert_untagged("type", UntaggedValue::string("Char device"));
+                } else if ft.is_fifo() {
+                    dict.insert_untagged("type", UntaggedValue::string("Pipe"));
+                } else if ft.is_socket() {
+                    dict.insert_untagged("type", UntaggedValue::string("Socket"));
+                } else {
+                    dict.insert_untagged("type", UntaggedValue::string("Unknown"));
+                }
+            }
+            #[cfg(not(unix))]
             dict.insert_untagged("type", UntaggedValue::string("Unknown"));
         }
     } else {
@@ -58,8 +76,7 @@ pub(crate) fn dir_entry_dict(
                         UntaggedValue::string("Could not obtain target file's path"),
                     );
                 }
-            }
-            else {
+            } else {
                 dict.insert_untagged("target", UntaggedValue::nothing());
             }
         } else {
