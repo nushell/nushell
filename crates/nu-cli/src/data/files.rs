@@ -28,7 +28,7 @@ fn get_file_type(md: &std::fs::Metadata) -> &str {
             }
         }
     }
-    return file_type;
+    file_type
 }
 
 pub(crate) fn dir_entry_dict(
