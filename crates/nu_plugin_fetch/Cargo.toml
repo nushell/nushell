@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_fetch"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "A URL fetch plugin for Nushell"
@@ -10,13 +10,13 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.10.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.10.0" }
-nu-source = { path = "../nu-source", version = "0.10.0" }
-nu-errors = { path = "../nu-errors", version = "0.10.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.11.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.11.0" }
+nu-source = { path = "../nu-source", version = "0.11.0" }
+nu-errors = { path = "../nu-errors", version = "0.11.0" }
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 surf = "1.0.3"
 url = "2.1.1"
 
 [build-dependencies]
-nu-build = { version = "0.10.0", path = "../nu-build" }
+nu-build = { version = "0.11.0", path = "../nu-build" }

@@ -1,6 +1,6 @@
 [package]
 name = "nu-macros"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "Core macros for building Nushell"
@@ -10,4 +10,4 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.10.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.11.0" }

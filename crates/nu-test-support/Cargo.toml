@@ -1,6 +1,6 @@
 [package]
 name = "nu-test-support"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "A source string characterizer for Nushell"
@@ -10,9 +10,9 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-parser = { path = "../nu-parser", version = "0.10.0" }
-nu-source = { path = "../nu-source", version = "0.10.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.10.0" }
+nu-parser = { path = "../nu-parser", version = "0.11.0" }
+nu-source = { path = "../nu-source", version = "0.11.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.11.0" }
 
 app_dirs = "1.2.1"
 dunce = "1.0.0"
@@ -22,4 +22,4 @@ tempfile = "3.1.0"
 indexmap = { version = "1.3.0", features = ["serde-1"] }
 
 [build-dependencies]
-nu-build = { version = "0.10.0", path = "../nu-build" }
+nu-build = { version = "0.11.0", path = "../nu-build" }
