@@ -1,8 +1,4 @@
-use crate::hir::{
-    syntax_shape::ExpandContext,
-    syntax_shape::SignatureRegistry,
-    TokensIterator,
-};
+use crate::hir::{syntax_shape::ExpandContext, syntax_shape::SignatureRegistry, TokensIterator};
 use crate::parse::token_tree_builder::TokenTreeBuilder as b;
 use nu_protocol::Signature;
 use nu_source::{Span, Text};
@@ -38,7 +34,13 @@ fn supplies_tokens() {
     let tokens = vec![tokens];
     let source = Text::from(&source);
 
-    let mut iterator = TokensIterator::new(&tokens, ExpandContext::new(Box::new(TestRegistry::new()),  &source, None), Span::unknown());
+    let mut iterator = TokensIterator::new(
+        &tokens,
+        ExpandContext::new(Box::new(TestRegistry::new()), &source, None),
+        Span::unknown(),
+    );
 
-    iterator.next().unwrap().expect_var();
+    let token = iterator.next().expect("Token expected.");
+
+    token.expect_var();
 }
