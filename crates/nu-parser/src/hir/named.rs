@@ -82,6 +82,16 @@ impl NamedArguments {
     pub fn insert_mandatory(&mut self, name: impl Into<String>, expr: SpannedExpression) {
         self.named.insert(name.into(), NamedValue::Value(expr));
     }
+
+    pub fn switch_present(&self, switch: &str) -> bool {
+        self.named
+            .get(switch)
+            .map(|t| match t {
+                NamedValue::PresentSwitch(_) => true,
+                _ => false,
+            })
+            .unwrap_or(false)
+    }
 }
 
 impl PrettyDebugWithSource for NamedArguments {

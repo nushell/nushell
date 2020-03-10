@@ -114,7 +114,7 @@ pub fn parse_command_tail(
             positional = positionals;
         }
         Err(reason) => {
-            if found_error.is_none() && !tail.source().contains("help") {
+            if found_error.is_none() && !named.switch_present("help") {
                 found_error = Some(reason);
             }
         }
