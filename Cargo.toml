@@ -67,7 +67,7 @@ nu-build = { version = "0.11.0", path = "./crates/nu-build" }
 test-bins = []
 
 default = ["sys", "ps", "textview", "inc", "str"]
-stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "shuffle", "sum", "post", "fetch", "clipboard-cli"]
+stable = ["default", "starship-prompt", "binaryview", "match", "tree", "average", "sum", "post", "fetch", "clipboard-cli"]
 
 # Default
 textview = ["crossterm", "syntect", "onig_sys", "url", "nu_plugin_textview"]
