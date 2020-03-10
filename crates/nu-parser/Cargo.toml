@@ -1,6 +1,6 @@
 [package]
 name = "nu-parser"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "Core parser used in Nushell"
@@ -10,9 +10,9 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-errors = { path = "../nu-errors", version = "0.10.0" }
-nu-source = { path = "../nu-source", version = "0.10.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.10.0" }
+nu-errors = { path = "../nu-errors", version = "0.11.0" }
+nu-source = { path = "../nu-source", version = "0.11.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.11.0" }
 
 pretty_env_logger = "0.3.1"
 pretty = "0.5.2"
@@ -41,7 +41,7 @@ enumflags2 = "0.6.2"
 pretty_assertions = "0.6.1"
 
 [build-dependencies]
-nu-build = { version = "0.10.0", path = "../nu-build" }
+nu-build = { version = "0.11.0", path = "../nu-build" }
 
 [features]
 stable = []

@@ -1,6 +1,6 @@
 [package]
 name = "nu_plugin_post"
-version = "0.10.0"
+version = "0.11.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 edition = "2018"
 description = "An HTTP post plugin for Nushell"
@@ -10,10 +10,10 @@ license = "MIT"
 doctest = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.10.0" }
-nu-protocol = { path = "../nu-protocol", version = "0.10.0" }
-nu-source = { path = "../nu-source", version = "0.10.0" }
-nu-errors = { path = "../nu-errors", version = "0.10.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.11.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.11.0" }
+nu-source = { path = "../nu-source", version = "0.11.0" }
+nu-errors = { path = "../nu-errors", version = "0.11.0" }
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 surf = "1.0.3"
 url = "2.1.1"
@@ -22,4 +22,4 @@ base64 = "0.11"
 num-traits = "0.2.11"
 
 [build-dependencies]
-nu-build = { version = "0.10.0", path = "../nu-build" }
+nu-build = { version = "0.11.0", path = "../nu-build" }
