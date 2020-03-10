@@ -4,6 +4,7 @@ version = "0.11.0"
 authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
 description = "CLI for nushell"
 edition = "2018"
+license = "MIT"
 
 [lib]
 doctest = false
