@@ -240,12 +240,12 @@ pub fn expand_bare(
         match node {
             Some(token) if predicate(token) => {
                 peeked.commit();
-                state = state.clone().seen(token.span());
+                state = state.seen(token.span());
                 let shapes = FlatShape::shapes(token, &source);
                 token_nodes.color_shapes(shapes);
             }
             token => {
-                state = state.clone().end(token, "word");
+                state = state.end(token, "word");
                 break;
             }
         }

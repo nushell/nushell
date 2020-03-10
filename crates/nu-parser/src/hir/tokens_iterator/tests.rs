@@ -1,21 +1,46 @@
-use crate::hir::TokensIterator;
+use crate::hir::{syntax_shape::ExpandContext, syntax_shape::SignatureRegistry, TokensIterator};
 use crate::parse::token_tree_builder::TokenTreeBuilder as b;
-use crate::Span;
+use nu_protocol::Signature;
+use nu_source::{Span, Text};
+
+use derive_new::new;
+
+#[derive(Debug, Clone, new)]
+struct TestRegistry {
+    #[new(default)]
+    signatures: indexmap::IndexMap<String, Signature>,
+}
+
+impl TestRegistry {}
+
+impl SignatureRegistry for TestRegistry {
+    fn has(&self, name: &str) -> bool {
+        self.signatures.contains_key(name)
+    }
+    fn get(&self, name: &str) -> Option<Signature> {
+        self.signatures.get(name).cloned()
+    }
+    fn clone_box(&self) -> Box<dyn SignatureRegistry> {
+        Box::new(self.clone())
+    }
+}
 
 #[test]
-<<<<<<< HEAD
 fn supplies_tokens() {
-    let tokens = b::token_list(vec![b::it_var(), b::op("."), b::bare("cpu")]);
-=======
-fn supplies_tokens() -> Result<(), Box<dyn std::error::Error>> {
-    let tokens = b::token_list(vec![b::var("it"), b::op("."), b::bare("cpu")]);
->>>>>>> master
-    let (tokens, _) = b::build(tokens);
+    let token = b::it_var();
 
-    let tokens = tokens.expect_list();
-    let mut iterator = TokensIterator::new(tokens, Span::unknown());
+    let (tokens, source) = b::build(token);
 
-    iterator.next()?.expect_var();
-    iterator.next()?.expect_dot();
-    iterator.next()?.expect_bare();
+    let tokens = vec![tokens];
+    let source = Text::from(&source);
+
+    let mut iterator = TokensIterator::new(
+        &tokens,
+        ExpandContext::new(Box::new(TestRegistry::new()), &source, None),
+        Span::unknown(),
+    );
+
+    let token = iterator.next().expect("Token expected.");
+
+    token.expect_var();
 }
