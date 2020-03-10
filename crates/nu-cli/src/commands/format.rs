@@ -2,7 +2,11 @@ use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    CallInfo, ColumnPath, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+};
+use nu_source::Tagged;
+use nu_value_ext::{as_column_path, get_data_by_column_path};
 use std::borrow::Borrow;
 
 use nom::{
@@ -45,35 +49,46 @@ impl PerItemCommand for Format {
             ShellError::labeled_error(
                 "Could not create format pattern",
                 "could not create format pattern",
-                pattern_tag,
+                &pattern_tag,
             )
         })?;
         let commands = format_pattern.1;
 
-        let output = if let Value {
-            value: UntaggedValue::Row(dict),
-            ..
-        } = value
-        {
-            let mut output = String::new();
+        let output = match value {
+            value
+            @
+            Value {
+                value: UntaggedValue::Row(_),
+                ..
+            } => {
+                let mut output = String::new();
 
-            for command in &commands {
-                match command {
-                    FormatCommand::Text(s) => {
-                        output.push_str(s);
-                    }
-                    FormatCommand::Column(c) => {
-                        if let Some(c) = dict.entries.get(c) {
-                            output.push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                for command in &commands {
+                    match command {
+                        FormatCommand::Text(s) => {
+                            output.push_str(s);
                         }
-                        // That column doesn't match, so don't emit anything
+                        FormatCommand::Column(c) => {
+                            let key = to_column_path(&c, &pattern_tag)?;
+
+                            let fetcher = get_data_by_column_path(
+                                &value,
+                                &key,
+                                Box::new(move |(_, _, error)| error),
+                            );
+
+                            if let Ok(c) = fetcher {
+                                output
+                                    .push_str(&value::format_leaf(c.borrow()).plain_string(100_000))
+                            }
+                            // That column doesn't match, so don't emit anything
+                        }
                     }
                 }
-            }
 
-            output
-        } else {
-            String::new()
+                output
+            }
+            _ => String::new(),
         };
 
         Ok(futures::stream::iter(vec![ReturnSuccess::value(
@@ -115,4 +130,28 @@ fn format(input: &str) -> IResult<&str, Vec<FormatCommand>> {
     }
 
     Ok((loop_input, output))
+}
+
+fn to_column_path(
+    path_members: &str,
+    tag: impl Into<Tag>,
+) -> Result<Tagged<ColumnPath>, ShellError> {
+    let tag = tag.into();
+
+    as_column_path(
+        &UntaggedValue::Table(
+            path_members
+                .split('.')
+                .map(|x| {
+                    let member = match x.parse::<u64>() {
+                        Ok(v) => UntaggedValue::int(v),
+                        Err(_) => UntaggedValue::string(x),
+                    };
+
+                    member.into_value(&tag)
+                })
+                .collect(),
+        )
+        .into_value(&tag),
+    )
 }
