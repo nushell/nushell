@@ -32,7 +32,7 @@ nu_plugin_inc = { version = "0.11.0", path = "./crates/nu_plugin_inc", optional=
 nu_plugin_match = { version = "0.11.0", path = "./crates/nu_plugin_match", optional=true }
 nu_plugin_post = { version = "0.11.0", path = "./crates/nu_plugin_post", optional=true }
 nu_plugin_ps = { version = "0.11.0", path = "./crates/nu_plugin_ps", optional=true }
-nu_plugin_shuffle = { version = "0.11.0", path = "./crates/nu_plugin_shuffle", optional=true }
+# nu_plugin_shuffle = { version = "0.11.0", path = "./crates/nu_plugin_shuffle", optional=true }
 nu_plugin_str = { version = "0.11.0", path = "./crates/nu_plugin_str", optional=true }
 nu_plugin_sum = { version = "0.11.0", path = "./crates/nu_plugin_sum", optional=true }
 nu_plugin_sys = { version = "0.11.0", path = "./crates/nu_plugin_sys", optional=true }
