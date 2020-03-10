@@ -58,8 +58,8 @@ pub fn from_delimited_data(
                 }
                 x => yield ReturnSuccess::value(x),
             },
-            Err(_) => {
-                let line_one = format!("Could not parse as {}", format_name);
+            Err(err) => {
+                let line_one = format!("Could not parse as {}\n{}", format_name,err);
                 let line_two = format!("input cannot be parsed as {}", format_name);
                 yield Err(ShellError::labeled_error_with_secondary(
                     line_one,
