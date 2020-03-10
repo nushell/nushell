@@ -2257,7 +2257,6 @@ dependencies = [
  "nu_plugin_match",
  "nu_plugin_post",
  "nu_plugin_ps",
- "nu_plugin_shuffle",
  "nu_plugin_str",
  "nu_plugin_sum",
  "nu_plugin_sys",
