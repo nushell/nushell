@@ -3,8 +3,8 @@ pub(crate) mod into_shapes;
 pub(crate) mod pattern;
 pub(crate) mod state;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 use self::debug::ExpandTracer;
 use self::into_shapes::IntoShapes;
