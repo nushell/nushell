@@ -209,8 +209,7 @@ impl Shell for FilesystemShell {
                         let has_exec = path
                             .metadata()
                             .map(|m| {
-                                let mode = umask::Mode::from(m.permissions().mode());
-                                mode.has(umask::ALL_EXEC)
+                                umask::Mode::from(m.permissions().mode()).has(umask::USER_READ)
                             })
                             .map_err(|e| {
                                 ShellError::labeled_error(
