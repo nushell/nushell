@@ -2341,6 +2341,7 @@ dependencies = [
  "prettytable-rs",
  "ptree",
  "query_interface",
+ "rand",
  "regex",
  "roxmltree",
  "rusqlite",
@@ -2617,18 +2618,6 @@ dependencies = [
  "nu-protocol",
  "nu-source",
  "pin-utils",
-]
-
-[[package]]
-name = "nu_plugin_shuffle"
-version = "0.11.0"
-dependencies = [
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
- "rand",
 ]
 
 [[package]]
