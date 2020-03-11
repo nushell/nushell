@@ -113,7 +113,8 @@ async fn host(tag: Tag) -> Value {
         dict.insert_value("uptime", uptime_dict);
     }
 
-    // Users
+    // Sessions
+    // note: the heim host module has nomenclature "users"
     let mut users = host::users();
     let mut user_vec = vec![];
     while let Some(user) = users.next().await {
@@ -125,7 +126,7 @@ async fn host(tag: Tag) -> Value {
         }
     }
     let user_list = UntaggedValue::Table(user_vec);
-    dict.insert_untagged("users", user_list);
+    dict.insert_untagged("sessions", user_list);
 
     dict.into_value()
 }
