@@ -15,7 +15,7 @@ functions :
 * sinh, cosh, tanh, asinh, acosh, atanh
 * floor, ceil, round
 * signum
-* max(x, ...), min(x, ...): maximum and minimumum of 1 or more numbers
+* max(x, ...), min(x, ...): maximum and minimum of 1 or more numbers
 
 constants:
 * pi
