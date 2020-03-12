@@ -208,7 +208,7 @@ mod tests {
                 assert_eq!(actual, expected);
             });
 
-            // Now confirm in-memory environment variables synced appropiately
+            // Now confirm in-memory environment variables synced appropriately
             // including the newer one accounted for.
             let environment = actual.env.lock();
 

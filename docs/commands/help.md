@@ -1,7 +1,7 @@
 # help
 
 Use `help` for more information on a command.
-Use `help commands` to list all availble commands.
+Use `help commands` to list all available commands.
 Use `help <command name>` to display help about a particular command.
 
 ## Examples

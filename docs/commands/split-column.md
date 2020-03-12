@@ -6,7 +6,7 @@ Syntax: `split-column <separator>  ...args{flags}`
 
 ### Parameters
 
-* `<seperator>`: string that denotes what separates columns
+* `<separator>`: string that denotes what separates columns
 * `args`: column names to give the new columns. If not specified they will be set to `Column1` `Column2` ...
 
 ### Flags

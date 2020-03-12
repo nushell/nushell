@@ -10,7 +10,7 @@ Syntax: `get  ...args`
 
 ## Examples
 
-If we run `sys` we recieve a table which contains tables itself:
+If we run `sys` we receive a table which contains tables itself:
 
 ```shell
 > sys
@@ -22,7 +22,7 @@ If we run `sys` we recieve a table which contains tables itself:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
 ```
 
-To access one of the embeded tables we can use the `get` command
+To access one of the embedded tables we can use the `get` command
 
 ```shell
 > sys | get cpu

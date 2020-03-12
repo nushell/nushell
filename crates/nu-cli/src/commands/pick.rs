@@ -80,7 +80,7 @@ fn pick(
                         "No data to fetch.",
                         format!("Couldn't pick column \"{}\"", column),
                         path_member_tried.span,
-                        format!("How about exploring it with \"get\"? Check the input is appropiate originating from here"),
+                        format!("How about exploring it with \"get\"? Check the input is appropriate originating from here"),
                         obj_source.tag.span)
                     }
 

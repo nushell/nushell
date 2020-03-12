@@ -268,5 +268,5 @@ You can find a list of Nu commands, complete with documentation, in [quick comma
 
 # License
 
-The project is made available under the MIT license. See "LICENSE" for more information.
+The project is made available under the MIT license. See the `LICENSE` file for more information.
 
