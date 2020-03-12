@@ -38,7 +38,7 @@ workflows:
           extra_build_args: --cache-from=quay.io/nushell/nu-base:devel
           filters:
             branches:
-              ignore: 
+              ignore:
                 - master
           before_build:
             - pull_cache
