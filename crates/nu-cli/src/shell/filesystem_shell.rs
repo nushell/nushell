@@ -1161,7 +1161,7 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
             if let Ok(metadata) = dir.as_ref().metadata() {
                 let attributes = metadata.file_attributes();
                 // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-                attributes & 0x2
+                (attributes & 0x2) != 0
             } else {
                 false
             }
