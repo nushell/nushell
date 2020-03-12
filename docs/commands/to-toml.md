@@ -7,11 +7,11 @@ Converts table data into toml text.
 ```shell
 > shells
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━
- # │   │ name       │ path 
+ # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────
- 0 │ X │ filesystem │ /home/shaurya 
- 1 │   │ filesystem │ /home/shaurya/Pictures 
- 2 │   │ filesystem │ /home/shaurya/Desktop 
+ 0 │ X │ filesystem │ /home/shaurya
+ 1 │   │ filesystem │ /home/shaurya/Pictures
+ 2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
 > shells | to-toml
 [[]]
@@ -34,9 +34,9 @@ path = "/home/shaurya/Desktop"
 ```shell
 > open cargo_sample.toml
 ━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━
- dependencies   │ dev-dependencies │ package 
+ dependencies   │ dev-dependencies │ package
 ────────────────┼──────────────────┼────────────────
- [table: 1 row] │ [table: 1 row]   │ [table: 1 row] 
+ [table: 1 row] │ [table: 1 row]   │ [table: 1 row]
 ━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━
 > open cargo_sample.toml | to-toml
 [dependencies]

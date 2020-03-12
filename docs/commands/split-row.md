@@ -22,13 +22,13 @@ using the `split-row` command.
 ```shell
 open table.txt | split-row ", "
 ━━━┯━━━━━━━━━
- # │ <value> 
+ # │ <value>
 ───┼─────────
- 0 │ 4 
- 1 │ 0 
- 2 │ 2 
- 3 │ 0 
- 4 │ 7 
- 5 │ 8 
+ 0 │ 4
+ 1 │ 0
+ 2 │ 2
+ 3 │ 0
+ 4 │ 7
+ 5 │ 8
 ━━━┷━━━━━━━━━
 ```

@@ -1,7 +1,7 @@
-# sum 
-This command allows you to calculate the sum of values in a column.  
+# sum
+This command allows you to calculate the sum of values in a column.
 
-## Examples 
+## Examples
 To get the sum of the file sizes in a directory, simply pipe the size column from the ls command to the sum command.
 
 ```shell

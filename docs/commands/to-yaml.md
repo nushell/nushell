@@ -7,11 +7,11 @@ Converts table data into yaml text.
 ```shell
 > shells
 ━━━┯━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━
- # │   │ name       │ path 
+ # │   │ name       │ path
 ───┼───┼────────────┼────────────────────────
- 0 │ X │ filesystem │ /home/shaurya 
- 1 │   │ filesystem │ /home/shaurya/Pictures 
- 2 │   │ filesystem │ /home/shaurya/Desktop 
+ 0 │ X │ filesystem │ /home/shaurya
+ 1 │   │ filesystem │ /home/shaurya/Pictures
+ 2 │   │ filesystem │ /home/shaurya/Desktop
 ━━━┷━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━
 > shells | to-yaml
 ---
@@ -27,11 +27,11 @@ Converts table data into yaml text.
 ```
 
 ```shell
-> open appveyor.yml 
+> open appveyor.yml
 ━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━┯━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━
- image              │ environment    │ install         │ build │ test_script     │ cache 
+ image              │ environment    │ install         │ build │ test_script     │ cache
 ────────────────────┼────────────────┼─────────────────┼───────┼─────────────────┼─────────────────
- Visual Studio 2017 │ [table: 1 row] │ [table: 5 rows] │       │ [table: 2 rows] │ [table: 2 rows] 
+ Visual Studio 2017 │ [table: 1 row] │ [table: 5 rows] │       │ [table: 2 rows] │ [table: 2 rows]
 ━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━
 > open appveyor.yml | to-yaml
 ---

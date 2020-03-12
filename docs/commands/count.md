@@ -7,42 +7,42 @@ This command counts the number of rows in a table.
 ```shell
 > ls
 ━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━
- #  │ name                         │ type      │ readonly │ size    │ created      │ accessed     │ modified 
+ #  │ name                         │ type      │ readonly │ size    │ created      │ accessed     │ modified
 ────┼──────────────────────────────┼───────────┼──────────┼─────────┼──────────────┼──────────────┼──────────────
-  0 │ Desktop                      │ Directory │          │  4.1 KB │ 2 months ago │ 2 months ago │ 2 months ago 
-  1 │ aur                          │ Directory │          │  4.1 KB │ 4 hours ago  │ 4 hours ago  │ 4 hours ago 
+  0 │ Desktop                      │ Directory │          │  4.1 KB │ 2 months ago │ 2 months ago │ 2 months ago
+  1 │ aur                          │ Directory │          │  4.1 KB │ 4 hours ago  │ 4 hours ago  │ 4 hours ago
 ...
- 75 │ .emulator_console_auth_token │ File      │          │   16 B  │ 2 months ago │ 2 months ago │ 2 months ago 
- 76 │ bin                          │ Directory │          │  4.1 KB │ 2 months ago │ 2 months ago │ 2 months ago 
+ 75 │ .emulator_console_auth_token │ File      │          │   16 B  │ 2 months ago │ 2 months ago │ 2 months ago
+ 76 │ bin                          │ Directory │          │  4.1 KB │ 2 months ago │ 2 months ago │ 2 months ago
 ━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━
 > ls | count
 ━━━━━━━━━
- <value> 
+ <value>
 ─────────
-      77 
+      77
 ━━━━━━━━━
 > ls | get name | count
 ━━━━━━━━━
- <value> 
+ <value>
 ─────────
-      77 
+      77
 ━━━━━━━━━
 > ls | where type == File | count
 ━━━━━━━━━
- <value> 
+ <value>
 ─────────
-      29 
+      29
 ━━━━━━━━━
 > ls | where type == Directory | count
 ━━━━━━━━━
- <value> 
+ <value>
 ─────────
-      48 
+      48
 ━━━━━━━━━
 > ls | where size > 2KB | count
 ━━━━━━━━━
- <value> 
+ <value>
 ─────────
-      57 
+      57
 ━━━━━━━━━
 ```

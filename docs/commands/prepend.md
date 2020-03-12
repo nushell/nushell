@@ -1,7 +1,7 @@
 # prepend
 This command prepends the given row to the front of the table
 
-**Note**: 
+**Note**:
 - `prepend` does not change a file itself. If you want to save your changes, you need to run the `save` command
 - if you want to add something containing a whitespace character, you need to put it in quotation marks
 
