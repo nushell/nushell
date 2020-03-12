@@ -9,6 +9,7 @@ use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
+use cfg_if::cfg_if;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
@@ -1133,5 +1134,25 @@ fn is_dir_empty(d: &PathBuf) -> bool {
     match d.read_dir() {
         Err(_e) => true,
         Ok(mut s) => s.next().is_none(),
+    }
+}
+
+fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
+    cfg_if! {
+        if #[cfg(unix)] {
+            dir.as_ref().starts_with(".")
+        } else if #[cfg(windows)] {
+            use std::os::windows::fs::MetadataExt;
+
+            if let Ok(metadata) = dir.as_ref().metadata() {
+                let attributes = metadata.file_attributes();
+                // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+                attributes & 0x2
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
