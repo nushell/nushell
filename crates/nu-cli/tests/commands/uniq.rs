@@ -67,7 +67,7 @@ fn nested_json_structures() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "nested_json_structures.json",
             r#"
-            [ 
+            [
                 {
                   "name": "this is duplicated",
                   "nesting": [ { "a": "a", "b": "b" },

@@ -2,7 +2,7 @@
 
 calc is a command that takes a math expression from the pipeline and calculates that into a number.
 
-This command supports the following operations - 
+This command supports the following operations -
 
 operations :
 * binary operators: +, -, *, /, % (remainder), ^ (power)
@@ -20,8 +20,8 @@ functions :
 constants:
 * pi
 * e
- 
-## Examples - 
+
+## Examples -
 
 ```
 > echo "1+2+3" | calc
@@ -53,62 +53,62 @@ constants:
 ```
 ❯ open abc.json
 ───┬──────
- # │ size 
+ # │ size
 ───┼──────
- 0 │  816 
- 1 │ 1627 
- 2 │ 1436 
- 3 │ 1573 
- 4 │  935 
- 5 │   52 
- 6 │  999 
- 7 │ 1639 
+ 0 │  816
+ 1 │ 1627
+ 2 │ 1436
+ 3 │ 1573
+ 4 │  935
+ 5 │   52
+ 6 │  999
+ 7 │ 1639
 ───┴──────
 
 ❯ open abc.json | format "({size} + 500) * 4"
 ───┬──────────────────
- # │ <value> 
+ # │ <value>
 ───┼──────────────────
- 0 │ (816 + 500) * 4 
- 1 │ (1627 + 500) * 4 
- 2 │ (1436 + 500) * 4 
- 3 │ (1573 + 500) * 4 
- 4 │ (935 + 500) * 4 
- 5 │ (52 + 500) * 4 
- 6 │ (999 + 500) * 4 
- 7 │ (1639 + 500) * 4 
+ 0 │ (816 + 500) * 4
+ 1 │ (1627 + 500) * 4
+ 2 │ (1436 + 500) * 4
+ 3 │ (1573 + 500) * 4
+ 4 │ (935 + 500) * 4
+ 5 │ (52 + 500) * 4
+ 6 │ (999 + 500) * 4
+ 7 │ (1639 + 500) * 4
 ───┴──────────────────
 
 ❯ open abc.json | format "({size} + 500) * 4" | calc
 ───┬───────────
- # │ <value> 
+ # │ <value>
 ───┼───────────
- 0 │ 5264.0000 
- 1 │ 8508.0000 
- 2 │ 7744.0000 
- 3 │ 8292.0000 
- 4 │ 5740.0000 
- 5 │ 2208.0000 
- 6 │ 5996.0000 
- 7 │ 8556.0000 
+ 0 │ 5264.0000
+ 1 │ 8508.0000
+ 2 │ 7744.0000
+ 3 │ 8292.0000
+ 4 │ 5740.0000
+ 5 │ 2208.0000
+ 6 │ 5996.0000
+ 7 │ 8556.0000
 ───┴───────────
 
 ❯ open abc.json | format "({size} - 1000) * 4" | calc
 ───┬────────────
- # │ <value> 
+ # │ <value>
 ───┼────────────
- 0 │  -736.0000 
- 1 │  2508.0000 
- 2 │  1744.0000 
- 3 │  2292.0000 
- 4 │  -260.0000 
- 5 │ -3792.0000 
- 6 │    -4.0000 
- 7 │  2556.0000 
+ 0 │  -736.0000
+ 1 │  2508.0000
+ 2 │  1744.0000
+ 3 │  2292.0000
+ 4 │  -260.0000
+ 5 │ -3792.0000
+ 6 │    -4.0000
+ 7 │  2556.0000
 ───┴────────────
 ```
 
-Note that since `calc` uses floating-point numbers, the result may not always be precise. 
+Note that since `calc` uses floating-point numbers, the result may not always be precise.
 
 ```
 > echo "floor(5999999999999999999/1000000000000000000)" | calc

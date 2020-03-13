@@ -13,15 +13,22 @@ A new type of shell.
 
 # Status
 
-This project has reached a minimum-viable product level of quality. While contributors dogfood it as their daily driver, it may be unstable for some commands. Future releases will work to fill out missing features and improve stability. Its design is also subject to change as it matures.
+This project has reached a minimum-viable product level of quality.
+While contributors dogfood it as their daily driver, it may be unstable for some commands.
+Future releases will work to fill out missing features and improve stability.
+Its design is also subject to change as it matures.
 
-Nu comes with a set of built-in commands (listed below). If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and macOS), correctly passing through stdin, stdout, and stderr, so things like your daily git workflows and even `vim` will work just fine.
+Nu comes with a set of built-in commands (listed below).
+If a command is unknown, the command will shell-out and execute it (using cmd on Windows or bash on Linux and macOS), correctly passing through stdin, stdout, and stderr, so things like your daily git workflows and even `vim` will work just fine.
 
 # Learning more
 
-There are a few good resources to learn about Nu. There is a [book](https://www.nushell.sh/book/) about Nu that is currently in progress. The book focuses on using Nu and its core concepts.
+There are a few good resources to learn about Nu.
+There is a [book](https://www.nushell.sh/book/) about Nu that is currently in progress.
+The book focuses on using Nu and its core concepts.
 
-If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://www.nushell.sh/contributor-book/) to help you get started. There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
+If you're a developer who would like to contribute to Nu, we're also working on a [book for developers](https://www.nushell.sh/contributor-book/) to help you get started.
+There are also [good first issues](https://github.com/nushell/nushell/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) to help you dive in.
 
 We also have an active [Discord](https://discord.gg/NtAbbGn) and [Twitter](https://twitter.com/nu_shell) if you'd like to come and chat with us.
 
@@ -107,11 +114,18 @@ The second container is a bit smaller if the size is important to you.
 
 # Philosophy
 
-Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools. Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure. For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory. These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
+Nu draws inspiration from projects like PowerShell, functional programming languages, and modern CLI tools.
+Rather than thinking of files and services as raw streams of text, Nu looks at each input as something with structure.
+For example, when you list the contents of a directory, what you get back is a table of rows, where each row represents an item in that directory.
+These values can be piped through a series of steps, in a series of commands called a 'pipeline'.
 
 ## Pipelines
 
-In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps. Nu takes this a step further and builds heavily on the idea of _pipelines_. Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin. Additionally, commands can output structured data (you can think of this as a third kind of stream). Commands that work in the pipeline fit into one of three categories:
+In Unix, it's common to pipe between commands to split up a sophisticated command over multiple steps.
+Nu takes this a step further and builds heavily on the idea of _pipelines_.
+Just as the Unix philosophy, Nu allows commands to output from stdout and read from stdin.
+Additionally, commands can output structured data (you can think of this as a third kind of stream).
+Commands that work in the pipeline fit into one of three categories:
 
 * Commands that produce a stream (eg, `ls`)
 * Commands that filter a stream (eg, `where type == "Directory"`)
@@ -135,13 +149,15 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 ────┴───────────┴───────────┴──────────┴────────┴──────────────┴────────────────
 ```
 
-Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed. We could have also written the above:
+Because most of the time you'll want to see the output of a pipeline, `autoview` is assumed.
+We could have also written the above:
 
 ```
 /home/jonathan/Source/nushell(master)> ls | where type == Directory
 ```
 
-Being able to use the same commands and compose them differently is an important philosophy in Nu. For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
+Being able to use the same commands and compose them differently is an important philosophy in Nu.
+For example, we could use the built-in `ps` command as well to get a list of the running processes, using the same `where` as above.
 
 ```text
 /home/jonathan/Source/nushell(master)> ps | where cpu > 0
@@ -157,7 +173,8 @@ Being able to use the same commands and compose them differently is an important
 
 ## Opening files
 
-Nu can load file and URL contents as raw text or as structured data (if it recognizes the format). For example, you can load a .toml file as structured data and explore it:
+Nu can load file and URL contents as raw text or as structured data (if it recognizes the format).
+For example, you can load a .toml file as structured data and explore it:
 
 ```
 /home/jonathan/Source/nushell(master)> open Cargo.toml
@@ -210,19 +227,26 @@ To set one of these variables, you can use `config --set`. For example:
 
 ## Shells
 
-Nu will work inside of a single directory and allow you to navigate around your filesystem by default. Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time.
+Nu will work inside of a single directory and allow you to navigate around your filesystem by default.
+Nu also offers a way of adding additional working directories that you can jump between, allowing you to work in multiple directories at the same time.
 
-To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path. You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells. Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
+To do so, use the `enter` command, which will allow you create a new "shell" and enter it at the specified path.
+You can toggle between this new shell and the original shell with the `p` (for previous) and `n` (for next), allowing you to navigate around a ring buffer of shells.
+Once you're done with a shell, you can `exit` it and remove it from the ring buffer.
 
 Finally, to get a list of all the current shells, you can use the `shells` command.
 
 ## Plugins
 
-Nu supports plugins that offer additional functionality to the shell and follow the same structured data model that built-in commands use. This allows you to extend nu for your needs.
+Nu supports plugins that offer additional functionality to the shell and follow the same structured data model that built-in commands use.
+This allows you to extend nu for your needs.
 
 There are a few examples in the `plugins` directory.
 
-Plugins are binaries that are available in your path and follow a `nu_plugin_*` naming convention. These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use. If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout. If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
+Plugins are binaries that are available in your path and follow a `nu_plugin_*` naming convention.
+These binaries interact with nu via a simple JSON-RPC protocol where the command identifies itself and passes along its configuration, which then makes it available for use.
+If the plugin is a filter, data streams to it one element at a time, and it can stream data back in return via stdin/stdout.
+If the plugin is a sink, it is given the full vector of final data and is given free reign over stdin/stdout to use as it pleases.
 
 # Goals
 
@@ -240,9 +264,9 @@ Nu adheres closely to a set of goals that make up its design philosophy. As feat
 
 # Commands
 
-You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/documentation.html#quick-command-references). 
+You can find a list of Nu commands, complete with documentation, in [quick command references](https://www.nushell.sh/documentation.html#quick-command-references).
 
 # License
 
-The project is made available under the MIT license. See "LICENSE" for more information.
+The project is made available under the MIT license. See the `LICENSE` file for more information.
 

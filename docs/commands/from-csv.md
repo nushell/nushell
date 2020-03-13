@@ -1,6 +1,6 @@
 # from-csv
 
-Converts csv data into table. Use this when nushell cannot dertermine the input file extension.
+Converts csv data into table. Use this when nushell cannot determine the input file extension.
 
 ## Example
 
@@ -69,7 +69,7 @@ chameleon; Linda; 1
 ━━━┷━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━
 ```
 
-To use this command to open a csv with separators other than a comma, use the `--raw` switch of `open` to open the csv, othewise the csv will enter `from-csv` as a table split on commas rather than raw text.
+To use this command to open a csv with separators other than a comma, use the `--raw` switch of `open` to open the csv, otherwise the csv will enter `from-csv` as a table split on commas rather than raw text.
 
 ```shell
 > mv pets.txt pets.csv

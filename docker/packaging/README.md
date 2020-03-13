@@ -14,7 +14,7 @@ after building the image please run container:
 
 ```bash
 $ docker run -td --rm --name nushell_package_ubuntu_bionic nushell/package:ubuntu-bionic
-``` 
+```
 
 and copy deb package from inside:
 

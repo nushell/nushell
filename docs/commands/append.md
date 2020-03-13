@@ -1,7 +1,7 @@
 # append
 This command allows you to  append the given row to the table.
 
-**Note**: 
+**Note**:
 - `append` does not change a file itself. If you want to save your changes, you need to run the `save` command
 - if you want to add something containing a whitespace character, you need to put it in quotation marks
 

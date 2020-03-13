@@ -40,51 +40,51 @@ Where with the form `| where readonly` is used to check boolean values. For exam
 > [input-command] | where [condition]
 ```
 
-## Examples 
+## Examples
 
 ```shell
 > ls | where size > 4kb
 ━━━┯━━━━━━━━━━━━┯━━━━━━┯━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━┯━━━━━━━━━━━━━
- # │ name       │ type │ size    │ created     │ accessed    │ modified 
+ # │ name       │ type │ size    │ created     │ accessed    │ modified
 ───┼────────────┼──────┼─────────┼─────────────┼─────────────┼─────────────
- 0 │ Cargo.lock │ File │ 87.2 KB │ 7 hours ago │ 7 hours ago │ 7 hours ago 
- 1 │ README.md  │ File │ 19.5 KB │ 7 hours ago │ 7 hours ago │ 7 hours ago 
- 2 │ Cargo.toml │ File │  4.7 KB │ 7 hours ago │ 7 hours ago │ 7 hours ago 
+ 0 │ Cargo.lock │ File │ 87.2 KB │ 7 hours ago │ 7 hours ago │ 7 hours ago
+ 1 │ README.md  │ File │ 19.5 KB │ 7 hours ago │ 7 hours ago │ 7 hours ago
+ 2 │ Cargo.toml │ File │  4.7 KB │ 7 hours ago │ 7 hours ago │ 7 hours ago
 ━━━┷━━━━━━━━━━━━┷━━━━━━┷━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━┷━━━━━━━━━━━━━
 ```
 
 ```shell
 > ps | where cpu > 0
 ━━━┯━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━
- # │ pid   │ name                  │ status   │ cpu 
+ # │ pid   │ name                  │ status   │ cpu
 ───┼───────┼───────────────────────┼──────────┼───────────────────
- 0 │  1546 │ Xorg                  │ Sleeping │ 10.65405000000000 
- 1 │  1769 │ gnome-shell           │ Sleeping │ 5.271094000000000 
- 2 │  2153 │ gnome-terminal-server │ Sleeping │ 5.193664000000000 
- 3 │ 13556 │ nu_plugin_ps          │ Sleeping │ 40.70250000000000 
+ 0 │  1546 │ Xorg                  │ Sleeping │ 10.65405000000000
+ 1 │  1769 │ gnome-shell           │ Sleeping │ 5.271094000000000
+ 2 │  2153 │ gnome-terminal-server │ Sleeping │ 5.193664000000000
+ 3 │ 13556 │ nu_plugin_ps          │ Sleeping │ 40.70250000000000
 ━━━┷━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━
 ```
 
 ```shell
 > ls | where accessed <= 1w
 ━━━┯━━━━━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━
- # │ name          │ type      │ size     │ accessed   │ modified 
+ # │ name          │ type      │ size     │ accessed   │ modified
 ───┼───────────────┼───────────┼──────────┼────────────┼────────────
- 0 │ Cargo.toml    │ File      │   4.7 KB │ 2 days ago │ 2 days ago 
- 1 │ target        │ Directory │   4.1 KB │ 2 days ago │ 2 days ago 
- 2 │ Makefile.toml │ File      │    449 B │ 4 days ago │ 4 days ago 
- 3 │ README.md     │ File      │  19.5 KB │ 2 days ago │ 2 days ago 
- 4 │ Cargo.lock    │ File      │ 170.7 KB │ 2 days ago │ 2 days ago 
- 5 │ crates        │ Directory │   4.1 KB │ 2 days ago │ 2 days ago 
- 6 │ TODO.md       │ File      │   1.3 KB │ 2 days ago │ 2 days ago 
+ 0 │ Cargo.toml    │ File      │   4.7 KB │ 2 days ago │ 2 days ago
+ 1 │ target        │ Directory │   4.1 KB │ 2 days ago │ 2 days ago
+ 2 │ Makefile.toml │ File      │    449 B │ 4 days ago │ 4 days ago
+ 3 │ README.md     │ File      │  19.5 KB │ 2 days ago │ 2 days ago
+ 4 │ Cargo.lock    │ File      │ 170.7 KB │ 2 days ago │ 2 days ago
+ 5 │ crates        │ Directory │   4.1 KB │ 2 days ago │ 2 days ago
+ 6 │ TODO.md       │ File      │   1.3 KB │ 2 days ago │ 2 days ago
 ━━━┷━━━━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━
 ```
 
 ```shell
 > ls | where name =~ "yml"
 ━━━━━━━━━━━━━┯━━━━━━┯━━━━━━━┯━━━━━━━━━━━━┯━━━━━━━━━━━━
- name        │ type │ size  │ accessed   │ modified 
+ name        │ type │ size  │ accessed   │ modified
 ─────────────┼──────┼───────┼────────────┼────────────
- .gitpod.yml │ File │ 780 B │ a week ago │ a week ago 
+ .gitpod.yml │ File │ 780 B │ a week ago │ a week ago
 ━━━━━━━━━━━━━┷━━━━━━┷━━━━━━━┷━━━━━━━━━━━━┷━━━━━━━━━━━━
 ```

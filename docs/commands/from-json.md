@@ -26,8 +26,8 @@ Syntax: `from-json {flags}`
 ```shell
 > open command_from-json | from-json
 ━━━━━━━━━━━┯━━━━━━━━━┯━━━━━━━
- title     │ type    │ flags 
+ title     │ type    │ flags
 ───────────┼─────────┼───────
- from-json │ command │ Yes 
+ from-json │ command │ Yes
 ━━━━━━━━━━━┷━━━━━━━━━┷━━━━━━━
 ```

@@ -87,8 +87,8 @@ Here are some tips to help you get started.
   * help commands - list all available commands
   * help <command name> - display help about a particular command
 
-Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character. Each stage 
-in the pipeline works together to load, parse, and display information to you.
+Nushell works on the idea of a "pipeline". Pipelines are commands connected with the '|' character.
+Each stage in the pipeline works together to load, parse, and display information to you.
 
 [Examples]
 
