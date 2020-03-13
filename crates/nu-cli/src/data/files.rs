@@ -36,13 +36,13 @@ pub(crate) fn dir_entry_dict(
     metadata: Option<&std::fs::Metadata>,
     tag: impl Into<Tag>,
     full: bool,
-    name_only: bool,
+    short_name: bool,
     with_symlink_targets: bool,
 ) -> Result<Value, ShellError> {
     let tag = tag.into();
     let mut dict = TaggedDictBuilder::new(&tag);
 
-    let name = if name_only {
+    let name = if short_name {
         filename.file_name().and_then(|s| s.to_str())
     } else {
         filename.to_str()

@@ -372,7 +372,7 @@ fn word<'a, T, U, V>(
         let (input, _) = start_predicate(input)?;
         let (input, _) = many0(next_predicate)(input)?;
 
-        let next_char = &input.fragment.chars().nth(0);
+        let next_char = &input.fragment.chars().next();
 
         match next_char {
             Some('.') => {}
@@ -609,7 +609,7 @@ fn tight<'a>(
 
         let (input, tail) = opt(alt((many1(range_continuation), many1(dot_member))))(input)?;
 
-        let next_char = &input.fragment.chars().nth(0);
+        let next_char = &input.fragment.chars().next();
 
         if is_boundary(*next_char) {
             if let Some(tail) = tail {

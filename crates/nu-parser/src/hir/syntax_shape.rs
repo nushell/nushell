@@ -137,7 +137,7 @@ pub struct ExpandContext<'context> {
 
 impl<'context> ExpandContext<'context> {
     pub(crate) fn homedir(&self) -> Option<&Path> {
-        self.homedir.as_ref().map(|h| h.as_path())
+        self.homedir.as_deref()
     }
 
     pub(crate) fn source(&self) -> &'context Text {

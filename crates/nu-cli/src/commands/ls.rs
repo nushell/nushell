@@ -10,6 +10,7 @@ pub struct Ls;
 #[derive(Deserialize)]
 pub struct LsArgs {
     pub path: Option<Tagged<PathBuf>>,
+    pub all: bool,
     pub full: bool,
     #[serde(rename = "short-names")]
     pub short_names: bool,
@@ -29,6 +30,7 @@ impl PerItemCommand for Ls {
                 SyntaxShape::Pattern,
                 "a path to get the directory contents from",
             )
+            .switch("all", "also show hidden files", Some('a'))
             .switch(
                 "full",
                 "list all available columns for each entry",
