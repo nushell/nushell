@@ -162,7 +162,7 @@ impl Shell for HelpShell {
                     cwd.pop();
                 } else {
                     match target.to_str() {
-                        Some(target) => match target.chars().nth(0) {
+                        Some(target) => match target.chars().next() {
                             Some(x) if x == '/' => cwd = PathBuf::from(target),
                             _ => cwd.push(target),
                         },
