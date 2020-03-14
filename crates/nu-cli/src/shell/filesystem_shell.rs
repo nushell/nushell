@@ -14,7 +14,7 @@ use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::Ordering;
 use trash as SendToTrash;
 
@@ -204,8 +204,7 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path = PathBuf::from(self.path());
-                    let path = dunce::canonicalize(path.join(&target)).map_err(|_| {
+                    let path = self.canonicalize(target).map_err(|_| {
                         ShellError::labeled_error(
                             "Cannot change to directory",
                             "directory not found",
