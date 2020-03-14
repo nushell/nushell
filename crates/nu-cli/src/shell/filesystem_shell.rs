@@ -201,7 +201,7 @@ impl Shell for FilesystemShell {
             Some(v) => {
                 let target = v.as_path()?;
 
-                if PathBuf::from("-") == target {
+                if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
                     let path = PathBuf::from(self.path());
@@ -1143,6 +1143,31 @@ impl Shell for FilesystemShell {
         _expand_context: ExpandContext,
     ) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
+    }
+}
+
+impl FilesystemShell {
+    fn canonicalize(&self, path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+        let path = if path.as_ref().is_relative() {
+            let components = path.as_ref().components();
+            let mut result = PathBuf::from(self.path());
+            for component in components {
+                match component {
+                    Component::CurDir => { /* ignore current dir */ }
+                    Component::ParentDir => {
+                        result.pop();
+                    }
+                    Component::Normal(normal) => result.push(normal),
+                    _ => {}
+                }
+            }
+
+            result
+        } else {
+            path.as_ref().into()
+        };
+
+        dunce::canonicalize(path)
     }
 }
 
