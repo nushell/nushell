@@ -1490,6 +1490,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "023b39be39e3a2da62a94feb433e91e8bcd37676fbc8bea371daf52b7a769a3e"
 
 [[package]]
+name = "htmlescape"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9025058dae765dee5070ec375f591e2ba14638c63feff74f13805a72e523163"
+
+[[package]]
 name = "http"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2232,7 +2238,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "clap",
  "crossterm 0.16.0",
@@ -2312,6 +2318,7 @@ dependencies = [
  "git2",
  "glob",
  "hex 0.4.0",
+ "htmlescape",
  "ichwh",
  "indexmap",
  "itertools 0.9.0",

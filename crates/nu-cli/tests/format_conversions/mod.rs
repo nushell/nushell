@@ -1,5 +1,6 @@
 mod bson;
 mod csv;
+mod html;
 mod json;
 mod ods;
 mod sqlite;

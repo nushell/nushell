@@ -313,6 +313,7 @@ pub fn create_default_context(
             // File format output
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
+            whole_stream_command(ToHTML),
             whole_stream_command(ToJSON),
             whole_stream_command(ToSQLite),
             whole_stream_command(ToDB),
