@@ -86,6 +86,28 @@ fn filesystem_change_current_directory_to_parent_directory() {
 }
 
 #[test]
+fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
+    Playground::setup("cd_test_5_1", |dirs, sandbox| {
+        sandbox.within("foo").mkdir("bar");
+
+        let actual = nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                rm {}/foo/bar 
+                echo ","
+                cd .. 
+                pwd | echo $it
+            "#,
+            dirs.test()
+        );
+
+        let actual = actual.split(',').nth(1).unwrap();
+
+        assert_eq!(PathBuf::from(actual), *dirs.test().join("foo"));
+    })
+}
+
+#[test]
 fn filesystem_change_to_home_directory() {
     Playground::setup("cd_test_6", |dirs, _| {
         let actual = nu!(
