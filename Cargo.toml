@@ -1,8 +1,8 @@
 [package]
 name = "nu"
-version = "0.11.0"
-authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
-description = "A shell for the GitHub era"
+version = "0.11.1"
+authors = ["The Nu Authors"]
+description = "A new kind of shell"
 license = "MIT"
 edition = "2018"
 readme = "README.md"
