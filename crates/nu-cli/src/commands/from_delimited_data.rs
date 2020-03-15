@@ -87,7 +87,7 @@ fn pretty_csv_error(err: csv::Error) -> Option<String> {
         } => {
             if let Some(pos) = pos {
                 Some(format!(
-                    "Line {}, expected {} fields, found {}",
+                    "Line {}: expected {} fields, found {}",
                     pos.line(),
                     expected_len,
                     len
