@@ -96,7 +96,7 @@ fn pretty_csv_error(err: csv::Error) -> Option<String> {
                 Some(format!("Expected {} fields, found {}", expected_len, len))
             }
         }
-        ErrorKind::Seek => Some(format!("Internal error while parsing csv")),
+        ErrorKind::Seek => Some("Internal error while parsing csv".to_string()),
         _ => None,
     }
 }
