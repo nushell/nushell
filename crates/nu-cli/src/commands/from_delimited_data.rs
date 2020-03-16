@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use csv::ReaderBuilder;
+use csv::{ErrorKind, ReaderBuilder};
 use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, TaggedDictBuilder, UntaggedValue, Value};
 
@@ -58,8 +58,11 @@ pub fn from_delimited_data(
                 }
                 x => yield ReturnSuccess::value(x),
             },
-            Err(_) => {
-                let line_one = format!("Could not parse as {}", format_name);
+            Err(err) => {
+                let line_one = match pretty_csv_error(err) {
+                    Some(pretty) => format!("Could not parse as {} ({})", format_name,pretty),
+                    None => format!("Could not parse as {}", format_name),
+                };
                 let line_two = format!("input cannot be parsed as {}", format_name);
                 yield Err(ShellError::labeled_error_with_secondary(
                     line_one,
@@ -73,4 +76,27 @@ pub fn from_delimited_data(
     };
 
     Ok(stream.to_output_stream())
+}
+
+fn pretty_csv_error(err: csv::Error) -> Option<String> {
+    match err.kind() {
+        ErrorKind::UnequalLengths {
+            pos,
+            expected_len,
+            len,
+        } => {
+            if let Some(pos) = pos {
+                Some(format!(
+                    "Line {}: expected {} fields, found {}",
+                    pos.line(),
+                    expected_len,
+                    len
+                ))
+            } else {
+                Some(format!("Expected {} fields, found {}", expected_len, len))
+            }
+        }
+        ErrorKind::Seek => Some("Internal error while parsing csv".to_string()),
+        _ => None,
+    }
 }
