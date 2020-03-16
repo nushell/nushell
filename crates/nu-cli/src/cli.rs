@@ -676,7 +676,7 @@ async fn process_line(
                                     }
                                 }
                                 Ok(None) => break,
-                                Err(e) => return LineResult::Error(line.to_string(),e),
+                                Err(e) => return LineResult::Error(line.to_string(), e),
                             }
                         }
                     }
