@@ -60,7 +60,7 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                         Some(AnchorLocation::File(f)) => {
                             let extension = f.split('.').last().map(String::from);
                             match extension {
-                                Some(s) if ["png", "jpg", "bmp", "gif", "tiff"].contains(&s.as_str()) => {
+                                Some(s) if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"].contains(&s.as_str()) => {
                                     output_string.push_str("<img src=\"data:image/");
                                     output_string.push_str(&s);
                                     output_string.push_str(";base64,");
@@ -72,6 +72,26 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                         }
                         _ => {}
                     }
+                }
+                UntaggedValue::Primitive(Primitive::String(ref b)) => {
+                    // This might be a bit much, but it's fun :)
+                    match row.tag.anchor {
+                        Some(AnchorLocation::Url(f)) |
+                        Some(AnchorLocation::File(f)) => {
+                            let extension = f.split('.').last().map(String::from);
+                            match extension {
+                                Some(s) if s == "svg" => {
+                                    output_string.push_str("<img src=\"data:image/svg+xml;base64,");
+                                    output_string.push_str(&base64::encode(&b.as_bytes()));
+                                    output_string.push_str("\">");
+                                    continue;
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                    output_string.push_str(&(htmlescape::encode_minimal(&format_leaf(&row.value).plain_string(100_000)).replace("\n", "<br>")));
                 }
                 UntaggedValue::Row(row) => {
                     output_string.push_str("<tr>");
