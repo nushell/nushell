@@ -60,7 +60,7 @@ pub fn from_delimited_data(
             },
             Err(err) => {
                 let line_one = match pretty_csv_error(err) {
-                    Some(pretty) => format!("Could not parse as {}\n{}", format_name,pretty),
+                    Some(pretty) => format!("Could not parse as {} ({})", format_name,pretty),
                     None => format!("Could not parse as {}", format_name),
                 };
                 let line_two = format!("input cannot be parsed as {}", format_name);
