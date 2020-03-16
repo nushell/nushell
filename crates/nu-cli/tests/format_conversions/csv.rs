@@ -73,8 +73,36 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
 }
 
 #[test]
-fn from_csv_text_to_table() {
+fn infers_types() {
     Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "los_cuatro_mosqueteros.csv",
+            r#"
+                first_name,last_name,rusty_luck
+                Andrés,Robalino,1,d
+                Jonathan,Turner,1,d
+                Yehuda,Katz,1,d
+                Jason,Gedge,1,d
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open los_cuatro_mosqueteros.csv
+                | where rusty_luck > 0
+                | count
+                | echo $it
+            "#
+        ));
+
+        assert_eq!(actual, "4");
+    })
+}
+
+#[test]
+fn from_csv_text_to_table() {
+    Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
@@ -102,7 +130,7 @@ fn from_csv_text_to_table() {
 
 #[test]
 fn from_csv_text_with_separator_to_table() {
-    Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
+    Playground::setup("filter_from_csv_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
@@ -130,7 +158,7 @@ fn from_csv_text_with_separator_to_table() {
 
 #[test]
 fn from_csv_text_with_tab_separator_to_table() {
-    Playground::setup("filter_from_csv_test_3", |dirs, sandbox| {
+    Playground::setup("filter_from_csv_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
@@ -158,7 +186,7 @@ fn from_csv_text_with_tab_separator_to_table() {
 
 #[test]
 fn from_csv_text_skipping_headers_to_table() {
-    Playground::setup("filter_from_csv_test_4", |dirs, sandbox| {
+    Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"

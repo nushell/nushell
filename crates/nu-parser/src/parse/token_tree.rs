@@ -306,6 +306,13 @@ impl SpannedToken {
         }
     }
 
+    pub fn is_int(&self) -> bool {
+        match self.unspanned() {
+            Token::Number(RawNumber::Int(_)) => true,
+            _ => false,
+        }
+    }
+
     pub fn as_string(&self) -> Option<(Span, Span)> {
         match self.unspanned() {
             Token::String(inner_span) => Some((self.span(), *inner_span)),
@@ -327,16 +334,16 @@ impl SpannedToken {
         }
     }
 
-    pub fn is_int(&self) -> bool {
+    pub fn is_dot(&self) -> bool {
         match self.unspanned() {
-            Token::Number(RawNumber::Int(_)) => true,
+            Token::EvaluationOperator(EvaluationOperator::Dot) => true,
             _ => false,
         }
     }
 
-    pub fn is_dot(&self) -> bool {
+    pub fn is_separator(&self) -> bool {
         match self.unspanned() {
-            Token::EvaluationOperator(EvaluationOperator::Dot) => true,
+            Token::Separator => true,
             _ => false,
         }
     }
@@ -476,6 +483,13 @@ impl SpannedToken {
                 "Only call expect_external if you checked is_external first, found {:?}",
                 self
             ),
+        }
+    }
+
+    pub fn expect_number(&self) -> RawNumber {
+        match self.unspanned() {
+            Token::Number(raw_number) => *raw_number,
+            other => panic!("Expected number, found {:?}", other),
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::hir;
 use crate::hir::syntax_shape::{
-    expand_atom, expand_syntax, BareShape, ExpandContext, ExpandSyntax, ExpansionRule,
+    ExpandSyntax, expand_atom, expand_syntax, BareShape, ExpandContext, ExpandSyntax, ExpansionRule,
     UnspannedAtomicToken, WhitespaceShape,
 };
 use crate::hir::tokens_iterator::TokensIterator;

@@ -140,6 +140,7 @@ fn to_string_tagged_value(v: &Value) -> Result<String, ShellError> {
         | UntaggedValue::Primitive(Primitive::Path(_))
         | UntaggedValue::Primitive(Primitive::Int(_)) => as_string(v),
         UntaggedValue::Primitive(Primitive::Date(d)) => Ok(d.to_string()),
+        UntaggedValue::Primitive(Primitive::Nothing) => Ok(String::new()),
         UntaggedValue::Table(_) => Ok(String::from("[Table]")),
         UntaggedValue::Row(_) => Ok(String::from("[Row]")),
         _ => Err(ShellError::labeled_error(

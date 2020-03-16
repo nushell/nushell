@@ -6,6 +6,9 @@ pub mod hir;
 pub mod parse;
 pub mod parse_command;
 
+#[cfg(test)]
+pub mod test_support;
+
 pub use crate::commands::classified::{
     external::ExternalCommand, internal::InternalCommand, ClassifiedCommand, ClassifiedPipeline,
 };
@@ -19,6 +22,11 @@ pub use crate::parse::parser::Number;
 pub use crate::parse::parser::{module, pipeline};
 pub use crate::parse::token_tree::{Delimiter, SpannedToken, Token};
 pub use crate::parse::token_tree_builder::TokenTreeBuilder;
+
+pub mod utils {
+    pub use crate::parse::util::parse_line_with_separator;
+    pub use crate::parse::util::LineSeparatedShape;
+}
 
 use log::log_enabled;
 use nu_errors::ShellError;

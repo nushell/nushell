@@ -3,9 +3,6 @@ pub(crate) mod into_shapes;
 pub(crate) mod pattern;
 pub(crate) mod state;
 
-#[cfg(test)]
-mod tests;
-
 use self::debug::ExpandTracer;
 use self::into_shapes::IntoShapes;
 use self::state::{Peeked, TokensIteratorState};
@@ -510,7 +507,7 @@ impl<'content> TokensIterator<'content> {
     /// The purpose of `expand_infallible` is to clearly mark the infallible path through
     /// and entire list of tokens that produces a fully colored version of the source.
     ///
-    /// If the `ExpandSyntax` can poroduce a `Result`, make sure to use `expand_syntax`,
+    /// If the `ExpandSyntax` can produce a `Result`, make sure to use `expand_syntax`,
     /// which will correctly show the error in the trace.
     pub fn expand_infallible<U>(&mut self, shape: impl ExpandSyntax<Output = U>) -> U
     where
@@ -536,7 +533,7 @@ impl<'content> TokensIterator<'content> {
         })
     }
 
-    fn expand<U>(&mut self, shape: impl ExpandSyntax<Output = U>) -> (U, usize)
+    pub fn expand<U>(&mut self, shape: impl ExpandSyntax<Output = U>) -> (U, usize)
     where
         U: std::fmt::Debug + Clone + 'static,
     {
