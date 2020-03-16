@@ -477,18 +477,6 @@ impl ExpandSyntax for MemberShape {
             return Ok(Member::Bare(bare.span()));
         }
 
-        /* KATZ */
-        /* let number = NumberShape.test(token_nodes, context);
-
-        if let Some(peeked) = number {
-            let node = peeked.not_eof("column")?.commit();
-            let (n, span) = node.as_number().ok_or_else(|| {
-                ParseError::internal_error("can't convert node to number".spanned(node.span()))
-            })?;
-
-            return Ok(Member::Number(n, span))
-        }*/
-
         let string = token_nodes.expand_syntax(StringShape);
 
         if let Ok(syntax) = string {

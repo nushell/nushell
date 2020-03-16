@@ -78,16 +78,17 @@ fn converts_to_int() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         r#"
-            open caco3_plastics.csv
-            | first 1
-            | str tariff_item --to-int
-            | where tariff_item == 2509000000
-            | get tariff_item
+            echo '{number_as_string: "1"}'
+            | from-json
+            | str number_as_string --to-int
+            | rename number
+            | where number == 1
+            | get number
             | echo $it
         "#
     ));
 
-    assert_eq!(actual, "2509000000");
+    assert_eq!(actual, "1");
 }
 
 #[test]

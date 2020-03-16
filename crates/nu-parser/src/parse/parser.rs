@@ -1,5 +1,4 @@
 #![allow(unused)]
-
 use crate::parse::{
     call_node::*, flag::*, number::*, operator::*, pipeline::*, token_tree::*,
     token_tree_builder::*, unit::*,
@@ -318,6 +317,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let (input, _) = char('"')(input)?;
     let start1 = input.offset;
     let (input, _) = many0(none_of("\""))(input)?;
+
     let end1 = input.offset;
     let (input, _) = char('"')(input)?;
     let end = input.offset;
@@ -939,7 +939,7 @@ pub fn tight_node(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     ))(input)
 }
 
-fn to_list(
+pub fn to_list(
     parser: impl Fn(NomSpan) -> IResult<NomSpan, SpannedToken>,
 ) -> impl Fn(NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     move |input| {
@@ -1017,7 +1017,7 @@ fn parse_int<T>(frag: &str, neg: Option<T>) -> i64 {
     }
 }
 
-fn is_boundary(c: Option<char>) -> bool {
+pub fn is_boundary(c: Option<char>) -> bool {
     match c {
         None => true,
         Some(')') | Some(']') | Some('}') | Some('(') => true,
@@ -1140,58 +1140,12 @@ fn is_member_start(c: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::parse::token_tree_builder::TokenTreeBuilder as b;
-    use crate::parse::token_tree_builder::{CurriedToken, TokenTreeBuilder};
+    use crate::parse::parser::{module, nodes, pipeline};
+    use crate::parse::token_tree_builder::TokenTreeBuilder::{self, self as b};
+    use crate::test_support::apply;
+    use nu_source::PrettyDebugWithSource;
+
     use pretty_assertions::assert_eq;
-
-    pub type CurriedNode<T> = Box<dyn FnOnce(&mut TokenTreeBuilder) -> T + 'static>;
-
-    macro_rules! equal_tokens {
-        ($source:tt -> $tokens:expr) => {
-            let result = apply(pipeline, "pipeline", $source);
-            let (expected_tree, expected_source) = TokenTreeBuilder::build($tokens);
-
-            if result != expected_tree {
-                let debug_result = format!("{}", result.debug($source));
-                let debug_expected = format!("{}", expected_tree.debug(&expected_source));
-
-                if debug_result == debug_expected {
-                    assert_eq!(
-                        result, expected_tree,
-                        "NOTE: actual and expected had equivalent debug serializations, source={:?}, debug_expected={:?}",
-                        $source,
-                        debug_expected
-                    )
-                } else {
-                    assert_eq!(debug_result, debug_expected)
-                }
-            }
-        };
-
-        (<$parser:tt> $source:tt -> $tokens:expr) => {
-            let result = apply($parser, stringify!($parser), $source);
-
-            let (expected_tree, expected_source) = TokenTreeBuilder::build($tokens);
-
-            if result != expected_tree {
-                let debug_result = format!("{}", result.debug($source));
-                let debug_expected = format!("{}", expected_tree.debug(&expected_source));
-
-                if debug_result == debug_expected {
-                    assert_eq!(
-                        result, expected_tree,
-                        "NOTE: actual and expected had equivalent debug serializations, source={:?}, debug_expected={:?}",
-                        $source,
-                        debug_expected
-                    )
-                } else {
-                    assert_eq!(debug_result, debug_expected)
-                }
-            }
-        };
-
-    }
 
     #[test]
     fn test_integer() {
@@ -1339,7 +1293,7 @@ mod tests {
     fn test_flag() {
         equal_tokens! {
             <nodes>
-            "--amigos" -> b::token_list(vec![b::flag("arepas")])
+            "--amigos" -> b::token_list(vec![b::flag("amigos")])
         }
 
         equal_tokens! {
@@ -1720,120 +1674,5 @@ mod tests {
                 b::bare("end")
             ])
         );
-    }
-
-    // #[test]
-    // fn test_smoke_pipeline() {
-    //     let _ = pretty_env_logger::try_init();
-
-    //     assert_eq!(
-    //         apply(
-    //             pipeline,
-    //             "pipeline",
-    //             r#"git branch --merged | split-row "`n" | where $it != "* master""#
-    //         ),
-    //         build_token(b::pipeline(vec![
-    //             (
-    //                 None,
-    //                 b::call(
-    //                     b::bare("git"),
-    //                     vec![b::sp(), b::bare("branch"), b::sp(), b::flag("merged")]
-    //                 ),
-    //                 Some(" ")
-    //             ),
-    //             (
-    //                 Some(" "),
-    //                 b::call(b::bare("split-row"), vec![b::sp(), b::string("`n")]),
-    //                 Some(" ")
-    //             ),
-    //             (
-    //                 Some(" "),
-    //                 b::call(
-    //                     b::bare("where"),
-    //                     vec![
-    //                         b::sp(),
-    //                         b::it_var(),
-    //                         b::sp(),
-    //                         b::op("!="),
-    //                         b::sp(),
-    //                         b::string("* master")
-    //                     ]
-    //                 ),
-    //                 None
-    //             )
-    //         ]))
-    //     );
-
-    //     assert_eq!(
-    //         apply(pipeline, "pipeline", "ls | where { $it.size > 100 }"),
-    //         build_token(b::pipeline(vec![
-    //             (None, b::call(b::bare("ls"), vec![]), Some(" ")),
-    //             (
-    //                 Some(" "),
-    //                 b::call(
-    //                     b::bare("where"),
-    //                     vec![
-    //                         b::sp(),
-    //                         b::braced(vec![
-    //                             b::path(b::it_var(), vec![b::member("size")]),
-    //                             b::sp(),
-    //                             b::op(">"),
-    //                             b::sp(),
-    //                             b::int(100)
-    //                         ])
-    //                     ]
-    //                 ),
-    //                 None
-    //             )
-    //         ]))
-    //     )
-    // }
-
-    fn apply(
-        f: impl Fn(
-            NomSpan,
-        )
-            -> Result<(NomSpan, SpannedToken), nom::Err<(NomSpan, nom::error::ErrorKind)>>,
-        desc: &str,
-        string: &str,
-    ) -> SpannedToken {
-        let result = f(nom_input(string));
-
-        match result {
-            Ok(value) => value.1,
-            Err(err) => {
-                let err = nu_errors::ShellError::parse_error(err);
-
-                println!("{:?}", string);
-                crate::hir::baseline_parse::tests::print_err(err, &nu_source::Text::from(string));
-                panic!("test failed")
-            }
-        }
-    }
-
-    fn span((left, right): (usize, usize)) -> Span {
-        Span::new(left, right)
-    }
-
-    fn delimited(
-        delimiter: Spanned<Delimiter>,
-        children: Vec<SpannedToken>,
-        left: usize,
-        right: usize,
-    ) -> SpannedToken {
-        let start = Span::for_char(left);
-        let end = Span::for_char(right);
-
-        let node = DelimitedNode::new(delimiter.item, (start, end), children);
-        Token::Delimited(node).into_spanned((left, right))
-    }
-
-    fn build<T>(block: CurriedNode<T>) -> T {
-        let mut builder = TokenTreeBuilder::new();
-        block(&mut builder)
-    }
-
-    fn build_token(block: CurriedToken) -> SpannedToken {
-        TokenTreeBuilder::build(block).0
     }
 }

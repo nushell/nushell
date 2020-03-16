@@ -659,6 +659,27 @@ impl Span {
         self.start == 0 && self.end == 0
     }
 
+    /// Returns a bool if the current Span does not cover.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// //  make clean
+    /// //  ----
+    /// //  (0,4)
+    /// //  
+    /// //       ^(5,5)
+    ///    
+    /// let make_span = Span::new(0,4);
+    /// let clean_span = Span::new(5,5);
+    ///
+    /// assert_eq!(make_span.is_closed(), false);
+    /// assert_eq!(clean_span.is_closed(), true);
+    /// ```
+    pub fn is_closed(&self) -> bool {
+        self.start == self.end
+    }
+
     /// Returns a slice of the input that covers the start and end of the current Span.
     pub fn slice<'a>(&self, source: &'a str) -> &'a str {
         &source[self.start..self.end]
