@@ -110,9 +110,9 @@ fn search_paths() -> Vec<std::path::PathBuf> {
                 search_paths.push(PathBuf::from(s));
                 return search_paths;    
             }
-        }    
+        }
     }
-    
+
     // Automatically add path `nu` is in as a search path
     if let Ok(exe_path) = env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
