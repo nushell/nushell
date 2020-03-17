@@ -20,6 +20,25 @@ fn shows_error_for_command_not_found() {
     assert!(actual.contains("Command not found"));
 }
 
+#[test]
+fn automatically_change_directory() {
+    use nu_test_support::playground::Playground;
+
+    Playground::setup("cd_test_5_1", |dirs, sandbox| {
+        sandbox.within("autodir").mkdir("bar");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                autodir
+                pwd | echo $it
+            "#
+        );
+
+        assert!(actual.ends_with("autodir"));
+    })
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

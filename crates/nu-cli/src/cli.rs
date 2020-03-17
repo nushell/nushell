@@ -627,12 +627,20 @@ async fn process_line(
             }
 
             // There's a special case to check before we process the pipeline:
-            // If we're giving a path by itself and we're in the CLI, change to this directory
+            // If we're giving a path by itself
+            // ...and it's not a command in the path
+            // ...and it doesn't have any arguments
+            // ...and we're in the CLI
+            // ...then change to this directory
             if cli_mode && pipeline.commands.list.len() == 1 {
-                if let ClassifiedCommand::External(ExternalCommand { ref name, .. }) =
-                    pipeline.commands.list[0]
+                if let ClassifiedCommand::External(ExternalCommand {
+                    ref name, ref args, ..
+                }) = pipeline.commands.list[0]
                 {
-                    if dunce::canonicalize(name).is_ok() {
+                    if dunce::canonicalize(name).is_ok()
+                        && which::which(name).is_err()
+                        && args.list.is_empty()
+                    {
                         ctx.shell_manager.set_path(name.to_string());
                         return LineResult::Success(line.to_string());
                     }
