@@ -102,20 +102,21 @@ fn search_paths() -> Vec<std::path::PathBuf> {
 
     let mut search_paths = Vec::new();
 
+    // First priority is the path that the user gives us
+    let config = crate::data::config::config(Tag::unknown());
+    if let Ok(config) = config {
+        if let Some(s) = config.get("plugin_path") {
+            if let Ok(s) = s.as_string() {
+                search_paths.push(PathBuf::from(s));
+                return search_paths;    
+            }
+        }    
+    }
+    
     // Automatically add path `nu` is in as a search path
     if let Ok(exe_path) = env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             search_paths.push(exe_dir.to_path_buf());
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        match env::var_os("PATH") {
-            Some(paths) => {
-                search_paths.extend(env::split_paths(&paths).collect::<Vec<_>>());
-            }
-            None => println!("PATH is not defined in the environment."),
         }
     }
 
