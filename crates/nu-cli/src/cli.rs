@@ -108,7 +108,7 @@ fn search_paths() -> Vec<std::path::PathBuf> {
         if let Some(s) = config.get("plugin_path") {
             if let Ok(s) = s.as_string() {
                 search_paths.push(PathBuf::from(s));
-                return search_paths;    
+                return search_paths;
             }
         }
     }
