@@ -10,7 +10,10 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_parser::{ClassifiedPipeline, PipelineShape, SpannedToken, TokensIterator};
+use nu_parser::{
+    ClassifiedCommand, ClassifiedPipeline, ExternalCommand, PipelineShape, SpannedToken,
+    TokensIterator,
+};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
@@ -366,7 +369,7 @@ pub async fn run_pipeline_standalone(
     redirect_stdin: bool,
     context: &mut Context,
 ) -> Result<(), Box<dyn Error>> {
-    let line = process_line(Ok(pipeline), context, redirect_stdin).await;
+    let line = process_line(Ok(pipeline), context, redirect_stdin, false).await;
 
     match line {
         LineResult::Success(line) => {
@@ -515,7 +518,7 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
             initial_command = None;
         }
 
-        let line = process_line(readline, &mut context, false).await;
+        let line = process_line(readline, &mut context, false, true).await;
 
         // Check the config to see if we need to update the path
         // TODO: make sure config is cached so we don't path this load every call
@@ -598,6 +601,7 @@ async fn process_line(
     readline: Result<String, ReadlineError>,
     ctx: &mut Context,
     redirect_stdin: bool,
+    cli_mode: bool,
 ) -> LineResult {
     match &readline {
         Ok(line) if line.trim() == "" => LineResult::Success(line.clone()),
@@ -616,12 +620,32 @@ async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let pipeline = classify_pipeline(&result, ctx, &Text::from(line));
+            let pipeline = classify_pipeline(&result, &ctx, &Text::from(line));
 
             if let Some(failure) = pipeline.failed {
                 return LineResult::Error(line.to_string(), failure.into());
             }
 
+            // There's a special case to check before we process the pipeline:
+            // If we're giving a path by itself
+            // ...and it's not a command in the path
+            // ...and it doesn't have any arguments
+            // ...and we're in the CLI
+            // ...then change to this directory
+            if cli_mode && pipeline.commands.list.len() == 1 {
+                if let ClassifiedCommand::External(ExternalCommand {
+                    ref name, ref args, ..
+                }) = pipeline.commands.list[0]
+                {
+                    if dunce::canonicalize(name).is_ok()
+                        && which::which(name).is_err()
+                        && args.list.is_empty()
+                    {
+                        ctx.shell_manager.set_path(name.to_string());
+                        return LineResult::Success(line.to_string());
+                    }
+                }
+            }
             let input_stream = if redirect_stdin {
                 let file = futures::io::AllowStdIo::new(std::io::stdin());
                 let stream = FramedRead::new(file, MaybeTextCodec).map(|line| {
