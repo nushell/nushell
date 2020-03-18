@@ -176,6 +176,62 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             Value { value: UntaggedValue::Error(e), .. } => {
                                 yield Err(e);
                             }
+
+                            Value { value: UntaggedValue::Row(row), ..} => {
+                                use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
+                                use prettytable::{color, Attr, Cell, Row, Table};
+                                use crate::data::value::{format_leaf, style_leaf};
+
+                                enum TableMode {
+                                    Light,
+                                    Normal,
+                                }
+
+                                let mut table = Table::new();
+                                let table_mode = crate::data::config::config(Tag::unknown());
+
+                                let table_mode = if let Some(s) = table_mode?.get("table_mode") {
+                                    match s.as_string() {
+                                        Ok(typ) if typ == "light" => TableMode::Light,
+                                        _ => TableMode::Normal,
+                                    }
+                                } else {
+                                    TableMode::Normal
+                                };
+
+                                match table_mode {
+                                    TableMode::Light => {
+                                        table.set_format(
+                                            FormatBuilder::new()
+                                                .separator(LinePosition::Title, LineSeparator::new('─', '─', ' ', ' '))
+                                                .padding(1, 1)
+                                                .build(),
+                                        );
+                                    }
+                                    _ => {
+                                        table.set_format(
+                                            FormatBuilder::new()
+                                                .column_separator('│')
+                                                .separator(LinePosition::Top, LineSeparator::new('─', '┬', ' ', ' '))
+                                                .separator(LinePosition::Title, LineSeparator::new('─', '┼', ' ', ' '))
+                                                .separator(LinePosition::Bottom, LineSeparator::new('─', '┴', ' ', ' '))
+                                                .padding(1, 1)
+                                                .build(),
+                                        );
+                                    }
+                                }
+
+                                for (key, value) in row.entries.iter() {
+                                    table.add_row(Row::new(vec![Cell::new(key).with_style(Attr::ForegroundColor(color::GREEN)).with_style(Attr::Bold),
+                                        Cell::new(&format_leaf(value).plain_string(100_000))]));
+                                }
+
+                                table.printstd();
+
+                                // table.print_term(&mut *context.host.lock().out_terminal().ok_or_else(|| ShellError::untagged_runtime_error("Could not open terminal for output"))?)
+                                //     .map_err(|_| ShellError::untagged_runtime_error("Internal error: could not print to terminal (for unix systems check to make sure TERM is set)"))?;
+                            }
+
                             Value { value: ref item, .. } => {
                                 if let Some(table) = table {
                                     let mut stream = VecDeque::new();
