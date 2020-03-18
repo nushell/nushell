@@ -641,8 +641,43 @@ async fn process_line(
                         && which::which(name).is_err()
                         && args.list.is_empty()
                     {
-                        ctx.shell_manager.set_path(name.to_string());
-                        return LineResult::Success(line.to_string());
+                        // Here we work differently if we're in Windows because of the expected Windows behavior
+                        #[cfg(windows)]
+                        {
+                            if name.ends_with(":") {
+                                // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
+                                // But first, we need to save where we are now
+                                let current_path = ctx.shell_manager.path();
+
+                                let split_path: Vec<_> = current_path.split(":").collect();
+                                if split_path.len() > 1 {
+                                    ctx.windows_drives_previous_cwd
+                                        .lock()
+                                        .insert(split_path[0].to_string(), current_path);
+                                }
+
+                                let name = name.to_uppercase();
+                                let new_drive: Vec<_> = name.split(":").collect();
+
+                                if let Some(val) =
+                                    ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
+                                {
+                                    ctx.shell_manager.set_path(val.to_string());
+                                    return LineResult::Success(line.to_string());
+                                } else {
+                                    ctx.shell_manager.set_path(name.to_string());
+                                    return LineResult::Success(line.to_string());
+                                }
+                            } else {
+                                ctx.shell_manager.set_path(name.to_string());
+                                return LineResult::Success(line.to_string());
+                            }
+                        }
+                        #[cfg(not(windows))]
+                        {
+                            ctx.shell_manager.set_path(name.to_string());
+                            return LineResult::Success(line.to_string());
+                        }
                     }
                 }
             }
