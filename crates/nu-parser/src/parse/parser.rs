@@ -6,8 +6,8 @@ use crate::parse::{
 use nom;
 use nom::branch::*;
 use nom::bytes::complete::*;
-use nom::character::complete::*;
 use nom::character::complete;
+use nom::character::complete::*;
 use nom::combinator::*;
 use nom::multi::*;
 use nom::sequence::*;
@@ -317,7 +317,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('"')(input)?;
     let start1 = input.offset;
-    let (input, _) = escaped(none_of("\"\\"),'\\',complete::one_of("\"\\"))(input)?;
+    let (input, _) = escaped(none_of("\"\\"), '\\', complete::one_of("\"\\"))(input)?;
 
     let end1 = input.offset;
     let (input, _) = char('"')(input)?;
