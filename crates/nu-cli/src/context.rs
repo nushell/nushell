@@ -82,6 +82,9 @@ pub struct Context {
     pub current_errors: Arc<Mutex<Vec<ShellError>>>,
     pub ctrl_c: Arc<AtomicBool>,
     pub(crate) shell_manager: ShellManager,
+
+    #[cfg(windows)]
+    pub windows_drives_previous_cwd: Arc<Mutex<std::collections::HashMap<String, String>>>,
 }
 
 impl Context {
@@ -102,15 +105,33 @@ impl Context {
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
         let registry = CommandRegistry::new();
-        Ok(Context {
-            registry: registry.clone(),
-            host: Arc::new(parking_lot::Mutex::new(Box::new(
-                crate::env::host::BasicHost,
-            ))),
-            current_errors: Arc::new(Mutex::new(vec![])),
-            ctrl_c: Arc::new(AtomicBool::new(false)),
-            shell_manager: ShellManager::basic(registry)?,
-        })
+
+        #[cfg(windows)]
+        {
+            Ok(Context {
+                registry: registry.clone(),
+                host: Arc::new(parking_lot::Mutex::new(Box::new(
+                    crate::env::host::BasicHost,
+                ))),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: Arc::new(AtomicBool::new(false)),
+                shell_manager: ShellManager::basic(registry)?,
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            })
+        }
+
+        #[cfg(not(windows))]
+        {
+            Ok(Context {
+                registry: registry.clone(),
+                host: Arc::new(parking_lot::Mutex::new(Box::new(
+                    crate::env::host::BasicHost,
+                ))),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: Arc::new(AtomicBool::new(false)),
+                shell_manager: ShellManager::basic(registry)?,
+            })
+        }
     }
 
     pub(crate) fn error(&mut self, error: ShellError) {
