@@ -81,6 +81,7 @@ pub(crate) mod sort_by;
 pub(crate) mod split_by;
 pub(crate) mod split_column;
 pub(crate) mod split_row;
+pub(crate) mod sum;
 #[allow(unused)]
 pub(crate) mod t_sort_by;
 pub(crate) mod table;
@@ -186,6 +187,7 @@ pub(crate) use sort_by::SortBy;
 pub(crate) use split_by::SplitBy;
 pub(crate) use split_column::SplitColumn;
 pub(crate) use split_row::SplitRow;
+pub(crate) use sum::Sum;
 #[allow(unused_imports)]
 pub(crate) use t_sort_by::TSortBy;
 pub(crate) use table::Table;

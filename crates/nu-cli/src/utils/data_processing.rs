@@ -1,10 +1,11 @@
+use crate::data::value::compare_values;
 use crate::data::TaggedListBuilder;
 use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
+use nu_parser::CompareOperator;
 use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};
-use num_bigint::BigInt;
 use num_traits::Zero;
 
 pub fn columns_sorted(
@@ -196,44 +197,31 @@ pub fn evaluate(
     Ok(results)
 }
 
-fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
-    let total = data
+pub fn sum(data: Vec<Value>) -> Result<Value, ShellError> {
+    Ok(data
         .into_iter()
-        .fold(Zero::zero(), |acc: BigInt, value| match value {
-            Value {
-                value: UntaggedValue::Primitive(Primitive::Int(n)),
-                ..
-            } => acc + n,
-            _ => acc,
-        });
-
-    Ok(UntaggedValue::int(total).into_untagged_value())
+        .fold(Value::zero(), |acc: Value, value| acc + value))
 }
 
 fn formula(
-    acc_begin: BigInt,
-    calculator: Box<dyn Fn(Vec<Value>) -> Result<Value, ShellError> + 'static>,
-) -> Box<dyn Fn(BigInt, Vec<Value>) -> Result<Value, ShellError> + 'static> {
+    acc_begin: Value,
+    calculator: Box<dyn Fn(Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static>,
+) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     Box::new(move |acc, datax| -> Result<Value, ShellError> {
         let result = acc * acc_begin.clone();
 
-        if let Ok(Value {
-            value: UntaggedValue::Primitive(Primitive::Int(computed)),
-            ..
-        }) = calculator(datax)
-        {
-            return Ok(UntaggedValue::int(result + computed).into_untagged_value());
+        match calculator(datax) {
+            Ok(total) => Ok(result + total),
+            Err(reason) => Err(reason),
         }
-
-        Ok(UntaggedValue::int(0).into_untagged_value())
     })
 }
 
 pub fn reducer_for(
     command: Reduce,
-) -> Box<dyn Fn(BigInt, Vec<Value>) -> Result<Value, ShellError> + 'static> {
+) -> Box<dyn Fn(Value, Vec<Value>) -> Result<Value, ShellError> + Send + Sync + 'static> {
     match command {
-        Reduce::Sum | Reduce::Default => Box::new(formula(Zero::zero(), Box::new(sum))),
+        Reduce::Sum | Reduce::Default => Box::new(formula(Value::zero(), Box::new(sum))),
     }
 }
 
@@ -262,7 +250,7 @@ pub fn reduce(
             let datasets: Vec<_> = datasets
                 .iter()
                 .map(|subsets| {
-                    let acc: BigInt = Zero::zero();
+                    let acc = Value::zero();
                     match subsets {
                         Value {
                             value: UntaggedValue::Table(data),
@@ -318,37 +306,48 @@ pub fn map_max(
             value: UntaggedValue::Table(datasets),
             ..
         } => {
-            let datasets: Vec<_> = datasets
+            let datasets: Vec<Value> = datasets
                 .iter()
                 .map(|subsets| match subsets {
                     Value {
                         value: UntaggedValue::Table(data),
                         ..
-                    } => {
-                        let data: BigInt =
-                            data.iter().fold(Zero::zero(), |acc, value| match value {
-                                Value {
-                                    value: UntaggedValue::Primitive(Primitive::Int(n)),
-                                    ..
-                                } if *n > acc => n.clone(),
-                                _ => acc,
-                            });
-                        UntaggedValue::int(data).into_value(&tag)
-                    }
+                    } => data.iter().fold(Value::zero(), |acc, value| {
+                        let left = &value.value;
+                        let right = &acc.value;
+
+                        if let Ok(is_greater_than) =
+                            compare_values(CompareOperator::GreaterThan, left, right)
+                        {
+                            if is_greater_than {
+                                value.clone()
+                            } else {
+                                acc
+                            }
+                        } else {
+                            acc
+                        }
+                    }),
                     _ => UntaggedValue::int(0).into_value(&tag),
                 })
                 .collect();
 
-            let datasets: BigInt = datasets
-                .iter()
-                .fold(Zero::zero(), |max, value| match value {
-                    Value {
-                        value: UntaggedValue::Primitive(Primitive::Int(n)),
-                        ..
-                    } if *n > max => n.clone(),
-                    _ => max,
-                });
-            UntaggedValue::int(datasets).into_value(&tag)
+            datasets.into_iter().fold(Value::zero(), |max, value| {
+                let left = &value.value;
+                let right = &max.value;
+
+                if let Ok(is_greater_than) =
+                    compare_values(CompareOperator::GreaterThan, left, right)
+                {
+                    if is_greater_than {
+                        value
+                    } else {
+                        max
+                    }
+                } else {
+                    max
+                }
+            })
         }
         _ => UntaggedValue::int(-1).into_value(&tag),
     };
@@ -573,7 +572,7 @@ mod tests {
 
         let action = reducer_for(Reduce::Sum);
 
-        assert_eq!(action(Zero::zero(), subject)?, int(3));
+        assert_eq!(action(Value::zero(), subject)?, int(3));
 
         Ok(())
     }
