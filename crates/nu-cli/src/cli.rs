@@ -644,12 +644,12 @@ async fn process_line(
                         // Here we work differently if we're in Windows because of the expected Windows behavior
                         #[cfg(windows)]
                         {
-                            if name.ends_with(":") {
+                            if name.ends_with(':') {
                                 // This looks like a drive shortcut. We need to a) switch drives and b) go back to the previous directory we were viewing on that drive
                                 // But first, we need to save where we are now
                                 let current_path = ctx.shell_manager.path();
 
-                                let split_path: Vec<_> = current_path.split(":").collect();
+                                let split_path: Vec<_> = current_path.split(':').collect();
                                 if split_path.len() > 1 {
                                     ctx.windows_drives_previous_cwd
                                         .lock()
@@ -657,7 +657,7 @@ async fn process_line(
                                 }
 
                                 let name = name.to_uppercase();
-                                let new_drive: Vec<_> = name.split(":").collect();
+                                let new_drive: Vec<_> = name.split(':').collect();
 
                                 if let Some(val) =
                                     ctx.windows_drives_previous_cwd.lock().get(new_drive[0])
