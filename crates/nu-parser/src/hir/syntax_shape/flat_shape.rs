@@ -151,7 +151,9 @@ impl FlatShape {
                 shapes.push(FlatShape::DotDot.spanned(span))
             }
             Token::CompareOperator(_) => shapes.push(FlatShape::CompareOperator.spanned(span)),
+            #[allow(deprecated)]
             Token::String(_) => shapes.push(FlatShape::String.spanned(span)),
+            Token::Str(_) => shapes.push(FlatShape::String.spanned(span)),
             Token::Variable(v) if v.slice(source) == "it" => {
                 shapes.push(FlatShape::ItVariable.spanned(span))
             }

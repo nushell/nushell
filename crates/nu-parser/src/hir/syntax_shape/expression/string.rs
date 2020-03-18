@@ -1,7 +1,7 @@
 use crate::hir::syntax_shape::{ExpandSyntax, FlatShape, NumberShape, VariableShape};
 use crate::hir::TokensIterator;
 use crate::hir::{Expression, SpannedExpression};
-use crate::parse::token_tree::{BareType, StringType};
+use crate::parse::token_tree::{BareType, StrType, StringType};
 use nu_errors::ParseError;
 use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span};
 

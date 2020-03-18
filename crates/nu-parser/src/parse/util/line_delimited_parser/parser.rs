@@ -149,19 +149,17 @@ pub fn separated_by(c: &str) -> impl Fn(NomSpan) -> IResult<NomSpan, SpannedToke
 pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('"')(input)?;
-    let start1 = input.offset;
-    let (input, _) = escaped(
+    let (input, result) = escaped(
         none_of(r#"\""#),
         '\\',
         nom::character::complete::one_of(r#"\"rnt"#),
     )(input)?;
 
-    let end1 = input.offset;
     let (input, _) = char('"')(input)?;
     let end = input.offset;
     Ok((
         input,
-        TokenTreeBuilder::spanned_string(Span::new(start1, end1), Span::new(start, end)),
+        TokenTreeBuilder::spanned_str(result.fragment, Span::new(start, end)),
     ))
 }
 
@@ -169,15 +167,16 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 pub fn sq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('\'')(input)?;
-    let start1 = input.offset;
-    let (input, _) = many0(none_of("\'"))(input)?;
-    let end1 = input.offset;
+    let (input, result) = many0(none_of("\'"))(input)?;
     let (input, _) = char('\'')(input)?;
     let end = input.offset;
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_string(Span::new(start1, end1), Span::new(start, end)),
+        TokenTreeBuilder::spanned_str(
+            result.into_iter().collect::<String>(),
+            Span::new(start, end),
+        ),
     ))
 }
 
@@ -190,12 +189,15 @@ pub fn string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 pub fn fallback_string_without(c: &str) -> impl Fn(NomSpan) -> IResult<NomSpan, SpannedToken> + '_ {
     move |input| {
         let start = input.offset;
-        let (input, _) = many0(none_of(c))(input)?;
+        let (input, result) = many0(none_of(c))(input)?;
         let end = input.offset;
 
         Ok((
             input,
-            TokenTreeBuilder::spanned_string(Span::new(start, end), Span::new(start, end)),
+            TokenTreeBuilder::spanned_str(
+                result.into_iter().collect::<String>(),
+                Span::new(start, end),
+            ),
         ))
     }
 }

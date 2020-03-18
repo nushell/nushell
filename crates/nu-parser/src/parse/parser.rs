@@ -317,14 +317,14 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('"')(input)?;
     let start1 = input.offset;
-    let (input, _) = escaped(none_of("\"\\"), '\\', complete::one_of("\"\\"))(input)?;
+    let (input, result) = escaped(none_of("\"\\"), '\\', complete::one_of("\"\\"))(input)?;
 
     let end1 = input.offset;
     let (input, _) = char('"')(input)?;
     let end = input.offset;
     Ok((
         input,
-        TokenTreeBuilder::spanned_string(Span::new(start1, end1), Span::new(start, end)),
+        TokenTreeBuilder::spanned_str(result.fragment, Span::new(start, end)),
     ))
 }
 
@@ -333,14 +333,17 @@ pub fn sq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('\'')(input)?;
     let start1 = input.offset;
-    let (input, _) = many0(none_of("\'"))(input)?;
+    let (input, result) = many0(none_of("\'"))(input)?;
     let end1 = input.offset;
     let (input, _) = char('\'')(input)?;
     let end = input.offset;
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_string(Span::new(start1, end1), Span::new(start, end)),
+        TokenTreeBuilder::spanned_str(
+            result.into_iter().collect::<String>(),
+            Span::new(start, end),
+        ),
     ))
 }
 

@@ -15,7 +15,9 @@ pub enum Token {
     Number(RawNumber),
     CompareOperator(CompareOperator),
     EvaluationOperator(EvaluationOperator),
+    #[deprecated]
     String(Span),
+    Str(String),
     Variable(Span),
     ItVariable(Span),
     ExternalCommand(Span),
@@ -51,7 +53,7 @@ macro_rules! token_type {
             ) -> Result<$out, ParseError> {
                 let $span = token.span();
 
-                match *token.unspanned() {
+                match token.unspanned() {
                     $pat => Ok($do),
                     _ => err(),
                 }
@@ -93,8 +95,13 @@ token_type!(struct DecimalType (desc: "decimal") -> RawNumber {
     Token::Number(number @ RawNumber::Decimal(_)) => number
 });
 
+#[deprecated]
 token_type!(struct StringType (desc: "string") -> (Span, Span) {
-    |outer, Token::String(inner)| => (inner, outer)
+    |outer, Token::String(inner)| => (*inner, outer)
+});
+
+token_type!(struct StrType(desc: "string") -> (String, Span) {
+    |outer, Token::Str(s)| => (s.clone(), outer)
 });
 
 token_type!(struct BareType (desc: "word") -> Span {
@@ -110,7 +117,7 @@ token_type!(struct DotDotType (desc: "dotdot") -> Span {
 });
 
 token_type!(struct CompareOperatorType (desc: "compare operator") -> (Span, CompareOperator) {
-    |span, Token::CompareOperator(operator)| => (span, operator)
+    |span, Token::CompareOperator(operator)| => (span, *operator)
 });
 
 token_type!(struct ExternalWordType (desc: "external word") -> Span {
@@ -118,11 +125,11 @@ token_type!(struct ExternalWordType (desc: "external word") -> Span {
 });
 
 token_type!(struct ExternalCommandType (desc: "external command") -> (Span, Span) {
-    |outer, Token::ExternalCommand(inner)| => (inner, outer)
+    |outer, Token::ExternalCommand(inner)| => (*inner, outer)
 });
 
 token_type!(struct CommentType (desc: "comment") -> (Comment, Span) {
-    |outer, Token::Comment(comment)| => (comment, outer)
+    |outer, Token::Comment(comment)| => (*comment, outer)
 });
 
 token_type!(struct SeparatorType (desc: "separator") -> Span {
@@ -138,11 +145,11 @@ token_type!(struct WordType (desc: "word") -> Span {
 });
 
 token_type!(struct ItVarType (desc: "$it") -> (Span, Span) {
-    |outer, Token::ItVariable(inner)| => (inner, outer)
+    |outer, Token::ItVariable(inner)| => (*inner, outer)
 });
 
 token_type!(struct VarType (desc: "variable") -> (Span, Span) {
-    |outer, Token::Variable(inner)| => (inner, outer)
+    |outer, Token::Variable(inner)| => (*inner, outer)
 });
 
 token_type!(struct PipelineType (desc: "pipeline") -> Pipeline {
@@ -210,7 +217,8 @@ impl PrettyDebugWithSource for SpannedToken {
             Token::Number(number) => number.pretty_debug(source),
             Token::CompareOperator(operator) => operator.pretty_debug(source),
             Token::EvaluationOperator(operator) => operator.pretty_debug(source),
-            Token::String(_) | Token::GlobPattern | Token::Bare => {
+            #[allow(deprecated)]
+            Token::String(_) | Token::Str(_) | Token::GlobPattern | Token::Bare => {
                 b::primitive(self.span.slice(source))
             }
             Token::Variable(_) => b::var(self.span.slice(source)),
@@ -244,7 +252,9 @@ impl ShellTypeName for Token {
             Token::CompareOperator(_) => "comparison operator",
             Token::EvaluationOperator(EvaluationOperator::Dot) => "dot",
             Token::EvaluationOperator(EvaluationOperator::DotDot) => "dot dot",
+            #[allow(deprecated)]
             Token::String(_) => "string",
+            Token::Str(_) => "string",
             Token::Variable(_) => "variable",
             Token::ItVariable(_) => "it variable",
             Token::ExternalCommand(_) => "external command",
@@ -294,7 +304,9 @@ impl SpannedToken {
 
     pub fn is_string(&self) -> bool {
         match self.unspanned() {
+            #[allow(deprecated)]
             Token::String(_) => true,
+            Token::Str(_) => true,
             _ => false,
         }
     }
@@ -313,9 +325,18 @@ impl SpannedToken {
         }
     }
 
+    #[deprecated]
     pub fn as_string(&self) -> Option<(Span, Span)> {
         match self.unspanned() {
+            #[allow(deprecated)]
             Token::String(inner_span) => Some((self.span(), *inner_span)),
+            _ => None,
+        }
+    }
+
+    pub fn as_str<'tree>(&'tree self) -> Option<(Span, &'tree str)> {
+        match self.unspanned() {
+            Token::Str(s) => Some((self.span(), s)),
             _ => None,
         }
     }

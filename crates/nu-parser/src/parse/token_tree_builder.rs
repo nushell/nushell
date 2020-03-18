@@ -166,19 +166,22 @@ impl TokenTreeBuilder {
 
         Box::new(move |b| {
             let (start, _) = b.consume("\"");
-            let (inner_start, inner_end) = b.consume(&input);
+            b.consume(&input);
             let (_, end) = b.consume("\"");
             b.pos = end;
 
-            TokenTreeBuilder::spanned_string(
-                Span::new(inner_start, inner_end),
-                Span::new(start, end),
-            )
+            TokenTreeBuilder::spanned_str(input, Span::new(start, end))
         })
     }
 
+    #[deprecated]
     pub fn spanned_string(input: impl Into<Span>, span: impl Into<Span>) -> SpannedToken {
+        #[allow(deprecated)]
         Token::String(input.into()).into_spanned(span)
+    }
+
+    pub fn spanned_str(input: impl Into<String>, span: impl Into<Span>) -> SpannedToken {
+        Token::Str(input.into()).into_spanned(span)
     }
 
     pub fn bare(input: impl Into<String>) -> CurriedToken {
