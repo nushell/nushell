@@ -2264,7 +2264,6 @@ dependencies = [
  "nu_plugin_post",
  "nu_plugin_ps",
  "nu_plugin_str",
- "nu_plugin_sum",
  "nu_plugin_sys",
  "nu_plugin_textview",
  "nu_plugin_tree",
@@ -2640,17 +2639,6 @@ dependencies = [
  "nu-value-ext",
  "num-bigint",
  "regex",
-]
-
-[[package]]
-name = "nu_plugin_sum"
-version = "0.11.0"
-dependencies = [
- "nu-build",
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
 ]
 
 [[package]]

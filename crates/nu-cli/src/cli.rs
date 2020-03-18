@@ -313,6 +313,7 @@ pub fn create_default_context(
             whole_stream_command(Pivot),
             // Data processing
             whole_stream_command(Histogram),
+            whole_stream_command(Sum),
             // File format output
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),

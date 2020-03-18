@@ -8,6 +8,7 @@ use nu_errors::{ExpectedRange, ShellError};
 use nu_source::{PrettyDebug, Span, SpannedItem};
 use num_bigint::BigInt;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
+use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -75,10 +76,93 @@ impl Primitive {
     }
 }
 
+impl num_traits::Zero for Primitive {
+    fn zero() -> Self {
+        Primitive::Int(BigInt::zero())
+    }
+
+    fn is_zero(&self) -> bool {
+        match self {
+            Primitive::Int(int) => int.is_zero(),
+            Primitive::Decimal(decimal) => decimal.is_zero(),
+            Primitive::Bytes(size) => size.is_zero(),
+            Primitive::Nothing => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::ops::Add for Primitive {
+    type Output = Primitive;
+
+    fn add(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left + right),
+            (Primitive::Int(left), Primitive::Decimal(right)) => {
+                Primitive::Decimal(BigDecimal::from(left) + right)
+            }
+            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
+                Primitive::Decimal(left + right)
+            }
+            (Primitive::Decimal(left), Primitive::Int(right)) => {
+                Primitive::Decimal(left + BigDecimal::from(right))
+            }
+            (Primitive::Bytes(left), right) => match right {
+                Primitive::Bytes(right) => Primitive::Bytes(left + right),
+                Primitive::Int(right) => {
+                    Primitive::Bytes(left + right.to_u64().unwrap_or_else(|| 0 as u64))
+                }
+                Primitive::Decimal(right) => {
+                    Primitive::Bytes(left + right.to_u64().unwrap_or_else(|| 0 as u64))
+                }
+                _ => Primitive::Bytes(left),
+            },
+            (left, Primitive::Bytes(right)) => match left {
+                Primitive::Bytes(left) => Primitive::Bytes(left + right),
+                Primitive::Int(left) => {
+                    Primitive::Bytes(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
+                }
+                Primitive::Decimal(left) => {
+                    Primitive::Bytes(left.to_u64().unwrap_or_else(|| 0 as u64) + right)
+                }
+                _ => Primitive::Bytes(right),
+            },
+            _ => Primitive::zero(),
+        }
+    }
+}
+
+impl std::ops::Mul for Primitive {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (Primitive::Int(left), Primitive::Int(right)) => Primitive::Int(left * right),
+            (Primitive::Int(left), Primitive::Decimal(right)) => {
+                Primitive::Decimal(BigDecimal::from(left) * right)
+            }
+            (Primitive::Decimal(left), Primitive::Decimal(right)) => {
+                Primitive::Decimal(left * right)
+            }
+            (Primitive::Decimal(left), Primitive::Int(right)) => {
+                Primitive::Decimal(left * BigDecimal::from(right))
+            }
+            _ => unimplemented!("Internal error: can't multiply incompatible primitives."),
+        }
+    }
+}
+
 impl From<BigDecimal> for Primitive {
     /// Helper to convert from decimals to a Primitive value
     fn from(decimal: BigDecimal) -> Primitive {
         Primitive::Decimal(decimal)
+    }
+}
+
+impl From<BigInt> for Primitive {
+    /// Helper to convert from integers to a Primitive value
+    fn from(int: BigInt) -> Primitive {
+        Primitive::Int(int)
     }
 }
 
