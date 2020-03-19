@@ -61,7 +61,7 @@ fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {
     let mut row = TaggedDictBuilder::new(tag.clone());
     row.insert_untagged(
         "properties",
-        properties_to_value(contact.properties, tag.clone()),
+        properties_to_value(contact.properties, tag),
     );
     row.into_value()
 }
@@ -93,7 +93,7 @@ fn properties_to_value(properties: Vec<Property>, tag: Tag) -> UntaggedValue {
 }
 
 fn params_to_value(params: Vec<(String, Vec<String>)>, tag: Tag) -> Value {
-    let mut row = TaggedDictBuilder::new(tag.clone());
+    let mut row = TaggedDictBuilder::new(tag);
 
     for (param_name, param_values) in params {
         let values: Vec<Value> = param_values.into_iter().map(|val| val.into()).collect();

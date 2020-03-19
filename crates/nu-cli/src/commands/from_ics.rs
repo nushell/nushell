@@ -77,7 +77,7 @@ fn calendar_to_value(calendar: IcalCalendar, tag: Tag) -> Value {
     );
     row.insert_untagged(
         "timezones",
-        timezones_to_value(calendar.timezones, tag.clone()),
+        timezones_to_value(calendar.timezones, tag),
     );
 
     row.into_value()
@@ -231,7 +231,7 @@ fn properties_to_value(properties: Vec<Property>, tag: Tag) -> UntaggedValue {
 }
 
 fn params_to_value(params: Vec<(String, Vec<String>)>, tag: Tag) -> Value {
-    let mut row = TaggedDictBuilder::new(tag.clone());
+    let mut row = TaggedDictBuilder::new(tag);
 
     for (param_name, param_values) in params {
         let values: Vec<Value> = param_values.into_iter().map(|val| val.into()).collect();
