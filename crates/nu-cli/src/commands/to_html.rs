@@ -60,7 +60,7 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                         Some(AnchorLocation::File(f)) => {
                             let extension = f.split('.').last().map(String::from);
                             match extension {
-                                Some(s) if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"].contains(&s.as_str()) => {
+                                Some(s) if ["png", "jpg", "bmp", "gif", "tiff", "jpeg"].contains(&s.to_lowercase().as_str()) => {
                                     output_string.push_str("<img src=\"data:image/");
                                     output_string.push_str(&s);
                                     output_string.push_str(";base64,");
@@ -80,7 +80,7 @@ fn to_html(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream
                         Some(AnchorLocation::File(f)) => {
                             let extension = f.split('.').last().map(String::from);
                             match extension {
-                                Some(s) if s == "svg" => {
+                                Some(s) if s.to_lowercase() == "svg" => {
                                     output_string.push_str("<img src=\"data:image/svg+xml;base64,");
                                     output_string.push_str(&base64::encode(&b.as_bytes()));
                                     output_string.push_str("\">");

@@ -2,6 +2,7 @@ mod bson;
 mod csv;
 mod html;
 mod json;
+mod markdown;
 mod ods;
 mod sqlite;
 mod ssv;
