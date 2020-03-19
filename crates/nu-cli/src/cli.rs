@@ -329,6 +329,7 @@ pub fn create_default_context(
             whole_stream_command(FromTSV),
             whole_stream_command(FromSSV),
             whole_stream_command(FromINI),
+            whole_stream_command(FromIcal),
             whole_stream_command(FromBSON),
             whole_stream_command(FromJSON),
             whole_stream_command(FromODS),
