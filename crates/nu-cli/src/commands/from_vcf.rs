@@ -7,15 +7,15 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use std::io::BufReader;
 
-pub struct FromVcard;
+pub struct FromVcf;
 
-impl WholeStreamCommand for FromVcard {
+impl WholeStreamCommand for FromVcf {
     fn name(&self) -> &str {
-        "from-vcard"
+        "from-vcf"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-vcard")
+        Signature::build("from-vcf")
     }
 
     fn usage(&self) -> &str {
@@ -27,11 +27,11 @@ impl WholeStreamCommand for FromVcard {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_vcard(args, registry)
+        from_vcf(args, registry)
     }
 }
 
-fn from_vcard(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn from_vcf(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
     let input = args.input;

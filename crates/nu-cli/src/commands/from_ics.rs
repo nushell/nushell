@@ -7,15 +7,15 @@ use nu_errors::ShellError;
 use nu_protocol::{Primitive, ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
 use std::io::BufReader;
 
-pub struct FromIcal;
+pub struct FromIcs;
 
-impl WholeStreamCommand for FromIcal {
+impl WholeStreamCommand for FromIcs {
     fn name(&self) -> &str {
-        "from-ical"
+        "from-ics"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from-ical")
+        Signature::build("from-ics")
     }
 
     fn usage(&self) -> &str {
@@ -27,11 +27,11 @@ impl WholeStreamCommand for FromIcal {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        from_ical(args, registry)
+        from_ics(args, registry)
     }
 }
 
-fn from_ical(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
+fn from_ics(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
     let args = args.evaluate_once(registry)?;
     let tag = args.name_tag();
     let input = args.input;
@@ -46,8 +46,8 @@ fn from_ical(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
             match calendar {
                 Ok(c) => yield ReturnSuccess::value(calendar_to_value(c, tag.clone())),
                 Err(_) => yield Err(ShellError::labeled_error(
-                    "Could not parse as .ical",
-                    "input cannot be parsed as .ical",
+                    "Could not parse as .ics",
+                    "input cannot be parsed as .ics",
                     tag.clone()
                 )),
             }
