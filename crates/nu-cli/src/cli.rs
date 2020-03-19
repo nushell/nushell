@@ -321,6 +321,7 @@ pub fn create_default_context(
             whole_stream_command(ToJSON),
             whole_stream_command(ToSQLite),
             whole_stream_command(ToDB),
+            whole_stream_command(ToMarkdown),
             whole_stream_command(ToTOML),
             whole_stream_command(ToTSV),
             whole_stream_command(ToURL),
