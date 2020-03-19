@@ -321,8 +321,14 @@ impl Expression {
         Expression::Literal(Literal::Size(i.into(), unit.into()))
     }
 
+    #[deprecated]
     pub fn string(inner: impl Into<Span>) -> Expression {
+        #[allow(deprecated)]
         Expression::Literal(Literal::String(inner.into()))
+    }
+
+    pub fn str(s: impl Into<String>) -> Expression {
+        Expression::Literal(Literal::Str(s.into()))
     }
 
     pub fn synthetic_string(string: impl Into<String>) -> Expression {
@@ -410,7 +416,9 @@ impl From<Spanned<Path>> for SpannedExpression {
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),
+    #[deprecated]
     String(Span),
+    Str(String),
     GlobPattern(String),
     ColumnPath(Vec<Member>),
     Bare,
@@ -436,7 +444,9 @@ impl ShellTypeName for Literal {
         match &self {
             Literal::Number(..) => "number",
             Literal::Size(..) => "size",
+            #[allow(deprecated)]
             Literal::String(..) => "string",
+            Literal::Str(..) => "string",
             Literal::ColumnPath(..) => "column path",
             Literal::Bare => "string",
             Literal::GlobPattern(_) => "pattern",
@@ -451,7 +461,9 @@ impl PrettyDebugWithSource for SpannedLiteral {
             PrettyDebugRefineKind::WithContext => match &self.literal {
                 Literal::Number(number) => number.pretty(),
                 Literal::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
+                #[allow(deprecated)]
                 Literal::String(string) => b::primitive(format!("{:?}", string.slice(source))),
+                Literal::Str(string) => b::primitive(format!("{:?}", string)),
                 Literal::GlobPattern(pattern) => b::primitive(pattern),
                 Literal::ColumnPath(path) => {
                     b::intersperse_with_source(path.iter(), b::space(), source)
@@ -467,10 +479,12 @@ impl PrettyDebugWithSource for SpannedLiteral {
             Literal::Size(number, unit) => {
                 b::typed("size", (number.pretty() + unit.pretty()).group())
             }
+            #[allow(deprecated)]
             Literal::String(string) => b::typed(
                 "string",
                 b::primitive(format!("{:?}", string.slice(source))),
             ),
+            Literal::Str(string) => b::typed("string", b::primitive(format!("{:?}", string))),
             Literal::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
             Literal::ColumnPath(path) => b::typed(
                 "column path",

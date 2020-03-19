@@ -57,6 +57,13 @@ impl ExpandSyntax for LineSeparatedShape {
                             entries.push(UntaggedValue::string(span.slice(&source)))
                         }
                     }
+                    Expression::Literal(hir::Literal::Str(s)) => {
+                        if s.is_empty() {
+                            entries.push(UntaggedValue::nothing())
+                        } else {
+                            entries.push(UntaggedValue::string(s))
+                        }
+                    }
                     _ => {}
                 }
             }

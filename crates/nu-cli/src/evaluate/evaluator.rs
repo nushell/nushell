@@ -142,7 +142,9 @@ fn evaluate_literal(literal: &hir::Literal, span: Span, source: &Text) -> Value 
             nu_parser::Number::Decimal(d) => UntaggedValue::decimal(d.clone()).into_value(span),
         },
         hir::Literal::Size(int, unit) => unit.compute(&int).into_value(span),
+        #[allow(deprecated)]
         hir::Literal::String(tag) => UntaggedValue::string(tag.slice(source)).into_value(span),
+        hir::Literal::Str(s) => UntaggedValue::string(s).into_value(span),
         hir::Literal::GlobPattern(pattern) => UntaggedValue::pattern(pattern).into_value(span),
         hir::Literal::Bare => UntaggedValue::string(span.slice(source)).into_value(span),
     }
