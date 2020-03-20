@@ -28,7 +28,7 @@ async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio, proc
 }
 
 pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
-    let processes = process::processes()
+    let mut processes = process::processes()
         .map_ok(|process| {
             // Note that there is no `.await` here,
             // as we want to pass the returned future
@@ -36,7 +36,6 @@ pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
             usage(process)
         })
         .try_buffer_unordered(usize::MAX);
-    pin_utils::pin_mut!(processes);
 
     let mut output = vec![];
     while let Some(res) = processes.next().await {

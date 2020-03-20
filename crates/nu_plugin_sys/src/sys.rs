@@ -133,8 +133,7 @@ async fn host(tag: Tag) -> Value {
 
 async fn disks(tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
-    let partitions = disk::partitions_physical();
-    pin_utils::pin_mut!(partitions);
+    let mut partitions = disk::partitions_physical();
 
     while let Some(part) = partitions.next().await {
         if let Ok(part) = part {
@@ -229,8 +228,7 @@ async fn battery(tag: Tag) -> Option<UntaggedValue> {
 async fn temp(tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
 
-    let sensors = sensors::temperatures();
-    pin_utils::pin_mut!(sensors);
+    let mut sensors = sensors::temperatures();
 
     while let Some(sensor) = sensors.next().await {
         if let Ok(sensor) = sensor {
@@ -275,8 +273,8 @@ async fn temp(tag: Tag) -> Option<UntaggedValue> {
 
 async fn net(tag: Tag) -> Option<UntaggedValue> {
     let mut output = vec![];
-    let io_counters = net::io_counters();
-    pin_utils::pin_mut!(io_counters);
+    let mut io_counters = net::io_counters();
+
     while let Some(nic) = io_counters.next().await {
         if let Ok(nic) = nic {
             let mut network_idx = TaggedDictBuilder::with_capacity(&tag, 3);
