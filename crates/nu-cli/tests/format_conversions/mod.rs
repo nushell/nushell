@@ -3,6 +3,7 @@ mod csv;
 mod html;
 mod ics;
 mod json;
+mod markdown;
 mod ods;
 mod sqlite;
 mod ssv;

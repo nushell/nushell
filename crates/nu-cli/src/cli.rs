@@ -313,6 +313,7 @@ pub fn create_default_context(
             whole_stream_command(Pivot),
             // Data processing
             whole_stream_command(Histogram),
+            whole_stream_command(Sum),
             // File format output
             whole_stream_command(ToBSON),
             whole_stream_command(ToCSV),
@@ -320,6 +321,7 @@ pub fn create_default_context(
             whole_stream_command(ToJSON),
             whole_stream_command(ToSQLite),
             whole_stream_command(ToDB),
+            whole_stream_command(ToMarkdown),
             whole_stream_command(ToTOML),
             whole_stream_command(ToTSV),
             whole_stream_command(ToURL),
@@ -640,6 +642,7 @@ async fn process_line(
                 }) = pipeline.commands.list[0]
                 {
                     if dunce::canonicalize(name).is_ok()
+                        && PathBuf::from(name).is_dir()
                         && which::which(name).is_err()
                         && args.list.is_empty()
                     {

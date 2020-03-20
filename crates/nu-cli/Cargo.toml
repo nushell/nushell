@@ -22,9 +22,9 @@ nu-test-support = { version = "0.11.0", path = "../nu-test-support" }
 ansi_term = "0.12.1"
 app_dirs = "1.2.1"
 async-stream = "0.2"
-base64 = "0.11"
+base64 = "0.12.0"
 bigdecimal = { version = "0.1.0", features = ["serde"] }
-bson = { version = "0.14.0", features = ["decimal128"] }
+bson = { version = "0.14.1", features = ["decimal128"] }
 byte-unit = "3.0.3"
 bytes = "0.5.4"
 calamine = "0.16"
@@ -41,7 +41,7 @@ futures = { version = "0.3", features = ["compat", "io-compat"] }
 futures-util = "0.3.4"
 futures_codec = "0.4"
 getset = "0.1.0"
-git2 = { version = "0.11.0", default_features = false }
+git2 = { version = "0.13.0", default_features = false }
 glob = "0.3.0"
 hex = "0.4"
 htmlescape = "0.3.1"
@@ -67,9 +67,9 @@ ptree = {version = "0.2" }
 query_interface = "0.3.5"
 rand = "0.7"
 regex = "1"
-roxmltree = "0.9.1"
+roxmltree = "0.10.0"
 rustyline = "6.0.0"
-serde = { version = "1.0.104", features = ["derive"] }
+serde = { version = "1.0.105", features = ["derive"] }
 serde-hjson = "0.9.1"
 serde_bytes = "0.11.3"
 serde_ini = "0.2.0"
@@ -90,7 +90,7 @@ unicode-xid = "0.2.0"
 which = "3.1.1"
 
 clipboard = { version = "0.5", optional = true }
-starship = { version = "0.37.0", optional = true }
+starship = { version = "0.38.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 users = "0.9"

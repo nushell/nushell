@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn wrap_rows_into_a_row() {
-    Playground::setup("embed_test_1", |dirs, sandbox| {
+    Playground::setup("wrap_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
@@ -34,7 +34,7 @@ fn wrap_rows_into_a_row() {
 
 #[test]
 fn wrap_rows_into_a_table() {
-    Playground::setup("embed_test_2", |dirs, sandbox| {
+    Playground::setup("wrap_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"

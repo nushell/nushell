@@ -379,6 +379,60 @@ impl From<ShellError> for UntaggedValue {
     }
 }
 
+impl num_traits::Zero for Value {
+    fn zero() -> Self {
+        Value {
+            value: UntaggedValue::Primitive(Primitive::zero()),
+            tag: Tag::unknown(),
+        }
+    }
+
+    fn is_zero(&self) -> bool {
+        match &self.value {
+            UntaggedValue::Primitive(primitive) => primitive.is_zero(),
+            UntaggedValue::Row(row) => row.entries.is_empty(),
+            UntaggedValue::Table(rows) => rows.is_empty(),
+            _ => false,
+        }
+    }
+}
+
+impl std::ops::Mul for Value {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+        let tag = self.tag.clone();
+
+        match (&*self, &*rhs) {
+            (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
+                let left = left.clone();
+                let right = right.clone();
+
+                UntaggedValue::from(left.mul(right)).into_value(tag)
+            }
+            (_, _) => unimplemented!("Internal error: can't multiply non-primitives."),
+        }
+    }
+}
+
+impl std::ops::Add for Value {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        let tag = self.tag.clone();
+
+        match (&*self, &*rhs) {
+            (UntaggedValue::Primitive(left), UntaggedValue::Primitive(right)) => {
+                let left = left.clone();
+                let right = right.clone();
+
+                UntaggedValue::from(left.add(right)).into_value(tag)
+            }
+            (_, _) => unimplemented!("Internal error: can't add non-primitives."),
+        }
+    }
+}
+
 pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
     let mut ret: Vec<String> = vec![];
     let value_column = "<value>".to_string();
