@@ -11,6 +11,16 @@ fn filters_by_unit_size_comparison() {
 }
 
 #[test]
+fn filters_with_nothing_comparison() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        r#"echo '[{"foo": 3}, {"foo": null}, {"foo": 4}]' | from-json | where foo > 1 | get foo | sum | echo $it"#
+    );
+
+    assert_eq!(actual, "7");
+}
+
+#[test]
 fn binary_operator_comparisons() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
