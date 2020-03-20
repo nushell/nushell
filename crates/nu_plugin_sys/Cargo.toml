@@ -20,7 +20,7 @@ battery = "0.7.5"
 futures-util = "0.3.1"
 
 [dependencies.heim]
-version = "0.0.9"
+version = "0.0.10"
 default-features = false
 
 features = ["host", "cpu", "memory", "disk", "net", "sensors", "runtime-polyfill"]

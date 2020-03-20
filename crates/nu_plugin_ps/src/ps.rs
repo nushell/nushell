@@ -27,8 +27,8 @@ async fn usage(process: Process) -> ProcessResult<(process::Process, Ratio, proc
     Ok((process, usage_2 - usage_1, memory))
 }
 
-pub async fn ps(tag: Tag) -> Vec<Value> {
-    let processes = process::processes()
+pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
+    let mut processes = process::processes()
         .map_ok(|process| {
             // Note that there is no `.await` here,
             // as we want to pass the returned future
@@ -36,7 +36,6 @@ pub async fn ps(tag: Tag) -> Vec<Value> {
             usage(process)
         })
         .try_buffer_unordered(usize::MAX);
-    pin_utils::pin_mut!(processes);
 
     let mut output = vec![];
     while let Some(res) = processes.next().await {
@@ -58,6 +57,22 @@ pub async fn ps(tag: Tag) -> Vec<Value> {
                 "virtual",
                 UntaggedValue::bytes(memory.vms().get::<information::byte>()),
             );
+            if full {
+                if let Ok(parent_pid) = process.parent_pid().await {
+                    dict.insert_untagged("parent", UntaggedValue::int(parent_pid))
+                }
+
+                if let Ok(exe) = process.exe().await {
+                    dict.insert_untagged("exe", UntaggedValue::string(exe.to_string_lossy()))
+                }
+
+                if let Ok(command) = process.command().await {
+                    dict.insert_untagged(
+                        "command",
+                        UntaggedValue::string(command.to_os_string().to_string_lossy()),
+                    );
+                }
+            }
             output.push(dict.into_value());
         }
     }
