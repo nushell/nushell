@@ -15,7 +15,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.11.0" }
 nu-source = { path = "../nu-source", version = "0.11.0" }
 nu-errors = { path = "../nu-errors", version = "0.11.0" }
 
-crossterm = "0.14.2"
+crossterm = "0.16.0"
 syntect = "3.2.0"
 onig_sys = "~69.1.0"
 ansi_term = "0.12.1"

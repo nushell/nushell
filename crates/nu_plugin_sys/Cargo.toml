@@ -18,9 +18,10 @@ nu-errors = { path = "../nu-errors", version = "0.11.0" }
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 battery = "0.7.5"
 futures-util = "0.3.1"
+pin-utils = "0.1.0-alpha.4"
 
 [dependencies.heim]
-version = "0.0.9"
+version = "0.1.0-alpha.1"
 default-features = false
 
 features = ["host", "cpu", "memory", "disk", "net", "sensors", "runtime-polyfill"]

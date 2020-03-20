@@ -20,7 +20,7 @@ futures-timer = "3.0.1"
 pin-utils = "0.1.0-alpha.4"
 
 [dependencies.heim]
-version = "0.0.9"
+version = "0.1.0-alpha.1"
 default-features = false
 features = ["process", "runtime-polyfill"]
 
