@@ -640,6 +640,7 @@ async fn process_line(
                 }) = pipeline.commands.list[0]
                 {
                     if dunce::canonicalize(name).is_ok()
+                        && PathBuf::from(name).is_dir()
                         && which::which(name).is_err()
                         && args.list.is_empty()
                     {
