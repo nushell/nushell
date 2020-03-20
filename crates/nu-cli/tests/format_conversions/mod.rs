@@ -1,6 +1,7 @@
 mod bson;
 mod csv;
 mod html;
+mod ics;
 mod json;
 mod ods;
 mod sqlite;
@@ -8,5 +9,6 @@ mod ssv;
 mod toml;
 mod tsv;
 mod url;
+mod vcf;
 mod xlsx;
 mod yaml;

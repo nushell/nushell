@@ -75,10 +75,7 @@ fn calendar_to_value(calendar: IcalCalendar, tag: Tag) -> Value {
         "free-busys",
         free_busys_to_value(calendar.free_busys, tag.clone()),
     );
-    row.insert_untagged(
-        "timezones",
-        timezones_to_value(calendar.timezones, tag),
-    );
+    row.insert_untagged("timezones", timezones_to_value(calendar.timezones, tag));
 
     row.into_value()
 }

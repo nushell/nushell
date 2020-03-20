@@ -59,10 +59,7 @@ fn from_vcf(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStrea
 
 fn contact_to_value(contact: VcardContact, tag: Tag) -> Value {
     let mut row = TaggedDictBuilder::new(tag.clone());
-    row.insert_untagged(
-        "properties",
-        properties_to_value(contact.properties, tag),
-    );
+    row.insert_untagged("properties", properties_to_value(contact.properties, tag));
     row.into_value()
 }
 
