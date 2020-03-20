@@ -180,6 +180,12 @@ fn coerce_compare_primitive(
         (Bytes(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
+        (Bytes(left), Nothing) => CompareValues::Ints(BigInt::from(*left), BigInt::from(0)),
+        (Nothing, Bytes(right)) => CompareValues::Ints(BigInt::from(0), BigInt::from(*right)),
+        (Int(left), Nothing) => CompareValues::Ints(left.clone(), BigInt::from(0)),
+        (Nothing, Int(right)) => CompareValues::Ints(BigInt::from(0), right.clone()),
+        (Decimal(left), Nothing) => CompareValues::Decimals(left.clone(), BigDecimal::from(0.0)),
+        (Nothing, Decimal(right)) => CompareValues::Decimals(BigDecimal::from(0.0), right.clone()),
         (String(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         (Line(left), String(right)) => CompareValues::String(left.clone(), right.clone()),
         (String(left), Line(right)) => CompareValues::String(left.clone(), right.clone()),
