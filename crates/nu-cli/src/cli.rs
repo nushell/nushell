@@ -342,6 +342,8 @@ pub fn create_default_context(
             whole_stream_command(FromXML),
             whole_stream_command(FromYAML),
             whole_stream_command(FromYML),
+            whole_stream_command(FromIcs),
+            whole_stream_command(FromVcf),
         ]);
 
         cfg_if::cfg_if! {

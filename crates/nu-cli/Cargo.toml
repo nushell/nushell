@@ -45,6 +45,7 @@ git2 = { version = "0.13.0", default_features = false }
 glob = "0.3.0"
 hex = "0.4"
 htmlescape = "0.3.1"
+ical = "0.6.*"
 ichwh = "0.3"
 indexmap = { version = "1.3.2", features = ["serde-1"] }
 itertools = "0.9.0"
