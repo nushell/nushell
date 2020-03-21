@@ -314,17 +314,30 @@ pub fn operator(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
 #[tracable_parser]
 pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+    fn remove_escapes(s: &str) -> String {
+        let mut string = String::new();
+        let mut was_escape = false; //
+        for c in s.chars() {
+            if c == '\\' && !was_escape {
+                was_escape = true;
+            } else {
+                string.push(c);
+                was_escape = false;
+            }
+        }
+        string
+    }
+
     let start = input.offset;
     let (input, _) = char('"')(input)?;
     let start1 = input.offset;
     let (input, result) = escaped(none_of("\"\\"), '\\', complete::one_of("\"\\"))(input)?;
-
     let end1 = input.offset;
     let (input, _) = char('"')(input)?;
     let end = input.offset;
     Ok((
         input,
-        TokenTreeBuilder::spanned_str(result.fragment, Span::new(start, end)),
+        TokenTreeBuilder::spanned_str(remove_escapes(result.fragment), Span::new(start, end)),
     ))
 }
 
