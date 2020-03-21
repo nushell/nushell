@@ -265,16 +265,21 @@ pub enum Member {
     String(/* outer */ Span, /* inner */ Span),
     Str(/* outer */ Span, String),
     Int(BigInt, Span),
+    #[deprecated]
     Bare(Span),
+    BareStr(Span, String),
 }
 
 impl ShellTypeName for Member {
     fn type_name(&self) -> &'static str {
         match self {
+            #[allow(deprecated)]
             Member::String(_, _) => "string",
             Member::Str(_, _) => "string",
             Member::Int(_, _) => "integer",
             Member::Bare(_) => "word",
+            #[allow(deprecated)]
+            Member::BareStr(_, _) => "word",
         }
     }
 }
@@ -294,7 +299,9 @@ impl Member {
             Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
             Member::Str(outer, s) => PathMember::string(s, *outer),
             Member::Int(int, span) => PathMember::int(int.clone(), *span),
+            #[allow(deprecated)]
             Member::Bare(span) => PathMember::string(span.slice(source), *span),
+            Member::BareStr(span, s) => PathMember::string(s, *span),
         }
     }
 }
@@ -306,7 +313,9 @@ impl PrettyDebugWithSource for Member {
             Member::String(outer, _) => b::value(outer.slice(source)),
             Member::Str(_, content) => b::value(&content),
             Member::Int(int, _) => b::value(format!("{}", int)),
+            #[allow(deprecated)]
             Member::Bare(span) => b::value(span.slice(source)),
+            Member::BareStr(_, s) => b::value(&s),
         }
     }
 }
@@ -318,7 +327,9 @@ impl HasSpan for Member {
             Member::String(outer, ..) => *outer,
             Member::Str(outer, ..) => *outer,
             Member::Int(_, int) => *int,
+            #[allow(deprecated)]
             Member::Bare(name) => *name,
+            Member::BareStr(span, ..) => *span,
         }
     }
 }
@@ -330,7 +341,9 @@ impl Member {
             Member::String(outer, inner) => Expression::string(*inner).into_expr(outer),
             Member::Str(outer, content) => Expression::str(content).into_expr(outer),
             Member::Int(number, span) => Expression::number(number.clone()).into_expr(span),
+            #[allow(deprecated)]
             Member::Bare(span) => Expression::string(*span).into_expr(span),
+            Member::BareStr(span, content) => Expression::str(content).into_expr(span),
         }
     }
 
@@ -340,7 +353,9 @@ impl Member {
             Member::String(outer, _inner) => *outer,
             Member::Str(outer, _) => *outer,
             Member::Int(_, span) => *span,
+            #[allow(deprecated)]
             Member::Bare(span) => *span,
+            Member::BareStr(span, _) => *span,
         }
     }
 }

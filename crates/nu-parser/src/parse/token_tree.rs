@@ -23,6 +23,7 @@ pub enum Token {
     ExternalCommand(Span),
     ExternalWord,
     GlobPattern,
+    #[deprecated]
     Bare,
     Garbage,
 
@@ -104,6 +105,7 @@ token_type!(struct StrType(desc: "string") -> (String, Span) {
     |outer, Token::Str(s)| => (s.clone(), outer)
 });
 
+#[deprecated]
 token_type!(struct BareType (desc: "word") -> Span {
     |span, Token::Bare| => span
 });
