@@ -38,7 +38,7 @@ impl ExpandSyntax for LineSeparatedShape {
                     .or_else(|_| {
                         token_nodes
                             .expand_syntax(StringShape)
-                            .map(|syntax| Expression::string(syntax.inner).into_expr(syntax.span))
+                            .map(|syntax| Expression::str(syntax.content).into_expr(syntax.span))
                     })
             };
 
@@ -50,6 +50,7 @@ impl ExpandSyntax for LineSeparatedShape {
                     Expression::Literal(hir::Literal::Number(crate::Number::Decimal(d))) => {
                         entries.push(UntaggedValue::decimal(d.clone()))
                     }
+                    #[allow(deprecated)]
                     Expression::Literal(hir::Literal::String(span)) => {
                         if span.is_closed() {
                             entries.push(UntaggedValue::nothing())

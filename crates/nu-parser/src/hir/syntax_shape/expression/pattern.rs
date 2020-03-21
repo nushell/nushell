@@ -22,6 +22,13 @@ impl ExpandSyntax for PatternShape {
         &self,
         token_nodes: &mut TokensIterator<'_>,
     ) -> Result<hir::SpannedExpression, ParseError> {
+        if let Ok(syntax) = token_nodes.expand_syntax(StringShape) {
+            return Ok(file_pattern_str(
+                &syntax.content,
+                syntax.span,
+                token_nodes.context(),
+            ));
+        }
         let (inner, outer) = token_nodes
             .expand_syntax(BarePatternShape)
             .or_else(|_| token_nodes.expand_syntax(BarePathShape))
@@ -30,7 +37,7 @@ impl ExpandSyntax for PatternShape {
             .or_else(|_| {
                 token_nodes
                     .expand_syntax(StringShape)
-                    .map(|syntax| (syntax.inner, syntax.span))
+                    .map(|syntax| (syntax.span, syntax.span))
             })
             .map_err(|_| token_nodes.err_next_token("glob pattern"))?;
 
@@ -41,6 +48,11 @@ impl ExpandSyntax for PatternShape {
 fn file_pattern(body: Span, outer: Span, context: &ExpandContext) -> SpannedExpression {
     let path = expand_file_path(body.slice(context.source), context);
     Expression::pattern(path.to_string_lossy()).into_expr(outer)
+}
+
+fn file_pattern_str(body: &str, span: Span, context: &ExpandContext) -> SpannedExpression {
+    let path = expand_file_path(body, context);
+    Expression::pattern(path.to_string_lossy()).into_expr(span)
 }
 
 #[derive(Debug, Copy, Clone)]

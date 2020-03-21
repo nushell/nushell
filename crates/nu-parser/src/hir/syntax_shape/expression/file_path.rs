@@ -27,7 +27,7 @@ impl ExpandSyntax for FilePathShape {
             .map(|span| file_path(span, token_nodes.context()).into_expr(span))
             .or_else(|_| {
                 token_nodes.expand_syntax(StringShape).map(|syntax| {
-                    file_path(syntax.inner, token_nodes.context()).into_expr(syntax.span)
+                    file_path_str(&syntax.content, token_nodes.context()).into_expr(syntax.span)
                 })
             })
             .or_else(|_| {
@@ -42,8 +42,13 @@ impl ExpandSyntax for FilePathShape {
     }
 }
 
+#[deprecated]
 fn file_path(text: Span, context: &ExpandContext) -> Expression {
     Expression::FilePath(expand_file_path(text.slice(context.source), context))
+}
+
+fn file_path_str(text: &str, context: &ExpandContext) -> Expression {
+    Expression::FilePath(expand_file_path(text, context))
 }
 
 #[derive(Debug, Copy, Clone)]
