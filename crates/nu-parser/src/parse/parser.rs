@@ -315,8 +315,10 @@ pub fn operator(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 #[tracable_parser]
 pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     fn remove_escapes(s: &str) -> String {
+        /// This is required to remove the escape characters since the `escaped` nom function returns a
+        /// Span (since it uses one as input)
         let mut string = String::new();
-        let mut was_escape = false; //
+        let mut was_escape = false;
         for c in s.chars() {
             if c == '\\' && !was_escape {
                 was_escape = true;
