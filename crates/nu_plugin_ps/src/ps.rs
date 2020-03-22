@@ -66,11 +66,14 @@ pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
                     dict.insert_untagged("exe", UntaggedValue::string(exe.to_string_lossy()))
                 }
 
-                if let Ok(command) = process.command().await {
-                    dict.insert_untagged(
-                        "command",
-                        UntaggedValue::string(command.to_os_string().to_string_lossy()),
-                    );
+                #[cfg(not(windows))]
+                {
+                    if let Ok(command) = process.command().await {
+                        dict.insert_untagged(
+                            "command",
+                            UntaggedValue::string(command.to_os_string().to_string_lossy()),
+                        );
+                    }
                 }
             }
             output.push(dict.into_value());
