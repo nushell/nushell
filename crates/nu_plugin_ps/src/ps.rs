@@ -73,7 +73,7 @@ pub async fn ps(tag: Tag, full: bool) -> Vec<Value> {
                             "command",
                             UntaggedValue::string(command.to_os_string().to_string_lossy()),
                         );
-                    }    
+                    }
                 }
             }
             output.push(dict.into_value());
