@@ -87,66 +87,24 @@ fn which(
         application.item.clone()
     };
 
-    if all {
-        let stream = async_stream! {
-            if external {
-                if let Ok(Some(path)) = ichwh::which(&item).await {
-                    yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
-                }
-            }
-
+    let stream = async_stream! {
+        if !external {
             let builtin = commands.has(&item);
             if builtin {
                 yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
             }
+        }
 
-            if let Ok(paths) = ichwh::which_all(&item).await {
-                if !builtin && paths.len() == 0 {
-                    yield Err(ShellError::labeled_error(
-                        "Binary not found for argument, and argument is not a builtin",
-                        "not found",
-                        &application.tag,
-                    ));
-                } else {
-                    for path in paths {
-                        yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
-                    }
-                }
-            } else {
-                yield Err(ShellError::labeled_error(
-                    "Error trying to find binary for argument",
-                    "error",
-                    &application.tag,
-                ));
+        if let Ok(paths) = ichwh::which_all(&item).await {
+            for path in paths {
+                yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
             }
-        };
+        }
+    };
 
+    if all {
         Ok(stream.to_output_stream())
     } else {
-        let stream = async_stream! {
-            if external {
-                if let Ok(Some(path)) = ichwh::which(&item).await {
-                    yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone()));
-                }
-            } else if commands.has(&item) {
-                yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
-            } else {
-                match ichwh::which(&item).await {
-                    Ok(Some(path)) => yield ReturnSuccess::value(entry_path!(item, path.into(), application.tag.clone())),
-                    Ok(None) => yield Err(ShellError::labeled_error(
-                            "Binary not found for argument, and argument is not a builtin",
-                            "not found",
-                            &application.tag,
-                    )),
-                    Err(_) => yield Err(ShellError::labeled_error(
-                            "Error trying to find binary for argument",
-                            "error",
-                            &application.tag,
-                    )),
-                }
-            }
-        };
-
-        Ok(stream.to_output_stream())
+        Ok(stream.take(1).to_output_stream())
     }
 }
