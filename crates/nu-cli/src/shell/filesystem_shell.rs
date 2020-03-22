@@ -631,11 +631,27 @@ impl Shell for FilesystemShell {
             match destination.file_name() {
                 Some(name) => PathBuf::from(name),
                 None => {
-                    return Err(ShellError::labeled_error(
-                        "Rename aborted. Not a valid destination",
-                        "not a valid destination",
-                        dst.tag,
-                    ))
+                    let name_maybe =
+                        destination.components().next_back().and_then(
+                            |component| match component {
+                                Component::RootDir => Some(PathBuf::from("/")),
+                                Component::ParentDir => destination
+                                    .parent()
+                                    .and_then(|parent| parent.file_name())
+                                    .map(PathBuf::from),
+                                _ => None,
+                            },
+                        );
+
+                    if let Some(name) = name_maybe {
+                        name
+                    } else {
+                        return Err(ShellError::labeled_error(
+                            "Rename aborted. Not a valid destination",
+                            "not a valid destination",
+                            dst.tag,
+                        ));
+                    }
                 }
             }
         };
