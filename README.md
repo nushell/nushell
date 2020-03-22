@@ -70,6 +70,16 @@ cargo build --workspace --features=stable
 
 ## Docker
 
+### Quickstart
+
+Want to try Nu right away? Execute the following to get started.
+
+```bash
+docker run -it quay.io/nushell/nu:latest
+```
+
+### Guide
+
 If you want to pull a pre-built container, you can browse tags for the [nushell organization](https://quay.io/organization/nushell)
 on Quay.io. Pulling a container would come down to:
 
