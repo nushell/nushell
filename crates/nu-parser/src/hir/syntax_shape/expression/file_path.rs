@@ -42,7 +42,7 @@ impl ExpandSyntax for FilePathShape {
     }
 }
 
-#[deprecated]
+#[deprecated(note = "please use `file_path_str` instead")]
 fn file_path(text: Span, context: &ExpandContext) -> Expression {
     Expression::FilePath(expand_file_path(text.slice(context.source), context))
 }

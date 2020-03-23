@@ -321,7 +321,7 @@ impl Expression {
         Expression::Literal(Literal::Size(i.into(), unit.into()))
     }
 
-    #[deprecated]
+    #[deprecated(note = "please use `Expression::str` instead")]
     pub fn string(inner: impl Into<Span>) -> Expression {
         #[allow(deprecated)]
         Expression::Literal(Literal::String(inner.into()))
@@ -416,7 +416,7 @@ impl From<Spanned<Path>> for SpannedExpression {
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),
-    #[deprecated]
+    #[deprecated(note = "please use `Literal::Str` instead")]
     String(Span),
     Str(String),
     GlobPattern(String),

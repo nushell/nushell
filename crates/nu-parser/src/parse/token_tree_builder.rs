@@ -174,7 +174,7 @@ impl TokenTreeBuilder {
         })
     }
 
-    #[deprecated]
+    #[deprecated(note = "please use `spanned_str` instead")]
     pub fn spanned_string(input: impl Into<Span>, span: impl Into<Span>) -> SpannedToken {
         #[allow(deprecated)]
         Token::String(input.into()).into_spanned(span)
