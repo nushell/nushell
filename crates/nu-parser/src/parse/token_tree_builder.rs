@@ -174,7 +174,7 @@ impl TokenTreeBuilder {
         })
     }
 
-    #[deprecated(note = "please use `spanned_str` instead")]
+    #[deprecated(note = "switch to `spanned_str` instead")]
     pub fn spanned_string(input: impl Into<Span>, span: impl Into<Span>) -> SpannedToken {
         #[allow(deprecated)]
         Token::String(input.into()).into_spanned(span)
@@ -184,6 +184,8 @@ impl TokenTreeBuilder {
         Token::Str(input.into()).into_spanned(span)
     }
 
+    #[deprecated(note = "switch to `spanned_str`")]
+    #[allow(deprecated)]
     pub fn bare(input: impl Into<String>) -> CurriedToken {
         let input = input.into();
 
@@ -195,6 +197,7 @@ impl TokenTreeBuilder {
         })
     }
 
+    #[deprecated]
     pub fn spanned_bare(span: impl Into<Span>) -> SpannedToken {
         Token::Bare.into_spanned(span)
     }

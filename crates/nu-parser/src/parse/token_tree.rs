@@ -15,7 +15,7 @@ pub enum Token {
     Number(RawNumber),
     CompareOperator(CompareOperator),
     EvaluationOperator(EvaluationOperator),
-    #[deprecated(note = "please use `Token::String` instead")]
+    #[deprecated(note = "switch to `Token::String` instead")]
     String(Span),
     Str(String),
     Variable(Span),
@@ -23,7 +23,7 @@ pub enum Token {
     ExternalCommand(Span),
     ExternalWord,
     GlobPattern,
-    #[deprecated(note = "please use `Token::String` instead")]
+    #[deprecated(note = "switch to `Token::String` instead")]
     Bare,
     Garbage,
 
@@ -96,7 +96,7 @@ token_type!(struct DecimalType (desc: "decimal") -> RawNumber {
     Token::Number(number @ RawNumber::Decimal(_)) => number
 });
 
-#[deprecated(note = "please use `StrType` instead")]
+#[deprecated(note = "switch to `StrType` instead")]
 token_type!(struct StringType (desc: "string") -> (Span, Span) {
     |outer, Token::String(inner)| => (*inner, outer)
 });
@@ -105,7 +105,7 @@ token_type!(struct StrType(desc: "string") -> (String, Span) {
     |outer, Token::Str(s)| => (s.clone(), outer)
 });
 
-#[deprecated(note = "please use `StrType` instead")]
+#[deprecated(note = "switch to `StrType` instead")]
 token_type!(struct BareType (desc: "word") -> Span {
     |span, Token::Bare| => span
 });
@@ -327,7 +327,7 @@ impl SpannedToken {
         }
     }
 
-    #[deprecated(note = "please use `SpannedToken::as_str` instead")]
+    #[deprecated(note = "switch to `SpannedToken::as_str` instead")]
     pub fn as_string(&self) -> Option<(Span, Span)> {
         match self.unspanned() {
             #[allow(deprecated)]

@@ -261,11 +261,11 @@ impl ExpandSyntax for VariableShape {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Member {
-    #[deprecated(note = "please use `Member::Str` instead")]
+    #[deprecated(note = "switch to `Member::Str` instead")]
     String(/* outer */ Span, /* inner */ Span),
     Str(/* outer */ Span, String),
     Int(BigInt, Span),
-    #[deprecated(note = "please use `Member::Str` instead")]
+    #[deprecated(note = "switch to `Member::Str` instead")]
     Bare(Span),
     BareStr(Span, String),
 }
@@ -277,8 +277,8 @@ impl ShellTypeName for Member {
             Member::String(_, _) => "string",
             Member::Str(_, _) => "string",
             Member::Int(_, _) => "integer",
-            Member::Bare(_) => "word",
             #[allow(deprecated)]
+            Member::Bare(_) => "word",
             Member::BareStr(_, _) => "word",
         }
     }

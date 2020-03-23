@@ -24,11 +24,13 @@ impl ExpandSyntax for CoerceStringShape {
                 Ok((FlatShape::String, Expression::str(s).into_expr(outer)))
             })
             .or_else(|_| {
+                #[allow(deprecated)]
                 token_nodes.expand_token(BareType, |span| {
                     Ok((FlatShape::String, Expression::string(span).into_expr(span)))
                 })
             })
             .or_else(|_| {
+                #[allow(deprecated)]
                 token_nodes
                     .expand_syntax(NumberShape)
                     .map(|number| Expression::string(number.span()).into_expr(number.span()))
