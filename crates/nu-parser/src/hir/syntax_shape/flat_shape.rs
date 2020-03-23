@@ -161,8 +161,12 @@ impl FlatShape {
             Token::ItVariable(_) => shapes.push(FlatShape::ItVariable.spanned(span)),
             Token::ExternalCommand(_) => shapes.push(FlatShape::ExternalCommand.spanned(span)),
             Token::ExternalWord => shapes.push(FlatShape::ExternalWord.spanned(span)),
+            #[allow(deprecated)]
             Token::GlobPattern => shapes.push(FlatShape::GlobPattern.spanned(span)),
+            Token::GlobPatternStr(_) => shapes.push(FlatShape::GlobPattern.spanned(span)),
+            #[allow(deprecated)]
             Token::Bare => shapes.push(FlatShape::Word.spanned(span)),
+            Token::BareStr(_) => shapes.push(FlatShape::GlobPattern.spanned(span)),
             Token::Call(_) => unimplemented!(),
             Token::Delimited(v) => {
                 shapes.push(FlatShape::OpenDelimiter(v.delimiter).spanned(v.spans.0));

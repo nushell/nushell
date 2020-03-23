@@ -22,9 +22,12 @@ pub enum Token {
     ItVariable(Span),
     ExternalCommand(Span),
     ExternalWord,
+    #[deprecated(note = "switch to `Token::GlobPatternStr` instead")]
     GlobPattern,
-    #[deprecated(note = "switch to `Token::String` instead")]
+    GlobPatternStr(String),
+    #[deprecated(note = "switch to `Token::BareStr` instead")]
     Bare,
+    BareStr(String),
     Garbage,
 
     Call(CallNode),
@@ -220,9 +223,12 @@ impl PrettyDebugWithSource for SpannedToken {
             Token::CompareOperator(operator) => operator.pretty_debug(source),
             Token::EvaluationOperator(operator) => operator.pretty_debug(source),
             #[allow(deprecated)]
-            Token::String(_) | Token::Str(_) | Token::GlobPattern | Token::Bare => {
-                b::primitive(self.span.slice(source))
-            }
+            Token::String(_)
+            | Token::Str(_)
+            | Token::GlobPattern
+            | Token::GlobPatternStr(_)
+            | Token::Bare
+            | Token::BareStr(_) => b::primitive(self.span.slice(source)),
             Token::Variable(_) => b::var(self.span.slice(source)),
             Token::ItVariable(_) => b::keyword(self.span.slice(source)),
             Token::ExternalCommand(_) => b::description(self.span.slice(source)),
@@ -261,8 +267,12 @@ impl ShellTypeName for Token {
             Token::ItVariable(_) => "it variable",
             Token::ExternalCommand(_) => "external command",
             Token::ExternalWord => "external word",
+            #[allow(deprecated)]
             Token::GlobPattern => "glob pattern",
+            Token::GlobPatternStr(_) => "glob pattern",
+            #[allow(deprecated)]
             Token::Bare => "word",
+            Token::BareStr(_) => "word",
             Token::Call(_) => "command",
             Token::Delimited(d) => d.type_name(),
             Token::Pipeline(_) => "pipeline",

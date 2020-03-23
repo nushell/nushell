@@ -184,22 +184,24 @@ impl TokenTreeBuilder {
         Token::Str(input.into()).into_spanned(span)
     }
 
-    #[deprecated(note = "switch to `spanned_str`")]
+    #[deprecated(note = "it seems that this function is unused outside of tests")]
     #[allow(deprecated)]
     pub fn bare(input: impl Into<String>) -> CurriedToken {
         let input = input.into();
-
         Box::new(move |b| {
             let (start, end) = b.consume(&input);
             b.pos = end;
-
             TokenTreeBuilder::spanned_bare(Span::new(start, end))
         })
     }
 
-    #[deprecated]
+    #[deprecated(note = "switch to `spanned_bare_str`")]
     pub fn spanned_bare(span: impl Into<Span>) -> SpannedToken {
         Token::Bare.into_spanned(span)
+    }
+
+    pub fn spanned_bare_str(input: impl Into<String>, span: impl Into<Span>) -> SpannedToken {
+        Token::BareStr(input.into()).into_spanned(span)
     }
 
     pub fn pattern(input: impl Into<String>) -> CurriedToken {
@@ -213,8 +215,13 @@ impl TokenTreeBuilder {
         })
     }
 
+    #[deprecated(note = "switch to `spanned_bare_str`")]
     pub fn spanned_pattern(input: impl Into<Span>) -> SpannedToken {
         Token::GlobPattern.into_spanned(input)
+    }
+
+    pub fn spanned_pattern_str(input: impl Into<String>, span: impl Into<Span>) -> SpannedToken {
+        Token::GlobPatternStr(input.into()).into_spanned(span)
     }
 
     pub fn external_word(input: impl Into<String>) -> CurriedToken {
