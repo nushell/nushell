@@ -230,3 +230,23 @@ fn errors_if_source_doesnt_exist() {
         assert!(actual.contains("Invalid File or Pattern"));
     })
 }
+
+#[test]
+fn does_not_error_on_relative_parent_path() {
+    Playground::setup("mv_test_11", |dirs, sandbox| {
+        sandbox
+            .mkdir("first")
+            .with_files(vec![EmptyFile("first/william_hartnell.txt")]);
+
+        let original = dirs.test().join("first/william_hartnell.txt");
+        let expected = dirs.test().join("william_hartnell.txt");
+
+        nu!(
+            cwd: dirs.test().join("first"),
+            "mv william_hartnell.txt ./.."
+        );
+
+        assert!(!original.exists());
+        assert!(expected.exists());
+    })
+}
