@@ -413,11 +413,25 @@ fn word<'a, T, U, V>(
     }
 }
 
+#[deprecated(note = "switch to `matches_str")]
 pub fn matches(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpan, NomSpan> + Copy {
     move |input: NomSpan| match input.iter_elements().next() {
         Option::Some(c) if cond(c) => {
             let len_utf8 = c.len_utf8();
             Ok((input.slice(len_utf8..), input.slice(0..len_utf8)))
+        }
+        _ => Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
+            input,
+            nom::error::ErrorKind::Many0,
+        ))),
+    }
+}
+
+pub fn matches_str(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpan, char> + Copy {
+    move |input: NomSpan| match input.iter_elements().next() {
+        Option::Some(c) if cond(c) => {
+            let len_utf8 = c.len_utf8();
+            Ok((input.slice(len_utf8..), c))
         }
         _ => Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
             input,
@@ -444,9 +458,13 @@ pub fn start_pattern(input: NomSpan) -> IResult<NomSpan, NomSpan> {
 pub fn filename(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start_pos = input.offset;
 
-    let (mut input, mut saw_special) = match start_file_char(input) {
+    let mut filename = String::new();
+    let (mut input, (mut saw_special)) = match start_file_char(input) {
         Err(err) => return Err(err),
-        Ok((input, special)) => (input, special),
+        Ok((input, (special, c))) => {
+            filename.push(c);
+            (input, special)
+        }
     };
 
     loop {
@@ -455,12 +473,13 @@ pub fn filename(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
                 Err(_) => {
                     return Ok((
                         input,
-                        TokenTreeBuilder::spanned_bare((start_pos, input.offset)),
-                    ))
+                        TokenTreeBuilder::spanned_bare_str(filename, (start_pos, input.offset)),
+                    ));
                 }
-                Ok((next_input, special)) => {
+                Ok((next_input, (special, c))) => {
                     saw_special |= special;
                     input = next_input;
+                    filename.push(c);
                 }
             }
         } else {
@@ -468,15 +487,16 @@ pub fn filename(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
             let (input, span, updated_special) = match rest {
                 Err(_) => (input, (start_pos, input.offset), saw_special),
-                Ok((input, new_special)) => {
+                Ok((input, (new_special, s))) => {
+                    filename.push_str(&s);
                     (input, (start_pos, input.offset), saw_special | new_special)
                 }
             };
 
             if updated_special.contains(SawSpecial::Glob) {
-                return Ok((input, TokenTreeBuilder::spanned_pattern(span)));
+                return Ok((input, TokenTreeBuilder::spanned_pattern_str(filename, span)));
             } else {
-                return Ok((input, TokenTreeBuilder::spanned_bare(span)));
+                return Ok((input, TokenTreeBuilder::spanned_bare_str(filename, span)));
             }
         }
     }
@@ -489,40 +509,40 @@ enum SawSpecial {
 }
 
 #[tracable_parser]
-fn start_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
+fn start_file_char(input: NomSpan) -> IResult<NomSpan, (BitFlags<SawSpecial>, char)> {
     let path_sep_result = special_file_char(input);
 
-    if let Ok((input, special)) = path_sep_result {
-        return Ok((input, special));
+    if let Ok((input, (special, c))) = path_sep_result {
+        return Ok((input, (special, c)));
     }
 
-    start_filename(input).map(|(input, output)| (input, BitFlags::empty()))
+    start_filename(input).map(|(input, c)| (input, (BitFlags::empty(), c)))
 }
 
 #[tracable_parser]
-fn continue_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
+fn continue_file_char(input: NomSpan) -> IResult<NomSpan, (BitFlags<SawSpecial>, char)> {
     let path_sep_result = special_file_char(input);
 
-    if let Ok((input, special)) = path_sep_result {
-        return Ok((input, special));
+    if let Ok((input, (special, c))) = path_sep_result {
+        return Ok((input, (special, c)));
     }
 
-    matches(is_file_char)(input).map(|(input, _)| (input, BitFlags::empty()))
+    matches_str(is_file_char)(input).map(|(input, c)| (input, (BitFlags::empty(), c)))
 }
 
 #[tracable_parser]
-fn special_file_char(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
-    if let Ok((input, _)) = matches(is_path_separator)(input) {
-        return Ok((input, BitFlags::empty() | SawSpecial::PathSeparator));
+fn special_file_char(input: NomSpan) -> IResult<NomSpan, (BitFlags<SawSpecial>, char)> {
+    if let Ok((input, c)) = matches_str(is_path_separator)(input) {
+        return Ok((input, (BitFlags::empty() | SawSpecial::PathSeparator, c)));
     }
 
-    let (input, _) = matches(is_glob_specific_char)(input)?;
+    let (input, c) = matches_str(is_glob_specific_char)(input)?;
 
-    Ok((input, BitFlags::empty() | SawSpecial::Glob))
+    Ok((input, (BitFlags::empty() | SawSpecial::Glob, c)))
 }
 
 #[tracable_parser]
-fn after_sep_file(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
+fn after_sep_file(input: NomSpan) -> IResult<NomSpan, (BitFlags<SawSpecial>, String)> {
     fn after_sep_char(c: char) -> bool {
         is_external_word_char(c) || is_file_char(c) || c == '.'
     }
@@ -541,11 +561,11 @@ fn after_sep_file(input: NomSpan) -> IResult<NomSpan, BitFlags<SawSpecial>> {
         BitFlags::empty()
     };
 
-    Ok((input, saw_special))
+    Ok((input, (saw_special, slice.to_string())))
 }
 
-pub fn start_filename(input: NomSpan) -> IResult<NomSpan, NomSpan> {
-    alt((take_while1(is_dot), matches(is_start_file_char)))(input)
+pub fn start_filename(input: NomSpan) -> IResult<NomSpan, char> {
+    matches_str(is_start_file_char)(input)
 }
 
 #[tracable_parser]
@@ -1099,6 +1119,7 @@ fn is_file_char(c: char) -> bool {
         '\\' => true,
         '/' => true,
         '_' => true,
+        '.' => true,
         '-' => true,
         '=' => true,
         '~' => true,

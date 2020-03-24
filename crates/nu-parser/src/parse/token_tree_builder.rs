@@ -211,6 +211,7 @@ impl TokenTreeBuilder {
             let (start, end) = b.consume(&input);
             b.pos = end;
 
+            #[allow(deprecated)]
             TokenTreeBuilder::spanned_pattern(Span::new(start, end))
         })
     }
