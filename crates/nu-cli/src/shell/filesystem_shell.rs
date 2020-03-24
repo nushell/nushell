@@ -170,7 +170,7 @@ impl Shell for FilesystemShell {
                 // Map GlobError to ShellError and gracefully try to unwrap the path
                 let path = path.map_err(|e| ShellError::from(e.into_error()))?;
 
-                // Skip if '--all/-a' flag is present and this path is hidden
+                // Skip if '--all/-a' flag is not present and this path is hidden
                 if !all && is_hidden_dir(&path) {
                     continue;
                 }
@@ -294,10 +294,9 @@ impl Shell for FilesystemShell {
         let name_tag = name;
 
         let mut source = PathBuf::from(path);
-        let mut destination = PathBuf::from(path);
+        let mut destination = self.canonicalize(&dst.item)?;
 
         source.push(&src.item);
-        destination.push(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -604,10 +603,11 @@ impl Shell for FilesystemShell {
         let name_tag = name;
 
         let mut source = PathBuf::from(path);
-        let mut destination = PathBuf::from(path);
+        let mut destination = self.canonicalize(&dst.item).map_err(|_| {
+            ShellError::labeled_error("Invalid target", "target not found", &dst.tag)
+        })?;
 
         source.push(&src.item);
-        destination.push(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
