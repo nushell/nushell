@@ -108,9 +108,13 @@ token_type!(struct StrType(desc: "string") -> (String, Span) {
     |outer, Token::Str(s)| => (s.clone(), outer)
 });
 
-#[deprecated(note = "switch to `StrType` instead")]
+#[deprecated(note = "switch to `BareStrType` instead")]
 token_type!(struct BareType (desc: "word") -> Span {
     |span, Token::Bare| => span
+});
+
+token_type!(struct BareStrType (desc: "word") -> (Span,String) {
+    |span, Token::BareStr(s)| => (span,s.clone())
 });
 
 token_type!(struct DotType (desc: "dot") -> Span {
@@ -309,7 +313,9 @@ impl SpannedToken {
 
     pub fn is_bare(&self) -> bool {
         match self.unspanned() {
+            #[allow(deprecated)]
             Token::Bare => true,
+            Token::BareStr(_) => true,
             _ => false,
         }
     }
@@ -355,14 +361,18 @@ impl SpannedToken {
 
     pub fn is_pattern(&self) -> bool {
         match self.unspanned() {
+            #[allow(deprecated)]
             Token::GlobPattern => true,
+            Token::GlobPatternStr(_) => true,
             _ => false,
         }
     }
 
     pub fn is_word(&self) -> bool {
         match self.unspanned() {
+            #[allow(deprecated)]
             Token::Bare => true,
+            Token::BareStr(_) => true,
             _ => false,
         }
     }

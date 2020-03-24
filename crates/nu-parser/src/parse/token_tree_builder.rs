@@ -196,6 +196,7 @@ impl TokenTreeBuilder {
     }
 
     #[deprecated(note = "switch to `spanned_bare_str`")]
+    #[allow(deprecated)]
     pub fn spanned_bare(span: impl Into<Span>) -> SpannedToken {
         Token::Bare.into_spanned(span)
     }
@@ -217,6 +218,7 @@ impl TokenTreeBuilder {
     }
 
     #[deprecated(note = "switch to `spanned_bare_str`")]
+    #[allow(deprecated)]
     pub fn spanned_pattern(input: impl Into<Span>) -> SpannedToken {
         Token::GlobPattern.into_spanned(input)
     }

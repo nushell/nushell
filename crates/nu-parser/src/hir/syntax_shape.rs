@@ -15,7 +15,7 @@ use crate::hir::tokens_iterator::TokensIterator;
 use crate::hir::{Expression, SpannedExpression};
 use crate::parse::operator::EvaluationOperator;
 use crate::parse::token_tree::{
-    ExternalCommandType, PipelineType, SpannedToken, Token, WhitespaceType, WordType,
+    BareStrType, ExternalCommandType, PipelineType, SpannedToken, Token, WhitespaceType, WordType,
 };
 use crate::parse_command::parse_command_tail;
 use derive_new::new;
@@ -294,7 +294,11 @@ impl ExpandSyntax for BarePathShape {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[deprecated(note = "switch to BareStrShape")]
 pub struct BareShape;
+
+#[derive(Debug, Copy, Clone)]
+pub struct BareStrShape;
 
 #[derive(Debug, Clone)]
 pub struct BareSyntax {
@@ -311,6 +315,23 @@ impl HasSpan for BareSyntax {
 impl PrettyDebug for BareSyntax {
     fn pretty(&self) -> DebugDocBuilder {
         b::primitive(&self.word)
+    }
+}
+
+impl ExpandSyntax for BareStrShape {
+    type Output = Result<BareSyntax, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "word"
+    }
+
+    fn expand<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+    ) -> Result<BareSyntax, ParseError> {
+        token_nodes.expand_token(BareStrType, |(span, s)| {
+            Ok((FlatShape::Word, BareSyntax { word: s, span }))
+        })
     }
 }
 
