@@ -181,6 +181,9 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
                                 use prettytable::{color, Attr, Cell, Row, Table};
                                 use crate::data::value::{format_leaf, style_leaf};
+                                use textwrap::fill;
+
+                                let termwidth = std::cmp::max(textwrap::termwidth(), 20);
 
                                 enum TableMode {
                                     Light,
@@ -221,9 +224,20 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     }
                                 }
 
+                                let mut max_key_len = 0;
+                                for (key, _) in row.entries.iter() {
+                                    max_key_len = std::cmp::max(max_key_len, key.chars().count());
+                                }
+
+                                if max_key_len > (termwidth/2 - 1) {
+                                    max_key_len = termwidth/2 - 1;
+                                }
+
+                                let max_val_len = termwidth - max_key_len - 5;
+
                                 for (key, value) in row.entries.iter() {
-                                    table.add_row(Row::new(vec![Cell::new(key).with_style(Attr::ForegroundColor(color::GREEN)).with_style(Attr::Bold),
-                                        Cell::new(&format_leaf(value).plain_string(100_000))]));
+                                    table.add_row(Row::new(vec![Cell::new(&fill(&key, max_key_len)).with_style(Attr::ForegroundColor(color::GREEN)).with_style(Attr::Bold),
+                                        Cell::new(&fill(&format_leaf(value).plain_string(100_000), max_val_len))]));
                                 }
 
                                 table.printstd();
