@@ -12,8 +12,10 @@ use crate::utils::FileStructure;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
+use nu_source::Tagged;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
+use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::Ordering;
 use trash as SendToTrash;
@@ -991,7 +993,7 @@ impl Shell for FilesystemShell {
     fn rm(
         &self,
         RemoveArgs {
-            target,
+            rest: targets,
             recursive,
             trash,
         }: RemoveArgs,
@@ -1000,125 +1002,143 @@ impl Shell for FilesystemShell {
     ) -> Result<OutputStream, ShellError> {
         let name_tag = name;
 
-        if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
+        if targets.is_empty() {
             return Err(ShellError::labeled_error(
-                "Remove aborted. \".\" or \"..\" may not be removed.",
-                "\".\" or \"..\" may not be removed",
-                target.tag,
+                "rm requires target paths",
+                "needs parameter",
+                name_tag,
             ));
         }
 
-        let mut path = PathBuf::from(path);
+        let mut unique_paths: HashSet<PathBuf> = HashSet::new();
+        let mut all_targets: Vec<Tagged<PathBuf>> = vec![];
+        for target in targets {
+            if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
+                return Err(ShellError::labeled_error(
+                    "Remove aborted. \".\" or \"..\" may not be removed.",
+                    "\".\" or \"..\" may not be removed",
+                    target.tag,
+                ));
+            }
 
-        path.push(&target.item);
-
-        match glob::glob(&path.to_string_lossy()) {
-            Ok(files) => {
-                let files: Vec<_> = files.collect();
-                if files.is_empty() {
-                    Err(ShellError::labeled_error(
-                        "Remove aborted. Not a valid path",
-                        "not a valid path",
-                        target.tag,
-                    ))
-                } else {
-                    let stream = async_stream! {
-                        for file in files.iter() {
-                            match file {
-                                Ok(f) => {
-                                    let is_empty =  match f.read_dir() {
-                                            Ok(mut p) => p.next().is_none(),
-                                            Err(_) => false
-                                    };
-
-                                    let valid_target =
-                                        f.exists() && (!f.is_dir() || (is_empty || recursive.item));
-                                    if valid_target {
-                                        if trash.item {
-                                            match SendToTrash::remove(f) {
-                                                Err(e) => {
-                                                    let msg = format!(
-                                                        "Could not delete {:}",
-                                                        f.to_string_lossy()
-                                                    );
-                                                    let label = format!("{:?}", e);
-                                                    yield Err(ShellError::labeled_error(
-                                                        msg,
-                                                        label,
-                                                        &target.tag,
-                                                    ))
-                                                },
-                                                Ok(()) => {
-                                                    let val = format!("deleted {:}", f.to_string_lossy()).into();
-                                                    yield Ok(ReturnSuccess::Value(val))
-                                                },
-                                            }
-                                        } else {
-                                            let success = if f.is_dir() {
-                                                std::fs::remove_dir_all(f)
-                                            } else {
-                                                std::fs::remove_file(f)
-                                            };
-                                            match success {
-                                                Err(e) => {
-                                                    let msg = format!(
-                                                        "Could not delete {:}",
-                                                        f.to_string_lossy()
-                                                    );
-                                                    yield Err(ShellError::labeled_error(
-                                                        msg,
-                                                        e.to_string(),
-                                                        &target.tag,
-                                                    ))
-                                                },
-                                                Ok(()) => {
-                                                    let val = format!("deleted {:}", f.to_string_lossy()).into();
-                                                    yield Ok(ReturnSuccess::Value(
-                                                        val,
-                                                    ))
-                                                },
-                                            }
-                                        }
-                                    } else {
-                                        if f.is_dir() {
-                                            let msg = format!(
-                                                "Cannot remove {:}. try --recursive",
-                                                f.to_string_lossy()
-                                            );
-                                            yield Err(ShellError::labeled_error(
-                                                msg,
-                                                "cannot remove non-empty directory",
-                                                &target.tag,
-                                            ))
-                                        } else {
-                                            let msg = format!("Invalid file: {:}", f.to_string_lossy());
-                                            yield Err(ShellError::labeled_error(
-                                                msg,
-                                                "invalid file",
-                                                &target.tag,
-                                            ))
-                                        }
-                                    }
+            let mut path = PathBuf::from(path);
+            path.push(&target.item);
+            match glob::glob(&path.to_string_lossy()) {
+                Ok(files) => {
+                    for file in files {
+                        match file {
+                            Ok(ref f) => {
+                                if !unique_paths.contains(f) {
+                                    unique_paths.insert(f.clone());
+                                    all_targets.push(Tagged::new(target.tag.clone(), f.clone()));
                                 }
+                            }
+                            Err(e) => {
+                                let msg = format!("Could not remove {:}", path.to_string_lossy());
+                                return Err(ShellError::labeled_error(
+                                    msg,
+                                    e.to_string(),
+                                    &target.tag,
+                                ));
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Err(ShellError::labeled_error(
+                        format!("Remove aborted. {:}", e.to_string()),
+                        e.to_string(),
+                        &name_tag,
+                    ))
+                }
+            };
+        }
+
+        if all_targets.is_empty() {
+            Err(ShellError::labeled_error(
+                "Remove aborted. Not a valid path",
+                "not a valid path",
+                name_tag,
+            ))
+        } else {
+            let stream = async_stream! {
+                for Tagged { tag, item: f } in all_targets.iter() {
+                    let is_empty = match f.read_dir() {
+                        Ok(mut p) => p.next().is_none(),
+                        Err(_) => false
+                    };
+
+                    let valid_target =
+                        f.exists() && (!f.is_dir() || (is_empty || recursive.item));
+                    if valid_target {
+                        if trash.item {
+                            match SendToTrash::remove(f) {
                                 Err(e) => {
-                                    let msg = format!("Could not remove {:}", path.to_string_lossy());
+                                    let msg = format!(
+                                        "Could not delete {:}",
+                                        f.to_string_lossy()
+                                    );
+                                    let label = format!("{:?}", e);
+                                    yield Err(ShellError::labeled_error(
+                                        msg,
+                                        label,
+                                        tag,
+                                    ))
+                                },
+                                Ok(()) => {
+                                    let val = format!("deleted {:}", f.to_string_lossy()).into();
+                                    yield Ok(ReturnSuccess::Value(val))
+                                },
+                            }
+                        } else {
+                            let success = if f.is_dir() {
+                                std::fs::remove_dir_all(f)
+                            } else {
+                                std::fs::remove_file(f)
+                            };
+                            match success {
+                                Err(e) => {
+                                    let msg = format!(
+                                        "Could not delete {:}",
+                                        f.to_string_lossy()
+                                    );
                                     yield Err(ShellError::labeled_error(
                                         msg,
                                         e.to_string(),
-                                        &target.tag,
+                                        tag,
+                                    ))
+                                },
+                                Ok(()) => {
+                                    let val = format!("deleted {:}", f.to_string_lossy()).into();
+                                    yield Ok(ReturnSuccess::Value(
+                                        val,
                                     ))
                                 },
                             }
-                            }
-                    };
-                    Ok(stream.to_output_stream())
+                        }
+                    } else {
+                        if f.is_dir() {
+                            let msg = format!(
+                                "Cannot remove {:}. try --recursive",
+                                f.to_string_lossy()
+                            );
+                            yield Err(ShellError::labeled_error(
+                                msg,
+                                "cannot remove non-empty directory",
+                                tag,
+                            ))
+                        } else {
+                            let msg = format!("Invalid file: {:}", f.to_string_lossy());
+                            yield Err(ShellError::labeled_error(
+                                msg,
+                                "invalid file",
+                                tag,
+                            ))
+                        }
+                    }
                 }
-            }
-            Err(e) => Err(ShellError::labeled_error(
-                format!("Remove aborted. {:}", e.to_string()),
-                e.to_string(),
-                &name_tag,
-            )),
+            };
+            Ok(stream.to_output_stream())
         }
     }
 

@@ -159,3 +159,85 @@ fn errors_if_attempting_to_delete_two_dot_as_argument() {
         assert!(actual.contains("may not be removed"));
     })
 }
+
+#[test]
+fn removes_multiple_directories() {
+    Playground::setup("rm_test_9", |dirs, sandbox| {
+        sandbox
+            .within("src")
+            .with_files(vec![EmptyFile("a.rs"), EmptyFile("b.rs")])
+            .within("src/cli")
+            .with_files(vec![EmptyFile("c.rs"), EmptyFile("d.rs")])
+            .within("test")
+            .with_files(vec![EmptyFile("a_test.rs"), EmptyFile("b_test.rs")]);
+
+        nu!(
+            cwd: dirs.test(),
+            "rm src test --recursive"
+        );
+
+        assert_eq!(
+            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            Vec::<std::path::PathBuf>::new()
+        );
+    })
+}
+
+#[test]
+fn removes_multiple_files() {
+    Playground::setup("rm_test_10", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.txt"),
+        ]);
+
+        nu!(
+            cwd: dirs.test(),
+            "rm yehuda.txt jonathan.txt andres.txt"
+        );
+
+        assert_eq!(
+            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            Vec::<std::path::PathBuf>::new()
+        );
+    })
+}
+
+#[test]
+fn removes_multiple_files_with_asterisks() {
+    Playground::setup("rm_test_11", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("andres.toml"),
+        ]);
+
+        nu!(
+            cwd: dirs.test(),
+            "rm *.txt *.toml"
+        );
+
+        assert_eq!(
+            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            Vec::<std::path::PathBuf>::new()
+        );
+    })
+}
+
+#[test]
+fn allows_doubly_specified_file() {
+    Playground::setup("rm_test_12", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jonathan.toml")]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm *.txt yehuda* *.toml"
+        );
+
+        assert_eq!(
+            Playground::glob_vec(&format!("{}/*", dirs.test().display())),
+            Vec::<std::path::PathBuf>::new()
+        );
+    })
+}

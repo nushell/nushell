@@ -10,7 +10,7 @@ pub struct Remove;
 
 #[derive(Deserialize)]
 pub struct RemoveArgs {
-    pub target: Tagged<PathBuf>,
+    pub rest: Vec<Tagged<PathBuf>>,
     pub recursive: Tagged<bool>,
     pub trash: Tagged<bool>,
 }
@@ -22,17 +22,17 @@ impl PerItemCommand for Remove {
 
     fn signature(&self) -> Signature {
         Signature::build("rm")
-            .required("path", SyntaxShape::Pattern, "the file path to remove")
             .switch(
                 "trash",
                 "use the platform's recycle bin instead of permanently deleting",
                 Some('t'),
             )
             .switch("recursive", "delete subdirectories recursively", Some('r'))
+            .rest(SyntaxShape::Pattern, "the file path(s) to remove")
     }
 
     fn usage(&self) -> &str {
-        "Remove a file"
+        "Remove file(s)"
     }
 
     fn run(
