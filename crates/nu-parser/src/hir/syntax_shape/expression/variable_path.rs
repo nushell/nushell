@@ -1,6 +1,6 @@
 use crate::hir::syntax_shape::{
-    AnyExpressionShape, BareShape, ExpandSyntax, FlatShape, IntShape, ParseError, StringShape,
-    WhitespaceShape,
+    AnyExpressionShape, BareShape, BareStrShape, ExpandSyntax, FlatShape, IntShape, ParseError,
+    StringShape, WhitespaceShape,
 };
 use crate::hir::{Expression, SpannedExpression, TokensIterator};
 use crate::parse::token_tree::{CompareOperatorType, DotDotType, DotType, ItVarType, VarType};
@@ -497,6 +497,12 @@ impl ExpandSyntax for MemberShape {
     fn expand<'a, 'b>(&self, token_nodes: &mut TokensIterator<'_>) -> Result<Member, ParseError> {
         if let Ok(int) = token_nodes.expand_syntax(IntMemberShape) {
             return Ok(int);
+        }
+
+        let bare = token_nodes.expand_syntax(BareStrShape);
+
+        if let Ok(bare) = bare {
+            return Ok(Member::BareStr(bare.span(), bare.word));
         }
 
         let bare = token_nodes.expand_syntax(BareShape);

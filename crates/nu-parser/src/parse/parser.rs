@@ -476,17 +476,6 @@ pub fn matches_str(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpa
 }
 
 #[tracable_parser]
-#[deprecated(note = "switch to `pattern_str`")]
-#[allow(deprecated)]
-pub fn pattern(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
-    word(
-        start_pattern,
-        matches(is_glob_char),
-        TokenTreeBuilder::spanned_pattern,
-    )(input)
-}
-
-#[tracable_parser]
 pub fn pattern_str(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     word_str(
         start_pattern_str,
@@ -502,7 +491,6 @@ pub fn start_pattern(input: NomSpan) -> IResult<NomSpan, NomSpan> {
 }
 
 #[tracable_parser]
-#[deprecated(note = "switch to `start_pattern_str`")]
 pub fn start_pattern_str(input: NomSpan) -> IResult<NomSpan, char> {
     alt((matches_str(is_dot), matches_str(is_start_glob_char)))(input)
 }
@@ -623,10 +611,10 @@ pub fn start_filename(input: NomSpan) -> IResult<NomSpan, char> {
 
 #[tracable_parser]
 pub fn bare_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
-    word(
-        matches(is_start_member_char),
-        matches(is_member_char),
-        TokenTreeBuilder::spanned_bare,
+    word_str(
+        matches_str(is_start_member_char),
+        matches_str(is_member_char),
+        TokenTreeBuilder::spanned_bare_str,
     )(input)
 }
 
@@ -1025,7 +1013,7 @@ pub fn tight_node(input: NomSpan) -> IResult<NomSpan, Vec<SpannedToken>> {
     alt((
         tight(to_list(leaf)),
         tight(to_list(filename)),
-        tight(to_list(pattern)),
+        tight(to_list(pattern_str)),
         to_list(comment),
         to_list(external_word),
         tight(to_list(delimited_paren)),
