@@ -1026,7 +1026,9 @@ impl Shell for FilesystemShell {
                     for file in files {
                         match file {
                             Ok(ref f) => {
-                                all_targets.entry(f.clone()).or_insert(target.tag.clone());
+                                all_targets
+                                    .entry(f.clone())
+                                    .or_insert_with(|| target.tag.clone());
                             }
                             Err(e) => {
                                 let msg = format!("Could not remove {:}", path.to_string_lossy());
