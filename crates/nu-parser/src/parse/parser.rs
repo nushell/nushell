@@ -380,7 +380,7 @@ pub fn external(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     ))
 }
 
-#[deprecated(note = "This needs to be updated to return a String instead of a span")]
+#[deprecated(note = "switch to `word_str`]")]
 fn word<'a, T, U, V>(
     start_predicate: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, U>,
     next_predicate: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, V> + Copy,
@@ -413,6 +413,41 @@ fn word<'a, T, U, V>(
     }
 }
 
+fn word_str<'a, T>(
+    start_predicate: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, char>,
+    next_predicate: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, char> + Copy,
+    into: impl Fn(String, Span) -> T,
+) -> impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, T> {
+    move |input: NomSpan| {
+        let start = input.offset;
+
+        let (input, c) = start_predicate(input)?;
+        let mut s = c.to_string();
+        let (input, s2) = many0(next_predicate)(input)?;
+
+        s.push_str(&s2.into_iter().collect::<String>());
+
+        let next_char = &input.fragment.chars().next();
+
+        match next_char {
+            Some('.') => {}
+            Some(next_char)
+                if is_external_word_char(*next_char) || is_glob_specific_char(*next_char) =>
+            {
+                return Err(nom::Err::Error(nom::error::make_error(
+                    input,
+                    nom::error::ErrorKind::TakeWhile1,
+                )));
+            }
+            _ => {}
+        }
+
+        let end = input.offset;
+
+        Ok((input, into(s, Span::new(start, end))))
+    }
+}
+
 #[deprecated(note = "switch to `matches_str")]
 pub fn matches(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpan, NomSpan> + Copy {
     move |input: NomSpan| match input.iter_elements().next() {
@@ -441,6 +476,8 @@ pub fn matches_str(cond: fn(char) -> bool) -> impl Fn(NomSpan) -> IResult<NomSpa
 }
 
 #[tracable_parser]
+#[deprecated(note = "switch to `pattern_str`")]
+#[allow(deprecated)]
 pub fn pattern(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     word(
         start_pattern,
@@ -450,8 +487,24 @@ pub fn pattern(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 }
 
 #[tracable_parser]
+pub fn pattern_str(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+    word_str(
+        start_pattern_str,
+        matches_str(is_glob_char),
+        TokenTreeBuilder::spanned_pattern_str,
+    )(input)
+}
+
+#[tracable_parser]
+#[deprecated(note = "switch to `start_pattern_str`")]
 pub fn start_pattern(input: NomSpan) -> IResult<NomSpan, NomSpan> {
     alt((take_while1(is_dot), matches(is_start_glob_char)))(input)
+}
+
+#[tracable_parser]
+#[deprecated(note = "switch to `start_pattern_str`")]
+pub fn start_pattern_str(input: NomSpan) -> IResult<NomSpan, char> {
+    alt((matches_str(is_dot), matches_str(is_start_glob_char)))(input)
 }
 
 #[tracable_parser]
@@ -579,6 +632,7 @@ pub fn bare_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
 #[tracable_parser]
 pub fn garbage_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
+    #[allow(deprecated)]
     word(
         matches(is_garbage_member_char),
         matches(is_garbage_member_char),
@@ -588,6 +642,7 @@ pub fn garbage_member(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
 #[tracable_parser]
 pub fn ident(input: NomSpan) -> IResult<NomSpan, Tag> {
+    #[allow(deprecated)]
     word(matches(is_id_start), matches(is_id_continue), Tag::from)(input)
 }
 
