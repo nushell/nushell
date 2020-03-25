@@ -1,7 +1,7 @@
 use crate::hir::syntax_shape::{ExpandSyntax, FlatShape, NumberShape, VariableShape};
 use crate::hir::TokensIterator;
 use crate::hir::{Expression, SpannedExpression};
-use crate::parse::token_tree::{BareType, StrType};
+use crate::parse::token_tree::{BareStrType, StrType};
 use nu_errors::ParseError;
 use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span};
 
@@ -25,8 +25,8 @@ impl ExpandSyntax for CoerceStringShape {
             })
             .or_else(|_| {
                 #[allow(deprecated)]
-                token_nodes.expand_token(BareType, |span| {
-                    Ok((FlatShape::String, Expression::string(span).into_expr(span)))
+                token_nodes.expand_token(BareStrType, |(span, s)| {
+                    Ok((FlatShape::String, Expression::str(s).into_expr(span)))
                 })
             })
             .or_else(|_| {

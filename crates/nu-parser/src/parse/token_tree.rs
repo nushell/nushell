@@ -108,11 +108,6 @@ token_type!(struct StrType(desc: "string") -> (String, Span) {
     |outer, Token::Str(s)| => (s.clone(), outer)
 });
 
-#[deprecated(note = "switch to `BareStrType` instead")]
-token_type!(struct BareType (desc: "word") -> Span {
-    |span, Token::Bare| => span
-});
-
 token_type!(struct BareStrType (desc: "word") -> (Span,String) {
     |span, Token::BareStr(s)| => (span,s.clone())
 });

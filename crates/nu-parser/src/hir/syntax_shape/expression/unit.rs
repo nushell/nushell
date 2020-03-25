@@ -3,7 +3,7 @@ use crate::hir::syntax_shape::ExpandSyntax;
 use crate::hir::TokensIterator;
 use crate::hir::{Expression, SpannedExpression};
 use crate::parse::number::RawNumber;
-use crate::parse::token_tree::BareType;
+use crate::parse::token_tree::BareStrType;
 use crate::parse::unit::Unit;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -83,8 +83,8 @@ impl ExpandSyntax for UnitShape {
     ) -> Result<UnitSyntax, ParseError> {
         let source = token_nodes.source();
 
-        token_nodes.expand_token(BareType, |span| {
-            let unit = unit_size(span.slice(&source), span);
+        token_nodes.expand_token(BareStrType, |(span, s)| {
+            let unit = unit_size(&s, span);
 
             let (_, (number, unit)) = match unit {
                 Err(_) => return Err(ParseError::mismatch("unit", "word".spanned(span))),
