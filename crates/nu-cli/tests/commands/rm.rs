@@ -230,7 +230,7 @@ fn allows_doubly_specified_file() {
     Playground::setup("rm_test_12", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jonathan.toml")]);
 
-        let actual = nu!(
+        nu!(
             cwd: dirs.test(),
             "rm *.txt yehuda* *.toml"
         );
