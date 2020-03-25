@@ -1056,8 +1056,8 @@ impl Shell for FilesystemShell {
 
         if all_targets.is_empty() {
             Err(ShellError::labeled_error(
-                "Remove aborted. Not a valid path",
-                "not a valid path",
+                "Remove aborted. No valid paths",
+                "no valid paths",
                 name_tag,
             ))
         } else {
