@@ -294,10 +294,6 @@ impl ExpandSyntax for BarePathShape {
 }
 
 #[derive(Debug, Copy, Clone)]
-#[deprecated(note = "switch to BareStrShape")]
-pub struct BareShape;
-
-#[derive(Debug, Copy, Clone)]
 pub struct BareStrShape;
 
 #[derive(Debug, Clone)]
@@ -331,31 +327,6 @@ impl ExpandSyntax for BareStrShape {
     ) -> Result<BareSyntax, ParseError> {
         token_nodes.expand_token(BareStrType, |(span, s)| {
             Ok((FlatShape::Word, BareSyntax { word: s, span }))
-        })
-    }
-}
-
-impl ExpandSyntax for BareShape {
-    type Output = Result<BareSyntax, ParseError>;
-
-    fn name(&self) -> &'static str {
-        "word"
-    }
-
-    fn expand<'a, 'b>(
-        &self,
-        token_nodes: &'b mut TokensIterator<'a>,
-    ) -> Result<BareSyntax, ParseError> {
-        let source = token_nodes.source();
-
-        token_nodes.expand_token(WordType, |span| {
-            Ok((
-                FlatShape::Word,
-                BareSyntax {
-                    word: span.string(&source),
-                    span,
-                },
-            ))
         })
     }
 }

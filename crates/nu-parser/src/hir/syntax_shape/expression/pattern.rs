@@ -88,9 +88,12 @@ impl ExpandSyntax for BarePatternShape {
 
     fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
         expand_bare(token_nodes, |token| match token.unspanned() {
+            #[allow(deprecated)]
             Token::Bare
+            | Token::BareStr(_)
             | Token::EvaluationOperator(EvaluationOperator::Dot)
-            | Token::GlobPattern => true,
+            | Token::GlobPattern
+            | Token::GlobPatternStr(_) => true,
 
             _ => false,
         })
