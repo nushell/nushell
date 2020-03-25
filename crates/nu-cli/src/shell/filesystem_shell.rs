@@ -12,10 +12,9 @@ use crate::utils::FileStructure;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
-use nu_source::Tagged;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::Ordering;
 use trash as SendToTrash;
@@ -1010,8 +1009,7 @@ impl Shell for FilesystemShell {
             ));
         }
 
-        let mut unique_paths: HashSet<PathBuf> = HashSet::new();
-        let mut all_targets: Vec<Tagged<PathBuf>> = vec![];
+        let mut all_targets: HashMap<PathBuf, Tag> = HashMap::new();
         for target in targets {
             if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
                 return Err(ShellError::labeled_error(
@@ -1028,10 +1026,7 @@ impl Shell for FilesystemShell {
                     for file in files {
                         match file {
                             Ok(ref f) => {
-                                if !unique_paths.contains(f) {
-                                    unique_paths.insert(f.clone());
-                                    all_targets.push(Tagged::new(target.tag.clone(), f.clone()));
-                                }
+                                all_targets.entry(f.clone()).or_insert(target.tag.clone());
                             }
                             Err(e) => {
                                 let msg = format!("Could not remove {:}", path.to_string_lossy());
@@ -1062,7 +1057,7 @@ impl Shell for FilesystemShell {
             ))
         } else {
             let stream = async_stream! {
-                for Tagged { tag, item: f } in all_targets.iter() {
+                for (f, tag) in all_targets.iter() {
                     let is_empty = match f.read_dir() {
                         Ok(mut p) => p.next().is_none(),
                         Err(_) => false

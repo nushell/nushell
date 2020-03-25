@@ -230,7 +230,7 @@ fn allows_doubly_specified_file() {
     Playground::setup("rm_test_12", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jonathan.toml")]);
 
-        nu!(
+        let actual = nu!(
             cwd: dirs.test(),
             "rm *.txt yehuda* *.toml"
         );
@@ -239,5 +239,6 @@ fn allows_doubly_specified_file() {
             Playground::glob_vec(&format!("{}/*", dirs.test().display())),
             Vec::<std::path::PathBuf>::new()
         );
+        assert!(!actual.contains("error"))
     })
 }
