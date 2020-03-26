@@ -265,7 +265,7 @@ pub enum Member {
     String(/* outer */ Span, /* inner */ Span),
     Str(/* outer */ Span, String),
     Int(BigInt, Span),
-    #[deprecated(note = "switch to `Member::Str` instead")]
+    #[deprecated(note = "switch to `Member::BareStr` instead")]
     Bare(Span),
     BareStr(Span, String),
 }

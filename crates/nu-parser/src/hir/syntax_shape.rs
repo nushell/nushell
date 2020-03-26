@@ -286,7 +286,10 @@ impl ExpandSyntax for BarePathShape {
 
     fn expand<'a, 'b>(&self, token_nodes: &'b mut TokensIterator<'a>) -> Result<Span, ParseError> {
         expand_bare(token_nodes, |token| match token.unspanned() {
-            Token::Bare | Token::EvaluationOperator(EvaluationOperator::Dot) => true,
+            #[allow(deprecated)]
+            Token::Bare
+            | Token::EvaluationOperator(EvaluationOperator::Dot)
+            | Token::BareStr(_) => true,
 
             _ => false,
         })
