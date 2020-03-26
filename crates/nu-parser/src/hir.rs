@@ -380,6 +380,11 @@ impl Expression {
         Expression::List(list)
     }
 
+    pub fn bare_str() -> Expression {
+        Expression::Literal(Literal::Bare)
+    }
+
+    #[deprecated(note = "switch to `bare_str`")]
     pub fn bare() -> Expression {
         Expression::Literal(Literal::Bare)
     }
@@ -421,7 +426,9 @@ pub enum Literal {
     Str(String),
     GlobPattern(String),
     ColumnPath(Vec<Member>),
+    #[deprecated(note = "switch to `Literal::BareStr` instead")]
     Bare,
+    BareStr(String),
 }
 
 impl Literal {
@@ -448,7 +455,9 @@ impl ShellTypeName for Literal {
             Literal::String(..) => "string",
             Literal::Str(..) => "string",
             Literal::ColumnPath(..) => "column path",
+            #[allow(deprecated)]
             Literal::Bare => "string",
+            Literal::BareStr(_) => "string",
             Literal::GlobPattern(_) => "pattern",
         }
     }
@@ -463,12 +472,14 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 Literal::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
                 #[allow(deprecated)]
                 Literal::String(string) => b::primitive(format!("{:?}", string.slice(source))),
-                Literal::Str(string) => b::primitive(format!("{:?}", string)),
+                Literal::Str(s) => b::primitive(s),
                 Literal::GlobPattern(pattern) => b::primitive(pattern),
                 Literal::ColumnPath(path) => {
                     b::intersperse_with_source(path.iter(), b::space(), source)
                 }
+                #[allow(deprecated)]
                 Literal::Bare => b::delimit("b\"", b::primitive(self.span.slice(source)), "\""),
+                Literal::BareStr(s) => b::delimit("b\"", b::primitive(s), "\""),
             },
         }
     }
@@ -484,13 +495,15 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 "string",
                 b::primitive(format!("{:?}", string.slice(source))),
             ),
-            Literal::Str(string) => b::typed("string", b::primitive(format!("{:?}", string))),
+            Literal::Str(s) => b::typed("string", b::primitive(s)),
             Literal::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
             Literal::ColumnPath(path) => b::typed(
                 "column path",
                 b::intersperse_with_source(path.iter(), b::space(), source),
             ),
+            #[allow(deprecated)]
             Literal::Bare => b::typed("bare", b::primitive(self.span.slice(source))),
+            Literal::BareStr(s) => b::typed("bare", b::primitive(s)),
         }
     }
 }

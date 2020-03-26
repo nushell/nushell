@@ -146,7 +146,9 @@ fn evaluate_literal(literal: &hir::Literal, span: Span, source: &Text) -> Value 
         hir::Literal::String(tag) => UntaggedValue::string(tag.slice(source)).into_value(span),
         hir::Literal::Str(s) => UntaggedValue::string(s).into_value(span),
         hir::Literal::GlobPattern(pattern) => UntaggedValue::pattern(pattern).into_value(span),
+        #[allow(deprecated)]
         hir::Literal::Bare => UntaggedValue::string(span.slice(source)).into_value(span),
+        hir::Literal::BareStr(s) => UntaggedValue::string(s).into_value(span),
     }
 }
 
