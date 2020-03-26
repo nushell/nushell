@@ -485,12 +485,6 @@ pub fn pattern_str(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 }
 
 #[tracable_parser]
-#[deprecated(note = "switch to `start_pattern_str`")]
-pub fn start_pattern(input: NomSpan) -> IResult<NomSpan, NomSpan> {
-    alt((take_while1(is_dot), matches(is_start_glob_char)))(input)
-}
-
-#[tracable_parser]
 pub fn start_pattern_str(input: NomSpan) -> IResult<NomSpan, char> {
     alt((matches_str(is_dot), matches_str(is_start_glob_char)))(input)
 }
