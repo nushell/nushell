@@ -81,8 +81,6 @@ impl ExpandSyntax for UnitShape {
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
     ) -> Result<UnitSyntax, ParseError> {
-        let source = token_nodes.source();
-
         token_nodes.expand_token(BareStrType, |(span, s)| {
             let unit = unit_size(&s, span);
 
