@@ -44,22 +44,18 @@ pub fn count(
     let stream = async_stream! {
         let rows: Vec<Value> = input.values.collect().await;
 
-        let mut entries = IndexMap::new();
-        let headers: Value = rows[0].clone();
-        match &headers.value {
+        let mut headers = vec![];
+        match &rows[0].value {
             UntaggedValue::Row(d) => {
-                entries = d.entries.clone();
-                ()
+                for (_, v) in d.entries.iter() {
+                    headers.push(v.as_string().unwrap());
+                }
             }
             _ => ()
         }
-        let mut heads = vec![];
-        for (k, v) in entries.iter() {
-            heads.push(v.as_string().unwrap());
-        }
 
         let mut file =  File::create("headout").unwrap();
-        write!(file, "args: {:#?}", heads);
+        write!(file, "args: {:#?}", headers);
 
         yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
     };
