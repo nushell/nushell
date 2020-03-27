@@ -1,6 +1,6 @@
 use crate::hir::syntax_shape::{
-    expression::expand_file_path, BarePathShape, BarePathStrShape, DecimalShape, ExpandContext,
-    ExpandSyntax, FlatShape, IntShape, StringShape,
+    expression::expand_file_path, BarePathStrShape, DecimalShape, ExpandContext, ExpandSyntax,
+    FlatShape, IntShape, StringShape,
 };
 use crate::hir::{Expression, SpannedExpression, TokensIterator};
 use crate::parse::token_tree::ExternalWordType;
@@ -22,18 +22,19 @@ impl ExpandSyntax for FilePathShape {
         token_nodes: &mut TokensIterator<'_>,
     ) -> Result<SpannedExpression, ParseError> {
         token_nodes
-            .expand_syntax(BarePathShape)
-            .or_else(|_| token_nodes.expand_syntax(ExternalWordShape))
-            .map(|span| file_path(span, token_nodes.context()).into_expr(span))
+            .expand_syntax(StringShape)
+            .map(|syntax| {
+                file_path_str(&syntax.content, token_nodes.context()).into_expr(syntax.span)
+            })
             .or_else(|_| {
                 token_nodes.expand_syntax(BarePathStrShape).map(|syntax| {
                     file_path_str(&syntax.word, token_nodes.context()).into_expr(syntax.span)
                 })
             })
             .or_else(|_| {
-                token_nodes.expand_syntax(StringShape).map(|syntax| {
-                    file_path_str(&syntax.content, token_nodes.context()).into_expr(syntax.span)
-                })
+                token_nodes
+                    .expand_syntax(ExternalWordShape)
+                    .map(|span| file_path(span, token_nodes.context()).into_expr(span))
             })
             .or_else(|_| {
                 token_nodes
