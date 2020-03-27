@@ -54,8 +54,25 @@ pub fn count(
             _ => ()
         }
 
+        let mut newrows: Vec<_> = vec![];
+        for r in rows.iter().skip(1) {
+            match &r.value {
+                UntaggedValue::Row(d) => {
+                    let mut i = 0;
+                    let mut newrow = IndexMap::new();
+
+                    for (_, v) in d.entries.iter() {
+                        newrow.insert(headers[i].clone(), v);
+                        i += 1;
+                    }
+                    newrows.push(newrow);
+                }
+                _ => panic!("huh?")
+            }
+        }
+
         let mut file =  File::create("headout").unwrap();
-        write!(file, "args: {:#?}", headers);
+        write!(file, "args: {:#?}", newrows).unwrap();
 
         yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
     };
