@@ -75,7 +75,8 @@ pub fn count(
         let mut file =  File::create("headout").unwrap();
         write!(file, "args: {:#?}", newrows).unwrap();
 
-        yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
+        // yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
+        yield ReturnSuccess::value(UntaggedValue::Table(newrows).into_value(name))
     };
 
     Ok(stream.to_output_stream())
