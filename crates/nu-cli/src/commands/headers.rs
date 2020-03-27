@@ -6,8 +6,6 @@ use crate::prelude::*;
 use futures::stream::StreamExt;
 use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
-use std::fs::File;
-use std::io::Write;
 
 pub struct Headers;
 #[derive(Deserialize)]
@@ -41,19 +39,15 @@ pub fn count(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
 
-
     let stream = async_stream! {
         let rows: Vec<Value> = input.values.collect().await;
 
-        let mut headers = vec![];
-        match &rows[0].value {
+        let headers: Vec<String> = match &rows[0].value {
             UntaggedValue::Row(d) => {
-                for (_, v) in d.entries.iter() {
-                    headers.push(v.as_string().unwrap());
-                }
+                d.entries.iter().map(|(_, v)| v.as_string().unwrap()).collect()
             }
-            _ => ()
-        }
+            _ => vec![]
+        };
 
         let mut newrows: Vec<Value> = vec![];
         for r in rows.iter().skip(1) {
@@ -72,11 +66,7 @@ pub fn count(
             }
         }
 
-        let mut file =  File::create("headout").unwrap();
-        write!(file, "args: {:#?}", newrows).unwrap();
-
-        // yield ReturnSuccess::value(UntaggedValue::int(rows.len()).into_value(name))
-        yield ReturnSuccess::value(UntaggedValue::Table(newrows).into_value(name))
+        yield ReturnSuccess::value(UntaggedValue::table(&newrows).into_value(name))
     };
 
     Ok(stream.to_output_stream())
