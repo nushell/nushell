@@ -25,6 +25,7 @@ pub(crate) mod edit;
 pub(crate) mod enter;
 #[allow(unused)]
 pub(crate) mod evaluate_by;
+pub(crate) mod headers;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod format;
@@ -216,3 +217,4 @@ pub(crate) use what::What;
 pub(crate) use where_::Where;
 pub(crate) use which_::Which;
 pub(crate) use wrap::Wrap;
+pub(crate) use headers::Headers;

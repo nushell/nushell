@@ -6,6 +6,8 @@ use nu_errors::ShellError;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
+#[derive(Deserialize)]
+pub struct HeadersArgs {}
 
 impl WholeStreamCommand for Headers {
     fn name(&self) -> &str {
@@ -26,7 +28,7 @@ impl WholeStreamCommand for Headers {
     }
 }
 pub fn count(
-    CountArgs {}: CountArgs,
+    HeadersArgs {}: HeadersArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
