@@ -1,5 +1,6 @@
 use crate::commands::WholeStreamCommand;
 use indexmap::IndexMap;
+use nu_protocol::Dictionary;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
@@ -54,7 +55,7 @@ pub fn count(
             _ => ()
         }
 
-        let mut newrows: Vec<_> = vec![];
+        let mut newrows: Vec<Value> = vec![];
         for r in rows.iter().skip(1) {
             match &r.value {
                 UntaggedValue::Row(d) => {
@@ -62,10 +63,10 @@ pub fn count(
                     let mut newrow = IndexMap::new();
 
                     for (_, v) in d.entries.iter() {
-                        newrow.insert(headers[i].clone(), v);
+                        newrow.insert(headers[i].clone(), v.clone());
                         i += 1;
                     }
-                    newrows.push(newrow);
+                    newrows.push(UntaggedValue::Row(Dictionary{entries: newrow}).into_value(r.tag.clone()));
                 }
                 _ => panic!("huh?")
             }
