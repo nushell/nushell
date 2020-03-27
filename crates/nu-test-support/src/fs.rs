@@ -246,7 +246,10 @@ pub fn root() -> PathBuf {
 }
 
 pub fn binaries() -> PathBuf {
-    root().join("target/debug")
+    std::env::var("CARGO_TARGET_DIR")
+        .ok()
+        .map(|target_dir| PathBuf::from(target_dir).join("debug"))
+        .unwrap_or_else(|| root().join("target/debug"))
 }
 
 pub fn fixtures() -> PathBuf {
