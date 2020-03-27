@@ -380,11 +380,12 @@ impl Expression {
         Expression::List(list)
     }
 
-    pub fn bare_str() -> Expression {
-        Expression::Literal(Literal::Bare)
+    pub fn bare_str(s: impl Into<String>) -> Expression {
+        Expression::Literal(Literal::BareStr(s.into()))
     }
 
     #[deprecated(note = "switch to `bare_str`")]
+    #[allow(deprecated)]
     pub fn bare() -> Expression {
         Expression::Literal(Literal::Bare)
     }

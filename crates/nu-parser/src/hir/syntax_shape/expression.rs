@@ -9,7 +9,7 @@ pub(crate) mod unit;
 pub(crate) mod variable_path;
 
 use crate::hir::syntax_shape::{
-    BareExpressionShape, DelimitedSquareShape, ExpandContext, ExpandSyntax,
+    BareExpressionStrShape, DelimitedSquareShape, ExpandContext, ExpandSyntax,
     ExpressionContinuationShape, NumberExpressionShape, PatternExpressionShape,
     StringExpressionShape, UnitExpressionShape, VariableShape,
 };
@@ -62,7 +62,7 @@ impl ExpandSyntax for AnyExpressionStartShape {
         token_nodes
             .expand_syntax(VariableShape)
             .or_else(|_| token_nodes.expand_syntax(UnitExpressionShape))
-            .or_else(|_| token_nodes.expand_syntax(BareExpressionShape))
+            .or_else(|_| token_nodes.expand_syntax(BareExpressionStrShape))
             .or_else(|_| token_nodes.expand_syntax(PatternExpressionShape))
             .or_else(|_| token_nodes.expand_syntax(NumberExpressionShape))
             .or_else(|_| token_nodes.expand_syntax(StringExpressionShape))

@@ -255,9 +255,9 @@ pub fn expand_bare(
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct BareExpressionShape;
+pub struct BareExpressionStrShape;
 
-impl ExpandSyntax for BareExpressionShape {
+impl ExpandSyntax for BareExpressionStrShape {
     type Output = Result<SpannedExpression, ParseError>;
 
     fn name(&self) -> &'static str {
@@ -269,12 +269,13 @@ impl ExpandSyntax for BareExpressionShape {
         token_nodes: &'b mut TokensIterator<'a>,
     ) -> Result<SpannedExpression, ParseError> {
         token_nodes
-            .expand_syntax(BarePathShape)
-            .map(|span| Expression::bare().into_expr(span))
+            .expand_syntax(BarePathStrShape)
+            .map(|syntax| Expression::bare_str(syntax.word).into_expr(syntax.span))
     }
 }
 
 #[derive(Debug, Copy, Clone)]
+#[deprecated(note = "switch to BarePathStrShape")]
 pub struct BarePathShape;
 
 impl ExpandSyntax for BarePathShape {
@@ -292,6 +293,26 @@ impl ExpandSyntax for BarePathShape {
             | Token::BareStr(_) => true,
 
             _ => false,
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct BarePathStrShape;
+
+impl ExpandSyntax for BarePathStrShape {
+    type Output = Result<BareSyntax, ParseError>;
+
+    fn name(&self) -> &'static str {
+        "bare path"
+    }
+
+    fn expand<'a, 'b>(
+        &self,
+        token_nodes: &'b mut TokensIterator<'a>,
+    ) -> Result<BareSyntax, ParseError> {
+        token_nodes.expand_token(BareStrType, |(span, s)| {
+            Ok((FlatShape::BareMember, BareSyntax { word: s, span }))
         })
     }
 }
