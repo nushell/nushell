@@ -2501,16 +2501,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu_plugin_headers"
-version = "0.1.0"
-dependencies = [
- "nu-errors",
- "nu-plugin",
- "nu-protocol",
- "nu-source",
-]
-
-[[package]]
 name = "nu_plugin_inc"
 version = "0.11.0"
 dependencies = [
