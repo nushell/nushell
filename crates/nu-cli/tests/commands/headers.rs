@@ -3,14 +3,14 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn headers_uses_first_row_as_header() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-            r#"
+    cwd: "tests/fixtures/formats", pipeline(
+        r#"
             open sample_headers.xlsx
             | get Sheet1
             | headers
             | get header0
             | from-json"#
-        ));
+    ));
 
     assert_eq!(actual, "r1c0r2c0")
 }
