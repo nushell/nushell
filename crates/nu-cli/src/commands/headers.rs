@@ -52,7 +52,7 @@ pub fn headers(
                     }
                 }).collect())
             }
-                _ => Err(ShellError::untagged_runtime_error("Couldn't find all headers, was the input a properly formatted, non-empty table?")),
+            _ => Err(ShellError::unexpected_eof("Could not get headers, is the table empty?", rows[0].tag.span))
         }?;
 
         //Each row is a dictionary with the headers as keys
@@ -67,7 +67,7 @@ pub fn headers(
                     }
                     yield Ok(ReturnSuccess::Value(UntaggedValue::Row(Dictionary{entries}).into_value(r.tag.clone())))
                 }
-                _ => yield Err(ShellError::untagged_runtime_error("Couldn't iterate through rows, was the input a properly formatted table?"))
+                _ => yield Err(ShellError::unexpected_eof("Couldn't iterate through rows, was the input a properly formatted table?", r.tag.span))
             }
         }
     };
