@@ -40,18 +40,18 @@ pub fn headers(
         //the headers are the first row in the table
         let headers: Vec<String> = match &rows[0].value {
             UntaggedValue::Row(d) => {
-                d.entries.iter().map(|(_, v)| {
+                Ok(d.entries.iter().map(|(_, v)| {
                     match v.as_string() {
                         Ok(s) => s,
-                        Err(_) => String::from("empty-header") //If a cell that should contain a header name is empty, we need to fill it with something.
+                        Err(_) => String::from("empty-header") //If a cell that should contain a header name is empty, we need to fill it with something. TODO: Add indexing to differintate between headers
                     }
-                }).collect()
+                }).collect())
             }
-            _ => panic!("Could not find headers")
-        };
+                _ => Err(ShellError::untagged_runtime_error("Couldn't find all headers, was the input a properly formatted table?")),
+        }?;
 
         //Each row is a dictionary with the headers as keys
-        let newrows: Vec<Value> = rows.iter().skip(1).map(|r| {
+        for r in rows.iter().skip(1) {
             match &r.value {
                 UntaggedValue::Row(d) => {
 
@@ -62,13 +62,11 @@ pub fn headers(
                         i += 1;
                     }
 
-                    UntaggedValue::Row(Dictionary{entries}).into_value(r.tag.clone())
+                    yield Ok(ReturnSuccess::Value(UntaggedValue::Row(Dictionary{entries}).into_value(r.tag.clone())))
                 }
-                _ => panic!("Row value was not an UntaggedValue::Row")
+                _ => yield Err(ShellError::untagged_runtime_error("Couldn't iterate through rows, was the input a properly formatted table?"))
             }
-        }).collect();
-
-        yield ReturnSuccess::value(UntaggedValue::table(&newrows).into_value(name))
+        }
     };
 
     Ok(stream.to_output_stream())
