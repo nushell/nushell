@@ -25,7 +25,6 @@ pub(crate) mod edit;
 pub(crate) mod enter;
 #[allow(unused)]
 pub(crate) mod evaluate_by;
-pub(crate) mod headers;
 pub(crate) mod exit;
 pub(crate) mod first;
 pub(crate) mod format;
@@ -46,6 +45,7 @@ pub(crate) mod from_xml;
 pub(crate) mod from_yaml;
 pub(crate) mod get;
 pub(crate) mod group_by;
+pub(crate) mod headers;
 pub(crate) mod help;
 pub(crate) mod histogram;
 pub(crate) mod history;
