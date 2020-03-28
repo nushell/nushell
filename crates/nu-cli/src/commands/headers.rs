@@ -32,7 +32,7 @@ impl WholeStreamCommand for Headers {
 
 pub fn headers(
     HeadersArgs {}: HeadersArgs,
-    RunnableContext { input, name, .. }: RunnableContext,
+    RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let rows: Vec<Value> = input.values.collect().await;
@@ -40,10 +40,15 @@ pub fn headers(
         //the headers are the first row in the table
         let headers: Vec<String> = match &rows[0].value {
             UntaggedValue::Row(d) => {
-                Ok(d.entries.iter().map(|(_, v)| {
+                Ok(d.entries.iter().map(|(k, v)| {
                     match v.as_string() {
                         Ok(s) => s,
-                        Err(_) => String::from("empty-header") //If a cell that should contain a header name is empty, we need to fill it with something. TODO: Add indexing to differintate between headers
+                        Err(_) => { //If a cell that should contain a header name is empty, we name the column Column[index]
+                            match d.entries.get_full(k) {
+                                Some((index, _, _)) => format!("Column{}", index),
+                                None => "unknownColumn".to_string()
+                            }
+                        }
                     }
                 }).collect())
             }
@@ -54,14 +59,12 @@ pub fn headers(
         for r in rows.iter().skip(1) {
             match &r.value {
                 UntaggedValue::Row(d) => {
-
                     let mut i = 0;
                     let mut entries = IndexMap::new();
                     for (_, v) in d.entries.iter() {
                         entries.insert(headers[i].clone(), v.clone());
                         i += 1;
                     }
-
                     yield Ok(ReturnSuccess::Value(UntaggedValue::Row(Dictionary{entries}).into_value(r.tag.clone())))
                 }
                 _ => yield Err(ShellError::untagged_runtime_error("Couldn't iterate through rows, was the input a properly formatted table?"))
