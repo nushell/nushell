@@ -10,6 +10,7 @@ mod first;
 mod format;
 mod get;
 mod group_by;
+mod headers;
 mod histogram;
 mod insert;
 mod last;
