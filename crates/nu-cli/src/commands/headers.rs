@@ -19,7 +19,7 @@ impl WholeStreamCommand for Headers {
         Signature::build("headers")
     }
     fn usage(&self) -> &str {
-        "Use the first row of the table as headers"
+        "Use the first row of the table as column names"
     }
     fn run(
         &self,
@@ -36,6 +36,10 @@ pub fn headers(
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
         let rows: Vec<Value> = input.values.collect().await;
+
+        if rows.len() < 1 {
+            yield Err(ShellError::untagged_runtime_error("Couldn't find headers, was the input a properly formatted, non-empty table?"));
+        }
 
         //the headers are the first row in the table
         let headers: Vec<String> = match &rows[0].value {
