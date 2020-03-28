@@ -144,8 +144,13 @@ token_type!(struct WhitespaceType (desc: "whitespace") -> Span {
     |span, Token::Whitespace| => span
 });
 
+#[deprecated(note = "switch to WordStrType")]
 token_type!(struct WordType (desc: "word") -> Span {
     |span, Token::Bare| => span
+});
+
+token_type!(struct WordStrType (desc: "word") -> (Span,String) {
+    |span, Token::BareStr(s)| => (span, s.clone())
 });
 
 token_type!(struct ItVarType (desc: "$it") -> (Span, Span) {

@@ -15,7 +15,8 @@ use crate::hir::tokens_iterator::TokensIterator;
 use crate::hir::{Expression, SpannedExpression};
 use crate::parse::operator::EvaluationOperator;
 use crate::parse::token_tree::{
-    BareStrType, ExternalCommandType, PipelineType, SpannedToken, Token, WhitespaceType, WordType,
+    BareStrType, ExternalCommandType, PipelineType, SpannedToken, Token, WhitespaceType,
+    WordStrType, WordType,
 };
 use crate::parse_command::parse_command_tail;
 use derive_new::new;
@@ -505,10 +506,9 @@ impl ExpandSyntax for CommandHeadShape {
                 ))
             })
             .or_else(|_| {
-                token_nodes.expand_token(WordType, |span| {
-                    let name = span.slice(&source);
-                    if registry.has(name) {
-                        let signature = registry.get(name).unwrap();
+                token_nodes.expand_token(WordStrType, |(span, name)| {
+                    if registry.has(&name) {
+                        let signature = registry.get(&name).unwrap();
                         Ok((
                             FlatShape::InternalCommand,
                             CommandSignature::Internal(signature.spanned(span)),
