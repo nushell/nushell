@@ -52,7 +52,7 @@ pub fn headers(
                     }
                 }).collect())
             }
-                _ => Err(ShellError::untagged_runtime_error("Couldn't find all headers, was the input a properly formatted table?")),
+                _ => Err(ShellError::untagged_runtime_error("Couldn't find all headers, was the input a properly formatted, non-empty table?")),
         }?;
 
         //Each row is a dictionary with the headers as keys
