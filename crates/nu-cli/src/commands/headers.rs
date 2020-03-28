@@ -1,10 +1,10 @@
 use crate::commands::WholeStreamCommand;
-use indexmap::IndexMap;
-use nu_protocol::Dictionary;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use futures::stream::StreamExt;
+use indexmap::IndexMap;
 use nu_errors::ShellError;
+use nu_protocol::Dictionary;
 use nu_protocol::{ReturnSuccess, Signature, UntaggedValue, Value};
 
 pub struct Headers;
@@ -34,7 +34,6 @@ pub fn headers(
     HeadersArgs {}: HeadersArgs,
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
-
     let stream = async_stream! {
         let rows: Vec<Value> = input.values.collect().await;
 
