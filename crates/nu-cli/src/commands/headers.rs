@@ -42,29 +42,36 @@ pub fn count(
     let stream = async_stream! {
         let rows: Vec<Value> = input.values.collect().await;
 
+        //the headers are the first row in the table
         let headers: Vec<String> = match &rows[0].value {
             UntaggedValue::Row(d) => {
-                d.entries.iter().map(|(_, v)| v.as_string().unwrap()).collect()
+                d.entries.iter().map(|(_, v)| {
+                    match v.as_string() {
+                        Ok(s) => s,
+                        Err(_) => String::from("empty-header") //If a cell that should contain a header name is empty, we need to fill it with something.
+                    }
+                }).collect()
             }
-            _ => vec![]
+            _ => panic!("Could not find headers")
         };
 
-        let mut newrows: Vec<Value> = vec![];
-        for r in rows.iter().skip(1) {
+        //Each row is a dictionary with the headers as keys
+        let newrows: Vec<Value> = rows.iter().skip(1).map(|r| {
             match &r.value {
                 UntaggedValue::Row(d) => {
-                    let mut i = 0;
-                    let mut newrow = IndexMap::new();
 
+                    let mut i = 0;
+                    let mut entries = IndexMap::new();
                     for (_, v) in d.entries.iter() {
-                        newrow.insert(headers[i].clone(), v.clone());
+                        entries.insert(headers[i].clone(), v.clone());
                         i += 1;
                     }
-                    newrows.push(UntaggedValue::Row(Dictionary{entries: newrow}).into_value(r.tag.clone()));
+
+                    UntaggedValue::Row(Dictionary{entries}).into_value(r.tag.clone())
                 }
-                _ => panic!("huh?")
+                _ => panic!("Row value was not an UntaggedValue::Row")
             }
-        }
+        }).collect();
 
         yield ReturnSuccess::value(UntaggedValue::table(&newrows).into_value(name))
     };
