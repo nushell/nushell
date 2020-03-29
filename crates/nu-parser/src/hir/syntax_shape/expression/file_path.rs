@@ -22,13 +22,11 @@ impl ExpandSyntax for FilePathShape {
         token_nodes: &mut TokensIterator<'_>,
     ) -> Result<SpannedExpression, ParseError> {
         token_nodes
-            .expand_syntax(StringShape)
-            .map(|syntax| {
-                file_path_str(&syntax.content, token_nodes.context()).into_expr(syntax.span)
-            })
+            .expand_syntax(BarePathStrShape)
+            .map(|syntax| file_path_str(&syntax.word, token_nodes.context()).into_expr(syntax.span))
             .or_else(|_| {
-                token_nodes.expand_syntax(BarePathStrShape).map(|syntax| {
-                    file_path_str(&syntax.word, token_nodes.context()).into_expr(syntax.span)
+                token_nodes.expand_syntax(StringShape).map(|syntax| {
+                    file_path_str(&syntax.content, token_nodes.context()).into_expr(syntax.span)
                 })
             })
             .or_else(|_| {

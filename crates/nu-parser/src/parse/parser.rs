@@ -493,13 +493,9 @@ pub fn start_pattern_str(input: NomSpan) -> IResult<NomSpan, char> {
 pub fn filename(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start_pos = input.offset;
 
-    let mut filename = String::new();
-    let (mut input, (mut saw_special)) = match start_file_char(input) {
+    let (mut input, mut saw_special, mut filename) = match start_file_char(input) {
         Err(err) => return Err(err),
-        Ok((input, (special, c))) => {
-            filename.push(c);
-            (input, special)
-        }
+        Ok((input, (special, c))) => (input, special, c.to_string()),
     };
 
     loop {
@@ -1156,7 +1152,6 @@ fn is_file_char(c: char) -> bool {
         '\\' => true,
         '/' => true,
         '_' => true,
-        '.' => true,
         '-' => true,
         '=' => true,
         '~' => true,

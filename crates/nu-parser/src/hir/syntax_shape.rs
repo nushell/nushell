@@ -184,6 +184,7 @@ where
 }
 
 #[derive(Debug, Clone)]
+#[deprecated(note = "switch to BarePathStrState")]
 enum BarePathState {
     Initial,
     Seen(Span, Span),
@@ -221,6 +222,54 @@ impl BarePathState {
     }
 }
 
+#[derive(Debug, Clone)]
+enum BarePathStrState {
+    Initial,
+    Seen(Span, Span, String),
+    Error(ParseError),
+}
+
+impl BarePathStrState {
+    pub fn seen(self, span: Span, s: String) -> BarePathStrState {
+        match self {
+            BarePathStrState::Initial => BarePathStrState::Seen(span, span, s),
+            BarePathStrState::Seen(start, _, mut prev) => {
+                prev.push_str(&s);
+                BarePathStrState::Seen(start, span, prev)
+            }
+            BarePathStrState::Error(err) => BarePathStrState::Error(err),
+        }
+    }
+
+    pub fn end(self, node: Option<&SpannedToken>, expected: &'static str) -> BarePathStrState {
+        match self {
+            BarePathStrState::Initial => match node {
+                None => {
+                    BarePathStrState::Error(ParseError::unexpected_eof(expected, Span::unknown()))
+                }
+                Some(token) => BarePathStrState::Error(ParseError::mismatch(
+                    expected,
+                    token.spanned_type_name(),
+                )),
+            },
+            BarePathStrState::Seen(start, end, s) => BarePathStrState::Seen(start, end, s),
+            BarePathStrState::Error(err) => BarePathStrState::Error(err),
+        }
+    }
+
+    pub fn into_bare(self) -> Result<BareSyntax, ParseError> {
+        match self {
+            BarePathStrState::Initial => unreachable!("into_bare in initial state"),
+            BarePathStrState::Seen(start, end, s) => Ok(BareSyntax {
+                word: s,
+                span: start.until(end),
+            }),
+            BarePathStrState::Error(err) => Err(err),
+        }
+    }
+}
+
+#[deprecated(note = "switch to expand_bare_str")]
 pub fn expand_bare(
     token_nodes: &'_ mut TokensIterator<'_>,
     predicate: impl Fn(&SpannedToken) -> bool,
@@ -249,6 +298,37 @@ pub fn expand_bare(
                 state = state.end(token, "word");
                 break;
             }
+        }
+    }
+
+    state.into_bare()
+}
+
+pub fn expand_bare_str(
+    token_nodes: &'_ mut TokensIterator<'_>,
+    predicate: impl Fn(&SpannedToken) -> Option<String>,
+) -> Result<BareSyntax, ParseError> {
+    let mut state = BarePathStrState::Initial;
+
+    loop {
+        if token_nodes.at_end() {
+            state = state.end(None, "word");
+            break;
+        }
+
+        let source = token_nodes.source();
+
+        let mut peeked = token_nodes.peek();
+        let node = peeked.node;
+
+        if let Some((token, Some(s))) = node.map(|token| (token, predicate(token))) {
+            peeked.commit();
+            state = state.seen(token.span(), s);
+            let shapes = FlatShape::shapes(token, &source);
+            token_nodes.color_shapes(shapes);
+        } else {
+            state = state.end(node, "word");
+            break;
         }
     }
 
@@ -312,8 +392,10 @@ impl ExpandSyntax for BarePathStrShape {
         &self,
         token_nodes: &'b mut TokensIterator<'a>,
     ) -> Result<BareSyntax, ParseError> {
-        token_nodes.expand_token(BareStrType, |(span, s)| {
-            Ok((FlatShape::BareMember, BareSyntax { word: s, span }))
+        expand_bare_str(token_nodes, |token| match token.unspanned() {
+            Token::BareStr(s) => Some(s.clone()),
+            Token::EvaluationOperator(EvaluationOperator::Dot) => Some('.'.to_string()),
+            _ => None,
         })
     }
 }
@@ -351,7 +433,7 @@ impl ExpandSyntax for BareStrShape {
         token_nodes: &'b mut TokensIterator<'a>,
     ) -> Result<BareSyntax, ParseError> {
         token_nodes.expand_token(BareStrType, |(span, s)| {
-            Ok((FlatShape::Word, BareSyntax { word: s, span }))
+            Ok((FlatShape::BareMember, BareSyntax { word: s, span }))
         })
     }
 }
