@@ -89,36 +89,21 @@ impl PerItemCommand for Du {
 fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellError> {
     let tag = ctx.name.clone();
 
-    let exclude = args
-        .exclude
-        .clone()
-        .map_or(Ok(None), move |x| match Pattern::new(&x.item) {
-            Ok(p) => Ok(Some(p)),
-            Err(e) => Err(ShellError::labeled_error(
-                e.msg,
-                "Glob error",
-                x.tag.clone(),
-            )),
-        })?;
-    let path = args.path.clone();
-    let filter_files = path.is_none();
-    let paths = match path {
-        Some(p) => match glob::glob_with(
-            p.item.to_str().expect("Why isn't this encoded properly?"),
-            GLOB_PARAMS,
-        ) {
-            Ok(g) => Ok(g),
-            Err(e) => Err(ShellError::labeled_error(
-                e.msg,
-                "Glob error",
-                p.tag.clone(),
-            )),
-        },
-        None => match glob::glob_with("*", GLOB_PARAMS) {
-            Ok(g) => Ok(g),
-            Err(e) => Err(ShellError::labeled_error(e.msg, "Glob error", tag.clone())),
-        },
-    }?
+    let exclude = args.exclude.map_or(Ok(None), move |x| {
+        Pattern::new(&x.item)
+            .map(Option::Some)
+            .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
+    })?;
+
+    let filter_files = args.path.is_none();
+    let paths = match args.path {
+        Some(p) => {
+            let p = p.item.to_str().expect("Why isn't this encoded properly?");
+            glob::glob_with(p, GLOB_PARAMS)
+        }
+        None => glob::glob_with("*", GLOB_PARAMS),
+    }
+    .map_err(|e| ShellError::labeled_error(e.msg, "glob error", tag.clone()))?
     .filter(move |p| {
         if filter_files {
             match p {
@@ -130,10 +115,7 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
             true
         }
     })
-    .map(move |p| match p {
-        Err(e) => Err(glob_err_into(e)),
-        Ok(s) => Ok(s),
-    });
+    .map(|v| v.map_err(glob_err_into));
 
     let ctrl_c = ctx.ctrl_c.clone();
     let all = args.all;
@@ -324,10 +306,7 @@ impl From<DirInfo> for Value {
         if !d.files.is_empty() {
             let v = Value {
                 value: UntaggedValue::Table(
-                    d.files
-                        .into_iter()
-                        .map(move |f| f.into())
-                        .collect::<Vec<Value>>(),
+                    d.files.into_iter().map(Into::into).collect::<Vec<Value>>(),
                 ),
                 tag: d.tag.clone(),
             };
@@ -336,10 +315,7 @@ impl From<DirInfo> for Value {
         if !d.dirs.is_empty() {
             let v = Value {
                 value: UntaggedValue::Table(
-                    d.dirs
-                        .into_iter()
-                        .map(move |d| d.into())
-                        .collect::<Vec<Value>>(),
+                    d.dirs.into_iter().map(Into::into).collect::<Vec<Value>>(),
                 ),
                 tag: d.tag.clone(),
             };
