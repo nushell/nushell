@@ -4,8 +4,8 @@ use indexmap::set::IndexSet;
 use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{
-    did_you_mean, ColumnPath, PathMember, ReturnSuccess, ReturnValue, Signature, SyntaxShape,
-    UnspannedPathMember, UntaggedValue, Value,
+    did_you_mean, ColumnPath, PathMember, Primitive, ReturnSuccess, ReturnValue, Signature,
+    SyntaxShape, UnspannedPathMember, UntaggedValue, Value,
 };
 use nu_source::span_for_spanned_list;
 use nu_value_ext::get_data_by_column_path;
@@ -221,6 +221,10 @@ pub fn get(
                                     result.push_back(ReturnSuccess::value(item.clone()));
                                 }
                             }
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Nothing),
+                                ..
+                            } => {}
                             other => result.push_back(ReturnSuccess::value(other.clone())),
                         },
                         Err(reason) => result.push_back(ReturnSuccess::value(
