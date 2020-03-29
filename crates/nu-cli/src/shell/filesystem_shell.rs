@@ -163,23 +163,16 @@ impl Shell for FilesystemShell {
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
         let stream = async_stream::try_stream! {
             for path in paths {
-                // Handle CTRL+C presence
                 if ctrl_c.load(Ordering::SeqCst) {
                     break;
                 }
 
-                // Map GlobError to ShellError and gracefully try to unwrap the path
                 let path = path.map_err(|e| ShellError::from(e.into_error()))?;
 
-                // Skip if '--all/-a' flag is present and this path is hidden
                 if !all && is_hidden_dir(&path) {
                     continue;
                 }
 
-                // Get metadata from current path, if we don't have enough
-                // permissions to stat on file don't use any metadata, otherwise
-                // return the error and gracefully unwrap metadata (which yields
-                // Option<Metadata>)
                 let metadata = match std::fs::symlink_metadata(&path) {
                     Ok(metadata) => Ok(Some(metadata)),
                     Err(e) => if let PermissionDenied = e.kind() {
@@ -189,9 +182,6 @@ impl Shell for FilesystemShell {
                     },
                 }?;
 
-                // Build dict entry for this path and possibly using some metadata.
-                // Map the possible dict entry into a Value, gracefully unwrap it
-                // with '?'
                 let entry = dir_entry_dict(
                     &path,
                     metadata.as_ref(),
@@ -202,7 +192,6 @@ impl Shell for FilesystemShell {
                 )
                 .map(|entry| ReturnSuccess::Value(entry.into()))?;
 
-                // Finally yield the generated entry that was mapped to Value
                 yield entry;
             }
         };
