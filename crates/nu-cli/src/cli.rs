@@ -644,7 +644,7 @@ async fn process_line(
                 {
                     if dunce::canonicalize(name).is_ok()
                         && PathBuf::from(name).is_dir()
-                        && which::which(name).is_err()
+                        && ichwh::which(name).await.unwrap_or(None).is_none()
                         && args.list.is_empty()
                     {
                         // Here we work differently if we're in Windows because of the expected Windows behavior
