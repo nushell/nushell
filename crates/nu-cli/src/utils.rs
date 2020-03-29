@@ -318,6 +318,10 @@ mod tests {
                     at: 0
                 },
                 Res {
+                    loc: fixtures().join("sample_headers.xlsx"),
+                    at: 0
+                },
+                Res {
                     loc: fixtures().join("script.nu"),
                     at: 0
                 },
