@@ -6,8 +6,9 @@ use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use textwrap::fill;
 
-use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
+use prettytable::format::{Alignment, FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
+use term::color::Color;
 
 type Entries = Vec<Vec<(String, &'static str)>>;
 
@@ -300,9 +301,34 @@ impl RenderView for TableView {
 
         let mut table = Table::new();
 
-        let table_mode = crate::data::config::config(Tag::unknown());
+        let mut config = crate::data::config::config(Tag::unknown())?;
+        let header_align = config.get("header_align").map_or(Alignment::LEFT, |a| {
+            a.as_string()
+                .map_or(Alignment::LEFT, |a| match a.to_lowercase().as_str() {
+                    "center" | "c" => Alignment::CENTER,
+                    "right" | "r" => Alignment::RIGHT,
+                    _ => Alignment::LEFT,
+                })
+        });
 
-        let table_mode = if let Some(s) = table_mode?.get("table_mode") {
+        let header_color = config.get("header_color").map_or(color::GREEN, |c| {
+            c.as_string().map_or(color::GREEN, |c| {
+                str_to_color(c.to_lowercase()).unwrap_or(color::GREEN)
+            })
+        });
+
+        let header_style =
+            config
+                .remove("header_style")
+                .map_or(vec![Attr::Bold], |y| match y.value {
+                    UntaggedValue::Table(t) => to_style_vec(t),
+                    UntaggedValue::Primitive(p) => vec![p
+                        .into_string(Span::unknown())
+                        .map_or(Attr::Bold, |s| str_to_style(s).unwrap_or(Attr::Bold))],
+                    _ => vec![Attr::Bold],
+                });
+
+        let table_mode = if let Some(s) = config.get("table_mode") {
             match s.as_string() {
                 Ok(typ) if typ == "light" => TableMode::Light,
                 _ => TableMode::Normal,
@@ -337,9 +363,12 @@ impl RenderView for TableView {
             .headers
             .iter()
             .map(|h| {
-                Cell::new(h)
-                    .with_style(Attr::ForegroundColor(color::GREEN))
-                    .with_style(Attr::Bold)
+                let mut c = Cell::new_align(h, header_align)
+                    .with_style(Attr::ForegroundColor(header_color));
+                for &s in &header_style {
+                    c.style(s);
+                }
+                c
             })
             .collect();
 
@@ -357,5 +386,47 @@ impl RenderView for TableView {
             .map_err(|_| ShellError::untagged_runtime_error("Internal error: could not print to terminal (for unix systems check to make sure TERM is set)"))?;
 
         Ok(())
+    }
+}
+
+fn str_to_color(s: String) -> Option<Color> {
+    match s.as_str() {
+        "g" | "green" => Some(color::GREEN),
+        "r" | "red" => Some(color::RED),
+        "u" | "blue" => Some(color::BLUE),
+        "b" | "black" => Some(color::BLACK),
+        "y" | "yellow" => Some(color::YELLOW),
+        "m" | "magenta" => Some(color::MAGENTA),
+        "c" | "cyan" => Some(color::CYAN),
+        "w" | "white" => Some(color::WHITE),
+        "bg" | "bright green" => Some(color::BRIGHT_GREEN),
+        "br" | "bright red" => Some(color::BRIGHT_RED),
+        "bu" | "bright blue" => Some(color::BRIGHT_BLUE),
+        "by" | "bright yellow" => Some(color::BRIGHT_YELLOW),
+        "bm" | "bright magenta" => Some(color::BRIGHT_MAGENTA),
+        "bc" | "bright cyan" => Some(color::BRIGHT_CYAN),
+        "bw" | "bright white" => Some(color::BRIGHT_WHITE),
+        _ => None,
+    }
+}
+
+fn to_style_vec(a: Vec<Value>) -> Vec<Attr> {
+    let mut v: Vec<Attr> = Vec::new();
+    for t in a {
+        if let Some(s) = t.as_string().ok() {
+            if let Some(r) = str_to_style(s) {
+                v.push(r);
+            }
+        }
+    }
+    v
+}
+
+fn str_to_style(s: String) -> Option<Attr> {
+    match s.as_str() {
+        "b" | "bold" => Some(Attr::Bold),
+        "i" | "italic" | "italics" => Some(Attr::Italic(true)),
+        "u" | "underline" | "underlined" => Some(Attr::Underline(true)),
+        _ => None,
     }
 }
