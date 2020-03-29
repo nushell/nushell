@@ -16,7 +16,6 @@ use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::Ordering;
 use trash as SendToTrash;
 
 #[cfg(unix)]
@@ -163,10 +162,6 @@ impl Shell for FilesystemShell {
         // Generated stream: impl Stream<Item = Result<ReturnSuccess, ShellError>
         let stream = async_stream::try_stream! {
             for path in paths {
-                if ctrl_c.load(Ordering::SeqCst) {
-                    break;
-                }
-
                 let path = path.map_err(|e| ShellError::from(e.into_error()))?;
 
                 if !all && is_hidden_dir(&path) {
@@ -196,7 +191,7 @@ impl Shell for FilesystemShell {
             }
         };
 
-        Ok(stream.to_output_stream())
+        Ok(stream.interruptible(ctrl_c).to_output_stream())
     }
 
     fn cd(&self, args: EvaluatedWholeStreamCommandArgs) -> Result<OutputStream, ShellError> {

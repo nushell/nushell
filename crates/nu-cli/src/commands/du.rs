@@ -9,7 +9,6 @@ use nu_errors::ShellError;
 use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 
 const NAME: &str = "du";
 const GLOB_PARAMS: MatchOptions = MatchOptions {
@@ -142,35 +141,29 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
     let max_depth = args.max_depth.map(|f| f.item);
     let min_size = args.min_size.map(|f| f.item);
 
-    let stream = async_stream! {
-        let params = DirBuilder {
-            tag: tag.clone(),
-            min: min_size,
-            deref,
-            ex: exclude,
-            all,
-        };
-        for path in paths {
-            if ctrl_c.load(Ordering::SeqCst) {
-                break;
-            }
-            match path {
-                Ok(p) => {
-                    if p.is_dir() {
-                        yield Ok(ReturnSuccess::Value(
-                            DirInfo::new(p, &params, max_depth).into(),
-                        ));
-                    } else {
-                        match FileInfo::new(p, deref, tag.clone()) {
-                            Ok(f) => yield Ok(ReturnSuccess::Value(f.into())),
-                            Err(e) => yield Err(e)
-                        }
-                    }
-                }
-                Err(e) => yield Err(e),
-            }
-        }
+    let params = DirBuilder {
+        tag: tag.clone(),
+        min: min_size,
+        deref,
+        ex: exclude,
+        all,
     };
+
+    let stream = futures::stream::iter(paths)
+        .interruptible(ctrl_c)
+        .map(move |path| match path {
+            Ok(p) => {
+                if p.is_dir() {
+                    Ok(ReturnSuccess::Value(
+                        DirInfo::new(p, &params, max_depth).into(),
+                    ))
+                } else {
+                    FileInfo::new(p, deref, tag.clone()).map(|v| ReturnSuccess::Value(v.into()))
+                }
+            }
+            Err(e) => Err(e),
+        });
+
     Ok(stream.to_output_stream())
 }
 
