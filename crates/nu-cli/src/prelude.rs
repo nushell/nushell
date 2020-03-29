@@ -86,7 +86,7 @@ pub(crate) use crate::shell::filesystem_shell::FilesystemShell;
 pub(crate) use crate::shell::help_shell::HelpShell;
 pub(crate) use crate::shell::shell_manager::ShellManager;
 pub(crate) use crate::shell::value_shell::ValueShell;
-pub(crate) use crate::stream::{InputStream, OutputStream};
+pub(crate) use crate::stream::{InputStream, InterruptibleStream, OutputStream};
 pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
@@ -102,6 +102,7 @@ pub(crate) use num_traits::cast::ToPrimitive;
 pub(crate) use serde::Deserialize;
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::future::Future;
+pub(crate) use std::sync::atomic::AtomicBool;
 pub(crate) use std::sync::Arc;
 
 pub(crate) use itertools::Itertools;
@@ -158,5 +159,18 @@ where
         OutputStream {
             values: self.map(|item| item.into()).boxed(),
         }
+    }
+}
+
+pub trait Interruptible<V> {
+    fn interruptible(self, ctrl_c: Arc<AtomicBool>) -> InterruptibleStream<V>;
+}
+
+impl<S, V> Interruptible<V> for S
+where
+    S: Stream<Item = V> + Send + 'static,
+{
+    fn interruptible(self, ctrl_c: Arc<AtomicBool>) -> InterruptibleStream<V> {
+        InterruptibleStream::new(self, ctrl_c)
     }
 }
