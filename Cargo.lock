@@ -2304,7 +2304,6 @@ dependencies = [
  "umask",
  "unicode-xid",
  "users",
- "which",
 ]
 
 [[package]]
@@ -4286,16 +4285,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bb43f70885151e629e2a19ce9e50bd730fd436cfd4b666894c9ce4de9141164"
 dependencies = [
  "nom 4.2.3",
-]
-
-[[package]]
-name = "which"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
-dependencies = [
- "failure",
- "libc",
 ]
 
 [[package]]

@@ -35,11 +35,11 @@ pub(crate) async fn run_pipeline(
             }
 
             (Some(ClassifiedCommand::External(left)), None) => {
-                run_external_command(left, ctx, input, true)?
+                run_external_command(left, ctx, input, true).await?
             }
 
             (Some(ClassifiedCommand::External(left)), _) => {
-                run_external_command(left, ctx, input, false)?
+                run_external_command(left, ctx, input, false).await?
             }
 
             (None, _) => break,

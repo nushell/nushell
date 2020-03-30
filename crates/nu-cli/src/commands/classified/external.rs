@@ -94,7 +94,7 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
     }
 }
 
-pub(crate) fn run_external_command(
+pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
@@ -102,7 +102,7 @@ pub(crate) fn run_external_command(
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
-    if !did_find_command(&command.name) {
+    if !did_find_command(&command.name).await {
         return Err(ShellError::labeled_error(
             "Command not found",
             "command not found",
@@ -633,22 +633,22 @@ fn spawn(
         Ok(Some(stream.to_input_stream()))
     } else {
         Err(ShellError::labeled_error(
-            "Command not found",
-            "command not found",
+            "Failed to spawn process",
+            "failed to spawn",
             &command.name_tag,
         ))
     }
 }
 
-fn did_find_command(name: &str) -> bool {
+async fn did_find_command(name: &str) -> bool {
     #[cfg(not(windows))]
     {
-        which::which(name).is_ok()
+        ichwh::which(name).await.unwrap_or(None).is_some()
     }
 
     #[cfg(windows)]
     {
-        if which::which(name).is_ok() {
+        if ichwh::which(name).await.unwrap_or(None).is_some() {
             true
         } else {
             let cmd_builtins = [
@@ -738,7 +738,9 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(cmd, &mut ctx, None, false).is_err());
+        assert!(run_external_command(cmd, &mut ctx, None, false)
+            .await
+            .is_err());
 
         Ok(())
     }
