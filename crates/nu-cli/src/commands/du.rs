@@ -41,7 +41,7 @@ impl PerItemCommand for Du {
             .optional("path", SyntaxShape::Pattern, "starting directory")
             .switch(
                 "all",
-                "Output File sizes as well as directory sizes",
+                "Output file sizes as well as directory sizes",
                 Some('a'),
             )
             .switch(
@@ -95,7 +95,7 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
             .map_err(|e| ShellError::labeled_error(e.msg, "glob error", x.tag.clone()))
     })?;
 
-    let filter_files = args.path.is_none();
+    let include_files = args.all;
     let paths = match args.path {
         Some(p) => {
             let p = p.item.to_str().expect("Why isn't this encoded properly?");
@@ -105,14 +105,14 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
     }
     .map_err(|e| ShellError::labeled_error(e.msg, "glob error", tag.clone()))?
     .filter(move |p| {
-        if filter_files {
+        if include_files {
+            true
+        } else {
             match p {
                 Ok(f) if f.is_dir() => true,
                 Err(e) if e.path().is_dir() => true,
                 _ => false,
             }
-        } else {
-            true
         }
     })
     .map(|v| v.map_err(glob_err_into));
@@ -127,7 +127,7 @@ fn du(args: DuArgs, ctx: &RunnablePerItemContext) -> Result<OutputStream, ShellE
         tag: tag.clone(),
         min: min_size,
         deref,
-        ex: exclude,
+        exclude,
         all,
     };
 
@@ -153,7 +153,7 @@ struct DirBuilder {
     tag: Tag,
     min: Option<u64>,
     deref: bool,
-    ex: Option<Pattern>,
+    exclude: Option<Pattern>,
     all: bool,
 }
 
@@ -218,15 +218,11 @@ impl DirInfo {
                 for f in d {
                     match f {
                         Ok(i) => match i.file_type() {
-                            Ok(t) if t.is_dir() => {
-                                s = s.add_dir(i.path(), depth, &params);
-                            }
-                            Ok(_t) => {
-                                s = s.add_file(i.path(), &params);
-                            }
-                            Err(e) => s = s.add_error(ShellError::from(e)),
+                            Ok(t) if t.is_dir() => s = s.add_dir(i.path(), depth, &params),
+                            Ok(_t) => s = s.add_file(i.path(), &params),
+                            Err(e) => s = s.add_error(e.into()),
                         },
-                        Err(e) => s = s.add_error(ShellError::from(e)),
+                        Err(e) => s = s.add_error(e.into()),
                     }
                 }
             }
@@ -258,8 +254,11 @@ impl DirInfo {
 
     fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder) -> Self {
         let f = f.into();
-        let ex = params.ex.as_ref().map_or(false, |x| x.matches_path(&f));
-        if !ex {
+        let include = params
+            .exclude
+            .as_ref()
+            .map_or(true, |x| !x.matches_path(&f));
+        if include {
             match FileInfo::new(f, params.deref, self.tag.clone()) {
                 Ok(file) => {
                     let inc = params.min.map_or(true, |s| file.size >= s);
@@ -288,49 +287,51 @@ fn glob_err_into(e: GlobError) -> ShellError {
     ShellError::from(e)
 }
 
+fn value_from_vec<V>(vec: Vec<V>, tag: &Tag) -> Value
+where
+    V: Into<Value>,
+{
+    if vec.is_empty() {
+        UntaggedValue::nothing()
+    } else {
+        let values = vec.into_iter().map(Into::into).collect::<Vec<Value>>();
+        UntaggedValue::Table(values)
+    }
+    .retag(tag)
+}
+
 impl From<DirInfo> for Value {
     fn from(d: DirInfo) -> Self {
         let mut r: IndexMap<String, Value> = IndexMap::new();
+
         r.insert(
             "path".to_string(),
-            UntaggedValue::path(d.path).retag(d.tag.clone()),
+            UntaggedValue::path(d.path).retag(&d.tag),
         );
+
         r.insert(
             "apparent".to_string(),
-            UntaggedValue::bytes(d.size).retag(d.tag.clone()),
+            UntaggedValue::bytes(d.size).retag(&d.tag),
         );
+
         r.insert(
             "physical".to_string(),
-            UntaggedValue::bytes(d.blocks).retag(d.tag.clone()),
+            UntaggedValue::bytes(d.blocks).retag(&d.tag),
         );
-        if !d.files.is_empty() {
-            let v = Value {
-                value: UntaggedValue::Table(
-                    d.files.into_iter().map(Into::into).collect::<Vec<Value>>(),
-                ),
-                tag: d.tag.clone(),
-            };
-            r.insert("files".to_string(), v);
-        }
-        if !d.dirs.is_empty() {
-            let v = Value {
-                value: UntaggedValue::Table(
-                    d.dirs.into_iter().map(Into::into).collect::<Vec<Value>>(),
-                ),
-                tag: d.tag.clone(),
-            };
-            r.insert("directories".to_string(), v);
-        }
+
+        r.insert("directories".to_string(), value_from_vec(d.dirs, &d.tag));
+
+        r.insert("files".to_string(), value_from_vec(d.files, &d.tag));
+
         if !d.errors.is_empty() {
-            let v = Value {
-                value: UntaggedValue::Table(
-                    d.errors
-                        .into_iter()
-                        .map(move |e| UntaggedValue::Error(e).into_untagged_value())
-                        .collect::<Vec<Value>>(),
-                ),
-                tag: d.tag.clone(),
-            };
+            let v = UntaggedValue::Table(
+                d.errors
+                    .into_iter()
+                    .map(move |e| UntaggedValue::Error(e).into_untagged_value())
+                    .collect::<Vec<Value>>(),
+            )
+            .retag(&d.tag);
+
             r.insert("errors".to_string(), v);
         }
 
@@ -344,22 +345,32 @@ impl From<DirInfo> for Value {
 impl From<FileInfo> for Value {
     fn from(f: FileInfo) -> Self {
         let mut r: IndexMap<String, Value> = IndexMap::new();
+
         r.insert(
             "path".to_string(),
-            UntaggedValue::path(f.path).retag(f.tag.clone()),
+            UntaggedValue::path(f.path).retag(&f.tag),
         );
+
         r.insert(
             "apparent".to_string(),
-            UntaggedValue::bytes(f.size).retag(f.tag.clone()),
+            UntaggedValue::bytes(f.size).retag(&f.tag),
         );
-        let b = match f.blocks {
-            Some(k) => UntaggedValue::bytes(k).retag(f.tag.clone()),
-            None => UntaggedValue::nothing().retag(f.tag.clone()),
-        };
+
+        let b = f
+            .blocks
+            .map(UntaggedValue::bytes)
+            .unwrap_or_else(UntaggedValue::nothing)
+            .retag(&f.tag);
+
         r.insert("physical".to_string(), b);
-        Value {
-            value: UntaggedValue::row(r),
-            tag: f.tag,
-        }
+
+        r.insert(
+            "directories".to_string(),
+            UntaggedValue::nothing().retag(&f.tag),
+        );
+
+        r.insert("files".to_string(), UntaggedValue::nothing().retag(&f.tag));
+
+        UntaggedValue::row(r).retag(&f.tag)
     }
 }
