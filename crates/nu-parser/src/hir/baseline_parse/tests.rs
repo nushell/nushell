@@ -68,6 +68,13 @@ fn test_parse_string() {
         vec![b::string("hello")],
         |tokens| Expression::str("hello").into_expr(tokens[0].span()),
     );
+
+    parse_tokens(
+        CoerceStringShape,
+        r#""escaped\"quote""#,
+        vec![b::string(r#"escaped\"quote"#)],
+        |tokens| Expression::str(r#"escaped\"quote"#).into_expr(tokens[0].span()),
+    );
 }
 
 #[test]
