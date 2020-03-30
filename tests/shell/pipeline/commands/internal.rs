@@ -137,3 +137,27 @@ mod tilde_expansion {
         assert_eq!(actual, "1~1");
     }
 }
+
+mod escape_sequences {
+    use super::nu;
+
+    #[test]
+    fn support_escaped_quotes() {
+        let actual = nu!(
+            cwd: ".",
+            r#"echo "string \"with escaped quotes""#
+        );
+
+        assert_eq!(actual, r#"string "with escaped quotes"#);
+    }
+
+    #[test]
+    fn support_escaping_escapes() {
+        let actual = nu!(
+            cwd: ".",
+            r#"echo "\\""#
+        );
+
+        assert_eq!(actual, r#"\"#);
+    }
+}
