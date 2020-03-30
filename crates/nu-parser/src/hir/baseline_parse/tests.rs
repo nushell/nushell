@@ -66,9 +66,7 @@ fn test_parse_string() {
         CoerceStringShape,
         r#""hello""#,
         vec![b::string("hello")],
-        |tokens| {
-            Expression::string(inner_string_span(tokens[0].span())).into_expr(tokens[0].span())
-        },
+        |tokens| Expression::str("hello").into_expr(tokens[0].span()),
     );
 }
 
