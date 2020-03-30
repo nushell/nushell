@@ -261,9 +261,7 @@ impl ExpandSyntax for VariableShape {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Member {
-    #[deprecated(note = "switch to `Member::Str` instead")]
-    String(/* outer */ Span, /* inner */ Span),
-    Str(/* outer */ Span, String),
+    String(/* outer */ Span, String),
     Int(BigInt, Span),
     #[deprecated(note = "switch to `Member::Str` instead")]
     Bare(Span),
@@ -273,9 +271,7 @@ pub enum Member {
 impl ShellTypeName for Member {
     fn type_name(&self) -> &'static str {
         match self {
-            #[allow(deprecated)]
             Member::String(_, _) => "string",
-            Member::Str(_, _) => "string",
             Member::Int(_, _) => "integer",
             #[allow(deprecated)]
             Member::Bare(_) => "word",
@@ -295,9 +291,7 @@ impl Member {
 
     pub fn to_path_member(&self, source: &Text) -> PathMember {
         match self {
-            #[allow(deprecated)]
-            Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
-            Member::Str(outer, s) => PathMember::string(s, *outer),
+            Member::String(outer, s) => PathMember::string(s, *outer),
             Member::Int(int, span) => PathMember::int(int.clone(), *span),
             #[allow(deprecated)]
             Member::Bare(span) => PathMember::string(span.slice(source), *span),
@@ -309,9 +303,7 @@ impl Member {
 impl PrettyDebugWithSource for Member {
     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
         match self {
-            #[allow(deprecated)]
-            Member::String(outer, _) => b::value(outer.slice(source)),
-            Member::Str(_, content) => b::value(&content),
+            Member::String(_, content) => b::value(&content),
             Member::Int(int, _) => b::value(format!("{}", int)),
             #[allow(deprecated)]
             Member::Bare(span) => b::value(span.slice(source)),
@@ -323,9 +315,7 @@ impl PrettyDebugWithSource for Member {
 impl HasSpan for Member {
     fn span(&self) -> Span {
         match self {
-            #[allow(deprecated)]
             Member::String(outer, ..) => *outer,
-            Member::Str(outer, ..) => *outer,
             Member::Int(_, int) => *int,
             #[allow(deprecated)]
             Member::Bare(name) => *name,
@@ -337,9 +327,7 @@ impl HasSpan for Member {
 impl Member {
     pub fn to_expr(&self) -> hir::SpannedExpression {
         match self {
-            #[allow(deprecated)]
-            Member::String(outer, inner) => Expression::string(*inner).into_expr(outer),
-            Member::Str(outer, content) => Expression::str(content).into_expr(outer),
+            Member::String(outer, content) => Expression::str(content).into_expr(outer),
             Member::Int(number, span) => Expression::number(number.clone()).into_expr(span),
             #[allow(deprecated)]
             Member::Bare(span) => Expression::string(*span).into_expr(span),
@@ -349,9 +337,7 @@ impl Member {
 
     pub(crate) fn span(&self) -> Span {
         match self {
-            #[allow(deprecated)]
-            Member::String(outer, _inner) => *outer,
-            Member::Str(outer, _) => *outer,
+            Member::String(outer, _) => *outer,
             Member::Int(_, span) => *span,
             #[allow(deprecated)]
             Member::Bare(span) => *span,
@@ -508,7 +494,7 @@ impl ExpandSyntax for MemberShape {
         let string = token_nodes.expand_syntax(StringShape);
 
         if let Ok(syntax) = string {
-            return Ok(Member::Str(syntax.span, syntax.content));
+            return Ok(Member::String(syntax.span, syntax.content));
         }
 
         Err(token_nodes.peek().type_error("column"))
