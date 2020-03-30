@@ -102,7 +102,7 @@ fn test_parse_path() {
         |tokens| {
             let (outer_var, inner_var) = tokens[0].expect_var();
             let amount = tokens[2].expect_bare();
-            let (outer_max_ghz, _) = tokens[4].expect_string();
+            let outer_max_ghz = tokens[4].expect_string("max ghz");
 
             Expression::path(
                 Expression::variable(inner_var).into_expr(outer_var),

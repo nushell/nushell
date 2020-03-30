@@ -516,9 +516,9 @@ impl SpannedToken {
         }
     }
 
-    pub fn expect_string(&self) -> (Span, Span) {
+    pub fn expect_string(&self, value: impl Into<String>) -> Span {
         match self.unspanned() {
-            Token::String(inner_span) => (self.span(), *inner_span),
+            Token::Str(s) if *s == value.into() => self.span(),
             other => panic!("Expected string, found {:?}", other),
         }
     }
