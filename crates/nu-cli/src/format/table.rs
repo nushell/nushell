@@ -413,7 +413,7 @@ fn str_to_color(s: String) -> Option<Color> {
 fn to_style_vec(a: Vec<Value>) -> Vec<Attr> {
     let mut v: Vec<Attr> = Vec::new();
     for t in a {
-        if let Some(s) = t.as_string().ok() {
+        if let Ok(s) = t.as_string() {
             if let Some(r) = str_to_style(s) {
                 v.push(r);
             }
