@@ -178,8 +178,6 @@ impl TokenTreeBuilder {
         Token::String(input.into()).into_spanned(span)
     }
 
-    #[deprecated(note = "switch to `spanned_string`")]
-    #[allow(deprecated)]
     pub fn bare(input: impl Into<String>) -> CurriedToken {
         let input = input.into();
 
@@ -191,7 +189,6 @@ impl TokenTreeBuilder {
         })
     }
 
-    #[deprecated]
     pub fn spanned_bare(span: impl Into<Span>) -> SpannedToken {
         Token::Bare.into_spanned(span)
     }

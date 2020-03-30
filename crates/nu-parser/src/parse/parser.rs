@@ -380,7 +380,6 @@ pub fn external(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     ))
 }
 
-#[deprecated(note = "This needs to be updated to return a String instead of a span")]
 fn word<'a, T, U, V>(
     start_predicate: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, U>,
     next_predicate: impl Fn(NomSpan<'a>) -> IResult<NomSpan<'a>, V> + Copy,
