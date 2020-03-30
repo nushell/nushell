@@ -263,9 +263,7 @@ impl ExpandSyntax for VariableShape {
 pub enum Member {
     String(/* outer */ Span, String),
     Int(BigInt, Span),
-    #[deprecated(note = "switch to `Member::Str` instead")]
     Bare(Span),
-    BareStr(Span, String),
 }
 
 impl ShellTypeName for Member {
@@ -273,9 +271,7 @@ impl ShellTypeName for Member {
         match self {
             Member::String(_, _) => "string",
             Member::Int(_, _) => "integer",
-            #[allow(deprecated)]
             Member::Bare(_) => "word",
-            Member::BareStr(_, _) => "word",
         }
     }
 }
@@ -293,9 +289,7 @@ impl Member {
         match self {
             Member::String(outer, s) => PathMember::string(s, *outer),
             Member::Int(int, span) => PathMember::int(int.clone(), *span),
-            #[allow(deprecated)]
             Member::Bare(span) => PathMember::string(span.slice(source), *span),
-            Member::BareStr(span, s) => PathMember::string(s, *span),
         }
     }
 }
@@ -305,9 +299,7 @@ impl PrettyDebugWithSource for Member {
         match self {
             Member::String(_, content) => b::value(&content),
             Member::Int(int, _) => b::value(format!("{}", int)),
-            #[allow(deprecated)]
             Member::Bare(span) => b::value(span.slice(source)),
-            Member::BareStr(_, s) => b::value(&s),
         }
     }
 }
@@ -317,9 +309,7 @@ impl HasSpan for Member {
         match self {
             Member::String(outer, ..) => *outer,
             Member::Int(_, int) => *int,
-            #[allow(deprecated)]
             Member::Bare(name) => *name,
-            Member::BareStr(span, ..) => *span,
         }
     }
 }
@@ -329,9 +319,7 @@ impl Member {
         match self {
             Member::String(outer, content) => Expression::str(content).into_expr(outer),
             Member::Int(number, span) => Expression::number(number.clone()).into_expr(span),
-            #[allow(deprecated)]
             Member::Bare(span) => Expression::string(*span).into_expr(span),
-            Member::BareStr(span, content) => Expression::str(content).into_expr(span),
         }
     }
 
@@ -339,9 +327,7 @@ impl Member {
         match self {
             Member::String(outer, _) => *outer,
             Member::Int(_, span) => *span,
-            #[allow(deprecated)]
             Member::Bare(span) => *span,
-            Member::BareStr(span, _) => *span,
         }
     }
 }

@@ -23,7 +23,6 @@ pub enum Token {
     ExternalCommand(Span),
     ExternalWord,
     GlobPattern,
-    #[deprecated(note = "switch to `Token::String` instead")]
     Bare,
     Garbage,
 
