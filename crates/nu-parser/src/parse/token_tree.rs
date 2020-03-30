@@ -15,9 +15,7 @@ pub enum Token {
     Number(RawNumber),
     CompareOperator(CompareOperator),
     EvaluationOperator(EvaluationOperator),
-    #[deprecated(note = "switch to `Token::String` instead")]
-    String(Span),
-    Str(String),
+    String(String),
     Variable(Span),
     ItVariable(Span),
     ExternalCommand(Span),
@@ -95,13 +93,8 @@ token_type!(struct DecimalType (desc: "decimal") -> RawNumber {
     Token::Number(number @ RawNumber::Decimal(_)) => number
 });
 
-#[deprecated(note = "switch to `StrType` instead")]
-token_type!(struct StringType (desc: "string") -> (Span, Span) {
-    |outer, Token::String(inner)| => (*inner, outer)
-});
-
 token_type!(struct StrType(desc: "string") -> (String, Span) {
-    |outer, Token::Str(s)| => (s.clone(), outer)
+    |outer, Token::String(s)| => (s.clone(), outer)
 });
 
 token_type!(struct BareType (desc: "word") -> Span {
@@ -217,8 +210,7 @@ impl PrettyDebugWithSource for SpannedToken {
             Token::Number(number) => number.pretty_debug(source),
             Token::CompareOperator(operator) => operator.pretty_debug(source),
             Token::EvaluationOperator(operator) => operator.pretty_debug(source),
-            #[allow(deprecated)]
-            Token::String(_) | Token::Str(_) | Token::GlobPattern | Token::Bare => {
+            Token::String(_) | Token::GlobPattern | Token::Bare => {
                 b::primitive(self.span.slice(source))
             }
             Token::Variable(_) => b::var(self.span.slice(source)),
@@ -252,9 +244,7 @@ impl ShellTypeName for Token {
             Token::CompareOperator(_) => "comparison operator",
             Token::EvaluationOperator(EvaluationOperator::Dot) => "dot",
             Token::EvaluationOperator(EvaluationOperator::DotDot) => "dot dot",
-            #[allow(deprecated)]
             Token::String(_) => "string",
-            Token::Str(_) => "string",
             Token::Variable(_) => "variable",
             Token::ItVariable(_) => "it variable",
             Token::ExternalCommand(_) => "external command",
@@ -304,9 +294,7 @@ impl SpannedToken {
 
     pub fn is_string(&self) -> bool {
         match self.unspanned() {
-            #[allow(deprecated)]
             Token::String(_) => true,
-            Token::Str(_) => true,
             _ => false,
         }
     }
@@ -325,18 +313,9 @@ impl SpannedToken {
         }
     }
 
-    #[deprecated(note = "switch to `SpannedToken::as_str` instead")]
-    pub fn as_string(&self) -> Option<(Span, Span)> {
-        match self.unspanned() {
-            #[allow(deprecated)]
-            Token::String(inner_span) => Some((self.span(), *inner_span)),
-            _ => None,
-        }
-    }
-
     pub fn as_str<'tree>(&'tree self) -> Option<(Span, &'tree str)> {
         match self.unspanned() {
-            Token::Str(s) => Some((self.span(), s)),
+            Token::String(s) => Some((self.span(), s)),
             _ => None,
         }
     }
@@ -516,7 +495,7 @@ impl SpannedToken {
 
     pub fn expect_string(&self, value: impl Into<String>) -> Span {
         match self.unspanned() {
-            Token::Str(s) if *s == value.into() => self.span(),
+            Token::String(s) if *s == value.into() => self.span(),
             other => panic!("Expected string, found {:?}", other),
         }
     }

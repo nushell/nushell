@@ -170,21 +170,15 @@ impl TokenTreeBuilder {
             let (_, end) = b.consume("\"");
             b.pos = end;
 
-            TokenTreeBuilder::spanned_str(input, Span::new(start, end))
+            TokenTreeBuilder::spanned_string(input, Span::new(start, end))
         })
     }
 
-    #[deprecated(note = "switch to `spanned_str` instead")]
-    pub fn spanned_string(input: impl Into<Span>, span: impl Into<Span>) -> SpannedToken {
-        #[allow(deprecated)]
+    pub fn spanned_string(input: impl Into<String>, span: impl Into<Span>) -> SpannedToken {
         Token::String(input.into()).into_spanned(span)
     }
 
-    pub fn spanned_str(input: impl Into<String>, span: impl Into<Span>) -> SpannedToken {
-        Token::Str(input.into()).into_spanned(span)
-    }
-
-    #[deprecated(note = "switch to `spanned_str`")]
+    #[deprecated(note = "switch to `spanned_string`")]
     #[allow(deprecated)]
     pub fn bare(input: impl Into<String>) -> CurriedToken {
         let input = input.into();

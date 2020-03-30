@@ -339,7 +339,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let end = input.offset;
     Ok((
         input,
-        TokenTreeBuilder::spanned_str(remove_escapes(result.fragment), Span::new(start, end)),
+        TokenTreeBuilder::spanned_string(remove_escapes(result.fragment), Span::new(start, end)),
     ))
 }
 
@@ -355,7 +355,7 @@ pub fn sq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_str(
+        TokenTreeBuilder::spanned_string(
             result.into_iter().collect::<String>(),
             Span::new(start, end),
         ),

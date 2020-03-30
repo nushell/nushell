@@ -159,7 +159,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let end = input.offset;
     Ok((
         input,
-        TokenTreeBuilder::spanned_str(result.fragment, Span::new(start, end)),
+        TokenTreeBuilder::spanned_string(result.fragment, Span::new(start, end)),
     ))
 }
 
@@ -173,7 +173,7 @@ pub fn sq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
 
     Ok((
         input,
-        TokenTreeBuilder::spanned_str(
+        TokenTreeBuilder::spanned_string(
             result.into_iter().collect::<String>(),
             Span::new(start, end),
         ),
@@ -194,7 +194,7 @@ pub fn fallback_string_without(c: &str) -> impl Fn(NomSpan) -> IResult<NomSpan, 
 
         Ok((
             input,
-            TokenTreeBuilder::spanned_str(
+            TokenTreeBuilder::spanned_string(
                 result.into_iter().collect::<String>(),
                 Span::new(start, end),
             ),
