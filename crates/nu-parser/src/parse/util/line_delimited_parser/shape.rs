@@ -50,8 +50,7 @@ impl ExpandSyntax for LineSeparatedShape {
                     Expression::Literal(hir::Literal::Number(crate::Number::Decimal(d))) => {
                         entries.push(UntaggedValue::decimal(d.clone()))
                     }
-                    #[allow(deprecated)]
-                    Expression::Literal(hir::Literal::String(span)) => {
+                    Expression::Literal(hir::Literal::NoCopyString(span)) => {
                         if span.is_closed() {
                             entries.push(UntaggedValue::nothing())
                         } else {

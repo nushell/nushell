@@ -321,10 +321,8 @@ impl Expression {
         Expression::Literal(Literal::Size(i.into(), unit.into()))
     }
 
-    #[deprecated(note = "switch to `Expression::str` instead")]
     pub fn string(inner: impl Into<Span>) -> Expression {
-        #[allow(deprecated)]
-        Expression::Literal(Literal::String(inner.into()))
+        Expression::Literal(Literal::NoCopyString(inner.into()))
     }
 
     pub fn str(s: impl Into<String>) -> Expression {
@@ -416,8 +414,7 @@ impl From<Spanned<Path>> for SpannedExpression {
 pub enum Literal {
     Number(Number),
     Size(Number, Unit),
-    #[deprecated(note = "switch to `Literal::Str` instead")]
-    String(Span),
+    NoCopyString(Span),
     Str(String),
     GlobPattern(String),
     ColumnPath(Vec<Member>),
@@ -444,8 +441,7 @@ impl ShellTypeName for Literal {
         match &self {
             Literal::Number(..) => "number",
             Literal::Size(..) => "size",
-            #[allow(deprecated)]
-            Literal::String(..) => "string",
+            Literal::NoCopyString(..) => "string",
             Literal::Str(..) => "string",
             Literal::ColumnPath(..) => "column path",
             Literal::Bare => "string",
@@ -461,8 +457,9 @@ impl PrettyDebugWithSource for SpannedLiteral {
             PrettyDebugRefineKind::WithContext => match &self.literal {
                 Literal::Number(number) => number.pretty(),
                 Literal::Size(number, unit) => (number.pretty() + unit.pretty()).group(),
-                #[allow(deprecated)]
-                Literal::String(string) => b::primitive(format!("{:?}", string.slice(source))),
+                Literal::NoCopyString(string) => {
+                    b::primitive(format!("{:?}", string.slice(source)))
+                }
                 Literal::Str(string) => b::primitive(format!("{:?}", string)),
                 Literal::GlobPattern(pattern) => b::primitive(pattern),
                 Literal::ColumnPath(path) => {
@@ -479,8 +476,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
             Literal::Size(number, unit) => {
                 b::typed("size", (number.pretty() + unit.pretty()).group())
             }
-            #[allow(deprecated)]
-            Literal::String(string) => b::typed(
+            Literal::NoCopyString(string) => b::typed(
                 "string",
                 b::primitive(format!("{:?}", string.slice(source))),
             ),
