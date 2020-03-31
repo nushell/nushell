@@ -29,7 +29,6 @@ impl ExpandSyntax for CoerceStringShape {
                 })
             })
             .or_else(|_| {
-                #[allow(deprecated)]
                 token_nodes
                     .expand_syntax(NumberShape)
                     .map(|number| Expression::string(number.span()).into_expr(number.span()))
