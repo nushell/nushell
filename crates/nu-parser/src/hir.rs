@@ -326,7 +326,7 @@ impl Expression {
     }
 
     pub fn str(s: impl Into<String>) -> Expression {
-        Expression::Literal(Literal::Str(s.into()))
+        Expression::Literal(Literal::String(s.into()))
     }
 
     pub fn synthetic_string(string: impl Into<String>) -> Expression {
@@ -415,7 +415,7 @@ pub enum Literal {
     Number(Number),
     Size(Number, Unit),
     NoCopyString(Span),
-    Str(String),
+    String(String),
     GlobPattern(String),
     ColumnPath(Vec<Member>),
     Bare,
@@ -442,7 +442,7 @@ impl ShellTypeName for Literal {
             Literal::Number(..) => "number",
             Literal::Size(..) => "size",
             Literal::NoCopyString(..) => "string",
-            Literal::Str(..) => "string",
+            Literal::String(..) => "string",
             Literal::ColumnPath(..) => "column path",
             Literal::Bare => "string",
             Literal::GlobPattern(_) => "pattern",
@@ -460,7 +460,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 Literal::NoCopyString(string) => {
                     b::primitive(format!("{:?}", string.slice(source)))
                 }
-                Literal::Str(string) => b::primitive(format!("{:?}", string)),
+                Literal::String(string) => b::primitive(format!("{:?}", string)),
                 Literal::GlobPattern(pattern) => b::primitive(pattern),
                 Literal::ColumnPath(path) => {
                     b::intersperse_with_source(path.iter(), b::space(), source)
@@ -480,7 +480,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 "string",
                 b::primitive(format!("{:?}", string.slice(source))),
             ),
-            Literal::Str(string) => b::typed("string", b::primitive(format!("{:?}", string))),
+            Literal::String(string) => b::typed("string", b::primitive(format!("{:?}", string))),
             Literal::GlobPattern(pattern) => b::typed("pattern", b::primitive(pattern)),
             Literal::ColumnPath(path) => b::typed(
                 "column path",

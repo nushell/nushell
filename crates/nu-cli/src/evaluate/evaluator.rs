@@ -145,7 +145,7 @@ fn evaluate_literal(literal: &hir::Literal, span: Span, source: &Text) -> Value 
         hir::Literal::NoCopyString(tag) => {
             UntaggedValue::string(tag.slice(source)).into_value(span)
         }
-        hir::Literal::Str(s) => UntaggedValue::string(s).into_value(span),
+        hir::Literal::String(s) => UntaggedValue::string(s).into_value(span),
         hir::Literal::GlobPattern(pattern) => UntaggedValue::pattern(pattern).into_value(span),
         hir::Literal::Bare => UntaggedValue::string(span.slice(source)).into_value(span),
     }
