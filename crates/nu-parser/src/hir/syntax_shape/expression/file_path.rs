@@ -24,7 +24,7 @@ impl ExpandSyntax for FilePathShape {
         token_nodes
             .expand_syntax(BarePathShape)
             .or_else(|_| token_nodes.expand_syntax(ExternalWordShape))
-            .map(|span| file_path(span, token_nodes.context()).into_expr(span))
+            .map(|span| no_copy_file_path(span, token_nodes.context()).into_expr(span))
             .or_else(|_| {
                 token_nodes.expand_syntax(StringShape).map(|syntax| {
                     file_path_str(&syntax.content, token_nodes.context()).into_expr(syntax.span)
@@ -35,15 +35,15 @@ impl ExpandSyntax for FilePathShape {
                     .expand_syntax(IntShape)
                     .or_else(|_| token_nodes.expand_syntax(DecimalShape))
                     .map(|number| {
-                        file_path(number.span(), token_nodes.context()).into_expr(number.span())
+                        no_copy_file_path(number.span(), token_nodes.context())
+                            .into_expr(number.span())
                     })
             })
             .map_err(|_| token_nodes.err_next_token("file path"))
     }
 }
 
-#[deprecated(note = "switch to `file_path_str` instead")]
-fn file_path(text: Span, context: &ExpandContext) -> Expression {
+fn no_copy_file_path(text: Span, context: &ExpandContext) -> Expression {
     Expression::FilePath(expand_file_path(text.slice(context.source), context))
 }
 
