@@ -24,7 +24,7 @@ jobs:
       run: |
         cross build --target ${{ matrix.arch }} --release
         # leave only the executable file
-        rm -rd target/${{ matrix.arch }}/release/{*/*,*.d,*.rlib,.fingerprint}
+        rm -frd target/${{ matrix.arch }}/release/{*/*,*.d,*.rlib,.fingerprint}
         find . -empty -delete
     - uses: actions/upload-artifact@master
       with:
