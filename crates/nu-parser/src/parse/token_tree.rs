@@ -313,7 +313,7 @@ impl SpannedToken {
         }
     }
 
-    pub fn as_str<'tree>(&'tree self) -> Option<(Span, &'tree str)> {
+    pub fn as_str(&self) -> Option<(Span, &str)> {
         match self.unspanned() {
             Token::String(s) => Some((self.span(), s)),
             _ => None,
