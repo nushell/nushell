@@ -11,7 +11,7 @@ use derive_new::new;
 use indexmap::IndexMap;
 use nu_errors::{ParseError, ShellError};
 use nu_protocol::{outln, PathMember, Signature, SyntaxShape};
-use nu_source::{HasSpan, PrettyDebugWithSource, Span, SpannedItem, Tag, Text};
+use nu_source::{HasSpan, PrettyDebugWithSource, SpannedItem, Tag, Text};
 use pretty_assertions::assert_eq;
 use std::fmt::Debug;
 
@@ -284,10 +284,6 @@ fn parse_expr(
             assert_eq!(expr, expected);
         }
     })
-}
-
-fn inner_string_span(span: Span) -> Span {
-    Span::new(span.start() + 1, span.end() - 1)
 }
 
 pub fn print_err(err: ShellError, source: &Text) {
