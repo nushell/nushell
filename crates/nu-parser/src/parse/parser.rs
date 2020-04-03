@@ -323,6 +323,9 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
             if c == '\\' && !was_escape {
                 was_escape = true;
             } else {
+                if was_escape && (c != '\\' && c != '"') {
+                    string.push('\\');
+                }
                 string.push(c);
                 was_escape = false;
             }
@@ -333,7 +336,7 @@ pub fn dq_string(input: NomSpan) -> IResult<NomSpan, SpannedToken> {
     let start = input.offset;
     let (input, _) = char('"')(input)?;
     let start1 = input.offset;
-    let (input, result) = escaped(none_of("\"\\"), '\\', complete::one_of("\"\\"))(input)?;
+    let (input, result) = escaped(none_of("\"\\"), '\\', take(1usize))(input)?;
     let end1 = input.offset;
     let (input, _) = char('"')(input)?;
     let end = input.offset;
