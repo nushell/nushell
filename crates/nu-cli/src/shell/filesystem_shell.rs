@@ -577,8 +577,8 @@ impl Shell for FilesystemShell {
 
         if sources.is_empty() {
             return Err(ShellError::labeled_error(
-                "Invalid File or Pattern.",
-                "Invalid File or Pattern",
+                "Invalid file or pattern.",
+                "invalid file or pattern",
                 src.tag,
             ));
         }
@@ -1204,7 +1204,7 @@ fn normalize(path: impl AsRef<Path>) -> PathBuf {
                     normalized.push(normal);
                 }
             }
-            c @ _ => normalized.push(c.as_os_str()),
+            c => normalized.push(c.as_os_str()),
         }
     }
 
