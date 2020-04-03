@@ -12,6 +12,7 @@ use crate::utils::FileStructure;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
+use regex::Regex;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
@@ -78,29 +79,6 @@ impl FilesystemShell {
             hinter: HistoryHinter {},
         }
     }
-
-    fn canonicalize(&self, path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
-        let path = if path.as_ref().is_relative() {
-            let components = path.as_ref().components();
-            let mut result = PathBuf::from(self.path());
-            for component in components {
-                match component {
-                    Component::CurDir => { /* ignore current dir */ }
-                    Component::ParentDir => {
-                        result.pop();
-                    }
-                    Component::Normal(normal) => result.push(normal),
-                    _ => {}
-                }
-            }
-
-            result
-        } else {
-            path.as_ref().into()
-        };
-
-        dunce::canonicalize(path)
-    }
 }
 
 impl Shell for FilesystemShell {
@@ -129,7 +107,7 @@ impl Shell for FilesystemShell {
         let (path, p_tag) = match path {
             Some(p) => {
                 let p_tag = p.tag;
-                let mut p = p.item;
+                let mut p = normalize(p.item);
                 if p.is_dir() {
                     if is_empty_dir(&p) {
                         return Ok(OutputStream::empty());
@@ -212,7 +190,7 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path = self.canonicalize(target).map_err(|_| {
+                    let path = canonicalize(self.path(), target).map_err(|_| {
                         ShellError::labeled_error(
                             "Cannot change to directory",
                             "directory not found",
@@ -278,11 +256,9 @@ impl Shell for FilesystemShell {
     ) -> Result<OutputStream, ShellError> {
         let name_tag = name;
 
-        let mut source = PathBuf::from(path);
-        let mut destination = PathBuf::from(path);
-
-        source.push(&src.item);
-        destination.push(&dst.item);
+        let path = Path::new(path);
+        let source = normalize(path.join(&src.item));
+        let mut destination = normalize(path.join(&dst.item));
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -550,7 +526,7 @@ impl Shell for FilesystemShell {
         name: Tag,
         path: &str,
     ) -> Result<OutputStream, ShellError> {
-        let full_path = PathBuf::from(path);
+        let path = Path::new(path);
 
         if directories.is_empty() {
             return Err(ShellError::labeled_error(
@@ -561,11 +537,7 @@ impl Shell for FilesystemShell {
         }
 
         for dir in directories.iter() {
-            let create_at = {
-                let mut loc = full_path.clone();
-                loc.push(&dir.item);
-                loc
-            };
+            let create_at = normalize(path.join(&dir.item));
 
             let dir_res = std::fs::create_dir_all(create_at);
             if let Err(reason) = dir_res {
@@ -588,11 +560,9 @@ impl Shell for FilesystemShell {
     ) -> Result<OutputStream, ShellError> {
         let name_tag = name;
 
-        let mut source = PathBuf::from(path);
-        let mut destination = PathBuf::from(path);
-
-        source.push(&src.item);
-        destination.push(&dst.item);
+        let path = Path::new(path);
+        let source = normalize(path.join(&src.item));
+        let mut destination = normalize(path.join(&dst.item));
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -993,6 +963,7 @@ impl Shell for FilesystemShell {
             ));
         }
 
+        let path = Path::new(path);
         let mut all_targets: HashMap<PathBuf, Tag> = HashMap::new();
         for target in targets {
             if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
@@ -1003,8 +974,7 @@ impl Shell for FilesystemShell {
                 ));
             }
 
-            let mut path = PathBuf::from(path);
-            path.push(&target.item);
+            let path = normalize(path.join(&target.item));
             match glob::glob(&path.to_string_lossy()) {
                 Ok(files) => {
                     for file in files {
@@ -1211,4 +1181,53 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
                 .unwrap_or(false)
         }
     }
+}
+
+fn normalize(path: impl AsRef<Path>) -> PathBuf {
+    lazy_static::lazy_static! {
+        static ref PARENT_REGEX: Regex = Regex::new("^\\.*$").unwrap();
+    }
+
+    let mut normalized = PathBuf::new();
+    for component in path.as_ref().components() {
+        match component {
+            Component::Normal(normal) => {
+                if let Some(normal) = normal.to_str() {
+                    if PARENT_REGEX.is_match(normal) {
+                        for _ in 0..(normal.len() - 1) {
+                            normalized.push("..");
+                        }
+                    } else {
+                        normalized.push(normal);
+                    }
+                } else {
+                    normalized.push(normal);
+                }
+            }
+            c @ _ => normalized.push(c.as_os_str()),
+        }
+    }
+
+    normalized
+}
+
+fn canonicalize(relative_to: impl AsRef<Path>, path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+    let path = if path.as_ref().is_relative() {
+        let mut result = relative_to.as_ref().to_path_buf();
+        normalize(path.as_ref())
+            .components()
+            .for_each(|component| match component {
+                Component::ParentDir => {
+                    result.pop();
+                }
+                Component::Normal(normal) => result.push(normal),
+                _ => {}
+            });
+
+        result
+    } else {
+        path.as_ref().into()
+    };
+
+    dunce::canonicalize(path)
 }
