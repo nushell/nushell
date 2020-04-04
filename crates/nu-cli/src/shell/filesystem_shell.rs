@@ -1183,6 +1183,7 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
+#[allow(clippy::result_unwrap_used)]
 fn normalize(path: impl AsRef<Path>) -> PathBuf {
     lazy_static::lazy_static! {
         static ref PARENT_REGEX: Regex = Regex::new("^\\.*$").unwrap();
