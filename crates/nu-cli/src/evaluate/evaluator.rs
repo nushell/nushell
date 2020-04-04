@@ -40,12 +40,17 @@ pub(crate) fn evaluate_baseline_expr(
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
-            match apply_operator(*binary.op, &left, &right) {
-                Ok(result) => Ok(result.into_value(tag)),
-                Err((left_type, right_type)) => Err(ShellError::coerce_error(
-                    left_type.spanned(binary.left.span),
-                    right_type.spanned(binary.right.span),
-                )),
+            match binary.op.expr {
+                Expression::Literal(hir::Literal::Operator(op)) => {
+                    match apply_operator(op, &left, &right) {
+                        Ok(result) => Ok(result.into_value(tag)),
+                        Err((left_type, right_type)) => Err(ShellError::coerce_error(
+                            left_type.spanned(binary.left.span),
+                            right_type.spanned(binary.right.span),
+                        )),
+                    }
+                }
+                _ => unreachable!(),
             }
         }
         Expression::Range(range) => {

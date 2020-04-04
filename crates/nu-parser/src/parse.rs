@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::errors::ParseError;
 //use crate::hir::*;
 use crate::hir::{
-    CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, NamedValue,
+    Binary, CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, NamedValue,
     SpannedExpression, Unit,
 };
 use crate::lite_parse::{lite_parse, LitePipeline};
@@ -425,8 +425,12 @@ fn parse_arg(
                         }
 
                         let span = Span::new(lhs.span.start(), rhs.span.end());
+                        let binary = SpannedExpression::new(
+                            Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                            span,
+                        );
                         (
-                            SpannedExpression::new(Expression::Block(vec![lhs, op, rhs]), span),
+                            SpannedExpression::new(Expression::Block(vec![binary]), span),
                             error,
                         )
                     } else {
@@ -615,7 +619,11 @@ pub fn classify_pipeline(
                                 }
                                 idx += 2;
                                 let span = Span::new(lhs.span.start(), rhs.span.end());
-                                SpannedExpression::new(Expression::Block(vec![lhs, op, rhs]), span)
+                                let binary = SpannedExpression::new(
+                                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                                    span,
+                                );
+                                SpannedExpression::new(Expression::Block(vec![binary]), span)
                             } else {
                                 let (arg, err) =
                                     parse_arg(&SyntaxShape::Block, registry, &lite_cmd.args[idx]);

@@ -396,10 +396,10 @@ pub enum CompareOperator {
     NotContains,
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]
 pub struct Binary {
     pub left: SpannedExpression,
-    pub op: Spanned<CompareOperator>,
+    pub op: SpannedExpression, //Spanned<CompareOperator>,
     pub right: SpannedExpression,
 }
 

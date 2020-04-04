@@ -630,6 +630,8 @@ async fn process_line(
 
             let pipeline = nu_parser::classify_pipeline(&result, ctx.registry());
 
+            println!("{:#?}", pipeline);
+
             if let Some(failure) = pipeline.failed {
                 println!("{:?}", failure);
                 return LineResult::Error(
