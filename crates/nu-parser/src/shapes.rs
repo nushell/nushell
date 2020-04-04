@@ -1,5 +1,6 @@
 use crate::hir::*;
 use crate::parse::{ClassifiedCommand, Commands};
+use nu_protocol::UnspannedPathMember;
 use nu_source::{Spanned, SpannedItem};
 
 /// Converts a SpannedExpression into a spanned shape(s) ready for color-highlighting
@@ -25,9 +26,9 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&exprs.head));
             for member in exprs.tail.iter() {
-                match member {
-                    Member::Bare(bare) => {
-                        output.push(FlatShape::BareMember.spanned(bare.span));
+                match &member.unspanned {
+                    UnspannedPathMember::String(string) => {
+                        output.push(FlatShape::StringMember.spanned(member.span));
                     }
                     _ => {}
                 }
@@ -77,20 +78,24 @@ pub fn shapes(commands: &Commands) -> Vec<Spanned<FlatShape>> {
             ClassifiedCommand::Internal(internal) => {
                 output.append(&mut expression_to_flat_shape(&internal.args.head));
 
-                for positional_arg in &internal.args.positional {
-                    output.append(&mut expression_to_flat_shape(positional_arg));
+                if let Some(positionals) = &internal.args.positional {
+                    for positional_arg in positionals {
+                        output.append(&mut expression_to_flat_shape(positional_arg));
+                    }
                 }
 
-                for (_, named_arg) in &internal.args.named {
-                    match named_arg {
-                        NamedValue::PresentSwitch(span) => {
-                            output.push(FlatShape::Flag.spanned(*span));
+                if let Some(named) = &internal.args.named {
+                    for (_, named_arg) in named.iter() {
+                        match named_arg {
+                            NamedValue::PresentSwitch(span) => {
+                                output.push(FlatShape::Flag.spanned(*span));
+                            }
+                            NamedValue::Value(span, expr) => {
+                                output.push(FlatShape::Flag.spanned(*span));
+                                output.append(&mut expression_to_flat_shape(expr));
+                            }
+                            _ => {}
                         }
-                        NamedValue::Value(span, expr) => {
-                            output.push(FlatShape::Flag.spanned(*span));
-                            output.append(&mut expression_to_flat_shape(expr));
-                        }
-                        _ => {}
                     }
                 }
             }

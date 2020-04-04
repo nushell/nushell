@@ -71,7 +71,7 @@ pub(crate) fn run_internal_command(
                                         span: Span::unknown()
                                     },
                                     source: source.clone(),
-                                    name_tag: command.name_tag,
+                                    name_tag: Tag::unknown_anchor(command.name_tag),
                                 }
                             };
                             let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry);

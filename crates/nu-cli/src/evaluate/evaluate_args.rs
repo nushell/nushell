@@ -36,7 +36,7 @@ pub(crate) fn evaluate_args(
                     hir::NamedValue::PresentSwitch(tag) => {
                         results.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
                     }
-                    hir::NamedValue::Value(expr) => {
+                    hir::NamedValue::Value(span, expr) => {
                         results.insert(
                             name.clone(),
                             evaluate_baseline_expr(expr, registry, scope, source)?,

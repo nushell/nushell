@@ -2,11 +2,16 @@ use std::path::Path;
 
 use crate::errors::ParseError;
 //use crate::hir::*;
-use crate::hir::{CompareOperator, Expression, Member, NamedValue, SpannedExpression, Unit};
+use crate::hir::{
+    CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, NamedValue,
+    SpannedExpression, Unit,
+};
 use crate::lite_parse::{lite_parse, LitePipeline};
 use crate::signature::SignatureRegistry;
 use crate::{ExternalArg, ExternalArgs, ExternalCommand};
-use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape};
+use nu_protocol::{
+    NamedType, PathMember, PositionalType, Signature, SyntaxShape, UnspannedPathMember,
+};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 
 #[derive(Debug, Clone)]
@@ -22,7 +27,7 @@ impl InternalCommand {
             name: name.clone(),
             name_tag,
             args: crate::hir::Call::new(
-                SpannedExpression::new(Expression::string(name), name_tag),
+                Box::new(SpannedExpression::new(Expression::string(name), name_tag)),
                 name_tag,
             ),
         }
@@ -100,7 +105,9 @@ fn parse_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<P
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
             } else {
-                output.push(Member::Bare(current_part.clone().spanned(part_span)));
+                output.push(
+                    UnspannedPathMember::String(current_part.clone()).into_path_member(part_span),
+                );
             }
             current_part.clear();
             // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
@@ -112,16 +119,18 @@ fn parse_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<P
     }
 
     if !current_part.is_empty() {
-        output.push(Member::Bare(current_part.spanned(Span::new(
-            lite_arg.span.start() + start_index,
-            lite_arg.span.start() + last_index,
-        ))));
+        output.push(
+            UnspannedPathMember::String(current_part).into_path_member(Span::new(
+                lite_arg.span.start() + start_index,
+                lite_arg.span.start() + last_index,
+            )),
+        );
     }
 
     if let Some(head) = head {
         (
             SpannedExpression::new(
-                Expression::column_path(SpannedExpression::new(head, lite_arg.span), output),
+                Expression::path(SpannedExpression::new(head, lite_arg.span), output),
                 lite_arg.span,
             ),
             None,
@@ -129,7 +138,7 @@ fn parse_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<P
     } else {
         (
             SpannedExpression::new(
-                Expression::column_path(
+                Expression::path(
                     SpannedExpression::new(
                         Expression::variable("$it".into(), lite_arg.span),
                         lite_arg.span,
@@ -444,7 +453,7 @@ fn parse_arg(
 /// Match the available flags in a signature with what the user provided. This will check both long-form flags (--full) and shorthand flags (-f)
 /// This also allows users to provide a group of shorthand flags (-af) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
-    signature: &crate::signature::Signature,
+    signature: &nu_protocol::Signature,
     arg: &Spanned<String>,
 ) -> (Vec<(String, NamedType)>, Option<ParseError>) {
     if arg.item.starts_with('-') {
@@ -457,7 +466,7 @@ fn get_flags_from_flag(
         if remainder.starts_with('-') {
             // Long flag expected
             let remainder: String = remainder.chars().skip(1).collect();
-            if let Some((named_type, _)) = signature.unspanned.named.get(&remainder) {
+            if let Some((named_type, _)) = signature.named.get(&remainder) {
                 output.push((remainder.clone(), named_type.clone()));
             } else {
                 error = Some(ParseError::UnexpectedFlag(arg.span));
@@ -467,7 +476,7 @@ fn get_flags_from_flag(
             let mut starting_pos = arg.span.start() + 1;
             for c in remainder.chars() {
                 let mut found = false;
-                for (full_name, named_arg) in signature.unspanned.named.iter() {
+                for (full_name, named_arg) in signature.named.iter() {
                     if Some(c) == named_arg.0.get_short() {
                         found = true;
                         output.push((full_name.clone(), named_arg.0.clone()));
@@ -512,6 +521,8 @@ pub fn classify_pipeline(
 
             let mut idx = 0;
             let mut current_positional = 0;
+            let mut named = NamedArguments::new();
+            let mut positional = vec![];
 
             while idx < lite_cmd.args.len() {
                 if lite_cmd.args[idx].item.starts_with('-') {
@@ -534,9 +545,10 @@ pub fn classify_pipeline(
                                         if lite_cmd.args.len() > idx {
                                             let (arg, err) =
                                                 parse_arg(shape, registry, &lite_cmd.args[idx]);
-                                            internal_command.args.named.insert(
+                                            named.insert_mandatory(
                                                 full_name.clone(),
-                                                NamedValue::Value(lite_cmd.args[idx - 1].span, arg),
+                                                lite_cmd.args[idx - 1].span,
+                                                arg,
                                             );
 
                                             if error.is_none() {
@@ -553,25 +565,25 @@ pub fn classify_pipeline(
                                     }
                                 }
                                 NamedType::Switch(_) => {
-                                    internal_command.args.named.insert(
+                                    named.insert_switch(
                                         full_name.clone(),
-                                        NamedValue::PresentSwitch(lite_cmd.args[idx].span),
+                                        Some(Flag::new(
+                                            FlagKind::Longhand,
+                                            lite_cmd.args[idx].span,
+                                        )),
                                     );
                                 }
                             }
                         }
                     } else {
-                        internal_command
-                            .args
-                            .positional
-                            .push(garbage(lite_cmd.args[idx].span));
+                        positional.push(garbage(lite_cmd.args[idx].span));
 
                         if error.is_none() {
                             error = err;
                         }
                     }
-                } else if signature.unspanned.positional.len() > current_positional {
-                    let arg = match &signature.unspanned.positional[current_positional].0 {
+                } else if signature.positional.len() > current_positional {
+                    let arg = match &signature.positional[current_positional].0 {
                         PositionalType::Mandatory(_, SyntaxShape::Block)
                         | PositionalType::Optional(_, SyntaxShape::Block) => {
                             // We may have an implied block, so let's try to parse it here
@@ -629,21 +641,18 @@ pub fn classify_pipeline(
                         }
                     };
 
-                    internal_command.args.positional.push(arg);
+                    positional.push(arg);
                     current_positional += 1;
-                } else if let Some((rest_type, _)) = &signature.unspanned.rest_positional {
+                } else if let Some((rest_type, _)) = &signature.rest_positional {
                     let (arg, err) = parse_arg(&rest_type, registry, &lite_cmd.args[idx]);
                     if error.is_none() {
                         error = err;
                     }
 
-                    internal_command.args.positional.push(arg);
+                    positional.push(arg);
                     current_positional += 1;
                 } else {
-                    internal_command
-                        .args
-                        .positional
-                        .push(garbage(lite_cmd.args[idx].span));
+                    positional.push(garbage(lite_cmd.args[idx].span));
 
                     if error.is_none() {
                         error = Some(ParseError::TooManyPositionalArguments(
@@ -657,15 +666,23 @@ pub fn classify_pipeline(
 
             // Count the required positional arguments and ensure these have been met
             let mut required_arg_count = 0;
-            for positional_arg in &signature.unspanned.positional {
+            for positional_arg in &signature.positional {
                 if let PositionalType::Mandatory(_, _) = positional_arg.0 {
                     required_arg_count += 1;
                 }
             }
-            if internal_command.args.positional.len() < required_arg_count && error.is_none() {
+            if positional.len() < required_arg_count && error.is_none() {
                 error = Some(ParseError::MissingRequiredPositionalArgument(
                     lite_cmd.name.span,
                 ));
+            }
+
+            if !named.is_empty() {
+                internal_command.args.named = Some(named);
+            }
+
+            if !positional.is_empty() {
+                internal_command.args.positional = Some(positional);
             }
 
             commands.push(ClassifiedCommand::Internal(internal_command))

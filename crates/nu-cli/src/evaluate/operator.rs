@@ -1,5 +1,5 @@
 use crate::data::value;
-use nu_parser::CompareOperator;
+use nu_parser::hir::CompareOperator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 

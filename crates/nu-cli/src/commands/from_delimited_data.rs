@@ -3,7 +3,8 @@ use nu_errors::ShellError;
 use nu_parser::SignatureRegistry;
 // use nu_parser::utils::{parse_line_with_separator as parse, LineSeparatedShape};
 // use nu_parser::TokensIterator;
-use nu_protocol::{ReturnSuccess, Signature, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::Signature;
+use nu_protocol::{ReturnSuccess, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::nom_input;
 
 use derive_new::new;

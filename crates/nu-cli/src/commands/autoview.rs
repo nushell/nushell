@@ -282,7 +282,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
         call_info: UnevaluatedCallInfo {
             args: hir::Call {
                 head: Box::new(SpannedExpression::new(
-                    Expression::Literal(Literal::String(span)),
+                    Expression::Literal(Literal::String(String::new())),
                     span,
                 )),
                 positional: None,

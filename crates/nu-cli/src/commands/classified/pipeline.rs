@@ -26,9 +26,8 @@ pub(crate) async fn run_pipeline(
             // (Some(ClassifiedCommand::Expr(_)), _) | (_, Some(ClassifiedCommand::Expr(_))) => {
             //     return Err(ShellError::unimplemented("Expression-only commands"))
             // }
-            (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
-            (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
-
+            // (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
+            // (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
             (Some(ClassifiedCommand::Internal(left)), _) => {
                 run_internal_command(left, ctx, input, Text::from(line))?
             }
@@ -42,6 +41,7 @@ pub(crate) async fn run_pipeline(
             }
 
             (None, _) => break,
+            _ => unimplemented!("Not yet implented cases in run_pipeline"),
         };
     }
 

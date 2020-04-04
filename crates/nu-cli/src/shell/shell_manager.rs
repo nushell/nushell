@@ -94,9 +94,9 @@ impl ShellManager {
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-        context: ExpandContext,
+        //context: ExpandContext,
     ) -> Option<String> {
-        self.shells.lock()[self.current_shell()].hint(line, pos, ctx, context)
+        self.shells.lock()[self.current_shell()].hint(line, pos, ctx)
     }
 
     pub fn next(&mut self) {

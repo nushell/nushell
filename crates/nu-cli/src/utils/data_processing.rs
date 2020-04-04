@@ -2,7 +2,7 @@ use crate::data::value::compare_values;
 use crate::data::TaggedListBuilder;
 use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
-use nu_parser::CompareOperator;
+use nu_parser::hir::CompareOperator;
 use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};

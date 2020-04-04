@@ -1,7 +1,8 @@
 use crate::context::Context;
 use ansi_term::{Color, Style};
 use log::log_enabled;
-use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
+//use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
+use nu_parser::hir::FlatShape;
 use nu_protocol::{errln, outln};
 use nu_source::{nom_input, HasSpan, Tag, Tagged, Text};
 use rustyline::completion::Completer;
@@ -39,9 +40,8 @@ impl Completer for Helper {
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         let text = Text::from(line);
-        self.context
-            .shell_manager
-            .hint(line, pos, ctx, self.context.expand_context(&text))
+        self.context.shell_manager.hint(line, pos, ctx)
+        //.hint(line, pos, ctx, self.context.expand_context(&text))
     }
 }
 
@@ -65,6 +65,8 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
+        Cow::Borrowed(line)
+        /*
         let tokens = nu_parser::pipeline(nom_input(line));
 
         match tokens {
@@ -113,6 +115,7 @@ impl Highlighter for Helper {
                 Cow::Owned(painter.into_string())
             }
         }
+        */
     }
 
     fn highlight_char(&self, _line: &str, _pos: usize) -> bool {
@@ -149,51 +152,47 @@ impl Painter {
         self.buffer
     }
 
-    fn paint_shape(&mut self, shape: &ShapeResult, line: &str) {
+    /*
+    fn paint_shape(&mut self, shape: &FlatShape, line: &str) {
         let style = match &shape {
-            ShapeResult::Success(shape) => match shape.item {
-                FlatShape::OpenDelimiter(_) => Color::White.normal(),
-                FlatShape::CloseDelimiter(_) => Color::White.normal(),
-                FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
-                FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
-                FlatShape::Type => Color::Blue.bold(),
-                FlatShape::CompareOperator => Color::Yellow.normal(),
-                FlatShape::DotDot => Color::Yellow.bold(),
-                FlatShape::Dot => Style::new().fg(Color::White),
-                FlatShape::InternalCommand => Color::Cyan.bold(),
-                FlatShape::ExternalCommand => Color::Cyan.normal(),
-                FlatShape::ExternalWord => Color::Green.bold(),
-                FlatShape::BareMember => Color::Yellow.bold(),
-                FlatShape::StringMember => Color::Yellow.bold(),
-                FlatShape::String => Color::Green.normal(),
-                FlatShape::Path => Color::Cyan.normal(),
-                FlatShape::GlobPattern => Color::Cyan.bold(),
-                FlatShape::Word => Color::Green.normal(),
-                FlatShape::Pipe => Color::Purple.bold(),
-                FlatShape::Flag => Color::Blue.bold(),
-                FlatShape::ShorthandFlag => Color::Blue.bold(),
-                FlatShape::Int => Color::Purple.bold(),
-                FlatShape::Decimal => Color::Purple.bold(),
-                FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-                FlatShape::Comment => Color::Green.bold(),
-                FlatShape::Garbage => Style::new().fg(Color::White).on(Color::Red),
-                FlatShape::Size { number, unit } => {
-                    let number = number.slice(line);
-                    let unit = unit.slice(line);
+            FlatShape::OpenDelimiter(_) => Color::White.normal(),
+            FlatShape::CloseDelimiter(_) => Color::White.normal(),
+            FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
+            FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
+            FlatShape::Type => Color::Blue.bold(),
+            FlatShape::CompareOperator => Color::Yellow.normal(),
+            FlatShape::DotDot => Color::Yellow.bold(),
+            FlatShape::Dot => Style::new().fg(Color::White),
+            FlatShape::InternalCommand => Color::Cyan.bold(),
+            FlatShape::ExternalCommand => Color::Cyan.normal(),
+            FlatShape::ExternalWord => Color::Green.bold(),
+            FlatShape::BareMember => Color::Yellow.bold(),
+            FlatShape::StringMember => Color::Yellow.bold(),
+            FlatShape::String => Color::Green.normal(),
+            FlatShape::Path => Color::Cyan.normal(),
+            FlatShape::GlobPattern => Color::Cyan.bold(),
+            FlatShape::Word => Color::Green.normal(),
+            FlatShape::Pipe => Color::Purple.bold(),
+            FlatShape::Flag => Color::Blue.bold(),
+            FlatShape::ShorthandFlag => Color::Blue.bold(),
+            FlatShape::Int => Color::Purple.bold(),
+            FlatShape::Decimal => Color::Purple.bold(),
+            FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
+            FlatShape::Comment => Color::Green.bold(),
+            FlatShape::Garbage => Style::new().fg(Color::White).on(Color::Red),
+            FlatShape::Size { number, unit } => {
+                let number = number.slice(line);
+                let unit = unit.slice(line);
 
-                    self.paint(Color::Purple.bold(), number);
-                    self.paint(Color::Cyan.bold(), unit);
-                    return;
-                }
-            },
-            ShapeResult::Fallback { shape, .. } => match shape.item {
-                FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-                _ => Style::new().fg(Color::White).on(Color::Red),
-            },
+                self.paint(Color::Purple.bold(), number);
+                self.paint(Color::Cyan.bold(), unit);
+                return;
+            }
         };
 
         self.paint(style, shape.span().slice(line));
     }
+    */
 
     fn paint(&mut self, style: Style, body: &str) {
         let infix = self.current.infix(style);

@@ -11,4 +11,6 @@ pub use crate::parse::{
     classify_pipeline, garbage, ClassifiedCommand, ClassifiedPipeline, Commands, InternalCommand,
 };
 pub use crate::shapes::shapes;
-pub use crate::signature::{ExternalArg, ExternalArgs, ExternalCommand, SignatureRegistry};
+pub use crate::signature::{
+    ExternalArg, ExternalArgs, ExternalCommand, Signature, SignatureRegistry,
+};
