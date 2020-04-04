@@ -45,7 +45,11 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::Literal(Literal::Operator(_)) => {
             vec![FlatShape::CompareOperator.spanned(e.span)]
         }
-        Expression::Literal(Literal::Size(_, _)) => vec![FlatShape::BareMember.spanned(e.span)],
+        Expression::Literal(Literal::Size(number, unit)) => vec![FlatShape::Size {
+            number: number.span,
+            unit: unit.span,
+        }
+        .spanned(e.span)],
         Expression::Literal(Literal::String(_)) => vec![FlatShape::String.spanned(e.span)],
         Expression::ExternalWord => vec![FlatShape::ExternalWord.spanned(e.span)],
         Expression::ExternalCommand(_) => vec![FlatShape::ExternalCommand.spanned(e.span)],

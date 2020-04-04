@@ -456,7 +456,7 @@ impl PrettyDebugWithSource for Range {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub enum Literal {
     Number(Number),
-    Size(Number, Unit),
+    Size(Spanned<Number>, Spanned<Unit>),
     Operator(CompareOperator),
     String(String),
     GlobPattern(String),
@@ -653,8 +653,11 @@ impl Expression {
         Expression::Path(Box::new(Path::new(head, tail)))
     }
 
-    pub fn unit(i: i64, unit: Unit) -> Expression {
-        Expression::Literal(Literal::Size(Number::Int(BigInt::from(i)), unit))
+    pub fn unit(i: Spanned<i64>, unit: Spanned<Unit>) -> Expression {
+        Expression::Literal(Literal::Size(
+            Number::Int(BigInt::from(i.item)).spanned(i.span),
+            unit,
+        ))
     }
 
     pub fn variable(v: String, span: Span) -> Expression {

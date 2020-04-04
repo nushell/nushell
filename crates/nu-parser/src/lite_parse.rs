@@ -145,26 +145,31 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LitePipeline, ParseEr
             Err(e) => return Err(e),
         };
 
-        skip_whitespace(src);
-        while let Some((_, c)) = src.peek() {
-            // The first character tells us a lot about each argument
-            match c {
-                '|' => {
-                    // this is the end of this command
-                    let _ = src.next();
-                    break;
+        loop {
+            skip_whitespace(src);
+
+            if let Some((_, c)) = src.peek() {
+                // The first character tells us a lot about each argument
+                match c {
+                    '|' => {
+                        // this is the end of this command
+                        let _ = src.next();
+                        break;
+                    }
+                    '"' | '\'' => {
+                        let c = *c;
+                        // quoted string
+                        let arg = quoted(src, c, span_offset)?;
+                        cmd.args.push(arg);
+                    }
+                    _ => {
+                        // basic argument
+                        let arg = bare(src, span_offset)?;
+                        cmd.args.push(arg);
+                    }
                 }
-                '"' | '\'' => {
-                    let c = *c;
-                    // quoted string
-                    let arg = quoted(src, c, span_offset)?;
-                    cmd.args.push(arg);
-                }
-                _ => {
-                    // basic argument
-                    let arg = bare(src, span_offset)?;
-                    cmd.args.push(arg);
-                }
+            } else {
+                break;
             }
         }
         commands.push(cmd);

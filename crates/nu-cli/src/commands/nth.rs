@@ -22,7 +22,7 @@ impl WholeStreamCommand for Nth {
         Signature::build("nth")
             .required(
                 "row number",
-                SyntaxShape::Any,
+                SyntaxShape::Int,
                 "the number of the row to return",
             )
             .rest(SyntaxShape::Any, "Optionally return more rows")

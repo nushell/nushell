@@ -122,7 +122,7 @@ fn parse_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<P
         output.push(
             UnspannedPathMember::String(current_part).into_path_member(Span::new(
                 lite_arg.span.start() + start_index,
-                lite_arg.span.start() + last_index,
+                lite_arg.span.start() + last_index + 1,
             )),
         );
     }
@@ -296,9 +296,16 @@ fn parse_arg(
                         }
 
                         if let Ok(x) = lhs.parse::<i64>() {
+                            let lhs_span =
+                                Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+                            let unit_span =
+                                Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
                             return (
                                 SpannedExpression::new(
-                                    Expression::unit(x, unit_group.0),
+                                    Expression::unit(
+                                        x.spanned(lhs_span),
+                                        unit_group.0.spanned(unit_span),
+                                    ),
                                     lite_arg.span,
                                 ),
                                 None,
@@ -582,10 +589,6 @@ pub fn classify_pipeline(
                                                         shape
                                                     )),
                                                 ));
-                                                //     error = Some(ParseError::NamedArgumentMissingArg(
-                                                //     shape.clone(),
-                                                //     lite_cmd.args[idx - 1].span,
-                                                // ));
                                             }
                                         }
                                     }
