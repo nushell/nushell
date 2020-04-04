@@ -9,7 +9,6 @@ use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
 use nu_errors::ShellError;
-use nu_parser::ExpandContext;
 use parking_lot::Mutex;
 use std::error::Error;
 use std::path::PathBuf;

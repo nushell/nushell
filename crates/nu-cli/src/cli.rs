@@ -10,10 +10,7 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_parser::{
-    ClassifiedCommand, ClassifiedPipeline, ExternalCommand, PipelineShape, SpannedToken,
-    TokensIterator,
-};
+use nu_parser::{ClassifiedCommand, ClassifiedPipeline, ExternalCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, log_enabled, trace};
@@ -396,9 +393,10 @@ pub async fn run_pipeline_standalone(
         }
 
         LineResult::Error(line, err) => {
-            context.with_host(|host| {
-                print_err(err, host, &Text::from(line.clone()));
-            });
+            // JDT
+            // context.with_host(|host| {
+            //     print_err(err, host, &Text::from(line.clone()));
+            // });
 
             context.maybe_print_errors(Text::from(line));
             std::process::exit(1);
@@ -543,9 +541,10 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(line.clone());
                 let _ = rl.save_history(&History::path());
 
-                context.with_host(|host| {
-                    print_err(err, host, &Text::from(line.clone()));
-                });
+                // JDT
+                // context.with_host(|host| {
+                //     print_err(err, host, &Text::from(line.clone()));
+                // });
 
                 context.maybe_print_errors(Text::from(line.clone()));
             }
@@ -614,9 +613,13 @@ async fn process_line(
         Ok(line) => {
             let line = chomp_newline(line);
 
-            let result = match nu_parser::parse(&line) {
+            let result = match nu_parser::lite_parse(&line, 0) {
                 Err(err) => {
-                    return LineResult::Error(line.to_string(), err);
+                    println!("{:?}", err);
+                    return LineResult::Error(
+                        line.to_string(),
+                        ShellError::untagged_runtime_error("TODO"),
+                    );
                 }
 
                 Ok(val) => val,
@@ -625,10 +628,14 @@ async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let pipeline = classify_pipeline(&result, &ctx, &Text::from(line));
+            let pipeline = nu_parser::classify_pipeline(&result, ctx.registry());
 
             if let Some(failure) = pipeline.failed {
-                return LineResult::Error(line.to_string(), failure.into());
+                println!("{:?}", failure);
+                return LineResult::Error(
+                    line.to_string(),
+                    ShellError::untagged_runtime_error("TODO"),
+                );
             }
 
             // There's a special case to check before we process the pipeline:
@@ -762,39 +769,39 @@ async fn process_line(
     }
 }
 
-pub fn classify_pipeline(
-    pipeline: &SpannedToken,
-    context: &Context,
-    source: &Text,
-) -> ClassifiedPipeline {
-    let pipeline_list = vec![pipeline.clone()];
-    let expand_context = context.expand_context(source);
-    let mut iterator = TokensIterator::new(&pipeline_list, expand_context, pipeline.span());
+// pub fn classify_pipeline(
+//     pipeline: &SpannedToken,
+//     context: &Context,
+//     source: &Text,
+// ) -> ClassifiedPipeline {
+//     let pipeline_list = vec![pipeline.clone()];
+//     let expand_context = context.expand_context(source);
+//     let mut iterator = TokensIterator::new(&pipeline_list, expand_context, pipeline.span());
 
-    let result = iterator.expand_infallible(PipelineShape);
+//     let result = iterator.expand_infallible(PipelineShape);
 
-    if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
-        outln!("");
-        let _ = ptree::print_tree(&iterator.expand_tracer().print(source.clone()));
-        outln!("");
-    }
+//     if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
+//         outln!("");
+//         let _ = ptree::print_tree(&iterator.expand_tracer().print(source.clone()));
+//         outln!("");
+//     }
 
-    result
-}
+//     result
+// }
 
-pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
-    let diag = err.into_diagnostic();
+// pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
+//     let diag = err.into_diagnostic();
 
-    let writer = host.err_termcolor();
-    let mut source = source.to_string();
-    source.push_str(" ");
-    let files = nu_parser::Files::new(source);
-    let _ = std::panic::catch_unwind(move || {
-        let _ = language_reporting::emit(
-            &mut writer.lock(),
-            &files,
-            &diag,
-            &language_reporting::DefaultConfig,
-        );
-    });
-}
+//     let writer = host.err_termcolor();
+//     let mut source = source.to_string();
+//     source.push_str(" ");
+//     let files = nu_parser::Files::new(source);
+//     let _ = std::panic::catch_unwind(move || {
+//         let _ = language_reporting::emit(
+//             &mut writer.lock(),
+//             &files,
+//             &diag,
+//             &language_reporting::DefaultConfig,
+//         );
+//     });
+// }

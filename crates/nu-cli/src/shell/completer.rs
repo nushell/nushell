@@ -1,7 +1,6 @@
 use crate::context::CommandRegistry;
 
 use derive_new::new;
-use nu_parser::ExpandContext;
 use nu_source::{HasSpan, Text};
 use rustyline::completion::{Completer, FilenameCompleter};
 use std::path::PathBuf;

@@ -80,7 +80,7 @@ binaryview = ["nu_plugin_binaryview"]
 fetch = ["nu_plugin_fetch"]
 match = ["nu_plugin_match"]
 post = ["nu_plugin_post"]
-trace = ["nu-parser/trace"]
+#trace = ["nu-parser/trace"]
 tree = ["nu_plugin_tree"]
 
 clipboard-cli = ["nu-cli/clipboard-cli"]

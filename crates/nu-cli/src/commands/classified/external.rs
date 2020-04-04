@@ -6,7 +6,7 @@ use futures::stream::StreamExt;
 use futures_codec::FramedRead;
 use log::trace;
 use nu_errors::ShellError;
-use nu_parser::commands::classified::external::ExternalArg;
+use nu_parser::ExternalArg;
 use nu_parser::ExternalCommand;
 use nu_protocol::{ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};

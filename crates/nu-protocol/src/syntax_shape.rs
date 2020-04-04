@@ -24,6 +24,12 @@ pub enum SyntaxShape {
     Pattern,
     /// A block is allowed, eg `{start this thing}`
     Block,
+    /// A table is allowed, eg `[first second]`
+    Table,
+    /// A unit value is allowed, eg `10kb`
+    Unit,
+    /// An operator
+    Operator,
 }
 
 impl PrettyDebug for SyntaxShape {
@@ -40,6 +46,9 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Path => "file path",
             SyntaxShape::Pattern => "pattern",
             SyntaxShape::Block => "block",
+            SyntaxShape::Table => "table",
+            SyntaxShape::Unit => "unit",
+            SyntaxShape::Operator => "operator",
         })
     }
 }

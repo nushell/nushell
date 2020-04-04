@@ -840,39 +840,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enumflags2"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33121c8782ba948ba332dab29311b026a8716dc65a1599e5b88f392d38496af8"
-dependencies = [
- "enumflags2_derive",
-]
-
-[[package]]
-name = "enumflags2_derive"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecf634c5213044b8d54a46dd282cf5dd1f86bb5cb53e92c409cb4680a7fb9894"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aafcde04e90a5226a6443b7aabdb016ba2f8307c847d524724bd9b346dd1a2d3"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2200,7 +2167,7 @@ dependencies = [
  "nu_plugin_tree",
  "onig_sys",
  "pretty_assertions",
- "pretty_env_logger 0.4.0",
+ "pretty_env_logger",
  "semver",
  "serde 1.0.105",
  "syntect",
@@ -2275,7 +2242,7 @@ dependencies = [
  "pin-utils",
  "pretty-hex",
  "pretty_assertions",
- "pretty_env_logger 0.4.0",
+ "pretty_env_logger",
  "prettytable-rs",
  "ptree",
  "query_interface",
@@ -2291,7 +2258,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "serde_yaml",
- "shellexpand 2.0.0",
+ "shellexpand",
  "starship",
  "strip-ansi-escapes",
  "tempfile",
@@ -2338,33 +2305,13 @@ dependencies = [
 name = "nu-parser"
 version = "0.12.0"
 dependencies = [
- "ansi_term 0.12.1",
  "bigdecimal",
- "cfg-if",
- "derive-new",
- "enumflags2",
- "getset 0.0.9",
  "indexmap",
- "itertools 0.8.2",
- "language-reporting",
- "log",
- "nom 5.1.1",
- "nom-tracable",
- "nom_locate",
- "nu-build",
  "nu-errors",
  "nu-protocol",
  "nu-source",
  "num-bigint",
- "num-traits 0.2.11",
- "pretty",
- "pretty_assertions",
- "pretty_env_logger 0.3.1",
- "ptree",
- "serde 1.0.105",
- "shellexpand 1.1.1",
- "termcolor",
- "unicode-xid",
+ "parking_lot",
 ]
 
 [[package]]
@@ -2988,22 +2935,11 @@ dependencies = [
 
 [[package]]
 name = "pretty_env_logger"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "717ee476b1690853d222af4634056d830b5197ffd747726a9a1eee6da9f49074"
-dependencies = [
- "chrono",
- "env_logger 0.6.2",
- "log",
-]
-
-[[package]]
-name = "pretty_env_logger"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "926d36b9553851b8b0005f1275891b392ee4d2d833852c417ed025477350fb9d"
 dependencies = [
- "env_logger 0.7.1",
+ "env_logger",
  "log",
 ]
 
@@ -3583,15 +3519,6 @@ dependencies = [
 
 [[package]]
 name = "shellexpand"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c7e79eddc7b411f9beeaaf2d421de7e7cb3b1ab9eaf1b79704c0e4130cba6b5"
-dependencies = [
- "dirs 2.0.2",
-]
-
-[[package]]
-name = "shellexpand"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a2b22262a9aaf9464d356f656fea420634f78c881c5eebd5ef5e66d8b9bc603"
@@ -3682,7 +3609,7 @@ dependencies = [
  "open",
  "os_info",
  "path-slash",
- "pretty_env_logger 0.4.0",
+ "pretty_env_logger",
  "rayon",
  "regex",
  "serde_json",
