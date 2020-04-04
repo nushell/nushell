@@ -2308,6 +2308,7 @@ dependencies = [
  "bigdecimal",
  "derive-new",
  "indexmap",
+ "language-reporting",
  "nu-errors",
  "nu-protocol",
  "nu-source",

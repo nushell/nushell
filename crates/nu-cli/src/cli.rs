@@ -393,10 +393,9 @@ pub async fn run_pipeline_standalone(
         }
 
         LineResult::Error(line, err) => {
-            // JDT
-            // context.with_host(|host| {
-            //     print_err(err, host, &Text::from(line.clone()));
-            // });
+            context.with_host(|host| {
+                print_err(err, host, &Text::from(line.clone()));
+            });
 
             context.maybe_print_errors(Text::from(line));
             std::process::exit(1);
@@ -541,10 +540,9 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 rl.add_history_entry(line.clone());
                 let _ = rl.save_history(&History::path());
 
-                // JDT
-                // context.with_host(|host| {
-                //     print_err(err, host, &Text::from(line.clone()));
-                // });
+                context.with_host(|host| {
+                    print_err(err, host, &Text::from(line.clone()));
+                });
 
                 context.maybe_print_errors(Text::from(line.clone()));
             }
@@ -615,11 +613,7 @@ async fn process_line(
 
             let result = match nu_parser::lite_parse(&line, 0) {
                 Err(err) => {
-                    println!("{:?}", err);
-                    return LineResult::Error(
-                        line.to_string(),
-                        ShellError::untagged_runtime_error("TODO"),
-                    );
+                    return LineResult::Error(line.to_string(), err.into());
                 }
 
                 Ok(val) => val,
@@ -630,14 +624,10 @@ async fn process_line(
 
             let pipeline = nu_parser::classify_pipeline(&result, ctx.registry());
 
-            println!("{:#?}", pipeline);
+            //println!("{:#?}", pipeline);
 
             if let Some(failure) = pipeline.failed {
-                println!("{:?}", failure);
-                return LineResult::Error(
-                    line.to_string(),
-                    ShellError::untagged_runtime_error("TODO"),
-                );
+                return LineResult::Error(line.to_string(), failure.into());
             }
 
             // There's a special case to check before we process the pipeline:
@@ -791,19 +781,19 @@ async fn process_line(
 //     result
 // }
 
-// pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
-//     let diag = err.into_diagnostic();
+pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {
+    let diag = err.into_diagnostic();
 
-//     let writer = host.err_termcolor();
-//     let mut source = source.to_string();
-//     source.push_str(" ");
-//     let files = nu_parser::Files::new(source);
-//     let _ = std::panic::catch_unwind(move || {
-//         let _ = language_reporting::emit(
-//             &mut writer.lock(),
-//             &files,
-//             &diag,
-//             &language_reporting::DefaultConfig,
-//         );
-//     });
-// }
+    let writer = host.err_termcolor();
+    let mut source = source.to_string();
+    source.push_str(" ");
+    let files = nu_parser::Files::new(source);
+    let _ = std::panic::catch_unwind(move || {
+        let _ = language_reporting::emit(
+            &mut writer.lock(),
+            &files,
+            &diag,
+            &language_reporting::DefaultConfig,
+        );
+    });
+}

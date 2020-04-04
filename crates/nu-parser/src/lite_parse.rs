@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
-use crate::errors::ParseError;
+use nu_errors::ParseError;
 use nu_source::{Span, Spanned, SpannedItem};
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -96,16 +96,21 @@ fn quoted(
 
     let _ = src.next();
 
+    let mut found_end = false;
+
     for (_, c) in src {
         if c != delimiter {
             quoted_string.push(c);
         } else {
+            found_end = true;
             break;
         }
     }
 
     quoted_string.insert(0, delimiter);
-    quoted_string.push(delimiter);
+    if found_end {
+        quoted_string.push(delimiter);
+    }
 
     let span = Span::new(
         start_offset + span_offset,
@@ -118,7 +123,10 @@ fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseErro
     let command = bare(src, span_offset)?;
 
     if command.item.is_empty() {
-        Err(ParseError::UnexpectedEndOfLine(command.span))
+        Err(ParseError::unexpected_eof(
+            "unexpected end of input",
+            command.span,
+        ))
     } else {
         Ok(LiteCommand::new(command))
     }

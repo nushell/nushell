@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::errors::ParseError;
+use nu_errors::{ArgumentError, ParseError};
 //use crate::hir::*;
 use crate::hir::{
     Binary, CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, NamedValue,
@@ -177,7 +177,7 @@ fn parse_arg(
             } else {
                 (
                     garbage(lite_arg.span),
-                    Some(ParseError::TypeMismatch(SyntaxShape::Number, lite_arg.span)),
+                    Some(ParseError::mismatch("number", lite_arg.clone())),
                 )
             }
         }
@@ -190,7 +190,7 @@ fn parse_arg(
             } else {
                 (
                     garbage(lite_arg.span),
-                    Some(ParseError::TypeMismatch(SyntaxShape::Number, lite_arg.span)),
+                    Some(ParseError::mismatch("number", lite_arg.clone())),
                 )
             }
         }
@@ -209,7 +209,7 @@ fn parse_arg(
             if numbers.len() != 2 {
                 (
                     garbage(lite_arg.span),
-                    Some(ParseError::TypeMismatch(SyntaxShape::Range, lite_arg.span)),
+                    Some(ParseError::mismatch("range", lite_arg.clone())),
                 )
             } else if let Ok(lhs) = numbers[0].parse::<i64>() {
                 if let Ok(rhs) = numbers[1].parse::<i64>() {
@@ -227,13 +227,13 @@ fn parse_arg(
                 } else {
                     (
                         garbage(lite_arg.span),
-                        Some(ParseError::TypeMismatch(SyntaxShape::Range, lite_arg.span)),
+                        Some(ParseError::mismatch("range", lite_arg.clone())),
                     )
                 }
             } else {
                 (
                     garbage(lite_arg.span),
-                    Some(ParseError::TypeMismatch(SyntaxShape::Range, lite_arg.span)),
+                    Some(ParseError::mismatch("range", lite_arg.clone())),
                 )
             }
         }
@@ -257,7 +257,10 @@ fn parse_arg(
             } else {
                 return (
                     garbage(lite_arg.span),
-                    Some(ParseError::UnknownOperator(lite_arg.span)),
+                    Some(ParseError::mismatch(
+                        "comparison operator",
+                        lite_arg.clone(),
+                    )),
                 );
             };
 
@@ -307,7 +310,7 @@ fn parse_arg(
 
             (
                 garbage(lite_arg.span),
-                Some(ParseError::TypeMismatch(SyntaxShape::Unit, lite_arg.span)),
+                Some(ParseError::mismatch("unit", lite_arg.clone())),
             )
         }
         SyntaxShape::Path => {
@@ -335,7 +338,7 @@ fn parse_arg(
             }
             (
                 garbage(lite_arg.span),
-                Some(ParseError::NoShapeMatched(shapes.clone(), lite_arg.span)),
+                Some(ParseError::mismatch("any shape", lite_arg.clone())),
             )
         }
         SyntaxShape::Table => {
@@ -379,7 +382,7 @@ fn parse_arg(
                 }
                 _ => (
                     garbage(lite_arg.span),
-                    Some(ParseError::TypeMismatch(SyntaxShape::Table, lite_arg.span)),
+                    Some(ParseError::mismatch("table", lite_arg.clone())),
                 ),
             }
         }
@@ -406,7 +409,7 @@ fn parse_arg(
                         if lite_cmd.args.len() != 2 {
                             return (
                                 garbage(lite_arg.span),
-                                Some(ParseError::TypeMismatch(SyntaxShape::Block, lite_arg.span)),
+                                Some(ParseError::mismatch("block", lite_arg.clone())),
                             );
                         }
                         let (lhs, err) =
@@ -436,7 +439,7 @@ fn parse_arg(
                     } else {
                         (
                             garbage(lite_arg.span),
-                            Some(ParseError::TypeMismatch(SyntaxShape::Block, lite_arg.span)),
+                            Some(ParseError::mismatch("block", lite_arg.clone())),
                         )
                     }
                 }
@@ -445,7 +448,7 @@ fn parse_arg(
                     // it needed to have been parsed up higher where we have control over more than one arg
                     (
                         garbage(lite_arg.span),
-                        Some(ParseError::TypeMismatch(SyntaxShape::Block, lite_arg.span)),
+                        Some(ParseError::mismatch("block", lite_arg.clone())),
                     )
                 }
             }
@@ -458,6 +461,7 @@ fn parse_arg(
 /// This also allows users to provide a group of shorthand flags (-af) that correspond to multiple shorthand flags at once.
 fn get_flags_from_flag(
     signature: &nu_protocol::Signature,
+    cmd: &Spanned<String>,
     arg: &Spanned<String>,
 ) -> (Vec<(String, NamedType)>, Option<ParseError>) {
     if arg.item.starts_with('-') {
@@ -473,7 +477,10 @@ fn get_flags_from_flag(
             if let Some((named_type, _)) = signature.named.get(&remainder) {
                 output.push((remainder.clone(), named_type.clone()));
             } else {
-                error = Some(ParseError::UnexpectedFlag(arg.span));
+                error = Some(ParseError::argument_error(
+                    cmd.clone(),
+                    ArgumentError::UnexpectedFlag(arg.clone()),
+                ));
             }
         } else {
             // Short flag(s) expected
@@ -489,10 +496,14 @@ fn get_flags_from_flag(
                 }
 
                 if !found {
-                    error = Some(ParseError::UnexpectedFlag(Span::new(
-                        starting_pos,
-                        starting_pos + c.len_utf8(),
-                    )));
+                    error = Some(ParseError::argument_error(
+                        cmd.clone(),
+                        ArgumentError::UnexpectedFlag(
+                            arg.item
+                                .clone()
+                                .spanned(Span::new(starting_pos, starting_pos + c.len_utf8())),
+                        ),
+                    ));
                 }
 
                 starting_pos += c.len_utf8();
@@ -530,7 +541,8 @@ pub fn classify_pipeline(
 
             while idx < lite_cmd.args.len() {
                 if lite_cmd.args[idx].item.starts_with('-') {
-                    let (named_types, err) = get_flags_from_flag(&signature, &lite_cmd.args[idx]);
+                    let (named_types, err) =
+                        get_flags_from_flag(&signature, &lite_cmd.name, &lite_cmd.args[idx]);
 
                     if err.is_none() {
                         for (full_name, named_type) in &named_types {
@@ -539,9 +551,12 @@ pub fn classify_pipeline(
                                     if idx == lite_cmd.args.len() {
                                         // Oops, we're missing the argument to our named argument
                                         if error.is_none() {
-                                            error = Some(ParseError::NamedArgumentMissingArg(
-                                                shape.clone(),
-                                                lite_cmd.args[idx - 1].span,
+                                            error = Some(ParseError::argument_error(
+                                                lite_cmd.name.clone(),
+                                                ArgumentError::MissingValueForName(format!(
+                                                    "{:?}",
+                                                    shape
+                                                )),
                                             ));
                                         }
                                     } else {
@@ -560,10 +575,17 @@ pub fn classify_pipeline(
                                             }
                                         } else {
                                             if error.is_none() {
-                                                error = Some(ParseError::NamedArgumentMissingArg(
-                                                    shape.clone(),
-                                                    lite_cmd.args[idx - 1].span,
+                                                error = Some(ParseError::argument_error(
+                                                    lite_cmd.name.clone(),
+                                                    ArgumentError::MissingValueForName(format!(
+                                                        "{:?}",
+                                                        shape
+                                                    )),
                                                 ));
+                                                //     error = Some(ParseError::NamedArgumentMissingArg(
+                                                //     shape.clone(),
+                                                //     lite_cmd.args[idx - 1].span,
+                                                // ));
                                             }
                                         }
                                     }
@@ -663,8 +685,9 @@ pub fn classify_pipeline(
                     positional.push(garbage(lite_cmd.args[idx].span));
 
                     if error.is_none() {
-                        error = Some(ParseError::TooManyPositionalArguments(
-                            lite_cmd.args[idx].span,
+                        error = Some(ParseError::argument_error(
+                            lite_cmd.name.clone(),
+                            ArgumentError::UnexpectedArgument(lite_cmd.args[idx].clone()),
                         ));
                     }
                 }
@@ -680,8 +703,9 @@ pub fn classify_pipeline(
                 }
             }
             if positional.len() < required_arg_count && error.is_none() {
-                error = Some(ParseError::MissingRequiredPositionalArgument(
-                    lite_cmd.name.span,
+                error = Some(ParseError::argument_error(
+                    lite_cmd.name.clone(),
+                    ArgumentError::MissingMandatoryPositional("argument".into()),
                 ));
             }
 
