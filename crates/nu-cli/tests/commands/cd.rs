@@ -86,6 +86,40 @@ fn filesystem_change_current_directory_to_parent_directory() {
 }
 
 #[test]
+fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
+    Playground::setup("fs_cd_two_up", |dirs, sandbox| {
+        sandbox.within("foo").mkdir("bar");
+
+        let actual = nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                cd ...
+                pwd | echo $it
+            "#
+        );
+
+        assert_eq!(PathBuf::from(actual), *dirs.test());
+    })
+}
+
+#[test]
+fn filesystem_change_current_directory_to_three_parents_up_using_multiple_dots() {
+    Playground::setup("fs_cd_three_up", |dirs, sandbox| {
+        sandbox.within("foo").within("bar").mkdir("baz");
+
+        let actual = nu!(
+            cwd: dirs.test().join("foo/bar/baz"),
+            r#"
+                cd ....
+                pwd | echo $it
+            "#
+        );
+
+        assert_eq!(PathBuf::from(actual), *dirs.test());
+    })
+}
+
+#[test]
 fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
     Playground::setup("cd_test_5_1", |dirs, sandbox| {
         sandbox.within("foo").mkdir("bar");
