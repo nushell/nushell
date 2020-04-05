@@ -245,7 +245,7 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
     }
 }
 
-pub fn trim_quotes(input: &str) -> String {
+fn trim_quotes(input: &str) -> String {
     let mut chars = input.chars();
 
     match (chars.next(), chars.next_back()) {
@@ -856,9 +856,11 @@ pub fn classify_pipeline(
 
             commands.push(ClassifiedCommand::Internal(internal_command))
         } else {
+            let trimmed = trim_quotes(&lite_cmd.name.item);
+            let name = shellexpand::tilde(&trimmed).to_string();
             // This is an external command we should allow arguments to pass through with minimal parsing
             commands.push(ClassifiedCommand::External(ExternalCommand {
-                name: lite_cmd.name.item.clone(),
+                name: name,
                 name_tag: Tag::unknown_anchor(lite_cmd.name.span),
                 args: ExternalArgs {
                     list: lite_cmd

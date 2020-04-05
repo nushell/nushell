@@ -641,8 +641,6 @@ async fn process_line(
                     ref name, ref args, ..
                 }) = pipeline.commands.list[0]
                 {
-                    let name = nu_parser::trim_quotes(&name);
-                    let name = shellexpand::tilde(&name).to_string();
                     if dunce::canonicalize(&name).is_ok()
                         && PathBuf::from(&name).is_dir()
                         && ichwh::which(&name).await.unwrap_or(None).is_none()
@@ -682,7 +680,7 @@ async fn process_line(
                         }
                         #[cfg(not(windows))]
                         {
-                            ctx.shell_manager.set_path(name);
+                            ctx.shell_manager.set_path(name.to_string());
                             return LineResult::Success(line.to_string());
                         }
                     }
