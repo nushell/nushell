@@ -13,6 +13,7 @@ use nu_protocol::{
     NamedType, PathMember, PositionalType, Signature, SyntaxShape, UnspannedPathMember,
 };
 use nu_source::{Span, Spanned, SpannedItem, Tag};
+use num_bigint::BigInt;
 
 #[derive(Debug, Clone)]
 pub struct InternalCommand {
@@ -99,7 +100,12 @@ fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, O
                 lite_arg.span.start() + idx,
             );
 
-            output.push(Member::Bare(current_part.clone().spanned(part_span)));
+            if let Ok(row_number) = current_part.parse::<u64>() {
+                output.push(Member::Int(BigInt::from(row_number), part_span));
+            } else {
+                let trimmed = trim_quotes(&current_part);
+                output.push(Member::Bare(trimmed.clone().spanned(part_span)));
+            }
             current_part.clear();
             // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
             // unicode we'll need to change this
@@ -110,10 +116,16 @@ fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, O
     }
 
     if !current_part.is_empty() {
-        output.push(Member::Bare(current_part.spanned(Span::new(
+        let part_span = Span::new(
             lite_arg.span.start() + start_index,
             lite_arg.span.start() + last_index + 1,
-        ))));
+        );
+        if let Ok(row_number) = current_part.parse::<u64>() {
+            output.push(Member::Int(BigInt::from(row_number), part_span));
+        } else {
+            let current_part = trim_quotes(&current_part);
+            output.push(Member::Bare(current_part.spanned(part_span)));
+        }
     }
 
     (
@@ -152,9 +164,18 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
             } else {
-                output.push(
-                    UnspannedPathMember::String(current_part.clone()).into_path_member(part_span),
-                );
+                if let Ok(row_number) = current_part.parse::<u64>() {
+                    output.push(
+                        UnspannedPathMember::Int(BigInt::from(row_number))
+                            .into_path_member(part_span),
+                    );
+                } else {
+                    let current_part = trim_quotes(&current_part);
+                    output.push(
+                        UnspannedPathMember::String(current_part.clone())
+                            .into_path_member(part_span),
+                    );
+                }
             }
             current_part.clear();
             // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
@@ -166,24 +187,36 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
     }
 
     if !current_part.is_empty() {
+        let part_span = Span::new(
+            lite_arg.span.start() + start_index,
+            lite_arg.span.start() + last_index + 1,
+        );
+
         if head.is_none() {
             if current_part.starts_with('$') {
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else {
-                output.push(
-                    UnspannedPathMember::String(current_part).into_path_member(Span::new(
-                        lite_arg.span.start() + start_index,
-                        lite_arg.span.start() + last_index + 1,
-                    )),
-                );
+                if let Ok(row_number) = current_part.parse::<u64>() {
+                    output.push(
+                        UnspannedPathMember::Int(BigInt::from(row_number))
+                            .into_path_member(part_span),
+                    );
+                } else {
+                    let current_part = trim_quotes(&current_part);
+                    output.push(
+                        UnspannedPathMember::String(current_part).into_path_member(part_span),
+                    );
+                }
             }
         } else {
-            output.push(
-                UnspannedPathMember::String(current_part).into_path_member(Span::new(
-                    lite_arg.span.start() + start_index,
-                    lite_arg.span.start() + last_index + 1,
-                )),
-            );
+            if let Ok(row_number) = current_part.parse::<u64>() {
+                output.push(
+                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
+                );
+            } else {
+                let current_part = trim_quotes(&current_part);
+                output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
+            }
         }
     }
 

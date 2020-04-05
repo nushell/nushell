@@ -63,8 +63,8 @@ impl Member {
 
     pub fn to_path_member(&self) -> PathMember {
         match self {
-            // Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
-            // Member::Int(int, span) => PathMember::int(int.clone(), *span),
+            //Member::String(outer, inner) => PathMember::string(inner.slice(source), *outer),
+            Member::Int(int, span) => PathMember::int(int.clone(), *span),
             Member::Bare(spanned_string) => {
                 PathMember::string(spanned_string.item.clone(), spanned_string.span)
             }
