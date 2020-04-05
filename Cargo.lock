@@ -2317,6 +2317,7 @@ dependencies = [
  "num-traits 0.2.11",
  "parking_lot",
  "serde 1.0.106",
+ "shellexpand",
 ]
 
 [[package]]

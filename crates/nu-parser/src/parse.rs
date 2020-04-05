@@ -212,6 +212,16 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
     }
 }
 
+fn trim_quotes(input: &str) -> String {
+    let mut chars = input.chars();
+
+    match (chars.next(), chars.next_back()) {
+        (Some('\''), Some('\'')) => chars.collect(),
+        (Some('"'), Some('"')) => chars.collect(),
+        _ => input.to_string(),
+    }
+}
+
 /// Parses the given argument using the shape as a guide for how to correctly parse the argument
 fn parse_arg(
     expected_type: &SyntaxShape,
@@ -255,38 +265,20 @@ fn parse_arg(
             }
         }
         SyntaxShape::String => {
-            let mut chars = lite_arg.item.chars();
-
-            match (chars.next(), chars.next_back()) {
-                (Some('\''), Some('\'')) => {
-                    // We have a literal row
-                    let string: String = chars.collect();
-                    (
-                        SpannedExpression::new(Expression::string(string), lite_arg.span),
-                        None,
-                    )
-                }
-                (Some('"'), Some('"')) => {
-                    // We have a literal row
-                    let string: String = chars.collect();
-                    (
-                        SpannedExpression::new(Expression::string(string), lite_arg.span),
-                        None,
-                    )
-                }
-                _ => (
-                    SpannedExpression::new(
-                        Expression::string(lite_arg.item.clone()),
-                        lite_arg.span,
-                    ),
-                    None,
-                ),
-            }
+            let trimmed = trim_quotes(&lite_arg.item);
+            (
+                SpannedExpression::new(Expression::string(trimmed), lite_arg.span),
+                None,
+            )
         }
-        SyntaxShape::Pattern => (
-            SpannedExpression::new(Expression::pattern(lite_arg.item.clone()), lite_arg.span),
-            None,
-        ),
+        SyntaxShape::Pattern => {
+            let trimmed = trim_quotes(&lite_arg.item);
+            let expanded = shellexpand::tilde(&trimmed).to_string();
+            (
+                SpannedExpression::new(Expression::pattern(expanded), lite_arg.span),
+                None,
+            )
+        }
 
         SyntaxShape::Range => {
             let numbers: Vec<_> = lite_arg.item.split("..").collect();
@@ -406,7 +398,9 @@ fn parse_arg(
             )
         }
         SyntaxShape::Path => {
-            let path = Path::new(&lite_arg.item);
+            let trimmed = trim_quotes(&lite_arg.item);
+            let expanded = shellexpand::tilde(&trimmed).to_string();
+            let path = Path::new(&expanded);
             (
                 SpannedExpression::new(Expression::FilePath(path.to_path_buf()), lite_arg.span),
                 None,
@@ -546,7 +540,6 @@ fn parse_arg(
                 }
             }
         }
-        _ => unimplemented!("Need to add more SyntaxShape parsing"),
     }
 }
 

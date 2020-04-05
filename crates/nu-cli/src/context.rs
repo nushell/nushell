@@ -138,8 +138,7 @@ impl Context {
             let error = errors[0].clone();
             *errors = vec![];
 
-            //JDT
-            //crate::cli::print_err(error, &*host, &source);
+            crate::cli::print_err(error, &*host, &source);
             true
         } else {
             false
