@@ -16,6 +16,17 @@ impl LiteCommand {
     fn new(name: Spanned<String>) -> LiteCommand {
         LiteCommand { name, args: vec![] }
     }
+
+    pub(crate) fn span(&self) -> Span {
+        let start = self.name.span.start();
+        let end = if let Some(x) = self.args.last() {
+            x.span.end()
+        } else {
+            self.name.span.end()
+        };
+
+        Span::new(start, end)
+    }
 }
 
 #[derive(Debug)]
@@ -121,7 +132,7 @@ fn quoted(
 
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
-
+    let span = command.span;
     if command.item.is_empty() {
         Err(ParseError::unexpected_eof(
             "unexpected end of input",

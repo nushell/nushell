@@ -715,6 +715,21 @@ impl Call {
             .map(|n| n.switch_present(switch))
             .unwrap_or(false)
     }
+
+    pub fn set_initial_flags(&mut self, signature: &nu_protocol::Signature) {
+        for (named, value) in signature.named.iter() {
+            if self.named.is_none() {
+                self.named = Some(NamedArguments::new());
+            }
+
+            if let Some(ref mut args) = self.named {
+                match value.0 {
+                    nu_protocol::NamedType::Switch(_) => args.insert_switch(named, None),
+                    _ => args.insert_optional(named, Span::new(0, 0), None),
+                }
+            }
+        }
+    }
 }
 
 impl PrettyDebugWithSource for Call {

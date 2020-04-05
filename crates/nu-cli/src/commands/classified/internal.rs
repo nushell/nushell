@@ -28,7 +28,7 @@ pub(crate) fn run_internal_command(
     let result = {
         context.run_command(
             internal_command?,
-            Tag::unknown_anchor(command.name_tag.clone()),
+            Tag::unknown_anchor(command.name_span.clone()),
             command.args.clone(),
             &source,
             objects,
@@ -71,7 +71,7 @@ pub(crate) fn run_internal_command(
                                         span: Span::unknown()
                                     },
                                     source: source.clone(),
-                                    name_tag: Tag::unknown_anchor(command.name_tag),
+                                    name_tag: Tag::unknown_anchor(command.name_span),
                                 }
                             };
                             let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry);

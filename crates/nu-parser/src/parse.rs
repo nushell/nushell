@@ -17,18 +17,18 @@ use nu_source::{Span, Spanned, SpannedItem, Tag};
 #[derive(Debug, Clone)]
 pub struct InternalCommand {
     pub name: String,
-    pub name_tag: Span,
+    pub name_span: Span,
     pub args: crate::hir::Call,
 }
 
 impl InternalCommand {
-    pub fn new(name: String, name_tag: Span) -> InternalCommand {
+    pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
         InternalCommand {
             name: name.clone(),
-            name_tag,
+            name_span: name_span,
             args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(Expression::string(name), name_tag)),
-                name_tag,
+                Box::new(SpannedExpression::new(Expression::string(name), name_span)),
+                full_span,
             ),
         }
     }
@@ -194,10 +194,35 @@ fn parse_arg(
                 )
             }
         }
-        SyntaxShape::String => (
-            SpannedExpression::new(Expression::string(lite_arg.item.clone()), lite_arg.span),
-            None,
-        ),
+        SyntaxShape::String => {
+            let mut chars = lite_arg.item.chars();
+
+            match (chars.next(), chars.next_back()) {
+                (Some('\''), Some('\'')) => {
+                    // We have a literal row
+                    let string: String = chars.collect();
+                    (
+                        SpannedExpression::new(Expression::string(string), lite_arg.span),
+                        None,
+                    )
+                }
+                (Some('"'), Some('"')) => {
+                    // We have a literal row
+                    let string: String = chars.collect();
+                    (
+                        SpannedExpression::new(Expression::string(string), lite_arg.span),
+                        None,
+                    )
+                }
+                _ => (
+                    SpannedExpression::new(
+                        Expression::string(lite_arg.item.clone()),
+                        lite_arg.span,
+                    ),
+                    None,
+                ),
+            }
+        }
         SyntaxShape::Pattern => (
             SpannedExpression::new(Expression::pattern(lite_arg.item.clone()), lite_arg.span),
             None,
@@ -538,8 +563,12 @@ pub fn classify_pipeline(
     for lite_cmd in lite_pipeline.commands.iter() {
         if let Some(signature) = registry.get(&lite_cmd.name.item) {
             // This is a known internal command, so we need to work with the arguments and parse them according to the expected types
-            let mut internal_command =
-                InternalCommand::new(lite_cmd.name.item.clone(), lite_cmd.name.span);
+            let mut internal_command = InternalCommand::new(
+                lite_cmd.name.item.clone(),
+                lite_cmd.name.span,
+                lite_cmd.span(),
+            );
+            internal_command.args.set_initial_flags(&signature);
 
             let mut idx = 0;
             let mut current_positional = 0;
@@ -547,7 +576,7 @@ pub fn classify_pipeline(
             let mut positional = vec![];
 
             while idx < lite_cmd.args.len() {
-                if lite_cmd.args[idx].item.starts_with('-') {
+                if lite_cmd.args[idx].item.starts_with('-') && lite_cmd.args[idx].item.len() > 1 {
                     let (named_types, err) =
                         get_flags_from_flag(&signature, &lite_cmd.name, &lite_cmd.args[idx]);
 
