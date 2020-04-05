@@ -41,7 +41,7 @@ impl WholeStreamCommand for Config {
             )
             .named(
                 "set_into",
-                SyntaxShape::Member,
+                SyntaxShape::String,
                 "sets a variable from values in the pipeline",
                 Some('i'),
             )

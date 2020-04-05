@@ -75,8 +75,55 @@ impl ClassifiedPipeline {
     }
 }
 
+/// Parses a simple column path, one without a variable (implied or explicit) at the head
+fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+    let mut delimiter = '.';
+    let mut inside_delimiter = false;
+    let mut output = vec![];
+    let mut current_part = String::new();
+    let mut start_index = 0;
+    let mut last_index = 0;
+
+    for (idx, c) in lite_arg.item.char_indices() {
+        last_index = idx;
+        if inside_delimiter {
+            if c == delimiter {
+                inside_delimiter = false;
+            }
+        } else if c == '\'' || c == '"' {
+            inside_delimiter = true;
+            delimiter = c;
+        } else if c == '.' {
+            let part_span = Span::new(
+                lite_arg.span.start() + start_index,
+                lite_arg.span.start() + idx,
+            );
+
+            output.push(Member::Bare(current_part.clone().spanned(part_span)));
+            current_part.clear();
+            // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
+            // unicode we'll need to change this
+            start_index = idx + '.'.len_utf8();
+            continue;
+        }
+        current_part.push(c);
+    }
+
+    if !current_part.is_empty() {
+        output.push(Member::Bare(current_part.spanned(Span::new(
+            lite_arg.span.start() + start_index,
+            lite_arg.span.start() + last_index + 1,
+        ))));
+    }
+
+    (
+        SpannedExpression::new(Expression::simple_column_path(output), lite_arg.span),
+        None,
+    )
+}
+
 /// Parses a column path, adding in the preceding reference to $it if it's elided
-fn parse_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
+fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let mut delimiter = '.';
     let mut inside_delimiter = false;
     let mut output = vec![];
@@ -119,12 +166,25 @@ fn parse_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<P
     }
 
     if !current_part.is_empty() {
-        output.push(
-            UnspannedPathMember::String(current_part).into_path_member(Span::new(
-                lite_arg.span.start() + start_index,
-                lite_arg.span.start() + last_index + 1,
-            )),
-        );
+        if head.is_none() {
+            if current_part.starts_with('$') {
+                head = Some(Expression::variable(current_part, lite_arg.span));
+            } else {
+                output.push(
+                    UnspannedPathMember::String(current_part).into_path_member(Span::new(
+                        lite_arg.span.start() + start_index,
+                        lite_arg.span.start() + last_index + 1,
+                    )),
+                );
+            }
+        } else {
+            output.push(
+                UnspannedPathMember::String(current_part).into_path_member(Span::new(
+                    lite_arg.span.start() + start_index,
+                    lite_arg.span.start() + last_index + 1,
+                )),
+            );
+        }
     }
 
     if let Some(head) = head {
@@ -159,7 +219,7 @@ fn parse_arg(
     lite_arg: &Spanned<String>,
 ) -> (SpannedExpression, Option<ParseError>) {
     if lite_arg.item.starts_with('$') {
-        return parse_column_path(&lite_arg);
+        return parse_full_column_path(&lite_arg);
     }
 
     match expected_type {
@@ -352,7 +412,8 @@ fn parse_arg(
                 None,
             )
         }
-        SyntaxShape::ColumnPath => parse_column_path(lite_arg),
+        SyntaxShape::ColumnPath => parse_simple_column_path(lite_arg),
+        SyntaxShape::FullColumnPath => parse_full_column_path(lite_arg),
         SyntaxShape::Any => {
             let shapes = vec![
                 SyntaxShape::Int,
@@ -445,7 +506,7 @@ fn parse_arg(
                             );
                         }
                         let (lhs, err) =
-                            parse_arg(&SyntaxShape::ColumnPath, registry, &lite_cmd.name);
+                            parse_arg(&SyntaxShape::FullColumnPath, registry, &lite_cmd.name);
                         if error.is_none() {
                             error = err;
                         }
@@ -651,7 +712,7 @@ pub fn classify_pipeline(
                             // TODO: only do this step if it's not a literal block
                             if (idx + 2) < lite_cmd.args.len() {
                                 let (lhs, err) = parse_arg(
-                                    &SyntaxShape::ColumnPath,
+                                    &SyntaxShape::FullColumnPath,
                                     registry,
                                     &lite_cmd.args[idx],
                                 );

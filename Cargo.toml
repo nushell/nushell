@@ -2,7 +2,7 @@
 name = "nu"
 version = "0.12.0"
 authors = ["The Nu Project Contributors"]
-description = "A new kind of shell"
+description = "A new type of shell"
 license = "MIT"
 edition = "2018"
 readme = "README.md"

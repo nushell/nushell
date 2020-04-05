@@ -644,7 +644,7 @@ impl Expression {
         Expression::FilePath(file_path)
     }
 
-    pub fn column_path(members: Vec<Member>) -> Expression {
+    pub fn simple_column_path(members: Vec<Member>) -> Expression {
         Expression::Literal(Literal::ColumnPath(members))
     }
 
