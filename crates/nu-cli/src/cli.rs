@@ -641,6 +641,7 @@ async fn process_line(
                     ref name, ref args, ..
                 }) = pipeline.commands.list[0]
                 {
+                    let name = nu_parser::trim_quotes(&name);
                     let name = shellexpand::tilde(&name).to_string();
                     if dunce::canonicalize(&name).is_ok()
                         && PathBuf::from(&name).is_dir()

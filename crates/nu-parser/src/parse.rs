@@ -245,7 +245,7 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
     }
 }
 
-fn trim_quotes(input: &str) -> String {
+pub fn trim_quotes(input: &str) -> String {
     let mut chars = input.chars();
 
     match (chars.next(), chars.next_back()) {
