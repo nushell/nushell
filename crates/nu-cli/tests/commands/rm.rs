@@ -144,7 +144,7 @@ fn errors_if_attempting_to_delete_single_dot_as_argument() {
             "rm ."
         );
 
-        assert!(actual.contains("may not be removed"));
+        assert!(actual.contains("cannot remove any parent directory"));
     })
 }
 
@@ -156,7 +156,7 @@ fn errors_if_attempting_to_delete_two_dot_as_argument() {
             "rm .."
         );
 
-        assert!(actual.contains("may not be removed"));
+        assert!(actual.contains("cannot remove any parent directory"));
     })
 }
 
