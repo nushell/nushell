@@ -12,7 +12,6 @@ use crate::utils::FileStructure;
 use nu_errors::ShellError;
 use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
-use regex::Regex;
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
@@ -1185,16 +1184,12 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
 
 #[allow(clippy::result_unwrap_used)]
 fn normalize(path: impl AsRef<Path>) -> PathBuf {
-    lazy_static::lazy_static! {
-        static ref PARENT_REGEX: Regex = Regex::new("^\\.*$").unwrap();
-    }
-
     let mut normalized = PathBuf::new();
     for component in path.as_ref().components() {
         match component {
             Component::Normal(normal) => {
                 if let Some(normal) = normal.to_str() {
-                    if PARENT_REGEX.is_match(normal) {
+                    if normal.chars().all(|c| c == '.') {
                         for _ in 0..(normal.len() - 1) {
                             normalized.push("..");
                         }

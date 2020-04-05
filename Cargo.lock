@@ -2254,7 +2254,6 @@ dependencies = [
  "indexmap",
  "itertools 0.9.0",
  "language-reporting",
- "lazy_static 1.4.0",
  "log",
  "meval",
  "natural 0.5.0",
