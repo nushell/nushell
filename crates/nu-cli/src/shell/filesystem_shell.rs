@@ -16,7 +16,6 @@ use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
-use trash as SendToTrash;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -995,10 +994,15 @@ impl Shell for FilesystemShell {
 
         let mut all_targets: HashMap<PathBuf, Tag> = HashMap::new();
         for target in targets {
-            if target.item.to_str() == Some(".") || target.item.to_str() == Some("..") {
+            let all_dots = target
+                .item
+                .to_str()
+                .map_or(false, |v| v.chars().all(|c| c == '.'));
+
+            if all_dots {
                 return Err(ShellError::labeled_error(
-                    "Remove aborted. \".\" or \"..\" may not be removed.",
-                    "\".\" or \"..\" may not be removed",
+                    "Cannot remove any parent directory",
+                    "cannot remove any parent directory",
                     target.tag,
                 ));
             }
@@ -1015,9 +1019,8 @@ impl Shell for FilesystemShell {
                                     .or_insert_with(|| target.tag.clone());
                             }
                             Err(e) => {
-                                let msg = format!("Could not remove {:}", path.to_string_lossy());
                                 return Err(ShellError::labeled_error(
-                                    msg,
+                                    format!("Could not remove {:}", path.to_string_lossy()),
                                     e.to_string(),
                                     &target.tag,
                                 ));
@@ -1027,7 +1030,7 @@ impl Shell for FilesystemShell {
                 }
                 Err(e) => {
                     return Err(ShellError::labeled_error(
-                        format!("Remove aborted. {:}", e.to_string()),
+                        e.to_string(),
                         e.to_string(),
                         &name_tag,
                     ))
@@ -1036,91 +1039,63 @@ impl Shell for FilesystemShell {
         }
 
         if all_targets.is_empty() {
-            Err(ShellError::labeled_error(
-                "Remove aborted. No valid paths",
+            return Err(ShellError::labeled_error(
+                "No valid paths",
                 "no valid paths",
                 name_tag,
-            ))
-        } else {
-            let stream = async_stream! {
-                for (f, tag) in all_targets.iter() {
-                    let is_empty = match f.read_dir() {
-                        Ok(mut p) => p.next().is_none(),
-                        Err(_) => false
-                    };
+            ));
+        }
 
-                    let valid_target =
-                        f.exists() && (!f.is_dir() || (is_empty || recursive.item));
-                    if valid_target {
-                        if trash.item {
-                            match SendToTrash::remove(f) {
-                                Err(e) => {
-                                    let msg = format!(
-                                        "Could not delete {:}",
-                                        f.to_string_lossy()
-                                    );
-                                    let label = format!("{:?}", e);
-                                    yield Err(ShellError::labeled_error(
-                                        msg,
-                                        label,
-                                        tag,
-                                    ))
-                                },
-                                Ok(()) => {
-                                    let val = format!("deleted {:}", f.to_string_lossy()).into();
-                                    yield Ok(ReturnSuccess::Value(val))
-                                },
-                            }
+        let stream = async_stream! {
+            for (f, tag) in all_targets.iter() {
+                let is_empty = || match f.read_dir() {
+                    Ok(mut p) => p.next().is_none(),
+                    Err(_) => false
+                };
+
+                if let Ok(metadata) = f.symlink_metadata() {
+                    if metadata.is_file() || metadata.file_type().is_symlink() || recursive.item || is_empty() {
+                        let result = if trash.item {
+                            trash::remove(f)
+                                .map_err(|e| f.to_string_lossy())
+                        } else if metadata.is_file() {
+                            std::fs::remove_file(f)
+                                .map_err(|e| f.to_string_lossy())
                         } else {
-                            let success = if f.is_dir() {
-                                std::fs::remove_dir_all(f)
-                            } else {
-                                std::fs::remove_file(f)
-                            };
-                            match success {
-                                Err(e) => {
-                                    let msg = format!(
-                                        "Could not delete {:}",
-                                        f.to_string_lossy()
-                                    );
-                                    yield Err(ShellError::labeled_error(
-                                        msg,
-                                        e.to_string(),
-                                        tag,
-                                    ))
-                                },
-                                Ok(()) => {
-                                    let val = format!("deleted {:}", f.to_string_lossy()).into();
-                                    yield Ok(ReturnSuccess::Value(
-                                        val,
-                                    ))
-                                },
-                            }
+                            std::fs::remove_dir_all(f)
+                                .map_err(|e| f.to_string_lossy())
+                        };
+
+                        if let Err(e) = result {
+                            let msg = format!("Could not delete {:}", e);
+                            yield Err(ShellError::labeled_error(msg, e, tag))
+                        } else {
+                            let val = format!("deleted {:}", f.to_string_lossy()).into();
+                            yield Ok(ReturnSuccess::Value(val))
                         }
                     } else {
-                        if f.is_dir() {
-                            let msg = format!(
-                                "Cannot remove {:}. try --recursive",
-                                f.to_string_lossy()
-                            );
-                            yield Err(ShellError::labeled_error(
-                                msg,
-                                "cannot remove non-empty directory",
-                                tag,
-                            ))
-                        } else {
-                            let msg = format!("Invalid file: {:}", f.to_string_lossy());
-                            yield Err(ShellError::labeled_error(
-                                msg,
-                                "invalid file",
-                                tag,
-                            ))
-                        }
+                        let msg = format!(
+                            "Cannot remove {:}. try --recursive",
+                            f.to_string_lossy()
+                        );
+                        yield Err(ShellError::labeled_error(
+                            msg,
+                            "cannot remove non-empty directory",
+                            tag,
+                        ))
                     }
+                } else {
+                    let msg = format!("no such file or directory: {:}", f.to_string_lossy());
+                    yield Err(ShellError::labeled_error(
+                        msg,
+                        "no such file or directory",
+                        tag,
+                    ))
                 }
-            };
-            Ok(stream.to_output_stream())
-        }
+            }
+        };
+
+        Ok(stream.to_output_stream())
     }
 
     fn path(&self) -> String {
