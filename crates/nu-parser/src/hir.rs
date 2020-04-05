@@ -14,6 +14,7 @@ use nu_source::{IntoSpanned, Span, Spanned, SpannedItem};
 
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
+use log::trace;
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
 use num_traits::FromPrimitive;
@@ -822,33 +823,6 @@ pub enum FlatShape {
     Size { number: Span, unit: Span },
 }
 
-// #[derive(Debug, Clone)]
-// pub struct Signature {
-//     pub(crate) unspanned: nu_protocol::Signature,
-//     span: Span,
-// }
-
-// impl Signature {
-//     pub fn new(unspanned: nu_protocol::Signature, span: impl Into<Span>) -> Signature {
-//         Signature {
-//             unspanned,
-//             span: span.into(),
-//         }
-//     }
-// }
-
-// impl HasSpan for Signature {
-//     fn span(&self) -> Span {
-//         self.span
-//     }
-// }
-
-// impl PrettyDebugWithSource for Signature {
-//     fn pretty_debug(&self, source: &str) -> DebugDocBuilder {
-//         self.unspanned.pretty_debug(source)
-//     }
-// }
-
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct NamedArguments {
     pub named: IndexMap<String, NamedValue>,
@@ -875,7 +849,7 @@ impl NamedArguments {
 impl NamedArguments {
     pub fn insert_switch(&mut self, name: impl Into<String>, switch: Option<Flag>) {
         let name = name.into();
-        //trace!("Inserting switch -- {} = {:?}", name, switch);
+        trace!("Inserting switch -- {} = {:?}", name, switch);
 
         match switch {
             None => self.named.insert(name, NamedValue::AbsentSwitch),

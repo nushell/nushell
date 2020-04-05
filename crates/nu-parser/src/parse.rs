@@ -622,7 +622,25 @@ pub fn classify_pipeline(
     let mut error = None;
 
     for lite_cmd in lite_pipeline.commands.iter() {
-        if let Some(signature) = registry.get(&lite_cmd.name.item) {
+        if lite_cmd.name.item.starts_with('^') {
+            let cmd_name: String = lite_cmd.name.item.chars().skip(1).collect();
+            // This is an external command we should allow arguments to pass through with minimal parsing
+            commands.push(ClassifiedCommand::External(ExternalCommand {
+                name: cmd_name,
+                name_tag: Tag::unknown_anchor(lite_cmd.name.span),
+                args: ExternalArgs {
+                    list: lite_cmd
+                        .args
+                        .iter()
+                        .map(|x| ExternalArg {
+                            arg: x.item.clone(),
+                            tag: Tag::unknown_anchor(x.span),
+                        })
+                        .collect(),
+                    span: Span::new(0, 0),
+                },
+            }))
+        } else if let Some(signature) = registry.get(&lite_cmd.name.item) {
             // This is a known internal command, so we need to work with the arguments and parse them according to the expected types
             let mut internal_command = InternalCommand::new(
                 lite_cmd.name.item.clone(),

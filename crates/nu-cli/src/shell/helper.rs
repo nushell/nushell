@@ -40,9 +40,7 @@ impl Completer for Helper {
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        let text = Text::from(line);
         self.context.shell_manager.hint(line, pos, ctx)
-        //.hint(line, pos, ctx, self.context.expand_context(&text))
     }
 }
 

@@ -15,7 +15,12 @@ num-traits = "0.2.11"
 derive-new = "0.5.8"
 serde = "1.0.106"
 language-reporting = "0.4.0"
+log = "0.4.8"
 
 nu-source = { version = "0.12.0", path = "../nu-source" }
 nu-protocol = { version = "0.12.0", path = "../nu-protocol" }
 nu-errors = { version = "0.12.0", path = "../nu-errors" }
+
+[features]
+stable = []
+trace = []

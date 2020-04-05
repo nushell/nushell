@@ -2309,6 +2309,7 @@ dependencies = [
  "derive-new",
  "indexmap",
  "language-reporting",
+ "log",
  "nu-errors",
  "nu-protocol",
  "nu-source",
