@@ -184,3 +184,53 @@ fn copies_same_file_twice() {
         assert!(dirs.test().join("sample.ini").exists());
     });
 }
+
+#[test]
+fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
+    Playground::setup("cp_test_9", |dirs, sandbox| {
+        sandbox.within("foo").mkdir("bar").with_files(vec![
+            EmptyFile("jonathan.json"),
+            EmptyFile("andres.xml"),
+            EmptyFile("yehuda.yaml"),
+            EmptyFile("kevin.txt"),
+            EmptyFile("many_more.ppl"),
+        ]);
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                cp * ...
+            "#
+        );
+
+        assert!(files_exist_at(
+            vec![
+                "yehuda.yaml",
+                "jonathan.json",
+                "andres.xml",
+                "kevin.txt",
+                "many_more.ppl"
+            ],
+            dirs.test()
+        ));
+    })
+}
+
+#[test]
+fn copy_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
+    Playground::setup("cp_test_10", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("hello_there")]);
+        sandbox.within("foo").mkdir("bar");
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                cp .../hello_there .
+            "#
+        );
+
+        let expected = dirs.test().join("foo/bar/hello_there");
+
+        assert!(expected.exists());
+    })
+}
