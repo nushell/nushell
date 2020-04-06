@@ -30,7 +30,7 @@ impl WholeStreamCommand for Histogram {
                 "the name of the column to graph by",
             )
             .rest(
-                SyntaxShape::Member,
+                SyntaxShape::String,
                 "column name to give the histogram's frequency column",
             )
     }

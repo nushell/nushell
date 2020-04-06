@@ -1,4 +1,4 @@
-use nu_parser::Number;
+use nu_parser::hir::Number;
 use nu_protocol::Primitive;
 
 pub fn number(number: impl Into<Number>) -> Primitive {

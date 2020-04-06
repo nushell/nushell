@@ -1,9 +1,8 @@
 use crate::context::Context;
 use ansi_term::{Color, Style};
-use log::log_enabled;
-use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
-use nu_protocol::{errln, outln};
-use nu_source::{nom_input, HasSpan, Tag, Tagged, Text};
+use nu_parser::hir::FlatShape;
+use nu_parser::SignatureRegistry;
+use nu_source::{Span, Spanned, Tag, Tagged};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -38,10 +37,7 @@ impl Completer for Helper {
 
 impl Hinter for Helper {
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
-        let text = Text::from(line);
-        self.context
-            .shell_manager
-            .hint(line, pos, ctx, self.context.expand_context(&text))
+        self.context.shell_manager.hint(line, pos, ctx)
     }
 }
 
@@ -65,49 +61,19 @@ impl Highlighter for Helper {
     }
 
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
-        let tokens = nu_parser::pipeline(nom_input(line));
+        let lite_pipeline = nu_parser::lite_parse(line, 0);
 
-        match tokens {
+        match lite_pipeline {
             Err(_) => Cow::Borrowed(line),
-            Ok((_rest, v)) => {
-                let pipeline = match v.as_pipeline() {
-                    Err(_) => return Cow::Borrowed(line),
-                    Ok(v) => v,
-                };
+            Ok(lp) => {
+                let classified =
+                    nu_parser::classify_pipeline(&lp, &self.context.registry().clone_box());
 
-                let text = Text::from(line);
-                let expand_context = self.context.expand_context(&text);
-
-                let tokens = vec![Token::Pipeline(pipeline).into_spanned(v.span())];
-                let mut tokens = TokensIterator::new(&tokens[..], expand_context, v.span());
-
-                let shapes = {
-                    // We just constructed a token list that only contains a pipeline, so it can't fail
-                    let result = tokens.expand_infallible(PipelineShape);
-
-                    if let Some(failure) = result.failed {
-                        errln!(
-                            "BUG: PipelineShape didn't find a pipeline :: {:#?}",
-                            failure
-                        );
-                    }
-
-                    tokens.finish_tracer();
-
-                    tokens.state().shapes()
-                };
-
-                if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
-                    outln!("");
-                    let _ =
-                        ptree::print_tree(&tokens.expand_tracer().clone().print(Text::from(line)));
-                    outln!("");
-                }
-
-                let mut painter = Painter::new();
+                let shapes = nu_parser::shapes(&classified.commands);
+                let mut painter = Painter::new(line);
 
                 for shape in shapes {
-                    painter.paint_shape(&shape, line);
+                    painter.paint_shape(&shape);
                 }
 
                 Cow::Owned(painter.into_string())
@@ -133,73 +99,94 @@ fn vec_tag<T>(input: Vec<Tagged<T>>) -> Option<Tag> {
 }
 
 struct Painter {
-    current: Style,
-    buffer: String,
+    original: Vec<u8>,
+    styles: Vec<Style>,
 }
 
 impl Painter {
-    fn new() -> Painter {
+    fn new(original: &str) -> Painter {
+        let bytes: Vec<u8> = original.bytes().collect();
+        let bytes_count = bytes.len();
         Painter {
-            current: Style::default(),
-            buffer: String::new(),
+            original: bytes,
+            styles: vec![Color::White.normal(); bytes_count],
+        }
+    }
+
+    fn paint_shape(&mut self, shape: &Spanned<FlatShape>) {
+        let style = match &shape.item {
+            FlatShape::OpenDelimiter(_) => Color::White.normal(),
+            FlatShape::CloseDelimiter(_) => Color::White.normal(),
+            FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
+            FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
+            FlatShape::Type => Color::Blue.bold(),
+            FlatShape::CompareOperator => Color::Yellow.normal(),
+            FlatShape::DotDot => Color::Yellow.bold(),
+            FlatShape::Dot => Style::new().fg(Color::White),
+            FlatShape::InternalCommand => Color::Cyan.bold(),
+            FlatShape::ExternalCommand => Color::Cyan.normal(),
+            FlatShape::ExternalWord => Color::Green.bold(),
+            FlatShape::BareMember => Color::Yellow.bold(),
+            FlatShape::StringMember => Color::Yellow.bold(),
+            FlatShape::String => Color::Green.normal(),
+            FlatShape::Path => Color::Cyan.normal(),
+            FlatShape::GlobPattern => Color::Cyan.bold(),
+            FlatShape::Word => Color::Green.normal(),
+            FlatShape::Pipe => Color::Purple.bold(),
+            FlatShape::Flag => Color::Blue.bold(),
+            FlatShape::ShorthandFlag => Color::Blue.bold(),
+            FlatShape::Int => Color::Purple.bold(),
+            FlatShape::Decimal => Color::Purple.bold(),
+            FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
+            FlatShape::Comment => Color::Green.bold(),
+            FlatShape::Garbage => Style::new().fg(Color::White).on(Color::Red),
+            FlatShape::Size { number, unit } => {
+                self.paint(Color::Purple.bold(), number);
+                self.paint(Color::Cyan.bold(), unit);
+                return;
+            }
+        };
+
+        self.paint(style, &shape.span);
+    }
+
+    fn paint(&mut self, style: Style, span: &Span) {
+        for pos in span.start()..span.end() {
+            self.styles[pos] = style;
         }
     }
 
     fn into_string(self) -> String {
-        self.buffer
-    }
+        let mut idx_start = 0;
+        let mut idx_end = 1;
 
-    fn paint_shape(&mut self, shape: &ShapeResult, line: &str) {
-        let style = match &shape {
-            ShapeResult::Success(shape) => match shape.item {
-                FlatShape::OpenDelimiter(_) => Color::White.normal(),
-                FlatShape::CloseDelimiter(_) => Color::White.normal(),
-                FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
-                FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
-                FlatShape::Type => Color::Blue.bold(),
-                FlatShape::CompareOperator => Color::Yellow.normal(),
-                FlatShape::DotDot => Color::Yellow.bold(),
-                FlatShape::Dot => Style::new().fg(Color::White),
-                FlatShape::InternalCommand => Color::Cyan.bold(),
-                FlatShape::ExternalCommand => Color::Cyan.normal(),
-                FlatShape::ExternalWord => Color::Green.bold(),
-                FlatShape::BareMember => Color::Yellow.bold(),
-                FlatShape::StringMember => Color::Yellow.bold(),
-                FlatShape::String => Color::Green.normal(),
-                FlatShape::Path => Color::Cyan.normal(),
-                FlatShape::GlobPattern => Color::Cyan.bold(),
-                FlatShape::Word => Color::Green.normal(),
-                FlatShape::Pipe => Color::Purple.bold(),
-                FlatShape::Flag => Color::Blue.bold(),
-                FlatShape::ShorthandFlag => Color::Blue.bold(),
-                FlatShape::Int => Color::Purple.bold(),
-                FlatShape::Decimal => Color::Purple.bold(),
-                FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-                FlatShape::Comment => Color::Green.bold(),
-                FlatShape::Garbage => Style::new().fg(Color::White).on(Color::Red),
-                FlatShape::Size { number, unit } => {
-                    let number = number.slice(line);
-                    let unit = unit.slice(line);
+        if self.original.is_empty() {
+            String::new()
+        } else {
+            let mut builder = String::new();
 
-                    self.paint(Color::Purple.bold(), number);
-                    self.paint(Color::Cyan.bold(), unit);
-                    return;
+            let mut current_style = self.styles[0];
+
+            while idx_end < self.styles.len() {
+                if self.styles[idx_end] != current_style {
+                    // Emit, as we changed styles
+                    let intermediate = String::from_utf8_lossy(&self.original[idx_start..idx_end]);
+
+                    builder.push_str(&format!("{}", current_style.paint(intermediate)));
+
+                    current_style = self.styles[idx_end];
+                    idx_start = idx_end;
+                    idx_end += 1;
+                } else {
+                    idx_end += 1;
                 }
-            },
-            ShapeResult::Fallback { shape, .. } => match shape.item {
-                FlatShape::Whitespace | FlatShape::Separator => Color::White.normal(),
-                _ => Style::new().fg(Color::White).on(Color::Red),
-            },
-        };
+            }
 
-        self.paint(style, shape.span().slice(line));
-    }
+            let intermediate = String::from_utf8_lossy(&self.original[idx_start..idx_end]);
+            builder.push_str(&format!("{}", current_style.paint(intermediate)));
 
-    fn paint(&mut self, style: Style, body: &str) {
-        let infix = self.current.infix(style);
-        self.current = style;
-        self.buffer
-            .push_str(&format!("{}{}", infix, style.paint(body)));
+            builder
+        }
     }
 }
 

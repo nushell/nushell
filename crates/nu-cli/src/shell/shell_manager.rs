@@ -9,7 +9,6 @@ use crate::shell::filesystem_shell::FilesystemShell;
 use crate::shell::shell::Shell;
 use crate::stream::OutputStream;
 use nu_errors::ShellError;
-use nu_parser::ExpandContext;
 use parking_lot::Mutex;
 use std::error::Error;
 use std::path::PathBuf;
@@ -95,9 +94,9 @@ impl ShellManager {
         line: &str,
         pos: usize,
         ctx: &rustyline::Context<'_>,
-        context: ExpandContext,
+        //context: ExpandContext,
     ) -> Option<String> {
-        self.shells.lock()[self.current_shell()].hint(line, pos, ctx, context)
+        self.shells.lock()[self.current_shell()].hint(line, pos, ctx)
     }
 
     pub fn next(&mut self) {

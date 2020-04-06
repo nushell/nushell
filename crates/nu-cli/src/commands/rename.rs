@@ -26,7 +26,7 @@ impl WholeStreamCommand for Rename {
                 "the name of the column to rename for",
             )
             .rest(
-                SyntaxShape::Member,
+                SyntaxShape::String,
                 "Additional column name(s) to rename for",
             )
     }

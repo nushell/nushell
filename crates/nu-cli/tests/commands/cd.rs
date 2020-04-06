@@ -355,33 +355,6 @@ fn valuesystem_change_current_path_to_parent_path() {
     })
 }
 
-#[test]
-fn valuesystem_change_to_home_directory() {
-    Playground::setup("cd_test_16", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
-            "sample.toml",
-            r#"
-                    [paquete]
-                    el = "pollo loco"
-                "#,
-        )]);
-
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"
-                enter sample.toml
-                cd paquete
-                cd ~
-                pwd | echo $it
-                exit
-            "#
-        );
-
-        assert_eq!(PathBuf::from(actual), PathBuf::from("/"));
-    })
-}
-
-#[test]
 fn valuesystem_change_to_a_path_containing_spaces() {
     Playground::setup("cd_test_17", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(

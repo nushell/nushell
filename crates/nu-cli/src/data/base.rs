@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
-use nu_parser::{hir, CompareOperator};
+use nu_parser::hir;
 use nu_protocol::{
     Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName, TaggedDictBuilder,
     UntaggedValue, Value,
@@ -23,7 +23,7 @@ use std::time::SystemTime;
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
 pub struct Operation {
     pub(crate) left: Value,
-    pub(crate) operator: CompareOperator,
+    pub(crate) operator: hir::CompareOperator,
     pub(crate) right: Value,
 }
 

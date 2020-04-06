@@ -37,5 +37,5 @@ fn sort_primitive_values() {
         "#
     ));
 
-    assert_eq!(actual, "authors = [\"Yehuda Katz <wycats@gmail.com>\"]");
+    assert_eq!(actual, "authors = [\"The Nu Project Contributors\"]");
 }

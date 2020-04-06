@@ -8,7 +8,6 @@ use crate::prelude::*;
 use crate::shell::shell::Shell;
 use crate::utils::ValueStructure;
 use nu_errors::ShellError;
-use nu_parser::ExpandContext;
 use nu_protocol::{ReturnSuccess, ShellTypeName, UntaggedValue, Value};
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -283,13 +282,7 @@ impl Shell for ValueShell {
         Ok((replace_pos, completions))
     }
 
-    fn hint(
-        &self,
-        _line: &str,
-        _pos: usize,
-        _ctx: &rustyline::Context<'_>,
-        _context: ExpandContext,
-    ) -> Option<String> {
+    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<String> {
         None
     }
 }

@@ -30,7 +30,7 @@ impl WholeStreamCommand for SplitColumn {
                 "the character that denotes what separates columns",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
-            .rest(SyntaxShape::Member, "column names to give the new columns")
+            .rest(SyntaxShape::String, "column names to give the new columns")
     }
 
     fn usage(&self) -> &str {

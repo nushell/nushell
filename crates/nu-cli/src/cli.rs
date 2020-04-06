@@ -10,13 +10,10 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_parser::{
-    ClassifiedCommand, ClassifiedPipeline, ExternalCommand, PipelineShape, SpannedToken,
-    TokensIterator,
-};
+use nu_parser::{ClassifiedCommand, ExternalCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
-use log::{debug, log_enabled, trace};
+use log::{debug, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{
     self, config::Configurer, config::EditMode, At, Cmd, ColorMode, CompletionType, Config, Editor,
@@ -614,9 +611,9 @@ async fn process_line(
         Ok(line) => {
             let line = chomp_newline(line);
 
-            let result = match nu_parser::parse(&line) {
+            let result = match nu_parser::lite_parse(&line, 0) {
                 Err(err) => {
-                    return LineResult::Error(line.to_string(), err);
+                    return LineResult::Error(line.to_string(), err.into());
                 }
 
                 Ok(val) => val,
@@ -625,7 +622,9 @@ async fn process_line(
             debug!("=== Parsed ===");
             debug!("{:#?}", result);
 
-            let pipeline = classify_pipeline(&result, &ctx, &Text::from(line));
+            let pipeline = nu_parser::classify_pipeline(&result, ctx.registry());
+
+            //println!("{:#?}", pipeline);
 
             if let Some(failure) = pipeline.failed {
                 return LineResult::Error(line.to_string(), failure.into());
@@ -642,9 +641,9 @@ async fn process_line(
                     ref name, ref args, ..
                 }) = pipeline.commands.list[0]
                 {
-                    if dunce::canonicalize(name).is_ok()
-                        && PathBuf::from(name).is_dir()
-                        && ichwh::which(name).await.unwrap_or(None).is_none()
+                    if dunce::canonicalize(&name).is_ok()
+                        && PathBuf::from(&name).is_dir()
+                        && ichwh::which(&name).await.unwrap_or(None).is_none()
                         && args.list.is_empty()
                     {
                         // Here we work differently if we're in Windows because of the expected Windows behavior
@@ -760,26 +759,6 @@ async fn process_line(
             LineResult::Break
         }
     }
-}
-
-pub fn classify_pipeline(
-    pipeline: &SpannedToken,
-    context: &Context,
-    source: &Text,
-) -> ClassifiedPipeline {
-    let pipeline_list = vec![pipeline.clone()];
-    let expand_context = context.expand_context(source);
-    let mut iterator = TokensIterator::new(&pipeline_list, expand_context, pipeline.span());
-
-    let result = iterator.expand_infallible(PipelineShape);
-
-    if log_enabled!(target: "nu::expand_syntax", log::Level::Debug) {
-        outln!("");
-        let _ = ptree::print_tree(&iterator.expand_tracer().print(source.clone()));
-        outln!("");
-    }
-
-    result
 }
 
 pub fn print_err(err: ShellError, host: &dyn Host, source: &Text) {

@@ -3,7 +3,7 @@ use crate::data::base::shape::{Column, InlineShape};
 use crate::data::primitive::style_primitive;
 use chrono::DateTime;
 use nu_errors::ShellError;
-use nu_parser::CompareOperator;
+use nu_parser::hir::CompareOperator;
 use nu_protocol::{Primitive, Type, UntaggedValue};
 use nu_source::{DebugDocBuilder, PrettyDebug, Tagged};
 

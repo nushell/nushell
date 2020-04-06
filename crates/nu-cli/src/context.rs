@@ -4,7 +4,7 @@ use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_parser::{hir, hir::syntax_shape::ExpandContext, hir::syntax_shape::SignatureRegistry};
+use nu_parser::{hir, SignatureRegistry};
 use nu_protocol::Signature;
 use nu_source::{Tag, Text};
 use parking_lot::Mutex;
@@ -90,17 +90,6 @@ pub struct Context {
 impl Context {
     pub(crate) fn registry(&self) -> &CommandRegistry {
         &self.registry
-    }
-
-    pub(crate) fn expand_context<'context>(
-        &'context self,
-        source: &'context Text,
-    ) -> ExpandContext {
-        ExpandContext::new(
-            Box::new(self.registry.clone()),
-            source,
-            self.shell_manager.homedir(),
-        )
     }
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {
