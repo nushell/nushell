@@ -163,7 +163,7 @@ fn evaluate_reference(
     trace!("Evaluating {:?} with Scope {:?}", name, scope);
     match name {
         hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
-        hir::Variable::Other(inner, span) => match span.slice(source) {
+        hir::Variable::Other(_, span) => match span.slice(source) {
             x if x == "nu" => crate::evaluate::variables::nu(tag),
             x => Ok(scope
                 .vars

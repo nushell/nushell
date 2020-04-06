@@ -78,7 +78,7 @@ fn infers_types() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "los_cuatro_mosqueteros.csv",
             r#"
-                first_name,last_name,rusty_luck
+                first_name,last_name,rusty_luck,d
                 Andrés,Robalino,1,d
                 Jonathan,Turner,1,d
                 Yehuda,Katz,1,d

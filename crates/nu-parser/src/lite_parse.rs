@@ -132,7 +132,6 @@ fn quoted(
 
 fn command(src: &mut Input, span_offset: usize) -> Result<LiteCommand, ParseError> {
     let command = bare(src, span_offset)?;
-    let span = command.span;
     if command.item.is_empty() {
         Err(ParseError::unexpected_eof(
             "unexpected end of input",

@@ -3,15 +3,13 @@ use std::path::Path;
 use nu_errors::{ArgumentError, ParseError};
 //use crate::hir::*;
 use crate::hir::{
-    Binary, CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, NamedValue,
-    SpannedExpression, Unit,
+    Binary, CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, SpannedExpression,
+    Unit,
 };
 use crate::lite_parse::{lite_parse, LitePipeline};
 use crate::signature::SignatureRegistry;
 use crate::{ExternalArg, ExternalArgs, ExternalCommand};
-use nu_protocol::{
-    NamedType, PathMember, PositionalType, Signature, SyntaxShape, UnspannedPathMember,
-};
+use nu_protocol::{NamedType, PositionalType, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
 

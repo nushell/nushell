@@ -27,7 +27,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             output.append(&mut expression_to_flat_shape(&exprs.head));
             for member in exprs.tail.iter() {
                 match &member.unspanned {
-                    UnspannedPathMember::String(string) => {
+                    UnspannedPathMember::String(_) => {
                         output.push(FlatShape::StringMember.spanned(member.span));
                     }
                     _ => {}

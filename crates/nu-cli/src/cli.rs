@@ -10,10 +10,10 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_parser::{ClassifiedCommand, ClassifiedPipeline, ExternalCommand};
+use nu_parser::{ClassifiedCommand, ExternalCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
-use log::{debug, log_enabled, trace};
+use log::{debug, trace};
 use rustyline::error::ReadlineError;
 use rustyline::{
     self, config::Configurer, config::EditMode, At, Cmd, ColorMode, CompletionType, Config, Editor,

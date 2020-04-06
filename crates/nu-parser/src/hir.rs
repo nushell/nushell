@@ -8,7 +8,7 @@ use nu_protocol::{Primitive, UntaggedValue};
 use num_traits::ToPrimitive;
 
 use nu_source::{
-    b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource, Tag,
+    b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
 };
 use nu_source::{IntoSpanned, Span, Spanned, SpannedItem};
 
@@ -547,12 +547,6 @@ impl PrettyDebugWithSource for Path {
         self.head.pretty_debug(source)
             + b::operator(".")
             + b::intersperse(self.tail.iter().map(|m| m.pretty()), b::operator("."))
-    }
-}
-
-impl Path {
-    pub(crate) fn parts(self) -> (SpannedExpression, Vec<PathMember>) {
-        (self.head, self.tail)
     }
 }
 

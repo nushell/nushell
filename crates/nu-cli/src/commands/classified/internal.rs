@@ -28,7 +28,7 @@ pub(crate) fn run_internal_command(
     let result = {
         context.run_command(
             internal_command?,
-            Tag::unknown_anchor(command.name_span.clone()),
+            Tag::unknown_anchor(command.name_span),
             command.args.clone(),
             &source,
             objects,

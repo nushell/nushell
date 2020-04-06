@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use csv::{ErrorKind, ReaderBuilder};
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, TaggedDictBuilder, UntaggedValue, Value};
+use nu_protocol::{ReturnSuccess, TaggedDictBuilder, UntaggedValue, Value};
 
 fn from_delimited_string_to_value(
     s: String,
@@ -27,10 +27,13 @@ fn from_delimited_string_to_value(
     for row in reader.records() {
         let mut tagged_row = TaggedDictBuilder::new(&tag);
         for (value, header) in row?.iter().zip(headers.iter()) {
-            tagged_row.insert_value(
-                header,
-                UntaggedValue::Primitive(Primitive::String(String::from(value))).into_value(&tag),
-            )
+            if let Ok(i) = value.parse::<i64>() {
+                tagged_row.insert_value(header, UntaggedValue::int(i).into_value(&tag))
+            } else if let Ok(f) = value.parse::<f64>() {
+                tagged_row.insert_value(header, UntaggedValue::decimal(f).into_value(&tag))
+            } else {
+                tagged_row.insert_value(header, UntaggedValue::string(value).into_value(&tag))
+            }
         }
         rows.push(tagged_row.into_value());
     }

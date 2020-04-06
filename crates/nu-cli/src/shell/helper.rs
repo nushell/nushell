@@ -1,11 +1,8 @@
 use crate::context::Context;
 use ansi_term::{Color, Style};
-use log::log_enabled;
-//use nu_parser::{FlatShape, PipelineShape, ShapeResult, Token, TokensIterator};
 use nu_parser::hir::FlatShape;
 use nu_parser::SignatureRegistry;
-use nu_protocol::{errln, outln};
-use nu_source::{nom_input, HasSpan, Span, Spanned, Tag, Tagged, Text};
+use nu_source::{Span, Spanned, Tag, Tagged};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::Highlighter;
@@ -164,7 +161,7 @@ impl Painter {
         let mut idx_end = 1;
 
         if self.original.is_empty() {
-            return String::new();
+            String::new()
         } else {
             let mut builder = String::new();
 
