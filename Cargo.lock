@@ -2147,7 +2147,6 @@ dependencies = [
  "nu-build",
  "nu-cli",
  "nu-errors",
- "nu-macros",
  "nu-parser",
  "nu-plugin",
  "nu-protocol",
@@ -2229,7 +2228,6 @@ dependencies = [
  "nom_locate",
  "nu-build",
  "nu-errors",
- "nu-macros",
  "nu-parser",
  "nu-plugin",
  "nu-protocol",
@@ -2292,13 +2290,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "toml 0.5.6",
-]
-
-[[package]]
-name = "nu-macros"
-version = "0.12.0"
-dependencies = [
- "nu-protocol",
 ]
 
 [[package]]
