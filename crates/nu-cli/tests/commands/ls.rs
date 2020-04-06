@@ -131,3 +131,26 @@ fn fails_when_glob_doesnt_match() {
         assert!(actual.contains("invalid file or pattern"));
     })
 }
+
+#[test]
+fn list_files_from_two_parents_up_using_multiple_dots() {
+    Playground::setup("ls_test_6", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yahuda.yaml"),
+            EmptyFile("jonathan.json"),
+            EmptyFile("andres.xml"),
+            EmptyFile("kevin.txt"),
+        ]);
+
+        sandbox.within("foo").mkdir("bar");
+
+        let actual = nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                ls ... | count | echo $it
+            "#
+        );
+
+        assert_eq!(actual, "5");
+    })
+}
