@@ -27,7 +27,6 @@ pub use crate::data::primitive;
 pub use crate::data::value;
 pub use crate::env::environment_syncer::EnvironmentSyncer;
 pub use crate::env::host::BasicHost;
-pub use nu_parser::TokenTreeBuilder;
 pub use nu_value_ext::ValueExt;
 pub use num_traits::cast::ToPrimitive;
 

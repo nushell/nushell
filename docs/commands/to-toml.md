@@ -101,7 +101,7 @@ version = "0.16"
 pretty_assertions = "0.6.1"
 
 [package]
-authors = ["Yehuda Katz <wycats@gmail.com>"]
+authors = ["The Nu Project Contributors"]
 description = "A shell for the GitHub era"
 edition = "2018"
 license = "ISC"

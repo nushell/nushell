@@ -11,7 +11,7 @@ impl Plugin for Match {
     fn config(&mut self) -> Result<Signature, ShellError> {
         Ok(Signature::build("match")
             .desc("filter rows by regex")
-            .required("member", SyntaxShape::Member, "the column name to match")
+            .required("member", SyntaxShape::String, "the column name to match")
             .required("regex", SyntaxShape::String, "the regex to match with")
             .filter())
     }

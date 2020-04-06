@@ -10,7 +10,6 @@ use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
 use crate::utils::FileStructure;
 use nu_errors::ShellError;
-use nu_parser::ExpandContext;
 use nu_protocol::{Primitive, ReturnSuccess, UntaggedValue};
 use rustyline::completion::FilenameCompleter;
 use rustyline::hint::{Hinter, HistoryHinter};
@@ -1149,13 +1148,7 @@ impl Shell for FilesystemShell {
         self.completer.complete(line, pos, ctx)
     }
 
-    fn hint(
-        &self,
-        line: &str,
-        pos: usize,
-        ctx: &rustyline::Context<'_>,
-        _expand_context: ExpandContext,
-    ) -> Option<String> {
+    fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<String> {
         self.hinter.hint(line, pos, ctx)
     }
 }

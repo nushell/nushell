@@ -1,8 +1,6 @@
 use crate::context::CommandRegistry;
 
 use derive_new::new;
-use nu_parser::ExpandContext;
-use nu_source::{HasSpan, Text};
 use rustyline::completion::{Completer, FilenameCompleter};
 use std::path::PathBuf;
 
@@ -20,14 +18,6 @@ impl NuCompleter {
         pos: usize,
         context: &rustyline::Context,
     ) -> rustyline::Result<(usize, Vec<rustyline::completion::Pair>)> {
-        let text = Text::from(line);
-        let expand_context =
-            ExpandContext::new(Box::new(self.commands.clone()), &text, self.homedir.clone());
-
-        #[allow(unused)]
-        // smarter completions
-        let shapes = nu_parser::pipeline_shapes(line, expand_context);
-
         let commands: Vec<String> = self.commands.names();
 
         let line_chars: Vec<_> = line[..pos].chars().collect();
@@ -44,7 +34,17 @@ impl NuCompleter {
 
         // See if we're a flag
         if pos > 0 && replace_pos < line_chars.len() && line_chars[replace_pos] == '-' {
-            completions = self.get_matching_arguments(&line_chars, line, replace_pos, pos);
+            if let Ok(lite_pipeline) = nu_parser::lite_parse(line, 0) {
+                completions = self.get_matching_arguments(
+                    &lite_pipeline,
+                    &line_chars,
+                    line,
+                    replace_pos,
+                    pos,
+                );
+            } else {
+                completions = self.file_completer.complete(line, pos, context)?.1;
+            }
         } else {
             completions = self.file_completer.complete(line, pos, context)?.1;
 
@@ -96,6 +96,7 @@ impl NuCompleter {
 
     fn get_matching_arguments(
         &self,
+        lite_parse: &nu_parser::LitePipeline,
         line_chars: &[char],
         line: &str,
         replace_pos: usize,
@@ -108,40 +109,23 @@ impl NuCompleter {
         let replace_string = (replace_pos..pos).map(|_| " ").collect::<String>();
         line_copy.replace_range(replace_pos..pos, &replace_string);
 
-        if let Ok(val) = nu_parser::parse(&line_copy) {
-            let source = Text::from(line);
-            let pipeline_list = vec![val.clone()];
+        let result = nu_parser::classify_pipeline(&lite_parse, &self.commands);
 
-            let expand_context = nu_parser::ExpandContext {
-                homedir: None,
-                registry: Box::new(self.commands.clone()),
-                source: &source,
-            };
+        for command in result.commands.list {
+            if let nu_parser::ClassifiedCommand::Internal(nu_parser::InternalCommand {
+                args, ..
+            }) = command
+            {
+                if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
+                    if let Some(named) = args.named {
+                        for (name, _) in named.iter() {
+                            let full_flag = format!("--{}", name);
 
-            let mut iterator =
-                nu_parser::TokensIterator::new(&pipeline_list, expand_context, val.span());
-
-            let result = iterator.expand_infallible(nu_parser::PipelineShape);
-
-            if result.failed.is_none() {
-                for command in result.commands.list {
-                    if let nu_parser::ClassifiedCommand::Internal(nu_parser::InternalCommand {
-                        args,
-                        ..
-                    }) = command
-                    {
-                        if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
-                            if let Some(named) = args.named {
-                                for (name, _) in named.iter() {
-                                    let full_flag = format!("--{}", name);
-
-                                    if full_flag.starts_with(&substring) {
-                                        matching_arguments.push(rustyline::completion::Pair {
-                                            display: full_flag.clone(),
-                                            replacement: full_flag,
-                                        });
-                                    }
-                                }
+                            if full_flag.starts_with(&substring) {
+                                matching_arguments.push(rustyline::completion::Pair {
+                                    display: full_flag.clone(),
+                                    replacement: full_flag,
+                                });
                             }
                         }
                     }

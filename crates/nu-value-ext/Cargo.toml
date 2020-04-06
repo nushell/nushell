@@ -1,7 +1,7 @@
 [package]
 name = "nu-value-ext"
 version = "0.12.0"
-authors = ["Yehuda Katz <wycats@gmail.com>", "Jonathan Turner <jonathan.d.turner@gmail.com>", "Andrés N. Robalino <andres@androbtech.com>"]
+authors = ["The Nu Project Contributors"]
 edition = "2018"
 description = "Extension traits for values in Nushell"
 license = "MIT"
