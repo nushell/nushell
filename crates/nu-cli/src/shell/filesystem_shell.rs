@@ -581,6 +581,7 @@ impl Shell for FilesystemShell {
                 src.tag,
             ));
         }
+
         let destination_file_name = {
             match destination.file_name() {
                 Some(name) => PathBuf::from(name),
