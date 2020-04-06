@@ -6,19 +6,23 @@ use nu_test_support::{nu, pipeline};
 fn all() {
     Playground::setup("sum_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "meals.csv",
+            "meals.json",
             r#"
-                description,calories
-                "1 large egg",90
-                "1 cup white rice",250
-                "1 tablespoon fish oil",108
+                {
+                    meals: [
+                        {description: "1 large egg", calories: 90},
+                        {description: "1 cup white rice", calories: 250},
+                        {description: "1 tablespoon fish oil", calories: 108}
+                    ]
+                }
             "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                open meals.csv
+                open meals.json
+                | get meals
                 | get calories
                 | sum
                 | echo $it
