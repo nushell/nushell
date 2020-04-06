@@ -32,16 +32,19 @@ impl NuCompleter {
 
         let mut completions;
 
-        // // See if we're a flag
+        // See if we're a flag
         if pos > 0 && replace_pos < line_chars.len() && line_chars[replace_pos] == '-' {
-            let lite_pipeline = nu_parser::lite_parse(line, 0);
-            completions = self.get_matching_arguments(
-                &lite_pipeline.unwrap(),
-                &line_chars,
-                line,
-                replace_pos,
-                pos,
-            );
+            if let Ok(lite_pipeline) = nu_parser::lite_parse(line, 0) {
+                completions = self.get_matching_arguments(
+                    &lite_pipeline,
+                    &line_chars,
+                    line,
+                    replace_pos,
+                    pos,
+                );
+            } else {
+                completions = self.file_completer.complete(line, pos, context)?.1;
+            }
         } else {
             completions = self.file_completer.complete(line, pos, context)?.1;
 
