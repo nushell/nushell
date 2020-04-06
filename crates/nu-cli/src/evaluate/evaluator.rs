@@ -164,7 +164,7 @@ fn evaluate_reference(
     match name {
         hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
         hir::Variable::Other(_, span) => match span.slice(source) {
-            x if x == "nu" => crate::evaluate::variables::nu(tag),
+            x if x == "$nu" => crate::evaluate::variables::nu(tag),
             x => Ok(scope
                 .vars
                 .get(x)
