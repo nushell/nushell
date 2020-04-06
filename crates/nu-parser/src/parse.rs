@@ -192,6 +192,7 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
 
         if head.is_none() {
             if current_part.starts_with('$') {
+                // We have the variable head
                 head = Some(Expression::variable(current_part, lite_arg.span));
             } else if let Ok(row_number) = current_part.parse::<u64>() {
                 output.push(
