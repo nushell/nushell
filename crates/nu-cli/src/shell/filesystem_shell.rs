@@ -1183,7 +1183,6 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     }
 }
 
-#[allow(clippy::result_unwrap_used)]
 fn normalize(path: impl AsRef<Path>) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.as_ref().components() {
