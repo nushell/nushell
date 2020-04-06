@@ -189,18 +189,13 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
         if head.is_none() {
             if current_part.starts_with('$') {
                 head = Some(Expression::variable(current_part, lite_arg.span));
+            } else if let Ok(row_number) = current_part.parse::<u64>() {
+                output.push(
+                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
+                );
             } else {
-                if let Ok(row_number) = current_part.parse::<u64>() {
-                    output.push(
-                        UnspannedPathMember::Int(BigInt::from(row_number))
-                            .into_path_member(part_span),
-                    );
-                } else {
-                    let current_part = trim_quotes(&current_part);
-                    output.push(
-                        UnspannedPathMember::String(current_part).into_path_member(part_span),
-                    );
-                }
+                let current_part = trim_quotes(&current_part);
+                output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
             }
         } else if let Ok(row_number) = current_part.parse::<u64>() {
             output.push(
