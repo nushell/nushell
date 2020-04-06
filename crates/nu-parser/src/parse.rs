@@ -316,23 +316,23 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
 
 fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let unit_groups = [
-        (Unit::Byte, vec!["b", "B"]),
-        (Unit::Kilobyte, vec!["kb", "KB", "Kb"]),
-        (Unit::Megabyte, vec!["mb", "MB", "Mb"]),
-        (Unit::Gigabyte, vec!["gb", "GB", "Gb"]),
-        (Unit::Terabyte, vec!["tb", "TB", "Tb"]),
-        (Unit::Petabyte, vec!["pb", "PB", "Pb"]),
-        (Unit::Second, vec!["s"]),
-        (Unit::Minute, vec!["m"]),
-        (Unit::Hour, vec!["h"]),
-        (Unit::Day, vec!["d"]),
-        (Unit::Week, vec!["w"]),
-        (Unit::Month, vec!["M"]),
-        (Unit::Year, vec!["y"]),
+        (Unit::Byte, true, vec!["b", "B"]),
+        (Unit::Kilobyte, true, vec!["kb", "KB", "Kb"]),
+        (Unit::Megabyte, true, vec!["mb", "MB", "Mb"]),
+        (Unit::Gigabyte, true, vec!["gb", "GB", "Gb"]),
+        (Unit::Terabyte, true, vec!["tb", "TB", "Tb"]),
+        (Unit::Petabyte, true, vec!["pb", "PB", "Pb"]),
+        (Unit::Second, false, vec!["s"]),
+        (Unit::Minute, false, vec!["m"]),
+        (Unit::Hour, false, vec!["h"]),
+        (Unit::Day, false, vec!["d"]),
+        (Unit::Week, false, vec!["w"]),
+        (Unit::Month, false, vec!["M"]),
+        (Unit::Year, false, vec!["y"]),
     ];
 
     for unit_group in unit_groups.iter() {
-        for unit in unit_group.1.iter() {
+        for unit in unit_group.2.iter() {
             if lite_arg.item.ends_with(unit) {
                 let mut lhs = lite_arg.item.clone();
 
@@ -340,18 +340,42 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
                     lhs.pop();
                 }
 
-                if let Ok(x) = lhs.parse::<i64>() {
-                    let lhs_span =
-                        Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
-                    let unit_span =
-                        Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
-                    return (
-                        SpannedExpression::new(
-                            Expression::unit(x.spanned(lhs_span), unit_group.0.spanned(unit_span)),
-                            lite_arg.span,
-                        ),
-                        None,
-                    );
+                if unit_group.1 {
+                    // these units are allowed to signed
+                    if let Ok(x) = lhs.parse::<i64>() {
+                        let lhs_span =
+                            Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+                        let unit_span =
+                            Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+                        return (
+                            SpannedExpression::new(
+                                Expression::unit(
+                                    x.spanned(lhs_span),
+                                    unit_group.0.spanned(unit_span),
+                                ),
+                                lite_arg.span,
+                            ),
+                            None,
+                        );
+                    }
+                } else {
+                    // these units are unsigned
+                    if let Ok(x) = lhs.parse::<u64>() {
+                        let lhs_span =
+                            Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+                        let unit_span =
+                            Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+                        return (
+                            SpannedExpression::new(
+                                Expression::unit(
+                                    (x as i64).spanned(lhs_span),
+                                    unit_group.0.spanned(unit_span),
+                                ),
+                                lite_arg.span,
+                            ),
+                            None,
+                        );
+                    }
                 }
             }
         }
@@ -747,7 +771,7 @@ fn classify_internal_command(
                                 } else if error.is_none() {
                                     error = Some(ParseError::argument_error(
                                         lite_cmd.name.clone(),
-                                        ArgumentError::MissingValueForName(format!("{:?}", shape)),
+                                        ArgumentError::MissingValueForName(full_name.to_owned()),
                                     ));
                                 }
                             }
@@ -814,9 +838,10 @@ fn classify_internal_command(
         }
     }
     if positional.len() < required_arg_count && error.is_none() {
+        let (_, name) = &signature.positional[positional.len()];
         error = Some(ParseError::argument_error(
             lite_cmd.name.clone(),
-            ArgumentError::MissingMandatoryPositional("argument".into()),
+            ArgumentError::MissingMandatoryPositional(name.to_owned()),
         ));
     }
 
