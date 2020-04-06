@@ -18,7 +18,7 @@ members = ["crates/*/"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-cli = { version = "0.12.0", path = "./crates/nu-cli" }
+nu-cli = { version = "0.12.1", path = "./crates/nu-cli" }
 nu-source = { version = "0.12.0", path = "./crates/nu-source" }
 nu-plugin = { version = "0.12.0", path = "./crates/nu-plugin" }
 nu-protocol = { version = "0.12.0", path = "./crates/nu-protocol" }

@@ -2186,7 +2186,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "ansi_term 0.12.1",
  "app_dirs",
