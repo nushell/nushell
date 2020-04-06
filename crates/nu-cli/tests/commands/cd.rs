@@ -355,6 +355,7 @@ fn valuesystem_change_current_path_to_parent_path() {
     })
 }
 
+#[test]
 fn valuesystem_change_to_a_path_containing_spaces() {
     Playground::setup("cd_test_17", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
