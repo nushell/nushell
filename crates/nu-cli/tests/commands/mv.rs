@@ -250,3 +250,59 @@ fn does_not_error_on_relative_parent_path() {
         assert!(expected.exists());
     })
 }
+
+#[test]
+#[ignore] // Temporarily failling, see https://github.com/nushell/nushell/issues/1523
+fn move_files_using_glob_two_parents_up_using_multiple_dots() {
+    Playground::setup("mv_test_12", |dirs, sandbox| {
+        sandbox.within("foo").mkdir("bar").with_files(vec![
+            EmptyFile("jonathan.json"),
+            EmptyFile("andres.xml"),
+            EmptyFile("yehuda.yaml"),
+            EmptyFile("kevin.txt"),
+            EmptyFile("many_more.ppl"),
+        ]);
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                mv * ...
+            "#
+        );
+
+        let files = vec![
+            "yehuda.yaml",
+            "jonathan.json",
+            "andres.xml",
+            "kevin.txt",
+            "many_more.ppl",
+        ];
+
+        let original_dir = dirs.test().join("foo/bar");
+        let destination_dir = dirs.test();
+
+        assert!(files_exist_at(files.clone(), destination_dir));
+        assert!(!files_exist_at(files, original_dir))
+    })
+}
+
+#[test]
+fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
+    Playground::setup("cp_test_10", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("hello_there")]);
+        sandbox.within("foo").mkdir("bar");
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"
+                mv .../hello_there .
+            "#
+        );
+
+        let expected = dirs.test().join("foo/bar/hello_there");
+        let original = dirs.test().join("hello_there");
+
+        assert!(expected.exists());
+        assert!(!original.exists());
+    })
+}
