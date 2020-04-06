@@ -242,3 +242,26 @@ fn allows_doubly_specified_file() {
         assert!(!actual.contains("error"))
     })
 }
+
+#[test]
+fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
+    Playground::setup("rm_test_13", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("yehuda.txt"),
+            EmptyFile("jonathan.txt"),
+            EmptyFile("kevin.txt"),
+        ]);
+
+        sandbox.within("foo").mkdir("bar");
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            "rm .../*.txt"
+        );
+
+        assert!(!files_exist_at(
+            vec!["yehuda.txt", "jonathan.txt", "kevin.txt"],
+            dirs.test()
+        ));
+    })
+}

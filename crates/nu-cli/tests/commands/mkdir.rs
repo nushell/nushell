@@ -45,3 +45,19 @@ fn creates_intermediary_directories() {
         assert!(expected.exists());
     })
 }
+
+#[test]
+fn create_directory_two_parents_up_using_multiple_dots() {
+    Playground::setup("mkdir_test_4", |dirs, sandbox| {
+        sandbox.within("foo").mkdir("bar");
+
+        nu!(
+            cwd: dirs.test().join("foo/bar"),
+            "mkdir .../boo"
+        );
+
+        let expected = dirs.test().join("boo");
+
+        assert!(expected.exists());
+    })
+}
