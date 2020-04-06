@@ -87,7 +87,7 @@ fn filesystem_change_current_directory_to_parent_directory() {
 
 #[test]
 fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
-    Playground::setup("fs_cd_two_up", |dirs, sandbox| {
+    Playground::setup("cd_test_6", |dirs, sandbox| {
         sandbox.within("foo").mkdir("bar");
 
         let actual = nu!(
@@ -103,25 +103,8 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
 }
 
 #[test]
-fn filesystem_change_current_directory_to_three_parents_up_using_multiple_dots() {
-    Playground::setup("fs_cd_three_up", |dirs, sandbox| {
-        sandbox.within("foo").within("bar").mkdir("baz");
-
-        let actual = nu!(
-            cwd: dirs.test().join("foo/bar/baz"),
-            r#"
-                cd ....
-                pwd | echo $it
-            "#
-        );
-
-        assert_eq!(PathBuf::from(actual), *dirs.test());
-    })
-}
-
-#[test]
 fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
-    Playground::setup("cd_test_5_1", |dirs, sandbox| {
+    Playground::setup("cd_test_7", |dirs, sandbox| {
         sandbox.within("foo").mkdir("bar");
 
         let actual = nu!(
@@ -143,7 +126,7 @@ fn filesystem_change_current_directory_to_parent_directory_after_delete_cwd() {
 
 #[test]
 fn filesystem_change_to_home_directory() {
-    Playground::setup("cd_test_6", |dirs, _| {
+    Playground::setup("cd_test_8", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
             r#"
@@ -158,7 +141,7 @@ fn filesystem_change_to_home_directory() {
 
 #[test]
 fn filesystem_change_to_a_directory_containing_spaces() {
-    Playground::setup("cd_test_7", |dirs, sandbox| {
+    Playground::setup("cd_test_9", |dirs, sandbox| {
         sandbox.mkdir("robalino turner katz");
 
         let actual = nu!(
@@ -178,7 +161,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
 
 #[test]
 fn filesystem_not_a_directory() {
-    Playground::setup("cd_test_8", |dirs, sandbox| {
+    Playground::setup("cd_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("ferris_did_it.txt")]);
 
         let actual = nu_error!(
@@ -212,7 +195,7 @@ fn filesystem_directory_not_found() {
 
 #[test]
 fn valuesystem_change_from_current_path_using_relative_path() {
-    Playground::setup("cd_test_9", |dirs, sandbox| {
+    Playground::setup("cd_test_11", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -243,7 +226,7 @@ fn valuesystem_change_from_current_path_using_relative_path() {
 
 #[test]
 fn valuesystem_change_from_current_path_using_absolute_path() {
-    Playground::setup("cd_test_10", |dirs, sandbox| {
+    Playground::setup("cd_test_12", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -277,7 +260,7 @@ fn valuesystem_change_from_current_path_using_absolute_path() {
 
 #[test]
 fn valuesystem_switch_back_to_previous_working_path() {
-    Playground::setup("cd_test_11", |dirs, sandbox| {
+    Playground::setup("cd_test_13", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -313,7 +296,7 @@ fn valuesystem_switch_back_to_previous_working_path() {
 
 #[test]
 fn valuesystem_change_from_current_path_using_relative_path_and_dash() {
-    Playground::setup("cd_test_12", |dirs, sandbox| {
+    Playground::setup("cd_test_14", |dirs, sandbox| {
         sandbox
             .with_files(vec![FileWithContent(
                 "sample.toml",
@@ -347,7 +330,7 @@ fn valuesystem_change_from_current_path_using_relative_path_and_dash() {
 
 #[test]
 fn valuesystem_change_current_path_to_parent_path() {
-    Playground::setup("cd_test_13", |dirs, sandbox| {
+    Playground::setup("cd_test_15", |dirs, sandbox| {
         sandbox
             .with_files(vec![FileWithContent(
                 "sample.toml",
@@ -374,7 +357,7 @@ fn valuesystem_change_current_path_to_parent_path() {
 
 #[test]
 fn valuesystem_change_to_home_directory() {
-    Playground::setup("cd_test_14", |dirs, sandbox| {
+    Playground::setup("cd_test_16", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
@@ -400,7 +383,7 @@ fn valuesystem_change_to_home_directory() {
 
 #[test]
 fn valuesystem_change_to_a_path_containing_spaces() {
-    Playground::setup("cd_test_15", |dirs, sandbox| {
+    Playground::setup("cd_test_17", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
             "sample.toml",
             r#"
