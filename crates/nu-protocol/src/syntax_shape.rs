@@ -8,9 +8,9 @@ pub enum SyntaxShape {
     Any,
     /// Strings and string-like bare words are allowed
     String,
-    /// Values that can be the right hand side of a '.'
-    ColumnPath,
     /// A dotted path to navigate the table
+    ColumnPath,
+    /// A dotted path to navigate the table (including variable)
     FullColumnPath,
     /// Only a numeric (integer or decimal) value is allowed
     Number,

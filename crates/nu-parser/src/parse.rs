@@ -24,7 +24,7 @@ impl InternalCommand {
     pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
         InternalCommand {
             name: name.clone(),
-            name_span: name_span,
+            name_span,
             args: crate::hir::Call::new(
                 Box::new(SpannedExpression::new(Expression::string(name), name_span)),
                 full_span,
@@ -161,19 +161,15 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
             if head.is_none() && current_part.clone().starts_with('$') {
                 // We have the variable head
                 head = Some(Expression::variable(current_part.clone(), part_span))
+            } else if let Ok(row_number) = current_part.parse::<u64>() {
+                output.push(
+                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
+                );
             } else {
-                if let Ok(row_number) = current_part.parse::<u64>() {
-                    output.push(
-                        UnspannedPathMember::Int(BigInt::from(row_number))
-                            .into_path_member(part_span),
-                    );
-                } else {
-                    let current_part = trim_quotes(&current_part);
-                    output.push(
-                        UnspannedPathMember::String(current_part.clone())
-                            .into_path_member(part_span),
-                    );
-                }
+                let current_part = trim_quotes(&current_part);
+                output.push(
+                    UnspannedPathMember::String(current_part.clone()).into_path_member(part_span),
+                );
             }
             current_part.clear();
             // Note: I believe this is safe because of the delimiter we're using, but if we get fancy with
@@ -206,15 +202,13 @@ fn parse_full_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Opt
                     );
                 }
             }
+        } else if let Ok(row_number) = current_part.parse::<u64>() {
+            output.push(
+                UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
+            );
         } else {
-            if let Ok(row_number) = current_part.parse::<u64>() {
-                output.push(
-                    UnspannedPathMember::Int(BigInt::from(row_number)).into_path_member(part_span),
-                );
-            } else {
-                let current_part = trim_quotes(&current_part);
-                output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
-            }
+            let current_part = trim_quotes(&current_part);
+            output.push(UnspannedPathMember::String(current_part).into_path_member(part_span));
         }
     }
 
@@ -712,16 +706,14 @@ pub fn classify_pipeline(
                                             if error.is_none() {
                                                 error = err;
                                             }
-                                        } else {
-                                            if error.is_none() {
-                                                error = Some(ParseError::argument_error(
-                                                    lite_cmd.name.clone(),
-                                                    ArgumentError::MissingValueForName(format!(
-                                                        "{:?}",
-                                                        shape
-                                                    )),
-                                                ));
-                                            }
+                                        } else if error.is_none() {
+                                            error = Some(ParseError::argument_error(
+                                                lite_cmd.name.clone(),
+                                                ArgumentError::MissingValueForName(format!(
+                                                    "{:?}",
+                                                    shape
+                                                )),
+                                            ));
                                         }
                                     }
                                 }
@@ -858,7 +850,7 @@ pub fn classify_pipeline(
             let name = shellexpand::tilde(&trimmed).to_string();
             // This is an external command we should allow arguments to pass through with minimal parsing
             commands.push(ClassifiedCommand::External(ExternalCommand {
-                name: name,
+                name,
                 name_tag: Tag::unknown_anchor(lite_cmd.name.span),
                 args: ExternalArgs {
                     list: lite_cmd
