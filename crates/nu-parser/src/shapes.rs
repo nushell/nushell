@@ -26,11 +26,8 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&exprs.head));
             for member in exprs.tail.iter() {
-                match &member.unspanned {
-                    UnspannedPathMember::String(_) => {
-                        output.push(FlatShape::StringMember.spanned(member.span));
-                    }
-                    _ => {}
+                if let UnspannedPathMember::String(_) = &member.unspanned {
+                    output.push(FlatShape::StringMember.spanned(member.span));
                 }
             }
             output
