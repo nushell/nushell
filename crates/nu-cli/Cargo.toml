@@ -35,12 +35,12 @@ ctrlc = "3.1.4"
 derive-new = "0.5.8"
 dirs = "2.0.2"
 dunce = "1.0.0"
-filesize = "0.1.0"
+filesize = "0.2.0"
 futures = { version = "0.3", features = ["compat", "io-compat"] }
 futures-util = "0.3.4"
 futures_codec = "0.4"
 getset = "0.1.0"
-git2 = { version = "0.13.0", default_features = false }
+git2 = { version = "0.13.1", default_features = false }
 glob = "0.3.0"
 hex = "0.4"
 htmlescape = "0.3.1"
@@ -52,9 +52,6 @@ language-reporting = "0.4.0"
 log = "0.4.8"
 meval = "0.2"
 natural = "0.5.0"
-nom = "5.0.1"
-nom-tracable = "0.4.1"
-nom_locate = "1.0.0"
 num-bigint = { version = "0.2.6", features = ["serde"] }
 num-traits = "0.2.11"
 parking_lot = "0.10.0"
@@ -66,13 +63,13 @@ ptree = {version = "0.2" }
 query_interface = "0.3.5"
 rand = "0.7"
 regex = "1"
-roxmltree = "0.10.0"
-rustyline = "6.0.0"
-serde = { version = "1.0.105", features = ["derive"] }
+roxmltree = "0.10.1"
+rustyline = "6.1.0"
+serde = { version = "1.0.106", features = ["derive"] }
 serde-hjson = "0.9.1"
 serde_bytes = "0.11.3"
 serde_ini = "0.2.0"
-serde_json = "1.0.48"
+serde_json = "1.0.51"
 serde_urlencoded = "0.6.1"
 serde_yaml = "0.8"
 shellexpand = "2.0.0"
@@ -88,17 +85,14 @@ umask = "0.1"
 unicode-xid = "0.2.0"
 
 clipboard = { version = "0.5", optional = true }
-starship = { version = "0.38.0", optional = true }
+starship = { version = "0.39.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
-users = "0.9"
+users = "0.10.0"
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0-beta.0"
 features = ["bundled", "blob"]
-
-[dev-dependencies]
-pretty_assertions = "0.6.1"
 
 [build-dependencies]
 nu-build = { version = "0.12.0", path = "../nu-build" }

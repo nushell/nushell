@@ -3,9 +3,7 @@ use bigdecimal::BigDecimal;
 use derive_new::new;
 use getset::Getters;
 use language_reporting::{Diagnostic, Label, Severity};
-use nu_source::{
-    b, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem, TracableContext,
-};
+use nu_source::{b, DebugDocBuilder, HasFallibleSpan, PrettyDebug, Span, Spanned, SpannedItem};
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
@@ -411,33 +409,6 @@ impl ShellError {
             error: kind,
         }
         .start()
-    }
-
-    pub fn parse_error(
-        error: nom::Err<(
-            nom_locate::LocatedSpanEx<&str, TracableContext>,
-            nom::error::ErrorKind,
-        )>,
-    ) -> ShellError {
-        use language_reporting::*;
-
-        match error {
-            nom::Err::Incomplete(_) => {
-                // TODO: Get span of EOF
-                let diagnostic = Diagnostic::new(
-                    Severity::Error,
-                    "Parse Error: Unexpected end of line".to_string(),
-                );
-
-                ShellError::diagnostic(diagnostic)
-            }
-            nom::Err::Failure(span) | nom::Err::Error(span) => {
-                let diagnostic = Diagnostic::new(Severity::Error, "Parse Error".to_string())
-                    .with_label(Label::new_primary(Span::from(span.0)));
-
-                ShellError::diagnostic(diagnostic)
-            }
-        }
     }
 
     pub fn diagnostic(diagnostic: Diagnostic<Span>) -> ShellError {

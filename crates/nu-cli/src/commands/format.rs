@@ -9,11 +9,6 @@ use nu_source::Tagged;
 use nu_value_ext::{as_column_path, get_data_by_column_path};
 use std::borrow::Borrow;
 
-use nom::{
-    bytes::complete::{tag, take_while},
-    IResult,
-};
-
 pub struct Format;
 
 impl PerItemCommand for Format {
@@ -45,14 +40,8 @@ impl PerItemCommand for Format {
         let pattern_tag = pattern.tag.clone();
         let pattern = pattern.as_string()?;
 
-        let format_pattern = format(&pattern).map_err(|_| {
-            ShellError::labeled_error(
-                "Could not create format pattern",
-                "could not create format pattern",
-                &pattern_tag,
-            )
-        })?;
-        let commands = format_pattern.1;
+        let format_pattern = format(&pattern);
+        let commands = format_pattern;
 
         let output = match value {
             value
@@ -66,7 +55,7 @@ impl PerItemCommand for Format {
                 for command in &commands {
                     match command {
                         FormatCommand::Text(s) => {
-                            output.push_str(s);
+                            output.push_str(&s);
                         }
                         FormatCommand::Column(c) => {
                             let key = to_column_path(&c, &pattern_tag)?;
@@ -104,32 +93,43 @@ enum FormatCommand {
     Column(String),
 }
 
-fn format(input: &str) -> IResult<&str, Vec<FormatCommand>> {
+fn format(input: &str) -> Vec<FormatCommand> {
     let mut output = vec![];
 
-    let mut loop_input = input;
+    let mut loop_input = input.chars();
     loop {
-        let (input, before) = take_while(|c| c != '{')(loop_input)?;
+        let mut before = String::new();
+
+        while let Some(c) = loop_input.next() {
+            if c == '{' {
+                break;
+            }
+            before.push(c);
+        }
+
         if !before.is_empty() {
             output.push(FormatCommand::Text(before.to_string()));
         }
-        if input != "" {
-            // Look for column as we're now at one
-            let (input, _) = tag("{")(input)?;
-            let (input, column) = take_while(|c| c != '}')(input)?;
-            let (input, _) = tag("}")(input)?;
+        // Look for column as we're now at one
+        let mut column = String::new();
 
-            output.push(FormatCommand::Column(column.to_string()));
-            loop_input = input;
-        } else {
-            loop_input = input;
+        while let Some(c) = loop_input.next() {
+            if c == '}' {
+                break;
+            }
+            column.push(c);
         }
-        if loop_input == "" {
+
+        if !column.is_empty() {
+            output.push(FormatCommand::Column(column.to_string()));
+        }
+
+        if before.is_empty() && column.is_empty() {
             break;
         }
     }
 
-    Ok((loop_input, output))
+    output
 }
 
 fn to_column_path(

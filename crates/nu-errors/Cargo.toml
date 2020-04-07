@@ -16,17 +16,15 @@ ansi_term = "0.12.1"
 bigdecimal = { version = "0.1.0", features = ["serde"] }
 derive-new = "0.5.8"
 language-reporting = "0.4.0"
-num-bigint = { version = "0.2.3", features = ["serde"] }
-num-traits = "0.2.10"
-serde = { version = "1.0.103", features = ["derive"] }
-nom = "5.0.1"
-nom_locate = "1.0.0"
+num-bigint = { version = "0.2.6", features = ["serde"] }
+num-traits = "0.2.11"
+serde = { version = "1.0.106", features = ["derive"] }
 getset = "0.0.9"
 
 # implement conversions
 serde_yaml = "0.8"
-toml = "0.5.5"
-serde_json = "1.0.44"
+toml = "0.5.6"
+serde_json = "1.0.51"
 
 [build-dependencies]
 nu-build = { version = "0.12.0", path = "../nu-build" }
