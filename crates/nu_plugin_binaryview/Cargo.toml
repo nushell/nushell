@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 ansi_term = "0.12.1"
-crossterm = { version = "0.16.0" }
+crossterm = { version = "0.17.1" }
 nu-plugin = { path = "../nu-plugin", version = "0.12.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.12.0" }
 nu-source = { path = "../nu-source", version = "0.12.0" }

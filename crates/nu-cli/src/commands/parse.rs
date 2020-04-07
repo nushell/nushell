@@ -6,10 +6,6 @@ use nu_protocol::{
     CallInfo, ReturnSuccess, Signature, SyntaxShape, TaggedDictBuilder, UntaggedValue, Value,
 };
 
-use nom::{
-    bytes::complete::{tag, take_while},
-    IResult,
-};
 use regex::Regex;
 
 #[derive(Debug)]
@@ -18,32 +14,44 @@ enum ParseCommand {
     Column(String),
 }
 
-fn parse(input: &str) -> IResult<&str, Vec<ParseCommand>> {
+fn parse(input: &str) -> Vec<ParseCommand> {
     let mut output = vec![];
 
-    let mut loop_input = input;
+    //let mut loop_input = input;
+    let mut loop_input = input.chars();
     loop {
-        let (input, before) = take_while(|c| c != '{')(loop_input)?;
+        let mut before = String::new();
+
+        while let Some(c) = loop_input.next() {
+            if c == '{' {
+                break;
+            }
+            before.push(c);
+        }
+
         if !before.is_empty() {
             output.push(ParseCommand::Text(before.to_string()));
         }
-        if input != "" {
-            // Look for column as we're now at one
-            let (input, _) = tag("{")(input)?;
-            let (input, column) = take_while(|c| c != '}')(input)?;
-            let (input, _) = tag("}")(input)?;
+        // Look for column as we're now at one
+        let mut column = String::new();
 
-            output.push(ParseCommand::Column(column.to_string()));
-            loop_input = input;
-        } else {
-            loop_input = input;
+        while let Some(c) = loop_input.next() {
+            if c == '}' {
+                break;
+            }
+            column.push(c);
         }
-        if loop_input == "" {
+
+        if !column.is_empty() {
+            output.push(ParseCommand::Column(column.to_string()));
+        }
+
+        if before.is_empty() && column.is_empty() {
             break;
         }
     }
 
-    Ok((loop_input, output))
+    output
 }
 
 fn column_names(commands: &[ParseCommand]) -> Vec<String> {
@@ -103,16 +111,10 @@ impl PerItemCommand for Parse {
         //let value_tag = value.tag();
         let pattern = call_info.args.expect_nth(0)?.as_string()?;
 
-        let parse_pattern = parse(&pattern).map_err(|_| {
-            ShellError::labeled_error(
-                "Could not create parse pattern",
-                "could not create parse pattern",
-                &value.tag,
-            )
-        })?;
-        let parse_regex = build_regex(&parse_pattern.1);
+        let parse_pattern = parse(&pattern);
+        let parse_regex = build_regex(&parse_pattern);
 
-        let column_names = column_names(&parse_pattern.1);
+        let column_names = column_names(&parse_pattern);
         let regex = Regex::new(&parse_regex).map_err(|_| {
             ShellError::labeled_error("Could not parse regex", "could not parse regex", &value.tag)
         })?;

@@ -1,6 +1,5 @@
 use crate::pretty::{b, DebugDocBuilder, PrettyDebugWithSource};
 use crate::text::Text;
-use crate::tracable::TracableContext;
 
 use derive_new::new;
 use getset::Getters;
@@ -227,28 +226,6 @@ impl From<&Tag> for Tag {
     }
 }
 
-impl<T> From<nom_locate::LocatedSpanEx<&str, T>> for Span {
-    fn from(input: nom_locate::LocatedSpanEx<&str, T>) -> Span {
-        Span::new(input.offset, input.offset + input.fragment.len())
-    }
-}
-
-impl<T>
-    From<(
-        nom_locate::LocatedSpanEx<T, u64>,
-        nom_locate::LocatedSpanEx<T, u64>,
-    )> for Span
-{
-    fn from(
-        input: (
-            nom_locate::LocatedSpanEx<T, u64>,
-            nom_locate::LocatedSpanEx<T, u64>,
-        ),
-    ) -> Span {
-        Span::new(input.0.offset, input.1.offset)
-    }
-}
-
 impl From<(usize, usize)> for Span {
     fn from(input: (usize, usize)) -> Span {
         Span::new(input.0, input.1)
@@ -298,15 +275,6 @@ impl From<&Span> for Tag {
     }
 }
 
-impl From<(usize, usize, TracableContext)> for Tag {
-    fn from((start, end, _context): (usize, usize, TracableContext)) -> Self {
-        Tag {
-            anchor: None,
-            span: Span::new(start, end),
-        }
-    }
-}
-
 impl From<(usize, usize, AnchorLocation)> for Tag {
     fn from((start, end, anchor): (usize, usize, AnchorLocation)) -> Self {
         Tag {
@@ -321,15 +289,6 @@ impl From<(usize, usize, Option<AnchorLocation>)> for Tag {
         Tag {
             anchor,
             span: Span::new(start, end),
-        }
-    }
-}
-
-impl From<nom_locate::LocatedSpanEx<&str, TracableContext>> for Tag {
-    fn from(input: nom_locate::LocatedSpanEx<&str, TracableContext>) -> Tag {
-        Tag {
-            anchor: None,
-            span: Span::new(input.offset, input.offset + input.fragment.len()),
         }
     }
 }

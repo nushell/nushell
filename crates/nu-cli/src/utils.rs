@@ -171,7 +171,6 @@ mod tests {
     use nu_protocol::{TaggedDictBuilder, UntaggedValue, Value};
     use nu_source::Tag;
     use nu_test_support::fs;
-    use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
     fn fixtures() -> PathBuf {
