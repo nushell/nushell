@@ -91,7 +91,7 @@ starship = { version = "0.39.0", optional = true }
 users = "0.10.0"
 
 [dependencies.rusqlite]
-version = "0.22.0-beta.0"
+version = "0.22.0"
 features = ["bundled", "blob"]
 
 [build-dependencies]
