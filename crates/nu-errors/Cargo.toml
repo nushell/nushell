@@ -19,7 +19,7 @@ language-reporting = "0.4.0"
 num-bigint = { version = "0.2.6", features = ["serde"] }
 num-traits = "0.2.11"
 serde = { version = "1.0.106", features = ["derive"] }
-getset = "0.0.9"
+getset = "0.1.0"
 
 # implement conversions
 serde_yaml = "0.8"

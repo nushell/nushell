@@ -16,7 +16,7 @@ nu-source = { path = "../nu-source", version = "0.12.0" }
 nu-errors = { path = "../nu-errors", version = "0.12.0" }
 
 futures = { version = "0.3", features = ["compat", "io-compat"] }
-futures-timer = "3.0.1"
+futures-timer = "3.0.2"
 
 [dependencies.heim]
 version = "0.0.10"
