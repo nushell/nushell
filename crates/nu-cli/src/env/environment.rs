@@ -275,7 +275,7 @@ mod tests {
             assert_eq!(
                 actual.path(),
                 Some(
-                    UntaggedValue::table(&vec![
+                    UntaggedValue::table(&[
                         UntaggedValue::string("/Users/andresrobalino/.volta/bin")
                             .into_untagged_value(),
                         UntaggedValue::string("/users/mosqueteros/bin").into_untagged_value(),

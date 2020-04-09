@@ -8,7 +8,6 @@ use textwrap::fill;
 
 use prettytable::format::{Alignment, FormatBuilder, LinePosition, LineSeparator};
 use prettytable::{color, Attr, Cell, Row, Table};
-use term::color::Color;
 
 type Entries = Vec<Vec<(String, &'static str)>>;
 
@@ -389,7 +388,7 @@ impl RenderView for TableView {
     }
 }
 
-fn str_to_color(s: String) -> Option<Color> {
+fn str_to_color(s: String) -> Option<color::Color> {
     match s.as_str() {
         "g" | "green" => Some(color::GREEN),
         "r" | "red" => Some(color::RED),
