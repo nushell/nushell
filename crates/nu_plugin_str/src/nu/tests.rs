@@ -34,7 +34,7 @@ mod integration {
                 .unwrap();
             match r {
                 Primitive::Date(_) => (),
-                _ => assert!(false, "failed to convert string to date"),
+                _ => panic!("failed to convert string to date"),
             }
         }
     }

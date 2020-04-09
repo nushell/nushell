@@ -176,11 +176,15 @@ fn coerce_compare_primitive(
         (Decimal(left), Bytes(right)) => {
             CompareValues::Decimals(left.clone(), BigDecimal::from(*right))
         }
+        (Bytes(left), Bytes(right)) => {
+            CompareValues::Ints(BigInt::from(*left), BigInt::from(*right))
+        }
         (Bytes(left), Int(right)) => CompareValues::Ints(BigInt::from(*left), right.clone()),
         (Bytes(left), Decimal(right)) => {
             CompareValues::Decimals(BigDecimal::from(*left), right.clone())
         }
         (Bytes(left), Nothing) => CompareValues::Ints(BigInt::from(*left), BigInt::from(0)),
+        (Nothing, Nothing) => CompareValues::Ints(BigInt::from(0), BigInt::from(0)),
         (Nothing, Bytes(right)) => CompareValues::Ints(BigInt::from(0), BigInt::from(*right)),
         (Int(left), Nothing) => CompareValues::Ints(left.clone(), BigInt::from(0)),
         (Nothing, Int(right)) => CompareValues::Ints(BigInt::from(0), right.clone()),
