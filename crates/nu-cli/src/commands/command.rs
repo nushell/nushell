@@ -15,7 +15,6 @@ use std::sync::atomic::AtomicBool;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
-    pub source: Text,
     pub name_tag: Tag,
 }
 
@@ -25,7 +24,7 @@ impl UnevaluatedCallInfo {
         registry: &CommandRegistry,
         scope: &Scope,
     ) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, scope, &self.source)?;
+        let args = evaluate_args(&self.args, registry, scope)?;
 
         Ok(CallInfo {
             args,
@@ -145,10 +144,6 @@ impl CommandArgs {
         ))
     }
 
-    pub fn source(&self) -> Text {
-        self.call_info.source.clone()
-    }
-
     pub fn process<'de, T: Deserialize<'de>, O: ToOutputStream>(
         self,
         registry: &CommandRegistry,
@@ -156,7 +151,6 @@ impl CommandArgs {
     ) -> Result<RunnableArgs<T, O>, ShellError> {
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
-        let source = self.source();
         let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
         let call_info = args.call_info.clone();
@@ -169,7 +163,6 @@ impl CommandArgs {
             context: RunnableContext {
                 input,
                 commands: registry.clone(),
-                source,
                 shell_manager,
                 name: name_tag,
                 host,
@@ -193,7 +186,6 @@ impl CommandArgs {
 
         let shell_manager = self.shell_manager.clone();
         let host = self.host.clone();
-        let source = self.source();
         let ctrl_c = self.ctrl_c.clone();
         let args = self.evaluate_once(registry)?;
         let call_info = args.call_info.clone();
@@ -207,7 +199,6 @@ impl CommandArgs {
             context: RunnableContext {
                 input,
                 commands: registry.clone(),
-                source,
                 shell_manager,
                 name: name_tag,
                 host,
@@ -229,7 +220,6 @@ pub struct RunnableContext {
     pub input: InputStream,
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub source: Text,
     pub ctrl_c: Arc<AtomicBool>,
     pub commands: CommandRegistry,
     pub name: Tag,

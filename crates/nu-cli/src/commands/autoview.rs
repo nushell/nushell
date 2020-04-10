@@ -32,7 +32,6 @@ impl WholeStreamCommand for Autoview {
             commands: registry.clone(),
             shell_manager: args.shell_manager,
             host: args.host,
-            source: args.call_info.source,
             ctrl_c: args.ctrl_c,
             name: args.call_info.name_tag,
         })
@@ -42,7 +41,6 @@ impl WholeStreamCommand for Autoview {
 pub struct RunnableContextWithoutInput {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
-    pub source: Text,
     pub ctrl_c: Arc<AtomicBool>,
     pub commands: CommandRegistry,
     pub name: Tag,
@@ -53,7 +51,6 @@ impl RunnableContextWithoutInput {
         let new_context = RunnableContextWithoutInput {
             shell_manager: context.shell_manager,
             host: context.host,
-            source: context.source,
             ctrl_c: context.ctrl_c,
             commands: context.commands,
             name: context.name,
@@ -289,7 +286,6 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 named: None,
                 span,
             },
-            source: context.source.clone(),
             name_tag: context.name.clone(),
         },
     }

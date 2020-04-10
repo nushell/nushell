@@ -711,7 +711,7 @@ async fn process_line(
                 None
             };
 
-            match run_pipeline(pipeline, ctx, input_stream, line).await {
+            match run_pipeline(pipeline, ctx, input_stream).await {
                 Ok(Some(input)) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
@@ -725,7 +725,6 @@ async fn process_line(
                         ctrl_c: ctx.ctrl_c.clone(),
                         commands: ctx.registry.clone(),
                         name: Tag::unknown(),
-                        source: Text::from(String::new()),
                     };
 
                     if let Ok(mut output_stream) = crate::commands::autoview::autoview(context) {

@@ -9,20 +9,18 @@ use nu_protocol::{
     ColumnPath, Evaluate, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue,
     Value,
 };
-use nu_source::Text;
 
 pub(crate) fn evaluate_baseline_expr(
     expr: &SpannedExpression,
     registry: &CommandRegistry,
     scope: &Scope,
-    source: &Text,
 ) -> Result<Value, ShellError> {
     let tag = Tag {
         span: expr.span,
         anchor: None,
     };
     match &expr.expr {
-        Expression::Literal(literal) => Ok(evaluate_literal(literal, expr.span, source)),
+        Expression::Literal(literal) => Ok(evaluate_literal(literal, expr.span)),
         Expression::ExternalWord => Err(ShellError::argument_error(
             "Invalid external word".spanned(tag.span),
             ArgumentError::InvalidExternalWord,
@@ -31,12 +29,12 @@ pub(crate) fn evaluate_baseline_expr(
         Expression::Synthetic(hir::Synthetic::String(s)) => {
             Ok(UntaggedValue::string(s).into_untagged_value())
         }
-        Expression::Variable(var) => evaluate_reference(var, scope, source, tag),
-        Expression::Command(_) => evaluate_command(tag, scope, source),
-        Expression::ExternalCommand(external) => evaluate_external(external, scope, source),
+        Expression::Variable(var) => evaluate_reference(var, scope, tag),
+        Expression::Command(_) => evaluate_command(tag, scope),
+        Expression::ExternalCommand(external) => evaluate_external(external, scope),
         Expression::Binary(binary) => {
-            let left = evaluate_baseline_expr(&binary.left, registry, scope, source)?;
-            let right = evaluate_baseline_expr(&binary.right, registry, scope, source)?;
+            let left = evaluate_baseline_expr(&binary.left, registry, scope)?;
+            let right = evaluate_baseline_expr(&binary.right, registry, scope)?;
 
             trace!("left={:?} right={:?}", left.value, right.value);
 
@@ -57,8 +55,8 @@ pub(crate) fn evaluate_baseline_expr(
             let left = &range.left;
             let right = &range.right;
 
-            let left = evaluate_baseline_expr(left, registry, scope, source)?;
-            let right = evaluate_baseline_expr(right, registry, scope, source)?;
+            let left = evaluate_baseline_expr(left, registry, scope)?;
+            let right = evaluate_baseline_expr(right, registry, scope)?;
             let left_span = left.tag.span;
             let right_span = right.tag.span;
 
@@ -77,7 +75,7 @@ pub(crate) fn evaluate_baseline_expr(
             let mut exprs = vec![];
 
             for expr in list {
-                let expr = evaluate_baseline_expr(expr, registry, scope, source)?;
+                let expr = evaluate_baseline_expr(expr, registry, scope)?;
                 exprs.push(expr);
             }
 
@@ -85,12 +83,11 @@ pub(crate) fn evaluate_baseline_expr(
         }
         Expression::Block(block) => Ok(UntaggedValue::Block(Evaluate::new(Block::new(
             block.clone(),
-            source.clone(),
             tag.clone(),
         )))
         .into_value(&tag)),
         Expression::Path(path) => {
-            let value = evaluate_baseline_expr(&path.head, registry, scope, source)?;
+            let value = evaluate_baseline_expr(&path.head, registry, scope)?;
             let mut item = value;
 
             for member in &path.tail {
@@ -132,7 +129,7 @@ pub(crate) fn evaluate_baseline_expr(
     }
 }
 
-fn evaluate_literal(literal: &hir::Literal, span: Span, source: &Text) -> Value {
+fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
     match &literal {
         hir::Literal::ColumnPath(path) => {
             let members = path.iter().map(|member| member.to_path_member()).collect();
@@ -149,21 +146,16 @@ fn evaluate_literal(literal: &hir::Literal, span: Span, source: &Text) -> Value 
         hir::Literal::Size(int, unit) => unit.compute(&int).into_value(span),
         hir::Literal::String(string) => UntaggedValue::string(string).into_value(span),
         hir::Literal::GlobPattern(pattern) => UntaggedValue::pattern(pattern).into_value(span),
-        hir::Literal::Bare => UntaggedValue::string(span.slice(source)).into_value(span),
+        hir::Literal::Bare(bare) => UntaggedValue::string(bare.clone()).into_value(span),
         hir::Literal::Operator(_) => unimplemented!("Not sure what to do with operator yet"),
     }
 }
 
-fn evaluate_reference(
-    name: &hir::Variable,
-    scope: &Scope,
-    source: &Text,
-    tag: Tag,
-) -> Result<Value, ShellError> {
+fn evaluate_reference(name: &hir::Variable, scope: &Scope, tag: Tag) -> Result<Value, ShellError> {
     trace!("Evaluating {:?} with Scope {:?}", name, scope);
     match name {
         hir::Variable::It(_) => Ok(scope.it.value.clone().into_value(tag)),
-        hir::Variable::Other(_, span) => match span.slice(source) {
+        hir::Variable::Other(name, _) => match name {
             x if x == "$nu" => crate::evaluate::variables::nu(tag),
             x => Ok(scope
                 .vars
@@ -174,17 +166,13 @@ fn evaluate_reference(
     }
 }
 
-fn evaluate_external(
-    external: &hir::ExternalCommand,
-    _scope: &Scope,
-    _source: &Text,
-) -> Result<Value, ShellError> {
+fn evaluate_external(external: &hir::ExternalCommand, _scope: &Scope) -> Result<Value, ShellError> {
     Err(ShellError::syntax_error(
         "Unexpected external command".spanned(external.name.span),
     ))
 }
 
-fn evaluate_command(tag: Tag, _scope: &Scope, _source: &Text) -> Result<Value, ShellError> {
+fn evaluate_command(tag: Tag, _scope: &Scope) -> Result<Value, ShellError> {
     Err(ShellError::syntax_error(
         "Unexpected command".spanned(tag.span),
     ))

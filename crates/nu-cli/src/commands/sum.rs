@@ -30,7 +30,6 @@ impl WholeStreamCommand for Sum {
             commands: registry.clone(),
             shell_manager: args.shell_manager,
             host: args.host,
-            source: args.call_info.source,
             ctrl_c: args.ctrl_c,
             name: args.call_info.name_tag,
         })

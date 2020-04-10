@@ -5,20 +5,18 @@ use indexmap::IndexMap;
 use nu_errors::ShellError;
 use nu_parser::hir;
 use nu_protocol::{EvaluatedArgs, Scope, UntaggedValue, Value};
-use nu_source::Text;
 
 pub(crate) fn evaluate_args(
     call: &hir::Call,
     registry: &CommandRegistry,
     scope: &Scope,
-    source: &Text,
 ) -> Result<EvaluatedArgs, ShellError> {
     let positional: Result<Option<Vec<_>>, _> = call
         .positional
         .as_ref()
         .map(|p| {
             p.iter()
-                .map(|e| evaluate_baseline_expr(e, registry, scope, source))
+                .map(|e| evaluate_baseline_expr(e, registry, scope))
                 .collect()
         })
         .transpose();
@@ -37,10 +35,8 @@ pub(crate) fn evaluate_args(
                         results.insert(name.clone(), UntaggedValue::boolean(true).into_value(tag));
                     }
                     hir::NamedValue::Value(_, expr) => {
-                        results.insert(
-                            name.clone(),
-                            evaluate_baseline_expr(expr, registry, scope, source)?,
-                        );
+                        results
+                            .insert(name.clone(), evaluate_baseline_expr(expr, registry, scope)?);
                     }
 
                     _ => {}

@@ -12,7 +12,7 @@ use nu_protocol::{
     Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName, TaggedDictBuilder,
     UntaggedValue, Value,
 };
-use nu_source::{Tag, Text};
+use nu_source::Tag;
 use nu_value_ext::ValueExt;
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -30,7 +30,6 @@ pub struct Operation {
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Serialize, Deserialize, new)]
 pub struct Block {
     pub(crate) expressions: Vec<hir::SpannedExpression>,
-    pub(crate) source: Text,
     pub(crate) tag: Tag,
 }
 
@@ -54,7 +53,7 @@ impl EvaluateTrait for Block {
         );
 
         for expr in self.expressions.iter() {
-            last = evaluate_baseline_expr(&expr, &CommandRegistry::empty(), &scope, &self.source)
+            last = evaluate_baseline_expr(&expr, &CommandRegistry::empty(), &scope)
         }
 
         last

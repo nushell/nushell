@@ -9,12 +9,10 @@ pub(crate) fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
-    source: Text,
 ) -> Result<Option<InputStream>, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
         trace!(target: "nu::run::internal", "{}", command.name);
-        trace!(target: "nu::run::internal", "{}", command.args.debug(&source));
     }
 
     let objects: InputStream = if let Some(input) = input {
@@ -30,7 +28,6 @@ pub(crate) fn run_internal_command(
             internal_command?,
             Tag::unknown_anchor(command.name_span),
             command.args.clone(),
-            &source,
             objects,
         )
     };
@@ -70,7 +67,6 @@ pub(crate) fn run_internal_command(
                                         named: None,
                                         span: Span::unknown()
                                     },
-                                    source: source.clone(),
                                     name_tag: Tag::unknown_anchor(command.name_span),
                                 }
                             };

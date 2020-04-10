@@ -103,7 +103,6 @@ impl PerItemCommand for Enter {
                                                     named: None,
                                                     span: Span::unknown()
                                                 },
-                                                source: raw_args.call_info.source,
                                                 name_tag: raw_args.call_info.name_tag,
                                             },
                                         };
