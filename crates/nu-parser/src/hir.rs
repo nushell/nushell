@@ -462,7 +462,7 @@ pub enum Literal {
     String(String),
     GlobPattern(String),
     ColumnPath(Vec<Member>),
-    Bare,
+    Bare(String),
 }
 
 impl Literal {
@@ -488,7 +488,7 @@ impl ShellTypeName for Literal {
             Literal::Size(..) => "size",
             Literal::String(..) => "string",
             Literal::ColumnPath(..) => "column path",
-            Literal::Bare => "string",
+            Literal::Bare(_) => "string",
             Literal::GlobPattern(_) => "pattern",
             Literal::Operator(_) => "operator",
         }
@@ -507,7 +507,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 Literal::ColumnPath(path) => {
                     b::intersperse_with_source(path.iter(), b::space(), source)
                 }
-                Literal::Bare => b::delimit("b\"", b::primitive(self.span.slice(source)), "\""),
+                Literal::Bare(bare) => b::delimit("b\"", b::primitive(bare), "\""),
                 Literal::Operator(operator) => b::primitive(format!("{:?}", operator)),
             },
         }
@@ -528,7 +528,7 @@ impl PrettyDebugWithSource for SpannedLiteral {
                 "column path",
                 b::intersperse_with_source(path.iter(), b::space(), source),
             ),
-            Literal::Bare => b::typed("bare", b::primitive(self.span.slice(source))),
+            Literal::Bare(bare) => b::typed("bare", b::primitive(bare)),
             Literal::Operator(operator) => {
                 b::typed("operator", b::primitive(format!("{:?}", operator)))
             }

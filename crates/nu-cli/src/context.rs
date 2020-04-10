@@ -176,33 +176,22 @@ impl Context {
         command: Arc<Command>,
         name_tag: Tag,
         args: hir::Call,
-        source: &Text,
         input: InputStream,
     ) -> OutputStream {
-        let command_args = self.command_args(args, input, source, name_tag);
+        let command_args = self.command_args(args, input, name_tag);
         command.run(command_args, self.registry())
     }
 
-    fn call_info(&self, args: hir::Call, source: &Text, name_tag: Tag) -> UnevaluatedCallInfo {
-        UnevaluatedCallInfo {
-            args,
-            source: source.clone(),
-            name_tag,
-        }
+    fn call_info(&self, args: hir::Call, name_tag: Tag) -> UnevaluatedCallInfo {
+        UnevaluatedCallInfo { args, name_tag }
     }
 
-    fn command_args(
-        &self,
-        args: hir::Call,
-        input: InputStream,
-        source: &Text,
-        name_tag: Tag,
-    ) -> CommandArgs {
+    fn command_args(&self, args: hir::Call, input: InputStream, name_tag: Tag) -> CommandArgs {
         CommandArgs {
             host: self.host.clone(),
             ctrl_c: self.ctrl_c.clone(),
             shell_manager: self.shell_manager.clone(),
-            call_info: self.call_info(args, source, name_tag),
+            call_info: self.call_info(args, name_tag),
             input,
         }
     }

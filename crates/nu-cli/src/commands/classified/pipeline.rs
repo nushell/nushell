@@ -4,13 +4,11 @@ use crate::context::Context;
 use crate::stream::InputStream;
 use nu_errors::ShellError;
 use nu_parser::{ClassifiedCommand, ClassifiedPipeline};
-use nu_source::Text;
 
 pub(crate) async fn run_pipeline(
     pipeline: ClassifiedPipeline,
     ctx: &mut Context,
     mut input: Option<InputStream>,
-    line: &str,
 ) -> Result<Option<InputStream>, ShellError> {
     let mut iter = pipeline.commands.list.into_iter().peekable();
 
@@ -29,9 +27,7 @@ pub(crate) async fn run_pipeline(
             (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
-            (Some(ClassifiedCommand::Internal(left)), _) => {
-                run_internal_command(left, ctx, input, Text::from(line))?
-            }
+            (Some(ClassifiedCommand::Internal(left)), _) => run_internal_command(left, ctx, input)?,
 
             (Some(ClassifiedCommand::External(left)), None) => {
                 run_external_command(left, ctx, input, true).await?
