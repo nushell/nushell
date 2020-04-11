@@ -17,6 +17,7 @@ mod evaluate;
 mod format;
 mod futures;
 mod git;
+mod path;
 mod shell;
 mod stream;
 mod utils;
