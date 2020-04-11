@@ -12,8 +12,9 @@ use crate::{ExternalArg, ExternalArgs, ExternalCommand};
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct InternalCommand {
     pub name: String,
     pub name_span: Span,
@@ -33,7 +34,7 @@ impl InternalCommand {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum ClassifiedCommand {
     #[allow(unused)]
     Comparison(
@@ -48,7 +49,7 @@ pub enum ClassifiedCommand {
     Error(ParseError),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Commands {
     pub list: Vec<ClassifiedCommand>,
     pub span: Span,

@@ -1,3 +1,6 @@
+use std::cmp::{Ord, Ordering, PartialOrd};
+use std::hash::{Hash, Hasher};
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -664,7 +667,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum NamedValue {
     AbsentSwitch,
     PresentSwitch(Span),
@@ -695,7 +698,7 @@ impl PrettyDebugWithSource for NamedValue {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Call {
     pub head: Box<SpannedExpression>,
     pub positional: Option<Vec<SpannedExpression>>,
@@ -817,9 +820,54 @@ pub enum FlatShape {
     Size { number: Span, unit: Span },
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedArguments {
     pub named: IndexMap<String, NamedValue>,
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for NamedArguments {
+    /// Create the hash function to allow the Hash trait for dictionaries
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.named.clone();
+        entries.sort_keys();
+        entries.keys().collect::<Vec<&String>>().hash(state);
+        entries.values().collect::<Vec<&NamedValue>>().hash(state);
+    }
+}
+
+impl PartialOrd for NamedArguments {
+    /// Compare two dictionaries for sort ordering
+    fn partial_cmp(&self, other: &NamedArguments) -> Option<Ordering> {
+        let this: Vec<&String> = self.named.keys().collect();
+        let that: Vec<&String> = other.named.keys().collect();
+
+        if this != that {
+            return this.partial_cmp(&that);
+        }
+
+        let this: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = self.named.values().collect();
+
+        this.partial_cmp(&that)
+    }
+}
+
+impl Ord for NamedArguments {
+    /// Compare two dictionaries for ordering
+    fn cmp(&self, other: &NamedArguments) -> Ordering {
+        let this: Vec<&String> = self.named.keys().collect();
+        let that: Vec<&String> = other.named.keys().collect();
+
+        if this != that {
+            return this.cmp(&that);
+        }
+
+        let this: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = self.named.values().collect();
+
+        this.cmp(&that)
+    }
 }
 
 impl NamedArguments {

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span, Tag};
+use serde::{Deserialize, Serialize};
 
 pub trait SignatureRegistry: Debug {
     fn has(&self, name: &str) -> bool;
@@ -47,7 +48,7 @@ impl PrettyDebugWithSource for Signature {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ExternalArg {
     pub arg: String,
     pub tag: Tag,
@@ -83,7 +84,7 @@ impl std::ops::Deref for ExternalArg {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ExternalArgs {
     pub list: Vec<ExternalArg>,
     pub span: Span,
@@ -103,7 +104,7 @@ impl std::ops::Deref for ExternalArgs {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ExternalCommand {
     pub name: String,
 
