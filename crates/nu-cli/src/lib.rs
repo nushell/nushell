@@ -7,6 +7,12 @@ extern crate indexmap;
 #[macro_use]
 mod prelude;
 
+#[cfg(test)]
+extern crate quickcheck;
+#[cfg(test)]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
+
 mod cli;
 mod commands;
 mod context;

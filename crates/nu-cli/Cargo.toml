@@ -97,6 +97,10 @@ features = ["bundled", "blob"]
 [build-dependencies]
 nu-build = { version = "0.12.0", path = "../nu-build" }
 
+[dev-dependencies]
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
+
 [features]
 stable = []
 starship-prompt = ["starship"]
