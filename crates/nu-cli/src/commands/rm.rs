@@ -12,6 +12,7 @@ pub struct Remove;
 pub struct RemoveArgs {
     pub rest: Vec<Tagged<PathBuf>>,
     pub recursive: Tagged<bool>,
+    #[allow(unused)]
     pub trash: Tagged<bool>,
 }
 
