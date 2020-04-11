@@ -97,20 +97,9 @@ async fn host(tag: Tag) -> Value {
 
     // Uptime
     if let Ok(uptime) = uptime_result {
-        let mut uptime_dict = TaggedDictBuilder::with_capacity(&tag, 4);
+        let uptime = uptime.get::<time::second>().round() as u64;
 
-        let uptime = uptime.get::<time::second>().round() as i64;
-        let days = uptime / (60 * 60 * 24);
-        let hours = (uptime - days * 60 * 60 * 24) / (60 * 60);
-        let minutes = (uptime - days * 60 * 60 * 24 - hours * 60 * 60) / 60;
-        let seconds = uptime % 60;
-
-        uptime_dict.insert_untagged("days", UntaggedValue::int(days));
-        uptime_dict.insert_untagged("hours", UntaggedValue::int(hours));
-        uptime_dict.insert_untagged("mins", UntaggedValue::int(minutes));
-        uptime_dict.insert_untagged("secs", UntaggedValue::int(seconds));
-
-        dict.insert_value("uptime", uptime_dict);
+        dict.insert_untagged("uptime", UntaggedValue::duration(uptime));
     }
 
     // Sessions
