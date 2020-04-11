@@ -1,7 +1,7 @@
 use crate::context::Context;
 use ansi_term::{Color, Style};
-use nu_parser::hir::FlatShape;
 use nu_parser::SignatureRegistry;
+use nu_protocol::hir::FlatShape;
 use nu_source::{Span, Spanned, Tag, Tagged};
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;

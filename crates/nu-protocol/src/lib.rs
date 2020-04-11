@@ -2,6 +2,7 @@
 mod macros;
 
 mod call_info;
+pub mod hir;
 mod maybe_owned;
 mod return_value;
 mod signature;

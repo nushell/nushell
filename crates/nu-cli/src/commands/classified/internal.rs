@@ -2,7 +2,7 @@ use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
-use nu_parser::InternalCommand;
+use nu_protocol::hir::InternalCommand;
 use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
 
 pub(crate) fn run_internal_command(
@@ -61,7 +61,7 @@ pub(crate) fn run_internal_command(
                                 ctrl_c: context.ctrl_c.clone(),
                                 shell_manager: context.shell_manager.clone(),
                                 call_info: UnevaluatedCallInfo {
-                                    args: nu_parser::hir::Call {
+                                    args: nu_protocol::hir::Call {
                                         head: command.args.head,
                                         positional: None,
                                         named: None,

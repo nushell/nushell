@@ -8,9 +8,9 @@ pub mod range;
 mod serde_bigdecimal;
 mod serde_bigint;
 
+use crate::hir;
 use crate::type_name::{ShellTypeName, SpannedTypeName};
 use crate::value::dict::Dictionary;
-use crate::value::evaluate::Evaluate;
 use crate::value::primitive::Primitive;
 use crate::value::range::{Range, RangeInclusion};
 use crate::{ColumnPath, PathMember};
@@ -38,7 +38,7 @@ pub enum UntaggedValue {
     Error(ShellError),
 
     /// A block of Nu code, eg `{ ls | get name }`
-    Block(Evaluate),
+    Block(hir::Commands),
 }
 
 impl UntaggedValue {

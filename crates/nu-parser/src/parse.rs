@@ -1,69 +1,17 @@
 use std::path::Path;
 
-use nu_errors::{ArgumentError, ParseError};
-//use crate::hir::*;
-use crate::hir::{
-    Binary, CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, SpannedExpression,
-    Unit,
-};
 use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
 use crate::signature::SignatureRegistry;
-use crate::{ExternalArg, ExternalArgs, ExternalCommand};
+use nu_errors::{ArgumentError, ParseError};
+use nu_protocol::hir::{
+    Binary, ClassifiedCommand, Commands, CompareOperator, Expression, ExternalArg, ExternalArgs,
+    ExternalCommand, Flag, FlagKind, InternalCommand, Member, NamedArguments, SpannedExpression,
+    Unit,
+};
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct InternalCommand {
-    pub name: String,
-    pub name_span: Span,
-    pub args: crate::hir::Call,
-}
-
-impl InternalCommand {
-    pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
-        InternalCommand {
-            name: name.clone(),
-            name_span,
-            args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(Expression::string(name), name_span)),
-                full_span,
-            ),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub enum ClassifiedCommand {
-    #[allow(unused)]
-    Comparison(
-        Box<SpannedExpression>,
-        Box<SpannedExpression>,
-        Box<SpannedExpression>,
-    ),
-    #[allow(unused)]
-    Dynamic(crate::hir::Call),
-    Internal(InternalCommand),
-    External(crate::ExternalCommand),
-    Error(ParseError),
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
-pub struct Commands {
-    pub list: Vec<ClassifiedCommand>,
-    pub span: Span,
-}
-
-impl Commands {
-    pub fn new(span: Span) -> Commands {
-        Commands { list: vec![], span }
-    }
-
-    pub fn push(&mut self, command: ClassifiedCommand) {
-        self.list.push(command);
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct ClassifiedPipeline {

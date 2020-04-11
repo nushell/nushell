@@ -6,7 +6,7 @@ use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
-use nu_parser::hir;
+use nu_protocol::hir;
 use nu_protocol::{CallInfo, EvaluatedArgs, ReturnValue, Scope, Signature, Value};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;

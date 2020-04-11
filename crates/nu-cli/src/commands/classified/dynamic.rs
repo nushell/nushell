@@ -1,5 +1,5 @@
 use derive_new::new;
-use nu_parser::hir;
+use nu_protocol::hir;
 
 #[derive(new, Debug)]
 pub(crate) struct Command {

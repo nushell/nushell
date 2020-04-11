@@ -7,10 +7,9 @@ use chrono::{DateTime, Utc};
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
-use nu_parser::hir;
 use nu_protocol::{
-    Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName, TaggedDictBuilder,
-    UntaggedValue, Value,
+    hir, Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName,
+    TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tag;
 use nu_value_ext::ValueExt;

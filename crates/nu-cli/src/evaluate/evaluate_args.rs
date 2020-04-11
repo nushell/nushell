@@ -3,8 +3,7 @@ use crate::context::CommandRegistry;
 use crate::evaluate::evaluate_baseline_expr;
 use indexmap::IndexMap;
 use nu_errors::ShellError;
-use nu_parser::hir;
-use nu_protocol::{EvaluatedArgs, Scope, UntaggedValue, Value};
+use nu_protocol::{hir, EvaluatedArgs, Scope, UntaggedValue, Value};
 
 pub(crate) fn evaluate_args(
     call: &hir::Call,

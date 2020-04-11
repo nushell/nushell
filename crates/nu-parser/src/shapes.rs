@@ -1,5 +1,4 @@
-use crate::hir::*;
-use crate::parse::{ClassifiedCommand, Commands};
+use nu_protocol::hir::*;
 use nu_protocol::UnspannedPathMember;
 use nu_source::{Spanned, SpannedItem};
 

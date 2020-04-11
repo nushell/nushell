@@ -2190,6 +2190,7 @@ dependencies = [
  "getset",
  "indexmap",
  "language-reporting",
+ "log",
  "natural",
  "nu-build",
  "nu-errors",

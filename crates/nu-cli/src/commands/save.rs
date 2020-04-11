@@ -228,7 +228,7 @@ fn save(
                             ctrl_c,
                             shell_manager,
                             call_info: UnevaluatedCallInfo {
-                                args: nu_parser::hir::Call {
+                                args: nu_protocol::hir::Call {
                                     head: raw_args.call_info.args.head,
                                     positional: None,
                                     named: None,

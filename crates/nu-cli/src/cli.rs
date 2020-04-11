@@ -10,7 +10,7 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_parser::{ClassifiedCommand, ExternalCommand};
+use nu_protocol::hir::{ClassifiedCommand, ExternalCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, trace};
