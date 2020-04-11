@@ -5,7 +5,7 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::data::dir_entry_dict;
-use crate::path::{canonicalize, normalize, AllowMissing};
+use crate::path::{canonicalize_existing, normalize};
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
@@ -188,14 +188,13 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path =
-                        canonicalize(self.path(), target, AllowMissing(false)).map_err(|_| {
-                            ShellError::labeled_error(
-                                "Cannot change to directory",
-                                "directory not found",
-                                &v.tag,
-                            )
-                        })?;
+                    let path = canonicalize_existing(self.path(), target).map_err(|_| {
+                        ShellError::labeled_error(
+                            "Cannot change to directory",
+                            "directory not found",
+                            &v.tag,
+                        )
+                    })?;
 
                     if !path.is_dir() {
                         return Err(ShellError::labeled_error(
