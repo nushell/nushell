@@ -92,9 +92,10 @@ where
     let path = match std::fs::read_link(&path) {
         Ok(resolved) => resolved,
         Err(e) => {
-            // Fail if path doesn't exists or is not symlink
-            // Check if we allow missing paths or the path exists
+            // We are here if path doesn't exist or isn't a symlink
             if allow_missing.0 || path.exists() {
+                // Return if we allow missing paths or if the path
+                // actually exists, but wasn't a symlink
                 path
             } else {
                 return Err(e);
