@@ -5,6 +5,7 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::data::dir_entry_dict;
+use crate::path::{canonicalize, normalize, AllowMissing};
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
@@ -187,13 +188,14 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path = canonicalize(self.path(), target).map_err(|_| {
-                        ShellError::labeled_error(
-                            "Cannot change to directory",
-                            "directory not found",
-                            &v.tag,
-                        )
-                    })?;
+                    let path =
+                        canonicalize(self.path(), target, AllowMissing(false)).map_err(|_| {
+                            ShellError::labeled_error(
+                                "Cannot change to directory",
+                                "directory not found",
+                                &v.tag,
+                            )
+                        })?;
 
                     if !path.is_dir() {
                         return Err(ShellError::labeled_error(
@@ -1149,49 +1151,4 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
                 .unwrap_or(false)
         }
     }
-}
-
-fn normalize(path: impl AsRef<Path>) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.as_ref().components() {
-        match component {
-            Component::Normal(normal) => {
-                if let Some(normal) = normal.to_str() {
-                    if normal.chars().all(|c| c == '.') {
-                        for _ in 0..(normal.len() - 1) {
-                            normalized.push("..");
-                        }
-                    } else {
-                        normalized.push(normal);
-                    }
-                } else {
-                    normalized.push(normal);
-                }
-            }
-            c => normalized.push(c.as_os_str()),
-        }
-    }
-
-    normalized
-}
-
-fn canonicalize(relative_to: impl AsRef<Path>, path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
-    let path = if path.as_ref().is_relative() {
-        let mut result = relative_to.as_ref().to_path_buf();
-        normalize(path.as_ref())
-            .components()
-            .for_each(|component| match component {
-                Component::ParentDir => {
-                    result.pop();
-                }
-                Component::Normal(normal) => result.push(normal),
-                _ => {}
-            });
-
-        result
-    } else {
-        path.as_ref().into()
-    };
-
-    dunce::canonicalize(path)
 }
