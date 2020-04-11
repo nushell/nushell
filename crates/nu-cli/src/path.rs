@@ -89,12 +89,20 @@ where
         path
     };
 
-    let path = if allow_missing.0 {
-        path
-    } else {
-        std::fs::read_link(path)?
+    let path = match std::fs::read_link(&path) {
+        Ok(resolved) => resolved,
+        Err(e) => {
+            // Fail if path doesn't exists or is not symlink
+            // Check if we allow missing paths or the path exists
+            if allow_missing.0 || path.exists() {
+                path
+            } else {
+                return Err(e);
+            }
+        }
     };
 
+    // De-UNC paths
     Ok(dunce::simplified(&path).to_path_buf())
 }
 
@@ -150,5 +158,26 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn canonicalize_three_dots_and_disallow_missing() -> io::Result<()> {
+        let relative_to = Path::new("/foo/bar/"); // root is not missing
+        let path = Path::new("...");
+
+        assert_eq!(
+            PathBuf::from("/"),
+            canonicalize(relative_to, path, AllowMissing(false))?
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn canonicalize_three_dots_and_disallow_missing_should_fail() {
+        let relative_to = Path::new("/foo/bar/baz"); // foo is missing
+        let path = Path::new("...");
+
+        assert!(canonicalize(relative_to, path, AllowMissing(false)).is_err());
     }
 }
