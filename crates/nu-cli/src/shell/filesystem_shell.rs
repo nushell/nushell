@@ -946,7 +946,7 @@ impl Shell for FilesystemShell {
         RemoveArgs {
             rest: targets,
             recursive,
-            trash,
+            trash: _trash,
         }: RemoveArgs,
         name: Tag,
         path: &str,
@@ -1024,16 +1024,30 @@ impl Shell for FilesystemShell {
 
                 if let Ok(metadata) = f.symlink_metadata() {
                     if metadata.is_file() || metadata.file_type().is_symlink() || recursive.item || is_empty() {
-                        let result = if trash.item {
-                            trash::remove(f)
-                                .map_err(|e| f.to_string_lossy())
-                        } else if metadata.is_file() {
-                            std::fs::remove_file(f)
-                                .map_err(|e| f.to_string_lossy())
-                        } else {
-                            std::fs::remove_dir_all(f)
-                                .map_err(|e| f.to_string_lossy())
-                        };
+                        let result;
+                        #[cfg(feature = "trash-support")]
+                        {
+                            result = if _trash.item {
+                                trash::remove(f)
+                                   .map_err(|e| f.to_string_lossy())
+                            } else if metadata.is_file() {
+                                std::fs::remove_file(f)
+                                    .map_err(|e| f.to_string_lossy())
+                            } else {
+                                std::fs::remove_dir_all(f)
+                                    .map_err(|e| f.to_string_lossy())
+                            };
+                        }
+                        #[cfg(not(feature = "trash-support"))]
+                        {
+                            result = if metadata.is_file() {
+                                std::fs::remove_file(f)
+                                    .map_err(|e| f.to_string_lossy())
+                            } else {
+                                std::fs::remove_dir_all(f)
+                                    .map_err(|e| f.to_string_lossy())
+                            };
+                        }
 
                         if let Err(e) = result {
                             let msg = format!("Could not delete {:}", e);
