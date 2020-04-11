@@ -42,13 +42,7 @@ pub fn normalize(path: impl AsRef<Path>) -> PathBuf {
     normalized
 }
 
-pub struct AllowMissing(pub bool);
-
-pub fn canonicalize<P, Q>(
-    relative_to: P,
-    path: Q,
-    allow_missing: AllowMissing,
-) -> io::Result<PathBuf>
+fn canonicalize_core<P, Q>(relative_to: P, path: Q) -> PathBuf
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -74,7 +68,7 @@ where
         (relative_to.as_ref().to_path_buf(), path)
     };
 
-    let path = if path.is_relative() {
+    if path.is_relative() {
         let mut result = relative_to;
         path.components().for_each(|component| match component {
             Component::ParentDir => {
@@ -87,24 +81,42 @@ where
         result
     } else {
         path
-    };
+    }
+}
 
-    let path = match std::fs::read_link(&path) {
+pub fn canonicalize_existing<P, Q>(relative_to: P, path: Q) -> io::Result<PathBuf>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    let canonicalized = canonicalize_core(relative_to, path);
+    let path = match std::fs::read_link(&canonicalized) {
         Ok(resolved) => resolved,
         Err(e) => {
-            // We are here if path doesn't exist or isn't a symlink
-            if allow_missing.0 || path.exists() {
-                // Return if we allow missing paths or if the path
-                // actually exists, but wasn't a symlink
-                path
+            if canonicalized.exists() {
+                canonicalized
             } else {
                 return Err(e);
             }
         }
     };
 
-    // De-UNC paths
     Ok(dunce::simplified(&path).to_path_buf())
+}
+
+#[allow(dead_code)]
+pub fn canonicalize_missing<P, Q>(relative_to: P, path: Q) -> PathBuf
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    let canonicalized = canonicalize_core(relative_to, path);
+    let path = match std::fs::read_link(&canonicalized) {
+        Ok(resolved) => resolved,
+        Err(_) => canonicalized,
+    };
+
+    dunce::simplified(&path).to_path_buf()
 }
 
 #[cfg(test)]
@@ -123,62 +135,56 @@ mod tests {
     }
 
     #[test]
-    fn canonicalize_two_dots_and_allow_missing() -> io::Result<()> {
-        let relative_to = Path::new("/foo/bar"); // does not exists
+    fn canonicalize_missing_two_dots() {
+        let relative_to = Path::new("/foo/bar");
         let path = Path::new("..");
 
         assert_eq!(
-            PathBuf::from("/foo"),
-            canonicalize(relative_to, path, AllowMissing(true))?
+            PathBuf::from("/foo"), // missing path
+            canonicalize_missing(relative_to, path)
         );
-
-        Ok(())
     }
 
     #[test]
-    fn canonicalize_three_dots_and_allow_missing() -> io::Result<()> {
-        let relative_to = Path::new("/foo/bar/baz"); // missing path
+    fn canonicalize_missing_three_dots() {
+        let relative_to = Path::new("/foo/bar/baz");
         let path = Path::new("...");
 
         assert_eq!(
-            PathBuf::from("/foo"),
-            canonicalize(relative_to, path, AllowMissing(true))?
+            PathBuf::from("/foo"), // missing path
+            canonicalize_missing(relative_to, path)
         );
-
-        Ok(())
     }
 
     #[test]
-    fn canonicalize_three_dots_with_redundant_dot_and_allow_missing() -> io::Result<()> {
-        let relative_to = Path::new("/foo/bar/baz"); // missing path
+    fn canonicalize_missing_three_dots_with_redundant_dot() {
+        let relative_to = Path::new("/foo/bar/baz");
         let path = Path::new("./...");
 
         assert_eq!(
-            PathBuf::from("/foo"),
-            canonicalize(relative_to, path, AllowMissing(true))?
+            PathBuf::from("/foo"), // missing path
+            canonicalize_missing(relative_to, path)
         );
-
-        Ok(())
     }
 
     #[test]
-    fn canonicalize_three_dots_and_disallow_missing() -> io::Result<()> {
-        let relative_to = Path::new("/foo/bar/"); // root is not missing
+    fn canonicalize_existing_three_dots() -> io::Result<()> {
+        let relative_to = Path::new("/foo/bar/");
         let path = Path::new("...");
 
         assert_eq!(
-            PathBuf::from("/"),
-            canonicalize(relative_to, path, AllowMissing(false))?
+            PathBuf::from("/"), // existing path
+            canonicalize_existing(relative_to, path)?
         );
 
         Ok(())
     }
 
     #[test]
-    fn canonicalize_three_dots_and_disallow_missing_should_fail() {
-        let relative_to = Path::new("/foo/bar/baz"); // foo is missing
+    fn canonicalize_existing_three_dots_should_fail() {
+        let relative_to = Path::new("/foo/bar/baz"); // '/foo' is missing
         let path = Path::new("...");
 
-        assert!(canonicalize(relative_to, path, AllowMissing(false)).is_err());
+        assert!(canonicalize_existing(relative_to, path).is_err());
     }
 }
