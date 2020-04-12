@@ -40,7 +40,7 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory() {
         );
 
         assert!(actual.contains("../formats"));
-        assert!(actual.contains("is a directory (not copied)"));
+        assert!(actual.contains("resolves to a directory (not copied)"));
     });
 }
 
