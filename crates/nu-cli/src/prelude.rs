@@ -91,7 +91,7 @@ pub(crate) use async_stream::stream as async_stream;
 pub(crate) use bigdecimal::BigDecimal;
 pub(crate) use futures::stream::BoxStream;
 pub(crate) use futures::{FutureExt, Stream, StreamExt};
-pub(crate) use nu_protocol::{EvaluateTrait, MaybeOwned};
+pub(crate) use nu_protocol::MaybeOwned;
 pub(crate) use nu_source::{
     b, AnchorLocation, DebugDocBuilder, PrettyDebug, PrettyDebugWithSource, Span, SpannedItem, Tag,
     TaggedItem, Text,

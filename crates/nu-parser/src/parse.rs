@@ -608,7 +608,7 @@ fn classify_positional_arg(
                 }
                 arg
             } else {
-                // JDT TODO - this needs to get fixed and return an actual error
+                // TODO - this needs to get fixed and return an actual error
                 let (arg, err) = parse_arg(SyntaxShape::Condition, registry, &lite_cmd.args[idx]);
                 if error.is_none() {
                     error = err;

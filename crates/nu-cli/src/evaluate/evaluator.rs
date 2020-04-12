@@ -1,13 +1,11 @@
 use crate::context::CommandRegistry;
-use crate::data::base::Block;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
 use nu_protocol::hir::{self, Expression, SpannedExpression};
 use nu_protocol::{
-    ColumnPath, Evaluate, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue,
-    Value,
+    ColumnPath, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue, Value,
 };
 
 pub(crate) fn evaluate_baseline_expr(

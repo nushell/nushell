@@ -1,8 +1,7 @@
 use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
-use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, Evaluate, ReturnSuccess, Scope, Signature, SyntaxShape, Value};
+use nu_protocol::{Scope, Signature, SyntaxShape};
 
 pub struct SkipWhile;
 
@@ -34,10 +33,6 @@ impl WholeStreamCommand for SkipWhile {
         let registry = registry.clone();
         let objects = args.input.values.skip_while(move |item| {
             let call_info = call_info.clone();
-            // trace!("ITEM = {:?}", item);
-            // let result = condition.invoke(&Scope::new(item.clone()));
-            // trace!("RESULT = {:?}", result);
-
             let call_info = call_info.evaluate(&registry, &Scope::new(item.clone()));
 
             // FIXME, for now just swallow errors when we have an issue
@@ -53,24 +48,5 @@ impl WholeStreamCommand for SkipWhile {
         });
 
         Ok(objects.from_input_stream())
-        // let condition = args.call_info.args.expect_nth(0)?;
-
-        // let stream = if self.is_skipping {
-        //     match condition.as_bool() {
-        //         Ok(b) => {
-        //             if b {
-        //                 VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
-        //             } else {
-        //                 self.is_skipping = false;
-        //                 VecDeque::new()
-        //             }
-        //         }
-        //         Err(e) => return Err(e),
-        //     }
-        // } else {
-        //     VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
-        // };
-
-        // Ok(stream.into())
     }
 }

@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
-use nu_source::{b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugWithSource, Span, Tag};
-use serde::{Deserialize, Serialize};
+use nu_source::{DebugDocBuilder, HasSpan, PrettyDebugWithSource, Span};
 
 pub trait SignatureRegistry: Debug {
     fn has(&self, name: &str) -> bool;

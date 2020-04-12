@@ -1,13 +1,11 @@
 use crate::commands::classified::pipeline::run_pipeline;
 
 use crate::commands::PerItemCommand;
-use crate::commands::UnevaluatedCallInfo;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ClassifiedPipeline, CallInfo, CommandAction, Primitive, ReturnSuccess, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    hir::ClassifiedPipeline, CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 pub struct Each;

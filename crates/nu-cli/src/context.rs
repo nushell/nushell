@@ -42,12 +42,6 @@ impl CommandRegistry {
 }
 
 impl CommandRegistry {
-    pub(crate) fn empty() -> CommandRegistry {
-        CommandRegistry {
-            registry: Arc::new(Mutex::new(IndexMap::default())),
-        }
-    }
-
     pub(crate) fn get_command(&self, name: &str) -> Option<Arc<Command>> {
         let registry = self.registry.lock();
 

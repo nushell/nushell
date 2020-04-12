@@ -1,8 +1,8 @@
 use log::trace;
 use nu_errors::{CoerceInto, ShellError};
 use nu_protocol::{
-    hir::Commands, CallInfo, ColumnPath, Evaluate, Primitive, RangeInclusion, ShellTypeName,
-    UntaggedValue, Value,
+    hir::Commands, CallInfo, ColumnPath, Primitive, RangeInclusion, ShellTypeName, UntaggedValue,
+    Value,
 };
 use nu_source::{HasSpan, Spanned, SpannedItem, Tagged, TaggedItem};
 use nu_value_ext::ValueExt;

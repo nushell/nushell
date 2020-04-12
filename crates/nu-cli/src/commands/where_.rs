@@ -2,10 +2,7 @@ use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{
-    hir::ClassifiedPipeline, CallInfo, Primitive, ReturnSuccess, Scope, Signature, SyntaxShape,
-    UntaggedValue, Value,
-};
+use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, Value};
 
 pub struct Where;
 
