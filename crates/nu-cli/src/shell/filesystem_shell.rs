@@ -124,7 +124,7 @@ impl Shell for FilesystemShell {
         };
 
         let mut paths = glob::glob(&path.to_string_lossy())
-            .map_err(|e| ShellError::labeled_error("Glob error", e.to_string(), &p_tag))?
+            .map_err(|e| ShellError::labeled_error(e.to_string(), "invalid pattern", &p_tag))?
             .peekable();
 
         if paths.peek().is_none() {
