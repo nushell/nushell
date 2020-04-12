@@ -4,27 +4,13 @@ use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
 use crate::signature::SignatureRegistry;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    Binary, ClassifiedCommand, Commands, CompareOperator, Expression, ExternalArg, ExternalArgs,
-    ExternalCommand, Flag, FlagKind, InternalCommand, Member, NamedArguments, SpannedExpression,
-    Unit,
+    Binary, ClassifiedCommand, ClassifiedPipeline, Commands, CompareOperator, Expression,
+    ExternalArg, ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member,
+    NamedArguments, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
-
-#[derive(Debug, Clone)]
-pub struct ClassifiedPipeline {
-    pub commands: Commands,
-    // this is not a Result to make it crystal clear that these shapes
-    // aren't intended to be used directly with `?`
-    pub failed: Option<ParseError>,
-}
-
-impl ClassifiedPipeline {
-    pub fn new(commands: Commands, failed: Option<ParseError>) -> ClassifiedPipeline {
-        ClassifiedPipeline { commands, failed }
-    }
-}
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
