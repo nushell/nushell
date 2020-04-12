@@ -269,17 +269,30 @@ impl Shell for FilesystemShell {
             }
         };
 
-        if sources.len() == 1 {
-            if let Ok(entry) = &sources[0] {
-                if entry.is_dir() && !recursive.item {
-                    return Err(ShellError::labeled_error(
-                        "is a directory (not copied). Try using \"--recursive\".",
-                        "is a directory (not copied). Try using \"--recursive\".",
-                        src.tag,
-                    ));
-                }
+        if sources.len() > 1 && !destination.is_dir() {
+            return Err(ShellError::labeled_error(
+                "Destination must be a directory when copying multiple files",
+                "is not a directory",
+                dst.tag,
+            ));
+        }
 
-                let mut sources: FileStructure = FileStructure::new();
+        let any_source_is_dir = sources.iter().any(|f| match f {
+            Ok(f) => f.is_dir(),
+            Err(_) => false,
+        });
+
+        if any_source_is_dir && !recursive.item {
+            return Err(ShellError::labeled_error(
+                "Directories must be copied using \"--recursive\"",
+                "resolves to a directory (not copied)",
+                src.tag,
+            ));
+        }
+
+        for entry in sources {
+            if let Ok(entry) = entry {
+                let mut sources = FileStructure::new();
                 sources.walk_decorate(&entry)?;
 
                 if entry.is_file() {
@@ -304,7 +317,7 @@ impl Shell for FilesystemShell {
                     }
                 } else if entry.is_dir() {
                     let destination = if !destination.exists() {
-                        destination
+                        destination.clone()
                     } else {
                         match entry.file_name() {
                             Some(name) => destination.join(name),
@@ -356,66 +369,6 @@ impl Shell for FilesystemShell {
                     }
                 }
             }
-        } else if destination.exists() {
-            if !sources.iter().all(|x| match x {
-                Ok(f) => f.is_file(),
-                Err(_) => false,
-            }) {
-                return Err(ShellError::labeled_error(
-                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
-                    "recursive copying in patterns not supported",
-                    src.tag,
-                ));
-            }
-
-            for entry in sources {
-                if let Ok(entry) = entry {
-                    let mut to = PathBuf::from(&destination);
-
-                    match entry.file_name() {
-                        Some(name) => to.push(name),
-                        None => {
-                            return Err(ShellError::labeled_error(
-                                "Copy aborted. Not a valid path",
-                                "not a valid path",
-                                dst.tag,
-                            ))
-                        }
-                    }
-
-                    if entry.is_file() {
-                        match std::fs::copy(&entry, &to) {
-                            Err(e) => {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    src.tag,
-                                ));
-                            }
-                            Ok(o) => o,
-                        };
-                    }
-                }
-            }
-        } else {
-            let destination_file_name = {
-                match destination.file_name() {
-                    Some(name) => PathBuf::from(name),
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            "Copy aborted. Not a valid destination",
-                            "not a valid destination",
-                            dst.tag,
-                        ))
-                    }
-                }
-            };
-
-            return Err(ShellError::labeled_error(
-                format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
-                format!("copy aborted (does {:?} exist?)", destination_file_name),
-                dst.tag,
-            ));
         }
 
         Ok(OutputStream::empty())
