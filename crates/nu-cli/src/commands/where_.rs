@@ -18,7 +18,7 @@ impl PerItemCommand for Where {
     fn signature(&self) -> Signature {
         Signature::build("where").required(
             "condition",
-            SyntaxShape::Block,
+            SyntaxShape::Condition,
             "the condition that must match",
         )
     }
@@ -30,14 +30,26 @@ impl PerItemCommand for Where {
     fn run(
         &self,
         call_info: &CallInfo,
-        registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
+        _registry: &CommandRegistry,
+        _raw_args: &RawCommandArgs,
         input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let condition = call_info.args.expect_nth(0)?.clone();
-        let call_info = call_info.clone();
-        let registry = registry.clone();
-        let raw_args = raw_args.clone();
+        let condition = call_info.args.expect_nth(0)?;
+
+        let stream = match condition.as_bool() {
+            Ok(b) => {
+                if b {
+                    VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
+                } else {
+                    VecDeque::new()
+                }
+            }
+            Err(e) => return Err(e),
+        };
+
+        Ok(stream.into())
+
+        /*
         let stream = async_stream! {
             match condition {
                 Value {
@@ -99,7 +111,8 @@ impl PerItemCommand for Where {
                 }
             };
         };
+        */
 
-        Ok(stream.to_output_stream())
+        //Ok(stream.to_output_stream())
     }
 }
