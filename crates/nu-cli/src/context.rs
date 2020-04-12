@@ -1,4 +1,6 @@
-use crate::commands::{command::CommandArgs, Command, UnevaluatedCallInfo};
+use crate::commands::{
+    command::CommandArgs, command::RawCommandArgs, Command, UnevaluatedCallInfo,
+};
 use crate::env::host::Host;
 use crate::shell::shell_manager::ShellManager;
 use crate::stream::{InputStream, OutputStream};
@@ -90,6 +92,30 @@ pub struct Context {
 impl Context {
     pub(crate) fn registry(&self) -> &CommandRegistry {
         &self.registry
+    }
+
+    pub(crate) fn from_raw(raw_args: &RawCommandArgs, registry: &CommandRegistry) -> Context {
+        #[cfg(windows)]
+        {
+            Context {
+                registry: registry.clone(),
+                host: raw_args.host.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: raw_args.ctrl_c.clone(),
+                shell_manager: raw_args.shell_manager.clone(),
+                windows_drives_previous_cwd: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            Context {
+                registry: registry.clone(),
+                host: raw_args.host.clone(),
+                current_errors: Arc::new(Mutex::new(vec![])),
+                ctrl_c: raw_args.ctrl_c.clone(),
+                shell_manager: raw_args.shell_manager.clone(),
+            }
+        }
     }
 
     pub(crate) fn basic() -> Result<Context, Box<dyn Error>> {

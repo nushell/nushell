@@ -6,11 +6,13 @@ use nu_source::{Spanned, SpannedItem};
 pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>> {
     match &e.expr {
         Expression::Block(exprs) => {
-            let mut output = vec![];
-            for expr in exprs.iter() {
-                output.append(&mut expression_to_flat_shape(expr));
-            }
-            output
+            // TODO, properly color the inside of a block (JDT)
+            // let mut output = vec![];
+            // for expr in exprs.iter() {
+            //     output.append(&mut expression_to_flat_shape(expr));
+            // }
+            // output
+            vec![FlatShape::InternalCommand.spanned(exprs.span)]
         }
         Expression::FilePath(_) => vec![FlatShape::Path.spanned(e.span)],
         Expression::Garbage => vec![FlatShape::Garbage.spanned(e.span)],

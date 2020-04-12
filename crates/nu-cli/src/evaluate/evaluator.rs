@@ -81,11 +81,7 @@ pub(crate) fn evaluate_baseline_expr(
 
             Ok(UntaggedValue::Table(exprs).into_value(tag))
         }
-        Expression::Block(block) => Ok(UntaggedValue::Block(Evaluate::new(Block::new(
-            block.clone(),
-            tag.clone(),
-        )))
-        .into_value(&tag)),
+        Expression::Block(block) => Ok(UntaggedValue::Block(block.clone()).into_value(&tag)),
         Expression::Path(path) => {
             let value = evaluate_baseline_expr(&path.head, registry, scope)?;
             let mut item = value;

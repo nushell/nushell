@@ -11,7 +11,6 @@ use nu_protocol::hir::{
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct ClassifiedPipeline {
@@ -516,12 +515,20 @@ fn parse_arg(
                         }
 
                         let span = Span::new(lhs.span.start(), rhs.span.end());
-                        let binary = SpannedExpression::new(
-                            Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                            span,
-                        );
+                        // let binary = SpannedExpression::new(
+                        //     Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                        //     span,
+                        // );
+
+                        let mut commands = Commands::new(span);
+                        commands.push(ClassifiedCommand::Comparison(
+                            Box::new(lhs),
+                            Box::new(op),
+                            Box::new(rhs),
+                        ));
+
                         (
-                            SpannedExpression::new(Expression::Block(vec![binary]), span),
+                            SpannedExpression::new(Expression::Block(commands), span),
                             error,
                         )
                     } else {
@@ -636,11 +643,17 @@ fn classify_positional_arg(
                 }
                 idx += 2;
                 let span = Span::new(lhs.span.start(), rhs.span.end());
-                let binary = SpannedExpression::new(
-                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                    span,
-                );
-                SpannedExpression::new(Expression::Block(vec![binary]), span)
+                // let binary = SpannedExpression::new(
+                //     Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                //     span,
+                // );
+                let mut commands = Commands::new(span);
+                commands.push(ClassifiedCommand::Comparison(
+                    Box::new(lhs),
+                    Box::new(op),
+                    Box::new(rhs),
+                ));
+                SpannedExpression::new(Expression::Block(commands), span)
             } else {
                 let (arg, err) = parse_arg(SyntaxShape::Block, registry, &lite_cmd.args[idx]);
                 if error.is_none() {

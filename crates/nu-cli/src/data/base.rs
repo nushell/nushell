@@ -28,12 +28,13 @@ pub struct Operation {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Serialize, Deserialize, new)]
 pub struct Block {
-    pub(crate) expressions: Vec<hir::SpannedExpression>,
+    pub(crate) commands: hir::Commands,
     pub(crate) tag: Tag,
 }
 
 interfaces!(Block: dyn ObjectHash);
 
+/*
 #[typetag::serde]
 impl EvaluateTrait for Block {
     fn invoke(&self, scope: &Scope) -> Result<Value, ShellError> {
@@ -63,6 +64,7 @@ impl EvaluateTrait for Block {
         Evaluate::new(block)
     }
 }
+*/
 
 #[derive(Serialize, Deserialize)]
 pub enum Switch {
