@@ -64,7 +64,7 @@ query_interface = "0.3.5"
 rand = "0.7"
 regex = "1"
 roxmltree = "0.10.1"
-rustyline = "6.1.0"
+rustyline = "6.1.1"
 serde = { version = "1.0.106", features = ["derive"] }
 serde-hjson = "0.9.1"
 serde_bytes = "0.11.3"
