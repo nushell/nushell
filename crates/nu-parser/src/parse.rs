@@ -515,18 +515,13 @@ fn parse_arg(
                         }
 
                         let span = Span::new(lhs.span.start(), rhs.span.end());
-                        // let binary = SpannedExpression::new(
-                        //     Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                        //     span,
-                        // );
+                        let binary = SpannedExpression::new(
+                            Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                            span,
+                        );
 
                         let mut commands = Commands::new(span);
-                        commands.push(ClassifiedCommand::Comparison(
-                            Box::new(lhs),
-                            Box::new(op),
-                            Box::new(rhs),
-                        ));
-
+                        commands.push(ClassifiedCommand::Expr(Box::new(binary)));
                         (
                             SpannedExpression::new(Expression::Block(commands), span),
                             error,
@@ -643,16 +638,12 @@ fn classify_positional_arg(
                 }
                 idx += 2;
                 let span = Span::new(lhs.span.start(), rhs.span.end());
-                // let binary = SpannedExpression::new(
-                //     Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                //     span,
-                // );
+                let binary = SpannedExpression::new(
+                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                    span,
+                );
                 let mut commands = Commands::new(span);
-                commands.push(ClassifiedCommand::Comparison(
-                    Box::new(lhs),
-                    Box::new(op),
-                    Box::new(rhs),
-                ));
+                commands.push(ClassifiedCommand::Expr(Box::new(binary)));
                 SpannedExpression::new(Expression::Block(commands), span)
             } else {
                 let (arg, err) = parse_arg(SyntaxShape::Block, registry, &lite_cmd.args[idx]);

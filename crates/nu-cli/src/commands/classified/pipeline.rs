@@ -22,9 +22,9 @@ pub(crate) async fn run_pipeline(
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            // (Some(ClassifiedCommand::Expr(_)), _) | (_, Some(ClassifiedCommand::Expr(_))) => {
-            //     return Err(ShellError::unimplemented("Expression-only commands"))
-            // }
+            (Some(ClassifiedCommand::Expr(_)), _) => {
+                return Err(ShellError::unimplemented("Expression-only commands"))
+            }
             (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
@@ -39,7 +39,6 @@ pub(crate) async fn run_pipeline(
             }
 
             (None, _) => break,
-            _ => unimplemented!("Not yet implented cases in run_pipeline"),
         };
     }
 

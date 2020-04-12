@@ -59,12 +59,7 @@ impl ClassifiedPipeline {
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum ClassifiedCommand {
-    #[allow(unused)]
-    Comparison(
-        Box<SpannedExpression>,
-        Box<SpannedExpression>,
-        Box<SpannedExpression>,
-    ),
+    Expr(Box<SpannedExpression>),
     #[allow(unused)]
     Dynamic(crate::hir::Call),
     Internal(InternalCommand),
