@@ -260,9 +260,9 @@ impl Shell for FilesystemShell {
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
-            Err(_) => {
+            Err(e) => {
                 return Err(ShellError::labeled_error(
-                    "Invalid pattern",
+                    e.to_string(),
                     "invalid pattern",
                     src.tag,
                 ))
@@ -280,106 +280,34 @@ impl Shell for FilesystemShell {
                 }
 
                 let mut sources: FileStructure = FileStructure::new();
-
                 sources.walk_decorate(&entry)?;
 
                 if entry.is_file() {
-                    let strategy = |(source_file, _depth_level)| {
+                    let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
                         if destination.is_dir() {
-                            let mut new_dst = dunce::canonicalize(destination.clone())?;
+                            let mut dest = canonicalize_existing(&path, &dst.item)?;
                             if let Some(name) = entry.file_name() {
-                                new_dst.push(name);
+                                dest.push(name);
                             }
-                            Ok((source_file, new_dst))
+                            Ok((source_file, dest))
                         } else {
                             Ok((source_file, destination.clone()))
                         }
-                    };
+                    })?;
 
-                    let sources = sources.paths_applying_with(strategy)?;
-
-                    for (ref src, ref dst) in sources {
+                    for (src, dst) in sources {
                         if src.is_file() {
-                            match std::fs::copy(src, dst) {
-                                Err(e) => {
-                                    return Err(ShellError::labeled_error(
-                                        e.to_string(),
-                                        e.to_string(),
-                                        name_tag,
-                                    ));
-                                }
-                                Ok(o) => o,
-                            };
+                            std::fs::copy(src, dst).map_err(|e| {
+                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                            })?;
                         }
                     }
-                }
-
-                if entry.is_dir() {
-                    if !destination.exists() {
-                        match std::fs::create_dir_all(&destination) {
-                            Err(e) => {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    dst.tag,
-                                ));
-                            }
-                            Ok(o) => o,
-                        };
-
-                        let strategy = |(source_file, depth_level)| {
-                            let mut new_dst = destination.clone();
-                            let path = dunce::canonicalize(&source_file)?;
-
-                            let mut comps: Vec<_> = path
-                                .components()
-                                .map(|fragment| fragment.as_os_str())
-                                .rev()
-                                .take(1 + depth_level)
-                                .collect();
-
-                            comps.reverse();
-
-                            for fragment in comps.iter() {
-                                new_dst.push(fragment);
-                            }
-
-                            Ok((PathBuf::from(&source_file), new_dst))
-                        };
-
-                        let sources = sources.paths_applying_with(strategy)?;
-
-                        let dst_tag = dst.tag;
-                        for (ref src, ref dst) in sources {
-                            if src.is_dir() && !dst.exists() {
-                                match std::fs::create_dir_all(dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            dst_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
-
-                            if src.is_file() {
-                                match std::fs::copy(src, dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            name_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
-                        }
+                } else if entry.is_dir() {
+                    let destination = if !destination.exists() {
+                        destination
                     } else {
                         match entry.file_name() {
-                            Some(name) => destination.push(name),
+                            Some(name) => destination.join(name),
                             None => {
                                 return Err(ShellError::labeled_error(
                                     "Copy aborted. Not a valid path",
@@ -388,67 +316,42 @@ impl Shell for FilesystemShell {
                                 ))
                             }
                         }
+                    };
 
-                        match std::fs::create_dir_all(&destination) {
-                            Err(e) => {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    dst.tag,
-                                ));
-                            }
-                            Ok(o) => o,
-                        };
+                    std::fs::create_dir_all(&destination).map_err(|e| {
+                        ShellError::labeled_error(e.to_string(), e.to_string(), &dst.tag)
+                    })?;
 
-                        let strategy = |(source_file, depth_level)| {
-                            let mut new_dst = dunce::canonicalize(&destination)?;
-                            let path = dunce::canonicalize(&source_file)?;
+                    let sources = sources.paths_applying_with(|(source_file, depth_level)| {
+                        let mut dest = destination.clone();
+                        let path = canonicalize_existing(&path, &source_file)?;
 
-                            let mut comps: Vec<_> = path
-                                .components()
-                                .map(|fragment| fragment.as_os_str())
-                                .rev()
-                                .take(1 + depth_level)
-                                .collect();
+                        let comps: Vec<_> = path
+                            .components()
+                            .map(|fragment| fragment.as_os_str())
+                            .rev()
+                            .take(1 + depth_level)
+                            .collect();
 
-                            comps.reverse();
+                        for fragment in comps.into_iter().rev() {
+                            dest.push(fragment);
+                        }
 
-                            for fragment in comps.iter() {
-                                new_dst.push(fragment);
-                            }
+                        Ok((PathBuf::from(&source_file), dest))
+                    })?;
 
-                            Ok((PathBuf::from(&source_file), new_dst))
-                        };
+                    let dst_tag = &dst.tag;
+                    for (src, dst) in sources {
+                        if src.is_dir() && !dst.exists() {
+                            std::fs::create_dir_all(&dst).map_err(|e| {
+                                ShellError::labeled_error(e.to_string(), e.to_string(), dst_tag)
+                            })?;
+                        }
 
-                        let sources = sources.paths_applying_with(strategy)?;
-
-                        let dst_tag = dst.tag;
-                        for (ref src, ref dst) in sources {
-                            if src.is_dir() && !dst.exists() {
-                                match std::fs::create_dir_all(dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            dst_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
-
-                            if src.is_file() {
-                                match std::fs::copy(src, dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            name_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
+                        if src.is_file() {
+                            std::fs::copy(&src, &dst).map_err(|e| {
+                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                            })?;
                         }
                     }
                 }
