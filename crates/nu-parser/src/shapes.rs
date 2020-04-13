@@ -1,18 +1,11 @@
-use crate::hir::*;
-use crate::parse::{ClassifiedCommand, Commands};
+use nu_protocol::hir::*;
 use nu_protocol::UnspannedPathMember;
 use nu_source::{Spanned, SpannedItem};
 
 /// Converts a SpannedExpression into a spanned shape(s) ready for color-highlighting
 pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>> {
     match &e.expr {
-        Expression::Block(exprs) => {
-            let mut output = vec![];
-            for expr in exprs.iter() {
-                output.append(&mut expression_to_flat_shape(expr));
-            }
-            output
-        }
+        Expression::Block(exprs) => shapes(exprs),
         Expression::FilePath(_) => vec![FlatShape::Path.spanned(e.span)],
         Expression::Garbage => vec![FlatShape::Garbage.spanned(e.span)],
         Expression::List(exprs) => {
@@ -106,6 +99,7 @@ pub fn shapes(commands: &Commands) -> Vec<Spanned<FlatShape>> {
                     output.push(FlatShape::ExternalWord.spanned(arg.tag.span));
                 }
             }
+            ClassifiedCommand::Expr(expr) => output.append(&mut expression_to_flat_shape(expr)),
             _ => {}
         }
     }

@@ -1,8 +1,12 @@
 use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
+use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{
+    hir::ClassifiedCommand, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
+    Value,
+};
 
 pub struct Where;
 
@@ -14,7 +18,7 @@ impl PerItemCommand for Where {
     fn signature(&self) -> Signature {
         Signature::build("where").required(
             "condition",
-            SyntaxShape::Block,
+            SyntaxShape::Condition,
             "the condition that must match",
         )
     }
@@ -26,35 +30,55 @@ impl PerItemCommand for Where {
     fn run(
         &self,
         call_info: &CallInfo,
-        _registry: &CommandRegistry,
+        registry: &CommandRegistry,
         _raw_args: &RawCommandArgs,
         input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let condition = call_info.args.expect_nth(0)?;
-        let stream = match condition {
+        let block = call_info.args.expect_nth(0)?.clone();
+
+        let condition = match block {
             Value {
                 value: UntaggedValue::Block(block),
-                ..
-            } => {
-                let result = block.invoke(&Scope::new(input.clone()));
-                match result {
-                    Ok(v) => {
-                        if v.is_true() {
-                            VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
-                        } else {
-                            VecDeque::new()
-                        }
+                tag,
+            } => match block.list.get(0) {
+                Some(item) => match item {
+                    ClassifiedCommand::Expr(expr) => expr.clone(),
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Expected a condition",
+                            "expected a condition",
+                            tag,
+                        ))
                     }
-                    Err(e) => return Err(e),
+                },
+                None => {
+                    return Err(ShellError::labeled_error(
+                        "Expected a condition",
+                        "expected a condition",
+                        tag,
+                    ));
                 }
-            }
+            },
             Value { tag, .. } => {
                 return Err(ShellError::labeled_error(
                     "Expected a condition",
-                    "where needs a condition",
+                    "expected a condition",
                     tag,
-                ))
+                ));
             }
+        };
+
+        let condition = evaluate_baseline_expr(&condition, registry, &Scope::new(input.clone()))?;
+
+        let stream = match condition.as_bool() {
+            Ok(b) => {
+                if b {
+                    VecDeque::from(vec![Ok(ReturnSuccess::Value(input))])
+                } else {
+                    VecDeque::new()
+                }
+            }
+            Err(e) => return Err(e),
         };
 
         Ok(stream.into())

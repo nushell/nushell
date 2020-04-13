@@ -13,7 +13,7 @@ use std::ops::Range;
 /// A structured reason for a ParseError. Note that parsing in nu is more like macro expansion in
 /// other languages, so the kinds of errors that can occur during parsing are more contextual than
 /// you might expect.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum ParseErrorReason {
     /// The parser encountered an EOF rather than what it was expecting
     Eof { expected: String, span: Span },
@@ -38,7 +38,7 @@ pub enum ParseErrorReason {
 }
 
 /// A newtype for `ParseErrorReason`
-#[derive(Debug, Clone, Eq, PartialEq, Getters)]
+#[derive(Debug, Clone, Getters, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct ParseError {
     #[get = "pub"]
     reason: ParseErrorReason,

@@ -1,16 +1,20 @@
+use std::cmp::{Ord, Ordering, PartialOrd};
+use std::hash::{Hash, Hasher};
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::{hir, Primitive, UntaggedValue};
+use crate::{PathMember, ShellTypeName};
 use derive_new::new;
-use nu_protocol::{PathMember, ShellTypeName};
-use nu_protocol::{Primitive, UntaggedValue};
 use num_traits::ToPrimitive;
 
+use nu_errors::ParseError;
 use nu_source::{
     b, DebugDocBuilder, HasSpan, PrettyDebug, PrettyDebugRefineKind, PrettyDebugWithSource,
 };
-use nu_source::{IntoSpanned, Span, Spanned, SpannedItem};
+use nu_source::{IntoSpanned, Span, Spanned, SpannedItem, Tag};
 
 use bigdecimal::BigDecimal;
 use indexmap::IndexMap;
@@ -19,10 +23,166 @@ use num_bigint::BigInt;
 use num_traits::identities::Zero;
 use num_traits::FromPrimitive;
 
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct InternalCommand {
+    pub name: String,
+    pub name_span: Span,
+    pub args: crate::hir::Call,
+}
+
+impl InternalCommand {
+    pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
+        InternalCommand {
+            name: name.clone(),
+            name_span,
+            args: crate::hir::Call::new(
+                Box::new(SpannedExpression::new(Expression::string(name), name_span)),
+                full_span,
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct ClassifiedPipeline {
+    pub commands: Commands,
+    // this is not a Result to make it crystal clear that these shapes
+    // aren't intended to be used directly with `?`
+    pub failed: Option<ParseError>,
+}
+
+impl ClassifiedPipeline {
+    pub fn new(commands: Commands, failed: Option<ParseError>) -> ClassifiedPipeline {
+        ClassifiedPipeline { commands, failed }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub enum ClassifiedCommand {
+    Expr(Box<SpannedExpression>),
+    #[allow(unused)]
+    Dynamic(crate::hir::Call),
+    Internal(InternalCommand),
+    External(crate::hir::ExternalCommand),
+    Error(ParseError),
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct Commands {
+    pub list: Vec<ClassifiedCommand>,
+    pub span: Span,
+}
+
+impl Commands {
+    pub fn new(span: Span) -> Commands {
+        Commands { list: vec![], span }
+    }
+
+    pub fn push(&mut self, command: ClassifiedCommand) {
+        self.list.push(command);
+    }
+}
+
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
-pub struct ExternalCommand {
+pub struct ExternalStringCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct ExternalArg {
+    pub arg: String,
+    pub tag: Tag,
+}
+
+impl ExternalArg {
+    pub fn has(&self, name: &str) -> bool {
+        self.arg == name
+    }
+
+    pub fn is_it(&self) -> bool {
+        self.has("$it")
+    }
+
+    pub fn is_nu(&self) -> bool {
+        self.has("$nu")
+    }
+
+    pub fn looks_like_it(&self) -> bool {
+        self.arg.starts_with("$it") && (self.arg.starts_with("$it.") || self.is_it())
+    }
+
+    pub fn looks_like_nu(&self) -> bool {
+        self.arg.starts_with("$nu") && (self.arg.starts_with("$nu.") || self.is_nu())
+    }
+}
+
+impl std::ops::Deref for ExternalArg {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.arg
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct ExternalArgs {
+    pub list: Vec<ExternalArg>,
+    pub span: Span,
+}
+
+impl ExternalArgs {
+    pub fn iter(&self) -> impl Iterator<Item = &ExternalArg> {
+        self.list.iter()
+    }
+}
+
+impl std::ops::Deref for ExternalArgs {
+    type Target = [ExternalArg];
+
+    fn deref(&self) -> &[ExternalArg] {
+        &self.list
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
+pub struct ExternalCommand {
+    pub name: String,
+
+    pub name_tag: Tag,
+    pub args: ExternalArgs,
+}
+
+impl ExternalCommand {
+    pub fn has_it_argument(&self) -> bool {
+        self.args.iter().any(|arg| arg.looks_like_it())
+    }
+
+    pub fn has_nu_argument(&self) -> bool {
+        self.args.iter().any(|arg| arg.looks_like_nu())
+    }
+}
+
+impl PrettyDebug for ExternalCommand {
+    fn pretty(&self) -> DebugDocBuilder {
+        b::typed(
+            "external command",
+            b::description(&self.name)
+                + b::preceded(
+                    b::space(),
+                    b::intersperse(
+                        self.args.iter().map(|a| b::primitive(a.arg.to_string())),
+                        b::space(),
+                    ),
+                ),
+        )
+    }
+}
+
+impl HasSpan for ExternalCommand {
+    fn span(&self) -> Span {
+        self.name_tag.span.until(self.args.span)
+    }
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Copy, Deserialize, Serialize)]
@@ -558,12 +718,12 @@ pub enum Expression {
     Variable(Variable),
     Binary(Box<Binary>),
     Range(Box<Range>),
-    Block(Vec<SpannedExpression>),
+    Block(hir::Commands),
     List(Vec<SpannedExpression>),
     Path(Box<Path>),
 
     FilePath(PathBuf),
-    ExternalCommand(ExternalCommand),
+    ExternalCommand(ExternalStringCommand),
     Command(Span),
 
     Boolean(bool),
@@ -664,7 +824,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub enum NamedValue {
     AbsentSwitch,
     PresentSwitch(Span),
@@ -695,7 +855,7 @@ impl PrettyDebugWithSource for NamedValue {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash, Serialize, Deserialize)]
 pub struct Call {
     pub head: Box<SpannedExpression>,
     pub positional: Option<Vec<SpannedExpression>>,
@@ -711,7 +871,7 @@ impl Call {
             .unwrap_or(false)
     }
 
-    pub fn set_initial_flags(&mut self, signature: &nu_protocol::Signature) {
+    pub fn set_initial_flags(&mut self, signature: &crate::Signature) {
         for (named, value) in signature.named.iter() {
             if self.named.is_none() {
                 self.named = Some(NamedArguments::new());
@@ -719,7 +879,7 @@ impl Call {
 
             if let Some(ref mut args) = self.named {
                 match value.0 {
-                    nu_protocol::NamedType::Switch(_) => args.insert_switch(named, None),
+                    crate::NamedType::Switch(_) => args.insert_switch(named, None),
                     _ => args.insert_optional(named, Span::new(0, 0), None),
                 }
             }
@@ -817,9 +977,54 @@ pub enum FlatShape {
     Size { number: Span, unit: Span },
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NamedArguments {
     pub named: IndexMap<String, NamedValue>,
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for NamedArguments {
+    /// Create the hash function to allow the Hash trait for dictionaries
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut entries = self.named.clone();
+        entries.sort_keys();
+        entries.keys().collect::<Vec<&String>>().hash(state);
+        entries.values().collect::<Vec<&NamedValue>>().hash(state);
+    }
+}
+
+impl PartialOrd for NamedArguments {
+    /// Compare two dictionaries for sort ordering
+    fn partial_cmp(&self, other: &NamedArguments) -> Option<Ordering> {
+        let this: Vec<&String> = self.named.keys().collect();
+        let that: Vec<&String> = other.named.keys().collect();
+
+        if this != that {
+            return this.partial_cmp(&that);
+        }
+
+        let this: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = self.named.values().collect();
+
+        this.partial_cmp(&that)
+    }
+}
+
+impl Ord for NamedArguments {
+    /// Compare two dictionaries for ordering
+    fn cmp(&self, other: &NamedArguments) -> Ordering {
+        let this: Vec<&String> = self.named.keys().collect();
+        let that: Vec<&String> = other.named.keys().collect();
+
+        if this != that {
+            return this.cmp(&that);
+        }
+
+        let this: Vec<&NamedValue> = self.named.values().collect();
+        let that: Vec<&NamedValue> = self.named.values().collect();
+
+        this.cmp(&that)
+    }
 }
 
 impl NamedArguments {

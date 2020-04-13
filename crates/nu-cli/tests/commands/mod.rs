@@ -4,6 +4,7 @@ mod cd;
 mod compact;
 mod cp;
 mod default;
+mod each;
 mod edit;
 mod enter;
 mod first;

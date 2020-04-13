@@ -1,4 +1,4 @@
-use nu_parser::{ExternalArg, ExternalArgs, ExternalCommand};
+use nu_protocol::hir::{ExternalArg, ExternalArgs, ExternalCommand};
 use nu_source::{Span, SpannedItem, Tag, TaggedItem};
 
 pub struct ExternalBuilder {

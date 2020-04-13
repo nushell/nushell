@@ -1,16 +1,11 @@
 pub(crate) mod shape;
 
-use crate::context::CommandRegistry;
-use crate::evaluate::evaluate_baseline_expr;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use derive_new::new;
-use log::trace;
 use nu_errors::ShellError;
-use nu_parser::hir;
 use nu_protocol::{
-    Evaluate, EvaluateTrait, Primitive, Scope, ShellTypeName, SpannedTypeName, TaggedDictBuilder,
-    UntaggedValue, Value,
+    hir, Primitive, ShellTypeName, SpannedTypeName, TaggedDictBuilder, UntaggedValue, Value,
 };
 use nu_source::Tag;
 use nu_value_ext::ValueExt;
@@ -29,41 +24,11 @@ pub struct Operation {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Serialize, Deserialize, new)]
 pub struct Block {
-    pub(crate) expressions: Vec<hir::SpannedExpression>,
+    pub(crate) commands: hir::Commands,
     pub(crate) tag: Tag,
 }
 
 interfaces!(Block: dyn ObjectHash);
-
-#[typetag::serde]
-impl EvaluateTrait for Block {
-    fn invoke(&self, scope: &Scope) -> Result<Value, ShellError> {
-        if self.expressions.is_empty() {
-            return Ok(UntaggedValue::nothing().into_value(&self.tag));
-        }
-
-        let mut last = Ok(UntaggedValue::nothing().into_value(&self.tag));
-
-        trace!(
-            "EXPRS = {:?}",
-            self.expressions
-                .iter()
-                .map(|e| format!("{:?}", e))
-                .collect::<Vec<_>>()
-        );
-
-        for expr in self.expressions.iter() {
-            last = evaluate_baseline_expr(&expr, &CommandRegistry::empty(), &scope)
-        }
-
-        last
-    }
-
-    fn clone_box(&self) -> Evaluate {
-        let block = self.clone();
-        Evaluate::new(block)
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 pub enum Switch {

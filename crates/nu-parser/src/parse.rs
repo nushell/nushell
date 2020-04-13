@@ -1,82 +1,16 @@
 use std::path::Path;
 
-use nu_errors::{ArgumentError, ParseError};
-//use crate::hir::*;
-use crate::hir::{
-    Binary, CompareOperator, Expression, Flag, FlagKind, Member, NamedArguments, SpannedExpression,
-    Unit,
-};
 use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
 use crate::signature::SignatureRegistry;
-use crate::{ExternalArg, ExternalArgs, ExternalCommand};
+use nu_errors::{ArgumentError, ParseError};
+use nu_protocol::hir::{
+    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, CompareOperator, Expression,
+    ExternalArg, ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member,
+    NamedArguments, SpannedExpression, Unit,
+};
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
 use num_bigint::BigInt;
-
-#[derive(Debug, Clone)]
-pub struct InternalCommand {
-    pub name: String,
-    pub name_span: Span,
-    pub args: crate::hir::Call,
-}
-
-impl InternalCommand {
-    pub fn new(name: String, name_span: Span, full_span: Span) -> InternalCommand {
-        InternalCommand {
-            name: name.clone(),
-            name_span,
-            args: crate::hir::Call::new(
-                Box::new(SpannedExpression::new(Expression::string(name), name_span)),
-                full_span,
-            ),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ClassifiedCommand {
-    #[allow(unused)]
-    Comparison(
-        Box<SpannedExpression>,
-        Box<SpannedExpression>,
-        Box<SpannedExpression>,
-    ),
-    #[allow(unused)]
-    Dynamic(crate::hir::Call),
-    Internal(InternalCommand),
-    External(crate::ExternalCommand),
-    Error(ParseError),
-}
-
-#[derive(Debug, Clone)]
-pub struct Commands {
-    pub list: Vec<ClassifiedCommand>,
-    pub span: Span,
-}
-
-impl Commands {
-    pub fn new(span: Span) -> Commands {
-        Commands { list: vec![], span }
-    }
-
-    pub fn push(&mut self, command: ClassifiedCommand) {
-        self.list.push(command);
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ClassifiedPipeline {
-    pub commands: Commands,
-    // this is not a Result to make it crystal clear that these shapes
-    // aren't intended to be used directly with `?`
-    pub failed: Option<ParseError>,
-}
-
-impl ClassifiedPipeline {
-    pub fn new(commands: Commands, failed: Option<ParseError>) -> ClassifiedPipeline {
-        ClassifiedPipeline { commands, failed }
-    }
-}
 
 /// Parses a simple column path, one without a variable (implied or explicit) at the head
 fn parse_simple_column_path(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
@@ -534,53 +468,23 @@ fn parse_arg(
                 (Some('{'), Some('}')) => {
                     // We have a literal block
                     let string: String = chars.collect();
-                    let mut error = None;
 
                     // We haven't done much with the inner string, so let's go ahead and work with it
                     let lite_pipeline = match lite_parse(&string, lite_arg.span.start() + 1) {
                         Ok(lp) => lp,
                         Err(e) => return (garbage(lite_arg.span), Some(e)),
                     };
-                    //let pipeline = parse(&lite_pipeline, definitions)?;
 
-                    // For now, just take the first command
-                    if let Some(lite_cmd) = lite_pipeline.commands.first() {
-                        if lite_cmd.args.len() != 2 {
-                            return (
-                                garbage(lite_arg.span),
-                                Some(ParseError::mismatch("block", lite_arg.clone())),
-                            );
-                        }
-                        let (lhs, err) =
-                            parse_arg(SyntaxShape::FullColumnPath, registry, &lite_cmd.name);
-                        if error.is_none() {
-                            error = err;
-                        }
-                        let (op, err) =
-                            parse_arg(SyntaxShape::Operator, registry, &lite_cmd.args[0]);
-                        if error.is_none() {
-                            error = err;
-                        }
-                        let (rhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[1]);
-                        if error.is_none() {
-                            error = err;
-                        }
+                    let classified_block = classify_pipeline(&lite_pipeline, registry);
+                    let error = classified_block.failed;
 
-                        let span = Span::new(lhs.span.start(), rhs.span.end());
-                        let binary = SpannedExpression::new(
-                            Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                            span,
-                        );
-                        (
-                            SpannedExpression::new(Expression::Block(vec![binary]), span),
-                            error,
-                        )
-                    } else {
-                        (
-                            garbage(lite_arg.span),
-                            Some(ParseError::mismatch("block", lite_arg.clone())),
-                        )
-                    }
+                    (
+                        SpannedExpression::new(
+                            Expression::Block(classified_block.commands),
+                            lite_arg.span,
+                        ),
+                        error,
+                    )
                 }
                 _ => {
                     // We have an implied block, but we can't parse this here
@@ -591,6 +495,14 @@ fn parse_arg(
                     )
                 }
             }
+        }
+        SyntaxShape::Condition => {
+            // We have an implied condition, but we can't parse this here
+            // it needed to have been parsed up higher where we have control over more than one arg
+            (
+                garbage(lite_arg.span),
+                Some(ParseError::mismatch("condition", lite_arg.clone())),
+            )
         }
     }
 }
@@ -664,13 +576,10 @@ fn classify_positional_arg(
     let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
-        PositionalType::Mandatory(_, SyntaxShape::Block)
-        | PositionalType::Optional(_, SyntaxShape::Block) => {
-            // We may have an implied block, so let's try to parse it here
-            // The only implied block format we currently support is <shorthand path> <operator> <any>, though
-            // we may want to revisit this in the future
-
-            // TODO: only do this step if it's not a literal block
+        PositionalType::Mandatory(_, SyntaxShape::Condition)
+        | PositionalType::Optional(_, SyntaxShape::Condition) => {
+            // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
+            // We need to do this here because in parse_arg, we have access to only one arg at a time
             if (idx + 2) < lite_cmd.args.len() {
                 let (lhs, err) =
                     parse_arg(SyntaxShape::FullColumnPath, registry, &lite_cmd.args[idx]);
@@ -691,9 +600,19 @@ fn classify_positional_arg(
                     Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
                     span,
                 );
-                SpannedExpression::new(Expression::Block(vec![binary]), span)
+                let mut commands = hir::Commands::new(span);
+                commands.push(ClassifiedCommand::Expr(Box::new(binary)));
+                SpannedExpression::new(Expression::Block(commands), span)
+            } else if idx < lite_cmd.args.len() {
+                let (arg, err) =
+                    parse_arg(SyntaxShape::FullColumnPath, registry, &lite_cmd.args[idx]);
+                if error.is_none() {
+                    error = err;
+                }
+                arg
             } else {
-                let (arg, err) = parse_arg(SyntaxShape::Block, registry, &lite_cmd.args[idx]);
+                // TODO - this needs to get fixed and return an actual error
+                let (arg, err) = parse_arg(SyntaxShape::Condition, registry, &lite_cmd.args[idx]);
                 if error.is_none() {
                     error = err;
                 }

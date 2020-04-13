@@ -112,9 +112,9 @@ impl NuCompleter {
         let result = nu_parser::classify_pipeline(&lite_parse, &self.commands);
 
         for command in result.commands.list {
-            if let nu_parser::ClassifiedCommand::Internal(nu_parser::InternalCommand {
-                args, ..
-            }) = command
+            if let nu_protocol::hir::ClassifiedCommand::Internal(
+                nu_protocol::hir::InternalCommand { args, .. },
+            ) = command
             {
                 if replace_pos >= args.span.start() && replace_pos <= args.span.end() {
                     if let Some(named) = args.named {

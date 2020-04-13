@@ -10,7 +10,7 @@ use crate::prelude::*;
 use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
-use nu_parser::{ClassifiedCommand, ExternalCommand};
+use nu_protocol::hir::{ClassifiedCommand, ExternalCommand};
 use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
 
 use log::{debug, trace};
@@ -304,6 +304,7 @@ pub fn create_default_context(
             whole_stream_command(Range),
             whole_stream_command(Rename),
             whole_stream_command(Uniq),
+            per_item_command(Each),
             // Table manipulation
             whole_stream_command(Shuffle),
             whole_stream_command(Wrap),

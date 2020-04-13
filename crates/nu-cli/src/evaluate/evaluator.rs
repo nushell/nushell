@@ -1,13 +1,11 @@
 use crate::context::CommandRegistry;
-use crate::data::base::Block;
 use crate::evaluate::operator::apply_operator;
 use crate::prelude::*;
 use log::trace;
 use nu_errors::{ArgumentError, ShellError};
-use nu_parser::hir::{self, Expression, SpannedExpression};
+use nu_protocol::hir::{self, Expression, SpannedExpression};
 use nu_protocol::{
-    ColumnPath, Evaluate, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue,
-    Value,
+    ColumnPath, Primitive, RangeInclusion, Scope, UnspannedPathMember, UntaggedValue, Value,
 };
 
 pub(crate) fn evaluate_baseline_expr(
@@ -81,11 +79,7 @@ pub(crate) fn evaluate_baseline_expr(
 
             Ok(UntaggedValue::Table(exprs).into_value(tag))
         }
-        Expression::Block(block) => Ok(UntaggedValue::Block(Evaluate::new(Block::new(
-            block.clone(),
-            tag.clone(),
-        )))
-        .into_value(&tag)),
+        Expression::Block(block) => Ok(UntaggedValue::Block(block.clone()).into_value(&tag)),
         Expression::Path(path) => {
             let value = evaluate_baseline_expr(&path.head, registry, scope)?;
             let mut item = value;
@@ -138,8 +132,8 @@ fn evaluate_literal(literal: &hir::Literal, span: Span) -> Value {
                 .into_value(span)
         }
         hir::Literal::Number(int) => match int {
-            nu_parser::hir::Number::Int(i) => UntaggedValue::int(i.clone()).into_value(span),
-            nu_parser::hir::Number::Decimal(d) => {
+            nu_protocol::hir::Number::Int(i) => UntaggedValue::int(i.clone()).into_value(span),
+            nu_protocol::hir::Number::Decimal(d) => {
                 UntaggedValue::decimal(d.clone()).into_value(span)
             }
         },
@@ -166,7 +160,10 @@ fn evaluate_reference(name: &hir::Variable, scope: &Scope, tag: Tag) -> Result<V
     }
 }
 
-fn evaluate_external(external: &hir::ExternalCommand, _scope: &Scope) -> Result<Value, ShellError> {
+fn evaluate_external(
+    external: &hir::ExternalStringCommand,
+    _scope: &Scope,
+) -> Result<Value, ShellError> {
     Err(ShellError::syntax_error(
         "Unexpected external command".spanned(external.name.span),
     ))

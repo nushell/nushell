@@ -1,5 +1,4 @@
-use nu_parser::hir::Number;
-use nu_protocol::Primitive;
+use nu_protocol::{hir::Number, Primitive};
 
 pub fn number(number: impl Into<Number>) -> Primitive {
     let number = number.into();

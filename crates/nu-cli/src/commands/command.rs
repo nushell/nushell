@@ -6,7 +6,7 @@ use crate::prelude::*;
 use derive_new::new;
 use getset::Getters;
 use nu_errors::ShellError;
-use nu_parser::hir;
+use nu_protocol::hir;
 use nu_protocol::{CallInfo, EvaluatedArgs, ReturnValue, Scope, Signature, Value};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
@@ -362,6 +362,14 @@ pub struct EvaluatedCommandArgs {
 impl EvaluatedCommandArgs {
     pub fn nth(&self, pos: usize) -> Option<&Value> {
         self.call_info.args.nth(pos)
+    }
+
+    /// Get the nth positional argument, error if not possible
+    pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
+        match self.call_info.args.nth(pos) {
+            None => Err(ShellError::unimplemented("Better error: expect_nth")),
+            Some(item) => Ok(item),
+        }
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {

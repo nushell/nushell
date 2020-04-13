@@ -3,7 +3,7 @@ use crate::commands::classified::internal::run_internal_command;
 use crate::context::Context;
 use crate::stream::InputStream;
 use nu_errors::ShellError;
-use nu_parser::{ClassifiedCommand, ClassifiedPipeline};
+use nu_protocol::hir::{ClassifiedCommand, ClassifiedPipeline};
 
 pub(crate) async fn run_pipeline(
     pipeline: ClassifiedPipeline,
