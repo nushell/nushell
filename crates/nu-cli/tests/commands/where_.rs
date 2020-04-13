@@ -21,6 +21,24 @@ fn filters_with_nothing_comparison() {
 }
 
 #[test]
+fn explicit_block_condition() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            open sample.db
+            | where table_name == ints
+            | get table_values
+            | first 4
+            | where {= $it.z > 4200}
+            | get z
+            | echo $it
+        "#
+    ));
+
+    assert_eq!(actual, "4253");
+}
+
+#[test]
 fn binary_operator_comparisons() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
