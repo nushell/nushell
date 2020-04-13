@@ -269,6 +269,14 @@ impl Shell for FilesystemShell {
             }
         };
 
+        if sources.is_empty() {
+            return Err(ShellError::labeled_error(
+                "Not matches found",
+                "not matches found",
+                src.tag,
+            ));
+        }
+
         if sources.len() > 1 && !destination.is_dir() {
             return Err(ShellError::labeled_error(
                 "Destination must be a directory when copying multiple files",
