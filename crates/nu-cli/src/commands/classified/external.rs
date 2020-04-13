@@ -654,6 +654,7 @@ async fn did_find_command(name: &str) -> bool {
             let cmd_builtins = [
                 "call", "cls", "color", "date", "dir", "echo", "find", "hostname", "pause",
                 "start", "time", "title", "ver", "copy", "mkdir", "rename", "rd", "rmdir", "type",
+                "mklink",
             ];
 
             cmd_builtins.contains(&name)
