@@ -364,6 +364,14 @@ impl EvaluatedCommandArgs {
         self.call_info.args.nth(pos)
     }
 
+    /// Get the nth positional argument, error if not possible
+    pub fn expect_nth(&self, pos: usize) -> Result<&Value, ShellError> {
+        match self.call_info.args.nth(pos) {
+            None => Err(ShellError::unimplemented("Better error: expect_nth")),
+            Some(item) => Ok(item),
+        }
+    }
+
     pub fn get(&self, name: &str) -> Option<&Value> {
         self.call_info.args.get(name)
     }

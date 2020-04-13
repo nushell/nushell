@@ -1,7 +1,9 @@
 use crate::commands::WholeStreamCommand;
+use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
+use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{Scope, Signature, SyntaxShape};
+use nu_protocol::{hir::ClassifiedCommand, Scope, Signature, SyntaxShape, UntaggedValue, Value};
 
 pub struct SkipWhile;
 
@@ -29,18 +31,51 @@ impl WholeStreamCommand for SkipWhile {
         args: CommandArgs,
         registry: &CommandRegistry,
     ) -> Result<OutputStream, ShellError> {
-        let call_info = args.call_info.clone();
         let registry = registry.clone();
-        let objects = args.input.values.skip_while(move |item| {
-            let call_info = call_info.clone();
-            let call_info = call_info.evaluate(&registry, &Scope::new(item.clone()));
+        let call_info = args.evaluate_once(&registry)?;
 
-            // FIXME, for now just swallow errors when we have an issue
-            let return_value = match call_info {
-                Ok(call_info) => match call_info.args.expect_nth(0) {
-                    Ok(ref v) if v.is_true() => true,
-                    _ => false,
+        let block = call_info.args.expect_nth(0)?.clone();
+
+        let condition = match block {
+            Value {
+                value: UntaggedValue::Block(block),
+                tag,
+            } => match block.list.get(0) {
+                Some(item) => match item {
+                    ClassifiedCommand::Expr(expr) => expr.clone(),
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Expected a condition",
+                            "expected a condition",
+                            tag,
+                        ))
+                    }
                 },
+                None => {
+                    return Err(ShellError::labeled_error(
+                        "Expected a condition",
+                        "expected a condition",
+                        tag,
+                    ));
+                }
+            },
+            Value { tag, .. } => {
+                return Err(ShellError::labeled_error(
+                    "Expected a condition",
+                    "expected a condition",
+                    tag,
+                ));
+            }
+        };
+
+        let objects = call_info.input.values.skip_while(move |item| {
+            let condition = condition.clone();
+            trace!("ITEM = {:?}", item);
+            let result = evaluate_baseline_expr(&*condition, &registry, &Scope::new(item.clone()));
+            trace!("RESULT = {:?}", result);
+
+            let return_value = match result {
+                Ok(ref v) if v.is_true() => true,
                 _ => false,
             };
 

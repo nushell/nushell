@@ -1,8 +1,12 @@
 use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
+use crate::evaluate::evaluate_baseline_expr;
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{CallInfo, ReturnSuccess, Signature, SyntaxShape, Value};
+use nu_protocol::{
+    hir::ClassifiedCommand, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
+    Value,
+};
 
 pub struct Where;
 
@@ -26,11 +30,45 @@ impl PerItemCommand for Where {
     fn run(
         &self,
         call_info: &CallInfo,
-        _registry: &CommandRegistry,
+        registry: &CommandRegistry,
         _raw_args: &RawCommandArgs,
         input: Value,
     ) -> Result<OutputStream, ShellError> {
-        let condition = call_info.args.expect_nth(0)?;
+        let block = call_info.args.expect_nth(0)?.clone();
+
+        let condition = match block {
+            Value {
+                value: UntaggedValue::Block(block),
+                tag,
+            } => match block.list.get(0) {
+                Some(item) => match item {
+                    ClassifiedCommand::Expr(expr) => expr.clone(),
+                    _ => {
+                        return Err(ShellError::labeled_error(
+                            "Expected a condition",
+                            "expected a condition",
+                            tag,
+                        ))
+                    }
+                },
+                None => {
+                    return Err(ShellError::labeled_error(
+                        "Expected a condition",
+                        "expected a condition",
+                        tag,
+                    ));
+                }
+            },
+            Value { tag, .. } => {
+                return Err(ShellError::labeled_error(
+                    "Expected a condition",
+                    "expected a condition",
+                    tag,
+                ));
+            }
+        };
+
+        let condition = evaluate_baseline_expr(&condition, registry, &Scope::new(input.clone()))?;
 
         let stream = match condition.as_bool() {
             Ok(b) => {

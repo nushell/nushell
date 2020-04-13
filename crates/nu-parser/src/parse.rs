@@ -4,7 +4,7 @@ use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
 use crate::signature::SignatureRegistry;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    Binary, ClassifiedCommand, ClassifiedPipeline, Commands, CompareOperator, Expression,
+    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, CompareOperator, Expression,
     ExternalArg, ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member,
     NamedArguments, SpannedExpression, Unit,
 };
@@ -596,10 +596,13 @@ fn classify_positional_arg(
                 }
                 idx += 2;
                 let span = Span::new(lhs.span.start(), rhs.span.end());
-                SpannedExpression::new(
+                let binary = SpannedExpression::new(
                     Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
                     span,
-                )
+                );
+                let mut commands = hir::Commands::new(span);
+                commands.push(ClassifiedCommand::Expr(Box::new(binary)));
+                SpannedExpression::new(Expression::Block(commands), span)
             } else if idx < lite_cmd.args.len() {
                 let (arg, err) =
                     parse_arg(SyntaxShape::FullColumnPath, registry, &lite_cmd.args[idx]);
