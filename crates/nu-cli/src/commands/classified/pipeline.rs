@@ -1,3 +1,4 @@
+use crate::commands::classified::expr::run_expression_block;
 use crate::commands::classified::external::run_external_command;
 use crate::commands::classified::internal::run_internal_command;
 use crate::context::Context;
@@ -21,9 +22,7 @@ pub(crate) async fn run_pipeline(
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            // (Some(ClassifiedCommand::Expr(_)), _) | (_, Some(ClassifiedCommand::Expr(_))) => {
-            //     return Err(ShellError::unimplemented("Expression-only commands"))
-            // }
+            (Some(ClassifiedCommand::Expr(expr)), _) => run_expression_block(*expr, ctx, input)?,
             (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
@@ -38,7 +37,6 @@ pub(crate) async fn run_pipeline(
             }
 
             (None, _) => break,
-            _ => unimplemented!("Not yet implented cases in run_pipeline"),
         };
     }
 

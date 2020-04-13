@@ -459,7 +459,7 @@ fn parse_arg(
                 ),
             }
         }
-        SyntaxShape::Block => {
+        SyntaxShape::Block | SyntaxShape::Condition => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
             let mut chars = lite_arg.item.chars();
@@ -495,15 +495,98 @@ fn parse_arg(
                     )
                 }
             }
-        }
-        SyntaxShape::Condition => {
-            // We have an implied condition, but we can't parse this here
-            // it needed to have been parsed up higher where we have control over more than one arg
-            (
-                garbage(lite_arg.span),
-                Some(ParseError::mismatch("condition", lite_arg.clone())),
-            )
-        }
+        } // SyntaxShape::Condition => {
+          //     // We have an explicit condition, so we parse an expression block
+          //     let mut chars = lite_arg.item.chars();
+          //     match (chars.next(), chars.next_back()) {
+          //         (Some('{'), Some('}')) => {
+          //             // We have a literal block
+          //             let string: String = chars.collect();
+          //             let mut error = None;
+
+          //             // We haven't done much with the inner string, so let's go ahead and work with it
+          //             let lite_pipeline = match lite_parse(&string, lite_arg.span.start() + 1) {
+          //                 Ok(lp) => lp,
+          //                 Err(e) => return (garbage(lite_arg.span), Some(e)),
+          //             };
+
+          //             if lite_pipeline.commands.len() == 1 {
+          //                 let lite_cmd = &lite_pipeline.commands[0];
+
+          //                 if lite_cmd.name.item == "=" {
+          //                     let idx = 0;
+          //                     let expr = if (idx + 2) < lite_cmd.args.len() {
+          //                         let (lhs, err) =
+          //                             parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx]);
+          //                         if error.is_none() {
+          //                             error = err;
+          //                         }
+          //                         let (op, err) = parse_arg(
+          //                             SyntaxShape::Operator,
+          //                             registry,
+          //                             &lite_cmd.args[idx + 1],
+          //                         );
+          //                         if error.is_none() {
+          //                             error = err;
+          //                         }
+          //                         let (rhs, err) =
+          //                             parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx + 2]);
+          //                         if error.is_none() {
+          //                             error = err;
+          //                         }
+          //                         let span = Span::new(lhs.span.start(), rhs.span.end());
+          //                         SpannedExpression::new(
+          //                             Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+          //                             span,
+          //                         )
+          //                     } else if idx < lite_cmd.args.len() {
+          //                         let (arg, err) =
+          //                             parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx]);
+          //                         if error.is_none() {
+          //                             error = err;
+          //                         }
+          //                         arg
+          //                     } else {
+          //                         if error.is_none() {
+          //                             error = Some(ParseError::argument_error(
+          //                                 lite_cmd.name.clone(),
+          //                                 ArgumentError::MissingMandatoryPositional(
+          //                                     "an expression".into(),
+          //                                 ),
+          //                             ))
+          //                         }
+          //                         garbage(lite_cmd.span())
+          //                     };
+          //                     let mut commands = hir::Commands::new(lite_cmd.span());
+          //                     commands.push(ClassifiedCommand::Expr(Box::new(expr)));
+
+          //                     (
+          //                         SpannedExpression::new(Expression::Block(commands), lite_arg.span),
+          //                         error,
+          //                     )
+          //                 } else {
+          //                     (
+          //                         garbage(lite_arg.span),
+          //                         Some(ParseError::mismatch("condition", lite_arg.clone())),
+          //                     )
+          //                 }
+          //             } else {
+          //                 (
+          //                     garbage(lite_arg.span),
+          //                     Some(ParseError::mismatch("condition", lite_arg.clone())),
+          //                 )
+          //             }
+          //         }
+          //         _ => {
+          //             // We have an implied block, but we can't parse this here
+          //             // it needed to have been parsed up higher where we have control over more than one arg
+          //             (
+          //                 garbage(lite_arg.span),
+          //                 Some(ParseError::mismatch("condition", lite_arg.clone())),
+          //             )
+          //         }
+          //     }
+          // }
     }
 }
 
@@ -604,19 +687,19 @@ fn classify_positional_arg(
                 commands.push(ClassifiedCommand::Expr(Box::new(binary)));
                 SpannedExpression::new(Expression::Block(commands), span)
             } else if idx < lite_cmd.args.len() {
-                let (arg, err) =
-                    parse_arg(SyntaxShape::FullColumnPath, registry, &lite_cmd.args[idx]);
-                if error.is_none() {
-                    error = err;
-                }
-                arg
-            } else {
-                // TODO - this needs to get fixed and return an actual error
                 let (arg, err) = parse_arg(SyntaxShape::Condition, registry, &lite_cmd.args[idx]);
                 if error.is_none() {
                     error = err;
                 }
                 arg
+            } else {
+                if error.is_none() {
+                    error = Some(ParseError::argument_error(
+                        lite_cmd.name.clone(),
+                        ArgumentError::MissingMandatoryPositional("condition".into()),
+                    ))
+                }
+                garbage(lite_cmd.span())
             }
         }
         PositionalType::Mandatory(_, shape) => {
@@ -806,6 +889,42 @@ pub fn classify_pipeline(
                     span: Span::new(0, 0),
                 },
             }))
+        } else if lite_cmd.name.item == "=" {
+            let idx = 0;
+            let expr = if (idx + 2) < lite_cmd.args.len() {
+                let (lhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx]);
+                if error.is_none() {
+                    error = err;
+                }
+                let (op, err) = parse_arg(SyntaxShape::Operator, registry, &lite_cmd.args[idx + 1]);
+                if error.is_none() {
+                    error = err;
+                }
+                let (rhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx + 2]);
+                if error.is_none() {
+                    error = err;
+                }
+                let span = Span::new(lhs.span.start(), rhs.span.end());
+                SpannedExpression::new(
+                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                    span,
+                )
+            } else if idx < lite_cmd.args.len() {
+                let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx]);
+                if error.is_none() {
+                    error = err;
+                }
+                arg
+            } else {
+                if error.is_none() {
+                    error = Some(ParseError::argument_error(
+                        lite_cmd.name.clone(),
+                        ArgumentError::MissingMandatoryPositional("an expression".into()),
+                    ))
+                }
+                garbage(lite_cmd.span())
+            };
+            commands.push(ClassifiedCommand::Expr(Box::new(expr)))
         } else if let Some(signature) = registry.get(&lite_cmd.name.item) {
             let (internal_command, err) =
                 classify_internal_command(&lite_cmd, registry, &signature);
