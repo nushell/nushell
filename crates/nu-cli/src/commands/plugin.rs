@@ -71,10 +71,13 @@ pub fn filter_plugin(
 ) -> Result<OutputStream, ShellError> {
     trace!("filter_plugin :: {}", path);
 
-    let args = args.evaluate_once_with_scope(
-        registry,
-        &Scope::it_value(UntaggedValue::string("$it").into_untagged_value()),
-    )?;
+    let scope = &args
+        .call_info
+        .scope
+        .clone()
+        .set_it(UntaggedValue::string("$it").into_untagged_value());
+
+    let args = args.evaluate_once_with_scope(registry, &scope)?;
 
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())

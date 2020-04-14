@@ -7,7 +7,7 @@ use futures_codec::FramedRead;
 use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalArg, ExternalCommand};
-use nu_protocol::{ColumnPath, Primitive, ShellTypeName, UntaggedValue, Value};
+use nu_protocol::{ColumnPath, Primitive, Scope, ShellTypeName, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};
 use nu_value_ext::as_column_path;
 use std::io::Write;
@@ -97,6 +97,7 @@ pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
+    scope: &Scope,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
@@ -718,6 +719,7 @@ mod tests {
     };
     use futures::executor::block_on;
     use nu_errors::ShellError;
+    use nu_protocol::Scope;
     use nu_test_support::commands::ExternalBuilder;
 
     // async fn read(mut stream: OutputStream) -> Option<Value> {
@@ -738,9 +740,11 @@ mod tests {
 
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
-        assert!(run_external_command(cmd, &mut ctx, None, false)
-            .await
-            .is_err());
+        assert!(
+            run_external_command(cmd, &mut ctx, None, &Scope::empty(), false)
+                .await
+                .is_err()
+        );
 
         Ok(())
     }

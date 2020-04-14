@@ -5,11 +5,13 @@ use crate::context::Context;
 use crate::stream::InputStream;
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, ClassifiedPipeline};
+use nu_protocol::Scope;
 
 pub(crate) async fn run_pipeline(
     pipeline: ClassifiedPipeline,
     ctx: &mut Context,
     mut input: Option<InputStream>,
+    scope: &Scope,
 ) -> Result<Option<InputStream>, ShellError> {
     let mut iter = pipeline.commands.list.into_iter().peekable();
 
@@ -22,18 +24,22 @@ pub(crate) async fn run_pipeline(
                 return Err(ShellError::unimplemented("Dynamic commands"))
             }
 
-            (Some(ClassifiedCommand::Expr(expr)), _) => run_expression_block(*expr, ctx, input)?,
+            (Some(ClassifiedCommand::Expr(expr)), _) => {
+                run_expression_block(*expr, ctx, input, scope)?
+            }
             (Some(ClassifiedCommand::Error(err)), _) => return Err(err.into()),
             (_, Some(ClassifiedCommand::Error(err))) => return Err(err.clone().into()),
 
-            (Some(ClassifiedCommand::Internal(left)), _) => run_internal_command(left, ctx, input)?,
+            (Some(ClassifiedCommand::Internal(left)), _) => {
+                run_internal_command(left, ctx, input, scope)?
+            }
 
             (Some(ClassifiedCommand::External(left)), None) => {
-                run_external_command(left, ctx, input, true).await?
+                run_external_command(left, ctx, input, scope, true).await?
             }
 
             (Some(ClassifiedCommand::External(left)), _) => {
-                run_external_command(left, ctx, input, false).await?
+                run_external_command(left, ctx, input, scope, false).await?
             }
 
             (None, _) => break,

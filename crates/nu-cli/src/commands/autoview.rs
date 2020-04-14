@@ -3,7 +3,7 @@ use crate::commands::WholeStreamCommand;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{hir, hir::Expression, hir::Literal, hir::SpannedExpression};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
@@ -287,6 +287,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 span,
             },
             name_tag: context.name.clone(),
+            scope: Scope::empty(),
         },
     }
 }

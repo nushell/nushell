@@ -68,6 +68,7 @@ impl PerItemCommand for Where {
             }
         };
 
+        //FIXME: should we use the scope that's brought in as well?
         let condition = evaluate_baseline_expr(&condition, registry, &Scope::new(input.clone()))?;
 
         let stream = match condition.as_bool() {

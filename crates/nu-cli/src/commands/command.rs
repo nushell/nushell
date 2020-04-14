@@ -16,15 +16,12 @@ use std::sync::atomic::AtomicBool;
 pub struct UnevaluatedCallInfo {
     pub args: hir::Call,
     pub name_tag: Tag,
+    pub scope: Scope,
 }
 
 impl UnevaluatedCallInfo {
-    pub fn evaluate(
-        self,
-        registry: &CommandRegistry,
-        scope: &Scope,
-    ) -> Result<CallInfo, ShellError> {
-        let args = evaluate_args(&self.args, registry, scope)?;
+    pub fn evaluate(self, registry: &CommandRegistry) -> Result<CallInfo, ShellError> {
+        let args = evaluate_args(&self.args, registry, &self.scope)?;
 
         Ok(CallInfo {
             args,
@@ -113,7 +110,7 @@ impl CommandArgs {
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(registry, &Scope::empty())?;
+        let call_info = self.call_info.evaluate(registry)?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -133,7 +130,12 @@ impl CommandArgs {
         let ctrl_c = self.ctrl_c.clone();
         let shell_manager = self.shell_manager.clone();
         let input = self.input;
-        let call_info = self.call_info.evaluate(registry, scope)?;
+        let call_info = UnevaluatedCallInfo {
+            name_tag: self.call_info.name_tag,
+            args: self.call_info.args,
+            scope: scope.clone(),
+        };
+        let call_info = call_info.evaluate(registry)?;
 
         Ok(EvaluatedWholeStreamCommandArgs::new(
             host,
@@ -515,10 +517,16 @@ impl Command {
             .input
             .values
             .map(move |x| {
-                let call_info = raw_args
-                    .clone()
-                    .call_info
-                    .evaluate(&registry, &Scope::it_value(x.clone()));
+                let call_info = UnevaluatedCallInfo {
+                    args: raw_args.call_info.args.clone(),
+                    name_tag: raw_args.call_info.name_tag.clone(),
+                    scope: raw_args.call_info.scope.clone().set_it(x.clone()),
+                }
+                .evaluate(&registry);
+                // let call_info = raw_args
+                //     .clone()
+                //     .call_info
+                //     .evaluate(&registry, &Scope::it_value(x.clone()));
 
                 match call_info {
                     Ok(call_info) => match command.run(&call_info, &registry, &raw_args, x) {
@@ -576,7 +584,7 @@ impl WholeStreamCommand for FnFilterCommand {
 
         let result = input.values.map(move |it| {
             let registry = registry.clone();
-            let call_info = match call_info.clone().evaluate(&registry, &Scope::it_value(it)) {
+            let call_info = match call_info.clone().evaluate(&registry) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,
                 Ok(args) => args,
             };
