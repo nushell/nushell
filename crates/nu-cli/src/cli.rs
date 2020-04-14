@@ -237,25 +237,25 @@ pub fn create_default_context(
     {
         use crate::commands::*;
 
-        // JDT
-        let mut commands = Commands::new(Span::unknown());
-        commands.push(ClassifiedCommand::Expr(Box::new(SpannedExpression::new(
-            Expression::Binary(Box::new(Binary::new(
-                SpannedExpression::new(
-                    Expression::Variable(Variable::Other("a".to_string(), Span::unknown())),
-                    Span::unknown(),
-                ),
-                SpannedExpression::new(
-                    Expression::operator(CompareOperator::LessThan),
-                    Span::unknown(),
-                ),
-                SpannedExpression::new(
-                    Expression::Variable(Variable::Other("b".to_string(), Span::unknown())),
-                    Span::unknown(),
-                ),
-            ))),
-            Span::unknown(),
-        ))));
+        // // JDT
+        // let mut commands = Commands::new(Span::unknown());
+        // commands.push(ClassifiedCommand::Expr(Box::new(SpannedExpression::new(
+        //     Expression::Binary(Box::new(Binary::new(
+        //         SpannedExpression::new(
+        //             Expression::Variable(Variable::Other("a".to_string(), Span::unknown())),
+        //             Span::unknown(),
+        //         ),
+        //         SpannedExpression::new(
+        //             Expression::operator(CompareOperator::LessThan),
+        //             Span::unknown(),
+        //         ),
+        //         SpannedExpression::new(
+        //             Expression::Variable(Variable::Other("b".to_string(), Span::unknown())),
+        //             Span::unknown(),
+        //         ),
+        //     ))),
+        //     Span::unknown(),
+        // ))));
 
         context.add_commands(vec![
             // System/file operations
@@ -366,11 +366,12 @@ pub fn create_default_context(
             whole_stream_command(FromYML),
             whole_stream_command(FromIcs),
             whole_stream_command(FromVcf),
-            per_item_command(AliasCommand::new(
-                "testme".into(),
-                vec!["a".to_string(), "b".to_string()],
-                commands,
-            )),
+            per_item_command(Alias),
+            // per_item_command(AliasCommand::new(
+            //     "testme".into(),
+            //     vec!["a".to_string(), "b".to_string()],
+            //     commands,
+            // )),
         ]);
 
         cfg_if::cfg_if! {

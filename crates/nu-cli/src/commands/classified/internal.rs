@@ -1,3 +1,5 @@
+use crate::commands::command::per_item_command;
+use crate::commands::run_alias::AliasCommand;
 use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
@@ -122,6 +124,15 @@ pub(crate) fn run_internal_command(
                         context.shell_manager.insert_at_current(Box::new(
                             FilesystemShell::with_location(location, context.registry().clone()),
                         ));
+                    }
+                    CommandAction::AddAlias(name, args, commands) => {
+                        context.add_commands(vec![
+                            per_item_command(AliasCommand::new(
+                                name,
+                                args,
+                                commands,
+                            ))
+                        ]);
                     }
                     CommandAction::PreviousShell => {
                         context.shell_manager.prev();
