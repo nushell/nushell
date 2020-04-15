@@ -5,7 +5,7 @@ use crate::commands::mkdir::MkdirArgs;
 use crate::commands::mv::MoveArgs;
 use crate::commands::rm::RemoveArgs;
 use crate::data::dir_entry_dict;
-use crate::path::{canonicalize_existing, normalize};
+use crate::path::canonicalize;
 use crate::prelude::*;
 use crate::shell::completer::NuCompleter;
 use crate::shell::shell::Shell;
@@ -105,7 +105,7 @@ impl Shell for FilesystemShell {
         let (path, p_tag) = match path {
             Some(p) => {
                 let p_tag = p.tag;
-                let mut p = normalize(p.item);
+                let mut p = p.item;
                 if p.is_dir() {
                     if is_empty_dir(&p) {
                         return Ok(OutputStream::empty());
@@ -188,7 +188,7 @@ impl Shell for FilesystemShell {
                 if target == Path::new("-") {
                     PathBuf::from(&self.last_path)
                 } else {
-                    let path = canonicalize_existing(self.path(), target).map_err(|_| {
+                    let path = canonicalize(self.path(), target).map_err(|_| {
                         ShellError::labeled_error(
                             "Cannot change to directory",
                             "directory not found",
@@ -255,8 +255,8 @@ impl Shell for FilesystemShell {
         let name_tag = name;
 
         let path = Path::new(path);
-        let source = normalize(path.join(&src.item));
-        let mut destination = normalize(path.join(&dst.item));
+        let source = path.join(&src.item);
+        let mut destination = path.join(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -535,7 +535,7 @@ impl Shell for FilesystemShell {
         }
 
         for dir in directories.iter() {
-            let create_at = normalize(path.join(&dir.item));
+            let create_at = path.join(&dir.item);
 
             let dir_res = std::fs::create_dir_all(create_at);
             if let Err(reason) = dir_res {
@@ -559,8 +559,8 @@ impl Shell for FilesystemShell {
         let name_tag = name;
 
         let path = Path::new(path);
-        let source = normalize(path.join(&src.item));
-        let mut destination = normalize(path.join(&dst.item));
+        let source = path.join(&src.item);
+        let mut destination = path.join(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -978,7 +978,7 @@ impl Shell for FilesystemShell {
                 ));
             }
 
-            let path = normalize(path.join(&target.item));
+            let path = path.join(&target.item);
             match glob::glob(&path.to_string_lossy()) {
                 Ok(files) => {
                     for file in files {
