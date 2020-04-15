@@ -1,14 +1,17 @@
+use crate::commands::command::per_item_command;
+use crate::commands::run_alias::AliasCommand;
 use crate::commands::UnevaluatedCallInfo;
 use crate::prelude::*;
 use log::{log_enabled, trace};
 use nu_errors::ShellError;
 use nu_protocol::hir::InternalCommand;
-use nu_protocol::{CommandAction, Primitive, ReturnSuccess, UntaggedValue, Value};
+use nu_protocol::{CommandAction, Primitive, ReturnSuccess, Scope, UntaggedValue, Value};
 
 pub(crate) fn run_internal_command(
     command: InternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
+    scope: &Scope,
 ) -> Result<Option<InputStream>, ShellError> {
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::internal", "->");
@@ -28,6 +31,7 @@ pub(crate) fn run_internal_command(
             internal_command?,
             Tag::unknown_anchor(command.name_span),
             command.args.clone(),
+            scope,
             objects,
         )
     };
@@ -68,6 +72,7 @@ pub(crate) fn run_internal_command(
                                         span: Span::unknown()
                                     },
                                     name_tag: Tag::unknown_anchor(command.name_span),
+                                    scope: Scope::empty(),
                                 }
                             };
                             let mut result = converter.run(new_args.with_input(vec![tagged_contents]), &context.registry);
@@ -119,6 +124,15 @@ pub(crate) fn run_internal_command(
                         context.shell_manager.insert_at_current(Box::new(
                             FilesystemShell::with_location(location, context.registry().clone()),
                         ));
+                    }
+                    CommandAction::AddAlias(name, args, commands) => {
+                        context.add_commands(vec![
+                            per_item_command(AliasCommand::new(
+                                name,
+                                args,
+                                commands,
+                            ))
+                        ]);
                     }
                     CommandAction::PreviousShell => {
                         context.shell_manager.prev();

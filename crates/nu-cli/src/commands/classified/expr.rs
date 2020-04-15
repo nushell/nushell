@@ -11,7 +11,9 @@ pub(crate) fn run_expression_block(
     expr: SpannedExpression,
     context: &mut Context,
     input: Option<InputStream>,
+    scope: &Scope,
 ) -> Result<Option<InputStream>, ShellError> {
+    let scope = scope.clone();
     if log_enabled!(log::Level::Trace) {
         trace!(target: "nu::run::expr", "->");
         trace!(target: "nu::run::expr", "{:?}", expr);
@@ -25,10 +27,11 @@ pub(crate) fn run_expression_block(
             pin_mut!(values);
 
             while let Some(row) = values.next().await {
-                yield evaluate_baseline_expr(&expr, &registry, &Scope::new(row));
+                let scope = scope.clone().set_it(row);
+                yield evaluate_baseline_expr(&expr, &registry, &scope);
             }
         } else {
-            yield evaluate_baseline_expr(&expr, &registry, &Scope::empty());
+            yield evaluate_baseline_expr(&expr, &registry, &scope);
         }
     };
 

@@ -5,7 +5,8 @@ use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ClassifiedPipeline, CallInfo, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
+    hir::ClassifiedPipeline, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue,
+    Value,
 };
 
 pub struct Each;
@@ -52,6 +53,7 @@ impl PerItemCommand for Each {
                         ClassifiedPipeline::new(block.clone(), None),
                         &mut context,
                         Some(input_stream),
+                        &Scope::empty(),
                     ).await;
 
                     match result {

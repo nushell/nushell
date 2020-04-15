@@ -1,7 +1,7 @@
 use crate::commands::{UnevaluatedCallInfo, WholeStreamCommand};
 use crate::prelude::*;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, SyntaxShape, UntaggedValue, Value};
 use nu_source::Tagged;
 use std::path::{Path, PathBuf};
 
@@ -235,6 +235,7 @@ fn save(
                                     span: Span::unknown()
                                 },
                                 name_tag: raw_args.call_info.name_tag,
+                                scope: Scope::empty(), // FIXME?
                             }
                         };
                         let mut result = converter.run(new_args.with_input(input), &registry);

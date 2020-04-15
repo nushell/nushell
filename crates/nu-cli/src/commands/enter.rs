@@ -104,6 +104,7 @@ impl PerItemCommand for Enter {
                                                     span: Span::unknown()
                                                 },
                                                 name_tag: raw_args.call_info.name_tag,
+                                                scope: raw_args.call_info.scope.clone()
                                             },
                                         };
                                         let mut result = converter.run(

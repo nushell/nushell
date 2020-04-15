@@ -3,7 +3,7 @@ use crate::prelude::*;
 use derive_new::new;
 use log::trace;
 use nu_errors::ShellError;
-use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, Scope, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, ReturnValue, Signature, UntaggedValue, Value};
 use serde::{self, Deserialize, Serialize};
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -71,10 +71,13 @@ pub fn filter_plugin(
 ) -> Result<OutputStream, ShellError> {
     trace!("filter_plugin :: {}", path);
 
-    let args = args.evaluate_once_with_scope(
-        registry,
-        &Scope::it_value(UntaggedValue::string("$it").into_untagged_value()),
-    )?;
+    let scope = &args
+        .call_info
+        .scope
+        .clone()
+        .set_it(UntaggedValue::string("$it").into_untagged_value());
+
+    let args = args.evaluate_once_with_scope(registry, &scope)?;
 
     let mut child = std::process::Command::new(path)
         .stdin(std::process::Stdio::piped())

@@ -4,6 +4,7 @@ pub(crate) mod macros;
 mod from_delimited_data;
 mod to_delimited_data;
 
+pub(crate) mod alias;
 pub(crate) mod append;
 pub(crate) mod args;
 pub(crate) mod autoview;
@@ -75,6 +76,7 @@ pub(crate) mod reject;
 pub(crate) mod rename;
 pub(crate) mod reverse;
 pub(crate) mod rm;
+pub(crate) mod run_alias;
 pub(crate) mod save;
 pub(crate) mod shells;
 pub(crate) mod shuffle;
@@ -115,6 +117,7 @@ pub(crate) use command::{
     WholeStreamCommand,
 };
 
+pub(crate) use alias::Alias;
 pub(crate) use append::Append;
 pub(crate) use calc::Calc;
 pub(crate) use compact::Compact;

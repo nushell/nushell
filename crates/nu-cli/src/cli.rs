@@ -11,7 +11,7 @@ use futures_codec::FramedRead;
 
 use nu_errors::ShellError;
 use nu_protocol::hir::{ClassifiedCommand, ExternalCommand};
-use nu_protocol::{Primitive, ReturnSuccess, Signature, UntaggedValue, Value};
+use nu_protocol::{Primitive, ReturnSuccess, Scope, Signature, UntaggedValue, Value};
 
 use log::{debug, trace};
 use rustyline::error::ReadlineError;
@@ -258,6 +258,7 @@ pub fn create_default_context(
             whole_stream_command(What),
             whole_stream_command(Which),
             whole_stream_command(Debug),
+            per_item_command(Alias),
             // Statistics
             whole_stream_command(Size),
             whole_stream_command(Count),
@@ -442,6 +443,29 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
     })
     .expect("Error setting Ctrl-C handler");
     let mut ctrlcbreak = false;
+
+    // before we start up, let's run our startup commands
+    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+        if let Some(commands) = config.get("startup") {
+            match commands {
+                Value {
+                    value: UntaggedValue::Table(pipelines),
+                    ..
+                } => {
+                    for pipeline in pipelines {
+                        if let Ok(pipeline_string) = pipeline.as_string() {
+                            let _ =
+                                run_pipeline_standalone(pipeline_string, false, &mut context).await;
+                        }
+                    }
+                }
+                _ => {
+                    println!("warning: expected a table of pipeline strings as startup commands");
+                }
+            }
+        }
+    }
+
     loop {
         if context.ctrl_c.load(Ordering::SeqCst) {
             context.ctrl_c.store(false, Ordering::SeqCst);
@@ -712,7 +736,7 @@ async fn process_line(
                 None
             };
 
-            match run_pipeline(pipeline, ctx, input_stream).await {
+            match run_pipeline(pipeline, ctx, input_stream, &Scope::empty()).await {
                 Ok(Some(input)) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
