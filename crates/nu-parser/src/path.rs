@@ -38,11 +38,15 @@ mod tests {
 
     #[test]
     fn expand_in_relative_path() {
-        assert_eq!(String::from("../.."), expand_path("..."));
+        let expected = Path::new("../..");
+        let expanded = PathBuf::from(expand_path("..."));
+        assert_eq!(expected, &expanded);
     }
 
     #[test]
     fn expand_in_absolute_path() {
-        assert_eq!(String::from("/foo/../.."), expand_path("/foo/..."));
+        let expected = Path::new("/foo/../..");
+        let expanded = PathBuf::from(expand_path("/foo/..."));
+        assert_eq!(expected, &expanded);
     }
 }
