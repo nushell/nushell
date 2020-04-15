@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
+use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
@@ -373,7 +374,7 @@ fn parse_arg(
         }
         SyntaxShape::Pattern => {
             let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = shellexpand::tilde(&trimmed).to_string();
+            let expanded = expand_path(&trimmed);
             (
                 SpannedExpression::new(Expression::pattern(expanded), lite_arg.span),
                 None,
@@ -385,7 +386,7 @@ fn parse_arg(
         SyntaxShape::Unit => parse_unit(&lite_arg),
         SyntaxShape::Path => {
             let trimmed = trim_quotes(&lite_arg.item);
-            let expanded = shellexpand::tilde(&trimmed).to_string();
+            let expanded = expand_path(&trimmed);
             let path = Path::new(&expanded);
             (
                 SpannedExpression::new(Expression::FilePath(path.to_path_buf()), lite_arg.span),
@@ -844,7 +845,7 @@ pub fn classify_pipeline(
             commands.push(ClassifiedCommand::Internal(internal_command))
         } else {
             let trimmed = trim_quotes(&lite_cmd.name.item);
-            let name = shellexpand::tilde(&trimmed).to_string();
+            let name = expand_path(&trimmed);
             // This is an external command we should allow arguments to pass through with minimal parsing
             commands.push(ClassifiedCommand::External(ExternalCommand {
                 name,

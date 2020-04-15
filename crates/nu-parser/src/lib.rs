@@ -1,6 +1,7 @@
 mod files;
 mod lite_parse;
 mod parse;
+mod path;
 mod shapes;
 mod signature;
 
