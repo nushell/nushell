@@ -368,6 +368,54 @@ pub fn create_default_context(
     Ok(context)
 }
 
+pub async fn run_vec_of_pipelines(
+    pipelines: Vec<String>,
+    redirect_stdin: bool,
+) -> Result<(), Box<dyn Error>> {
+    let mut syncer = crate::EnvironmentSyncer::new();
+    let mut context = crate::create_default_context(&mut syncer)?;
+
+    let _ = crate::load_plugins(&mut context);
+
+    let cc = context.ctrl_c.clone();
+
+    ctrlc::set_handler(move || {
+        cc.store(true, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    if context.ctrl_c.load(Ordering::SeqCst) {
+        context.ctrl_c.store(false, Ordering::SeqCst);
+    }
+
+    // before we start up, let's run our startup commands
+    if let Ok(config) = crate::data::config::config(Tag::unknown()) {
+        if let Some(commands) = config.get("startup") {
+            match commands {
+                Value {
+                    value: UntaggedValue::Table(pipelines),
+                    ..
+                } => {
+                    for pipeline in pipelines {
+                        if let Ok(pipeline_string) = pipeline.as_string() {
+                            let _ =
+                                run_pipeline_standalone(pipeline_string, false, &mut context).await;
+                        }
+                    }
+                }
+                _ => {
+                    println!("warning: expected a table of pipeline strings as startup commands");
+                }
+            }
+        }
+    }
+
+    for pipeline in pipelines {
+        run_pipeline_standalone(pipeline, redirect_stdin, &mut context).await?;
+    }
+    Ok(())
+}
+
 pub async fn run_pipeline_standalone(
     pipeline: String,
     redirect_stdin: bool,

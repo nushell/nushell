@@ -28,7 +28,9 @@ mod shell;
 mod stream;
 mod utils;
 
-pub use crate::cli::{cli, create_default_context, load_plugins, run_pipeline_standalone};
+pub use crate::cli::{
+    cli, create_default_context, load_plugins, run_pipeline_standalone, run_vec_of_pipelines,
+};
 pub use crate::data::dict::TaggedListBuilder;
 pub use crate::data::primitive;
 pub use crate::data::value;
