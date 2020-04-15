@@ -1,12 +1,9 @@
-use crate::commands::classified::pipeline::run_pipeline;
-
 use crate::commands::PerItemCommand;
 use crate::context::CommandRegistry;
 use crate::prelude::*;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ClassifiedPipeline, CallInfo, CommandAction, Primitive, ReturnSuccess, Scope, Signature,
-    SyntaxShape, UntaggedValue, Value,
+    CallInfo, CommandAction, Primitive, ReturnSuccess, Signature, SyntaxShape, UntaggedValue, Value,
 };
 
 pub struct Alias;
@@ -30,13 +27,11 @@ impl PerItemCommand for Alias {
     fn run(
         &self,
         call_info: &CallInfo,
-        registry: &CommandRegistry,
-        raw_args: &RawCommandArgs,
-        input: Value,
+        _registry: &CommandRegistry,
+        _raw_args: &RawCommandArgs,
+        _input: Value,
     ) -> Result<OutputStream, ShellError> {
         let call_info = call_info.clone();
-        let registry = registry.clone();
-        let raw_args = raw_args.clone();
         let stream = async_stream! {
             match (call_info.args.expect_nth(0)?, call_info.args.expect_nth(1)?, call_info.args.expect_nth(2)?) {
                 (Value {value: UntaggedValue::Primitive(Primitive::String(name)), .. },
@@ -45,7 +40,14 @@ impl PerItemCommand for Alias {
                     value: UntaggedValue::Block(block),
                     tag
                 }) => {
-                    let args: Vec<String> = list.iter().map(|x| format!("${}", x.as_string().expect("Couldn't convert to string"))).collect();
+                    let mut args: Vec<String> = vec![];
+                    for item in list.iter() {
+                        if let Ok(string) = item.as_string() {
+                            args.push(format!("${}", string));
+                        } else {
+                            yield Err(ShellError::labeled_error("Expected a string", "expected a string", item.tag()));
+                        }
+                    }
                     yield ReturnSuccess::action(CommandAction::AddAlias(name.to_string(), args, block.clone()))
                 }
                 _ => {

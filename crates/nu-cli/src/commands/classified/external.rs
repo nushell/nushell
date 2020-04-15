@@ -97,7 +97,7 @@ pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
     input: Option<InputStream>,
-    scope: &Scope,
+    _scope: &Scope,
     is_last: bool,
 ) -> Result<Option<InputStream>, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);

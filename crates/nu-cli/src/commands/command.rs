@@ -29,6 +29,21 @@ impl UnevaluatedCallInfo {
         })
     }
 
+    pub fn evaluate_with_new_it(
+        self,
+        registry: &CommandRegistry,
+        it: &Value,
+    ) -> Result<CallInfo, ShellError> {
+        let mut scope = self.scope.clone();
+        scope = scope.set_it(it.clone());
+        let args = evaluate_args(&self.args, registry, &scope)?;
+
+        Ok(CallInfo {
+            args,
+            name_tag: self.name_tag,
+        })
+    }
+
     pub fn switch_present(&self, switch: &str) -> bool {
         self.args.switch_preset(switch)
     }
@@ -584,7 +599,7 @@ impl WholeStreamCommand for FnFilterCommand {
 
         let result = input.values.map(move |it| {
             let registry = registry.clone();
-            let call_info = match call_info.clone().evaluate(&registry) {
+            let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,
                 Ok(args) => args,
             };

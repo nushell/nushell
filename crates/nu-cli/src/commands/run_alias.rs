@@ -2,16 +2,11 @@ use crate::commands::classified::pipeline::run_pipeline;
 use crate::prelude::*;
 
 use derive_new::new;
-use log::trace;
 use nu_errors::ShellError;
 use nu_protocol::{
-    hir::ClassifiedPipeline, hir::Commands, CallInfo, Primitive, ReturnSuccess, ReturnValue, Scope,
-    Signature, SyntaxShape, UntaggedValue, Value,
+    hir::ClassifiedPipeline, hir::Commands, CallInfo, ReturnSuccess, Scope, Signature, SyntaxShape,
+    Value,
 };
-use serde::{self, Deserialize, Serialize};
-use std::io::prelude::*;
-use std::io::BufReader;
-use std::io::Write;
 
 #[derive(new)]
 pub struct AliasCommand {
