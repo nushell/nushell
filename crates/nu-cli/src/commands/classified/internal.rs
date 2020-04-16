@@ -152,7 +152,8 @@ pub(crate) fn run_internal_command(
                     value: UntaggedValue::Error(err),
                     ..
                 })) => {
-                    context.error(err);
+                    context.error(err.clone());
+                    yield Err(err);
                     break;
                 }
 

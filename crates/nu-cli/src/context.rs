@@ -147,6 +147,10 @@ impl Context {
         self.with_errors(|errors| errors.push(error))
     }
 
+    pub(crate) fn get_errors(&self) -> Vec<ShellError> {
+        self.current_errors.lock().clone()
+    }
+
     pub(crate) fn maybe_print_errors(&mut self, source: Text) -> bool {
         let errors = self.current_errors.clone();
         let mut errors = errors.lock();

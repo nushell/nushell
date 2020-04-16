@@ -45,6 +45,7 @@ impl PerItemCommand for Each {
                     tag
                 } => {
                     let mut context = Context::from_raw(&raw_args, &registry);
+                    let input_clone = input.clone();
                     let input_stream = async_stream! {
                         yield Ok(input.clone())
                     }.to_input_stream();
@@ -53,12 +54,17 @@ impl PerItemCommand for Each {
                         ClassifiedPipeline::new(block.clone(), None),
                         &mut context,
                         Some(input_stream),
-                        &Scope::empty(),
+                        &Scope::new(input_clone),
                     ).await;
 
                     match result {
                         Ok(Some(v)) => {
                             let results: Vec<Value> = v.collect().await;
+                            let errors = context.get_errors();
+                            if let Some(error) = errors.first() {
+                                yield Err(error.clone());
+                                return;
+                            }
 
                             for result in results {
                                 yield Ok(ReturnSuccess::Value(result));
