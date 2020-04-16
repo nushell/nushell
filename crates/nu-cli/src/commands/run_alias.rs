@@ -47,7 +47,7 @@ impl PerItemCommand for AliasCommand {
         let raw_args = raw_args.clone();
         let block = self.block.clone();
 
-        let mut scope = Scope::empty();
+        let mut scope = Scope::it_value(input.clone());
         if let Some(positional) = &call_info.args.positional {
             for (pos, arg) in positional.iter().enumerate() {
                 scope = scope.set_var(self.args[pos].to_string(), arg.clone());
@@ -70,6 +70,11 @@ impl PerItemCommand for AliasCommand {
             match result {
                 Ok(Some(v)) => {
                     let results: Vec<Value> = v.collect().await;
+                    let errors = context.get_errors();
+                    if let Some(error) = errors.first() {
+                        yield Err(error.clone());
+                        return;
+                    }
 
                     for result in results {
                         yield Ok(ReturnSuccess::Value(result));
