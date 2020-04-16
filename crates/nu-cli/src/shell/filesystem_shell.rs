@@ -129,8 +129,8 @@ impl Shell for FilesystemShell {
 
         if paths.peek().is_none() {
             return Err(ShellError::labeled_error(
-                "Not matches found",
-                "not matches found",
+                "No matches found",
+                "no matches found",
                 &p_tag,
             ));
         }
@@ -271,8 +271,8 @@ impl Shell for FilesystemShell {
 
         if sources.is_empty() {
             return Err(ShellError::labeled_error(
-                "Not matches found",
-                "not matches found",
+                "No matches found",
+                "no matches found",
                 src.tag,
             ));
         }
