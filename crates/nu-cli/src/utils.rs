@@ -1,6 +1,6 @@
 pub mod data_processing;
 
-use crate::path::canonicalize_existing;
+use crate::path::canonicalize;
 use nu_errors::ShellError;
 use nu_protocol::{UntaggedValue, Value};
 use std::path::{Component, Path, PathBuf};
@@ -139,7 +139,7 @@ impl FileStructure {
     }
 
     fn build(&mut self, src: &Path, lvl: usize) -> Result<(), ShellError> {
-        let source = canonicalize_existing(std::env::current_dir()?, src)?;
+        let source = canonicalize(std::env::current_dir()?, src)?;
 
         if source.is_dir() {
             for entry in std::fs::read_dir(src)? {

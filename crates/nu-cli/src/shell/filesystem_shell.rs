@@ -256,7 +256,7 @@ impl Shell for FilesystemShell {
 
         let path = Path::new(path);
         let source = path.join(&src.item);
-        let mut destination = path.join(&dst.item);
+        let destination = path.join(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
@@ -306,7 +306,7 @@ impl Shell for FilesystemShell {
                 if entry.is_file() {
                     let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
                         if destination.is_dir() {
-                            let mut dest = canonicalize_existing(&path, &dst.item)?;
+                            let mut dest = canonicalize(&path, &dst.item)?;
                             if let Some(name) = entry.file_name() {
                                 dest.push(name);
                             }
@@ -345,7 +345,7 @@ impl Shell for FilesystemShell {
 
                     let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                         let mut dest = destination.clone();
-                        let path = canonicalize_existing(&path, &source_file)?;
+                        let path = canonicalize(&path, &source_file)?;
 
                         let comps: Vec<_> = path
                             .components()
