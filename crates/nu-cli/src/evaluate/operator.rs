@@ -26,6 +26,14 @@ pub fn apply_operator(
         Operator::Multiply => value::compute_values(op, left, right),
         Operator::Divide => value::compute_values(op, left, right),
         Operator::In => table_contains(left, right).map(UntaggedValue::boolean),
+        Operator::And => match (left.as_bool(), right.as_bool()) {
+            (Ok(left), Ok(right)) => Ok(UntaggedValue::boolean(left && right)),
+            _ => Err((left.type_name(), right.type_name())),
+        },
+        Operator::Or => match (left.as_bool(), right.as_bool()) {
+            (Ok(left), Ok(right)) => Ok(UntaggedValue::boolean(left || right)),
+            _ => Err((left.type_name(), right.type_name())),
+        },
     }
 }
 

@@ -463,6 +463,8 @@ impl SpannedExpression {
                     | Operator::Equal
                     | Operator::NotEqual
                     | Operator::In => 80,
+                    Operator::And => 50,
+                    Operator::Or => 40, // TODO: should we have And and Or be different precedence?
                 }
             }
             _ => 0,
@@ -599,6 +601,8 @@ pub enum Operator {
     Multiply,
     Divide,
     In,
+    And,
+    Or,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]

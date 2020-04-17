@@ -7,8 +7,8 @@ use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, ExternalArg,
-    ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member, NamedArguments,
-    Operator, SpannedExpression, Unit,
+    ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Literal, Member,
+    NamedArguments, Operator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
@@ -245,6 +245,10 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
         Operator::Divide
     } else if lite_arg.item == "in:" {
         Operator::In
+    } else if lite_arg.item == "&&" {
+        Operator::And
+    } else if lite_arg.item == "||" {
+        Operator::Or
     } else {
         return (
             garbage(lite_arg.span),
@@ -574,23 +578,50 @@ fn get_flags_from_flag(
     }
 }
 
+fn shorthand_reparse(
+    left: SpannedExpression,
+    registry: &dyn SignatureRegistry,
+    shorthand_mode: bool,
+) -> (SpannedExpression, Option<ParseError>) {
+    let mut error = None;
+    let left = if shorthand_mode {
+        // We know we have a left-hand value, and if we're in shorthand mode we may need to re-parse it
+        if let Expression::Literal(Literal::String(s)) = left.expr {
+            let (lhs, err) =
+                parse_arg(SyntaxShape::FullColumnPath, registry, &s.spanned(left.span));
+            if error.is_none() {
+                error = err;
+            }
+            lhs
+        } else {
+            left
+        }
+    } else {
+        left
+    };
+
+    (left, error)
+}
+
 fn parse_math_expression(
     incoming_idx: usize,
     lite_args: &[Spanned<String>],
     registry: &dyn SignatureRegistry,
-    initial_is_path: bool,
+    shorthand_mode: bool,
 ) -> (usize, SpannedExpression, Option<ParseError>) {
+    // Precedence parsing is included
+    // Some notes:
+    //   * short_hand mode means that the left-hand side of an expression can point to a column-path. To make this possible,
+    //     we parse as normal, but then go back and when we detect a left-hand side, reparse that value if it's a string
+    //   * parens are handled earlier, so they're not handled explicitly here
+
     let mut idx = 0;
     let mut error = None;
 
     let mut working_exprs = vec![];
     let mut prec = vec![];
 
-    let (lhs, err) = if initial_is_path {
-        parse_arg(SyntaxShape::FullColumnPath, registry, &lite_args[idx])
-    } else {
-        parse_arg(SyntaxShape::Any, registry, &lite_args[idx])
-    };
+    let (lhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_args[idx]);
 
     if error.is_none() {
         error = err;
@@ -625,12 +656,27 @@ fn parse_math_expression(
                 prec.push(next_prec);
                 working_exprs.push(op);
                 working_exprs.push(rhs);
-            } else if working_exprs.len() > 1 {
-                while *prec.last().expect("This shouldn't happen") >= next_prec {
+            } else {
+                while !prec.is_empty()
+                    && *prec.last().expect("This shouldn't happen") >= next_prec
+                    && next_prec > 0 // Not garbage
+                    && working_exprs.len() >= 3
+                {
                     // Pop 3 and create and expression, push and repeat
+                    trace!(
+                        "idx: {} working_exprs: {:#?} prec: {:?}",
+                        idx,
+                        working_exprs,
+                        prec
+                    );
                     let right = working_exprs.pop().expect("This shouldn't be possible");
                     let op = working_exprs.pop().expect("This shouldn't be possible");
                     let left = working_exprs.pop().expect("This shouldn't be possible");
+
+                    let (left, err) = shorthand_reparse(left, registry, shorthand_mode);
+                    if error.is_none() {
+                        error = err;
+                    }
 
                     let span = Span::new(left.span.start(), right.span.end());
                     working_exprs.push(SpannedExpression {
@@ -653,14 +699,20 @@ fn parse_math_expression(
             }
             working_exprs.push(garbage(op.span));
             working_exprs.push(garbage(op.span));
+            prec.push(0);
         }
     }
 
-    while working_exprs.len() > 1 {
+    while working_exprs.len() >= 3 {
         // Pop 3 and create and expression, push and repeat
         let right = working_exprs.pop().expect("This shouldn't be possible");
         let op = working_exprs.pop().expect("This shouldn't be possible");
         let left = working_exprs.pop().expect("This shouldn't be possible");
+
+        let (left, err) = shorthand_reparse(left, registry, shorthand_mode);
+        if error.is_none() {
+            error = err;
+        }
 
         let span = Span::new(left.span.start(), right.span.end());
         working_exprs.push(SpannedExpression {
@@ -669,11 +721,13 @@ fn parse_math_expression(
         });
     }
 
-    (
-        incoming_idx + idx,
-        working_exprs.pop().expect("This shouldn't be possible"),
-        error,
-    )
+    let left = working_exprs.pop().expect("This shouldn't be possible");
+    let (left, err) = shorthand_reparse(left, registry, shorthand_mode);
+    if error.is_none() {
+        error = err;
+    }
+
+    (incoming_idx + idx, left, error)
 }
 
 fn classify_positional_arg(
