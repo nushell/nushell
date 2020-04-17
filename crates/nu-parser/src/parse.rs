@@ -609,7 +609,7 @@ fn parse_math_expression(
 
         if idx < lite_args.len() {
             trace!(
-                "idx: {} working_exprs: {:?} prec: {:?}",
+                "idx: {} working_exprs: {:#?} prec: {:?}",
                 idx,
                 working_exprs,
                 prec
@@ -639,14 +639,8 @@ fn parse_math_expression(
                     });
                     prec.pop();
                 }
-                let lhs = working_exprs.pop().expect("This shouldn't be possible");
-                let span = Span::new(lhs.span.start(), rhs.span.end());
-                let binary = SpannedExpression::new(
-                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                    span,
-                );
-                working_exprs.push(binary);
-                prec.pop();
+                working_exprs.push(op);
+                working_exprs.push(rhs);
             }
 
             idx += 1;
