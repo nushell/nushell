@@ -69,15 +69,15 @@ impl NuCompleter {
 
         for command in commands.iter() {
             let mut pos = replace_pos;
-            let mut matched = true;
+            let mut matched = false;
             if pos < line_chars.len() {
                 for chr in command.chars() {
                     if line_chars[pos] != chr {
-                        matched = false;
                         break;
                     }
                     pos += 1;
                     if pos == line_chars.len() {
+                        matched = true;
                         break;
                     }
                 }

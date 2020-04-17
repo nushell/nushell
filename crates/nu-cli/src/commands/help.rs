@@ -76,6 +76,12 @@ impl PerItemCommand for Help {
                     return Ok(
                         get_help(&command.name(), &command.usage(), command.signature()).into(),
                     );
+                } else {
+                    return Err(ShellError::labeled_error(
+                        "Can't find command (use 'help commands' for full list)",
+                        "can't find command",
+                        tag,
+                    ));
                 }
                 let help = futures::stream::iter(help);
                 Ok(help.to_output_stream())
