@@ -398,8 +398,13 @@ pub async fn run_vec_of_pipelines(
                 } => {
                     for pipeline in pipelines {
                         if let Ok(pipeline_string) = pipeline.as_string() {
-                            let _ =
-                                run_pipeline_standalone(pipeline_string, false, &mut context).await;
+                            let _ = run_pipeline_standalone(
+                                pipeline_string,
+                                false,
+                                &mut context,
+                                false,
+                            )
+                            .await;
                         }
                     }
                 }
@@ -411,7 +416,7 @@ pub async fn run_vec_of_pipelines(
     }
 
     for pipeline in pipelines {
-        run_pipeline_standalone(pipeline, redirect_stdin, &mut context).await?;
+        run_pipeline_standalone(pipeline, redirect_stdin, &mut context, true).await?;
     }
     Ok(())
 }
@@ -420,6 +425,7 @@ pub async fn run_pipeline_standalone(
     pipeline: String,
     redirect_stdin: bool,
     context: &mut Context,
+    exit_on_error: bool,
 ) -> Result<(), Box<dyn Error>> {
     let line = process_line(Ok(pipeline), context, redirect_stdin, false).await;
 
@@ -448,7 +454,9 @@ pub async fn run_pipeline_standalone(
             });
 
             context.maybe_print_errors(Text::from(line));
-            std::process::exit(1);
+            if exit_on_error {
+                std::process::exit(1);
+            }
         }
 
         _ => {}
@@ -502,8 +510,13 @@ pub async fn cli() -> Result<(), Box<dyn Error>> {
                 } => {
                     for pipeline in pipelines {
                         if let Ok(pipeline_string) = pipeline.as_string() {
-                            let _ =
-                                run_pipeline_standalone(pipeline_string, false, &mut context).await;
+                            let _ = run_pipeline_standalone(
+                                pipeline_string,
+                                false,
+                                &mut context,
+                                false,
+                            )
+                            .await;
                         }
                     }
                 }

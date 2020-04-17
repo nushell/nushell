@@ -444,6 +444,8 @@ fn spawn(
             process.arg("/c");
             process.arg(&command.name);
             for arg in args {
+                // Clean the args before we use them:
+                let arg = arg.replace("|", "\\|");
                 process.arg(&arg);
             }
             process
