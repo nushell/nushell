@@ -103,7 +103,7 @@ pub(crate) fn evaluate_baseline_expr(
                                 return Err(ShellError::labeled_error(
                                     "Unknown column",
                                     format!("did you mean '{}'?", possible_matches[0].1),
-                                    &tag,
+                                    &member.span,
                                 ));
                             } else {
                                 return Err(err);

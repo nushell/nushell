@@ -97,7 +97,7 @@ async fn host(tag: Tag) -> Value {
 
     // Uptime
     if let Ok(uptime) = uptime_result {
-        let uptime = uptime.get::<time::second>().round() as u64;
+        let uptime = uptime.get::<time::second>().round() as i64;
 
         dict.insert_untagged("uptime", UntaggedValue::duration(uptime));
     }

@@ -5,9 +5,9 @@ use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
-    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, CompareOperator, Expression,
-    ExternalArg, ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member,
-    NamedArguments, SpannedExpression, Unit,
+    self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, ExternalArg,
+    ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member, NamedArguments,
+    Operator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
@@ -219,28 +219,33 @@ fn parse_range(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseEr
 
 fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let operator = if lite_arg.item == "==" {
-        CompareOperator::Equal
+        Operator::Equal
     } else if lite_arg.item == "!=" {
-        CompareOperator::NotEqual
+        Operator::NotEqual
     } else if lite_arg.item == "<" {
-        CompareOperator::LessThan
+        Operator::LessThan
     } else if lite_arg.item == "<=" {
-        CompareOperator::LessThanOrEqual
+        Operator::LessThanOrEqual
     } else if lite_arg.item == ">" {
-        CompareOperator::GreaterThan
+        Operator::GreaterThan
     } else if lite_arg.item == ">=" {
-        CompareOperator::GreaterThanOrEqual
+        Operator::GreaterThanOrEqual
     } else if lite_arg.item == "=~" {
-        CompareOperator::Contains
+        Operator::Contains
     } else if lite_arg.item == "!~" {
-        CompareOperator::NotContains
+        Operator::NotContains
+    } else if lite_arg.item == "+" {
+        Operator::Plus
+    } else if lite_arg.item == "-" {
+        Operator::Minus
+    } else if lite_arg.item == "*" {
+        Operator::Multiply
+    } else if lite_arg.item == "/" {
+        Operator::Divide
     } else {
         return (
             garbage(lite_arg.span),
-            Some(ParseError::mismatch(
-                "comparison operator",
-                lite_arg.clone(),
-            )),
+            Some(ParseError::mismatch("operator", lite_arg.clone())),
         );
     };
 
@@ -252,23 +257,23 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
 
 fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let unit_groups = [
-        (Unit::Byte, true, vec!["b", "B"]),
-        (Unit::Kilobyte, true, vec!["kb", "KB", "Kb"]),
-        (Unit::Megabyte, true, vec!["mb", "MB", "Mb"]),
-        (Unit::Gigabyte, true, vec!["gb", "GB", "Gb"]),
-        (Unit::Terabyte, true, vec!["tb", "TB", "Tb"]),
-        (Unit::Petabyte, true, vec!["pb", "PB", "Pb"]),
-        (Unit::Second, false, vec!["s"]),
-        (Unit::Minute, false, vec!["m"]),
-        (Unit::Hour, false, vec!["h"]),
-        (Unit::Day, false, vec!["d"]),
-        (Unit::Week, false, vec!["w"]),
-        (Unit::Month, false, vec!["M"]),
-        (Unit::Year, false, vec!["y"]),
+        (Unit::Byte, vec!["b", "B"]),
+        (Unit::Kilobyte, vec!["kb", "KB", "Kb"]),
+        (Unit::Megabyte, vec!["mb", "MB", "Mb"]),
+        (Unit::Gigabyte, vec!["gb", "GB", "Gb"]),
+        (Unit::Terabyte, vec!["tb", "TB", "Tb"]),
+        (Unit::Petabyte, vec!["pb", "PB", "Pb"]),
+        (Unit::Second, vec!["s"]),
+        (Unit::Minute, vec!["m"]),
+        (Unit::Hour, vec!["h"]),
+        (Unit::Day, vec!["d"]),
+        (Unit::Week, vec!["w"]),
+        (Unit::Month, vec!["M"]),
+        (Unit::Year, vec!["y"]),
     ];
 
     for unit_group in unit_groups.iter() {
-        for unit in unit_group.2.iter() {
+        for unit in unit_group.1.iter() {
             if lite_arg.item.ends_with(unit) {
                 let mut lhs = lite_arg.item.clone();
 
@@ -276,42 +281,19 @@ fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseErr
                     lhs.pop();
                 }
 
-                if unit_group.1 {
-                    // these units are allowed to signed
-                    if let Ok(x) = lhs.parse::<i64>() {
-                        let lhs_span =
-                            Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
-                        let unit_span =
-                            Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
-                        return (
-                            SpannedExpression::new(
-                                Expression::unit(
-                                    x.spanned(lhs_span),
-                                    unit_group.0.spanned(unit_span),
-                                ),
-                                lite_arg.span,
-                            ),
-                            None,
-                        );
-                    }
-                } else {
-                    // these units are unsigned
-                    if let Ok(x) = lhs.parse::<u64>() {
-                        let lhs_span =
-                            Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
-                        let unit_span =
-                            Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
-                        return (
-                            SpannedExpression::new(
-                                Expression::unit(
-                                    (x as i64).spanned(lhs_span),
-                                    unit_group.0.spanned(unit_span),
-                                ),
-                                lite_arg.span,
-                            ),
-                            None,
-                        );
-                    }
+                // these units are allowed to signed
+                if let Ok(x) = lhs.parse::<i64>() {
+                    let lhs_span =
+                        Span::new(lite_arg.span.start(), lite_arg.span.start() + lhs.len());
+                    let unit_span =
+                        Span::new(lite_arg.span.start() + lhs.len(), lite_arg.span.end());
+                    return (
+                        SpannedExpression::new(
+                            Expression::unit(x.spanned(lhs_span), unit_group.0.spanned(unit_span)),
+                            lite_arg.span,
+                        ),
+                        None,
+                    );
                 }
             }
         }

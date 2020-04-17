@@ -1,26 +1,30 @@
 use crate::data::value;
-use nu_protocol::hir::CompareOperator;
+use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, ShellTypeName, UntaggedValue, Value};
 use std::ops::Not;
 
 pub fn apply_operator(
-    op: CompareOperator,
+    op: Operator,
     left: &Value,
     right: &Value,
 ) -> Result<UntaggedValue, (&'static str, &'static str)> {
     match op {
-        CompareOperator::Equal
-        | CompareOperator::NotEqual
-        | CompareOperator::LessThan
-        | CompareOperator::GreaterThan
-        | CompareOperator::LessThanOrEqual
-        | CompareOperator::GreaterThanOrEqual => {
+        Operator::Equal
+        | Operator::NotEqual
+        | Operator::LessThan
+        | Operator::GreaterThan
+        | Operator::LessThanOrEqual
+        | Operator::GreaterThanOrEqual => {
             value::compare_values(op, left, right).map(UntaggedValue::boolean)
         }
-        CompareOperator::Contains => contains(left, right).map(UntaggedValue::boolean),
-        CompareOperator::NotContains => contains(left, right)
+        Operator::Contains => contains(left, right).map(UntaggedValue::boolean),
+        Operator::NotContains => contains(left, right)
             .map(Not::not)
             .map(UntaggedValue::boolean),
+        Operator::Plus => value::compute_values(op, left, right),
+        Operator::Minus => value::compute_values(op, left, right),
+        Operator::Multiply => value::compute_values(op, left, right),
+        Operator::Divide => value::compute_values(op, left, right),
     }
 }
 

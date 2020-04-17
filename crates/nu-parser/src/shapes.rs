@@ -32,9 +32,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
             vec![FlatShape::GlobPattern.spanned(e.span)]
         }
         Expression::Literal(Literal::Number(_)) => vec![FlatShape::Int.spanned(e.span)],
-        Expression::Literal(Literal::Operator(_)) => {
-            vec![FlatShape::CompareOperator.spanned(e.span)]
-        }
+        Expression::Literal(Literal::Operator(_)) => vec![FlatShape::Operator.spanned(e.span)],
         Expression::Literal(Literal::Size(number, unit)) => vec![FlatShape::Size {
             number: number.span,
             unit: unit.span,
@@ -48,7 +46,7 @@ pub fn expression_to_flat_shape(e: &SpannedExpression) -> Vec<Spanned<FlatShape>
         Expression::Binary(binary) => {
             let mut output = vec![];
             output.append(&mut expression_to_flat_shape(&binary.left));
-            output.push(FlatShape::CompareOperator.spanned(binary.op.span));
+            output.push(FlatShape::Operator.spanned(binary.op.span));
             output.append(&mut expression_to_flat_shape(&binary.right));
             output
         }

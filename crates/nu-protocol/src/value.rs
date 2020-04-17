@@ -193,7 +193,7 @@ impl UntaggedValue {
     }
 
     /// Helper for creating date duration values
-    pub fn duration(secs: u64) -> UntaggedValue {
+    pub fn duration(secs: i64) -> UntaggedValue {
         UntaggedValue::Primitive(Primitive::Duration(secs))
     }
 

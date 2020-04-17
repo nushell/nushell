@@ -366,6 +366,25 @@ fn convert_number_to_u64(number: &Number) -> u64 {
     }
 }
 
+fn convert_number_to_i64(number: &Number) -> i64 {
+    match number {
+        Number::Int(big_int) => {
+            if let Some(x) = big_int.to_i64() {
+                x
+            } else {
+                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
+            }
+        }
+        Number::Decimal(big_decimal) => {
+            if let Some(x) = big_decimal.to_i64() {
+                x
+            } else {
+                unreachable!("Internal error: convert_number_to_u64 given incompatible number")
+            }
+        }
+    }
+}
+
 impl Unit {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -389,33 +408,30 @@ impl Unit {
         let size = size.clone();
 
         match self {
-            Unit::Byte => number(size),
-            Unit::Kilobyte => number(size * 1024),
-            Unit::Megabyte => number(size * 1024 * 1024),
-            Unit::Gigabyte => number(size * 1024 * 1024 * 1024),
-            Unit::Terabyte => number(size * 1024 * 1024 * 1024 * 1024),
-            Unit::Petabyte => number(size * 1024 * 1024 * 1024 * 1024 * 1024),
-            Unit::Second => duration(convert_number_to_u64(&size)),
-            Unit::Minute => duration(60 * convert_number_to_u64(&size)),
-            Unit::Hour => duration(60 * 60 * convert_number_to_u64(&size)),
-            Unit::Day => duration(24 * 60 * 60 * convert_number_to_u64(&size)),
-            Unit::Week => duration(7 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            Unit::Month => duration(30 * 24 * 60 * 60 * convert_number_to_u64(&size)),
-            Unit::Year => duration(365 * 24 * 60 * 60 * convert_number_to_u64(&size)),
+            Unit::Byte => bytes(convert_number_to_u64(&size)),
+            Unit::Kilobyte => bytes(convert_number_to_u64(&size) * 1024),
+            Unit::Megabyte => bytes(convert_number_to_u64(&size) * 1024 * 1024),
+            Unit::Gigabyte => bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024),
+            Unit::Terabyte => bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024),
+            Unit::Petabyte => {
+                bytes(convert_number_to_u64(&size) * 1024 * 1024 * 1024 * 1024 * 1024)
+            }
+            Unit::Second => duration(convert_number_to_i64(&size)),
+            Unit::Minute => duration(60 * convert_number_to_i64(&size)),
+            Unit::Hour => duration(60 * 60 * convert_number_to_i64(&size)),
+            Unit::Day => duration(24 * 60 * 60 * convert_number_to_i64(&size)),
+            Unit::Week => duration(7 * 24 * 60 * 60 * convert_number_to_i64(&size)),
+            Unit::Month => duration(30 * 24 * 60 * 60 * convert_number_to_i64(&size)),
+            Unit::Year => duration(365 * 24 * 60 * 60 * convert_number_to_i64(&size)),
         }
     }
 }
 
-fn number(number: impl Into<Number>) -> UntaggedValue {
-    let number = number.into();
-
-    match number {
-        Number::Int(int) => UntaggedValue::Primitive(Primitive::Int(int)),
-        Number::Decimal(decimal) => UntaggedValue::Primitive(Primitive::Decimal(decimal)),
-    }
+pub fn bytes(size: u64) -> UntaggedValue {
+    UntaggedValue::Primitive(Primitive::Bytes(size))
 }
 
-pub fn duration(secs: u64) -> UntaggedValue {
+pub fn duration(secs: i64) -> UntaggedValue {
     UntaggedValue::Primitive(Primitive::Duration(secs))
 }
 
@@ -546,7 +562,7 @@ pub enum Variable {
 }
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, Hash, PartialEq, Deserialize, Serialize)]
-pub enum CompareOperator {
+pub enum Operator {
     Equal,
     NotEqual,
     LessThan,
@@ -555,12 +571,16 @@ pub enum CompareOperator {
     GreaterThanOrEqual,
     Contains,
     NotContains,
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]
 pub struct Binary {
     pub left: SpannedExpression,
-    pub op: SpannedExpression, //Spanned<CompareOperator>,
+    pub op: SpannedExpression,
     pub right: SpannedExpression,
 }
 
@@ -618,7 +638,7 @@ impl PrettyDebugWithSource for Range {
 pub enum Literal {
     Number(Number),
     Size(Spanned<Number>, Spanned<Unit>),
-    Operator(CompareOperator),
+    Operator(Operator),
     String(String),
     GlobPattern(String),
     ColumnPath(Vec<Member>),
@@ -779,7 +799,7 @@ impl Expression {
         Expression::Literal(Literal::String(s))
     }
 
-    pub fn operator(operator: CompareOperator) -> Expression {
+    pub fn operator(operator: Operator) -> Expression {
         Expression::Literal(Literal::Operator(operator))
     }
 
@@ -952,7 +972,7 @@ pub enum FlatShape {
     Identifier,
     ItVariable,
     Variable,
-    CompareOperator,
+    Operator,
     Dot,
     DotDot,
     InternalCommand,
