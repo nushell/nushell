@@ -575,6 +575,7 @@ pub enum Operator {
     Minus,
     Multiply,
     Divide,
+    In,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Hash, Deserialize, Serialize, new)]

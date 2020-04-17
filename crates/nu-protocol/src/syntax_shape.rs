@@ -30,8 +30,8 @@ pub enum SyntaxShape {
     Unit,
     /// An operator
     Operator,
-    /// A condition, eg `foo > 1`
-    Condition,
+    /// A math expression, eg `foo > 1`
+    Math,
 }
 
 impl PrettyDebug for SyntaxShape {
@@ -51,7 +51,7 @@ impl PrettyDebug for SyntaxShape {
             SyntaxShape::Table => "table",
             SyntaxShape::Unit => "unit",
             SyntaxShape::Operator => "operator",
-            SyntaxShape::Condition => "condition",
+            SyntaxShape::Math => "condition",
         })
     }
 }

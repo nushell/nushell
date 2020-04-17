@@ -242,6 +242,8 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
         Operator::Multiply
     } else if lite_arg.item == "/" {
         Operator::Divide
+    } else if lite_arg.item == "in:" {
+        Operator::In
     } else {
         return (
             garbage(lite_arg.span),
@@ -442,7 +444,7 @@ fn parse_arg(
                 ),
             }
         }
-        SyntaxShape::Block | SyntaxShape::Condition => {
+        SyntaxShape::Block | SyntaxShape::Math => {
             // Blocks have one of two forms: the literal block and the implied block
             // To parse a literal block, we need to detect that what we have is itself a block
             let mut chars = lite_arg.item.chars();
@@ -542,6 +544,69 @@ fn get_flags_from_flag(
     }
 }
 
+fn parse_multi_arg_expression(
+    incoming_idx: usize,
+    lite_args: &[Spanned<String>],
+    registry: &dyn SignatureRegistry,
+    initial_is_path: bool,
+) -> (usize, SpannedExpression, Option<ParseError>) {
+    let mut idx = 0;
+    let mut error = None;
+
+    let mut working_exprs = vec![];
+
+    let (lhs, err) = if initial_is_path {
+        parse_arg(SyntaxShape::FullColumnPath, registry, &lite_args[idx])
+    } else {
+        parse_arg(SyntaxShape::Any, registry, &lite_args[idx])
+    };
+
+    if error.is_none() {
+        error = err;
+    }
+    working_exprs.push(lhs);
+    idx += 1;
+
+    while idx < lite_args.len() {
+        let (op, err) = parse_arg(SyntaxShape::Operator, registry, &lite_args[idx]);
+        if error.is_none() {
+            error = err;
+        }
+        idx += 1;
+
+        if idx < lite_args.len() {
+            let (rhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_args[idx]);
+            if error.is_none() {
+                error = err;
+            }
+
+            let lhs = working_exprs.pop().expect("This shouldn't be possible");
+            let span = Span::new(lhs.span.start(), rhs.span.end());
+            let binary = SpannedExpression::new(
+                Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                span,
+            );
+            working_exprs.push(binary);
+            idx += 1;
+        } else {
+            let _ = working_exprs.pop();
+            if error.is_none() {
+                error = Some(ParseError::argument_error(
+                    lite_args[idx - 1].clone(),
+                    ArgumentError::MissingMandatoryPositional("right hand side".into()),
+                ));
+            }
+            working_exprs.push(garbage(op.span));
+        }
+    }
+
+    (
+        incoming_idx + idx,
+        working_exprs.pop().expect("This shouldn't be possible"),
+        error,
+    )
+}
+
 fn classify_positional_arg(
     idx: usize,
     lite_cmd: &LiteCommand,
@@ -551,39 +616,35 @@ fn classify_positional_arg(
     let mut idx = idx;
     let mut error = None;
     let arg = match positional_type {
-        PositionalType::Mandatory(_, SyntaxShape::Condition)
-        | PositionalType::Optional(_, SyntaxShape::Condition) => {
+        PositionalType::Mandatory(_, SyntaxShape::Math)
+        | PositionalType::Optional(_, SyntaxShape::Math) => {
             // A condition can take up multiple arguments, as we build the operation as <arg> <operator> <arg>
             // We need to do this here because in parse_arg, we have access to only one arg at a time
-            if (idx + 2) < lite_cmd.args.len() {
-                let (lhs, err) =
-                    parse_arg(SyntaxShape::FullColumnPath, registry, &lite_cmd.args[idx]);
-                if error.is_none() {
-                    error = err;
+
+            if idx < lite_cmd.args.len() {
+                if lite_cmd.args[idx].item.starts_with('{') {
+                    // It's an explicit math expression, so parse it deeper in
+                    let (arg, err) = parse_arg(SyntaxShape::Math, registry, &lite_cmd.args[idx]);
+                    if error.is_none() {
+                        error = err;
+                    }
+                    arg
+                } else {
+                    let (new_idx, arg, err) =
+                        parse_multi_arg_expression(idx, &lite_cmd.args[idx..], registry, true);
+
+                    let span = arg.span;
+                    let mut commands = hir::Commands::new(span);
+                    commands.push(ClassifiedCommand::Expr(Box::new(arg)));
+
+                    let arg = SpannedExpression::new(Expression::Block(commands), span);
+
+                    idx = new_idx;
+                    if error.is_none() {
+                        error = err;
+                    }
+                    arg
                 }
-                let (op, err) = parse_arg(SyntaxShape::Operator, registry, &lite_cmd.args[idx + 1]);
-                if error.is_none() {
-                    error = err;
-                }
-                let (rhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx + 2]);
-                if error.is_none() {
-                    error = err;
-                }
-                idx += 2;
-                let span = Span::new(lhs.span.start(), rhs.span.end());
-                let binary = SpannedExpression::new(
-                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                    span,
-                );
-                let mut commands = hir::Commands::new(span);
-                commands.push(ClassifiedCommand::Expr(Box::new(binary)));
-                SpannedExpression::new(Expression::Block(commands), span)
-            } else if idx < lite_cmd.args.len() {
-                let (arg, err) = parse_arg(SyntaxShape::Condition, registry, &lite_cmd.args[idx]);
-                if error.is_none() {
-                    error = err;
-                }
-                arg
             } else {
                 if error.is_none() {
                     error = Some(ParseError::argument_error(
@@ -782,31 +843,13 @@ pub fn classify_pipeline(
                 },
             }))
         } else if lite_cmd.name.item == "=" {
-            let idx = 0;
-            let expr = if (idx + 2) < lite_cmd.args.len() {
-                let (lhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx]);
+            let expr = if !lite_cmd.args.is_empty() {
+                let (_, expr, err) =
+                    parse_multi_arg_expression(0, &lite_cmd.args[0..], registry, false);
                 if error.is_none() {
                     error = err;
                 }
-                let (op, err) = parse_arg(SyntaxShape::Operator, registry, &lite_cmd.args[idx + 1]);
-                if error.is_none() {
-                    error = err;
-                }
-                let (rhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx + 2]);
-                if error.is_none() {
-                    error = err;
-                }
-                let span = Span::new(lhs.span.start(), rhs.span.end());
-                SpannedExpression::new(
-                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                    span,
-                )
-            } else if idx < lite_cmd.args.len() {
-                let (arg, err) = parse_arg(SyntaxShape::Any, registry, &lite_cmd.args[idx]);
-                if error.is_none() {
-                    error = err;
-                }
-                arg
+                expr
             } else {
                 if error.is_none() {
                     error = Some(ParseError::argument_error(
