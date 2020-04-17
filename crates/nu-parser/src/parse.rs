@@ -388,6 +388,7 @@ fn parse_arg(
                 SyntaxShape::Unit,
                 SyntaxShape::Block,
                 SyntaxShape::Table,
+                SyntaxShape::Parenthesized,
                 SyntaxShape::String,
             ];
             for shape in shapes.iter() {
@@ -438,6 +439,34 @@ fn parse_arg(
                         SpannedExpression::new(Expression::List(output), lite_arg.span),
                         error,
                     )
+                }
+                _ => (
+                    garbage(lite_arg.span),
+                    Some(ParseError::mismatch("table", lite_arg.clone())),
+                ),
+            }
+        }
+        SyntaxShape::Parenthesized => {
+            let mut chars = lite_arg.item.chars();
+
+            match (chars.next(), chars.next_back()) {
+                (Some('('), Some(')')) => {
+                    // We have a literal row
+                    let string: String = chars.collect();
+
+                    // We haven't done much with the inner string, so let's go ahead and work with it
+                    let mut lite_pipeline = match lite_parse(&string, lite_arg.span.start() + 1) {
+                        Ok(lp) => lp,
+                        Err(e) => return (garbage(lite_arg.span), Some(e)),
+                    };
+
+                    let mut collection = vec![];
+                    for lite_cmd in lite_pipeline.commands.iter_mut() {
+                        collection.push(lite_cmd.name.clone());
+                        collection.append(&mut lite_cmd.args);
+                    }
+                    let (_, expr, err) = parse_math_expression(0, &collection[..], registry, false);
+                    (expr, err)
                 }
                 _ => (
                     garbage(lite_arg.span),

@@ -78,6 +78,12 @@ fn bare(src: &mut Input, span_offset: usize) -> Result<Spanned<String>, ParseErr
             if let Some('{') = block_level.last() {
                 let _ = block_level.pop();
             }
+        } else if c == '(' {
+            block_level.push(c);
+        } else if c == ')' {
+            if let Some('(') = block_level.last() {
+                let _ = block_level.pop();
+            }
         } else if block_level.is_empty() && c.is_whitespace() {
             break;
         }

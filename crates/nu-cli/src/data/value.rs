@@ -42,7 +42,7 @@ pub fn compute_values(
                 Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
                 Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
                 Operator::Divide => {
-                    if (x / y) == (y * (x / y)) {
+                    if x - (y * (x / y)) == num_bigint::BigInt::from(0) {
                         Ok(UntaggedValue::Primitive(Primitive::Int(x / y)))
                     } else {
                         Ok(UntaggedValue::Primitive(Primitive::Decimal(
