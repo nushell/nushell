@@ -445,6 +445,29 @@ impl SpannedExpression {
     pub fn new(expr: Expression, span: Span) -> SpannedExpression {
         SpannedExpression { expr, span }
     }
+
+    pub fn precedence(&self) -> usize {
+        match self.expr {
+            Expression::Literal(Literal::Operator(operator)) => {
+                // Higher precedence binds tighter
+
+                match operator {
+                    Operator::Multiply | Operator::Divide => 100,
+                    Operator::Plus | Operator::Minus => 90,
+                    Operator::NotContains
+                    | Operator::Contains
+                    | Operator::LessThan
+                    | Operator::LessThanOrEqual
+                    | Operator::GreaterThan
+                    | Operator::GreaterThanOrEqual
+                    | Operator::Equal
+                    | Operator::NotEqual
+                    | Operator::In => 80,
+                }
+            }
+            _ => 0,
+        }
+    }
 }
 
 impl std::ops::Deref for SpannedExpression {

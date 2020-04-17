@@ -39,8 +39,8 @@ pub fn compute_values(
             }
             (Primitive::Int(x), Primitive::Int(y)) => match operator {
                 Operator::Plus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
-                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
-                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x + y))),
+                Operator::Minus => Ok(UntaggedValue::Primitive(Primitive::Int(x - y))),
+                Operator::Multiply => Ok(UntaggedValue::Primitive(Primitive::Int(x * y))),
                 Operator::Divide => {
                     if (x / y) == (y * (x / y)) {
                         Ok(UntaggedValue::Primitive(Primitive::Int(x / y)))

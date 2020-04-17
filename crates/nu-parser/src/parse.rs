@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::lite_parse::{lite_parse, LiteCommand, LitePipeline};
 use crate::path::expand_path;
 use crate::signature::SignatureRegistry;
+use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, ExternalArg,
@@ -544,7 +545,7 @@ fn get_flags_from_flag(
     }
 }
 
-fn parse_multi_arg_expression(
+fn parse_math_expression(
     incoming_idx: usize,
     lite_args: &[Spanned<String>],
     registry: &dyn SignatureRegistry,
@@ -554,6 +555,7 @@ fn parse_multi_arg_expression(
     let mut error = None;
 
     let mut working_exprs = vec![];
+    let mut prec = vec![];
 
     let (lhs, err) = if initial_is_path {
         parse_arg(SyntaxShape::FullColumnPath, registry, &lite_args[idx])
@@ -567,6 +569,8 @@ fn parse_multi_arg_expression(
     working_exprs.push(lhs);
     idx += 1;
 
+    prec.push(0);
+
     while idx < lite_args.len() {
         let (op, err) = parse_arg(SyntaxShape::Operator, registry, &lite_args[idx]);
         if error.is_none() {
@@ -575,21 +579,49 @@ fn parse_multi_arg_expression(
         idx += 1;
 
         if idx < lite_args.len() {
+            trace!(
+                "idx: {} working_exprs: {:?} prec: {:?}",
+                idx,
+                working_exprs,
+                prec
+            );
             let (rhs, err) = parse_arg(SyntaxShape::Any, registry, &lite_args[idx]);
             if error.is_none() {
                 error = err;
             }
 
-            let lhs = working_exprs.pop().expect("This shouldn't be possible");
-            let span = Span::new(lhs.span.start(), rhs.span.end());
-            let binary = SpannedExpression::new(
-                Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
-                span,
-            );
-            working_exprs.push(binary);
+            let next_prec = op.precedence();
+
+            if next_prec > *prec.last().expect("this shouldn't happen") {
+                prec.push(next_prec);
+                working_exprs.push(op);
+                working_exprs.push(rhs);
+            } else if working_exprs.len() > 1 {
+                while *prec.last().expect("This shouldn't happen") >= next_prec {
+                    // Pop 3 and create and expression, push and repeat
+                    let right = working_exprs.pop().expect("This shouldn't be possible");
+                    let op = working_exprs.pop().expect("This shouldn't be possible");
+                    let left = working_exprs.pop().expect("This shouldn't be possible");
+
+                    let span = Span::new(left.span.start(), right.span.end());
+                    working_exprs.push(SpannedExpression {
+                        expr: Expression::Binary(Box::new(Binary { left, op, right })),
+                        span,
+                    });
+                    prec.pop();
+                }
+                let lhs = working_exprs.pop().expect("This shouldn't be possible");
+                let span = Span::new(lhs.span.start(), rhs.span.end());
+                let binary = SpannedExpression::new(
+                    Expression::Binary(Box::new(Binary::new(lhs, op, rhs))),
+                    span,
+                );
+                working_exprs.push(binary);
+                prec.pop();
+            }
+
             idx += 1;
         } else {
-            let _ = working_exprs.pop();
             if error.is_none() {
                 error = Some(ParseError::argument_error(
                     lite_args[idx - 1].clone(),
@@ -597,7 +629,21 @@ fn parse_multi_arg_expression(
                 ));
             }
             working_exprs.push(garbage(op.span));
+            working_exprs.push(garbage(op.span));
         }
+    }
+
+    while working_exprs.len() > 1 {
+        // Pop 3 and create and expression, push and repeat
+        let right = working_exprs.pop().expect("This shouldn't be possible");
+        let op = working_exprs.pop().expect("This shouldn't be possible");
+        let left = working_exprs.pop().expect("This shouldn't be possible");
+
+        let span = Span::new(left.span.start(), right.span.end());
+        working_exprs.push(SpannedExpression {
+            expr: Expression::Binary(Box::new(Binary { left, op, right })),
+            span,
+        });
     }
 
     (
@@ -631,7 +677,7 @@ fn classify_positional_arg(
                     arg
                 } else {
                     let (new_idx, arg, err) =
-                        parse_multi_arg_expression(idx, &lite_cmd.args[idx..], registry, true);
+                        parse_math_expression(idx, &lite_cmd.args[idx..], registry, true);
 
                     let span = arg.span;
                     let mut commands = hir::Commands::new(span);
@@ -844,8 +890,7 @@ pub fn classify_pipeline(
             }))
         } else if lite_cmd.name.item == "=" {
             let expr = if !lite_cmd.args.is_empty() {
-                let (_, expr, err) =
-                    parse_multi_arg_expression(0, &lite_cmd.args[0..], registry, false);
+                let (_, expr, err) = parse_math_expression(0, &lite_cmd.args[0..], registry, false);
                 if error.is_none() {
                     error = err;
                 }
