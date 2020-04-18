@@ -183,6 +183,7 @@ fn trim_quotes(input: &str) -> String {
     }
 }
 
+/// Parse a numeric range
 fn parse_range(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let numbers: Vec<_> = lite_arg.item.split("..").collect();
 
@@ -218,6 +219,7 @@ fn parse_range(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseEr
     }
 }
 
+/// Parse any allowed operator, including word-based operators
 fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let operator = if lite_arg.item == "==" {
         Operator::Equal
@@ -262,6 +264,7 @@ fn parse_operator(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<Pars
     )
 }
 
+/// Parse a unit type, eg '10kb'
 fn parse_unit(lite_arg: &Spanned<String>) -> (SpannedExpression, Option<ParseError>) {
     let unit_groups = [
         (Unit::Byte, vec!["b", "B"]),
@@ -578,13 +581,17 @@ fn get_flags_from_flag(
     }
 }
 
+/// This is a bit of a "fix-up" of previously parsed areas. In cases where we're in shorthand mode (eg in the `where` command), we need
+/// to use the original source to parse a column path. Without it, we'll lose a little too much information to parse it correctly. As we'll
+/// only know we were on the left-hand side of an expression after we do the full math parse, we need to do this step after rather than during
+/// the initial parse.
 fn shorthand_reparse(
     left: SpannedExpression,
     orig_left: Option<Spanned<String>>,
     registry: &dyn SignatureRegistry,
     shorthand_mode: bool,
 ) -> (SpannedExpression, Option<ParseError>) {
-    // If we're in shorthand mode, we need to reparse the left-hand side if possibe
+    // If we're in shorthand mode, we need to reparse the left-hand side if possible
     if shorthand_mode {
         if let Some(orig_left) = orig_left {
             parse_arg(SyntaxShape::FullColumnPath, registry, &orig_left)
@@ -596,6 +603,7 @@ fn shorthand_reparse(
     }
 }
 
+/// Handle parsing math expressions, complete with working with the precedence of the operators
 fn parse_math_expression(
     incoming_idx: usize,
     lite_args: &[Spanned<String>],
@@ -731,7 +739,9 @@ fn parse_math_expression(
     (incoming_idx + idx, left, error)
 }
 
-fn classify_positional_arg(
+/// Handles parsing the positional arguments as a batch
+/// This allows us to check for times where multiple arguments are treated as one shape, as is the case with SyntaxShape::Math
+fn parse_positional_argument(
     idx: usize,
     lite_cmd: &LiteCommand,
     positional_type: &PositionalType,
@@ -779,14 +789,7 @@ fn classify_positional_arg(
                 garbage(lite_cmd.span())
             }
         }
-        PositionalType::Mandatory(_, shape) => {
-            let (arg, err) = parse_arg(*shape, registry, &lite_cmd.args[idx]);
-            if error.is_none() {
-                error = err;
-            }
-            arg
-        }
-        PositionalType::Optional(_, shape) => {
+        PositionalType::Mandatory(_, shape) | PositionalType::Optional(_, shape) => {
             let (arg, err) = parse_arg(*shape, registry, &lite_cmd.args[idx]);
             if error.is_none() {
                 error = err;
@@ -798,7 +801,10 @@ fn classify_positional_arg(
     (idx, arg, error)
 }
 
-fn classify_internal_command(
+/// Does a full parse of an internal command using the lite-ly parse command as a starting point
+/// This main focus at this level is to understand what flags were passed in, what positional arguments were passed in, what rest arguments were passed in
+/// and to ensure that the basic requirements in terms of number of each were met.
+fn parse_internal_command(
     lite_cmd: &LiteCommand,
     registry: &dyn SignatureRegistry,
     signature: &Signature,
@@ -873,7 +879,7 @@ fn classify_internal_command(
             }
         } else if signature.positional.len() > current_positional {
             let arg = {
-                let (new_idx, expr, err) = classify_positional_arg(
+                let (new_idx, expr, err) = parse_positional_argument(
                     idx,
                     &lite_cmd,
                     &signature.positional[current_positional].0,
@@ -984,8 +990,7 @@ pub fn classify_pipeline(
             };
             commands.push(ClassifiedCommand::Expr(Box::new(expr)))
         } else if let Some(signature) = registry.get(&lite_cmd.name.item) {
-            let (internal_command, err) =
-                classify_internal_command(&lite_cmd, registry, &signature);
+            let (internal_command, err) = parse_internal_command(&lite_cmd, registry, &signature);
 
             if error.is_none() {
                 error = err;
