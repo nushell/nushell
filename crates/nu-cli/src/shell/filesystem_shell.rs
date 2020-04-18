@@ -124,13 +124,13 @@ impl Shell for FilesystemShell {
         };
 
         let mut paths = glob::glob(&path.to_string_lossy())
-            .map_err(|e| ShellError::labeled_error("Glob error", e.to_string(), &p_tag))?
+            .map_err(|e| ShellError::labeled_error(e.to_string(), "invalid pattern", &p_tag))?
             .peekable();
 
         if paths.peek().is_none() {
             return Err(ShellError::labeled_error(
-                "Invalid File or Pattern",
-                "invalid file or pattern",
+                "No matches found",
+                "no matches found",
                 &p_tag,
             ));
         }
@@ -256,130 +256,79 @@ impl Shell for FilesystemShell {
 
         let path = Path::new(path);
         let source = path.join(&src.item);
-        let mut destination = path.join(&dst.item);
+        let destination = path.join(&dst.item);
 
         let sources: Vec<_> = match glob::glob(&source.to_string_lossy()) {
             Ok(files) => files.collect(),
-            Err(_) => {
+            Err(e) => {
                 return Err(ShellError::labeled_error(
-                    "Invalid pattern",
+                    e.to_string(),
                     "invalid pattern",
                     src.tag,
                 ))
             }
         };
 
-        if sources.len() == 1 {
-            if let Ok(entry) = &sources[0] {
-                if entry.is_dir() && !recursive.item {
-                    return Err(ShellError::labeled_error(
-                        "is a directory (not copied). Try using \"--recursive\".",
-                        "is a directory (not copied). Try using \"--recursive\".",
-                        src.tag,
-                    ));
-                }
+        if sources.is_empty() {
+            return Err(ShellError::labeled_error(
+                "No matches found",
+                "no matches found",
+                src.tag,
+            ));
+        }
 
-                let mut sources: FileStructure = FileStructure::new();
+        if sources.len() > 1 && !destination.is_dir() {
+            return Err(ShellError::labeled_error(
+                "Destination must be a directory when copying multiple files",
+                "is not a directory",
+                dst.tag,
+            ));
+        }
 
+        let any_source_is_dir = sources.iter().any(|f| match f {
+            Ok(f) => f.is_dir(),
+            Err(_) => false,
+        });
+
+        if any_source_is_dir && !recursive.item {
+            return Err(ShellError::labeled_error(
+                "Directories must be copied using \"--recursive\"",
+                "resolves to a directory (not copied)",
+                src.tag,
+            ));
+        }
+
+        for entry in sources {
+            if let Ok(entry) = entry {
+                let mut sources = FileStructure::new();
                 sources.walk_decorate(&entry)?;
 
                 if entry.is_file() {
-                    let strategy = |(source_file, _depth_level)| {
+                    let sources = sources.paths_applying_with(|(source_file, _depth_level)| {
                         if destination.is_dir() {
-                            let mut new_dst = dunce::canonicalize(destination.clone())?;
+                            let mut dest = canonicalize(&path, &dst.item)?;
                             if let Some(name) = entry.file_name() {
-                                new_dst.push(name);
+                                dest.push(name);
                             }
-                            Ok((source_file, new_dst))
+                            Ok((source_file, dest))
                         } else {
                             Ok((source_file, destination.clone()))
                         }
-                    };
+                    })?;
 
-                    let sources = sources.paths_applying_with(strategy)?;
-
-                    for (ref src, ref dst) in sources {
+                    for (src, dst) in sources {
                         if src.is_file() {
-                            match std::fs::copy(src, dst) {
-                                Err(e) => {
-                                    return Err(ShellError::labeled_error(
-                                        e.to_string(),
-                                        e.to_string(),
-                                        name_tag,
-                                    ));
-                                }
-                                Ok(o) => o,
-                            };
+                            std::fs::copy(src, dst).map_err(|e| {
+                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                            })?;
                         }
                     }
-                }
-
-                if entry.is_dir() {
-                    if !destination.exists() {
-                        match std::fs::create_dir_all(&destination) {
-                            Err(e) => {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    dst.tag,
-                                ));
-                            }
-                            Ok(o) => o,
-                        };
-
-                        let strategy = |(source_file, depth_level)| {
-                            let mut new_dst = destination.clone();
-                            let path = dunce::canonicalize(&source_file)?;
-
-                            let mut comps: Vec<_> = path
-                                .components()
-                                .map(|fragment| fragment.as_os_str())
-                                .rev()
-                                .take(1 + depth_level)
-                                .collect();
-
-                            comps.reverse();
-
-                            for fragment in comps.iter() {
-                                new_dst.push(fragment);
-                            }
-
-                            Ok((PathBuf::from(&source_file), new_dst))
-                        };
-
-                        let sources = sources.paths_applying_with(strategy)?;
-
-                        let dst_tag = dst.tag;
-                        for (ref src, ref dst) in sources {
-                            if src.is_dir() && !dst.exists() {
-                                match std::fs::create_dir_all(dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            dst_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
-
-                            if src.is_file() {
-                                match std::fs::copy(src, dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            name_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
-                        }
+                } else if entry.is_dir() {
+                    let destination = if !destination.exists() {
+                        destination.clone()
                     } else {
                         match entry.file_name() {
-                            Some(name) => destination.push(name),
+                            Some(name) => destination.join(name),
                             None => {
                                 return Err(ShellError::labeled_error(
                                     "Copy aborted. Not a valid path",
@@ -388,131 +337,46 @@ impl Shell for FilesystemShell {
                                 ))
                             }
                         }
+                    };
 
-                        match std::fs::create_dir_all(&destination) {
-                            Err(e) => {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    dst.tag,
-                                ));
-                            }
-                            Ok(o) => o,
-                        };
+                    std::fs::create_dir_all(&destination).map_err(|e| {
+                        ShellError::labeled_error(e.to_string(), e.to_string(), &dst.tag)
+                    })?;
 
-                        let strategy = |(source_file, depth_level)| {
-                            let mut new_dst = dunce::canonicalize(&destination)?;
-                            let path = dunce::canonicalize(&source_file)?;
+                    let sources = sources.paths_applying_with(|(source_file, depth_level)| {
+                        let mut dest = destination.clone();
+                        let path = canonicalize(&path, &source_file)?;
 
-                            let mut comps: Vec<_> = path
-                                .components()
-                                .map(|fragment| fragment.as_os_str())
-                                .rev()
-                                .take(1 + depth_level)
-                                .collect();
+                        let comps: Vec<_> = path
+                            .components()
+                            .map(|fragment| fragment.as_os_str())
+                            .rev()
+                            .take(1 + depth_level)
+                            .collect();
 
-                            comps.reverse();
+                        for fragment in comps.into_iter().rev() {
+                            dest.push(fragment);
+                        }
 
-                            for fragment in comps.iter() {
-                                new_dst.push(fragment);
-                            }
+                        Ok((PathBuf::from(&source_file), dest))
+                    })?;
 
-                            Ok((PathBuf::from(&source_file), new_dst))
-                        };
+                    let dst_tag = &dst.tag;
+                    for (src, dst) in sources {
+                        if src.is_dir() && !dst.exists() {
+                            std::fs::create_dir_all(&dst).map_err(|e| {
+                                ShellError::labeled_error(e.to_string(), e.to_string(), dst_tag)
+                            })?;
+                        }
 
-                        let sources = sources.paths_applying_with(strategy)?;
-
-                        let dst_tag = dst.tag;
-                        for (ref src, ref dst) in sources {
-                            if src.is_dir() && !dst.exists() {
-                                match std::fs::create_dir_all(dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            dst_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
-
-                            if src.is_file() {
-                                match std::fs::copy(src, dst) {
-                                    Err(e) => {
-                                        return Err(ShellError::labeled_error(
-                                            e.to_string(),
-                                            e.to_string(),
-                                            name_tag,
-                                        ));
-                                    }
-                                    Ok(o) => o,
-                                };
-                            }
+                        if src.is_file() {
+                            std::fs::copy(&src, &dst).map_err(|e| {
+                                ShellError::labeled_error(e.to_string(), e.to_string(), &name_tag)
+                            })?;
                         }
                     }
                 }
             }
-        } else if destination.exists() {
-            if !sources.iter().all(|x| match x {
-                Ok(f) => f.is_file(),
-                Err(_) => false,
-            }) {
-                return Err(ShellError::labeled_error(
-                    "Copy aborted (directories found). Recursive copying in patterns not supported yet (try copying the directory directly)",
-                    "recursive copying in patterns not supported",
-                    src.tag,
-                ));
-            }
-
-            for entry in sources {
-                if let Ok(entry) = entry {
-                    let mut to = PathBuf::from(&destination);
-
-                    match entry.file_name() {
-                        Some(name) => to.push(name),
-                        None => {
-                            return Err(ShellError::labeled_error(
-                                "Copy aborted. Not a valid path",
-                                "not a valid path",
-                                dst.tag,
-                            ))
-                        }
-                    }
-
-                    if entry.is_file() {
-                        match std::fs::copy(&entry, &to) {
-                            Err(e) => {
-                                return Err(ShellError::labeled_error(
-                                    e.to_string(),
-                                    e.to_string(),
-                                    src.tag,
-                                ));
-                            }
-                            Ok(o) => o,
-                        };
-                    }
-                }
-            }
-        } else {
-            let destination_file_name = {
-                match destination.file_name() {
-                    Some(name) => PathBuf::from(name),
-                    None => {
-                        return Err(ShellError::labeled_error(
-                            "Copy aborted. Not a valid destination",
-                            "not a valid destination",
-                            dst.tag,
-                        ))
-                    }
-                }
-            };
-
-            return Err(ShellError::labeled_error(
-                format!("Copy aborted. (Does {:?} exist?)", destination_file_name),
-                format!("copy aborted (does {:?} exist?)", destination_file_name),
-                dst.tag,
-            ));
         }
 
         Ok(OutputStream::empty())

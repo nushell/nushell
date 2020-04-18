@@ -40,7 +40,7 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory() {
         );
 
         assert!(actual.contains("../formats"));
-        assert!(actual.contains("is a directory (not copied)"));
+        assert!(actual.contains("resolves to a directory (not copied)"));
     });
 }
 
@@ -209,7 +209,7 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
                 "jonathan.json",
                 "andres.xml",
                 "kevin.txt",
-                "many_more.ppl"
+                "many_more.ppl",
             ],
             dirs.test()
         ));
@@ -217,20 +217,21 @@ fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
 }
 
 #[test]
-fn copy_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
+fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recursive() {
     Playground::setup("cp_test_10", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("hello_there")]);
+        sandbox.mkdir("hello_again");
         sandbox.within("foo").mkdir("bar");
 
         nu!(
             cwd: dirs.test().join("foo/bar"),
             r#"
-                cp .../hello_there .
+                cp -r .../hello* .
             "#
         );
 
-        let expected = dirs.test().join("foo/bar/hello_there");
+        let expected = dirs.test().join("foo/bar");
 
-        assert!(expected.exists());
+        assert!(files_exist_at(vec!["hello_there", "hello_again"], expected));
     })
 }
