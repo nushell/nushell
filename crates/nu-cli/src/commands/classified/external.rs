@@ -1,19 +1,22 @@
 use crate::futures::ThreadedReceiver;
 use crate::prelude::*;
+
+use std::io::Write;
+use std::ops::Deref;
+use std::process::{Command, Stdio};
+use std::sync::mpsc;
+
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::executor::block_on_stream;
 use futures::stream::StreamExt;
 use futures_codec::FramedRead;
 use log::trace;
+
 use nu_errors::ShellError;
 use nu_protocol::hir::{ExternalArg, ExternalCommand};
 use nu_protocol::{ColumnPath, Primitive, Scope, ShellTypeName, UntaggedValue, Value};
 use nu_source::{Tag, Tagged};
 use nu_value_ext::as_column_path;
-use std::io::Write;
-use std::ops::Deref;
-use std::process::{Command, Stdio};
-use std::sync::mpsc;
 
 pub enum StringOrBinary {
     String(String),
@@ -110,7 +113,7 @@ pub(crate) async fn run_external_command(
         ));
     }
 
-    if command.has_it_argument() || command.has_nu_argument() {
+    if command.has_it_argument() {
         run_with_iterator_arg(command, context, input, is_last)
     } else {
         run_with_stdin(command, context, input, is_last)

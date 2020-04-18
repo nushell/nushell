@@ -78,7 +78,7 @@ struct WhichArgs {
 
 fn which(
     WhichArgs { application, all }: WhichArgs,
-    RunnableContext { commands, .. }: RunnableContext,
+    RunnableContext { registry, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let external = application.starts_with('^');
     let item = if external {
@@ -89,7 +89,7 @@ fn which(
 
     let stream = async_stream! {
         if !external {
-            let builtin = commands.has(&item);
+            let builtin = registry.has(&item);
             if builtin {
                 yield ReturnSuccess::value(entry_builtin!(item, application.tag.clone()));
             }

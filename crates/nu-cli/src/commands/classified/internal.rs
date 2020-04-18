@@ -19,7 +19,6 @@ pub(crate) fn run_internal_command(
     }
 
     let objects: InputStream = trace_stream!(target: "nu::trace_stream::internal", "input" = input);
-
     let internal_command = context.expect_command(&command.name);
 
     let result = {
@@ -64,7 +63,8 @@ pub(crate) fn run_internal_command(
                                         head: command.args.head,
                                         positional: None,
                                         named: None,
-                                        span: Span::unknown()
+                                        span: Span::unknown(),
+                                        is_last: false,
                                     },
                                     name_tag: Tag::unknown_anchor(command.name_span),
                                     scope: Scope::empty(),

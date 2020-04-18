@@ -27,7 +27,7 @@ impl WholeStreamCommand for Sum {
     ) -> Result<OutputStream, ShellError> {
         sum(RunnableContext {
             input: args.input,
-            commands: registry.clone(),
+            registry: registry.clone(),
             shell_manager: args.shell_manager,
             host: args.host,
             ctrl_c: args.ctrl_c,

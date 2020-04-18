@@ -179,7 +179,7 @@ impl CommandArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
                 input,
-                commands: registry.clone(),
+                registry: registry.clone(),
                 shell_manager,
                 name: name_tag,
                 host,
@@ -215,7 +215,7 @@ impl CommandArgs {
             args: T::deserialize(&mut deserializer)?,
             context: RunnableContext {
                 input,
-                commands: registry.clone(),
+                registry: registry.clone(),
                 shell_manager,
                 name: name_tag,
                 host,
@@ -238,13 +238,13 @@ pub struct RunnableContext {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub commands: CommandRegistry,
+    pub registry: CommandRegistry,
     pub name: Tag,
 }
 
 impl RunnableContext {
     pub fn get_command(&self, name: &str) -> Option<Arc<Command>> {
-        self.commands.get_command(name)
+        self.registry.get_command(name)
     }
 }
 

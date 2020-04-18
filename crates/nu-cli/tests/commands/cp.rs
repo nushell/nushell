@@ -188,7 +188,7 @@ fn copies_same_file_twice() {
 #[test]
 fn copy_files_using_glob_two_parents_up_using_multiple_dots() {
     Playground::setup("cp_test_9", |dirs, sandbox| {
-        sandbox.within("foo").mkdir("bar").with_files(vec![
+        sandbox.within("foo").within("bar").with_files(vec![
             EmptyFile("jonathan.json"),
             EmptyFile("andres.xml"),
             EmptyFile("yehuda.yaml"),

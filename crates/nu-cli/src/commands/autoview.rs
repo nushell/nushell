@@ -29,7 +29,7 @@ impl WholeStreamCommand for Autoview {
     ) -> Result<OutputStream, ShellError> {
         autoview(RunnableContext {
             input: args.input,
-            commands: registry.clone(),
+            registry: registry.clone(),
             shell_manager: args.shell_manager,
             host: args.host,
             ctrl_c: args.ctrl_c,
@@ -42,7 +42,7 @@ pub struct RunnableContextWithoutInput {
     pub shell_manager: ShellManager,
     pub host: Arc<parking_lot::Mutex<Box<dyn Host>>>,
     pub ctrl_c: Arc<AtomicBool>,
-    pub commands: CommandRegistry,
+    pub registry: CommandRegistry,
     pub name: Tag,
 }
 
@@ -52,7 +52,7 @@ impl RunnableContextWithoutInput {
             shell_manager: context.shell_manager,
             host: context.host,
             ctrl_c: context.ctrl_c,
-            commands: context.commands,
+            registry: context.registry,
             name: context.name,
         };
         (context.input, new_context)
@@ -92,7 +92,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
 
                         if let Some(table) = table {
                             let command_args = create_default_command_args(&context).with_input(stream);
-                            let result = table.run(command_args, &context.commands);
+                            let result = table.run(command_args, &context.registry);
                             result.collect::<Vec<_>>().await;
                         }
                     }
@@ -106,7 +106,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = text.run(command_args, &context.commands);
+                                    let result = text.run(command_args, &context.registry);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     out!("{}", s);
@@ -126,7 +126,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(UntaggedValue::string(s).into_value(Tag { anchor, span }));
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = text.run(command_args, &context.commands);
+                                    let result = text.run(command_args, &context.registry);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     out!("{}\n", s);
@@ -168,7 +168,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(x);
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = binary.run(command_args, &context.commands);
+                                    let result = binary.run(command_args, &context.registry);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     use pretty_hex::*;
@@ -254,7 +254,7 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                                     let mut stream = VecDeque::new();
                                     stream.push_back(x);
                                     let command_args = create_default_command_args(&context).with_input(stream);
-                                    let result = table.run(command_args, &context.commands);
+                                    let result = table.run(command_args, &context.registry);
                                     result.collect::<Vec<_>>().await;
                                 } else {
                                     out!("{:?}", item);
@@ -291,6 +291,7 @@ fn create_default_command_args(context: &RunnableContextWithoutInput) -> RawComm
                 positional: None,
                 named: None,
                 span,
+                is_last: true,
             },
             name_tag: context.name.clone(),
             scope: Scope::empty(),
