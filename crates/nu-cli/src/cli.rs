@@ -871,9 +871,8 @@ mod tests {
     fn quickcheck_parse(data: String) -> bool {
         if let Ok(lite_pipeline) = nu_parser::lite_parse(&data, 0) {
             let context = crate::context::Context::basic().unwrap();
-            nu_parser::classify_pipeline(&lite_pipeline, context.registry())
-                .failed
-                .is_none()
+            let _ = nu_parser::classify_pipeline(&lite_pipeline, context.registry());
+            true
         } else {
             false
         }
