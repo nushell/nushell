@@ -18,7 +18,7 @@ use std::time::SystemTime;
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, new, Serialize)]
 pub struct Operation {
     pub(crate) left: Value,
-    pub(crate) operator: hir::CompareOperator,
+    pub(crate) operator: hir::Operator,
     pub(crate) right: Value,
 }
 
@@ -87,7 +87,7 @@ pub(crate) enum CompareValues {
     Decimals(BigDecimal, BigDecimal),
     String(String, String),
     Date(DateTime<Utc>, DateTime<Utc>),
-    DateDuration(DateTime<Utc>, u64),
+    DateDuration(DateTime<Utc>, i64),
 }
 
 impl CompareValues {
@@ -101,7 +101,11 @@ impl CompareValues {
                 use std::time::Duration;
 
                 // Create the datetime we're comparing against, as duration is an offset from now
-                let right: DateTime<Utc> = (SystemTime::now() - Duration::from_secs(*right)).into();
+                let right: DateTime<Utc> = if *right < 0 {
+                    (SystemTime::now() + Duration::from_secs((*right * -1) as u64)).into()
+                } else {
+                    (SystemTime::now() - Duration::from_secs(*right as u64)).into()
+                };
                 right.cmp(left)
             }
         }

@@ -18,7 +18,7 @@ impl PerItemCommand for Where {
     fn signature(&self) -> Signature {
         Signature::build("where").required(
             "condition",
-            SyntaxShape::Condition,
+            SyntaxShape::Math,
             "the condition that must match",
         )
     }

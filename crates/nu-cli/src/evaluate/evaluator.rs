@@ -31,6 +31,7 @@ pub(crate) fn evaluate_baseline_expr(
         Expression::Command(_) => evaluate_command(tag, scope),
         Expression::ExternalCommand(external) => evaluate_external(external, scope),
         Expression::Binary(binary) => {
+            // TODO: If we want to add short-circuiting, we'll need to move these down
             let left = evaluate_baseline_expr(&binary.left, registry, scope)?;
             let right = evaluate_baseline_expr(&binary.right, registry, scope)?;
 
@@ -103,7 +104,7 @@ pub(crate) fn evaluate_baseline_expr(
                                 return Err(ShellError::labeled_error(
                                     "Unknown column",
                                     format!("did you mean '{}'?", possible_matches[0].1),
-                                    &tag,
+                                    &member.span,
                                 ));
                             } else {
                                 return Err(err);

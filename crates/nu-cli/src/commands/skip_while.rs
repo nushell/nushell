@@ -16,7 +16,7 @@ impl WholeStreamCommand for SkipWhile {
         Signature::build("skip-while")
             .required(
                 "condition",
-                SyntaxShape::Condition,
+                SyntaxShape::Math,
                 "the condition that must be met to continue skipping",
             )
             .filter()

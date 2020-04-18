@@ -156,6 +156,12 @@ pub fn autoview(context: RunnableContext) -> Result<OutputStream, ShellError> {
                             } => {
                                 out!("{}", n);
                             }
+                            Value {
+                                value: UntaggedValue::Primitive(Primitive::Boolean(b)),
+                                ..
+                            } => {
+                                out!("{}", b);
+                            }
 
                             Value { value: UntaggedValue::Primitive(Primitive::Binary(ref b)), .. } => {
                                 if let Some(binary) = binary {

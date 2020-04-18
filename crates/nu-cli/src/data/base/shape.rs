@@ -27,7 +27,7 @@ pub enum InlineShape {
     Pattern(String),
     Boolean(bool),
     Date(DateTime<Utc>),
-    Duration(u64),
+    Duration(i64),
     Path(PathBuf),
     Binary,
 

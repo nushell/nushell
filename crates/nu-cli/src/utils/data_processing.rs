@@ -2,7 +2,7 @@ use crate::data::value::compare_values;
 use crate::data::TaggedListBuilder;
 use chrono::{DateTime, NaiveDate, Utc};
 use nu_errors::ShellError;
-use nu_protocol::hir::CompareOperator;
+use nu_protocol::hir::Operator;
 use nu_protocol::{Primitive, TaggedDictBuilder, UntaggedValue, Value};
 use nu_source::{SpannedItem, Tag, Tagged, TaggedItem};
 use nu_value_ext::{get_data_by_key, ValueExt};
@@ -317,7 +317,7 @@ pub fn map_max(
                         let right = &acc.value;
 
                         if let Ok(is_greater_than) =
-                            compare_values(CompareOperator::GreaterThan, left, right)
+                            compare_values(Operator::GreaterThan, left, right)
                         {
                             if is_greater_than {
                                 value.clone()
@@ -336,9 +336,7 @@ pub fn map_max(
                 let left = &value.value;
                 let right = &max.value;
 
-                if let Ok(is_greater_than) =
-                    compare_values(CompareOperator::GreaterThan, left, right)
-                {
+                if let Ok(is_greater_than) = compare_values(Operator::GreaterThan, left, right) {
                     if is_greater_than {
                         value
                     } else {

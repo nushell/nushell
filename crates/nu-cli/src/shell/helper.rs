@@ -120,7 +120,7 @@ impl Painter {
             FlatShape::ItVariable | FlatShape::Keyword => Color::Purple.bold(),
             FlatShape::Variable | FlatShape::Identifier => Color::Purple.normal(),
             FlatShape::Type => Color::Blue.bold(),
-            FlatShape::CompareOperator => Color::Yellow.normal(),
+            FlatShape::Operator => Color::Yellow.normal(),
             FlatShape::DotDot => Color::Yellow.bold(),
             FlatShape::Dot => Style::new().fg(Color::White),
             FlatShape::InternalCommand => Color::Cyan.bold(),
