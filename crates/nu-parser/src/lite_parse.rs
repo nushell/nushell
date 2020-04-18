@@ -168,9 +168,21 @@ fn pipeline(src: &mut Input, span_offset: usize) -> Result<LitePipeline, ParseEr
                 // The first character tells us a lot about each argument
                 match c {
                     '|' => {
-                        // this is the end of this command
                         let _ = src.next();
-                        break;
+                        if let Some((pos, next_c)) = src.peek() {
+                            if *next_c == '|' {
+                                // this isn't actually a pipeline but a comparison
+                                let span = Span::new(pos - 1 + span_offset, pos + 1 + span_offset);
+                                cmd.args.push("||".to_string().spanned(span));
+                                let _ = src.next();
+                            } else {
+                                // this is the end of this command
+                                break;
+                            }
+                        } else {
+                            // this is the end of this command
+                            break;
+                        }
                     }
                     '"' | '\'' => {
                         let c = *c;

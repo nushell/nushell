@@ -7,8 +7,8 @@ use log::trace;
 use nu_errors::{ArgumentError, ParseError};
 use nu_protocol::hir::{
     self, Binary, ClassifiedCommand, ClassifiedPipeline, Commands, Expression, ExternalArg,
-    ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Literal, Member,
-    NamedArguments, Operator, SpannedExpression, Unit,
+    ExternalArgs, ExternalCommand, Flag, FlagKind, InternalCommand, Member, NamedArguments,
+    Operator, SpannedExpression, Unit,
 };
 use nu_protocol::{NamedType, PositionalType, Signature, SyntaxShape, UnspannedPathMember};
 use nu_source::{Span, Spanned, SpannedItem, Tag};
@@ -580,27 +580,20 @@ fn get_flags_from_flag(
 
 fn shorthand_reparse(
     left: SpannedExpression,
+    orig_left: Option<Spanned<String>>,
     registry: &dyn SignatureRegistry,
     shorthand_mode: bool,
 ) -> (SpannedExpression, Option<ParseError>) {
-    let mut error = None;
-    let left = if shorthand_mode {
-        // We know we have a left-hand value, and if we're in shorthand mode we may need to re-parse it
-        if let Expression::Literal(Literal::String(s)) = left.expr {
-            let (lhs, err) =
-                parse_arg(SyntaxShape::FullColumnPath, registry, &s.spanned(left.span));
-            if error.is_none() {
-                error = err;
-            }
-            lhs
+    // If we're in shorthand mode, we need to reparse the left-hand side if possibe
+    if shorthand_mode {
+        if let Some(orig_left) = orig_left {
+            parse_arg(SyntaxShape::FullColumnPath, registry, &orig_left)
         } else {
-            left
+            (left, None)
         }
     } else {
-        left
-    };
-
-    (left, error)
+        (left, None)
+    }
 }
 
 fn parse_math_expression(
@@ -626,7 +619,7 @@ fn parse_math_expression(
     if error.is_none() {
         error = err;
     }
-    working_exprs.push(lhs);
+    working_exprs.push((Some(lite_args[idx].clone()), lhs));
     idx += 1;
 
     prec.push(0);
@@ -652,10 +645,10 @@ fn parse_math_expression(
 
             let next_prec = op.precedence();
 
-            if next_prec > *prec.last().expect("this shouldn't happen") {
+            if !prec.is_empty() && next_prec > *prec.last().expect("this shouldn't happen") {
                 prec.push(next_prec);
-                working_exprs.push(op);
-                working_exprs.push(rhs);
+                working_exprs.push((None, op));
+                working_exprs.push((Some(lite_args[idx].clone()), rhs));
             } else {
                 while !prec.is_empty()
                     && *prec.last().expect("This shouldn't happen") >= next_prec
@@ -669,24 +662,29 @@ fn parse_math_expression(
                         working_exprs,
                         prec
                     );
-                    let right = working_exprs.pop().expect("This shouldn't be possible");
-                    let op = working_exprs.pop().expect("This shouldn't be possible");
-                    let left = working_exprs.pop().expect("This shouldn't be possible");
+                    let (_, right) = working_exprs.pop().expect("This shouldn't be possible");
+                    let (_, op) = working_exprs.pop().expect("This shouldn't be possible");
+                    let (orig_left, left) =
+                        working_exprs.pop().expect("This shouldn't be possible");
 
-                    let (left, err) = shorthand_reparse(left, registry, shorthand_mode);
+                    // If we're in shorthand mode, we need to reparse the left-hand side if possibe
+                    let (left, err) = shorthand_reparse(left, orig_left, registry, shorthand_mode);
                     if error.is_none() {
                         error = err;
                     }
 
                     let span = Span::new(left.span.start(), right.span.end());
-                    working_exprs.push(SpannedExpression {
-                        expr: Expression::Binary(Box::new(Binary { left, op, right })),
-                        span,
-                    });
+                    working_exprs.push((
+                        None,
+                        SpannedExpression {
+                            expr: Expression::Binary(Box::new(Binary { left, op, right })),
+                            span,
+                        },
+                    ));
                     prec.pop();
                 }
-                working_exprs.push(op);
-                working_exprs.push(rhs);
+                working_exprs.push((None, op));
+                working_exprs.push((Some(lite_args[idx].clone()), rhs));
             }
 
             idx += 1;
@@ -697,32 +695,35 @@ fn parse_math_expression(
                     ArgumentError::MissingMandatoryPositional("right hand side".into()),
                 ));
             }
-            working_exprs.push(garbage(op.span));
-            working_exprs.push(garbage(op.span));
+            working_exprs.push((None, garbage(op.span)));
+            working_exprs.push((None, garbage(op.span)));
             prec.push(0);
         }
     }
 
     while working_exprs.len() >= 3 {
         // Pop 3 and create and expression, push and repeat
-        let right = working_exprs.pop().expect("This shouldn't be possible");
-        let op = working_exprs.pop().expect("This shouldn't be possible");
-        let left = working_exprs.pop().expect("This shouldn't be possible");
+        let (_, right) = working_exprs.pop().expect("This shouldn't be possible");
+        let (_, op) = working_exprs.pop().expect("This shouldn't be possible");
+        let (orig_left, left) = working_exprs.pop().expect("This shouldn't be possible");
 
-        let (left, err) = shorthand_reparse(left, registry, shorthand_mode);
+        let (left, err) = shorthand_reparse(left, orig_left, registry, shorthand_mode);
         if error.is_none() {
             error = err;
         }
 
         let span = Span::new(left.span.start(), right.span.end());
-        working_exprs.push(SpannedExpression {
-            expr: Expression::Binary(Box::new(Binary { left, op, right })),
-            span,
-        });
+        working_exprs.push((
+            None,
+            SpannedExpression {
+                expr: Expression::Binary(Box::new(Binary { left, op, right })),
+                span,
+            },
+        ));
     }
 
-    let left = working_exprs.pop().expect("This shouldn't be possible");
-    let (left, err) = shorthand_reparse(left, registry, shorthand_mode);
+    let (orig_left, left) = working_exprs.pop().expect("This shouldn't be possible");
+    let (left, err) = shorthand_reparse(left, orig_left, registry, shorthand_mode);
     if error.is_none() {
         error = err;
     }

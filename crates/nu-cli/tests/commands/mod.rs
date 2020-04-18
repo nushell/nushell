@@ -18,6 +18,7 @@ mod insert;
 mod last;
 mod lines;
 mod ls;
+mod math;
 mod mkdir;
 mod mv;
 mod open;
