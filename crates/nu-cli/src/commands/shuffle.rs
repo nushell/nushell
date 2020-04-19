@@ -48,7 +48,7 @@ fn shuffle(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let mut values: Vec<Value> = input.values.collect().await;
+        let mut values: Vec<Value> = input.collect().await;
 
         let out = if let Some(n) = limit {
             let (shuffled, _) = values.partial_shuffle(&mut thread_rng(), *n as usize);

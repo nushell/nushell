@@ -37,7 +37,7 @@ fn uniq(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let uniq_values: IndexSet<_> = input.values.collect().await;
+        let uniq_values: IndexSet<_> = input.collect().await;
 
         for item in uniq_values.iter().map(|row| ReturnSuccess::value(row.clone())) {
             yield item;

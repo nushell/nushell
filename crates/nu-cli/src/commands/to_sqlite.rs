@@ -205,7 +205,7 @@ fn to_sqlite(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStre
     let args = args.evaluate_once(registry)?;
     let name_tag = args.name_tag();
     let stream = async_stream! {
-        let input: Vec<Value> = args.input.values.collect().await;
+        let input: Vec<Value> = args.input.collect().await;
 
         match sqlite_input_stream_to_bytes(input) {
             Ok(out) => yield ReturnSuccess::value(out),

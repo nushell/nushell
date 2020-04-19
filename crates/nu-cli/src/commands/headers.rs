@@ -35,7 +35,7 @@ pub fn headers(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let rows: Vec<Value> = input.values.collect().await;
+        let rows: Vec<Value> = input.collect().await;
 
         if rows.len() < 1 {
             yield Err(ShellError::untagged_runtime_error("Couldn't find headers, was the input a properly formatted, non-empty table?"));

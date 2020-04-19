@@ -793,13 +793,13 @@ async fn process_line(
                         panic!("Internal error: could not read lines of text from stdin")
                     }
                 });
-                Some(stream.to_input_stream())
+                stream.to_input_stream()
             } else {
-                None
+                InputStream::empty()
             };
 
             match run_pipeline(pipeline, ctx, input_stream, &Scope::empty()).await {
-                Ok(Some(input)) => {
+                Ok(input) => {
                     // Running a pipeline gives us back a stream that we can then
                     // work through. At the top level, we just want to pull on the
                     // values to compute them.
@@ -834,7 +834,6 @@ async fn process_line(
 
                     LineResult::Success(line.to_string())
                 }
-                Ok(None) => LineResult::Success(line.to_string()),
                 Err(err) => LineResult::Error(line.to_string(), err),
             }
         }

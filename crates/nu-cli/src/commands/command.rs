@@ -530,7 +530,6 @@ impl Command {
 
         let out = args
             .input
-            .values
             .map(move |x| {
                 let call_info = UnevaluatedCallInfo {
                     args: raw_args.call_info.args.clone(),
@@ -597,7 +596,7 @@ impl WholeStreamCommand for FnFilterCommand {
         let registry: CommandRegistry = registry.clone();
         let func = self.func;
 
-        let result = input.values.map(move |it| {
+        let result = input.map(move |it| {
             let registry = registry.clone();
             let call_info = match call_info.clone().evaluate_with_new_it(&registry, &it) {
                 Err(err) => return OutputStream::from(vec![Err(err)]).values,

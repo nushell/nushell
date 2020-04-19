@@ -10,9 +10,9 @@ use nu_protocol::Scope;
 pub(crate) async fn run_pipeline(
     pipeline: ClassifiedPipeline,
     ctx: &mut Context,
-    mut input: Option<InputStream>,
+    mut input: InputStream,
     scope: &Scope,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     let mut iter = pipeline.commands.list.into_iter().peekable();
 
     loop {

@@ -48,9 +48,7 @@ fn reject(
 
     let fields: Vec<_> = fields.iter().map(|f| f.item.clone()).collect();
 
-    let stream = input
-        .values
-        .map(move |item| reject_fields(&item, &fields, &item.tag));
+    let stream = input.map(move |item| reject_fields(&item, &fields, &item.tag));
 
     Ok(stream.from_input_stream())
 }

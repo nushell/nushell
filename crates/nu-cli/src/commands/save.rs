@@ -177,7 +177,7 @@ fn save(
     let name_tag = name.clone();
 
     let stream = async_stream! {
-        let input: Vec<Value> = input.values.collect().await;
+        let input: Vec<Value> = input.collect().await;
         if path.is_none() {
             // If there is no filename, check the metadata for the anchor filename
             if input.len() > 0 {

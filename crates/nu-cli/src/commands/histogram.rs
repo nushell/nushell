@@ -53,7 +53,7 @@ pub fn histogram(
     RunnableContext { input, name, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = async_stream! {
-        let values: Vec<Value> = input.values.collect().await;
+        let values: Vec<Value> = input.collect().await;
 
         let Tagged { item: group_by, .. } = column_name.clone();
 

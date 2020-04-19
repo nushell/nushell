@@ -47,7 +47,6 @@ fn default(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = input
-        .values
         .map(move |item| {
             let mut result = VecDeque::new();
 

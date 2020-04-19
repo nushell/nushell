@@ -33,7 +33,6 @@ fn size(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, 
     let name_span = tag.span;
 
     Ok(input
-        .values
         .map(move |v| {
             if let Ok(s) = v.as_string() {
                 ReturnSuccess::value(count(&s, &v.tag))

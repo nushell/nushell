@@ -29,10 +29,8 @@ impl WholeStreamCommand for Trim {
 }
 
 fn trim(args: CommandArgs, _registry: &CommandRegistry) -> Result<OutputStream, ShellError> {
-    let input = args.input;
-
-    Ok(input
-        .values
+    Ok(args
+        .input
         .map(move |v| {
             let string = String::extract(&v)?;
             ReturnSuccess::value(UntaggedValue::string(string.trim()).into_value(v.tag()))

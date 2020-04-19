@@ -96,10 +96,10 @@ pub fn nu_value_to_string(command: &ExternalCommand, from: &Value) -> Result<Str
 pub(crate) async fn run_external_command(
     command: ExternalCommand,
     context: &mut Context,
-    input: Option<InputStream>,
+    input: InputStream,
     _scope: &Scope,
     is_last: bool,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     trace!(target: "nu::run::external", "-> {}", command.name);
 
     if !did_find_command(&command.name).await {
@@ -166,16 +166,13 @@ fn to_column_path(
 fn run_with_iterator_arg(
     command: ExternalCommand,
     context: &mut Context,
-    input: Option<InputStream>,
+    input: InputStream,
     is_last: bool,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
 
-    let mut inputs: InputStream = if let Some(input) = input {
-        trace_stream!(target: "nu::trace_stream::external::it", "input" = input)
-    } else {
-        InputStream::empty()
-    };
+    let mut inputs: InputStream =
+        trace_stream!(target: "nu::trace_stream::external::it", "input" = input);
 
     let stream = async_stream! {
         while let Some(value) = inputs.next().await {
@@ -363,12 +360,10 @@ fn run_with_iterator_arg(
                 }
             }).collect::<Vec<String>>();
 
-            match spawn(&command, &path, &process_args[..], None, is_last) {
-                Ok(res) => {
-                    if let Some(mut res) = res {
-                        while let Some(item) = res.next().await {
-                            yield Ok(item)
-                        }
+            match spawn(&command, &path, &process_args[..], InputStream::empty(), is_last) {
+                Ok(mut res) => {
+                    while let Some(item) = res.next().await {
+                        yield Ok(item)
                     }
                 }
                 Err(reason) => {
@@ -382,19 +377,18 @@ fn run_with_iterator_arg(
         }
     };
 
-    Ok(Some(stream.to_input_stream()))
+    Ok(stream.to_input_stream())
 }
 
 fn run_with_stdin(
     command: ExternalCommand,
     context: &mut Context,
-    input: Option<InputStream>,
+    input: InputStream,
     is_last: bool,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     let path = context.shell_manager.path();
 
-    let input = input
-        .map(|input| trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input));
+    let input = trace_stream!(target: "nu::trace_stream::external::stdin", "input" = input);
 
     let process_args = command
         .args
@@ -432,9 +426,9 @@ fn spawn(
     command: &ExternalCommand,
     path: &str,
     args: &[String],
-    input: Option<InputStream>,
+    input: InputStream,
     is_last: bool,
-) -> Result<Option<InputStream>, ShellError> {
+) -> Result<InputStream, ShellError> {
     let command = command.clone();
 
     let mut process = {
@@ -471,7 +465,7 @@ fn spawn(
     }
 
     // open since we have some contents for stdin
-    if input.is_some() {
+    if !input.is_empty() {
         process.stdin(Stdio::piped());
         trace!(target: "nu::run::external", "set up stdin pipe");
     }
@@ -490,7 +484,7 @@ fn spawn(
         let stdout_name_tag = command.name_tag;
 
         std::thread::spawn(move || {
-            if let Some(input) = input {
+            if !input.is_empty() {
                 let mut stdin_write = stdin
                     .take()
                     .expect("Internal error: could not get stdin pipe for external command");
@@ -632,7 +626,7 @@ fn spawn(
         });
 
         let stream = ThreadedReceiver::new(rx);
-        Ok(Some(stream.to_input_stream()))
+        Ok(stream.to_input_stream())
     } else {
         Err(ShellError::labeled_error(
             "Failed to spawn process",
@@ -717,7 +711,7 @@ fn shell_os_paths() -> Vec<std::path::PathBuf> {
 mod tests {
     use super::{
         add_quotes, argument_contains_whitespace, argument_is_quoted, expand_tilde, remove_quotes,
-        run_external_command, Context,
+        run_external_command, Context, InputStream,
     };
     use futures::executor::block_on;
     use nu_errors::ShellError;
@@ -740,10 +734,11 @@ mod tests {
     async fn non_existent_run() -> Result<(), ShellError> {
         let cmd = ExternalBuilder::for_name("i_dont_exist.exe").build();
 
+        let input = InputStream::empty();
         let mut ctx = Context::basic().expect("There was a problem creating a basic context.");
 
         assert!(
-            run_external_command(cmd, &mut ctx, None, &Scope::empty(), false)
+            run_external_command(cmd, &mut ctx, input, &Scope::empty(), false)
                 .await
                 .is_err()
         );

@@ -47,7 +47,7 @@ fn lines(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream, 
     let mut leftover_string = String::new();
     let stream = async_stream! {
         loop {
-            match input.values.next().await {
+            match input.next().await {
                 Some(Value { value: UntaggedValue::Primitive(Primitive::String(st)), ..}) => {
                     let mut st = leftover_string.clone() + &st;
                     leftover.clear();

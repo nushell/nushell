@@ -68,7 +68,7 @@ impl WholeStreamCommand for SkipWhile {
             }
         };
 
-        let objects = call_info.input.values.skip_while(move |item| {
+        let objects = call_info.input.skip_while(move |item| {
             let condition = condition.clone();
             trace!("ITEM = {:?}", item);
             let result = evaluate_baseline_expr(&*condition, &registry, &Scope::new(item.clone()));

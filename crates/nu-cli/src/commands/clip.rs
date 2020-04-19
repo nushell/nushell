@@ -41,7 +41,7 @@ pub mod clipboard {
         RunnableContext { input, name, .. }: RunnableContext,
     ) -> Result<OutputStream, ShellError> {
         let stream = async_stream! {
-            let values: Vec<Value> = input.values.collect().await;
+            let values: Vec<Value> = input.collect().await;
 
             let mut clip_stream = inner_clip(values, name).await;
             while let Some(value) = clip_stream.next().await {

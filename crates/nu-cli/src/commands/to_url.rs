@@ -33,7 +33,7 @@ fn to_url(args: CommandArgs, registry: &CommandRegistry) -> Result<OutputStream,
     let input = args.input;
 
     let stream = async_stream! {
-        let input: Vec<Value> = input.values.collect().await;
+        let input: Vec<Value> = input.collect().await;
 
         for value in input {
             match value {

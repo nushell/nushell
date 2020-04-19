@@ -49,7 +49,6 @@ fn nth(
     RunnableContext { input, .. }: RunnableContext,
 ) -> Result<OutputStream, ShellError> {
     let stream = input
-        .values
         .enumerate()
         .map(move |(idx, item)| {
             let row_number = vec![row_number.clone()];
